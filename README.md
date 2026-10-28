@@ -14,10 +14,32 @@ each module must pass.
 ## Build
 
 ```sh
-cmake -S . -B build
+cmake -S . -B build                  # static library; -DNQSHARED=ON for shared
 cmake --build build
 ctest --test-dir build --output-on-failure
+cmake --install build --prefix ~/.local
 ```
+
+`-DNQTESTS=OFF` skips the tests. The install gives `libnoqtis`, `noqtis.h`,
+`noqtis.pc` and a CMake package, so other projects build against it with
+`pkg-config --cflags --libs noqtis` or
+`find_package(noqtis CONFIG)` and `target_link_libraries(... noqtis::noqtis)`.
+
+## Install
+
+Now, from a clone of this repository:
+
+- the CMake install above (Linux, macOS, Windows, FreeBSD);
+- `nix build` (the `flake.nix` here);
+- `docker build -t noqtis .` (Wolfi image with the library);
+- the recipes in `packaging/`: Homebrew (`brew`), Arch (`PKGBUILD`), Alpine
+  (`APKBUILD`), Fedora (`noqtis.spec`), Debian (`debian/`) and Wolfi
+  (`melange.yaml`). `packaging/pkgtest.sh` builds one from the local tree;
+  CI builds and tests every one.
+
+After the first public release: the Homebrew tap, the container image on
+GHCR, and the distribution and language packages listed in
+[DESIGN.md](DESIGN.md).
 
 ## Licence
 

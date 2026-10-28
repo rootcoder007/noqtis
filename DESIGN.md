@@ -115,7 +115,7 @@ with nothing to compile for the user where a package manager allows it.
 
 | OS | CPUs | Compilers | Notes |
 |---|---|---|---|
-| Linux (glibc) | x86-64, arm64 | gcc, clang | Ubuntu and Fedora images |
+| Linux (glibc) | x86-64, arm64 | gcc, clang | Ubuntu and Fedora images; done: also Debian stable and testing, Arch, openSUSE Tumbleweed, Rocky 9 and 10, Amazon Linux 2023, Wolfi, Void, Gentoo and Nix, each with its own compiler, on every push |
 | Linux (musl) | x86-64, arm64 | gcc | Alpine; static binaries |
 | Linux, 32-bit | i686, armv7 | gcc | catches size_t and shift assumptions |
 | Linux, big-endian | s390x (QEMU) | gcc | catches byte-order bugs |
@@ -145,14 +145,16 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 
 - Static and shared builds from the same sources; symbols outside the
   public API are hidden (`-fvisibility=hidden`, a `.def` file on Windows).
+  Done (`NQSHARED`; Windows exports through `NQAPI`'s `__declspec`).
 - Semantic versioning. The shared library carries an ABI version
   (`libnoqtis.so.0`, `noqtis-0.dll`, `libnoqtis.0.dylib`); the public API
   never exposes a struct whose layout may change (sizes are fixed or
-  opaque).
+  opaque). Done (VERSION 0.1.0, SOVERSION 0).
 - `pkg-config` file (`noqtis.pc`) and a CMake package config
-  (`find_package(noqtis)`) are installed with the library.
+  (`find_package(noqtis)`) are installed with the library. Done; CI builds
+  `tests/consumer` against each install both ways.
 - `nqver()` and `NQVMAJ`/`NQVMIN`/`NQVPAT` give the version at run time and
-  compile time.
+  compile time. Done.
 
 ### Releases
 
@@ -171,7 +173,7 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 
 | Ecosystem | Package | Form |
 |---|---|---|
-| Homebrew (macOS, Linux) | `noqtis` | tap `rootcoder007/homebrew-morie` first, homebrew-core later |
+| Homebrew (macOS, Linux) | `noqtis` | tap `rootcoder007/homebrew-morie` first, homebrew-core later; formula in `packaging/brew`, tested in CI |
 | curl / shell | `install.sh`, `install.ps1` | verified binary download (above) |
 | npm (Node, Deno, Bun, browsers) | `noqtis` | WebAssembly build, works everywhere with nothing to compile; optional native addon (Node-API, prebuilt per platform) for speed |
 | PyPI | `noqtis` | wheels for every OS/CPU above (cibuildwheel), no compiler needed |
@@ -184,9 +186,9 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 | Android | Maven `noqtis-android` | AAR with NDK builds |
 | Ruby | gem `noqtis` | FFI |
 | C/C++ package managers | vcpkg, Conan, conda-forge, xmake | source recipes |
-| Linux distributions | Debian/Ubuntu, Fedora/EPEL, Arch (AUR), Alpine, Nix, Gentoo | distro packages |
+| Linux distributions | Debian/Ubuntu, Fedora/EPEL, Arch (AUR), Alpine, Nix, Gentoo | distro packages; recipes for Debian, Fedora, Arch, Alpine and Wolfi in `packaging/` and `flake.nix` for Nix, built and tested in CI; Gentoo ebuild not yet |
 | Windows | winget, Scoop, Chocolatey | the release archives |
-| Containers | `ghcr.io/rootcoder007/noqtis` | distroless image with the CLI |
+| Containers | `ghcr.io/rootcoder007/noqtis` | distroless image with the CLI; the Wolfi `Dockerfile` carries the library now, the CLI later |
 | CI | GitHub Action `rootcoder007/noqtis-action` | seal and check capsules in workflows |
 
 Every binding has its own tests that run the capsule round trip and a
@@ -195,7 +197,8 @@ ecosystem supports, before a release is published.
 
 ### Order
 
-1. Library and CLI on every platform in CI (M11).
+1. Library and CLI on every platform in CI (M11). Library done; the CLI
+   is next.
 2. Release archives, signatures, `install.sh`/`install.ps1`, Homebrew tap.
 3. npm (WebAssembly) and PyPI wheels.
 4. CRAN.
@@ -315,6 +318,31 @@ below is done. Each item says how it is checked.
       data communities.
 - [ ] Track adoption: downloads per package manager, Action usage and
       dependents, reviewed monthly.
+
+## Documentation
+
+Written once the command-line tool (M10) exists, and kept in the repository
+so it is reviewed and tested like the code.
+
+- **API reference:** one mdoc man page per public function and one for the
+  tool: `noqtis(3)`, `nqsign(3)`, `nqvrfy(3)`, `nqseal(3)`, ..., `noqtis(1)`.
+  They install with the library, so `man nqsign` works offline, and
+  `mandoc -T lint` checks them in CI.
+- **ABI:** a symbol-version map exports only the public functions, and
+  libabigail (`abidiff`) compares each build's shared library with the last
+  release in CI; a change that would break programs compiled against an
+  earlier version fails unless the major version changes. Each release
+  publishes the report.
+- **Site:** Astro Starlight, built in CI and published on GitHub Pages
+  (`rootcoder007.github.io/noqtis` once the repository is public; a custom
+  domain can be attached later). It carries getting started per platform,
+  guides (sealing, checking someone else's capsule, keys, timestamps, CI),
+  the versioned capsule format specification, the API reference rendered
+  from the man pages, the binding references, the security page (threat
+  model, test-vector, fuzzing and leakage results, audit status, reporting)
+  and the WebAssembly browser demo.
+- **Examples are code:** every example in the man pages and on the site is
+  compiled and run in CI.
 
 ## Testing and CI
 
