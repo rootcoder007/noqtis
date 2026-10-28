@@ -74,8 +74,8 @@ debian)
   consumer /usr
   ;;
 brew)
-  # a formula in a local tap installs only with the API off
-  export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1
+  # deps (cmake, pkgconf) come from the formula API, as for users
+  export HOMEBREW_NO_AUTO_UPDATE=1
   export HOMEBREW_NO_ANALYTICS=1
   brew tap-new --no-git nqlocal/noqtis >/dev/null
   f=$(brew --repository nqlocal/noqtis)/Formula/noqtis.rb
