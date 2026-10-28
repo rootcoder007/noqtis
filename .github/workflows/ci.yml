@@ -1,0 +1,208 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Builds noqtis and runs every test on each platform DESIGN.md lists.
+# x86-64 Linux jobs run on every push and pull request. The arm64, macOS,
+# Windows, FreeBSD and emulated big-endian jobs cost runner minutes, so on a
+# private repository they run weekly and on demand; once the repository is
+# public they run on every push too.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CTEST_OUTPUT_ON_FAILURE: "1"
+
+jobs:
+  linux:
+    name: linux ${{ matrix.os }} ${{ matrix.cc }} ${{ matrix.kind }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, cc: gcc, kind: debug }
+          - { os: ubuntu-24.04, cc: clang, kind: debug }
+          - { os: ubuntu-24.04, cc: clang, kind: asan }
+          - { os: ubuntu-24.04, cc: gcc, kind: release }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: configure
+        run: |
+          case "${{ matrix.kind }}" in
+            asan) extra="-DNQSAN=ON -DCMAKE_BUILD_TYPE=Debug" ;;
+            release) extra="-DCMAKE_BUILD_TYPE=Release" ;;
+            *) extra="-DCMAKE_BUILD_TYPE=Debug" ;;
+          esac
+          CC=${{ matrix.cc }} cmake -S . -B build $extra
+      - run: cmake --build build -j4
+      - run: ctest --test-dir build
+
+  arm64:
+    # arm64 Linux runners are free only for public repositories
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    name: linux arm64 ${{ matrix.cc }}
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: CC=${{ matrix.cc }} cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build -j4
+      - run: ctest --test-dir build
+
+  valgrind:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sudo apt-get update && sudo apt-get install -y valgrind
+      - run: CC=gcc cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build -j4
+      - name: every test under valgrind
+        working-directory: tests
+        run: |
+          for t in ../build/t*; do
+            [ -x "$t" ] || continue
+            echo "== $t"
+            valgrind --error-exitcode=9 --leak-check=full -q "$t"
+          done
+
+  musl:
+    runs-on: ubuntu-24.04
+    container: alpine:3.22
+    steps:
+      - run: apk add --no-cache build-base cmake git
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build -j4
+      - run: ctest --test-dir build
+
+  i686:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sudo apt-get update && sudo apt-get install -y gcc-multilib
+      - run: CC=gcc CFLAGS=-m32 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build -j4
+      - run: ctest --test-dir build
+
+  wasm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
+      - name: configure
+        # NODERAWFS lets the tests read tests/vectors through node
+        run: >
+          emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_EXE_LINKER_FLAGS="-sNODERAWFS=1 -sALLOW_MEMORY_GROWTH=1
+          -sSTACK_SIZE=4MB"
+      - run: cmake --build build -j4
+      - run: ctest --test-dir build
+
+  bigendian:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: s390x
+      - name: build and test on s390x
+        run: >
+          docker run --rm --platform linux/s390x -v "$PWD:/src" -w /src
+          debian:trixie sh -c "apt-get update -qq &&
+          apt-get install -y -qq gcc cmake >/dev/null &&
+          cmake -S . -B /tmp/b -DCMAKE_BUILD_TYPE=Release &&
+          cmake --build /tmp/b -j4 && ctest --test-dir /tmp/b"
+
+  macos:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    name: macos ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build -j4
+      - run: ctest --test-dir build
+
+  windows:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    name: windows ${{ matrix.toolset }}
+    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { toolset: msvc, gen: "-A x64" }
+          - { toolset: clang-cl, gen: "-A x64 -T ClangCL" }
+          - { toolset: msvc-arm64, gen: "-A ARM64" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cmake -S . -B build ${{ matrix.gen }}
+      - run: cmake --build build --config Debug
+      - name: test
+        # ARM64 binaries cannot run on the x64 runner: build only
+        if: matrix.toolset != 'msvc-arm64'
+        run: ctest --test-dir build -C Debug
+
+  mingw:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+        with:
+          msystem: UCRT64
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build
+      - run: ctest --test-dir build
+
+  freebsd:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        with:
+          prepare: pkg install -y cmake
+          run: |
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+            cmake --build build -j4
+            ctest --test-dir build
