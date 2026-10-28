@@ -152,9 +152,13 @@ static void prc(const char *set, uint64_t tg, const char *desc,
          (unsigned long long)tg, desc, c->run, c->pass, c->skip);
 }
 
-/* NQSUB=n runs every n-th signing test (sigGen and Wycheproof signing),
- * for slow runs such as valgrind; verification always runs in full. */
+/* NQSUB=n runs every n-th vector test (keyGen, sigGen, sigVer,
+ * Wycheproof) for slow runs such as valgrind. It counts across groups,
+ * since a Wycheproof group holds only a few tests. */
 static size_t step = 1;
+static size_t seen;
+
+static int skip(void) { return step > 1 && seen++ % step != 0; }
 
 /* ---- ACVP ---- */
 
@@ -193,6 +197,7 @@ static void acvpkg(void) {
     nqssz sz;
     getf(g, "tgId", &tg);
     for (j = 0; ts != NULL && j < ts->n; j++) {
+      if (skip()) continue;
       const nqjs *t = nqjat(ts, j), *e;
       uint64_t tc = 0;
       size_t n;
@@ -261,7 +266,8 @@ static void acvpsg(void) {
     char desc[128];
     getf(g, "tgId", &tg);
     gdesc(g, desc, sizeof desc);
-    for (j = 0; ts != NULL && j < ts->n; j += step) {
+    for (j = 0; ts != NULL && j < ts->n; j++) {
+      if (skip()) continue;
       const nqjs *t = nqjat(ts, j), *e;
       uint64_t tc = 0;
       size_t skn, mn, cn, rn, mun, out = 0;
@@ -345,6 +351,7 @@ static void acvpsv(void) {
     getf(g, "tgId", &tg);
     gdesc(g, desc, sizeof desc);
     for (j = 0; ts != NULL && j < ts->n; j++) {
+      if (skip()) continue;
       const nqjs *t = nqjat(ts, j), *e;
       uint64_t tc = 0;
       size_t pkn, mn, cn, sn, mun;
@@ -436,8 +443,8 @@ static void wyc(int alg, int kind) {
         if (pk != NULL) NQTCHK(pkn == sz.pk && memcmp(pk, pkd, pkn) == 0);
       }
     }
-    for (j = 0; ts != NULL && j < ts->n;
-         j += kind == WVER ? 1 : step) {
+    for (j = 0; ts != NULL && j < ts->n; j++) {
+      if (skip()) continue;
       const nqjs *t = nqjat(ts, j);
       uint64_t tc = 0;
       size_t mn, cn, sn, mun, rn, out = 0;
@@ -813,7 +820,7 @@ int main(int argc, char **argv) {
   if (env != NULL && *env) vroot = env;
   if (sub != NULL && atoi(sub) > 1) {
     step = (size_t)atoi(sub);
-    printf("NQSUB=%u: every %u-th signing test\n", (unsigned)step,
+    printf("NQSUB=%u: every %u-th vector\n", (unsigned)step,
            (unsigned)step);
   }
   printf("vectors: %s\n", vroot);

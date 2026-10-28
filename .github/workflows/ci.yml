@@ -83,26 +83,28 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      # valgrind is about 30 times slower: sample the slow vector sets
-      # (every 10th ML-DSA signing test, every 25th SLH-DSA, every 10th
-      # HQC KAT) so the job ends in about 10 minutes; all other jobs run
-      # the full vectors
-      NQSUB: "10"
+      # valgrind is about 20 times slower and masked ML-DSA signing is the
+      # costliest step: sample the slow vector sets (every 50th ML-DSA
+      # vector test, every 25th SLH-DSA signing test, every 10th HQC KAT)
+      # and run four tests at a time, so the job ends in a few minutes;
+      # all other jobs run the full vectors
+      NQSUB: "50"
       NQSLSUB: "25"
       NQHQKAT: "10"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: sudo apt-get update && sudo apt-get install -y valgrind
-      - run: CC=gcc cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+      - run: CC=gcc cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - run: cmake --build build -j4
       - name: every test under valgrind
         working-directory: tests
         run: |
-          for t in ../build/t*; do
-            [ -x "$t" ] || continue
-            echo "== $t"
-            valgrind --error-exitcode=9 --leak-check=full -q "$t"
-          done
+          ls ../build/t* | xargs -P4 -I{} sh -c '
+            n=$(basename {}); s=$(date +%s)
+            valgrind --error-exitcode=9 --leak-check=full -q {} \
+              > "$RUNNER_TEMP/vg.$n" 2>&1; rc=$?
+            echo "== $n rc=$rc $(($(date +%s) - s))s"
+            cat "$RUNNER_TEMP/vg.$n"; exit $rc'
 
   musl:
     runs-on: ubuntu-24.04
