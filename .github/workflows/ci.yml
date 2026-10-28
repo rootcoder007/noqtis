@@ -31,7 +31,7 @@ jobs:
   linux:
     name: linux ${{ matrix.os }} ${{ matrix.cc }} ${{ matrix.kind }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -53,7 +53,14 @@ jobs:
           esac
           CC=${{ matrix.cc }} cmake -S . -B build $extra
       - run: cmake --build build -j4
-      - run: ctest --test-dir build
+      - name: test
+        # Debug and ASan builds sample the slow SLH-DSA sets (every 8th
+        # vector) and tapi's small SLH-DSA signing; Release builds run all
+        run: |
+          case "${{ matrix.kind }}" in
+            debug|asan) export NQSLSUB=8 NQFAST=1 ;;
+          esac
+          ctest --test-dir build -j4
       - name: install and build the consumer against it
         # the ASan build's library needs the sanitizer runtime to link
         if: matrix.kind != 'asan'
@@ -94,6 +101,7 @@ jobs:
       NQHQKAT: "10"
       NQCLSN: "2"
       NQDQUICK: "1"
+      NQFAST: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: sudo apt-get update && sudo apt-get install -y valgrind
@@ -104,7 +112,8 @@ jobs:
         run: |
           # tslhct repeats tslh's keygen/sign/verify for the ctgrind check;
           # tcls (RSA bignum, OpenSSL set) is too slow here: ASan runs it
-          ls ../build/t* | grep -Ev '/(tslhct|tcls)$' | xargs -P4 -I{} sh -c '
+          find ../build -maxdepth 1 -type f -name 't*' -perm -u+x |
+            grep -Ev '/(tslhct|tcls)$' | xargs -P4 -I{} sh -c '
             n=$(basename {}); s=$(date +%s)
             valgrind --error-exitcode=9 --leak-check=full -q {} \
               > "$RUNNER_TEMP/vg.$n" 2>&1; rc=$?
@@ -125,13 +134,16 @@ jobs:
 
   i686:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: sudo apt-get update && sudo apt-get install -y gcc-multilib
       - run: CC=gcc CFLAGS=-m32 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build -j4
-      - run: ctest --test-dir build
+      - run: ctest --test-dir build -j4
+        env:
+          NQSLSUB: "8"
+          NQFAST: "1"
 
   wasm:
     runs-on: ubuntu-24.04

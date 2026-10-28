@@ -41,12 +41,16 @@ against %{name}.
 %license LICENSE NOTICE
 %doc README.md
 %{_libdir}/libnoqtis.so.0{,.*}
+%{_bindir}/noqtis
+%{_mandir}/man1/*
 
 %files devel
 %{_includedir}/noqtis.h
 %{_libdir}/libnoqtis.so
 %{_libdir}/pkgconfig/noqtis.pc
 %{_libdir}/cmake/noqtis/
+%{_mandir}/man3/*
+%{_mandir}/man5/*
 
 %changelog
 * Wed Oct 28 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.1.0-1

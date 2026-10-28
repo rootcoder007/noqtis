@@ -517,7 +517,8 @@ static void tamper(const key *k, const key *other) {
     remove(made[--nmade]);
   }
 
-  /* a special file */
+#ifndef __EMSCRIPTEN__
+  /* a special file (emscripten has no fifos) */
   {
     char p[600];
     path(p, sizeof p, d, "fifo");
@@ -529,6 +530,7 @@ static void tamper(const key *k, const key *other) {
     NQTEQI(sealk(d, k, NULL), NQEARG);
     remove(made[--nmade]);
   }
+#endif
 
   /* a name noqtis refuses */
   ws(d, "back\\slash", "x");
