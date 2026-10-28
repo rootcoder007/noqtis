@@ -1,0 +1,9 @@
+noqtis
+Copyright 2026 rootcoder007 and the noqtis contributors
+
+This product is licensed under the Apache License, Version 2.0, with
+LLVM Exceptions (SPDX: Apache-2.0 WITH LLVM-exception); see LICENSE.
+
+The test vectors in tests/vectors are not part of the licensed code:
+the NIST ACVP vectors are works of the United States government and the
+Wycheproof vectors are Apache-2.0 (see tests/vectors/SOURCES.md).

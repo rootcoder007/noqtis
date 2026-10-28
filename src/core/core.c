@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Error strings, version, wiping, constant-time comparison, allocator. */
 #include "noqtis.h"
 #include "core/int.h"

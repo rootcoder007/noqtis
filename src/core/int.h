@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Internal helpers shared by the modules; not part of the public API. */
 #ifndef NQINT_H
 #define NQINT_H

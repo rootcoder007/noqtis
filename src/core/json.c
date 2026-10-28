@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Strict JSON reader (RFC 8259) without recursion: containers being filled
  * sit on an explicit stack of at most NQJDEPTH entries. */
 #include "noqtis.h"

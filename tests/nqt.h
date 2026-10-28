@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* A minimal test harness: no dependencies, prints each failure with its
  * line, and main() returns nonzero on any failure (ctest sees it). */
 #ifndef NQT_H

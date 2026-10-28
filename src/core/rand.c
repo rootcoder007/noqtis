@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* The operating system's CSPRNG. Never falls back to a weaker source: when
  * the OS call fails, the caller gets NQERNG. */
 #if defined(__linux__)

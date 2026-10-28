@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* A strict JSON reader (RFC 8259): UTF-8 only, no comments, no trailing
  * commas, no duplicate keys, depth and size limits, no recursion. Numbers
  * are kept as their text. Internal: used by the ACVP harnesses, the tests

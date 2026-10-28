@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * noqtis: Notary Of Quantum-safe Traceable Inputs and Seals.
  *
