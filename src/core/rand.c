@@ -10,6 +10,8 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <bcrypt.h>
+#elif defined(__EMSCRIPTEN__) || defined(__wasi__)
+#include <unistd.h> /* getentropy: crypto.getRandomValues / WASI random_get */
 #elif defined(__linux__)
 #include <errno.h>
 #include <sys/random.h>
@@ -29,6 +31,17 @@ int nqrand(uint8_t *buf, size_t len) {
     ULONG chunk = len > 0x10000000u ? 0x10000000u : (ULONG)len;
     if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, buf, chunk,
                                         BCRYPT_USE_SYSTEM_PREFERRED_RNG))) {
+      return NQERNG;
+    }
+    buf += chunk;
+    len -= chunk;
+  }
+  return NQOK;
+#elif defined(__EMSCRIPTEN__) || defined(__wasi__)
+  while (len > 0) {
+    /* getentropy() gives at most 256 bytes per call */
+    size_t chunk = len > 256 ? 256 : len;
+    if (getentropy(buf, chunk) != 0) {
       return NQERNG;
     }
     buf += chunk;
