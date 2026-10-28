@@ -121,4 +121,28 @@ void nqmfin(nqmctx *c, uint8_t *out);
 
 #define NQHMAX 64   /* the largest fixed digest */
 
+/* ---- SHA-1 (FIPS 180-4), for verification only ---- */
+
+/* Only for the legacy identifiers that verification has to recompute:
+ * OCSP CertIDs and responder key hashes, ESS signingCertificate (v1)
+ * and the RFC 5280 key identifier. Not a public hash, never a signing
+ * hash: nqhash / nqhmac do not offer it. */
+typedef struct {
+  uint32_t h[5];
+  uint64_t n;       /* bytes absorbed */
+  uint8_t buf[64];
+  size_t pos;
+} nqs1ctx;
+
+#define NQS1LEN 20
+
+void nqs1ini(nqs1ctx *c);
+void nqs1upd(nqs1ctx *c, const uint8_t *in, size_t len);
+/* Writes 20 bytes and wipes c. */
+void nqs1fin(nqs1ctx *c, uint8_t *out);
+void nqs1(const uint8_t *in, size_t len, uint8_t out[20]);
+/* The nqxops.sha1 hook of src/der (user unused): NQOK, or NQEARG for a
+ * NULL out or a NULL in with len > 0. */
+int nqs1hk(void *user, const uint8_t *in, size_t len, uint8_t out[20]);
+
 #endif /* NQH_H */
