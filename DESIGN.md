@@ -204,6 +204,83 @@ ecosystem supports, before a release is published.
 6. homebrew-core and the distribution packages.
 7. The other language bindings.
 
+## Launch checklist
+
+The repository goes public, and v0.1.0 is announced, only when every item
+below is done. Each item says how it is checked.
+
+### Product
+
+- [ ] Every module M0-M10 accepted (its "Must pass" row green in CI).
+- [ ] `noqtis seal <dir>` and `noqtis check <dir>` work end to end on Linux,
+      macOS and Windows, with a public timestamp from at least two RFC 3161
+      authorities.
+- [ ] A capsule sealed on one platform checks on every other (CI seals on
+      each OS and checks the result on all the others).
+- [ ] Capsules sealed by rmoriebricklayer check with noqtis, and the other
+      way round, wherever their formats overlap.
+- [ ] Error messages say what failed and what to do, for every refusal in
+      `noqtis check` (a test reads each one).
+
+### Install
+
+- [ ] Signed, reproducible release archives for every platform in the CI
+      matrix, with SHA-256 sums, Sigstore and SSH signatures, an SPDX SBOM
+      and SLSA provenance; a second CI build of the tag is byte-identical.
+- [ ] `curl -fsSL .../install.sh | sh` and `install.ps1` verify before they
+      install, tested on a clean machine of each OS.
+- [ ] Homebrew tap, the Wolfi container image, and the Arch, Alpine, Fedora,
+      Debian and Wolfi (melange) recipes build and pass their tests.
+- [ ] npm (WebAssembly) and PyPI wheels install and pass the capsule round
+      trip with nothing to compile.
+- [ ] The GitHub Action seals and checks a capsule in a sample workflow.
+
+### Trust
+
+- [ ] SECURITY.md with a private reporting route, a published key for
+      reports, and the disclosure window.
+- [ ] Fuzzing (libFuzzer on every parser) runs on each push for minutes and
+      weekly for hours; OSS-Fuzz application filed.
+- [ ] dudect and simulated TVLA results for every secret operation are
+      published with the release, with what they do and do not show.
+- [ ] OpenSSF Scorecard and Best Practices (passing) badges; no number is
+      claimed that the badge pages do not show.
+- [ ] Every algorithm's ACVP harness produces responses ready for a CAVP
+      lab; the README links the test-vector results.
+- [ ] The README states plainly that the code is not yet audited, and links
+      the audit application and its funding page.
+- [ ] Threat model (what noqtis protects, against whom, and what it does
+      not protect) in `docs/threat.md`.
+
+### Documentation
+
+- [ ] README: one-sentence pitch, a 30-second demo (seal, tamper, check
+      fails) as an animated terminal recording, install for every platform,
+      and the guarantees in plain words.
+- [ ] `docs/`: the capsule format specification (versioned), the C API
+      reference generated from noqtis.h, a tutorial per binding, and a
+      "why post-quantum provenance now" explainer.
+- [ ] A browser demo page: drop a folder, it is checked in WebAssembly with
+      nothing uploaded.
+- [ ] CONTRIBUTING.md (build, tests, commit style, short-name rule,
+      Signed-off-by), CODE_OF_CONDUCT.md, issue and pull-request templates,
+      and labelled starter issues.
+- [ ] CITATION.cff and a Zenodo DOI for the release, for researchers.
+
+### Launch
+
+- [ ] Write-up: the problem (results that cannot be traced to their data,
+      and signatures quantum computers will break), what noqtis does, and
+      how it was tested; posted on the project site.
+- [ ] Announce the same day on Hacker News (Show HN), Lobsters, r/crypto,
+      r/programming, r/cpp/r/C_Programming, the IACR community and Mastodon,
+      with the demo GIF; answer questions for the first 48 hours.
+- [ ] Reach out to projects that would use it: reproducible-research and
+      data-publishing platforms, CI and supply-chain tools, R and Python
+      data communities.
+- [ ] Track adoption: downloads per package manager, Action usage and
+      dependents, reviewed monthly.
+
 ## Testing and CI
 
 - `tests/vectors/`: ACVP JSON, Wycheproof JSON and KAT files, each with its
