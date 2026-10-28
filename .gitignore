@@ -6,3 +6,5 @@
 *.dll
 *.exe
 /fuzz/corpus-*/
+.clangd
+compile_flags.txt
