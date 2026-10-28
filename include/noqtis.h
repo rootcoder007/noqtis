@@ -16,6 +16,23 @@
 extern "C" {
 #endif
 
+/* NQAPI marks the public functions: the only symbols a shared noqtis
+ * exports. A Windows DLL build defines NQBUILD and NQDLL; its users define
+ * NQDLL (CMake and noqtis.pc do it for them). Static builds need nothing. */
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  if defined(NQDLL) && defined(NQBUILD)
+#    define NQAPI __declspec(dllexport)
+#  elif defined(NQDLL)
+#    define NQAPI __declspec(dllimport)
+#  else
+#    define NQAPI
+#  endif
+#elif defined(__GNUC__) || defined(__clang__)
+#  define NQAPI __attribute__((visibility("default")))
+#else
+#  define NQAPI
+#endif
+
 #define NQVMAJ 0
 #define NQVMIN 1
 #define NQVPAT 0
@@ -34,26 +51,26 @@ extern "C" {
 #define NQELIM    -9  /* input exceeds a size or depth limit */
 #define NQESTATE -10  /* a context was used out of order */
 
-const char *nqerr(int err);
-const char *nqver(void);
+NQAPI const char *nqerr(int err);
+NQAPI const char *nqver(void);
 
 /* ---- core ----------------------------------------------------------- */
 
 /* Wipes len bytes at p; the compiler cannot remove the stores. */
-void nqwipe(void *p, size_t len);
+NQAPI void nqwipe(void *p, size_t len);
 
 /* 1 when the two buffers are equal, 0 otherwise, in time that depends only
  * on len. */
-int nqcteq(const void *a, const void *b, size_t len);
+NQAPI int nqcteq(const void *a, const void *b, size_t len);
 
 /* Fills buf with len bytes from the operating system's CSPRNG. */
-int nqrand(uint8_t *buf, size_t len);
+NQAPI int nqrand(uint8_t *buf, size_t len);
 
 /* Replaces the allocator the capsule and parser layers use; NULL for both
  * restores malloc/free. Not thread safe: call before anything else. */
 typedef void *(*nqmalfn)(size_t size, void *user);
 typedef void (*nqfreefn)(void *ptr, size_t size, void *user);
-int nqsetal(nqmalfn mal, nqfreefn fre, void *user);
+NQAPI int nqsetal(nqmalfn mal, nqfreefn fre, void *user);
 
 /* ---- hashes --------------------------------------------------------- */
 
@@ -70,17 +87,17 @@ typedef struct {
 
 /* Digest size in bytes; for SHAKE, the output the pre-hash variants use
  * (32 for SHAKE128, 64 for SHAKE256). 0 if unknown. */
-size_t nqhlen(nqhalg alg);
+NQAPI size_t nqhlen(nqhalg alg);
 
-int nqhash(nqhalg alg, const uint8_t *in, size_t inlen,
-           uint8_t *out, size_t outlen);
-int nqhini(nqhctx *ctx, nqhalg alg);
-int nqhupd(nqhctx *ctx, const uint8_t *in, size_t inlen);
+NQAPI int nqhash(nqhalg alg, const uint8_t *in, size_t inlen,
+                 uint8_t *out, size_t outlen);
+NQAPI int nqhini(nqhctx *ctx, nqhalg alg);
+NQAPI int nqhupd(nqhctx *ctx, const uint8_t *in, size_t inlen);
 /* For SHAKE, may be called again to squeeze more output. */
-int nqhfin(nqhctx *ctx, uint8_t *out, size_t outlen);
+NQAPI int nqhfin(nqhctx *ctx, uint8_t *out, size_t outlen);
 
-int nqhmac(nqhalg alg, const uint8_t *key, size_t keylen,
-           const uint8_t *in, size_t inlen, uint8_t *out, size_t outlen);
+NQAPI int nqhmac(nqhalg alg, const uint8_t *key, size_t keylen,
+                 const uint8_t *in, size_t inlen, uint8_t *out, size_t outlen);
 
 /* ---- signatures ----------------------------------------------------- */
 
@@ -97,35 +114,36 @@ typedef struct {
   size_t sig;
 } nqssz;
 
-int nqssize(nqsalg alg, nqssz *sz);
+NQAPI int nqssize(nqsalg alg, nqssz *sz);
 /* "ML-DSA-65", "SLH-DSA-SHA2-128s", ...; NULL if unknown. */
-const char *nqsname(nqsalg alg);
-int nqsfind(const char *name, nqsalg *alg);
+NQAPI const char *nqsname(nqsalg alg);
+NQAPI int nqsfind(const char *name, nqsalg *alg);
 
-int nqskg(nqsalg alg, uint8_t *pk, size_t pklen, uint8_t *sk, size_t sklen);
+NQAPI int nqskg(nqsalg alg, uint8_t *pk, size_t pklen,
+                uint8_t *sk, size_t sklen);
 /* Key generation from the standard's seed (xi for ML-DSA; SK.seed ||
  * SK.prf || PK.seed for SLH-DSA), for the test vectors. */
-int nqskgd(nqsalg alg, const uint8_t *seed, size_t seedlen,
-           uint8_t *pk, size_t pklen, uint8_t *sk, size_t sklen);
+NQAPI int nqskgd(nqsalg alg, const uint8_t *seed, size_t seedlen,
+                 uint8_t *pk, size_t pklen, uint8_t *sk, size_t sklen);
 
 /* Signing with a context string (at most 255 bytes; NULL/0 for none).
  * ph is 0 for the pure variant, or an nqhalg for HashML-DSA /
  * HashSLH-DSA, in which case msg is the message and is hashed here. */
-int nqsign(nqsalg alg, const uint8_t *sk, size_t sklen,
-           const uint8_t *msg, size_t msglen,
-           const uint8_t *ctx, size_t ctxlen, int ph,
-           uint8_t *sig, size_t siglen, size_t *outlen);
+NQAPI int nqsign(nqsalg alg, const uint8_t *sk, size_t sklen,
+                 const uint8_t *msg, size_t msglen,
+                 const uint8_t *ctx, size_t ctxlen, int ph,
+                 uint8_t *sig, size_t siglen, size_t *outlen);
 /* rnd is the standard's per-signature randomness (32 bytes for ML-DSA,
  * n bytes for SLH-DSA); all zero gives the deterministic variant. */
-int nqsignd(nqsalg alg, const uint8_t *sk, size_t sklen,
-            const uint8_t *msg, size_t msglen,
-            const uint8_t *ctx, size_t ctxlen, int ph,
-            const uint8_t *rnd, size_t rndlen,
-            uint8_t *sig, size_t siglen, size_t *outlen);
-int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
-           const uint8_t *msg, size_t msglen,
-           const uint8_t *ctx, size_t ctxlen, int ph,
-           const uint8_t *sig, size_t siglen);
+NQAPI int nqsignd(nqsalg alg, const uint8_t *sk, size_t sklen,
+                  const uint8_t *msg, size_t msglen,
+                  const uint8_t *ctx, size_t ctxlen, int ph,
+                  const uint8_t *rnd, size_t rndlen,
+                  uint8_t *sig, size_t siglen, size_t *outlen);
+NQAPI int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
+                 const uint8_t *msg, size_t msglen,
+                 const uint8_t *ctx, size_t ctxlen, int ph,
+                 const uint8_t *sig, size_t siglen);
 
 /* ---- key encapsulation ---------------------------------------------- */
 
@@ -141,22 +159,23 @@ typedef struct {
   size_t ss;
 } nqksz;
 
-int nqksize(nqkalg alg, nqksz *sz);
-const char *nqkname(nqkalg alg);
-int nqkfind(const char *name, nqkalg *alg);
+NQAPI int nqksize(nqkalg alg, nqksz *sz);
+NQAPI const char *nqkname(nqkalg alg);
+NQAPI int nqkfind(const char *name, nqkalg *alg);
 
-int nqkkg(nqkalg alg, uint8_t *pk, size_t pklen, uint8_t *sk, size_t sklen);
-int nqkkgd(nqkalg alg, const uint8_t *seed, size_t seedlen,
-           uint8_t *pk, size_t pklen, uint8_t *sk, size_t sklen);
-int nqenc(nqkalg alg, const uint8_t *pk, size_t pklen,
-          uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
-int nqencd(nqkalg alg, const uint8_t *pk, size_t pklen,
-           const uint8_t *seed, size_t seedlen,
-           uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
+NQAPI int nqkkg(nqkalg alg, uint8_t *pk, size_t pklen,
+                uint8_t *sk, size_t sklen);
+NQAPI int nqkkgd(nqkalg alg, const uint8_t *seed, size_t seedlen,
+                 uint8_t *pk, size_t pklen, uint8_t *sk, size_t sklen);
+NQAPI int nqenc(nqkalg alg, const uint8_t *pk, size_t pklen,
+                uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
+NQAPI int nqencd(nqkalg alg, const uint8_t *pk, size_t pklen,
+                 const uint8_t *seed, size_t seedlen,
+                 uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 /* Implicit rejection: a bad ciphertext yields a pseudorandom secret and
  * NQOK, as the standards require; only malformed sizes fail. */
-int nqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
-          const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
+NQAPI int nqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
+                const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 
 /* ---- capsules ------------------------------------------------------- */
 
@@ -164,17 +183,17 @@ typedef struct nqrep nqrep;
 
 /* Writes noqtis.json and noqtis.sig into dir, covering every regular file
  * in it. tsa NULL: no timestamp. */
-int nqseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
-           const uint8_t *pk, size_t pklen, const char *meta,
-           const char *tsa);
+NQAPI int nqseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
+                 const uint8_t *pk, size_t pklen, const char *meta,
+                 const char *tsa);
 /* Checks dir against its seal; trust NULL accepts the key in the seal (and
  * the report says so). The report lists every check. */
-int nqchk(const char *dir, const uint8_t *trust, size_t trustlen,
-          nqrep **rep);
-size_t nqrepn(const nqrep *r);
-int nqrepi(const nqrep *r, size_t i, const char **check, int *ok,
-           const char **detail);
-void nqrepfree(nqrep *r);
+NQAPI int nqchk(const char *dir, const uint8_t *trust, size_t trustlen,
+                nqrep **rep);
+NQAPI size_t nqrepn(const nqrep *r);
+NQAPI int nqrepi(const nqrep *r, size_t i, const char **check, int *ok,
+                 const char **detail);
+NQAPI void nqrepfree(nqrep *r);
 
 #ifdef __cplusplus
 }

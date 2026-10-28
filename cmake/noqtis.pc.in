@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+prefix=@NQPCPRE@
+libdir=@NQPCLIB@
+includedir=@NQPCINC@
+
+Name: noqtis
+Description: Post-quantum signing, KEMs and sealed input records in C11
+Version: @PROJECT_VERSION@
+URL: https://github.com/rootcoder007/noqtis
+Cflags: -I${includedir}@NQPCDEF@
+Libs: -L${libdir} -lnoqtis
+Libs.private: @NQPCPRIV@
