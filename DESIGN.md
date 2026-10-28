@@ -204,6 +204,41 @@ ecosystem supports, before a release is published.
 6. homebrew-core and the distribution packages.
 7. The other language bindings.
 
+## Release channels
+
+Where noqtis is published, what each channel requires before it accepts
+the project, and when it can go there. "Day one" means the day the
+repository goes public with a signed v0.1.0 tag.
+
+| Channel | What it requires | When |
+|---|---|---|
+| npm, PyPI, crates.io, NuGet, Maven Central, RubyGems, Go modules | published by us | day one |
+| CRAN | CRAN's submission review (policy, `R CMD check --as-cran`, no network in tests, under 5 MB) | after its review, days |
+| Homebrew tap `rootcoder007/homebrew-morie` | ours | day one |
+| Scoop bucket, GHCR and Docker Hub images (Wolfi), GitHub Action Marketplace | ours | day one |
+| winget, Chocolatey | a pull request or package submission; moderated, routine | day one to days |
+| Arch User Repository | an upload by any user | day one |
+| Nixpkgs | a pull request reviewed by maintainers | first week |
+| conda-forge | a pull request to staged-recipes | first week |
+| vcpkg, Conan Center | a pull request; build and licence checked | first weeks |
+| Wolfi (`wolfi-dev/os`) | a melange recipe pull request | first weeks |
+| Alpine (aports `testing`, then `community`) | a merge request with a named maintainer | first weeks |
+| MacPorts, FreeBSD ports, OpenBSD ports, pkgsrc | a port reviewed by a committer | weeks |
+| homebrew-core | a stable tagged release, a source build on macOS (arm64, x86-64) and Linux, a real `test do` block, and notability (about 75 stars, or 30 forks or watchers; stricter for self-submissions) | weeks after launch |
+| Fedora and EPEL | a package review, and a sponsor until we are packagers | 1-2 months |
+| Debian, then Ubuntu (which syncs from Debian) | an intent-to-package bug, a Debian Developer sponsor and FTP-master review | 1-3 months |
+| Arch official repositories, Gentoo main tree | adoption by a trusted user or developer | once widely used |
+| OSS-Fuzz | Google's acceptance of important or widely used projects | after adoption |
+
+Every recipe lives in `packaging/` and is built and tested in CI before it
+is submitted, so each channel gets a recipe that already passes its own
+checks. The homebrew-core formula is the tap's formula, so moving it is a
+pull request, not a rewrite.
+
+Funding and credibility, not distribution: OSTIF (audit), Sovereign Tech
+Agency, NLnet NGI Zero, OpenSSF Alpha-Omega and the R Consortium; apply
+around launch (see the launch checklist).
+
 ## Launch checklist
 
 The repository goes public, and v0.1.0 is announced, only when every item
