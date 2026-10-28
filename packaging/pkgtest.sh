@@ -75,7 +75,8 @@ debian)
   ;;
 brew)
   # deps (cmake, pkgconf) come from the formula API, as for users
-  export HOMEBREW_NO_AUTO_UPDATE=1
+  # the runner is thrown away: no autoremove of deps after the uninstall
+  export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_AUTOREMOVE=1
   export HOMEBREW_NO_ANALYTICS=1
   brew tap-new --no-git nqlocal/noqtis >/dev/null
   f=$(brew --repository nqlocal/noqtis)/Formula/noqtis.rb
