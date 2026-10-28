@@ -169,7 +169,7 @@ static void miss(const char *dir, const char *what, uint64_t tg,
  * last byte holds its nb bits at the top. FIPS 202 reads bits least
  * significant first; SHA-2 most significant first. */
 static uint8_t k3last(uint8_t b, unsigned nb) {
-  return nb == 0 ? 0 : (uint8_t)(b >> (8 - nb));
+  return (uint8_t)(nb == 0 ? 0u : (unsigned)b >> (8u - nb));
 }
 
 /* Fixed-size hash (outlen ignored) or SHAKE (outlen bytes). */
