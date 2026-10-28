@@ -2,7 +2,7 @@
 
 **N**otary **O**f **Q**uantum-safe **T**raceable **I**nputs and **S**eals.
 
-noqtis is a small library and command-line tool written in C11. It signs and
+noqtis is a standalone library and command-line tool written in C11. It signs and
 timestamps a record of the exact files an analysis used (a capsule), with
 post-quantum signatures, and verifies such records. It is an independent
 rewrite of the cryptographic core of rmoriebricklayer; it shares no code with
@@ -10,7 +10,7 @@ that package and carries none of its statistics.
 
 ## Goals
 
-1. Small enough to audit: one library, no third-party dependencies at run time.
+1. Auditable: one library, no third-party dependencies at run time.
 2. Standard algorithms only, byte-identical to the standards' test vectors:
    FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), FIPS 205 (SLH-DSA), FIPS 202 (SHA-3,
    SHAKE), FIPS 180-4 (SHA-2), SP 800-90A (HMAC_DRBG), HQC (round 4, v5.0.0).

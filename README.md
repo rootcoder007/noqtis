@@ -2,7 +2,7 @@
 
 **N**otary **O**f **Q**uantum-safe **T**raceable **I**nputs and **S**eals.
 
-A small C11 library and command-line tool that records the exact files a
+A standalone C11 library and command-line tool that records the exact files a
 result came from, signs that record with post-quantum signatures (ML-DSA,
 SLH-DSA) and timestamps it, so anyone can check later that nothing changed.
 
