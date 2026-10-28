@@ -26,7 +26,7 @@ void nqcst(uint8_t *b, size_t blen, const uint32_t *a, size_t nl) {
   size_t i;
   for (i = 0; i < blen; i++) {
     b[blen - 1 - i] =
-        i / 4 < nl ? (uint8_t)(a[i / 4] >> (8 * (i % 4))) : (uint8_t)0;
+        (uint8_t)(i / 4 < nl ? a[i / 4] >> (8 * (i % 4)) : 0u);
   }
 }
 

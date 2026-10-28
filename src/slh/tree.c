@@ -156,6 +156,7 @@ void nqsltrh(const nqslc *c, int fors, const uint8_t *a, uint32_t base,
   uint8_t stk[(NQSLHMX + 1) * NQSLNMX], buf[2 * NQSLNMX], na[32];
   unsigned sh[NQSLHMX + 1], sp = 0, z, n = c->p->n;
   uint32_t i;
+  if (n == 0 || n > NQSLNMX) return; /* table rows have n <= NQSLNMX */
   nda(a, fors, na);
   for (i = 0; i < ((uint32_t)1 << ht); i++) {
     uint32_t g = base + i;
@@ -194,6 +195,7 @@ static void aup(const nqslc *c, int fors, const uint8_t *a, uint32_t g,
                 uint8_t *root) {
   uint8_t buf[2 * NQSLNMX], na[32], cur[NQSLNMX];
   unsigned z, n = c->p->n;
+  if (n == 0 || n > NQSLNMX) return; /* table rows have n <= NQSLNMX */
   nda(a, fors, na);
   memcpy(cur, node, n);
   for (z = 0; z < ht; z++) {

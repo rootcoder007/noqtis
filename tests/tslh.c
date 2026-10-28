@@ -17,6 +17,11 @@
 
 static int slow = 0;  /* NQSLOW=1 */
 static long sub = 0;  /* NQSLSUB=k */
+static long vseen = 0; /* keyGen and sigVer tests seen under NQSLSUB */
+
+/* NQSLSUB=k also runs every k-th keyGen and sigVer test (valgrind). */
+static int vskip(void) { return sub > 0 && vseen++ % sub != 0; }
+
 static int nmiss = 0;
 
 /* ---- JSON helpers (as in thash.c) ---- */
@@ -147,6 +152,7 @@ static void tkg(void) {
     getf(g, "tgId", &tg);
     NQTCHK(sp != NULL);
     for (j = 0; sp != NULL && ts != NULL && j < ts->n; j++) {
+      if (vskip()) continue;
       const nqjs *t = nqjat(ts, j), *e;
       uint64_t tc = 0;
       size_t l1 = 0, l2 = 0, l3 = 0;
@@ -307,6 +313,7 @@ static void tsv(void) {
     getf(g, "tgId", &tg);
     NQTCHK(sp != NULL && ifc != NULL);
     for (j = 0; sp != NULL && ts != NULL && j < ts->n; j++) {
+      if (vskip()) continue;
       const nqjs *t = nqjat(ts, j), *e;
       uint64_t tc = 0;
       size_t pn = 0, mn = 0, cn = 0, sn = 0;

@@ -85,12 +85,15 @@ jobs:
     env:
       # valgrind is about 20 times slower and masked ML-DSA signing is the
       # costliest step: sample the slow vector sets (every 50th ML-DSA
-      # vector test, every 25th SLH-DSA signing test, every 10th HQC KAT)
+      # vector test, every 200th SLH-DSA vector test, every 10th HQC KAT,
+      # two Wycheproof cases per RSA/ECDSA file, 0xFF-only DER mutations)
       # and run four tests at a time, so the job ends in a few minutes;
-      # all other jobs run the full vectors
+      # all other jobs, ASan+UBSan included, run the full vectors
       NQSUB: "50"
-      NQSLSUB: "25"
+      NQSLSUB: "200"
       NQHQKAT: "10"
+      NQCLSN: "2"
+      NQDQUICK: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: sudo apt-get update && sudo apt-get install -y valgrind
@@ -99,7 +102,9 @@ jobs:
       - name: every test under valgrind
         working-directory: tests
         run: |
-          ls ../build/t* | xargs -P4 -I{} sh -c '
+          # tslhct repeats tslh's keygen/sign/verify for the ctgrind check;
+          # tcls (RSA bignum, OpenSSL set) is too slow here: ASan runs it
+          ls ../build/t* | grep -Ev '/(tslhct|tcls)$' | xargs -P4 -I{} sh -c '
             n=$(basename {}); s=$(date +%s)
             valgrind --error-exitcode=9 --leak-check=full -q {} \
               > "$RUNNER_TEMP/vg.$n" 2>&1; rc=$?
