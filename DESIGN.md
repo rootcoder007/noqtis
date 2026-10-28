@@ -80,9 +80,11 @@ A module is accepted only when every check in its row passes.
 | M8 | `der` | strict DER reader (length, tag and depth limits), X.509 path checks, OCSP, CRL, RFC 3161 timestamp tokens | the rmoriebricklayer 1.0.3 x509/timestamp fixtures, libFuzzer corpus, positional-parse tests |
 | M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer |
 | M10 | `cli` | `noqtis keygen / sign / verify / seal / check / timestamp / inspect` | golden-output tests, exit codes, fuzzed arguments |
+| M11 | `port` | platform layer for files and paths (Windows wide-char), symbol visibility, shared-library versioning, `noqtis.pc` and CMake package config | the full suite passes on every platform in the CI matrix |
+| M12 | `bind` | WebAssembly build and the npm, PyPI and CRAN packages first, then the other bindings | each binding's own tests on every platform it supports |
 
 Dependencies: M1 needs M0; M2-M7 need M0-M1; M8 needs M1 and M7; M9 needs
-M1-M5 and M8; M10 needs everything.
+M1-M5 and M8; M10 needs everything; M11 runs alongside from now on; M12 needs M9.
 
 ## Capsule format, version 1
 
@@ -103,6 +105,104 @@ A capsule is a folder that holds the files of a result plus `noqtis.json`
 - Verification recomputes every file digest, fails on any file present but
   not listed or listed but missing, checks the signature over the exact
   manifest bytes, and checks the timestamp when present.
+
+## Platforms and packaging
+
+noqtis must build, pass its tests and install on every platform people use,
+with nothing to compile for the user where a package manager allows it.
+
+### Platforms built and tested in CI
+
+| OS | CPUs | Compilers | Notes |
+|---|---|---|---|
+| Linux (glibc) | x86-64, arm64 | gcc, clang | Ubuntu and Fedora images |
+| Linux (musl) | x86-64, arm64 | gcc | Alpine; static binaries |
+| Linux, 32-bit | i686, armv7 | gcc | catches size_t and shift assumptions |
+| Linux, big-endian | s390x (QEMU) | gcc | catches byte-order bugs |
+| macOS | arm64, x86-64 | Apple clang | universal binaries for releases |
+| Windows | x86-64, arm64 | MSVC, clang-cl, MinGW-w64 | BCryptGenRandom; no POSIX assumed |
+| FreeBSD, OpenBSD | x86-64 | clang | arc4random_buf |
+| WebAssembly | wasm32 | emscripten, wasi-sdk | browsers, Node, Deno, Bun, WASI runtimes |
+| Android, iOS | arm64 | NDK clang, Xcode | built as libraries; no CLI |
+
+A platform counts as supported only when the full test suite, including
+every ACVP vector, passes on it in CI. Randomness on each platform comes
+from its OS source (getrandom, arc4random_buf, BCryptGenRandom, WebCrypto
+getRandomValues through the WASI or emscripten layer); there is no fallback.
+
+### Portability rules
+
+- ISO C11 only; platform code lives in one file per concern
+  (`src/core/rand.c` now, `src/cap/fs.c` for files) behind `#if` blocks.
+- No assumption about endianness, `long` size, alignment of byte buffers,
+  or `char` signedness; loads and stores go through the int.h helpers.
+- No dependency on POSIX in the library except in `src/cap/fs.c`, which has
+  a Windows branch (wide-character paths, UTF-8 at the API).
+- The public header compiles as C11, C++11 and later, and under MSVC.
+- File paths at the API are UTF-8 on every OS.
+
+### Library form
+
+- Static and shared builds from the same sources; symbols outside the
+  public API are hidden (`-fvisibility=hidden`, a `.def` file on Windows).
+- Semantic versioning. The shared library carries an ABI version
+  (`libnoqtis.so.0`, `noqtis-0.dll`, `libnoqtis.0.dylib`); the public API
+  never exposes a struct whose layout may change (sizes are fixed or
+  opaque).
+- `pkg-config` file (`noqtis.pc`) and a CMake package config
+  (`find_package(noqtis)`) are installed with the library.
+- `nqver()` and `NQVMAJ`/`NQVMIN`/`NQVPAT` give the version at run time and
+  compile time.
+
+### Releases
+
+- Every release is a signed git tag plus, for each platform above, a
+  binary archive with `noqtis`, the library and the header, a SHA-256 file,
+  a signature (Sigstore and an SSH signature by the release key), an SBOM
+  (SPDX) and build provenance (SLSA).
+- Builds are reproducible: the same tag gives byte-identical archives;
+  CI rebuilds each release twice and compares.
+- `install.sh` (for `curl -fsSL .../install.sh | sh`) picks the archive for
+  the machine, checks its SHA-256 and signature, and installs into
+  `~/.local` or a chosen prefix; it never runs anything it has not verified.
+  `install.ps1` does the same on Windows.
+
+### Packages
+
+| Ecosystem | Package | Form |
+|---|---|---|
+| Homebrew (macOS, Linux) | `noqtis` | tap `rootcoder007/homebrew-morie` first, homebrew-core later |
+| curl / shell | `install.sh`, `install.ps1` | verified binary download (above) |
+| npm (Node, Deno, Bun, browsers) | `noqtis` | WebAssembly build, works everywhere with nothing to compile; optional native addon (Node-API, prebuilt per platform) for speed |
+| PyPI | `noqtis` | wheels for every OS/CPU above (cibuildwheel), no compiler needed |
+| CRAN (R) | `noqtis` | the C sources vendored in an R package; no network in tests, under 5 MB (test vectors stay in this repo) |
+| crates.io (Rust) | `noqtis-sys`, `noqtis` | raw bindings plus a safe wrapper |
+| Go | `github.com/rootcoder007/noqtis/go` | cgo binding |
+| Java / Kotlin | Maven Central `noqtis` | Panama (JDK 22+) with a JNI fallback; per-platform natives in the jar |
+| .NET | NuGet `Noqtis` | P/Invoke with runtime-specific natives |
+| Swift / iOS / macOS apps | Swift Package | XCFramework |
+| Android | Maven `noqtis-android` | AAR with NDK builds |
+| Ruby | gem `noqtis` | FFI |
+| C/C++ package managers | vcpkg, Conan, conda-forge, xmake | source recipes |
+| Linux distributions | Debian/Ubuntu, Fedora/EPEL, Arch (AUR), Alpine, Nix, Gentoo | distro packages |
+| Windows | winget, Scoop, Chocolatey | the release archives |
+| Containers | `ghcr.io/rootcoder007/noqtis` | distroless image with the CLI |
+| CI | GitHub Action `rootcoder007/noqtis-action` | seal and check capsules in workflows |
+
+Every binding has its own tests that run the capsule round trip and a
+sample of the ACVP vectors through the binding, on every platform the
+ecosystem supports, before a release is published.
+
+### Order
+
+1. Library and CLI on every platform in CI (M11).
+2. Release archives, signatures, `install.sh`/`install.ps1`, Homebrew tap.
+3. npm (WebAssembly) and PyPI wheels.
+4. CRAN.
+5. vcpkg, conda-forge, AUR, Nix, winget, Scoop, the container image and the
+   GitHub Action.
+6. homebrew-core and the distribution packages.
+7. The other language bindings.
 
 ## Testing and CI
 
