@@ -105,6 +105,10 @@ static void tkat(void) {
     int s;
     next = strchr(line, '\n');
     if (next != NULL) *next++ = '\0';
+    /* a copy with Windows line endings still reads */
+    if (*line != '\0' && line[strlen(line) - 1] == '\r') {
+      line[strlen(line) - 1] = '\0';
+    }
     if (line[0] == '#' || line[0] == '\0') continue;
     if (!hdr) {
       NQTCHK(strcmp(line, "level count seed digest") == 0);
