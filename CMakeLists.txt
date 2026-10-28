@@ -10,6 +10,7 @@ option(NQWERROR "Treat warnings as errors" ON)
 option(NQSAN "Build with AddressSanitizer and UBSan" OFF)
 option(NQTESTS "Build the tests" ON)
 option(NQSHARED "Build a shared library instead of a static one" OFF)
+option(NQCLI "Build the noqtis command-line tool" ON)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -79,6 +80,11 @@ if(WIN32)
   target_link_libraries(noqtis PRIVATE bcrypt)
 endif()
 
+# the command-line tool (cli/), on the public API only
+if(NQCLI)
+  add_subdirectory(cli)
+endif()
+
 if(NQTESTS)
   enable_testing()
   # the tests call internal functions, which a shared library hides, so
@@ -110,6 +116,9 @@ if(NQTESTS)
   target_link_libraries(nquse PRIVATE noqtis)
   target_compile_options(nquse PRIVATE ${NQWARN})
   add_test(NAME nquse COMMAND nquse)
+  if(NQCLI)
+    add_subdirectory(tests/cli)
+  endif()
 endif()
 
 # ---- install ----------------------------------------------------------

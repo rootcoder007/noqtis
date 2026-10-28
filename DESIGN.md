@@ -105,6 +105,26 @@ A capsule is a folder that holds the files of a result plus `noqtis.json`
 - Verification recomputes every file digest, fails on any file present but
   not listed or listed but missing, checks the signature over the exact
   manifest bytes, and checks the timestamp when present.
+- The timestamp's message imprint is its hash (SHA-256/384/512) of the
+  decoded `signature` bytes. `nqchkt` takes the TSA trust anchors: with
+  anchors, the seal must carry a timestamp that verifies under one of them
+  (RFC 3161 token, signer certificate path valid at genTime); with none
+  (`nqchk`), a timestamp present is a failing check, never a silent pass.
+  `nqseal` writes no timestamp (no network in the library); the CLI adds it.
+- Limits (each refused with its own report row or `nqcseal` reason, never
+  a silent truncation): `noqtis.json` at most 512 MiB (its size is checked
+  before it is read, and again if it grows while being read); at most
+  2,000,000 files (a sanity bound); a path at most 4096 bytes; folders at
+  most 64 levels deep; `noqtis.sig` and `meta` at most 1 MiB each.
+- Memory: `nqchk` reads the manifest in its canonical layout one entry at
+  a time and checks each against the folder as it goes (sorted order and
+  duplicates incrementally), so it never builds a tree of the manifest.
+  It holds the manifest bytes once (the pure signature is over those exact
+  bytes, so they must be in memory for `nqvrfy`), the folder listing
+  (about 100 bytes per file), the report (one row per file) and O(1)
+  per-entry state: for 1,000,000 files, about 1x the manifest plus some
+  200 MB. Bounding it below the manifest size would need a streaming
+  verify API or the pre-hash variant (HashML-DSA), a format change.
 
 ## Platforms and packaging
 
@@ -359,3 +379,82 @@ so it is reviewed and tested like the code.
 `SECURITY.md` gives a private reporting address and a 90-day disclosure
 window. Until an external audit is published, the README says plainly that
 the code is unaudited.
+
+## CLI
+
+`noqtis` (sources in `cli/`, built by default; `-DNQCLI=OFF` skips it) is
+a thin tool over the public API in `noqtis.h`: it links the library as
+built, static or shared, and calls nothing else. `noqtis help <command>`
+prints each command's options.
+
+| Command | What it does |
+|---|---|
+| `noqtis keygen -a <alg> -o <key> [--seed <hex\|file>] [--force]` | a key pair: secret key in `<key>`, public key in `<key>.pub`; `<alg>` is any name `noqtis algs` lists (case does not matter); `--seed` gives the standard's seed (hex, or a file of raw bytes) for deterministic keys |
+| `noqtis sign -k <key> [-o <sig>] [-c <ctx>] [-d] [--ph <hash>] <file>` | the raw signature (FIPS 204/205 encoding) in `<sig>`, default `<file>.sig`; `-c` context string (at most 255 bytes), `-d` deterministic (all-zero per-signature randomness), `--ph` HashML-DSA / HashSLH-DSA with that hash; `<file>` may be `-` (stdin) with `-o` |
+| `noqtis verify -p <key.pub> -s <sig> [-c <ctx>] [--ph <hash>] [-q] <file>` | prints `<file>: OK (<alg>)` |
+| `noqtis enc -p <key.pub> -o <ct> (<ss> \| --stdout)` | KEM encapsulation: ciphertext to `<ct>`, shared secret to `<ss>` |
+| `noqtis dec -k <key> (-o <ss> \| --stdout) <ct>` | KEM decapsulation; a tampered ciphertext gives an unrelated secret and exit 0 (implicit rejection, as FIPS 203 and HQC require) |
+| `noqtis hash [-a <hash>] [-c\|--check] [<file>...]` | `<hex>  <file>` lines in `sha256sum`'s format (names with `\` or a line break are escaped the same way); `--check` reads such lines and prints `<file>: OK` or `FAILED`; hashes `sha224 sha256 sha384 sha512 sha512-224 sha512-256 sha3-224 sha3-256 sha3-384 sha3-512 shake128 shake256` (default `sha256`; SHAKE prints 32 or 64 bytes) |
+| `noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>] [--tsa <url>] <dir>` | `nqseal`: writes `noqtis.json` and `noqtis.sig`; the public key defaults to `<key>.pub` and must pair with `<key>` |
+| `noqtis check [-p <key.pub>] [--json] <dir>` | `nqchk`: one row per check (`ok`/`FAIL`, check, detail), then a summary; `--json` prints `{"capsule","ok","result","checks":[{"check","ok","detail"}]}` on one line; without `-p` the seal's own key is accepted and the `key` row says so |
+| `noqtis algs` | every algorithm with its public key, secret key, signature or ciphertext, and shared secret sizes in bytes |
+| `noqtis version` | `noqtis <nqver()>` |
+
+Exit status, for every command: **0** success (signature valid, every
+capsule check passed, every digest matched); **1** a verification failed
+(bad or wrong-length signature, a capsule check failed, a digest differs
+or a listed file is missing, a malformed `--check` line); **2** usage
+error, unreadable or unwritable file, wrong kind of key, or a library
+error.
+
+### Key files
+
+A key file is text: one header line, then the key bytes in the standard's
+own encoding (FIPS 203, 204, 205; HQC v5.0.0) as base64 (RFC 4648, with
+padding) in lines of 64 characters:
+
+```
+noqtis-key-1 <algorithm> <pub|sec>
+<base64>
+...
+```
+
+`<algorithm>` is the name `nqsname()` or `nqkname()` gives (`ML-DSA-65`,
+`SLH-DSA-SHAKE-128f`, `ML-KEM-768`, `HQC-128`, ...). Readers accept `\n` or
+`\r\n` line ends, reject any other character, non-canonical padding, a
+header that is not exactly three space-separated fields, the wrong kind
+(`pub` where a secret key is needed, or the reverse), and a key whose
+decoded length is not the algorithm's size. The base64 encoder and decoder
+are constant time (no table lookup or branch on a key byte).
+
+Signatures and ciphertexts are raw bytes (the standard's encoding, no
+header); a shared secret file is the raw 32 bytes.
+
+### Secrets and files
+
+- Secret key and shared-secret files are created owner-only (`0600` with
+  `O_EXCL | O_NOFOLLOW` on POSIX; on Windows they inherit the folder's
+  ACL) and through unbuffered streams, so no stdio buffer keeps a copy.
+- No command overwrites an existing file unless given `--force`; with it
+  the old file is removed first, so the new one never inherits its
+  permissions or follows a link.
+- Every buffer that held a secret key, seed or shared secret is wiped with
+  `nqwipe` before it is freed. No secret is printed: a shared secret
+  reaches stdout only with `--stdout` (in hex); keys never do.
+- Windows: arguments are read as UTF-16 (`GetCommandLineW`) and passed on
+  as UTF-8, files are opened with `_wfopen`/`_wopen`, and stdin and stdout
+  are in binary mode. MSVC, clang-cl and MinGW-w64 need no `-municode`.
+
+### Tests
+
+`tests/cli/tcli.c` (CTest `tcli`) runs the built tool through the shell as
+a user would, on every platform: help and usage errors (exit 2),
+keygen/sign/verify for ML-DSA-44/65/87 and SLH-DSA SHA2/SHAKE-128f (all
+twelve SLH-DSA sets with `NQCLIALL=1`), tampered message, signature,
+length, context and key (exit 1), deterministic keys and signatures,
+pre-hash, every ML-KEM and HQC set (round trip, implicit rejection, owner-
+only files, no secret on stdout), digests against known values and
+`--check`, and seal/check with changed, added and removed files and a
+changed manifest or seal. `NQCLIWRAP="valgrind -q --error-exitcode=9
+--leak-check=full"` runs every command under a wrapper; a sanitizer or
+valgrind report in stderr fails the check whatever the exit status.
