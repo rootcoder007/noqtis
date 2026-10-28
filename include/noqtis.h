@@ -182,14 +182,27 @@ NQAPI int nqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
 typedef struct nqrep nqrep;
 
 /* Writes noqtis.json and noqtis.sig into dir, covering every regular file
- * in it. tsa NULL: no timestamp. */
+ * in it (a link, a special file or a refused name is NQEARG; more than
+ * 2,000,000 files, a path over 4096 bytes, folders over 64 deep or a
+ * manifest over 512 MiB is NQELIM). The creation
+ * time is SOURCE_DATE_EPOCH when set, else the clock. tsa must be NULL:
+ * the library makes no network requests (NQENOSUP otherwise). */
 NQAPI int nqseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
                  const uint8_t *pk, size_t pklen, const char *meta,
                  const char *tsa);
 /* Checks dir against its seal; trust NULL accepts the key in the seal (and
- * the report says so). The report lists every check. */
+ * the report says so). The report lists every check. NQOK only when every
+ * check passed, NQEVRFY otherwise (*rep is still set); free it with
+ * nqrepfree. nqchk is nqchkt with no TSA anchors, so a seal that carries a
+ * timestamp fails its timestamp check there. */
 NQAPI int nqchk(const char *dir, const uint8_t *trust, size_t trustlen,
                 nqrep **rep);
+/* nqchk with nanc TSA trust anchors (DER certificates anc[i] of anclen[i]
+ * bytes, at most 32): the seal must then carry an RFC 3161 token over the
+ * signature bytes that verifies under one of them. */
+NQAPI int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
+                 const uint8_t *const *anc, const size_t *anclen,
+                 size_t nanc, nqrep **rep);
 NQAPI size_t nqrepn(const nqrep *r);
 NQAPI int nqrepi(const nqrep *r, size_t i, const char **check, int *ok,
                  const char **detail);
