@@ -394,7 +394,8 @@ static void terr(void) {
   NQTEQI(nqdgenp(&d, buf, 16, NULL, 0, ent, 32), NQESTATE); /* pr off */
   NQTCHK(allzero(buf, 16));
   /* inputs longer than 2^35 bits; checked before anything is read */
-  if ((uint64_t)SIZE_MAX > NQDMAXL) {
+#if SIZE_MAX > 0xffffffffu
+  {
     size_t l = (size_t)(NQDMAXL + 1);
     NQTEQI(nqdres(&d, ent, l, NULL, 0), NQELIM);
     NQTEQI(nqdres(&d, ent, 32, add, l), NQELIM);
@@ -407,6 +408,7 @@ static void terr(void) {
     NQTEQI(nqdini(&d, NQS256, ent, 32, non, 16, ps, l, 0), NQELIM);
     nqdfree(&d);
   }
+#endif
   nqdfree(&d);
 }
 

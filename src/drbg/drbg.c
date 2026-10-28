@@ -9,7 +9,13 @@
 
 /* 1 when an input of len bytes is longer than SP 800-90A allows. */
 static int big(size_t len) {
+#if SIZE_MAX > 0xffffffffu
   return (uint64_t)len > NQDMAXL;
+#else
+  /* a 32-bit size_t cannot exceed the 2^32-byte limit */
+  (void)len;
+  return 0;
+#endif
 }
 
 /* NQOK for SHA-256 and SHA-512, NQENOSUP for another known hash. */

@@ -10,6 +10,12 @@ option(NQWERROR "Treat warnings as errors" ON)
 option(NQSAN "Build with AddressSanitizer and UBSan" OFF)
 option(NQTESTS "Build the tests" ON)
 
+if(WIN32)
+  # fopen() and sscanf() are ISO C; MSVC's "use the _s variant" deprecation
+  # would otherwise fail the build under /WX
+  add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+endif()
+
 if(MSVC)
   set(NQWARN /W4)
   if(NQWERROR)

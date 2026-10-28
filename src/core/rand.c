@@ -3,6 +3,8 @@
  * the OS call fails, the caller gets NQERNG. */
 #if defined(__linux__)
 #define _GNU_SOURCE /* getrandom() in glibc's <sys/random.h> */
+#elif defined(__EMSCRIPTEN__) || defined(__wasi__)
+#define _DEFAULT_SOURCE /* getentropy() is hidden under strict -std=c11 */
 #endif
 
 #include "noqtis.h"
