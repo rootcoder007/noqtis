@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Arch Linux (AUR). For a release, replace SKIP with the tarball's sha256.
+pkgname=noqtis
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Post-quantum signing, KEMs and sealed input records in C11'
+arch=('x86_64' 'aarch64' 'i686' 'armv7h')
+url='https://github.com/rootcoder007/noqtis'
+license=('Apache-2.0 WITH LLVM-exception')
+depends=('glibc')
+makedepends=('cmake')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cmake -S "$pkgname-$pkgver" -B build -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX=/usr -DNQSHARED=ON -DNQWERROR=OFF
+  cmake --build build
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm644 "$pkgname-$pkgver"/{LICENSE,NOTICE} \
+    -t "$pkgdir/usr/share/licenses/$pkgname"
+}

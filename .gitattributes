@@ -5,3 +5,4 @@ tests/vectors/** -text
 # Sources keep LF everywhere.
 *.c text eol=lf
 *.h text eol=lf
+*.sh text eol=lf

@@ -1,0 +1,4 @@
+usr/include/noqtis.h
+usr/lib/*/libnoqtis.so
+usr/lib/*/pkgconfig/noqtis.pc
+usr/lib/*/cmake/noqtis

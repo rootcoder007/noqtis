@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DNQSHARED=ON -DNQWERROR=OFF

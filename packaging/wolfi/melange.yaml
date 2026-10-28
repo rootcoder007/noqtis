@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Wolfi (melange). For a release, set expected-sha256 to the tarball's.
+#   melange build packaging/wolfi/melange.yaml --arch x86_64
+package:
+  name: noqtis
+  version: 0.1.0
+  epoch: 0
+  description: Post-quantum signing, KEMs and sealed input records in C11
+  copyright:
+    - license: Apache-2.0 WITH LLVM-exception
+
+environment:
+  contents:
+    keyring:
+      - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+    repositories:
+      - https://packages.wolfi.dev/os
+    packages:
+      - build-base
+      - busybox
+      - ca-certificates-bundle
+      - cmake
+      - wolfi-baselayout
+
+pipeline:
+  # nqsrc: the source step (packaging/pkgtest.sh swaps it for the local
+  # tarball)
+  - uses: fetch
+    with:
+      uri: https://github.com/rootcoder007/noqtis/archive/refs/tags/v${{package.version}}.tar.gz
+      expected-sha256: 0000000000000000000000000000000000000000000000000000000000000000
+  # nqsrc end
+  - uses: cmake/configure
+    with:
+      opts: -DNQSHARED=ON -DNQWERROR=OFF
+  - uses: cmake/build
+  - runs: ctest --test-dir output --output-on-failure
+  - uses: cmake/install
+  - uses: strip
+
+subpackages:
+  - name: noqtis-dev
+    description: Header, pkg-config file and CMake package for noqtis
+    pipeline:
+      - uses: split/dev
+    dependencies:
+      runtime:
+        - noqtis
+    test:
+      environment:
+        contents:
+          keyring:
+            - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+          repositories:
+            - https://packages.wolfi.dev/os
+          packages:
+            - build-base
+            - busybox
+            - pkgconf
+      pipeline:
+        - runs: |
+            cat > use.c <<'C'
+            #include <noqtis.h>
+            #include <stdio.h>
+            int main(void) {
+              unsigned char d[32];
+              if (nqhash(NQS256, (const unsigned char *)"abc", 3, d, 32))
+                return 1;
+              printf("noqtis %s %02x%02x\n", nqver(), d[0], d[1]);
+              return !(d[0] == 0xba && d[1] == 0x78);
+            }
+            C
+            cc -std=c11 use.c $(pkg-config --cflags --libs noqtis) -o use
+            ./use
+
+test:
+  environment:
+    contents:
+      keyring:
+        - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+      repositories:
+        - https://packages.wolfi.dev/os
+      packages:
+        - busybox
+  pipeline:
+    - runs: test -f /usr/lib/libnoqtis.so.0.1.0 && test -L /usr/lib/libnoqtis.so.0
