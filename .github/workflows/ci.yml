@@ -4,7 +4,9 @@
 # x86-64 Linux jobs run on every push and pull request. The arm64, macOS,
 # Windows, FreeBSD and emulated big-endian jobs cost runner minutes, so on a
 # private repository they run weekly and on demand; once the repository is
-# public they run on every push too.
+# public they run on every push too. The Linux distribution, Nix, Docker and
+# package jobs run on every push: they need only x86-64 Linux runners.
+# Every container image is pinned by digest; the tag is in the comment.
 name: ci
 
 on:
@@ -19,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: false
 
 env:
@@ -29,6 +31,7 @@ jobs:
   linux:
     name: linux ${{ matrix.os }} ${{ matrix.cc }} ${{ matrix.kind }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -37,6 +40,7 @@ jobs:
           - { os: ubuntu-24.04, cc: clang, kind: debug }
           - { os: ubuntu-24.04, cc: clang, kind: asan }
           - { os: ubuntu-24.04, cc: gcc, kind: release }
+          - { os: ubuntu-24.04, cc: clang, kind: shared }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: configure
@@ -44,11 +48,18 @@ jobs:
           case "${{ matrix.kind }}" in
             asan) extra="-DNQSAN=ON -DCMAKE_BUILD_TYPE=Debug" ;;
             release) extra="-DCMAKE_BUILD_TYPE=Release" ;;
+            shared) extra="-DNQSHARED=ON -DCMAKE_BUILD_TYPE=Release" ;;
             *) extra="-DCMAKE_BUILD_TYPE=Debug" ;;
           esac
           CC=${{ matrix.cc }} cmake -S . -B build $extra
       - run: cmake --build build -j4
       - run: ctest --test-dir build
+      - name: install and build the consumer against it
+        # the ASan build's library needs the sanitizer runtime to link
+        if: matrix.kind != 'asan'
+        run: |
+          cmake --install build --prefix "$RUNNER_TEMP/nq"
+          CC=${{ matrix.cc }} NQNEEDPC=1 tests/consumer/run.sh "$RUNNER_TEMP/nq"
 
   arm64:
     # arm64 Linux runners are free only for public repositories
@@ -57,6 +68,7 @@ jobs:
       !github.event.repository.private
     name: linux arm64 ${{ matrix.cc }}
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -69,6 +81,15 @@ jobs:
 
   valgrind:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # valgrind is about 30 times slower: sample the slow vector sets
+      # (every 10th ML-DSA signing test, every 25th SLH-DSA, every 10th
+      # HQC KAT) so the job ends in about 10 minutes; all other jobs run
+      # the full vectors
+      NQSUB: "10"
+      NQSLSUB: "25"
+      NQHQKAT: "10"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: sudo apt-get update && sudo apt-get install -y valgrind
@@ -85,7 +106,9 @@ jobs:
 
   musl:
     runs-on: ubuntu-24.04
-    container: alpine:3.22
+    timeout-minutes: 15
+    # alpine:3.22
+    container: alpine@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
     steps:
       - run: apk add --no-cache build-base cmake git
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -95,6 +118,7 @@ jobs:
 
   i686:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: sudo apt-get update && sudo apt-get install -y gcc-multilib
@@ -104,6 +128,7 @@ jobs:
 
   wasm:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
@@ -121,6 +146,7 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -140,6 +166,7 @@ jobs:
       !github.event.repository.private
     name: macos ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -149,6 +176,8 @@ jobs:
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build -j4
       - run: ctest --test-dir build
+      - name: static and shared installs, consumer, exported symbols
+        run: packaging/check.sh "$RUNNER_TEMP/nqchk"
 
   windows:
     if: >
@@ -156,6 +185,7 @@ jobs:
       !github.event.repository.private
     name: windows ${{ matrix.toolset }}
     runs-on: windows-2025
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -163,6 +193,7 @@ jobs:
           - { toolset: msvc, gen: "-A x64" }
           - { toolset: clang-cl, gen: "-A x64 -T ClangCL" }
           - { toolset: msvc-arm64, gen: "-A ARM64" }
+          - { toolset: msvc-dll, gen: "-A x64 -DNQSHARED=ON" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cmake -S . -B build ${{ matrix.gen }}
@@ -171,12 +202,23 @@ jobs:
         # ARM64 binaries cannot run on the x64 runner: build only
         if: matrix.toolset != 'msvc-arm64'
         run: ctest --test-dir build -C Debug
+      - name: install and build the consumer with find_package
+        if: matrix.toolset != 'msvc-arm64'
+        shell: bash
+        run: |
+          p="$RUNNER_TEMP/nq"
+          cmake --install build --config Debug --prefix "$p"
+          cmake -S tests/consumer -B cons ${{ matrix.gen }} \
+            -DCMAKE_PREFIX_PATH="$p"
+          cmake --build cons --config Debug
+          PATH="$p/bin:$PATH" cons/Debug/use.exe
 
   mingw:
     if: >
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: windows-2025
+    timeout-minutes: 15
     defaults:
       run:
         shell: msys2 {0}
@@ -191,12 +233,22 @@ jobs:
       - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build
       - run: ctest --test-dir build
+      - name: shared build, install and the consumer with find_package
+        run: |
+          cmake -S . -B bsh -G Ninja -DNQSHARED=ON -DNQTESTS=OFF
+          cmake --build bsh
+          p=$(cygpath -m "$PWD/nq")
+          cmake --install bsh --prefix "$p"
+          cmake -S tests/consumer -B cons -G Ninja -DCMAKE_PREFIX_PATH="$p"
+          cmake --build cons
+          PATH="$PWD/nq/bin:$PATH" cons/use.exe
 
   freebsd:
     if: >
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
@@ -206,3 +258,179 @@ jobs:
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
             cmake --build build -j4
             ctest --test-dir build
+
+  distro:
+    # each distribution's own compiler and cmake: static build with every
+    # test, install, the consumer through pkg-config and find_package, then
+    # the same for a shared build plus its exported-symbol check
+    name: distro ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: ${{ matrix.image }}
+    env:
+      NQNEEDPC: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # fedora:latest
+          - name: fedora
+            image: fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+            deps: dnf -y install gcc cmake make pkgconf-pkg-config git binutils findutils
+          # debian:stable
+          - name: debian-stable
+            image: debian@sha256:708ae3c7fd034a0f178557c500e617165589c61732022589fff3c401f92edbd3
+            deps: >-
+              apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install
+              -y --no-install-recommends gcc libc6-dev cmake make pkgconf git
+              ca-certificates binutils
+          # debian:testing
+          - name: debian-testing
+            image: debian@sha256:e35ef115fe98a10471367c72988e394b54c20d341baba9d31a34b5e4f5b648ca
+            deps: >-
+              apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install
+              -y --no-install-recommends gcc libc6-dev cmake make pkgconf git
+              ca-certificates binutils
+          # archlinux:latest
+          - name: arch
+            image: archlinux@sha256:e82623936fa1a69700b48e98b058df6eaab18b737c27473a7234a40fdecb9413
+            deps: pacman -Syu --noconfirm --needed gcc cmake make pkgconf git binutils
+          # opensuse/tumbleweed:latest
+          - name: tumbleweed
+            image: opensuse/tumbleweed@sha256:216f7358df3fabe995e8acb94343c19afc95875c5572617a4996d70149a5e83a
+            deps: >-
+              zypper -n install gcc cmake make pkgconf-pkg-config git binutils
+              findutils tar gzip
+          # rockylinux/rockylinux:9
+          - name: rocky9
+            image: rockylinux/rockylinux@sha256:8101994123cf3d0a8fee517bee7f39e555c7d92bd2d9eb3303cc988a0eeed00f
+            deps: dnf -y install gcc cmake make pkgconf-pkg-config git binutils findutils
+          # rockylinux/rockylinux:10
+          - name: rocky10
+            image: rockylinux/rockylinux@sha256:827d37bc128288ccf160ee318bb3cb92d591164cb217e92f8bc61e3982ae1834
+            deps: dnf -y install gcc cmake make pkgconf-pkg-config git binutils findutils
+          # amazonlinux:2023
+          - name: amazon2023
+            image: amazonlinux@sha256:c04a1012acc483977f61f7f91c28624a39a621e56a59781319a75dec528be9b6
+            deps: >-
+              dnf -y install gcc cmake make pkgconf-pkg-config git binutils
+              findutils tar gzip
+          # cgr.dev/chainguard/wolfi-base:latest
+          - name: wolfi
+            image: cgr.dev/chainguard/wolfi-base@sha256:dbcc3a4a3b1b9e68420a4742940aa6267c97e61811736a5fef0918a06ade1827
+            deps: apk add --no-cache build-base cmake pkgconf git
+          # ghcr.io/void-linux/void-glibc:latest; repo-de is a tier-1
+          # mirror, used because repo-default timed out in testing
+          - name: void
+            image: ghcr.io/void-linux/void-glibc@sha256:91a7c5e2ccaa48ed2c664633110c0f19aff08a2d55ae0709083d1eb562b98ccb
+            deps: >-
+              mkdir -p /etc/xbps.d && echo
+              repository=https://repo-de.voidlinux.org/current
+              > /etc/xbps.d/00-repository-main.conf && xbps-install -Syu xbps
+              && xbps-install -Sy gcc cmake make pkgconf git binutils
+          # gentoo/stage3:latest; cmake and git come from Gentoo's binary
+          # package host, so nothing large compiles
+          - name: gentoo
+            image: gentoo/stage3@sha256:1ca7647d1ce968d02c2858ee4201e2173675fd3fc0754a8acd583d9288b75478
+            deps: >-
+              emerge-webrsync -q && getuto && emerge -q --getbinpkg --usepkg
+              --noreplace dev-build/cmake dev-vcs/git
+    steps:
+      - name: compiler, cmake, make, pkg-config
+        run: ${{ matrix.deps }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cc --version && cmake --version
+      - run: packaging/check.sh /tmp/nqchk
+
+  nix:
+    # nixos/nix has no /lib64 loader for the runner's node, so the job runs
+    # the container by hand instead of with `container:`
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: nix build, then the consumer against it
+        # nixos/nix:latest
+        run: >
+          docker run --rm -v "$PWD:/src" -w /src
+          nixos/nix@sha256:f159a58f390677f41e8e900a74b6e2f9c7f27b364122ae6acf7a652ce6c551c0
+          sh -c 'git config --global --add safe.directory /src &&
+          nix --extra-experimental-features "nix-command flakes"
+          --option sandbox false build -L .#noqtis .#consumer'
+
+  docker:
+    # the Wolfi image: the build stage runs every test and the consumer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build --target build -t noqtis-build .
+      - name: the tests again, inside the built image
+        run: docker run --rm noqtis-build ctest --test-dir /b --output-on-failure
+      - run: docker build -t noqtis .
+      - name: the final image carries the library, header and pc file
+        run: >
+          docker run --rm noqtis sh -c 'ls -l /usr/lib/libnoqtis.so.0
+          /usr/include/noqtis.h /usr/lib/pkgconfig/noqtis.pc
+          /usr/lib/cmake/noqtis/noqtisConfig.cmake'
+
+  package:
+    # each packaging/ recipe built from this tree's tarball, the package
+    # installed, the consumer built against it
+    name: package ${{ matrix.kind }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: ${{ matrix.image }}
+    env:
+      NQNEEDPC: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # archlinux:latest
+          - kind: arch
+            image: archlinux@sha256:e82623936fa1a69700b48e98b058df6eaab18b737c27473a7234a40fdecb9413
+          # alpine:3.22
+          - kind: alpine
+            image: alpine@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
+          # fedora:latest
+          - kind: rpm
+            image: fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+          # debian:stable
+          - kind: debian
+            image: debian@sha256:708ae3c7fd034a0f178557c500e617165589c61732022589fff3c401f92edbd3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: packaging/pkgtest.sh ${{ matrix.kind }}
+
+  melange:
+    # the Wolfi package, built with melange from this tree's tarball
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: packaging/pkgtest.sh wolfi
+        env:
+          # cgr.dev/chainguard/melange:latest
+          NQMELANGE: cgr.dev/chainguard/melange@sha256:4bcc9f5ce0a97e333b9440473952126dd71e9f50b7800b92124c3a98496be7d8
+
+  brew:
+    # the formula through the runner's Linux Homebrew
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: install from the formula, brew test
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          NQWORK="$RUNNER_TEMP/nqpkg" packaging/pkgtest.sh brew
+
+  brewmac:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: NQWORK="$RUNNER_TEMP/nqpkg" packaging/pkgtest.sh brew
