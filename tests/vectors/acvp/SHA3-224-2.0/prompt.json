@@ -1,0 +1,1 @@
+{"vsId":0,"algorithm":"SHA3-224","revision":"2.0","isSample":false,"testGroups":[{"tgId":1,"testType":"AFT","tests":[{"tcId":1,"msg":"08FF1739BC139096A044C0","len":82}]},{"tgId":2,"testType":"MCT","mctVersion":"standard","tests":[{"tcId":1259,"msg":"E5A94C34B82AFD1760EBC5CD0A5B22BA5CE716304D4F2C18628DCEFE","len":224}]}]}
