@@ -18,3 +18,10 @@ set_tests_properties(tcli PROPERTIES
   ENVIRONMENT
   "ASAN_OPTIONS=exitcode=86;UBSAN_OPTIONS=exitcode=86:print_stacktrace=1"
   TIMEOUT 900)
+# tbl: interop with rmoriebricklayer, live, both ways (tests/interop/
+# run.sh); skipped (exit 77) without Rscript and the R package
+if(NOT WIN32)
+  add_test(NAME tbl COMMAND sh ${PROJECT_SOURCE_DIR}/tests/interop/run.sh
+           $<TARGET_FILE:nqcli> ${PROJECT_SOURCE_DIR}/tests)
+  set_tests_properties(tbl PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+endif()

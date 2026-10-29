@@ -8,7 +8,9 @@
  *
  * With tsad (tests/cli/tsad.c, a local TSA) it also runs seal --tsa and
  * check --anchor, and makes every check nqchk reports fail (the names are
- * read from src/cap/chk.c) to see that check says what to do about it.
+ * read from src/cap/chk.c) to see that check says what to do about it,
+ * and checks the capsules and bundle rmoriebricklayer made
+ * (vectors/interop/bl).
  * The live TSA uses openssl when it is on the PATH.
  *
  * NQCLIWRAP, when set, is put in front of every command (for example
@@ -861,6 +863,89 @@ static void tts(void) {
   ok(has("q.out", "\"ok\":true"), "check --anchor --json");
 }
 
+/* ---- rmoriebricklayer interop: its fixtures, checked by noqtis ----
+ *
+ * vectors/interop/bl (tests/interop/gen.sh): two capsules sealed by
+ * rmoriebricklayer in the noqtis format, and one of its own bundles,
+ * whose attestation signature and file digests noqtis checks. */
+
+static void tbl(void) {
+  static const char *caps[] = {"mldsa", "slh"};
+  static const char *files[] = {"data/table.csv", "readme.txt",
+                                "noqtis.json", "noqtis.sig"};
+  char p[1200], k[1200], qp[1300], qk[1300], c[6000], f[1300];
+  size_t i, j, n;
+  unsigned char *b;
+  for (i = 0; i < 2; i++) {
+    snprintf(c, sizeof c, "vectors/interop/bl/%s", caps[i]);
+    src(p, sizeof p, c);
+    snprintf(c, sizeof c, "vectors/interop/bl/%s.pub", caps[i]);
+    src(k, sizeof k, c);
+    quoted(qp, sizeof qp, p);
+    quoted(qk, sizeof qk, k);
+    snprintf(c, sizeof c, "check -p %s %s", qk, qp);
+    want(0, c, NULL);
+    ok(has("q.out", "OK (") && has("q.out", "signature over noqtis.json "
+       "is valid"), "a capsule sealed by rmoriebricklayer checks");
+    snprintf(c, sizeof c, "check -p q.c.pub %s", qp);
+    want(1, c, NULL);
+    /* a copy with one file changed fails */
+    rmdirs("qbl");
+    mkd("qbl");
+    mkd("qbl/data");
+    for (j = 0; j < 4; j++) {
+      char t[64];
+      snprintf(f, sizeof f, "%s/%s", p, files[j]);
+      snprintf(t, sizeof t, "qbl/%s", files[j]);
+      cp(f, t);
+    }
+    snprintf(c, sizeof c, "check -p %s qbl", qk);
+    want(0, c, NULL);
+    wrs("qbl/readme.txt", "changed\n");
+    want(1, c, NULL);
+    ok(has("q.out", "FAIL  file") && has("q.out", "readme.txt"),
+       "a changed file in rmoriebricklayer's capsule fails");
+  }
+  /* its own bundle: the attestation signature, under its context */
+  src(p, sizeof p, "vectors/interop/bl/bundle/attest.ctx");
+  b = rd(p, &n);
+  ok(b != NULL && n > 0 && n < 200, "the bundle's context");
+  if (b == NULL)
+    return;
+  src(p, sizeof p, "vectors/interop/bl/bundle");
+#ifdef _WIN32
+  snprintf(c, sizeof c, "verify -p \"%s/attest.pub\" -s \"%s/attest.sig\" "
+           "-c %s \"%s/attest.msg\"", p, p, (char *)b, p);
+#else
+  snprintf(c, sizeof c, "verify -p '%s/attest.pub' -s '%s/attest.sig' "
+           "-c %s '%s/attest.msg'", p, p, (char *)b, p);
+#endif
+  want(0, c, NULL);
+  ok(has("q.out", "attest.msg: OK (ML-DSA-65)"),
+     "noqtis verifies rmoriebricklayer's attestation signature");
+  free(b);
+  /* and the SHA-256 it recorded of each file */
+  snprintf(f, sizeof f, "%s/files.sha256", p);
+  b = rd(f, &n);
+  ok(b != NULL, "the bundle's file digests");
+  if (b != NULL) {
+    FILE *o = fopen("q.blsums", "wb");
+    char *l = (char *)b, *e;
+    while (o != NULL && (e = strchr(l, '\n')) != NULL) {
+      *e = '\0';
+      if (strlen(l) > 66)
+        fprintf(o, "%.64s  %s/files/%s\n", l, p, l + 66);
+      l = e + 1;
+    }
+    if (o != NULL)
+      fclose(o);
+    free(b);
+    want(0, "hash --check q.blsums", NULL);
+    ok(has("q.out", "table.csv: OK") && has("q.out", "readme.txt: OK"),
+       "the files match the digests rmoriebricklayer bundled");
+  }
+}
+
 /* ---- every refusal of check says what failed and what to do ---- */
 
 /* the check names nqchk can report, read from src/cap/chk.c */
@@ -1179,6 +1264,7 @@ int main(int argc, char **argv) {
   if (tsad != NULL) {
     tts();
     trefuse();
+    tbl();
   }
   printf("tcli: %d checks, %d failed\n", nrun, nbad);
   return nbad == 0 ? 0 : 1;
