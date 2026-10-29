@@ -6,3 +6,7 @@ tests/vectors/** -text
 *.c text eol=lf
 *.h text eol=lf
 *.sh text eol=lf
+# The R binding ships copies of the golden capsule and TSA files: keep
+# their bytes too.
+bindings/r/inst/extdata/** -text
+bindings/r/tests/testthat/fixtures/** -text
