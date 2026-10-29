@@ -1,4 +1,4 @@
-# NOQTIS
+# NOQTIS <img src="docs/logo/noqtis-hex.svg" align="right" height="139" alt="NOQTIS hex logo" />
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16049/badge)](https://www.bestpractices.dev/projects/16049)
 

@@ -16,6 +16,8 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "NOQTIS",
+      logo: { src: "./src/assets/noqtis-hex.svg" },
+      favicon: "/favicon.svg",
       description:
         "Post-quantum signatures and sealed, checkable records of the " +
         "exact files a result came from. C11, no dependencies.",
