@@ -217,6 +217,7 @@ int nqchk(const char *dir, const uint8_t *trust, size_t trustlen,
 int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
            const uint8_t *const *anc, const size_t *anclen,
            size_t nanc, nqrep **rep);
+int nqinsp(const char *dir, nqrep **rep);
 size_t nqrepn(const nqrep *r);
 int nqrepi(const nqrep *r, size_t i, const char **check, int *ok,
            const char **detail);
@@ -235,6 +236,7 @@ int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
 | `nqchk` | checks `dir`; `trust` is the pinned public key or `NULL` to accept the seal's | `NQOK` all passed; `NQEVRFY` some failed (report set); `NQEARG`, `NQEMEM` (no report) |
 | `nqchkt` | `nqchk` with up to 32 DER TSA anchors; the seal must then carry a timestamp that verifies under one | as `nqchk`; also `NQELIM` for more than 32 anchors |
 | `nqrepn` | number of rows (0 for `NULL`) | — |
+| `nqinsp` | reads `dir`'s seal and manifest with `nqchk`'s strict readers and checks nothing; on success the report ends with `info.*` rows (format, alg, key fingerprint, created, files, bytes, timestamp, meta) | `NQOK`; `NQEDEC` one does not parse (report set); `NQEARG`, `NQEMEM` (no report) |
 | `nqrepi` | row `i`: check name, 1/0, detail; strings live until `nqrepfree` | `NQOK`, `NQEARG` |
 | `nqrepfree` | frees and wipes the report; `NULL` allowed | — |
 | `nqtsreq` | the RFC 3161 `TimeStampReq` for the seal in `dir`: SHA-256 of its signature, the nonce (≤ 32 bytes, or `NULL`), certReq; at most 128 bytes | `NQOK`; `NQEARG`, `NQEBUF`, `NQEDEC` (not a canonical seal), `NQEIO` |
@@ -247,6 +249,7 @@ Without anchors (`nqchk`), a seal that carries a timestamp fails its
 [nqseal(3)](/noqtis/reference/man/nqseal-3/),
 [nqchk(3)](/noqtis/reference/man/nqchk-3/),
 [nqchkt(3)](/noqtis/reference/man/nqchkt-3/),
+[nqinsp(3)](/noqtis/reference/man/nqinsp-3/),
 [nqtsput(3)](/noqtis/reference/man/nqtsput-3/)
 
 The library makes no network request: send the bytes from `nqtsreq` to

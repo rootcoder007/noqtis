@@ -644,9 +644,20 @@ static void diag(nqrep *r, const char *buf, size_t n, const scan *c) {
   nqjfree(v);
 }
 
-/* scans the manifest; with l (the folder), checks each entry as read */
+/* what nqinsp reads from a manifest the scan accepted */
+typedef struct {
+  uint64_t files;
+  uint64_t bytes;
+  int big;          /* the sizes add up past 2^64 - 1 */
+  char cr[64];      /* created */
+  const char *meta; /* the canonical meta object in the manifest, or NULL */
+  size_t metan;
+} insp;
+
+/* scans the manifest; with l (the folder), checks each entry as read; with
+ * in, collects what nqinsp reports */
 static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
-                   const nqclist *l) {
+                   const nqclist *l, insp *in) {
   char cr[64], fmt[64];
   size_t crn = 0, fmn = 0, cnt = 0;
   unsigned char *seen = NULL;
@@ -708,6 +719,10 @@ static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
       }
       chkent(r, dir, l, seen, e);
       if (r->err != NQOK) goto out;
+      if (in != NULL) {
+        if (in->bytes > UINT64_MAX - e->size) in->big = 1;
+        in->bytes += e->size;
+      }
       t = prev;
       prev = e;
       e = t;
@@ -747,6 +762,10 @@ static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
       c.err = "meta is not a canonical JSON object";
       goto bad;
     }
+    if (in != NULL) {
+      in->meta = buf + ms;
+      in->metan = ml;
+    }
   } else if (!lit(&c, "}") || c.i != n) {
     c.err = "unknown fields after format, or bytes after the manifest";
     goto bad;
@@ -764,6 +783,10 @@ static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
   add(r, "manifest.order", order,
       order ? "files sorted by path, no repeats" : "files not sorted by path",
       NULL, NULL);
+  if (in != NULL) {
+    in->files = cnt;
+    memcpy(in->cr, cr, crn + 1);
+  }
   if (l != NULL) chkrest(r, l, seen);
   goto out;
 bad:
@@ -866,7 +889,7 @@ int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
       add(r, "folder", lok, lok ? "listed" : "cannot list: ",
           lok ? NULL : nqerr(rc), NULL);
     }
-    if (r->err == NQOK) chkman(r, dir, mb, mn, lok ? &l : NULL);
+    if (r->err == NQOK) chkman(r, dir, mb, mn, lok ? &l : NULL, NULL);
     nqclfree(&l);
   }
 
@@ -882,4 +905,86 @@ int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
   if (r->n == 0) add(r, "seal.read", 0, "nothing checked", NULL, NULL);
   *rep = r;
   return r->bad ? NQEVRFY : NQOK;
+}
+
+/* ---- nqinsp: what a capsule says, nothing checked ---- */
+
+static void u64s(uint64_t v, char out[24]) {
+  char t[24];
+  size_t i = 0, j = 0;
+  do {
+    t[i++] = (char)('0' + (int)(v % 10));
+    v /= 10;
+  } while (v != 0);
+  while (i > 0) out[j++] = t[--i];
+  out[j] = 0;
+}
+
+int nqinsp(const char *dir, nqrep **rep) {
+  nqrep *r;
+  seal s;
+  insp in;
+  char *mb = NULL;
+  size_t mn = 0;
+  int rc;
+  if (rep != NULL) *rep = NULL;
+  if (dir == NULL || rep == NULL) return NQEARG;
+  r = (nqrep *)nqmal(sizeof *r);
+  if (r == NULL) return NQEMEM;
+  memset(r, 0, sizeof *r);
+  memset(&s, 0, sizeof s);
+  memset(&in, 0, sizeof in);
+  /* the same strict readers as nqchk: the seal, then the manifest in its
+   * canonical layout; no digest, signature, timestamp or file is checked */
+  rdseal(r, dir, &s);
+  rc = nqcread(dir, NQCMAN, nqclim.man, &mb, &mn);
+  if (rc == NQEMEM) r->err = rc;
+  if (rc == NQELIM) {
+    add(r, "manifest.read", 0, NQCMAN, ": manifest too large", NULL);
+  } else {
+    add(r, "manifest.read", rc == NQOK, NQCMAN, rc == NQOK ? "" : ": ",
+        rc == NQOK ? NULL : nqerr(rc));
+  }
+  if (rc == NQOK && r->err == NQOK) chkman(r, dir, mb, mn, NULL, &in);
+  if (r->err == NQOK && !r->bad && s.ok) {
+    uint8_t fp[32];
+    char hx[65], num[24];
+    add(r, "info.format", 1, NQCFMT, NULL, NULL);
+    add(r, "info.alg", 1, s.an, NULL, NULL);
+    if (nqhash(NQS256, s.pk, s.pkn, fp, 32) == NQOK) {
+      nqhex(fp, 32, hx);
+      add(r, "info.key", 1, hx, NULL, NULL);
+    }
+    add(r, "info.created", 1, in.cr, NULL, NULL);
+    u64s(in.files, num);
+    add(r, "info.files", 1, num, NULL, NULL);
+    u64s(in.bytes, num);
+    add(r, "info.bytes", 1, in.big ? "more than 18446744073709551615" : num,
+        NULL, NULL);
+    add(r, "info.timestamp", 1, s.tsb != NULL ? "present" : "none", NULL,
+        NULL);
+    if (in.meta != NULL) {
+      /* canonical JSON escapes NUL, so the copy is a C string */
+      char *m = (char *)nqmal(in.metan + 1);
+      if (m == NULL) {
+        r->err = NQEMEM;
+      } else {
+        memcpy(m, in.meta, in.metan);
+        m[in.metan] = 0;
+        add(r, "info.meta", 1, m, NULL, NULL);
+        nqfree(m, in.metan + 1);
+      }
+    }
+  }
+  if (mb != NULL) nqfree(mb, mn + 1);
+  nqjfree(s.v);
+  nqfree(s.pk, s.sz.pk);
+  nqfree(s.sig, s.sz.sig);
+  if (r->err != NQOK) {
+    rc = r->err;
+    nqrepfree(r);
+    return rc;
+  }
+  *rep = r;
+  return r->bad ? NQEDEC : NQOK;
 }

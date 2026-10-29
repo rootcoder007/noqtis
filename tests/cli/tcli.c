@@ -1003,6 +1003,8 @@ static void rdnames(void) {
     while (i < n && b[i] != '"' && k < 31)
       names[nnames][k++] = (char)b[i++];
     names[nnames][k] = '\0';
+    if (strncmp(names[nnames], "info.", 5) == 0)
+      continue; /* nqinsp's facts: never a failing check */
     for (j = 0; j < nnames; j++)
       dup |= strcmp(names[j], names[nnames]) == 0;
     if (!dup && nnames < 63)
@@ -1248,6 +1250,53 @@ static void trefuse(void) {
   ok(has("q.out", "\"fix\":\""), "check --json gives the fix");
 }
 
+/* noqtis inspect: what a capsule says, nothing checked */
+static void tinsp(void) {
+  want(0, "keygen -a ML-DSA-44 -o q.ik --force", NULL);
+  rmdirs("qins");
+  mkd("qins");
+  mkd("qins/sub");
+  wrs("qins/a.txt", "first\n");
+  wrs("qins/sub/b.txt", "second line\n");
+  wrs("q.meta", "{\"project\":\"demo\",\"n\":2}");
+  want(0, "seal -k q.ik --meta q.meta qins", NULL);
+  want(0, "inspect qins", NULL);
+  ok(has("q.out", "format     noqtis-capsule-1\n"), "inspect: format");
+  ok(has("q.out", "alg        ML-DSA-44\n"), "inspect: alg");
+  ok(has("q.out", "files      2\n"), "inspect: files");
+  ok(has("q.out", "bytes      18\n"), "inspect: bytes");
+  ok(has("q.out", "timestamp  none\n"), "inspect: no timestamp");
+  ok(has("q.out", "meta       {\"n\":2,\"project\":\"demo\"}\n"),
+     "inspect: canonical meta");
+  ok(has("q.out", "created    20"), "inspect: created");
+  ok(has("q.out", "not checked"), "inspect says nothing was checked");
+  ok(!has("q.out", "OK"), "inspect never says OK");
+  want(0, "inspect --json qins", NULL);
+  ok(has("q.out", "\"checked\":false,\"format\":\"noqtis-capsule-1\","
+         "\"alg\":\"ML-DSA-44\",\"key_sha256\":\""),
+     "inspect --json: fields");
+  ok(has("q.out", "\"files\":2,\"bytes\":18,\"timestamp\":false,"
+         "\"meta\":{\"n\":2,\"project\":\"demo\"}}"),
+     "inspect --json: counts, timestamp and meta");
+  /* a changed file: inspect reads, check fails */
+  wrs("qins/a.txt", "changed\n");
+  want(0, "inspect qins", NULL);
+  want(1, "check qins", NULL);
+  /* a seal that does not parse */
+  wrs("qins/noqtis.sig", "not json");
+  want(1, "inspect qins", NULL);
+  ok(has("q.out", "FAIL  seal.parse"), "inspect: a broken seal");
+  ok(has("q.out", "cannot be read as a capsule"), "inspect: says so");
+  want(1, "inspect --json qins", NULL);
+  ok(has("q.out", "\"errors\":[{\"check\":\"seal.parse\""),
+     "inspect --json: the failing rows");
+  want(2, "inspect", NULL);
+  want(2, "inspect no-such-folder", NULL);
+  want(2, "inspect --bogus qins", NULL);
+  want(0, "help inspect", NULL);
+  rmdirs("qins");
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -1294,6 +1343,7 @@ int main(int argc, char **argv) {
     tkem(kems[i]);
   thash();
   tcap();
+  tinsp();
   if (tsad != NULL) {
     tts();
     trefuse();

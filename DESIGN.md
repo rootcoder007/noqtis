@@ -91,7 +91,7 @@ ACVP HMAC vectors; Wycheproof has no HMAC set in
 | M7 | `cls` | verification only: RSA PKCS#1 v1.5 and PSS (2048-4096), ECDSA P-256 and P-384 | Wycheproof RSA and ECDSA, OpenSSL 3.5 differential fuzz |
 | M8 | `der` | strict DER reader (length, tag and depth limits), X.509 path checks, OCSP, CRL, RFC 3161 timestamp tokens | the rmoriebricklayer 1.0.3 x509/timestamp fixtures, libFuzzer corpus, positional-parse tests |
 | M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer |
-| M10 | `cli` | `noqtis keygen / sign / verify / enc / dec / hash / seal / check / algs / version` (`timestamp` and `inspect` planned) | golden-output tests, exit codes, fuzzed arguments |
+| M10 | `cli` | `noqtis keygen / sign / verify / enc / dec / hash / seal / check / inspect / algs / version` (`timestamp` planned) | golden-output tests, exit codes, fuzzed arguments |
 | M11 | `port` | platform layer for files and paths (Windows wide-char), symbol visibility, shared-library versioning, `noqtis.pc` and CMake package config | the full suite passes on every platform in the CI matrix |
 | M12 | `bind` | WebAssembly build and the npm, PyPI and CRAN packages first, then the other bindings | each binding's own tests on every platform it supports |
 

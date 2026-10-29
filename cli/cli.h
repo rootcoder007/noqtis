@@ -134,5 +134,6 @@ int ncdec(int argc, char **argv);
 int nchash(int argc, char **argv);
 int ncseal(int argc, char **argv);
 int ncchk(int argc, char **argv);
+int ncinsp(int argc, char **argv);
 
 #endif /* NQCLI_H */

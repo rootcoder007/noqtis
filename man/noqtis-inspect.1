@@ -1,0 +1,99 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 29, 2026
+.Dt NOQTIS-INSPECT 1
+.Os
+.Sh NAME
+.Nm noqtis-inspect
+.Nd show what a capsule says, without checking it
+.Sh SYNOPSIS
+.Nm noqtis inspect
+.Op Fl j | Fl -json
+.Ar dir
+.Sh DESCRIPTION
+.Nm noqtis inspect
+reads the seal
+.Pa noqtis.sig
+and the manifest
+.Pa noqtis.json
+of the capsule
+.Ar dir
+.Pq Xr noqtis-capsule 5
+with the same strict readers as
+.Xr noqtis-check 1
+and prints what they say:
+.Bl -tag -width timestamp
+.It format
+the manifest's format,
+.Ql noqtis-capsule-1
+.It alg
+the seal's signature algorithm
+.It key
+the SHA-256 of the seal's public key, in hex: the key's fingerprint
+.It created
+the manifest's creation time (RFC 3339, UTC)
+.It files
+the number of files the manifest lists
+.It bytes
+their total size
+.It timestamp
+.Ql present
+when the seal carries an RFC 3161 timestamp,
+.Ql none
+otherwise
+.It meta
+the manifest's
+.Ql meta
+object (canonical JSON), when it has one
+.El
+.Pp
+Nothing is checked: not the manifest's digest, the signature, the
+timestamp or any file.
+The last line says so; run
+.Xr noqtis-check 1
+to check the capsule.
+When the seal or the manifest does not parse, the failing rows are
+printed as by
+.Xr noqtis-check 1 .
+.Bl -tag -width Ds
+.It Fl j , Fl -json
+Print one line of JSON instead:
+.Bd -literal
+{"capsule":"<dir>","checked":false,"format":"<format>","alg":"<alg>",
+ "key_sha256":"<hex>","created":"<time>","files":<n>,"bytes":<n>,
+ "timestamp":<bool>,"meta":<object or null>}
+.Ed
+.Pp
+or, when the capsule cannot be read,
+.Bd -literal
+{"capsule":"<dir>","checked":false,
+ "errors":[{"check":"<name>","detail":"<text>"},...]}
+.Ed
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+the seal and the manifest parse (nothing is checked)
+.It 1
+one of them does not parse
+.It 2
+a usage error, or no such folder
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis inspect results
+format     noqtis-capsule-1
+alg        ML-DSA-65
+key        da278e20d47d35382abfa1c10352e1800c33fb5b1a2b725fc24ef18200b41ef7
+created    2026-10-29T14:59:18Z
+files      2
+bytes      6
+timestamp  none
+meta       {"project":"demo"}
+results: read, not checked (run `noqtis check` to check it)
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqinsp 3 ,
+.Xr noqtis-capsule 5

@@ -82,6 +82,13 @@ static const nccmd cmds[] = {
    "            seal must then carry a timestamp that verifies under one\n"
    "            of them. Without --anchor, a timestamped seal fails its\n"
    "            timestamp check (it cannot be checked).\n"},
+  {"inspect", ncinsp, "show what a capsule says (nothing checked)",
+   "usage: noqtis inspect [--json] <dir>\n"
+   "  Prints the seal's format, algorithm and key fingerprint (SHA-256 of\n"
+   "  the public key), the manifest's created time, meta, number of files\n"
+   "  and total size, and whether a timestamp is there. Nothing is\n"
+   "  checked: run `noqtis check` for that. Exit 0 when the seal and the\n"
+   "  manifest parse, 1 when one does not, 2 on a usage or folder error.\n"},
   {"algs", ncalgs, "list algorithms and sizes",
    "usage: noqtis algs\n"},
   {"version", ncver, "print the version",

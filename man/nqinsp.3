@@ -1,0 +1,76 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 29, 2026
+.Dt NQINSP 3
+.Os
+.Sh NAME
+.Nm nqinsp
+.Nd read what a capsule says, without checking it
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqinsp "const char *dir" "nqrep **rep"
+.Sh DESCRIPTION
+.Fn nqinsp
+reads the seal
+.Pa noqtis.sig
+and the manifest
+.Pa noqtis.json
+of the capsule in
+.Fa dir
+.Pq Xr noqtis-capsule 5
+with the same strict readers as
+.Xr nqchk 3
+(canonical JSON, the exact fields, the manifest in its canonical layout)
+and stores a report in
+.Fa *rep
+.Pq Xr nqrep 3 .
+It checks nothing else: not the manifest's SHA-256, the signature, the
+timestamp or any file in the folder.
+.Pp
+When both parse, the report ends with rows that always pass, one per
+fact:
+.Bl -tag -width info.timestamp
+.It Ql info.format
+the manifest's format
+.It Ql info.alg
+the seal's algorithm
+.It Ql info.key
+the SHA-256 of the seal's public key, 64 lower-case hex digits
+.It Ql info.created
+the creation time
+.It Ql info.files
+the number of files listed, in decimal
+.It Ql info.bytes
+their total size, in decimal
+.It Ql info.timestamp
+.Ql present
+or
+.Ql none
+.It Ql info.meta
+the manifest's meta object as canonical JSON, only when it has one
+.El
+.Pp
+Before them come the rows of the strict readers
+.Pq Ql seal.* , Ql manifest.* , Ql path ,
+as in
+.Xr nqchk 3 .
+.Sh RETURN VALUES
+.Dv NQOK
+when the seal and the manifest parse;
+.Dv NQEDEC
+when one does not
+.Pf ( Fa *rep
+holds the failing rows);
+.Dv NQEARG
+for a NULL argument and
+.Dv NQEMEM
+when memory runs out (no report).
+Free the report with
+.Fn nqrepfree .
+.Sh SEE ALSO
+.Xr noqtis-inspect 1 ,
+.Xr nqchk 3 ,
+.Xr nqrep 3 ,
+.Xr noqtis-capsule 5

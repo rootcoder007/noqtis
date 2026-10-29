@@ -95,6 +95,14 @@ static void run(const uint8_t *trust, size_t tn, const uint8_t *anc,
     rc = nqchk(dir, trust, tn, &r);
   }
   if ((rc == NQOK || rc == NQEVRFY) != (r != NULL)) abort();
+  {
+    /* nqinsp reads the same seal and manifest with the same readers */
+    nqrep *q = NULL;
+    int qc = nqinsp(dir, &q);
+    if ((qc == NQOK || qc == NQEDEC) != (q != NULL)) abort();
+    if (qc == NQOK && q != NULL && nqrepn(q) < 7) abort();
+    nqrepfree(q);
+  }
   for (i = 0; i < nqrepn(r); i++) {
     const char *c, *d;
     int ok;

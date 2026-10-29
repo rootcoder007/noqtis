@@ -204,6 +204,15 @@ NQAPI int nqchk(const char *dir, const uint8_t *trust, size_t trustlen,
 NQAPI int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
                  const uint8_t *const *anc, const size_t *anclen,
                  size_t nanc, nqrep **rep);
+/* What the capsule in dir says, read with nqchk's strict readers but with
+ * nothing checked: no digest, signature, timestamp or file. NQOK when the
+ * seal and the manifest parse: the report then ends with info.format,
+ * info.alg, info.key (the SHA-256 of the seal's public key, hex),
+ * info.created, info.files, info.bytes, info.timestamp ("present" or
+ * "none") and, when the manifest has one, info.meta (canonical JSON).
+ * NQEDEC when one does not parse (*rep holds the failing rows); NQEARG and
+ * NQEMEM return no report. Free it with nqrepfree. */
+NQAPI int nqinsp(const char *dir, nqrep **rep);
 NQAPI size_t nqrepn(const nqrep *r);
 NQAPI int nqrepi(const nqrep *r, size_t i, const char **check, int *ok,
                  const char **detail);

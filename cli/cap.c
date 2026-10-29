@@ -501,3 +501,117 @@ int ncchk(int argc, char **argv) {
   fflush(stdout);
   return ret;
 }
+
+/* the value of an info.* row of an nqinsp report, or NULL */
+static const char *info(const nqrep *r, const char *name) {
+  size_t i, n = nqrepn(r);
+  for (i = 0; i < n; i++) {
+    const char *c = NULL, *d = NULL;
+    if (nqrepi(r, i, &c, NULL, &d) == NQOK && c != NULL &&
+        strcmp(c, name) == 0)
+      return d;
+  }
+  return NULL;
+}
+
+int ncinsp(int argc, char **argv) {
+  static const char *const rows[][2] = {
+    {"format", "info.format"}, {"alg", "info.alg"},
+    {"key", "info.key"}, {"created", "info.created"},
+    {"files", "info.files"}, {"bytes", "info.bytes"},
+    {"timestamp", "info.timestamp"}, {"meta", "info.meta"}
+  };
+  int json = 0, help = 0, np, rc, ret;
+  ncopt o[] = {{'j', "json", 0, NULL, &json}};
+  nqrep *r = NULL;
+  size_t i, n;
+
+  if (ncargs("inspect", argc, argv, o, sizeof o / sizeof o[0], &np,
+             &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "inspect");
+    return NCOK;
+  }
+  if (np != 1) {
+    ncuse(stderr, "inspect");
+    return NCUSE;
+  }
+  if (!ncexist(argv[0])) {
+    ncmsg("inspect", "%s: no such folder (give the folder that holds "
+          "noqtis.json and noqtis.sig)", argv[0]);
+    return NCUSE;
+  }
+  rc = nqinsp(argv[0], &r);
+  if (rc != NQOK && rc != NQEDEC) {
+    ncmsg("inspect", "%s: %s", argv[0], nqerr(rc));
+    return NCUSE;
+  }
+  ret = rc == NQOK ? NCOK : NCBAD;
+  n = nqrepn(r);
+  if (json) {
+    fputs("{\"capsule\":", stdout);
+    jstr(argv[0]);
+    fputs(",\"checked\":false", stdout);
+    if (ret == NCOK) {
+      const char *v;
+      fputs(",\"format\":", stdout);
+      jstr(info(r, "info.format"));
+      fputs(",\"alg\":", stdout);
+      jstr(info(r, "info.alg"));
+      fputs(",\"key_sha256\":", stdout);
+      jstr(info(r, "info.key"));
+      fputs(",\"created\":", stdout);
+      jstr(info(r, "info.created"));
+      printf(",\"files\":%s", info(r, "info.files"));
+      v = info(r, "info.bytes");
+      if (v != NULL && v[0] >= '0' && v[0] <= '9') {
+        printf(",\"bytes\":%s", v);
+      } else {
+        fputs(",\"bytes\":", stdout);
+        jstr(v);
+      }
+      v = info(r, "info.timestamp");
+      printf(",\"timestamp\":%s",
+             v != NULL && strcmp(v, "present") == 0 ? "true" : "false");
+      /* meta is canonical JSON already */
+      v = info(r, "info.meta");
+      printf(",\"meta\":%s}\n", v != NULL ? v : "null");
+    } else {
+      int first = 1;
+      fputs(",\"errors\":[", stdout);
+      for (i = 0; i < n; i++) {
+        const char *c = NULL, *d = NULL;
+        int ok = 1;
+        if (nqrepi(r, i, &c, &ok, &d) != NQOK || ok)
+          continue;
+        fputs(first ? "{\"check\":" : ",{\"check\":", stdout);
+        first = 0;
+        jstr(c);
+        fputs(",\"detail\":", stdout);
+        jstr(d != NULL ? d : "");
+        putchar('}');
+      }
+      fputs("]}\n", stdout);
+    }
+  } else if (ret == NCOK) {
+    for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
+      const char *v = info(r, rows[i][1]);
+      if (v != NULL)
+        printf("%-9s  %s\n", rows[i][0], v);
+    }
+    printf("%s: read, not checked (run `noqtis check` to check it)\n",
+           argv[0]);
+  } else {
+    for (i = 0; i < n; i++) {
+      const char *c = NULL, *d = NULL;
+      int ok = 1;
+      if (nqrepi(r, i, &c, &ok, &d) == NQOK && !ok)
+        printf("FAIL  %s  %s\n", c, d != NULL ? d : "");
+    }
+    printf("%s: cannot be read as a capsule\n", argv[0]);
+  }
+  nqrepfree(r);
+  fflush(stdout);
+  return ret;
+}
