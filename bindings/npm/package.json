@@ -76,7 +76,7 @@
     "./lib/node.cjs": false
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "scripts": {
     "build": "sh build.sh",

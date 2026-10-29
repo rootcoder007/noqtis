@@ -107,9 +107,8 @@ The CommonJS `require('noqtis/node')` functions return promises.
 
 ## Security notes
 
-- Randomness comes only from `crypto.getRandomValues` (on Node 18,
-  `node:crypto`'s WebCrypto); if it is missing or fails, the call throws
-  `ERNG`. There is no fallback.
+- Randomness comes only from `crypto.getRandomValues`; if it is missing
+  or fails, the call throws `ERNG`. There is no fallback.
 - Every buffer the wrapper places in WebAssembly memory (keys, seeds,
   messages, shared secrets) is wiped before it is freed. The `Uint8Array`
   results you receive are ordinary JavaScript memory: wipe them yourself

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # The npm package (bindings/npm): builds the library to WebAssembly with
-# the pinned emsdk, runs the package's tests on Node 18, 20 and 22 (with
+# the pinned emsdk, runs the package's tests on Node 22, 24 and 26 (with
 # the native CLI built beside it for the cross-checks), type-checks the
 # declarations and dry-runs `npm pack`. On a release tag of a public
 # repository, publishes to npm with provenance; while the repository is
@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["18", "20", "22"]
+        node: ["22", "24", "26"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
@@ -98,7 +98,7 @@ jobs:
           actions-cache-folder: emsdk-cache
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
       - name: build the WebAssembly module
         run: sh bindings/npm/build.sh
