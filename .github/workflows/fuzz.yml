@@ -32,7 +32,7 @@ jobs:
       fail-fast: false
       matrix:
         target: [fder, fx509, focsp, ftsp, fcls, fjson, fenc, fcap, fkey,
-                 fsig]
+                 fsig, fcli]
     env:
       EVENT: ${{ github.event_name }}
       TARGET: ${{ matrix.target }}

@@ -40,7 +40,7 @@ else
 fi
 export CC CFLAGS top
 
-mkdir -p "$out/obj/lib" "$out/obj/cli" "$out/fix/cap/data/deep"
+mkdir -p "$out/obj/lib" "$out/obj/cli" "$out/obj/clif" "$out/fix/cap/data/deep"
 obj=$out/obj
 
 # one object per source, NQJ at a time
@@ -54,6 +54,12 @@ done > "$obj/cli.lst"
 cat "$obj/lib.lst" "$obj/cli.lst" | xargs -P "$NQJ" -n 2 sh -c '
   $CC $CFLAGS -std=c11 -I"$top/include" -I"$top/src" -I"$top/cli" \
     -c "$0" -o "$1"'
+# the whole tool, its main renamed, for fcli (fuzzed arguments)
+for f in "$top"/cli/*.c; do
+  printf '%s %s\n' "$f" "$obj/clif/$(basename "$f" .c).o"
+done | xargs -P "$NQJ" -n 2 sh -c '
+  $CC $CFLAGS -std=c11 -Dmain=nqclimain -I"$top/include" -I"$top/src" \
+    -I"$top/cli" -c "$0" -o "$1"'
 rm -f "$obj/libnq.a" "$obj/libnqcli.a"
 ar rcs "$obj/libnq.a" "$obj"/lib/*.o
 ar rcs "$obj/libnqcli.a" "$obj"/cli/*.o
@@ -62,9 +68,23 @@ for f in "$top"/fuzz/f*.c; do
   t=$(basename "$f" .c)
   $CC $CFLAGS -std=c11 -I"$top/include" -I"$top/src" -I"$top/cli" \
     -I"$top/fuzz" -c "$f" -o "$obj/$t.o"
-  $LD $LDFLAGS "$obj/$t.o" "$obj/libnqcli.a" "$obj/libnq.a" \
-    $LIB_FUZZING_ENGINE -o "$out/$t"
+  if [ "$t" = fcli ]; then
+    $LD $LDFLAGS "$obj/$t.o" "$obj"/clif/*.o "$obj/libnq.a" -pthread \
+      $LIB_FUZZING_ENGINE -o "$out/$t"
+  else
+    $LD $LDFLAGS "$obj/$t.o" "$obj/libnqcli.a" "$obj/libnq.a" \
+      $LIB_FUZZING_ENGINE -o "$out/$t"
+  fi
 done
+
+# with NQOSSL=1, the differential target against OpenSSL 3.5 or later
+# (fuzz/ossl/; not for OSS-Fuzz, which has no OpenSSL 3.5)
+if [ "${NQOSSL:-0}" = 1 ]; then
+  $CC $CFLAGS -std=c11 -I"$top/include" -I"$top/src" \
+    -c "$top/fuzz/ossl/fdiff.c" -o "$obj/fdiff.o"
+  $LD $LDFLAGS "$obj/fdiff.o" "$obj/libnq.a" -lcrypto \
+    $LIB_FUZZING_ENGINE -o "$out/fdiff"
+fi
 
 # the fixtures (fz.h: fix/ beside the targets)
 d=$top/tests/vectors

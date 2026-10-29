@@ -121,6 +121,21 @@ if(NQTESTS)
   target_link_libraries(nquse PRIVATE noqtis)
   target_compile_options(nquse PRIVATE ${NQWARN})
   add_test(NAME nquse COMMAND nquse)
+  # the cross-check against OpenSSL 3.5 or later (tests/ossl), where it
+  # is found: the same keys, signatures, ciphertexts and digests
+  option(NQOSSL "cross-check against OpenSSL 3.5 when it is found" ON)
+  if(NQOSSL)
+    find_package(OpenSSL 3.5 QUIET COMPONENTS Crypto)
+    if(OpenSSL_FOUND)
+      add_executable(xossl tests/ossl/xossl.c)
+      target_link_libraries(xossl PRIVATE nqint OpenSSL::Crypto)
+      target_include_directories(xossl PRIVATE ${PROJECT_SOURCE_DIR}/src
+                                 ${PROJECT_SOURCE_DIR}/tests)
+      target_compile_options(xossl PRIVATE ${NQWARN})
+      add_test(NAME xossl COMMAND xossl)
+      message(STATUS "noqtis: cross-check against OpenSSL ${OPENSSL_VERSION}")
+    endif()
+  endif()
   # the ACVP harnesses, each run on the vector sets in tests/vectors/acvp
   add_subdirectory(acvp)
   # tcli runs the tool as a child process, which emscripten cannot do

@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The cross-check against OpenSSL 3.5 or later on Fedora (its own
+# OpenSSL and clang): tests/ossl/xossl.c compares keys, signatures,
+# ciphertexts and digests byte for byte, and the differential fuzzer
+# fuzz/ossl/fdiff.c runs for 120 seconds on every push and pull request
+# and for an hour every week. A failing input is uploaded as the
+# artifact fdiff.
+name: ossl
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ossl-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  xossl:
+    name: cross-check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # fedora:latest
+    container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+    steps:
+      - name: deps
+        run: dnf -y install gcc cmake make openssl-devel git
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQWERROR=ON 2>&1 |
+            tee cfg.log
+          grep -q "cross-check against OpenSSL 3\.[5-9]" cfg.log
+          cmake --build build -j4 --target xossl
+      - name: cross-check
+        working-directory: tests
+        run: ../build/xossl
+
+  fdiff:
+    name: differential fuzzing
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ github.event_name == 'schedule' && 80 || 20 }}
+    # fedora:latest
+    container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+    env:
+      EVENT: ${{ github.event_name }}
+    steps:
+      - name: deps
+        run: dnf -y install clang compiler-rt openssl-devel git findutils
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build
+        run: CC=clang NQJ=4 NQOSSL=1 fuzz/build.sh build-fuzz
+      - name: fuzz
+        run: |
+          secs=120
+          if [ "$EVENT" = schedule ]; then secs=3600; fi
+          fuzz/run.sh build-fuzz fdiff "$secs" -max_len=4096
+      - name: upload the failing inputs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fdiff
+          path: |
+            build-fuzz/run/fdiff/crash-*
+            build-fuzz/run/fdiff/timeout-*
+            build-fuzz/run/fdiff/oom-*
+          if-no-files-found: ignore
+          retention-days: 30
