@@ -1303,7 +1303,9 @@ static void tinsp(void) {
   ok(has("q.out", "timestamp  none\n"), "inspect: no timestamp");
   ok(has("q.out", "meta       {\"n\":2,\"project\":\"demo\"}\n"),
      "inspect: canonical meta");
-  ok(has("q.out", "created    20"), "inspect: created");
+  /* any year: package builds seal under SOURCE_DATE_EPOCH (Nix: 1980) */
+  ok(has("q.out", "\ncreated    ") && has("q.out", "Z\nfiles      2\n"),
+     "inspect: created");
   ok(has("q.out", "not checked"), "inspect says nothing was checked");
   ok(!has("q.out", "OK"), "inspect never says OK");
   want(0, "inspect --json qins", NULL);
