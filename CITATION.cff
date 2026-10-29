@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# How to cite NOQTIS. The version follows project() in CMakeLists.txt.
+# No doi yet: Zenodo mints one when the first release is published (its
+# metadata comes from .zenodo.json); add it here as `doi:` then.
+cff-version: 1.2.0
+message: "If you use NOQTIS in your work, please cite it as below."
+type: software
+title: "NOQTIS: Notary Of Quantum-safe Traceable Inputs and Seals"
+abstract: >-
+  NOQTIS is a C11 library and command-line tool, with no dependencies,
+  that seals a folder of files (the exact data, code and outputs behind a
+  result) with a post-quantum signature, so that anyone can check later,
+  offline, that every file is unchanged, that nothing was added or
+  removed, and which key sealed it. It implements ML-DSA (FIPS 204),
+  SLH-DSA (FIPS 205), ML-KEM (FIPS 203), HQC, SHA-2 and SHA-3, tested
+  against the NIST ACVP and Wycheproof test vectors.
+authors:
+  - alias: rootcoder007
+  - name: "The NOQTIS contributors"
+version: 0.1.0
+# The licence is Apache-2.0 WITH LLVM-exception (see LICENSE); CFF 1.2.0
+# takes a single SPDX licence identifier, not an expression, so the
+# exception is carried by license-url.
+license: Apache-2.0
+license-url: "https://github.com/rootcoder007/noqtis/blob/main/LICENSE"
+repository-code: "https://github.com/rootcoder007/noqtis"
+url: "https://rootcoder007.github.io/noqtis/"
+keywords:
+  - post-quantum cryptography
+  - digital signatures
+  - provenance
+  - reproducibility
+  - ML-DSA
+  - SLH-DSA
+  - ML-KEM
+  - FIPS 203
+  - FIPS 204
+  - FIPS 205
