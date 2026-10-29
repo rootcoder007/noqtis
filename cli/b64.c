@@ -56,15 +56,15 @@ void ncb64e(const uint8_t *in, size_t len, char *out) {
   size_t i, o = 0, col = 0;
   for (i = 0; i < len; i += 3) {
     uint32_t w = (uint32_t)in[i] << 16;
-    size_t r = len - i;
-    if (r > 1)
+    int two = i + 1 < len, three = i + 2 < len;
+    if (two)
       w |= (uint32_t)in[i + 1] << 8;
-    if (r > 2)
+    if (three)
       w |= in[i + 2];
     out[o++] = b64c((w >> 18) & 63u);
     out[o++] = b64c((w >> 12) & 63u);
-    out[o++] = r > 1 ? b64c((w >> 6) & 63u) : '=';
-    out[o++] = r > 2 ? b64c(w & 63u) : '=';
+    out[o++] = two ? b64c((w >> 6) & 63u) : '=';
+    out[o++] = three ? b64c(w & 63u) : '=';
     col += 4;
     if (col == 64) {
       out[o++] = '\n';

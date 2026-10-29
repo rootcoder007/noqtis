@@ -80,7 +80,9 @@ int nqdhdr(const uint8_t *p, size_t n, nqdtlv *t) {
     if (nb > 4) {
       return NQELIM;
     }
-    if (nb > n - i) {
+    /* i < n is implied by nb <= n - i with nb >= 1; stated so that
+     * a reader (and CodeQL) need not derive it */
+    if (i >= n || nb > n - i) {
       return NQEDEC;
     }
     if (p[i] == 0) {

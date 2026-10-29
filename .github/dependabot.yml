@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Weekly pull requests for the pinned GitHub Actions and the site's npm
+# packages. The library itself has no dependencies.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /docs/site
+    schedule:
+      interval: weekly
+    groups:
+      site:
+        patterns: ["*"]

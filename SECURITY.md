@@ -2,8 +2,11 @@
 
 noqtis has not had an external security audit. Please report a vulnerability
 privately through GitHub's "Report a vulnerability" button on this
-repository (Security tab), not in a public issue. We aim to reply within 7
-days and to publish a fix and advisory within 90 days.
+repository (Security tab,
+<https://github.com/rootcoder007/noqtis/security/advisories/new>), not in
+a public issue. We aim to reply within 7 days and to publish a fix and
+advisory within 90 days. Fixed vulnerabilities are listed at
+<https://github.com/rootcoder007/noqtis/security/advisories>.
 
 ## Release signing key
 
