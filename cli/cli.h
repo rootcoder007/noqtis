@@ -20,7 +20,10 @@
 /* ---- options ---- */
 
 /* One option: -s, --long; arg 1 when it takes a value (stored in *val),
- * else *flag is set to 1. */
+ * NCMANY when it may be given up to NCMAXV times (val is then an array
+ * of NCMAXV and *flag counts the values), else *flag is set to 1. */
+#define NCMANY 2
+#define NCMAXV 32
 typedef struct {
   char s;
   const char *l;
@@ -79,6 +82,17 @@ void nchexe(const uint8_t *in, size_t len, char *out);  /* 2*len chars */
 /* NQEDEC unless in is exactly 2*n hex digits. */
 int nchexd(const char *in, size_t inlen, uint8_t *out, size_t outmax,
            size_t *outlen);
+
+/* ---- the network (net.c) ---- */
+
+/* POSTs body (an RFC 3161 request) to an http:// URL and returns the
+ * reply's body in a new buffer (free it). NCUSE with a sentence in err
+ * on any failure: the URL, the connection, the HTTP status or type. */
+int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
+           size_t *outn, char *err, size_t cap);
+/* NCOK when url is one nchttp can send to (http://host[:port][/path]);
+ * else NCUSE and why in err. No network. */
+int ncurlok(const char *url, char *err, size_t cap);
 
 /* ---- algorithms and keys (key.c) ---- */
 

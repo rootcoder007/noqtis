@@ -10,7 +10,7 @@ set_target_properties(nqcli PROPERTIES OUTPUT_NAME noqtis
 target_link_libraries(nqcli PRIVATE noqtis)
 target_compile_options(nqcli PRIVATE ${NQWARN})
 if(WIN32)
-  target_link_libraries(nqcli PRIVATE shell32)
+  target_link_libraries(nqcli PRIVATE shell32 ws2_32)
   if(NQSHARED)
     # the DLL beside the tool, so it runs from the build tree
     add_custom_command(TARGET nqcli POST_BUILD

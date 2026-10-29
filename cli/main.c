@@ -62,14 +62,26 @@ static const nccmd cmds[] = {
    "          shake128 shake256\n"},
   {"seal", ncseal, "seal a capsule folder",
    "usage: noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>]\n"
-   "                   [--tsa <url>] <dir>\n"
+   "                   [--tsa <url>]... [--anchor <der-file>]... <dir>\n"
    "  Writes noqtis.json and noqtis.sig into <dir>, covering every file.\n"
-   "  The public key defaults to <key>.pub. --tsa is reserved: this build\n"
-   "  does not request timestamps and fails with exit 2.\n"},
+   "  The public key defaults to <key>.pub.\n"
+   "  --tsa     an RFC 3161 time-stamping authority (http:// only; the\n"
+   "            token is signed). The seal holds one timestamp: give\n"
+   "            --tsa again for fallbacks, tried in order until one\n"
+   "            answers with a token that checks. If none does, the\n"
+   "            seal is removed and the exit status is 2.\n"
+   "  --anchor  the TSA's root or issuing certificate (DER), to check\n"
+   "            the token at seal time too (up to 32)\n"},
   {"check", ncchk, "check a sealed capsule folder",
-   "usage: noqtis check [-p <key.pub>] [--json] <dir>\n"
+   "usage: noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
+   "                    <dir>\n"
    "  Prints every check and its result; exit 0 only if all pass. Without\n"
-   "  -p the key inside the seal is trusted, and the report says so.\n"},
+   "  -p the key inside the seal is trusted, and the report says so.\n"
+   "  For each failed check, stderr says what to do.\n"
+   "  --anchor  a TSA root or issuing certificate (DER), up to 32: the\n"
+   "            seal must then carry a timestamp that verifies under one\n"
+   "            of them. Without --anchor, a timestamped seal fails its\n"
+   "            timestamp check (it cannot be checked).\n"},
   {"algs", ncalgs, "list algorithms and sizes",
    "usage: noqtis algs\n"},
   {"version", ncver, "print the version",
@@ -145,6 +157,7 @@ int ncargs(const char *cmd, int argc, char **argv, const ncopt *o,
   *help = 0;
   for (i = 1; i < argc; i++) {
     char *a = argv[i];
+    const char *v;
     size_t at = 0;
     int how;
     if (dash || a[0] != '-' || a[1] == '\0') {
@@ -173,15 +186,24 @@ int ncargs(const char *cmd, int argc, char **argv, const ncopt *o,
       continue;
     }
     if (how == 2) {
-      *o[at].val = strchr(a, '=') + 1;
+      v = strchr(a, '=') + 1;
     } else if (how == 3) {
-      *o[at].val = a + 2;
+      v = a + 2;
     } else {
       if (i + 1 >= argc) {
         ncmsg(cmd, "option %s needs a value", a);
         return NCUSE;
       }
-      *o[at].val = argv[++i];
+      v = argv[++i];
+    }
+    if (o[at].arg == NCMANY) {
+      if (*o[at].flag >= NCMAXV) {
+        ncmsg(cmd, "option %s may be given at most %d times", a, NCMAXV);
+        return NCUSE;
+      }
+      o[at].val[(*o[at].flag)++] = v;
+    } else {
+      *o[at].val = v;
     }
   }
   *npos = np;

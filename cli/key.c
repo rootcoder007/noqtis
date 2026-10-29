@@ -85,7 +85,8 @@ int nckrd(const char *cmd, const char *path, int sec, nckey *k) {
   k->sec = sec;
   rc = ncrd(path, 1, &t, &tn);
   if (rc != NQOK) {
-    ncmsg(cmd, "cannot read key file %s", path);
+    ncmsg(cmd, "cannot read key file %s (missing or unreadable; give a key "
+          "file `noqtis keygen` wrote)", path);
     return NCUSE;
   }
   for (hl = 0; hl < tn && t[hl] != '\n'; hl++)
@@ -122,7 +123,8 @@ int nckrd(const char *cmd, const char *path, int sec, nckey *k) {
     goto bad;
   }
   if (ncfind(alg, &k->a) != NQOK) {
-    ncmsg(cmd, "%s: unknown algorithm %s", path, alg);
+    ncmsg(cmd, "%s: unknown algorithm %s (this noqtis knows the names "
+          "`noqtis algs` lists)", path, alg);
     ncfree(t, tn, 1);
     return NCUSE;
   }
@@ -139,7 +141,8 @@ int nckrd(const char *cmd, const char *path, int sec, nckey *k) {
   if (rc != NQOK || i != want) {
     ncfree(k->b, want, 1);
     k->b = NULL;
-    ncmsg(cmd, "%s: the key is not %lu bytes of base64 for %s", path,
+    ncmsg(cmd, "%s: the key is not %lu bytes of base64 for %s (the file "
+          "is damaged or cut short; use the file keygen wrote)", path,
           (unsigned long)want, k->a.name);
     return NCUSE;
   }

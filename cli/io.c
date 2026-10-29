@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* noqtis: files. UTF-8 paths everywhere, owner-only secret files, and no
- * overwrite unless asked. The only platform-specific file in the tool. */
+ * overwrite unless asked. Platform-specific, as net.c is. */
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
 #if defined(__APPLE__)
