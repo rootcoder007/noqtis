@@ -51,6 +51,7 @@ jobs:
             shared) extra="-DNQSHARED=ON -DCMAKE_BUILD_TYPE=Release" ;;
             *) extra="-DCMAKE_BUILD_TYPE=Debug" ;;
           esac
+          # shellcheck disable=SC2086 # $extra is a list of -D options
           CC=${{ matrix.cc }} cmake -S . -B build $extra
       - run: cmake --build build -j4
       - name: test
@@ -116,6 +117,7 @@ jobs:
         run: |
           # tslhct repeats tslh's keygen/sign/verify for the ctgrind check;
           # tcls (RSA bignum, OpenSSL set) is too slow here: ASan runs it
+          # shellcheck disable=SC2016 # the quoted script is for the inner sh
           find ../build -maxdepth 1 -type f -name 't*' -perm -u+x |
             grep -Ev '/(tslhct|tcls)$' | xargs -P4 -I{} sh -c '
             n=$(basename {}); s=$(date +%s)

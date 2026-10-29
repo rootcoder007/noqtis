@@ -59,7 +59,7 @@ jobs:
             printf '%s\n' "$out"
             exit 1
           fi
-          echo "$(ls man | wc -l) pages, no warnings"
+          echo "$(find man -type f | wc -l) pages, no warnings"
 
   examples:
     name: examples (CLI and C)

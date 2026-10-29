@@ -72,10 +72,12 @@ jobs:
           cp k.pub "$out/k.pub" # only the public key travels
           "$nq" seal -k k "$out/plain"
           # two capsules, each asking another public TSA first
+          # shellcheck disable=SC2086 # $anc is a list of --anchor options
           "$nq" seal -k k $anc \
             --tsa http://timestamp.digicert.com \
             --tsa http://timestamp.sectigo.com \
             --tsa http://freetsa.org/tsr "$out/tsa1" | tee -a tsa.txt
+          # shellcheck disable=SC2086 # $anc is a list of --anchor options
           "$nq" seal -k k $anc \
             --tsa http://timestamp.sectigo.com \
             --tsa http://freetsa.org/tsr \
@@ -140,6 +142,7 @@ jobs:
             test -f "$a/k.pub"
             want 0 check -p "$a/k.pub" "$a/plain"
             for c in tsa1 tsa2; do
+              # shellcheck disable=SC2086 # $anc is a list of --anchor options
               want 0 check -p "$a/k.pub" $anc "$a/$c"
               grep 'genTime' out.txt
               # fail closed: a timestamp is never passed unchecked
