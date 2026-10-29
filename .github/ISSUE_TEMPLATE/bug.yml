@@ -1,0 +1,69 @@
+name: Bug report
+description: Something in the library, the noqtis command or a binding does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A security problem (a forged signature that verifies, a capsule check
+        that passes when it should fail, a leak of secret data, a crash on
+        hostile input) is **not** a bug report: report it privately as
+        SECURITY.md describes.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command or code you ran, what it printed, and its exit status.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: want
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The smallest steps or program that shows it. Attach a small capsule or key file if one is needed (never a secret key you use).
+    validations:
+      required: true
+  - type: input
+    id: ver
+    attributes:
+      label: Version
+      description: "`noqtis version`, or the package version, or the commit you built."
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      multiple: true
+      options:
+        - C library
+        - noqtis command
+        - npm package
+        - Python package
+        - R package
+        - documentation site
+        - packaging recipe
+        - other
+    validations:
+      required: true
+  - type: input
+    id: plat
+    attributes:
+      label: Platform
+      description: Operating system, CPU, compiler (or runtime) and how you installed it.
+    validations:
+      required: true
+  - type: checkboxes
+    id: dup
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the open and closed issues for this problem.
+          required: true

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/rootcoder007/noqtis/security/advisories/new
+    about: Report vulnerabilities privately, never in a public issue. See SECURITY.md.
+  - name: Security policy
+    url: https://github.com/rootcoder007/noqtis/blob/main/SECURITY.md
+    about: How reports are handled, and the disclosure window.
+  - name: Documentation
+    url: https://rootcoder007.github.io/noqtis/
+    about: Guides, the capsule format, the C API and the command line.

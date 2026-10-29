@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a new command, option, binding, platform or package.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        NOQTIS stays small on purpose: standard algorithms only, no
+        dependencies, and nothing outside its goals (see DESIGN.md: no TLS,
+        no general X.509 toolkit, no OpenSSL provider). Say what problem the
+        feature solves for you.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and why the current tool or library does not do it.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you propose
+      description: The command, option or function you have in mind, with an example of its use. Name the standard (FIPS, RFC, NIST SP) if it implements one.
+    validations:
+      required: true
+  - type: textarea
+    id: alt
+    attributes:
+      label: Alternatives
+      description: Other ways you considered, including other tools.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contributing
+      options:
+        - label: I would like to write this myself (see CONTRIBUTING.md).
