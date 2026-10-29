@@ -89,8 +89,8 @@ capsule.check(files, { trust: publicKey }).ok; // true
 Without `trust`, `check` accepts the key the seal carries and its report
 says so. `anchors` takes the DER certificates of RFC 3161 timestamp
 authorities, for seals that carry a timestamp token; the library itself
-makes no network requests, so it cannot obtain one (use the CLI's
-`--tsa`).
+makes no network requests, so it cannot obtain one, and the CLI's
+`--tsa` is reserved: get the token from the TSA with another tool.
 
 On Node, `noqtis/node` reads a folder from disk and writes the seal back:
 

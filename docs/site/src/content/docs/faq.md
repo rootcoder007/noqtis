@@ -1,9 +1,9 @@
 ---
 title: FAQ
-description: Common questions about noqtis, capsules and post-quantum signatures.
+description: Common questions about NOQTIS, capsules and post-quantum signatures.
 ---
 
-## What is noqtis for?
+## What is NOQTIS for?
 
 Making results traceable: a paper's figures, a dataset release, a build
 output or a model can be sealed together with the exact inputs, so that
@@ -24,7 +24,7 @@ seals do not need redoing later.
 `sha256sum` lists digests but does not notice added files, links or case
 collisions, and GPG signatures are not post-quantum. Sigstore signs
 artifacts with short-lived certificates and a transparency log, which needs
-the network and trusts its services. noqtis is one offline file format and
+the network and trusts its services. NOQTIS is one offline file format and
 library: the manifest records every file with two digests, the check also
 fails on anything extra, and the signature is post-quantum. They can be
 combined: sign a capsule's `noqtis.json` with another tool as well, if you
@@ -50,7 +50,7 @@ checking.
 
 Yes, as long as the transport keeps bytes exactly: turn off line-ending
 conversion in Git (`* -text` in `.gitattributes` for the capsule) and keep
-names' case. `tar` keeps everything noqtis checks.
+names' case. `tar` keeps everything NOQTIS checks.
 
 ## Why does `noqtis check` pass without `-p`?
 
@@ -78,13 +78,13 @@ unrelated secret rather than an error, so an attacker learns nothing from
 failures. Use the secret with an authenticated cipher, which will then
 fail.
 
-## Can I use noqtis from Python, JavaScript or R?
+## Can I use NOQTIS from Python, JavaScript or R?
 
 Bindings for npm (WebAssembly), PyPI and CRAN are being prepared for the
 first release; see [install](/noqtis/start/install/). Anything that can call
 C can use `libnoqtis` directly.
 
-## How do I cite noqtis?
+## How do I cite NOQTIS?
 
 A `CITATION.cff` and a Zenodo DOI will come with the first release.
 

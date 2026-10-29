@@ -1,6 +1,6 @@
 ---
 title: Keys and key files
-description: Choosing an algorithm, the noqtis key file format, deterministic keys, and keeping secret keys safe.
+description: Choosing an algorithm, the NOQTIS key file format, deterministic keys, and keeping secret keys safe.
 ---
 
 ## Choosing an algorithm
@@ -61,7 +61,7 @@ the algorithm's. The base64 decoder runs in constant time, so reading a
 secret key leaks nothing through timing.
 
 Because the bytes are the standard's encoding, a public key (after
-base64-decoding the body) and noqtis's raw signatures can be checked by any
+base64-decoding the body) and NOQTIS's raw signatures can be checked by any
 conforming FIPS 204/205 implementation; the ML-DSA module is cross-checked
 against OpenSSL 3.5.
 

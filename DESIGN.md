@@ -67,6 +67,16 @@ SLH-DSA and ML-KEM).
 Each module is one directory under `src/`, with its tests under `tests/`.
 A module is accepted only when every check in its row passes.
 
+The "Must pass" column is the acceptance target, not a record of what
+runs today. Not yet in place before 0.1.0: dudect timing tests and
+simulated TVLA (the constant-time claim rests on the ctgrind tests and
+review until they are published); OpenSSL 3.5 differential fuzzing and
+cross-checks beyond the fixed RSA/ECDSA set in `tests/vectors/ossl/`;
+libFuzzer in CI (`fuzz/fder.c` exists and is run by hand); fuzzed CLI
+arguments; and cross-verification with rmoriebricklayer. HMAC is tested
+with the ACVP HMAC vectors; Wycheproof has no HMAC set in
+`tests/vectors/wycheproof/`.
+
 | # | Module | Contents | Must pass |
 |---|---|---|---|
 | M0 | `core` | error codes, `nqwipe`, constant-time helpers, `nqrand`, allocator hook, strict JSON reader, hex | unit tests, ASan/UBSan, valgrind clean |
@@ -79,7 +89,7 @@ A module is accepted only when every check in its row passes.
 | M7 | `cls` | verification only: RSA PKCS#1 v1.5 and PSS (2048-4096), ECDSA P-256 and P-384 | Wycheproof RSA and ECDSA, OpenSSL 3.5 differential fuzz |
 | M8 | `der` | strict DER reader (length, tag and depth limits), X.509 path checks, OCSP, CRL, RFC 3161 timestamp tokens | the rmoriebricklayer 1.0.3 x509/timestamp fixtures, libFuzzer corpus, positional-parse tests |
 | M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer |
-| M10 | `cli` | `noqtis keygen / sign / verify / seal / check / timestamp / inspect` | golden-output tests, exit codes, fuzzed arguments |
+| M10 | `cli` | `noqtis keygen / sign / verify / enc / dec / hash / seal / check / algs / version` (`timestamp` and `inspect` planned) | golden-output tests, exit codes, fuzzed arguments |
 | M11 | `port` | platform layer for files and paths (Windows wide-char), symbol visibility, shared-library versioning, `noqtis.pc` and CMake package config | the full suite passes on every platform in the CI matrix |
 | M12 | `bind` | WebAssembly build and the npm, PyPI and CRAN packages first, then the other bindings | each binding's own tests on every platform it supports |
 
@@ -369,9 +379,10 @@ so it is reviewed and tested like the code.
 - `tests/vectors/`: ACVP JSON, Wycheproof JSON and KAT files, each with its
   source URL and SHA-256 in `tests/vectors/SOURCES.md`.
 - `ctest` runs every module's tests; CI runs them on Linux (GCC, Clang),
-  macOS (arm64, x86-64) and Windows (MSVC), plus ASan+UBSan, valgrind,
-  ctgrind, dudect, TVLA, libFuzzer (time-boxed on each push, longer weekly)
-  and an OpenSSL 3.5 differential job.
+  macOS (arm64, x86-64) and Windows (MSVC, clang-cl, MinGW), plus
+  ASan+UBSan, valgrind and ctgrind. Planned, not yet in CI: dudect, TVLA,
+  libFuzzer (time-boxed on each push, longer weekly) and an OpenSSL 3.5
+  differential job.
 - `acvp/` holds one harness per algorithm for NIST CAVP submission.
 
 ## Security reporting
@@ -395,7 +406,7 @@ prints each command's options.
 | `noqtis enc -p <key.pub> -o <ct> (<ss> \| --stdout)` | KEM encapsulation: ciphertext to `<ct>`, shared secret to `<ss>` |
 | `noqtis dec -k <key> (-o <ss> \| --stdout) <ct>` | KEM decapsulation; a tampered ciphertext gives an unrelated secret and exit 0 (implicit rejection, as FIPS 203 and HQC require) |
 | `noqtis hash [-a <hash>] [-c\|--check] [<file>...]` | `<hex>  <file>` lines in `sha256sum`'s format (names with `\` or a line break are escaped the same way); `--check` reads such lines and prints `<file>: OK` or `FAILED`; hashes `sha224 sha256 sha384 sha512 sha512-224 sha512-256 sha3-224 sha3-256 sha3-384 sha3-512 shake128 shake256` (default `sha256`; SHAKE prints 32 or 64 bytes) |
-| `noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>] [--tsa <url>] <dir>` | `nqseal`: writes `noqtis.json` and `noqtis.sig`; the public key defaults to `<key>.pub` and must pair with `<key>` |
+| `noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>] [--tsa <url>] <dir>` | `nqseal`: writes `noqtis.json` and `noqtis.sig`; the public key defaults to `<key>.pub` and must pair with `<key>`; `--tsa` is reserved and fails with exit 2 until the CLI requests timestamps |
 | `noqtis check [-p <key.pub>] [--json] <dir>` | `nqchk`: one row per check (`ok`/`FAIL`, check, detail), then a summary; `--json` prints `{"capsule","ok","result","checks":[{"check","ok","detail"}]}` on one line; without `-p` the seal's own key is accepted and the `key` row says so |
 | `noqtis algs` | every algorithm with its public key, secret key, signature or ciphertext, and shared secret sizes in bytes |
 | `noqtis version` | `noqtis <nqver()>` |

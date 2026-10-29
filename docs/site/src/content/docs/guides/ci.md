@@ -56,7 +56,7 @@ same commit gives the same `noqtis.json`. Put the commit, the workflow run
 and the tool versions in `build-meta.json` so the capsule records how the
 results were made.
 
-A GitHub Action (`rootcoder007/noqtis-action`) that installs noqtis and
+A GitHub Action (`rootcoder007/noqtis-action`) that installs NOQTIS and
 seals or checks a folder is planned for the first release.
 
 ## Checksums alongside

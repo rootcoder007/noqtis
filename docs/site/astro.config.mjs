@@ -15,7 +15,7 @@ export default defineConfig({
   trailingSlash: "always",
   integrations: [
     starlight({
-      title: "noqtis",
+      title: "NOQTIS",
       description:
         "Post-quantum signatures and sealed, checkable records of the " +
         "exact files a result came from. C11, no dependencies.",

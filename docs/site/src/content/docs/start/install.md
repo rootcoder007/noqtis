@@ -1,9 +1,9 @@
 ---
 title: Install
-description: Install the noqtis library and command-line tool from source, a package manager, a container or a language package.
+description: Install the NOQTIS library and command-line tool from source, a package manager, a container or a language package.
 ---
 
-noqtis is one C11 library (`libnoqtis`, header `noqtis.h`) and one
+NOQTIS is one C11 library (`libnoqtis`, header `noqtis.h`) and one
 command-line tool (`noqtis`). Every channel below gives you both, or a
 language binding built on the library.
 

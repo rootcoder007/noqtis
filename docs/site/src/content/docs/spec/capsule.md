@@ -1,14 +1,14 @@
 ---
 title: Capsule format, version 1
-description: The normative specification of noqtis capsules, noqtis-capsule-1 manifests and noqtis-seal-1 seals.
+description: The normative specification of NOQTIS capsules, noqtis-capsule-1 manifests and noqtis-seal-1 seals.
 ---
 
 | | |
 |---|---|
 | **Manifest format** | `noqtis-capsule-1` |
 | **Seal format** | `noqtis-seal-1` |
-| **Status** | Version 1, stable within the 0.x series of noqtis; any incompatible change gets new format strings |
-| **Reference implementation** | `src/cap/` of noqtis (`nqseal`, `nqchk`, `nqchkt`) |
+| **Status** | Version 1, stable within the 0.x series of NOQTIS; any incompatible change gets new format strings |
+| **Reference implementation** | `src/cap/` of NOQTIS (`nqseal`, `nqchk`, `nqchkt`) |
 
 The key words MUST, MUST NOT, REQUIRED, SHOULD, SHOULD NOT and MAY are to
 be read as described in BCP 14 (RFC 2119, RFC 8174) when, and only when,
@@ -60,7 +60,7 @@ member not listed here MUST cause a failure.
 | `created` | string | yes | the creation time (§3.2) |
 | `files` | array | yes | one entry per file (§3.1), sorted (§3.3) |
 | `format` | string | yes | exactly `noqtis-capsule-1` |
-| `meta` | object | no | any JSON object, opaque to noqtis, at most 1 MiB of canonical text |
+| `meta` | object | no | any JSON object, opaque to NOQTIS, at most 1 MiB of canonical text |
 
 Because of the canonical member order the manifest always has the layout
 
@@ -155,7 +155,7 @@ spelled exactly so.
 `signature` MUST be a signature of the **pure** variant (ML-DSA.Sign of
 FIPS 204 or slh_sign of FIPS 205, not the pre-hash variants) over the
 exact bytes of `noqtis.json` as stored, with `context` as the context
-string. A sealer SHOULD use the context `noqtis-capsule-1`; noqtis always
+string. A sealer SHOULD use the context `noqtis-capsule-1`; NOQTIS always
 does. Hedged and deterministic signatures are equally valid.
 
 `public_key` and `signature` MUST have exactly the sizes the algorithm
@@ -277,7 +277,7 @@ Its seal, with the base64 shortened:
 {"alg":"ML-DSA-65","context":"noqtis-capsule-1","format":"noqtis-seal-1","manifest_sha256":"9f322e95960a45ea27b84f7d618c75402f8bce5cb250d157564ae16dbc6130f0","public_key":"1qWycP39...","signature":"..."}
 ```
 
-The test suite of noqtis carries a complete sample capsule under
+The test suite of NOQTIS carries a complete sample capsule under
 `tests/vectors/cap/sample`.
 
 ## References

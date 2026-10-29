@@ -4,8 +4,8 @@ description: Threat model, what a check does and does not verify, constant-time 
 ---
 
 :::caution[Not yet audited]
-noqtis has not had an external security audit. Until an audit report is
-published, treat noqtis as unaudited code.
+NOQTIS has not had an external security audit. Until an audit report is
+published, treat NOQTIS as unaudited code.
 :::
 
 ## Reporting a vulnerability
@@ -17,7 +17,7 @@ and advisory within 90 days. See `SECURITY.md`.
 
 ## Threat model
 
-**What noqtis protects.** The integrity and origin of a set of files: that
+**What NOQTIS protects.** The integrity and origin of a set of files: that
 a folder holds exactly the files a key holder sealed, byte for byte, and
 nothing else; and, with a timestamp, that the seal existed at a time a TSA
 vouches for. Signatures are post-quantum (ML-DSA, SLH-DSA), so the record
@@ -32,11 +32,11 @@ curves.
 - A hostile capsule built to attack the checker: every parser is strict and
   bounded (sizes, counts, depth), uses no recursion, never follows links,
   and fails closed; a check that cannot be made is a failed check.
-- An attacker who measures time, cache or branch behaviour while noqtis
+- An attacker who measures time, cache or branch behaviour while NOQTIS
   handles secret keys, seeds or shared secrets (see below).
 - A future attacker with a quantum computer, against the signatures.
 
-**What noqtis does not protect.**
+**What NOQTIS does not protect.**
 
 - **Who the key holder is.** The seal carries a public key; without
   `-p` (or `trust` in C) a check accepts it. Getting the right public key

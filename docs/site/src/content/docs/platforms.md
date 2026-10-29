@@ -1,6 +1,6 @@
 ---
 title: Platforms
-description: Operating systems, CPUs and compilers noqtis builds and tests on, and its portability rules.
+description: Operating systems, CPUs and compilers NOQTIS builds and tests on, and its portability rules.
 ---
 
 A platform counts as supported only when the full test suite, including

@@ -66,16 +66,16 @@ Every failing row says what failed:
 | `file ...: size differs`, `sha256 differs`, `sha3_256 differs` | the file changed after sealing | get the original; compare with `noqtis hash` |
 | `file ...: missing` | a listed file is gone | the copy is incomplete (an archive extracted partly, a `.gitignore`d file) |
 | `extra ...: not in the manifest` | a file was added | remove it, or ask for a new seal |
-| `unsafe ...` | a link or special file appeared | remove it; noqtis never follows links |
+| `unsafe ...` | a link or special file appeared | remove it; NOQTIS never follows links |
 | `key`, `signature` | sealed by another key, or the manifest or seal was edited | do not trust the capsule |
 | `manifest.digest` | `noqtis.json` was changed | do not trust the capsule |
-| `seal.*`, `manifest.parse`, ... | damaged or not a noqtis capsule | get a fresh copy |
+| `seal.*`, `manifest.parse`, ... | damaged or not a NOQTIS capsule | get a fresh copy |
 | `timestamp` | see [timestamps](/noqtis/guides/timestamps/) | |
 
 Archive tools and file systems sometimes change what they carry: a ZIP or
 Git checkout that converts line endings (`core.autocrlf`) changes text
 files, and a case-insensitive file system cannot hold two names that
-differ only in case (which noqtis refuses to seal for that reason). Prefer
+differ only in case (which NOQTIS refuses to seal for that reason). Prefer
 `tar` and binary transfers.
 
 Exit status 2 (not 1) means the check could not run: a wrong option, a

@@ -1,6 +1,6 @@
 ---
 title: Command line
-description: The noqtis commands, their options and exit status, with links to the full manual pages.
+description: The NOQTIS commands, their options and exit status, with links to the full manual pages.
 ---
 
 ```text
@@ -16,7 +16,7 @@ noqtis help [<command>]
 | `enc -p <key.pub> -o <ct> [--force] (<ss> \| --stdout)` | KEM ciphertext and shared secret | [noqtis-enc(1)](/noqtis/reference/man/noqtis-enc-1/) |
 | `dec -k <key> (-o <ss> \| --stdout) [--force] <ct>` | shared secret; implicit rejection | [noqtis-dec(1)](/noqtis/reference/man/noqtis-dec-1/) |
 | `hash [-a <hash>] [-c\|--check] [<file>...]` | `sha256sum`-format digests, or check them | [noqtis-hash(1)](/noqtis/reference/man/noqtis-hash-1/) |
-| `seal -k <key> [-p <key.pub>] [-m <json-file>] [--tsa <url>] <dir>` | writes `noqtis.json` and `noqtis.sig` | [noqtis-seal(1)](/noqtis/reference/man/noqtis-seal-1/) |
+| `seal -k <key> [-p <key.pub>] [-m <json-file>] [--tsa <url>] <dir>` | writes `noqtis.json` and `noqtis.sig`; `--tsa` is reserved and fails with exit 2 in this build | [noqtis-seal(1)](/noqtis/reference/man/noqtis-seal-1/) |
 | `check [-p <key.pub>] [-j\|--json] <dir>` | one row per check, then a summary | [noqtis-check(1)](/noqtis/reference/man/noqtis-check-1/) |
 | `algs` | every algorithm and its sizes | [noqtis-algs(1)](/noqtis/reference/man/noqtis-algs-1/) |
 | `version` | `noqtis <version>` (also `--version`, `-V`) | [noqtis-version(1)](/noqtis/reference/man/noqtis-version-1/) |

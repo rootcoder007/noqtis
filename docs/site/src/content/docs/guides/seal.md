@@ -38,7 +38,7 @@ Empty folders are not recorded: only files are.
 ### Metadata
 
 `-m file.json` stores a JSON object (at most 1 MiB) as the manifest's
-`meta` field. It is signed with everything else, but noqtis does not read
+`meta` field. It is signed with everything else, but NOQTIS does not read
 it: put your own provenance there (the command line that made the results,
 a dataset DOI, a commit).
 
