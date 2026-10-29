@@ -177,8 +177,8 @@ ssh-keygen -Y verify -f allowed_signers -I noqtis -n file \
   -s SHA256SUMS.sig < SHA256SUMS
 ```
 
-The release key is published in the repository's `SECURITY.md` (coming
-with v0.1.0).
+The release key and its fingerprint are published in the repository's
+[SECURITY.md](https://github.com/rootcoder007/noqtis/blob/main/SECURITY.md#release-signing-key).
 
 **SLSA provenance.** `noqtis-<version>.intoto.jsonl` records which
 workflow built which file from which commit. With
