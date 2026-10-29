@@ -23,7 +23,9 @@ mistake in the release process; use 0.1.1.)
   with the tool; a test checks they offer every command and option the
   manual pages list).
 - A Void Linux template (`packaging/void/`), built and tested in CI like
-  the other recipes; CI also runs the tests on OpenBSD and NetBSD, and
+  the other recipes; CI also runs the tests on OpenBSD, NetBSD, 32-bit
+  ARM (armv7, under QEMU) and WASI (wasi-sdk, under wasmtime; temporary
+  file names there use random bits, as WASI has no process ids), and
   PyPI wheels for Linux ppc64le, s390x and riscv64 are built under QEMU.
 - The shared library versions its symbols (`NOQTIS_0`, `src/noqtis.map`,
   on ELF systems) and exports nothing else; CI compares its ABI with the

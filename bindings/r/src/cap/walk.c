@@ -542,7 +542,18 @@ static int replacef(const char *tmp, const char *path) {
 
 static void droptmp(const char *tmp) { unlink(tmp); }
 
+#if defined(__wasi__)
+/* WASI has no process ids: random bits keep two writers' temporary
+ * names apart instead (O_EXCL still refuses a clash) */
+static unsigned long mypid(void) {
+  uint8_t b[4] = {0, 0, 0, 0};
+  (void)nqrand(b, sizeof b);
+  return (unsigned long)b[0] | (unsigned long)b[1] << 8 |
+         (unsigned long)b[2] << 16 | (unsigned long)b[3] << 24;
+}
+#else
 static unsigned long mypid(void) { return (unsigned long)getpid(); }
+#endif
 
 static int flush(FILE *f) {
   return fflush(f) == 0 && fsync(fileno(f)) == 0 ? NQOK : NQEIO;

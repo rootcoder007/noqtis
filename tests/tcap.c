@@ -27,6 +27,17 @@
 #include <sys/types.h>
 #include <unistd.h>
 #define NQTFS 1
+#if defined(__wasi__)
+/* WASI has no FIFOs: this makes a plain file, which the FIFO checks
+ * notice (lstat) and skip */
+static int mkfifo(const char *p, mode_t m) {
+  FILE *f = fopen(p, "wb");
+  (void)m;
+  if (f == NULL) return -1;
+  fclose(f);
+  return 0;
+}
+#endif
 #endif
 
 /* ---- unit tests ---- */
@@ -649,7 +660,13 @@ static void tamper(const key *k, const key *other) {
     path(p, sizeof p, d, "a.txt");
     path(q, sizeof q, root, "outside.txt");
     remove(p);
+#if defined(__wasi__)
+    /* WASI makes no link to an absolute target: the same file, relative */
+    (void)q;
+    NQTEQI(symlink("../outside.txt", p), 0);
+#else
     NQTEQI(symlink(q, p), 0);
+#endif
     NQTEQI(chk(d, k, &r), NQEVRFY);
     NQTEQI(row(r, "file", "a.txt: a symbolic link"), 0);
     nqrepfree(r);
@@ -667,7 +684,11 @@ static void tamper(const key *k, const key *other) {
     NQTEQI(symlink("..", p), 0);
     track(p);
     path(p, sizeof p, d, "etc");
+#if defined(__wasi__)
+    NQTEQI(symlink("../..", p), 0); /* no absolute targets in WASI */
+#else
     NQTEQI(symlink("/etc", p), 0);
+#endif
     track(p);
     NQTEQI(chk(d, k, &r), NQEVRFY);
     NQTEQI(row(r, "unsafe", "esc: a symbolic link"), 0);
@@ -683,8 +704,8 @@ static void tamper(const key *k, const key *other) {
     remove(made[--nmade]);
   }
 
-#ifndef __EMSCRIPTEN__
-  /* a special file (emscripten has no fifos) */
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+  /* a special file (emscripten and WASI have no fifos) */
   {
     char p[600];
     path(p, sizeof p, d, "fifo");
@@ -1503,7 +1524,17 @@ static void tfs(int gen) {
   key m44, m65, slh, other;
   const char *t = getenv("TMPDIR");
   if (t == NULL || t[0] == 0 || strlen(t) > 200) t = "/tmp";
+#if defined(__wasi__)
+  {
+    /* WASI has no process ids */
+    uint8_t b[4] = {0, 0, 0, 0};
+    (void)nqrand(b, sizeof b);
+    snprintf(root, sizeof root, "%s/tcap%02x%02x%02x%02x", t, b[0], b[1],
+             b[2], b[3]);
+  }
+#else
   snprintf(root, sizeof root, "%s/tcap%ld", t, (long)getpid());
+#endif
   if (mkdir(root, 0700) != 0) {
     NQTCHK(0);
     return;

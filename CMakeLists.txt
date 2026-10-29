@@ -3,6 +3,11 @@ cmake_minimum_required(VERSION 3.20)
 project(noqtis VERSION 0.1.1 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
+# WASI: wasm-ld gives a program 64 KiB of stack, less than ML-DSA (masked)
+# and HQC use; programs linked here get 8 MiB, as the npm build does
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+  add_link_options(-Wl,-z,stack-size=8388608)
+endif()
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
@@ -120,6 +125,11 @@ if(NQTESTS)
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src
                                ${PROJECT_SOURCE_DIR}/tests)
     target_compile_options(${name} PRIVATE ${NQWARN})
+    if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+      # the tests time loops with clock(), which wasi-libc emulates
+      target_compile_definitions(${name} PRIVATE _WASI_EMULATED_PROCESS_CLOCKS)
+      target_link_libraries(${name} PRIVATE wasi-emulated-process-clocks)
+    endif()
     add_test(NAME ${name} COMMAND ${name}
              WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests)
   endforeach()

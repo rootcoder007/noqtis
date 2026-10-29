@@ -177,10 +177,10 @@ with nothing to compile for the user where a package manager allows it.
 | macOS | arm64, x86-64 | Apple clang | universal binaries for releases |
 | Windows | x86-64, arm64 | MSVC, clang-cl, MinGW-w64 | BCryptGenRandom; no POSIX assumed |
 | FreeBSD, OpenBSD, NetBSD | x86-64 | clang; gcc on NetBSD | arc4random_buf |
-| WebAssembly | wasm32 | emscripten | the tests under Node; the npm package on Node, Deno and Bun |
+| WebAssembly | wasm32 | emscripten, wasi-sdk | the tests under Node and under wasmtime; the npm package on Node, Deno and Bun |
 
-Targets not yet in CI, so not yet supported: WASI (wasi-sdk), Android
-(NDK clang) and iOS (Xcode), as libraries without the CLI.
+Targets not yet in CI, so not yet supported: Android (NDK clang) and iOS
+(Xcode), as libraries without the CLI.
 
 A platform counts as supported only when the full test suite, including
 every ACVP vector, passes on it in CI. Randomness on each platform comes

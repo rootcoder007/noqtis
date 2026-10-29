@@ -173,6 +173,57 @@ jobs:
       - run: cmake --build build -j4
       - run: ctest --test-dir build
 
+  wasi:
+    # wasi-sdk, the tests under wasmtime (WASI preview 1); both downloads
+    # are checked against their SHA-256 before use
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SDK: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-linux.tar.gz
+      SDKSUM: b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4
+      WT: https://github.com/bytecodealliance/wasmtime/releases/download/v48.0.5/wasmtime-v48.0.5-x86_64-linux.tar.xz
+      WTSUM: f533a0fb3eca20aee34d69192f214839c5227a507fff2ecb3070ae1a37f0c40d
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: wasi-sdk and wasmtime
+        run: |
+          t=$RUNNER_TEMP
+          curl -fsSL -o "$t/sdk.tgz" "$SDK"
+          curl -fsSL -o "$t/wt.txz" "$WT"
+          printf '%s  %s\n' "$SDKSUM" "$t/sdk.tgz" "$WTSUM" "$t/wt.txz" |
+            sha256sum -c -
+          mkdir "$t/sdk" "$t/wt"
+          tar -xzf "$t/sdk.tgz" -C "$t/sdk" --strip-components=1
+          tar -xJf "$t/wt.txz" -C "$t/wt" --strip-components=1
+      - name: configure
+        # the tests read tests/vectors (relative, and the ACVP harnesses by
+        # absolute path) and write under /tmp
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQCLI=OFF -DNQMAN=OFF
+          -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/sdk/share/cmake/wasi-sdk-p1.cmake"
+          -DWASI_SDK_PREFIX="$RUNNER_TEMP/sdk"
+          "-DCMAKE_CROSSCOMPILING_EMULATOR=$RUNNER_TEMP/wt/wasmtime;run;-S;inherit-env=y;--dir=.;--dir=/tmp;--dir=$GITHUB_WORKSPACE"
+      - run: cmake --build build -j4
+      - run: NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4 --output-on-failure
+
+  armv7:
+    # 32-bit ARM (armhf) under QEMU, sampled like the other emulated job
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm
+      - name: build and test on armv7
+        run: >
+          docker run --rm --platform linux/arm/v7 -v "$PWD:/src" -w /src
+          -e NQSLSUB=8 -e NQFAST=1
+          debian:trixie sh -c "apt-get update -qq &&
+          apt-get install -y -qq gcc cmake >/dev/null &&
+          cmake -S . -B /tmp/b -DCMAKE_BUILD_TYPE=Release &&
+          cmake --build /tmp/b -j4 && ctest --test-dir /tmp/b -j4"
+
   bigendian:
     if: >
       github.event_name != 'push' && github.event_name != 'pull_request' ||
@@ -503,6 +554,9 @@ jobs:
           # debian:stable
           - kind: debian
             image: debian@sha256:708ae3c7fd034a0f178557c500e617165589c61732022589fff3c401f92edbd3
+          # ghcr.io/void-linux/void-glibc-full:latest
+          - kind: void
+            image: ghcr.io/void-linux/void-glibc-full@sha256:3d842113b4f4f62bfae98c83a69faf6f957c99c4225acc93c8c12e258bc087cd
           # gentoo/stage3:latest, as in the distro job
           - kind: gentoo
             image: gentoo/stage3@sha256:1ca7647d1ce968d02c2858ee4201e2173675fd3fc0754a8acd583d9288b75478

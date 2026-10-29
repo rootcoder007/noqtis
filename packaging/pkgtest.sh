@@ -104,7 +104,7 @@ void)
   # mounts, so no privileges needed)
   xbps-install -Syu xbps
   xbps-install -yu
-  xbps-install -y base-devel bash git curl
+  xbps-install -y base-devel bash git curl cmake pkgconf
   git clone --depth 1 https://github.com/void-linux/void-packages "$w/vp"
   printf 'XBPS_CHROOT_CMD=ethereal\nXBPS_ALLOW_CHROOT_BREAKOUT=yes\n' \
     > "$w/vp/etc/conf"
