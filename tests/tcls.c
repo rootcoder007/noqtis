@@ -226,6 +226,7 @@ static void wfile(const char *f, cnt *c) {
       NQTCHK(0);
       continue;
     }
+    memset(&k, 0, sizeof k);
     memset(&p, 0, sizeof p);
     if (strcmp(ty, "RsassaPkcs1Verify") == 0) {
       kind = VPKCS;
