@@ -56,6 +56,15 @@ export default defineConfig({
           ],
         },
         {
+          label: "Tutorials",
+          items: [
+            { label: "C library", slug: "guides/c" },
+            { label: "Python", slug: "guides/py" },
+            { label: "JavaScript", slug: "guides/js" },
+            { label: "R", slug: "guides/r" },
+          ],
+        },
+        {
           label: "Specification",
           items: [{ label: "Capsule format v1", slug: "spec/capsule" }],
         },
