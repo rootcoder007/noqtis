@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# libFuzzer on every parser that reads untrusted bytes (fuzz/f*.c, built
+# by fuzz/build.sh with ASan and UBSan): each target runs for 90 seconds
+# on every push and pull request, and for an hour every week, from its
+# seed corpus in fuzz/corpus/. Any crash, leak, timeout or out-of-memory
+# input fails the job and is uploaded as the artifact fuzz-<target>.
+name: fuzz
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  fuzz:
+    name: fuzz ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    # 90 s per push (plus the build), an hour weekly
+    timeout-minutes: ${{ github.event_name == 'schedule' && 80 || 15 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [fder, fx509, focsp, ftsp, fcls, fjson, fenc, fcap, fkey,
+                 fsig]
+    env:
+      EVENT: ${{ github.event_name }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build
+        run: CC=clang NQJ=4 fuzz/build.sh build-fuzz
+      - name: fuzz
+        run: |
+          secs=90
+          if [ "$EVENT" = schedule ]; then secs=3600; fi
+          fuzz/run.sh build-fuzz "$TARGET" "$secs"
+      - name: upload the failing inputs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-${{ matrix.target }}
+          path: |
+            build-fuzz/run/${{ matrix.target }}/crash-*
+            build-fuzz/run/${{ matrix.target }}/leak-*
+            build-fuzz/run/${{ matrix.target }}/timeout-*
+            build-fuzz/run/${{ matrix.target }}/oom-*
+          if-no-files-found: ignore
+          retention-days: 30
