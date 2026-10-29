@@ -287,7 +287,8 @@ static const ncfix fixes[] = {
   {"seal.format", NULL, "noqtis.sig is not a noqtis-seal-1 seal: " RESEAL},
   {"seal.alg", NULL, "the seal's algorithm is not one this noqtis knows "
    "(`noqtis algs`): use a newer noqtis, or " RESEAL},
-  {"seal.context", NULL, "the seal's context is over 255 bytes: " RESEAL},
+  {"seal.context", NULL, "the seal's context is not \"noqtis-capsule-1\", so "
+   "its signature was not made for a capsule: " RESEAL},
   {"seal.key", NULL, "the seal's public_key is damaged: " RESEAL},
   {"seal.signature", NULL, "the seal's signature is damaged: " RESEAL},
   {"manifest.read", "too large", "noqtis.json is over 512 MiB, more than "

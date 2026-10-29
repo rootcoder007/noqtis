@@ -284,7 +284,7 @@ static FILE *openh(const char *path, int wr) {
   if (wp == NULL) return NULL;
   h = CreateFileW(wp, wr ? GENERIC_WRITE : GENERIC_READ,
                   wr ? 0 : FILE_SHARE_READ, NULL,
-                  wr ? OPEN_ALWAYS : OPEN_EXISTING,
+                  wr ? CREATE_NEW : OPEN_EXISTING,
                   FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
                   NULL);
   nqfree(wp, wb);
@@ -311,6 +311,46 @@ static FILE *openh(const char *path, int wr) {
 static FILE *openr(const char *path) { return openh(path, 0); }
 
 static FILE *openw(const char *path) { return openh(path, 1); }
+
+/* Moves the finished temporary file over path, unless path is a link
+ * (reparse point) or a folder; a hard link at path is replaced, never
+ * written through. */
+static int replacef(const char *tmp, const char *path) {
+  size_t tb, pb;
+  wchar_t *wt = wide(tmp, &tb), *wp = wide(path, &pb);
+  DWORD a;
+  int rc = NQOK;
+  if (wt == NULL || wp == NULL) {
+    rc = NQEMEM;
+  } else {
+    a = GetFileAttributesW(wp);
+    if (a != INVALID_FILE_ATTRIBUTES &&
+        (a & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY |
+              FILE_ATTRIBUTE_DEVICE)) != 0) {
+      rc = NQEIO;
+    } else if (!MoveFileExW(wt, wp, MOVEFILE_REPLACE_EXISTING |
+                                        MOVEFILE_WRITE_THROUGH)) {
+      rc = NQEIO;
+    }
+  }
+  if (wt != NULL) nqfree(wt, tb);
+  if (wp != NULL) nqfree(wp, pb);
+  return rc;
+}
+
+static void rmtmp(const char *tmp) {
+  size_t tb;
+  wchar_t *wt = wide(tmp, &tb);
+  if (wt == NULL) return;
+  DeleteFileW(wt);
+  nqfree(wt, tb);
+}
+
+static unsigned long mypid(void) {
+  return (unsigned long)GetCurrentProcessId();
+}
+
+static int flush(FILE *f) { return fflush(f) == 0 ? NQOK : NQEIO; }
 
 #else
 
@@ -362,12 +402,17 @@ static int walk1(wctx *w, const char *full) {
   return rc;
 }
 
+/* O_NONBLOCK, so that a FIFO under a capsule's name does not block the
+ * open forever; it is refused below like any file that is not plain,
+ * and the flag is cleared for the reads. */
 static FILE *openr(const char *path) {
   struct stat st;
   FILE *f;
-  int fd = open(path, O_RDONLY | O_NOFOLLOW);
+  int fl, fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
   if (fd < 0) return NULL;
-  if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode)) {
+  if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
+      (fl = fcntl(fd, F_GETFL)) < 0 ||
+      fcntl(fd, F_SETFL, fl & ~O_NONBLOCK) != 0) {
     close(fd);
     return NULL;
   }
@@ -376,10 +421,13 @@ static FILE *openr(const char *path) {
   return f;
 }
 
+/* A new file only (O_EXCL): nqcwrite writes a temporary file and then
+ * renames it, so an existing name (a hard link to a file outside the
+ * folder, say) is replaced, never written through. */
 static FILE *openw(const char *path) {
   struct stat st;
   FILE *f;
-  int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0644);
+  int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0644);
   if (fd < 0) return NULL;
   if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode)) {
     close(fd);
@@ -388,6 +436,22 @@ static FILE *openw(const char *path) {
   f = fdopen(fd, "wb");
   if (f == NULL) close(fd);
   return f;
+}
+
+/* Renames the finished temporary file to path, unless path is a link,
+ * a folder or a special file. */
+static int replacef(const char *tmp, const char *path) {
+  struct stat st;
+  if (lstat(path, &st) == 0 && !S_ISREG(st.st_mode)) return NQEIO;
+  return rename(tmp, path) == 0 ? NQOK : NQEIO;
+}
+
+static void rmtmp(const char *tmp) { unlink(tmp); }
+
+static unsigned long mypid(void) { return (unsigned long)getpid(); }
+
+static int flush(FILE *f) {
+  return fflush(f) == 0 && fsync(fileno(f)) == 0 ? NQOK : NQEIO;
 }
 
 #endif
@@ -535,18 +599,40 @@ int nqcread(const char *dir, const char *name, size_t max, char **buf,
   return NQOK;
 }
 
+/* Writes name in dir through a temporary file in the same folder
+ * (.<name>.<pid>.<k>.tmp, created new) that is then renamed over name:
+ * a reader sees the old file or the new one, never half of one, and an
+ * existing name is replaced rather than written through. */
 int nqcwrite(const char *dir, const char *name, const char *buf, size_t n) {
-  size_t fl = 0;
-  char *full;
-  FILE *f;
+  size_t fl = 0, tl = 0;
+  char *full, *tmp = NULL, tn[96];
+  FILE *f = NULL;
+  unsigned k;
   int rc = NQOK;
   if (dir == NULL || name == NULL || (buf == NULL && n != 0)) return NQEARG;
+  if (strlen(name) > 40) return NQEARG;
   full = join(dir, name, &fl);
   if (full == NULL) return NQEMEM;
-  f = openw(full);
+  for (k = 0; k < 16 && f == NULL; k++) {
+    snprintf(tn, sizeof tn, ".%s.%lu.%u.tmp", name, mypid(), k);
+    if (tmp != NULL) nqfree(tmp, tl + 1);
+    tmp = join(dir, tn, &tl);
+    if (tmp == NULL) {
+      nqfree(full, fl + 1);
+      return NQEMEM;
+    }
+    f = openw(tmp);
+  }
+  if (f == NULL) {
+    rc = NQEIO;
+  } else {
+    if (n != 0 && fwrite(buf, 1, n, f) != n) rc = NQEIO;
+    if (rc == NQOK) rc = flush(f);
+    if (fclose(f) != 0) rc = NQEIO;
+    if (rc == NQOK) rc = replacef(tmp, full);
+    if (rc != NQOK) rmtmp(tmp);
+  }
+  nqfree(tmp, tl + 1);
   nqfree(full, fl + 1);
-  if (f == NULL) return NQEIO;
-  if (n != 0 && fwrite(buf, 1, n, f) != n) rc = NQEIO;
-  if (fclose(f) != 0) rc = NQEIO;
   return rc;
 }

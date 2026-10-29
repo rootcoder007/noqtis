@@ -35,6 +35,11 @@ request for the TSA's certificate, sent by an HTTP/1.1 POST; the reply is
 stored only once it checks: granted, its imprint the hash of this
 signature, its nonce the one sent, and its signature valid under the TSA
 certificate at genTime.
+The TSA certificate is checked at genTime and not for revocation, so a
+TSA key stolen later could make tokens with an earlier genTime; see
+.Sx SECURITY CONSIDERATIONS
+in
+.Xr noqtis-capsule 5 .
 Give
 .Fl -tsa
 more than once for fallbacks: they are tried in order until one gives a

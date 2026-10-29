@@ -12,4 +12,20 @@ The first release.
   (arm64, x86-64) and Windows (x64, ARM64), with SHA256SUMS, Sigstore and
   SSH signatures, an SPDX SBOM and SLSA provenance; `install.sh` and
   `install.ps1` check them before they install.
+- Hardened after a manual security review before release:
+  - a seal's context must be `noqtis-capsule-1`, so a signature made for
+    anything else (a plain `noqtis sign` of the same bytes) is never
+    taken for a seal;
+  - `noqtis.json` and `noqtis.sig` are opened without blocking (a FIFO
+    under either name no longer hangs `check`, `inspect`, `timestamp` or
+    `seal`) and written to a temporary file that is then renamed, so a
+    hard link is replaced, never written through, and a reader sees the
+    old file or the new one;
+  - duplicate JSON keys are found by sorting, not by a scan per key (a
+    seal of many keys no longer costs minutes of CPU);
+  - an OCSP response without nextUpdate counts as current for at most 7
+    days;
+  - `keygen --seed <hex>` warns that the command line is visible to other
+    users; the timestamp guide and `noqtis-capsule(5)` say that a TSA's
+    certificate is checked at genTime and not for revocation.
 - Not yet audited: do not rely on it for anything that matters.

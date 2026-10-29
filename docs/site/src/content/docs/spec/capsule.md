@@ -136,7 +136,7 @@ The seal is a JSON object with exactly the following members, at most
 | Member | Type | Required | Value |
 |---|---|---|---|
 | `alg` | string | yes | the signature algorithm (§5.1) |
-| `context` | string | yes | the FIPS 204/205 context string, at most 255 bytes |
+| `context` | string | yes | the FIPS 204/205 context string: exactly `noqtis-capsule-1` |
 | `format` | string | yes | exactly `noqtis-seal-1` |
 | `manifest_sha256` | string | yes | SHA-256 of the exact bytes of `noqtis.json`, 64 lower-case hex digits |
 | `public_key` | string | yes | the signer's public key, base64 (§5.2) |
@@ -155,8 +155,10 @@ spelled exactly so.
 `signature` MUST be a signature of the **pure** variant (ML-DSA.Sign of
 FIPS 204 or slh_sign of FIPS 205, not the pre-hash variants) over the
 exact bytes of `noqtis.json` as stored, with `context` as the context
-string. A sealer SHOULD use the context `noqtis-capsule-1`; NOQTIS always
-does. Hedged and deterministic signatures are equally valid.
+string. The context MUST be `noqtis-capsule-1`, and a checker MUST refuse
+any other: it separates seals from every other use of the same key, so
+that a signature made for another purpose over the same bytes (a plain
+`noqtis sign`, say) is never taken for a seal. Hedged and deterministic signatures are equally valid.
 
 `public_key` and `signature` MUST have exactly the sizes the algorithm
 defines (FIPS 204 Table 2, FIPS 205 Table 2).
@@ -202,7 +204,7 @@ report every failure it can.
 1. **Seal.** `noqtis.sig` is a regular file (not reached through a link)
    of at most 1 MiB, canonical JSON (§2), with exactly the members of §5
    and their types, `format` is `noqtis-seal-1`, `alg` is known (§5.1),
-   `context` is at most 255 bytes, `public_key` and `signature` decode
+   `context` is `noqtis-capsule-1`, `public_key` and `signature` decode
    (§5.2) to the algorithm's sizes, and `manifest_sha256` is 64 lower-case
    hex digits.
 2. **Manifest digest.** `noqtis.json` is a regular file of at most 512 MiB

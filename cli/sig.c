@@ -33,6 +33,9 @@ static int seedrd(const char *cmd, const char *arg, uint8_t *seed,
     ncmsg(cmd, "--seed is neither a file nor an even number of hex digits");
     return NCUSE;
   }
+  ncmsg(cmd, "warning: a seed given as hex on the command line can be "
+             "seen by other users (the process list, shell history); "
+             "give a seed file instead");
   return NCOK;
 }
 

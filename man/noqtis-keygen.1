@@ -40,6 +40,11 @@ The seed must have the standard's length: 32 bytes (xi) for ML-DSA;
 64 bytes (d || z) for ML-KEM; 32 bytes for HQC.
 A seed of another length is a library error (exit 2).
 Anyone who knows the seed knows the secret key.
+A seed given as hex digits on the command line can be read by other users
+(the process list) and is kept in shell history; prefer a seed file with
+mode 0600.
+.Nm noqtis keygen
+prints a warning when given one.
 .It Fl f , Fl -force
 Replace existing files.
 The old files are removed first.

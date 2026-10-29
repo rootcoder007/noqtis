@@ -25,6 +25,13 @@ passes the `timestamp` row only when:
 
 The row's detail then shows the `genTime`.
 
+The TSA's certificate path is checked at the token's `genTime`, and its
+revocation is not checked. So a timestamp is only as good as the TSA's
+key was at that time: if the key is later stolen, its holder can make
+tokens with any earlier `genTime` that still check. Pin TSAs you trust
+with `--anchor`, and treat a TSA that announces a key compromise as
+untrusted for every token it ever issued.
+
 ## Fail closed
 
 A timestamp that cannot be checked is never passed silently:

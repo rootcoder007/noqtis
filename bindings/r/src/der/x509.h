@@ -205,6 +205,8 @@ int nqchain(const nqcert *leaf, const nqxchk *k, const nqcert **path,
 /* ---- revocation ---- */
 
 #define NQXSKEW 300  /* seconds of clock skew allowed */
+/* how old (thisUpdate) an OCSP response without nextUpdate may be */
+#define NQXOCSPAGE (7 * 86400)
 
 /* OCSP status */
 #define NQXGOOD 0
@@ -215,12 +217,20 @@ int nqchain(const nqcert *leaf, const nqxchk *k, const nqcert **path,
  * (path as nqchain built it): status successful, a BasicOCSPResponse
  * whose single response for the certificate (CertID: hash of the issuer
  * name and key, serial) is current at t (thisUpdate <= t + skew,
- * nextUpdate >= t - skew), signed by the issuer or by a responder
+ * nextUpdate >= t - skew; without nextUpdate, thisUpdate at most
+ * NQXOCSPAGE before t), signed by the issuer or by a responder
  * certificate the issuer signed with OCSPSigning, valid at t, whose
  * responderID matches. *st (may be NULL) gets the status. NQOK only for
  * good; NQEVRFY for revoked, unknown or anything that does not check. */
 int nqocsp(const uint8_t *p, size_t n, const nqcert *const *path,
            size_t np, size_t i, int64_t t, const nqxops *ops, int *st);
+
+/* Whether a single OCSP response with these times is current at t:
+ * producedAt and thisUpdate not in the future, and nextUpdate (if any,
+ * hasnext) not before thisUpdate nor past; without one, thisUpdate at
+ * most NQXOCSPAGE before t. All with NQXSKEW of clock skew. */
+int nqocspnow(int64_t prod, int64_t thisu, int hasnext, int64_t nextu,
+              int64_t t);
 
 /* Checks a CRL for path[i]: it is signed by a CA in the path whose
  * subject is the CRL issuer (cA; cRLSign when it states key usages),

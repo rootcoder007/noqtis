@@ -268,7 +268,7 @@ static void mutate(const tdbuf *b, ctx *c) {
   na = aliases(m, b->n, &c->anc, alo, ahi, 4);
   for (i = 0; i < b->n; i++) {
     for (k = tdquick() ? 8 : 0; k <= 8; k++) {
-      uint8_t x = k < 8 ? (uint8_t)(1u << k) : 0xffu;
+      uint8_t x = (uint8_t)(k < 8 ? 1u << k : 0xffu);
       m[i] ^= x;
       tried++;
       if (vrfy(m, b->n, c) == NQOK) {

@@ -347,14 +347,21 @@ int nqocsp(const uint8_t *p, size_t n, const nqcert *const *path,
   if (hits != 1) {
     return NQEVRFY; /* about another certificate, or ambiguous */
   }
-  if (prod > t + NQXSKEW || thisu > t + NQXSKEW ||
-      (hasnext && nextu < t - NQXSKEW) || (hasnext && nextu < thisu)) {
+  if (!nqocspnow(prod, thisu, hasnext, nextu, t)) {
     return NQEVRFY;
   }
   if (st != NULL) {
     *st = status;
   }
   return status == NQXGOOD ? NQOK : NQEVRFY;
+}
+
+int nqocspnow(int64_t prod, int64_t thisu, int hasnext, int64_t nextu,
+              int64_t t) {
+  if (prod > t + NQXSKEW || thisu > t + NQXSKEW) return 0;
+  if (hasnext) return nextu >= thisu && nextu >= t - NQXSKEW;
+  /* no nextUpdate: an old "good" could be replayed forever */
+  return thisu >= t - NQXOCSPAGE - NQXSKEW;
 }
 
 int nqcrl(const uint8_t *p, size_t n, const nqcert *const *path,

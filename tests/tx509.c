@@ -578,6 +578,15 @@ static void tocsp(void) {
     NQTEQI(nqocsp(g->p, g->n, path, 2, 0, at, tdops(1), &st), NQOK);
     NQTEQI(nqocsp(g->p, g->n, path, 2, 0, late, tdops(1), &st), NQEVRFY);
     NQTEQI(nqocsp(g->p, g->n, path, 2, 0, early, tdops(1), &st), NQEVRFY);
+    /* freshness: with and without nextUpdate (review of a4eec67, I1) */
+    NQTEQI(nqocspnow(at - 60, at - 60, 1, at + 86400, at), 1);
+    NQTEQI(nqocspnow(at - 60, at - 60, 1, at - 3600, at), 0);
+    NQTEQI(nqocspnow(at + 3600, at - 60, 1, at + 86400, at), 0);
+    NQTEQI(nqocspnow(at - 60, at + 3600, 1, at + 86400, at), 0);
+    NQTEQI(nqocspnow(at - 60, at - 60, 1, at - 120, at), 0);
+    NQTEQI(nqocspnow(at - 86400, at - 86400, 0, 0, at), 1);
+    NQTEQI(nqocspnow(at - 8 * 86400, at - 8 * 86400, 0, 0, at), 0);
+    NQTEQI(nqocspnow(at - 400 * 86400, at - 400 * 86400, 0, 0, at), 0);
     NQTEQI(nqocsp(BL("ocsp_resp_good_nocerts")->p,
                   BL("ocsp_resp_good_nocerts")->n, path, 2, 0, at, tdops(1),
                   &st),
@@ -707,7 +716,7 @@ static unsigned long mutate(const uint8_t *p, size_t n, chkfn chk,
   }
   for (i = 0; i < n; i++) {
     for (k = tdquick() ? 8 : 0; k <= 8; k++) {
-      uint8_t x = k < 8 ? (uint8_t)(1u << k) : 0xffu;
+      uint8_t x = (uint8_t)(k < 8 ? 1u << k : 0xffu);
       m[i] ^= x;
       tried++;
       if (chk(m, n, arg) == NQOK) {

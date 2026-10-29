@@ -64,6 +64,44 @@ static void tcanon(const char *in, const char *want, int wrc) {
   nqjfree(v);
 }
 
+/* duplicate keys are refused wherever they are, and an object of many
+ * keys parses in O(n log n): 200000 keys took minutes with a scan per
+ * key (review of a4eec67, F4) */
+static void tdups(void) {
+  static const char *const dup[] = {
+      "{\"a\":1,\"a\":2}", "{\"a\":1,\"b\":2,\"c\":3,\"a\":4}",
+      "{\"x\":{\"k\":1,\"j\":2,\"k\":3}}", "[{\"\":1,\"\":2}]",
+      "{\"ab\":1,\"a\":2,\"ab\":3}"};
+  size_t i, n = 200000, cap = n * 16 + 16, o = 0;
+  char *b = (char *)malloc(cap);
+  nqjs *v = NULL;
+  clock_t t0;
+  for (i = 0; i < sizeof dup / sizeof *dup; i++) {
+    NQTEQI(nqjparse(dup[i], strlen(dup[i]), &v, NULL), NQEDEC);
+  }
+  NQTEQI(nqjparse("{\"a\":1,\"ab\":2,\"b\":3}", 20, &v, NULL), NQOK);
+  nqjfree(v);
+  v = NULL;
+  NQTCHK(b != NULL);
+  if (b == NULL) return;
+  b[o++] = '{';
+  for (i = 0; i < n; i++) {
+    o += (size_t)snprintf(b + o, cap - o, "%s\"k%lu\":0", i ? "," : "",
+                          (unsigned long)i);
+  }
+  b[o++] = '}';
+  t0 = clock();
+  NQTEQI(nqjparse(b, o, &v, NULL), NQOK);
+  nqjfree(v);
+  v = NULL;
+  NQTCHK((double)(clock() - t0) / CLOCKS_PER_SEC < 20.0);
+  /* the same object with its last key repeating its first */
+  o--;
+  o += (size_t)snprintf(b + o, cap - o, ",\"k0\":1}");
+  NQTEQI(nqjparse(b, o, &v, NULL), NQEDEC);
+  free(b);
+}
+
 static void tjson(void) {
   /* RFC 8785 appendix B and ECMAScript Number::toString edge cases */
   tnum("0", "0");
@@ -108,6 +146,7 @@ static void tjson(void) {
   NQTCHK(nqcjcmp("ab", 2, "a", 1) > 0);
   NQTCHK(nqcjcmp("\xf0\x9f\x98\x80", 4, "\xef\xac\xb3", 3) < 0);
   NQTCHK(nqcjcmp("\xe2\x82\xac", 3, "\xf0\x9f\x98\x80", 4) < 0);
+  tdups();
 }
 
 static void tb64(void) {
@@ -347,10 +386,10 @@ static int chk(const char *d, const key *k, nqrep **r) {
   return nqchk(d, k == NULL ? NULL : k->pkb, k == NULL ? 0 : k->sz.pk, r);
 }
 
-/* writes noqtis.json as given and a fresh, valid seal over it */
-static void resign(const char *d, const key *k, const char *man,
-                   const char *extra) {
-  static const uint8_t ctx[] = NQCCTX;
+/* writes noqtis.json as given and a fresh seal over it, signed and
+ * labelled with context cx */
+static void resignc(const char *d, const key *k, const char *man,
+                    const char *extra, const char *cx) {
   uint8_t *sig = (uint8_t *)malloc(k->sz.sig);
   uint8_t mh[32];
   char hx[65];
@@ -361,7 +400,7 @@ static void resign(const char *d, const key *k, const char *man,
   if (sig == NULL || b == NULL) return;
   ws(d, NQCMAN, man);
   NQTEQI(nqsignd(k->alg, k->skb, k->sz.sk, (const uint8_t *)man,
-                 strlen(man), ctx, sizeof ctx - 1, 0, zero32,
+                 strlen(man), (const uint8_t *)cx, strlen(cx), 0, zero32,
                  k->alg <= NQMLDSA87 ? 32 : k->sz.pk / 2, sig, k->sz.sig,
                  &sl),
          NQOK);
@@ -370,8 +409,9 @@ static void resign(const char *d, const key *k, const char *man,
   memset(&s, 0, sizeof s);
   nqcputs(&s, "{\"alg\":\"");
   nqcputs(&s, nqsname(k->alg));
-  nqcputs(&s, "\",\"context\":\"" NQCCTX "\",\"format\":\"" NQCSFMT
-              "\",\"manifest_sha256\":\"");
+  nqcputs(&s, "\",\"context\":\"");
+  nqcputs(&s, cx);
+  nqcputs(&s, "\",\"format\":\"" NQCSFMT "\",\"manifest_sha256\":\"");
   nqcputs(&s, hx);
   nqb64e(k->pkb, k->sz.pk, b);
   nqcputs(&s, "\",\"public_key\":\"");
@@ -386,6 +426,70 @@ static void resign(const char *d, const key *k, const char *man,
   nqcbfree(&s);
   free(sig);
   free(b);
+}
+
+/* a valid seal: context noqtis-capsule-1 */
+static void resign(const char *d, const key *k, const char *man,
+                   const char *extra) {
+  resignc(d, k, man, extra, NQCCTX);
+}
+
+/* review of a4eec67: F1 a signature under another context is no seal;
+ * F2 a FIFO under a capsule's names neither blocks a check nor a seal;
+ * F3 a seal replaces a hard-linked noqtis.sig, never writes through it */
+static void treview(const key *k) {
+  static const char *const cx[] = {"", "noqtis-capsule-2", "other"};
+  char d[600], p[600], q[600], *man = NULL, *b = NULL;
+  size_t n = 0, i;
+  nqrep *r = NULL;
+  struct stat st;
+  fresh(d, sizeof d);
+  NQTEQI(sealk(d, k, NULL), NQOK);
+  NQTEQI(rd(d, NQCMAN, &man, &n), NQOK);
+  for (i = 0; man != NULL && i < sizeof cx / sizeof *cx; i++) {
+    resignc(d, k, man, NULL, cx[i]);
+    NQTEQI(chk(d, k, &r), NQEVRFY);
+    NQTEQI(row(r, "seal.context", NULL), 0);
+    NQTEQI(row(r, "signature", NULL), -1);
+    nqrepfree(r);
+    r = NULL;
+  }
+  resign(d, k, man, NULL);
+  NQTEQI(chk(d, k, &r), NQOK);
+  nqrepfree(r);
+  r = NULL;
+  free(man);
+
+  /* F2: FIFOs (opened without O_NONBLOCK these blocked forever) */
+  fresh(d, sizeof d);
+  path(p, sizeof p, d, NQCSIG);
+  NQTEQI(mkfifo(p, 0600), 0);
+  track(p);
+  NQTCHK(chk(d, k, &r) != NQOK);
+  nqrepfree(r);
+  r = NULL;
+  path(q, sizeof q, d, NQCMAN);
+  NQTEQI(mkfifo(q, 0600), 0);
+  track(q);
+  NQTCHK(sealk(d, k, NULL) != NQOK);
+  NQTEQI(lstat(p, &st), 0);
+  NQTCHK(S_ISFIFO(st.st_mode));
+
+  /* F3: a hard link to a file outside the folder */
+  fresh(d, sizeof d);
+  path(q, sizeof q, root, "outside.txt");
+  ws(root, "outside.txt", "keep me\n");
+  path(p, sizeof p, d, NQCSIG);
+  NQTEQI(link(q, p), 0);
+  track(p);
+  NQTEQI(sealk(d, k, NULL), NQOK);
+  NQTEQI(rd(root, "outside.txt", &b, &n), NQOK);
+  NQTCHK(b != NULL && n == 8 && memcmp(b, "keep me\n", 8) == 0);
+  free(b);
+  NQTEQI(stat(p, &st), 0);
+  NQTCHK(st.st_nlink == 1);
+  NQTEQI(chk(d, k, &r), NQOK);
+  nqrepfree(r);
 }
 
 /* seals d with k, then checks that chk(d) passes */
@@ -1369,6 +1473,7 @@ static void tfs(int gen) {
   tamper(&m44, &other);
   tpaths(&m44);
   tsealargs(&m44, &other);
+  treview(&m44);
   tlims(&m44);
   if (getenv("NQCAPBIG") != NULL) tbig(&m44);
   talloc(&m44);

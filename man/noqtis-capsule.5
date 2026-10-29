@@ -97,12 +97,12 @@ names it, for example
 or
 .Ql SLH-DSA-SHAKE-128s .
 .It Cm context
-The FIPS 204/205 context string the signature was made with, at most 255
-bytes.
-A sealer SHOULD use
-.Ql noqtis-capsule-1 ;
-.Xr nqseal 3
-always does.
+The FIPS 204/205 context string the signature was made with: exactly
+.Ql noqtis-capsule-1 .
+A checker refuses any other context, so that a signature made for
+another purpose (a plain
+.Xr noqtis-sign 1
+of the same bytes, say) is never taken for a seal.
 .It Cm format
 The string
 .Ql noqtis-seal-1 .
@@ -216,6 +216,18 @@ Its seal:
 "format":"noqtis-seal-1","manifest_sha256":"9f322e95...",
 "public_key":"1qWycP39...","signature":"..."}
 .Ed
+.Sh SECURITY CONSIDERATIONS
+The signature's context is always
+.Ql noqtis-capsule-1 ,
+and a checker refuses any other, so a signature its key holder made for
+another purpose over the same bytes is never a seal.
+.Pp
+A timestamp's TSA certificate path is checked at the token's genTime, and
+revocation is not checked: a timestamp is only as good as the TSA's key
+was at that time.
+If the key is stolen later, tokens with an earlier genTime can be made
+that still check; pin the TSAs you trust, and stop trusting every token
+of a TSA that announces a key compromise.
 .Sh SEE ALSO
 .Xr noqtis-check 1 ,
 .Xr noqtis-seal 1 ,

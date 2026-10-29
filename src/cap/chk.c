@@ -214,8 +214,12 @@ static void rdseal(nqrep *r, const char *dir, seal *s) {
   rc = nqsfind(s->an, &s->alg) == NQOK && nqssize(s->alg, &s->sz) == NQOK;
   add(r, "seal.alg", rc, s->an, rc ? NULL : ": not known", NULL);
   if (!rc) return;
-  rc = s->ctxlen <= 255;
-  add(r, "seal.context", rc, "\"", s->ctx, "\"");
+  /* only "noqtis-capsule-1": a signature made for anything else (a plain
+   * `noqtis sign`, another protocol's context) is never a seal */
+  rc = s->ctxlen == sizeof NQCCTX - 1 &&
+       memcmp(s->ctx, NQCCTX, sizeof NQCCTX - 1) == 0;
+  add(r, "seal.context", rc, "\"", s->ctx,
+      rc ? "\"" : "\": not the capsule context \"" NQCCTX "\"");
   if (!rc) return;
   s->pk = (uint8_t *)nqmal(s->sz.pk);
   s->sig = (uint8_t *)nqmal(s->sz.sig);

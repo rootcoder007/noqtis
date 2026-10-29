@@ -79,19 +79,9 @@ static int grow(nqjs *c) {
 }
 
 /* Adds v to container c (with key for an object); on error frees v and
- * key. Duplicate keys are refused. */
+ * key. Duplicate keys are found when the object closes (dupkeys). */
 static int addkid(nqjs *c, nqjs *v, char *key, size_t klen) {
-  size_t i;
   int rc;
-  if (c->type == NQJOBJ) {
-    for (i = 0; i < c->n; i++) {
-      if (c->klen[i] == klen && memcmp(c->keys[i], key, klen) == 0) {
-        nqjfree(v);
-        nqfree(key, klen + 1);
-        return NQEDEC;
-      }
-    }
-  }
   if (c->n == c->cap && (rc = grow(c)) != NQOK) {
     nqjfree(v);
     nqfree(key, klen + 1);
@@ -104,6 +94,45 @@ static int addkid(nqjs *c, nqjs *v, char *key, size_t klen) {
   }
   c->n++;
   return NQOK;
+}
+
+static int kcmp(const nqjs *c, size_t a, size_t b) {
+  size_t la = c->klen[a], lb = c->klen[b];
+  int r = memcmp(c->keys[a], c->keys[b], la < lb ? la : lb);
+  if (r != 0) return r;
+  return (la > lb) - (la < lb);
+}
+
+/* NQEDEC when object c has a key twice: its keys sorted (a bottom-up
+ * merge sort, O(n log n), where a scan per key would be O(n^2) on a
+ * hostile file), then neighbours compared. */
+static int dupkeys(const nqjs *c) {
+  size_t n = c->n, *idx, *tmp, w, i;
+  int rc = NQOK;
+  if (n < 2) return NQOK;
+  if (n > (size_t)-1 / (2 * sizeof(size_t))) return NQELIM;
+  idx = (size_t *)nqmal(2 * n * sizeof(size_t));
+  if (idx == NULL) return NQEMEM;
+  tmp = idx + n;
+  for (i = 0; i < n; i++) idx[i] = i;
+  for (w = 1; w < n; w = w > n / 2 ? n : 2 * w) {
+    for (i = 0; i < n; i += 2 * w) {
+      size_t lo = i, mid = i + w < n ? i + w : n;
+      size_t hi = mid + w < n && w <= n - mid ? mid + w : n;
+      size_t a = lo, b = mid, o = lo;
+      while (a < mid && b < hi) {
+        tmp[o++] = kcmp(c, idx[b], idx[a]) < 0 ? idx[b++] : idx[a++];
+      }
+      while (a < mid) tmp[o++] = idx[a++];
+      while (b < hi) tmp[o++] = idx[b++];
+    }
+    memcpy(idx, tmp, n * sizeof(size_t));
+  }
+  for (i = 1; i < n && rc == NQOK; i++) {
+    if (kcmp(c, idx[i - 1], idx[i]) == 0) rc = NQEDEC;
+  }
+  nqfree(idx, 2 * n * sizeof(size_t));
+  return rc;
 }
 
 /* ---- lexing ---- */
@@ -425,6 +454,7 @@ int nqjparse(const char *buf, size_t len, nqjs **out, size_t *erroff) {
       if (lx.pos >= lx.len) { rc = NQEDEC; goto fail; }
       c = lx.s[lx.pos++];
       if (c == (top->type == NQJOBJ ? '}' : ']')) {
+        if (top->type == NQJOBJ && (rc = dupkeys(top)) != NQOK) goto fail;
         depth--;
         continue;
       }
