@@ -3,7 +3,8 @@
 # Builds one of the packaging/ recipes from a local source tarball, installs
 # the package it makes and runs the consumer program against the installed
 # package (pkg-config and find_package). Run from the source root:
-#   packaging/pkgtest.sh arch|alpine|rpm|debian  as root, in that distro
+#   packaging/pkgtest.sh arch|alpine|rpm|debian|gentoo
+#                                                as root, in that distro
 #   packaging/pkgtest.sh brew                    where brew is (not root)
 #   packaging/pkgtest.sh wolfi                   on a host with docker or
 #                                                podman (NQOCI=podman)
@@ -71,6 +72,30 @@ debian)
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
     "$w"/libnoqtis0_"$v"-*.deb "$w"/libnoqtis-dev_"$v"-*.deb
   dpkg -L libnoqtis0 libnoqtis-dev
+  consumer /usr
+  ;;
+gentoo)
+  # cmake comes from Gentoo's binary package host, as in the distro job
+  emerge-webrsync -q
+  getuto
+  emerge -q --getbinpkg --usepkg --noreplace dev-build/cmake
+  # a local overlay holding the ebuild; the tarball stands in for the
+  # download
+  o=$w/overlay
+  mkdir -p "$o/metadata" "$o/profiles" "$o/dev-libs/noqtis" \
+    /etc/portage/repos.conf /var/cache/distfiles
+  echo noqtis > "$o/profiles/repo_name"
+  printf 'masters = gentoo\nthin-manifests = true\n' > "$o/metadata/layout.conf"
+  printf '[noqtis]\nlocation = %s\n' "$o" > /etc/portage/repos.conf/noqtis.conf
+  cp "packaging/gentoo/noqtis-$v.ebuild" packaging/gentoo/metadata.xml \
+    "$o/dev-libs/noqtis/"
+  cp "$tar" "/var/cache/distfiles/noqtis-$v.tar.gz"
+  (cd "$o/dev-libs/noqtis" && ebuild "noqtis-$v.ebuild" manifest)
+  # src_test runs ctest; a container has no ptrace for the sandbox
+  FEATURES="test -sandbox -usersandbox -network-sandbox" \
+    ACCEPT_KEYWORDS="~amd64 ~arm64" USE=test \
+    emerge -q --oneshot "=dev-libs/noqtis-$v"
+  cat "/var/db/pkg/dev-libs/noqtis-$v/CONTENTS"
   consumer /usr
   ;;
 brew)

@@ -450,6 +450,9 @@ jobs:
           # debian:stable
           - kind: debian
             image: debian@sha256:708ae3c7fd034a0f178557c500e617165589c61732022589fff3c401f92edbd3
+          # gentoo/stage3:latest, as in the distro job
+          - kind: gentoo
+            image: gentoo/stage3@sha256:1ca7647d1ce968d02c2858ee4201e2173675fd3fc0754a8acd583d9288b75478
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: packaging/pkgtest.sh ${{ matrix.kind }}

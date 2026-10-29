@@ -240,7 +240,7 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 | Android | Maven `noqtis-android` | AAR with NDK builds |
 | Ruby | gem `noqtis` | FFI |
 | C/C++ package managers | vcpkg, Conan, conda-forge, xmake | source recipes |
-| Linux distributions | Debian/Ubuntu, Fedora/EPEL, Arch (AUR), Alpine, Nix, Gentoo | distro packages; recipes for Debian, Fedora, Arch, Alpine and Wolfi in `packaging/` and `flake.nix` for Nix, built and tested in CI; Gentoo ebuild not yet |
+| Linux distributions | Debian/Ubuntu, Fedora/EPEL, Arch (AUR), Alpine, Nix, Gentoo | distro packages; recipes for Debian, Fedora, Arch, Alpine, Wolfi and Gentoo in `packaging/` and `flake.nix` for Nix, built and tested in CI; a Gentoo ebuild (an overlay) too |
 | Windows | winget, Scoop, Chocolatey | the release archives |
 | Containers | `ghcr.io/rootcoder007/noqtis` | distroless image with the CLI; the Wolfi `Dockerfile` carries the library now, the CLI later |
 | CI | GitHub Action `rootcoder007/noqtis@v0` (`action.yml` in this repository) | seal and check capsules in workflows; tested by `.github/workflows/action.yml` on Linux, macOS and Windows |
