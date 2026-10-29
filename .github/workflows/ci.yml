@@ -132,7 +132,12 @@ jobs:
     # alpine:3.22
     container: alpine@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
     steps:
-      - run: apk add --no-cache build-base cmake git
+      - run: |
+          for i in 1 2 3; do
+            apk add --no-cache build-base cmake git && exit 0
+            echo "apk add failed (try $i of 3)"; sleep 20
+          done
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build -j4
@@ -373,7 +378,16 @@ jobs:
               --noreplace dev-build/cmake dev-vcs/git
     steps:
       - name: compiler, cmake, make, pkg-config
-        run: ${{ matrix.deps }}
+        # a mirror that drops a download (Wolfi: "BAD archive") gets two
+        # more tries before the job fails
+        env:
+          DEPS: ${{ matrix.deps }}
+        run: |
+          for i in 1 2 3; do
+            sh -c "$DEPS" && exit 0
+            echo "package install failed (try $i of 3)"; sleep 20
+          done
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cc --version && cmake --version
       - run: packaging/check.sh /tmp/nqchk
