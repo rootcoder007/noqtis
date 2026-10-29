@@ -1,0 +1,90 @@
+---
+title: "Getting started with noqtis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with noqtis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+noqtis brings post-quantum signatures (ML-DSA, SLH-DSA), key
+encapsulation (ML-KEM, HQC) and hashes to R, through a bundled C library.
+Keys, signatures and ciphertexts are raw vectors in the encodings the
+standards define.
+
+```{r}
+library(noqtis)
+head(nqalgs())
+```
+
+## Signing
+
+```{r}
+k <- nqkeygen("ML-DSA-65")
+sig <- nqsign(k$sk, "the results in table 2", "ML-DSA-65")
+length(sig)
+nqverify(k$pk, "the results in table 2", sig, "ML-DSA-65")
+nqverify(k$pk, "the results in table 3", sig, "ML-DSA-65")
+```
+
+A context string binds a signature to one use; verification needs the
+same context.
+
+```{r}
+sig <- nqsign(k$sk, "data", "ML-DSA-65", ctx = "analysis-v1")
+nqverify(k$pk, "data", sig, "ML-DSA-65", ctx = "analysis-v1")
+nqverify(k$pk, "data", sig, "ML-DSA-65")
+```
+
+## Key encapsulation
+
+```{r}
+k <- nqkeygen("ML-KEM-768")
+e <- nqencap(k$pk, "ML-KEM-768")
+identical(nqdecap(k$sk, e$ct, "ML-KEM-768"), e$ss)
+```
+
+## Hashes
+
+```{r}
+nqhash("abc", hex = TRUE)
+nqhash("abc", "sha3-256", hex = TRUE)
+```
+
+## Capsules
+
+A capsule is a signed record of the exact files in a folder. Seal it once,
+and anyone with the public key can check later that no file was changed,
+added or removed.
+
+```{r}
+d <- file.path(tempdir(), "analysis")
+dir.create(d)
+writeLines(c("x,y", "1,2"), file.path(d, "data.csv"))
+k <- nqkeygen("ML-DSA-44")
+nqseal(d, k$sk, k$pk, "ML-DSA-44", meta = '{"project":"vignette"}')
+nqcheck(d, k$pk)
+
+writeLines(c("x,y", "1,3"), file.path(d, "data.csv"))
+r <- nqcheck(d, k$pk)
+r[!r$ok, ]
+```
+
+The package ships a capsule made by the noqtis library's own tests:
+
+```{r}
+g <- system.file("extdata", "capsule", package = "noqtis")
+attr(nqcheck(g), "ok")
+```
+
+## Randomness
+
+Key generation, signing and encapsulation take their randomness from the
+operating system (`getrandom()`, `arc4random_buf()` or
+`BCryptGenRandom()`), never from R's generator: `set.seed()` does not
+make them repeat. For test vectors, `nqkeygen()` and `nqencap()` take an
+explicit `seed`, and `nqsign()` has `det = TRUE`.

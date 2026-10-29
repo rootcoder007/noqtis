@@ -1,0 +1,31 @@
+Package: noqtis
+Type: Package
+Title: Post-Quantum Signatures, Key Encapsulation and Signed File Records
+Version: 0.1.0
+Authors@R: c(
+    person(c("Vansh", "Singh"), "Ruhela", email = "vsruhela@proton.me",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0009-0004-1750-3592", GitHub = "rootcoder007")),
+    person("The noqtis contributors", role = "cph",
+           comment = "bundled C library in src/, see inst/COPYRIGHTS"))
+Description: Bindings to 'noqtis', a self-contained C11 library for
+    post-quantum cryptography: the 'ML-DSA' (FIPS 204) and 'SLH-DSA'
+    (FIPS 205) signature schemes, the 'ML-KEM' (FIPS 203) and 'HQC' key
+    encapsulation mechanisms, the 'SHA-2' (FIPS 180-4) and 'SHA-3'
+    (FIPS 202) hash families and 'HMAC'. It also seals a folder into a
+    capsule, a signed record of the exact files it holds, and checks a
+    capsule again, so that an analysis can be traced to the data it used.
+    The library is bundled; randomness comes from the operating system's
+    secure generator, never from R's random number generator.
+License: Apache License (== 2.0) | file LICENSE
+Copyright: see file inst/COPYRIGHTS
+URL: https://github.com/rootcoder007/noqtis
+BugReports: https://github.com/rootcoder007/noqtis/issues
+Depends: R (>= 4.1)
+Suggests: knitr, rmarkdown, testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Encoding: UTF-8
+NeedsCompilation: yes
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3

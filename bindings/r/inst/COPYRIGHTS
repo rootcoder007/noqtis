@@ -1,0 +1,43 @@
+noqtis R package: copyright and licence of bundled code
+=======================================================
+
+The R code in R/, the interface in src/rnq.c, the tests and the
+vignette are
+
+  Copyright 2026 Vansh Singh Ruhela (rootcoder007) and the noqtis
+  contributors
+
+and licensed under the Apache License, Version 2.0, with LLVM
+Exceptions (SPDX: Apache-2.0 WITH LLVM-exception); see LICENSE.
+
+Bundled C library
+-----------------
+
+src/api, src/cap, src/cls, src/core, src/der, src/drbg, src/hash,
+src/hqc, src/mldsa, src/mlkem, src/slh and src/include/noqtis.h are an
+unmodified copy of the noqtis C library
+(https://github.com/rootcoder007/noqtis), made by tools/vendor.sh in
+that repository:
+
+  Copyright 2026 rootcoder007 and the noqtis contributors
+  License: Apache-2.0 WITH LLVM-exception (see LICENSE)
+
+The library is an independent implementation of public standards
+(FIPS 180-4, FIPS 202, FIPS 203, FIPS 204, FIPS 205, SP 800-90A, the
+HQC specification v5.0.0); it contains no third-party code.
+
+Test fixtures
+-------------
+
+inst/extdata/capsule and tests/testthat/fixtures were made with the
+noqtis library and are under the same licence. No NIST or Wycheproof
+test vector files are shipped in this package.
+
+Licence note
+------------
+
+The licence field "Apache License (== 2.0) | file LICENSE" offers the
+Apache License 2.0 or the Apache License 2.0 with the LLVM Exceptions
+(the text in LICENSE). The exceptions only add permissions, so the two
+alternatives together grant exactly what Apache-2.0 WITH
+LLVM-exception grants.

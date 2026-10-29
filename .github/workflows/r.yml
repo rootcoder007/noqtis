@@ -1,0 +1,82 @@
+# R package (bindings/r): vendors the C library, then R CMD check --as-cran
+# on Linux, macOS and Windows, R release and devel.
+name: r
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bindings/r/**"
+      - "src/**"
+      - "include/**"
+      - ".github/workflows/r.yml"
+  pull_request:
+    paths:
+      - "bindings/r/**"
+      - "src/**"
+      - "include/**"
+      - ".github/workflows/r.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: vendored sources match src/ and include/
+        run: |
+          sh bindings/r/tools/vendor.sh
+          git status --porcelain bindings/r/src
+          git diff --exit-code -- bindings/r/src
+          test -z "$(git status --porcelain bindings/r/src)"
+
+  check:
+    needs: vendor
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    name: ${{ matrix.os }} R ${{ matrix.r }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, r: release }
+          - { os: ubuntu-latest, r: devel }
+          - { os: ubuntu-latest, r: oldrel-1 }
+          - { os: macos-latest, r: release }
+          - { os: windows-latest, r: release }
+          - { os: windows-latest, r: devel }
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      _R_CHECK_FORCE_SUGGESTS_: false
+      _R_CHECK_CRAN_INCOMING_REMOTE_: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          r-version: ${{ matrix.r }}
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          working-directory: bindings/r
+          extra-packages: any::rcmdcheck
+          needs: check
+      - uses: r-lib/actions/check-r-package@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          working-directory: bindings/r
+          args: 'c("--no-manual", "--as-cran")'
+          error-on: '"warning"'
+          upload-snapshots: false
