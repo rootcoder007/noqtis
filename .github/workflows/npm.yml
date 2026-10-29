@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The npm package (bindings/npm): builds the library to WebAssembly with
+# the pinned emsdk, runs the package's tests on Node 18, 20 and 22 (with
+# the native CLI built beside it for the cross-checks), type-checks the
+# declarations and dry-runs `npm pack`. On a release tag of a public
+# repository, publishes to npm with provenance; while the repository is
+# private the publish job is skipped.
+name: npm
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "bindings/npm/**"
+      - "src/**"
+      - "include/**"
+      - "cli/**"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/npm.yml"
+  pull_request:
+    paths:
+      - "bindings/npm/**"
+      - "src/**"
+      - "include/**"
+      - "cli/**"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/npm.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+env:
+  EMSDK_VERSION: "6.0.12"
+
+jobs:
+  test:
+    name: node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["18", "20", "22"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: build the WebAssembly module
+        run: sh bindings/npm/build.sh
+      - name: build the native CLI for the cross-checks
+        run: |
+          cmake -S . -B native -DCMAKE_BUILD_TYPE=Release -DNQTESTS=OFF
+          cmake --build native -j4
+      - name: tests
+        working-directory: bindings/npm
+        env:
+          NOQTIS_CLI: ${{ github.workspace }}/native/bin/noqtis
+        run: npm test
+      - name: type declarations
+        if: matrix.node == '22'
+        working-directory: bindings/npm
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run types
+      - name: package contents
+        working-directory: bindings/npm
+        run: npm pack --dry-run
+
+  publish:
+    # release tags only, and never while the repository is private
+    if: >
+      startsWith(github.ref, 'refs/tags/v') &&
+      !github.event.repository.private
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # npm provenance (Sigstore)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: build the WebAssembly module
+        run: sh bindings/npm/build.sh
+      - name: the tag matches the package version
+        working-directory: bindings/npm
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          have=$(node -p 'require("./package.json").version')
+          test "$want" = "$have" || {
+            echo "tag $GITHUB_REF_NAME, package.json $have" >&2; exit 1; }
+      - name: publish
+        working-directory: bindings/npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public

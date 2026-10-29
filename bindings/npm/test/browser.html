@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception -->
+<!-- Browser smoke test: serve bindings/npm (python3 -m http.server) and
+     open /test/browser.html; the page prints PASS or FAIL. -->
+<meta charset="utf-8">
+<title>noqtis smoke</title>
+<pre id="out">running</pre>
+<script type="module">
+import { init, sign, kem, hash, capsule, random } from '../lib/index.js';
+const out = document.getElementById('out');
+try {
+  await init();
+  const k = sign.keygen('ML-DSA-65');
+  const s = sign.sign('ML-DSA-65', k.secretKey, 'browser', { ctx: 'x' });
+  if (!sign.verify('ML-DSA-65', k.publicKey, 'browser', s, { ctx: 'x' })) {
+    throw new Error('verify');
+  }
+  const e = kem.encap('ML-KEM-768', kem.keygen('ML-KEM-768').publicKey);
+  if (e.sharedSecret.length !== 32) throw new Error('kem');
+  const h = Array.from(hash('sha256', 'abc'), (b) =>
+    b.toString(16).padStart(2, '0')).join('');
+  if (!h.startsWith('ba7816bf')) throw new Error('hash');
+  const f = new Map([['a.txt', 'a']]);
+  const seal = capsule.seal(f, 'ML-DSA-65', k.secretKey, k.publicKey);
+  for (const [n, v] of Object.entries(seal)) f.set(n, v);
+  if (!capsule.check(f).ok) throw new Error('capsule');
+  if (random(16).every((b) => b === 0)) throw new Error('random');
+  out.textContent = 'PASS';
+} catch (err) {
+  out.textContent = `FAIL ${err.stack || err}`;
+}
+</script>

@@ -1,0 +1,96 @@
+{
+  "name": "noqtis",
+  "version": "0.1.0",
+  "description": "Post-quantum signatures (ML-DSA, SLH-DSA), KEMs (ML-KEM, HQC), hashes and sealed file capsules: the noqtis C library as WebAssembly",
+  "keywords": [
+    "post-quantum",
+    "pqc",
+    "ml-dsa",
+    "slh-dsa",
+    "ml-kem",
+    "hqc",
+    "fips-203",
+    "fips-204",
+    "fips-205",
+    "signature",
+    "kem",
+    "webassembly"
+  ],
+  "license": "Apache-2.0 WITH LLVM-exception",
+  "author": "rootcoder007",
+  "homepage": "https://github.com/rootcoder007/noqtis/tree/main/bindings/npm#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rootcoder007/noqtis.git",
+    "directory": "bindings/npm"
+  },
+  "bugs": {
+    "url": "https://github.com/rootcoder007/noqtis/issues"
+  },
+  "type": "module",
+  "main": "./lib/index.cjs",
+  "module": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./lib/index.d.ts",
+        "default": "./lib/index.js"
+      },
+      "require": {
+        "types": "./lib/index.d.cts",
+        "default": "./lib/index.cjs"
+      }
+    },
+    "./node": {
+      "import": {
+        "types": "./lib/node.d.ts",
+        "default": "./lib/node.js"
+      },
+      "require": {
+        "types": "./lib/node.d.cts",
+        "default": "./lib/node.cjs"
+      }
+    },
+    "./noqtis.wasm": "./dist/noqtis.wasm",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.cjs",
+    "lib/index.d.ts",
+    "lib/index.d.cts",
+    "lib/node.js",
+    "lib/node.cjs",
+    "lib/node.d.ts",
+    "lib/node.d.cts",
+    "dist/noqtis.js",
+    "dist/noqtis.wasm",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "browser": {
+    "./lib/node.js": false,
+    "./lib/node.cjs": false
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "sh build.sh",
+    "test": "node --test test/api.test.js test/acvp.test.js test/cap.test.js test/cjs.test.cjs test/cli.test.js",
+    "types": "tsc -p test/tsconfig.json",
+    "prepack": "test -f dist/noqtis.wasm && test -f dist/noqtis.js"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.0",
+    "typescript": "5.9.2"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  }
+}
