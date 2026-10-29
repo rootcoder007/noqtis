@@ -26,7 +26,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <direct.h>
+#else
 #include <sys/stat.h>
 #include <sys/wait.h>
 #endif
@@ -177,10 +179,13 @@ static void rmdirs(const char *d) {
   shell(c);
 }
 
+/* a folder, made directly: cmd's mkdir reads "a/b" as a switch */
 static void mkd(const char *d) {
-  char c[256];
-  sn(c, sizeof c, "mkdir %s", d);
-  shell(c);
+#ifdef _WIN32
+  (void)_mkdir(d);
+#else
+  (void)mkdir(d, 0777);
+#endif
 }
 
 /* Runs noqtis with args (stdin from in when not NULL); returns its exit
@@ -838,6 +843,17 @@ static void tts(void) {
              mktsa("b");
   if (!haveossl) {
     printf("tcli: no working openssl; the live TSA checks are skipped\n");
+    return;
+  }
+  /* LibreSSL (macOS's /usr/bin/openssl) ignores signer_digest and signs
+   * the reply with SHA-1, which noqtis refuses: check that it does, then
+   * skip the checks that need a SHA-256 reply */
+  if (system("openssl version >q.over 2>&1") == 0 &&
+      has("q.over", "LibreSSL")) {
+    wantts(2, "ossl", "q.a.rcmd",
+           "seal -k q.c --tsa http://127.0.0.1:@PORT@/tsr qts");
+    ok(has("q.err", "SHA-1"), "a SHA-1 signed reply is refused as such");
+    printf("tcli: openssl is LibreSSL; the live TSA checks are skipped\n");
     return;
   }
   wantts(0, "ossl", "q.a.rcmd",
