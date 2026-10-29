@@ -395,7 +395,7 @@ static int replacef(const char *tmp, const char *path) {
   return rc;
 }
 
-static void rmtmp(const char *tmp) {
+static void droptmp(const char *tmp) {
   size_t tb;
   wchar_t *wt = wide(tmp, &tb);
   if (wt == NULL) return;
@@ -540,7 +540,7 @@ static int replacef(const char *tmp, const char *path) {
   return rename(tmp, path) == 0 ? NQOK : NQEIO;
 }
 
-static void rmtmp(const char *tmp) { unlink(tmp); }
+static void droptmp(const char *tmp) { unlink(tmp); }
 
 static unsigned long mypid(void) { return (unsigned long)getpid(); }
 
@@ -741,7 +741,7 @@ int nqcwrite(const char *dir, const char *name, const char *buf, size_t n) {
     if (rc == NQOK) rc = flush(f);
     if (fclose(f) != 0) rc = NQEIO;
     if (rc == NQOK) rc = replacef(tmp, full);
-    if (rc != NQOK) rmtmp(tmp);
+    if (rc != NQOK) droptmp(tmp);
   }
   nqfree(tmp, tl + 1);
   nqfree(full, fl + 1);
