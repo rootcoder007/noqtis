@@ -1,0 +1,91 @@
+#compdef noqtis
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# zsh completion for noqtis(1).
+
+local -a algs hashes
+algs=(ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f
+  SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f
+  SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s
+  SLH-DSA-SHAKE-192f SLH-DSA-SHAKE-256s SLH-DSA-SHAKE-256f ML-KEM-512
+  ML-KEM-768 ML-KEM-1024 HQC-128 HQC-192 HQC-256)
+hashes=(sha224 sha256 sha384 sha512 sha512-224 sha512-256 sha3-224 sha3-256
+  sha3-384 sha3-512 shake128 shake256)
+
+_noqtis_cmd() {
+  case $words[1] in
+    keygen)
+      _arguments \
+        '(-a --alg)'{-a,--alg=}'[algorithm]:algorithm:($algs)' \
+        '(-o --out)'{-o,--out=}'[key file to write]:key:_files' \
+        '--seed[seed as hex or a seed file]:seed:_files' \
+        '(-f --force)'{-f,--force}'[replace existing files]' ;;
+    sign)
+      _arguments \
+        '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
+        '(-o --out)'{-o,--out=}'[signature file]:sig:_files' \
+        '(-c --ctx)'{-c,--ctx=}'[context string]:ctx:' \
+        '(-d --det)'{-d,--det}'[deterministic signature]' \
+        '--ph[pre-hash with]:hash:($hashes)' \
+        '(-f --force)'{-f,--force}'[replace an existing signature]' \
+        ':file:_files' ;;
+    verify)
+      _arguments \
+        '(-p --pub)'{-p,--pub=}'[public key]:key.pub:_files' \
+        '(-s --sig)'{-s,--sig=}'[signature]:sig:_files' \
+        '(-c --ctx)'{-c,--ctx=}'[context string]:ctx:' \
+        '--ph[pre-hash with]:hash:($hashes)' \
+        '(-q --quiet)'{-q,--quiet}'[print nothing]' \
+        ':file:_files' ;;
+    enc)
+      _arguments \
+        '(-p --pub)'{-p,--pub=}'[public key]:key.pub:_files' \
+        '(-o --out)'{-o,--out=}'[ciphertext file]:ct:_files' \
+        '--stdout[print the shared secret]' \
+        '(-f --force)'{-f,--force}'[replace existing files]' \
+        '::ss:_files' ;;
+    dec)
+      _arguments \
+        '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
+        '(-o --out)'{-o,--out=}'[shared secret file]:ss:_files' \
+        '--stdout[print the shared secret]' \
+        '(-f --force)'{-f,--force}'[replace an existing file]' \
+        ':ct:_files' ;;
+    hash)
+      _arguments \
+        '(-a --alg)'{-a,--alg=}'[hash]:hash:($hashes)' \
+        '(-c --check)'{-c,--check}'[check a list of sums]' \
+        '*:file:_files' ;;
+    seal)
+      _arguments \
+        '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
+        '(-p --pub)'{-p,--pub=}'[public key to check against]:key.pub:_files' \
+        '(-m --meta)'{-m,--meta=}'[metadata JSON]:json-file:_files' \
+        '*--tsa[RFC 3161 timestamp authority]:url:_urls' \
+        '*--anchor[trusted root certificate]:der-file:_files' \
+        ':dir:_files -/' ;;
+    check)
+      _arguments \
+        '(-p --pub)'{-p,--pub=}'[expected public key]:key.pub:_files' \
+        '(-j --json)'{-j,--json}'[JSON report]' \
+        '*--anchor[trusted root certificate]:der-file:_files' \
+        ':dir:_files -/' ;;
+    inspect)
+      _arguments '(-j --json)'{-j,--json}'[JSON report]' ':dir:_files -/' ;;
+    timestamp)
+      _arguments \
+        '*--tsa[RFC 3161 timestamp authority]:url:_urls' \
+        '*--anchor[trusted root certificate]:der-file:_files' \
+        '--force[replace an existing timestamp]' \
+        ':dir:_files -/' ;;
+  esac
+}
+
+_arguments -C \
+  '(- :)'{-V,--version}'[print the version]' \
+  '1:command:((keygen\:"make a key pair" sign\:"sign a file"
+    verify\:"verify a signature" enc\:"encapsulate a shared secret"
+    dec\:"decapsulate a shared secret" hash\:"print or check digests"
+    seal\:"seal a folder" check\:"check a sealed folder"
+    inspect\:"show what a seal says" timestamp\:"add public timestamps"
+    algs\:"list the algorithms" version\:"print the version"))' \
+  '*::arg:_noqtis_cmd'

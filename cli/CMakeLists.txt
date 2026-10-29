@@ -25,3 +25,13 @@ if(WIN32)
   endif()
 endif()
 install(TARGETS nqcli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+# the shell completions (completions/), where bash-completion, zsh and
+# fish look for them
+if(NOT WIN32)
+  install(FILES completions/noqtis.bash RENAME noqtis
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/bash-completion/completions)
+  install(FILES completions/_noqtis
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/zsh/site-functions)
+  install(FILES completions/noqtis.fish
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d)
+endif()

@@ -3,7 +3,7 @@
 # Builds one of the packaging/ recipes from a local source tarball, installs
 # the package it makes and runs the consumer program against the installed
 # package (pkg-config and find_package). Run from the source root:
-#   packaging/pkgtest.sh arch|alpine|rpm|debian|gentoo
+#   packaging/pkgtest.sh arch|alpine|rpm|debian|gentoo|void
 #                                                as root, in that distro
 #   packaging/pkgtest.sh brew                    where brew is (not root)
 #   packaging/pkgtest.sh wolfi                   on a host with docker or
@@ -96,6 +96,30 @@ gentoo)
     ACCEPT_KEYWORDS="~amd64 ~arm64" USE=test \
     emerge -q --oneshot "=dev-libs/noqtis-$v"
   cat "/var/db/pkg/dev-libs/noqtis-$v/CONTENTS"
+  consumer /usr
+  ;;
+void)
+  # xbps-src in a throwaway container as void-packages' CI has run it: the
+  # "ethereal" chroot style, the container itself as the masterdir (no
+  # mounts, so no privileges needed)
+  xbps-install -Syu xbps
+  xbps-install -yu
+  xbps-install -y base-devel bash git curl
+  git clone --depth 1 https://github.com/void-linux/void-packages "$w/vp"
+  printf 'XBPS_CHROOT_CMD=ethereal\nXBPS_ALLOW_CHROOT_BREAKOUT=yes\n' \
+    > "$w/vp/etc/conf"
+  ln -s / "$w/vp/masterdir"
+  xbps-uhelper arch > /.xbps_chroot_init
+  mkdir -p "$w/vp/srcpkgs/noqtis" "$w/vp/hostdir/sources/noqtis-$v"
+  sed "s/^checksum=SKIP/checksum=$sum/" packaging/void/template \
+    > "$w/vp/srcpkgs/noqtis/template"
+  ln -s noqtis "$w/vp/srcpkgs/noqtis-devel"
+  # the tarball stands in for the download
+  cp "$tar" "$w/vp/hostdir/sources/noqtis-$v/v$v.tar.gz"
+  (cd "$w/vp" && ./xbps-src -Q pkg noqtis)
+  xbps-install -y -R "$w/vp/hostdir/binpkgs" noqtis noqtis-devel
+  xbps-query -f noqtis
+  xbps-query -f noqtis-devel
   consumer /usr
   ;;
 brew)

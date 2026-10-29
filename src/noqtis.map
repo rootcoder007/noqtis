@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* The shared library's symbol versions (ELF): every public function of
+ * noqtis.h at NOQTIS_0, the ABI of major version 0; nothing else is
+ * exported. A function added in a later 0.x release goes in a new node
+ * (NOQTIS_0.2 { global: ...; } NOQTIS_0;), so a program built against it
+ * names the version it needs. */
+NOQTIS_0 {
+  global:
+    nq*;
+  local:
+    *;
+};

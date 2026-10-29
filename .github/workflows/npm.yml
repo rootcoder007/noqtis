@@ -2,10 +2,11 @@
 #
 # The npm package (bindings/npm): builds the library to WebAssembly with
 # the pinned emsdk, runs the package's tests on Node 22, 24 and 26 (with
-# the native CLI built beside it for the cross-checks), type-checks the
-# declarations and dry-runs `npm pack`. On a release tag of a public
-# repository, publishes to npm with provenance; while the repository is
-# private the publish job is skipped.
+# the native CLI built beside it for the cross-checks) and the smoke test
+# on Deno and Bun, type-checks the declarations and dry-runs `npm pack`.
+# On a release tag of a public repository, publishes to npm with
+# provenance once every test passes; while the repository is private the
+# publish job is skipped.
 name: npm
 
 on:
@@ -78,12 +79,49 @@ jobs:
         working-directory: bindings/npm
         run: npm pack --dry-run
 
+  runtimes:
+    # the same WebAssembly module on Deno and Bun: test/smoke.js signs,
+    # verifies, encapsulates, hashes and seals and checks a capsule
+    name: ${{ matrix.rt }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        rt: [deno, bun]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+      - name: build the WebAssembly module
+        run: sh bindings/npm/build.sh
+      - if: matrix.rt == 'deno'
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.9.7
+      - if: matrix.rt == 'bun'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.3
+      - name: smoke test
+        working-directory: bindings/npm
+        env:
+          RT: ${{ matrix.rt }}
+        run: |
+          if [ "$RT" = deno ]; then
+            deno run --allow-read test/smoke.js
+          else
+            bun test/smoke.js
+          fi
+
   publish:
     # release tags only, and never while the repository is private
     if: >
       startsWith(github.ref, 'refs/tags/v') &&
       !github.event.repository.private
-    needs: test
+    needs: [test, runtimes]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: npm

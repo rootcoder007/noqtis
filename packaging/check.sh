@@ -37,8 +37,9 @@ if command -v nm >/dev/null 2>&1; then
   echo "== exported symbols"
   case $lib in
   *.dylib) syms=$(nm -gU "$lib" | awk '{print $3}' | sed 's/^_//') ;;
+  # ELF names carry their version (nqsign@@NOQTIS_0): compare the name
   *) syms=$(nm -D --defined-only "$lib" |
-            awk '$2 ~ /^[TDBR]$/ {print $3}') ;;
+            awk '$2 ~ /^[TDBR]$/ {print $3}' | sed 's/@.*//') ;;
   esac
   n=0
   for s in $syms; do

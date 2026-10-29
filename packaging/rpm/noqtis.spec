@@ -43,6 +43,9 @@ against %{name}.
 %{_libdir}/libnoqtis.so.0{,.*}
 %{_bindir}/noqtis
 %{_mandir}/man1/*
+%{_datadir}/bash-completion/completions/noqtis
+%{_datadir}/zsh/site-functions/_noqtis
+%{_datadir}/fish/vendor_completions.d/noqtis.fish
 
 %files devel
 %{_includedir}/noqtis.h

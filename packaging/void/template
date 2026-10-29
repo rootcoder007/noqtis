@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Void Linux (void-packages srcpkgs/noqtis/template). For a release,
+# checksum is the tarball's sha256.
+pkgname=noqtis
+version=0.1.1
+revision=1
+build_style=cmake
+configure_args="-DNQSHARED=ON -DNQWERROR=OFF"
+short_desc="Post-quantum signing, KEMs and sealed input records in C11"
+maintainer="rootcoder007 <278967282+rootcoder007@users.noreply.github.com>"
+license="Apache-2.0 WITH LLVM-exception"
+homepage="https://github.com/rootcoder007/noqtis"
+distfiles="https://github.com/rootcoder007/noqtis/archive/refs/tags/v${version}.tar.gz"
+checksum=SKIP
+
+do_check() {
+	ctest --test-dir build --output-on-failure
+}
+
+post_install() {
+	vlicense LICENSE
+	vlicense NOTICE
+}
+
+noqtis-devel_package() {
+	depends="${sourcepkg}>=${version}_${revision}"
+	short_desc+=" - development files"
+	pkg_install() {
+		vmove usr/include
+		vmove usr/lib/pkgconfig
+		vmove usr/lib/cmake
+		vmove "usr/lib/*.so"
+		vmove usr/share/man/man3
+	}
+}

@@ -1,2 +1,5 @@
 usr/bin/noqtis
 usr/share/man/man1/*
+usr/share/bash-completion/completions/noqtis
+usr/share/zsh/site-functions/_noqtis
+usr/share/fish/vendor_completions.d/noqtis.fish

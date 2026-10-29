@@ -13,6 +13,12 @@ endif()
 add_test(NAME tcli COMMAND tcli $<TARGET_FILE:nqcli> $<TARGET_FILE:tsad>
          ${PROJECT_SOURCE_DIR}/tests
          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+# the shell completions parse and offer every command and option the
+# manual pages list
+if(NOT WIN32)
+  add_test(NAME comp COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/comp.sh
+           ${PROJECT_SOURCE_DIR})
+endif()
 # a sanitizer report must not pass for the "invalid" exit status 1
 set_tests_properties(tcli PROPERTIES
   ENVIRONMENT

@@ -68,6 +68,14 @@ if(NQSHARED)
   set_target_properties(noqtis PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR})
+  # ELF: symbol versions from src/noqtis.map (macOS and Windows have none)
+  include(CheckLinkerFlag)
+  set(NQMAP ${PROJECT_SOURCE_DIR}/src/noqtis.map)
+  check_linker_flag(C "-Wl,--version-script=${NQMAP}" NQHAVEMAP)
+  if(NQHAVEMAP AND NOT APPLE AND NOT WIN32)
+    target_link_options(noqtis PRIVATE "-Wl,--version-script=${NQMAP}")
+    set_property(TARGET noqtis APPEND PROPERTY LINK_DEPENDS ${NQMAP})
+  endif()
   if(WIN32)
     # noqtis-0.dll beside the noqtis.lib import library
     set_target_properties(noqtis PROPERTIES PREFIX ""

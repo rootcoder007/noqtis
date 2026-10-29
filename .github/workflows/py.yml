@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # The PyPI package (bindings/py): abi3 wheels with cibuildwheel for Linux
-# (manylinux and musllinux, x86-64 and aarch64), macOS (arm64, x86-64) and
-# Windows (AMD64, ARM64), each tested with the package's pytest suite, plus
+# (manylinux and musllinux, x86-64 and aarch64; manylinux ppc64le, s390x
+# and riscv64 under QEMU on tags, weekly and on demand), macOS (arm64,
+# x86-64) and Windows (AMD64, ARM64), each tested with the package's pytest suite, plus
 # the sdist, built and tested on its own, and `twine check` over all of it.
 # As in ci.yml, the arm64, macOS and Windows jobs cost runner minutes on a
 # private repository, so there they run weekly and on demand only. A
@@ -91,6 +92,38 @@ jobs:
           path: wheelhouse/*.whl
           if-no-files-found: error
 
+  qemu:
+    # Linux ppc64le, s390x and riscv64 under QEMU: slow, so only on
+    # release tags, weekly and on demand
+    if: >
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/v')
+    name: wheels linux ${{ matrix.arch }} (QEMU)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ppc64le, s390x, riscv64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: ${{ matrix.arch }}
+      - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
+        with:
+          package-dir: bindings/py
+          output-dir: wheelhouse
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_BUILD: "cp39-manylinux_*"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: py-linux-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
   sdist:
     name: sdist
     runs-on: ubuntu-24.04
@@ -141,7 +174,7 @@ jobs:
       startsWith(github.ref, 'refs/tags/v') &&
       !github.event.repository.private
     name: publish to PyPI
-    needs: [linux, wheels, sdist, check]
+    needs: [linux, wheels, qemu, sdist, check]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:

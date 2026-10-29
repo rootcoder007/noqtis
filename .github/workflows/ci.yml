@@ -43,6 +43,8 @@ jobs:
           - { os: ubuntu-24.04, cc: clang, kind: shared }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: zsh and fish, for the completions test
+        run: sudo apt-get update -q && sudo apt-get install -y -q zsh fish
       - name: configure
         run: |
           case "${{ matrix.kind }}" in
@@ -391,6 +393,57 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cc --version && cmake --version
       - run: packaging/check.sh /tmp/nqchk
+
+  openbsd:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
+        with:
+          prepare: pkg_add cmake
+          run: |
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+            cmake --build build -j4
+            NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4 --output-on-failure
+
+  netbsd:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        with:
+          prepare: /usr/sbin/pkg_add cmake
+          run: |
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+            cmake --build build -j4
+            NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4 --output-on-failure
+
+  abi:
+    # the shared library's ABI against the last release (libabigail's
+    # abidiff, packaging/abi.sh): an incompatible change fails unless the
+    # major version changes with it
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # fedora:latest
+    container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+    steps:
+      - name: deps
+        run: dnf -y install gcc cmake make git libabigail
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: abidiff against the last release
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          packaging/abi.sh
 
   nix:
     # nixos/nix has no /lib64 loader for the runner's node, so the job runs
