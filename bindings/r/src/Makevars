@@ -8,6 +8,7 @@ OBJECTS = \
   cap/jw.o \
   cap/misc.o \
   cap/seal.o \
+  cap/ts.o \
   cap/walk.o \
   cap/xop.o \
   cls/bn.o \

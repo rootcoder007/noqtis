@@ -645,8 +645,10 @@ int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts) {
   nqxsig s;
   nqspan msg;
   int r = NQEDEC;
-  if (a == NULL || ts == NULL || a->ops == NULL || a->anc == NULL ||
-      a->nanc == 0 || a->dig == NULL || a->nextra > NQTSEXTRA ||
+  if (a == NULL || ts == NULL || a->ops == NULL ||
+      (!a->self && (a->anc == NULL || a->nanc == 0)) ||
+      (a->self && a->nanc != 0) || a->dig == NULL ||
+      a->nextra > NQTSEXTRA ||
       (a->nextra > 0 && a->extra == NULL)) {
     return NQEARG;
   }
@@ -734,6 +736,11 @@ int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts) {
   if ((sc->ext & NQXHASKU) != 0 &&
       (sc->ku & (NQXKUSIG | NQXKUNR)) == 0) {
     return NQEVRFY;
+  }
+  /* no anchors: the signer's own validity, and no path */
+  if (a->self) {
+    return !sc->bad && ts->gt >= sc->nb && ts->gt <= sc->na ? NQOK
+                                                            : NQEVRFY;
   }
   /* the path */
   k.anc = a->anc;
