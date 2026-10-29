@@ -15,8 +15,10 @@ abstract: >-
   SLH-DSA (FIPS 205), ML-KEM (FIPS 203), HQC, SHA-2 and SHA-3, tested
   against the NIST ACVP and Wycheproof test vectors.
 authors:
-  - alias: rootcoder007
-  - name: "The NOQTIS contributors"
+  - family-names: "Ruhela"
+    given-names: "Vansh Singh"
+    orcid: "https://orcid.org/0009-0004-1750-3592"
+    alias: rootcoder007
 version: 0.1.0
 # The licence is Apache-2.0 WITH LLVM-exception (see LICENSE); CFF 1.2.0
 # takes a single SPDX licence identifier, not an expression, so the
