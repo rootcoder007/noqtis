@@ -54,7 +54,8 @@ target_link_libraries(prog PRIVATE noqtis::noqtis)
 
 ```sh
 nix build                    # the flake.nix in the repository
-docker build -t noqtis .     # Wolfi image with the library (podman works too)
+docker build -t noqtis .     # Wolfi image: the noqtis command and the library
+docker run --rm -v "$PWD:/w" -w /w noqtis noqtis check results
 ```
 
 The recipes in `packaging/` (Homebrew, Arch `PKGBUILD`, Alpine `APKBUILD`,

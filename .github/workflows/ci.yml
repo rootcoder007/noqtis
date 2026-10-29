@@ -402,9 +402,10 @@ jobs:
       - name: the tests again, inside the built image
         run: docker run --rm noqtis-build ctest --test-dir /b --output-on-failure
       - run: docker build -t noqtis .
-      - name: the final image carries the library, header and pc file
+      - name: the final image carries the command, library, header and pc file
         run: >
-          docker run --rm noqtis sh -c 'ls -l /usr/lib/libnoqtis.so.0
+          docker run --rm noqtis sh -c 'noqtis version && noqtis algs >/dev/null &&
+          ls -l /usr/lib/libnoqtis.so.0
           /usr/include/noqtis.h /usr/lib/pkgconfig/noqtis.pc
           /usr/lib/cmake/noqtis/noqtisConfig.cmake'
 
