@@ -68,13 +68,15 @@ Each module is one directory under `src/`, with its tests under `tests/`.
 A module is accepted only when every check in its row passes.
 
 The "Must pass" column is the acceptance target, not a record of what
-runs today. dudect and simulated TVLA are in place (`ct/`, workflow
-`ct.yml`; results and their limits under "Side-channel results" below).
-Not yet in place before 0.1.0: OpenSSL 3.5 differential fuzzing and
-cross-checks beyond the fixed RSA/ECDSA set in `tests/vectors/ossl/`;
-libFuzzer in CI (`fuzz/fder.c` exists and is run by hand); fuzzed CLI
-arguments; and cross-verification with rmoriebricklayer. HMAC is tested
-with the ACVP HMAC vectors; Wycheproof has no HMAC set in
+runs today. In place: dudect and simulated TVLA (`ct/`, workflow
+`ct.yml`; results and their limits under "Side-channel results" below),
+libFuzzer targets for every parser of untrusted bytes (`fuzz/`, workflow
+`fuzz.yml`), ACVP harnesses for every algorithm family (`acvp/`), and
+cross-verification with rmoriebricklayer where the formats overlap
+(`tests/interop/`). Not yet in place before 0.1.0: OpenSSL 3.5
+differential fuzzing and cross-checks beyond the fixed RSA/ECDSA set in
+`tests/vectors/ossl/`, and fuzzed CLI arguments. HMAC is tested with the
+ACVP HMAC vectors; Wycheproof has no HMAC set in
 `tests/vectors/wycheproof/`.
 
 | # | Module | Contents | Must pass |
@@ -347,13 +349,13 @@ below is done. Each item says how it is checked.
 
 ### Documentation
 
-- [ ] README: one-sentence pitch, a 30-second demo (seal, tamper, check
+- [x] README: one-sentence pitch, a 30-second demo (seal, tamper, check
       fails) as an animated terminal recording, install for every platform,
       and the guarantees in plain words.
 - [ ] `docs/`: the capsule format specification (versioned), the C API
       reference generated from noqtis.h, a tutorial per binding, and a
       "why post-quantum provenance now" explainer.
-- [ ] A browser demo page: drop a folder, it is checked in WebAssembly with
+- [x] A browser demo page: drop a folder, it is checked in WebAssembly with
       nothing uploaded.
 - [ ] CONTRIBUTING.md (build, tests, commit style, short-name rule,
       Signed-off-by), CODE_OF_CONDUCT.md, issue and pull-request templates,
