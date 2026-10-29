@@ -11,8 +11,11 @@ PKG_CONFIG_PATH="$P/lib/pkgconfig:$P/lib64/pkgconfig:$(ls -d "$P"/lib/*/pkgconfi
 export PKG_CONFIG_PATH
 FLAGS="-std=c11 -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Werror"
 for e in sign kem hash seal readme; do
+  # --static: a static libnoqtis needs its private libraries (bcrypt on
+  # Windows); with a shared one they are only extra -l flags
   # shellcheck disable=SC2046
-  ${CC:-cc} $FLAGS -o "$T/$e" "$D/$e.c" $(pkg-config --cflags --libs noqtis)
+  ${CC:-cc} $FLAGS -o "$T/$e" "$D/$e.c" \
+    $(pkg-config --cflags --libs --static noqtis)
 done
 "$T/sign"
 "$T/kem"

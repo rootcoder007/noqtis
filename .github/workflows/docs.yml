@@ -62,11 +62,19 @@ jobs:
           echo "$(find man -type f | wc -l) pages, no warnings"
 
   examples:
-    name: examples (CLI and C)
-    runs-on: ubuntu-24.04
+    # where users read the examples: Linux and macOS here, Windows below
+    name: examples (CLI and C, ${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: pkg-config (macOS)
+        if: runner.os == 'macOS'
+        run: command -v pkg-config > /dev/null || brew install pkgconf
       - name: build and install (library, tool, manual pages)
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQTESTS=OFF
@@ -79,15 +87,41 @@ jobs:
       - name: every C example, compiled with -Werror and run
         run: sh docs/examples/c.sh "$RUNNER_TEMP/nq"
       - name: the README demo (docs/demo/demo.sh) still ends in a failed check
+        if: runner.os == 'Linux'
         run: |
           out=$(NQFAST=1 sh docs/demo/demo.sh "$RUNNER_TEMP/nq/bin/noqtis")
           printf '%s\n' "$out" | grep -q '^results: OK (22 checks passed)$'
           printf '%s\n' "$out" | grep -q '^FAIL  file  *report.txt: sha256 differs$'
           test "$(printf '%s\n' "$out" | tail -n 1)" = "exit status 1"
       - name: man finds the installed pages
+        if: runner.os == 'Linux'
         run: |
           MANPATH="$RUNNER_TEMP/nq/share/man" man -w nqsign nqvrfy noqtis-seal \
             noqtis-capsule
+
+  examples-windows:
+    # the C examples on Windows, built and run with MinGW-w64 (UCRT)
+    name: examples (C, windows-2025 MinGW)
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+        with:
+          msystem: UCRT64
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-pkgconf
+      - name: build and install (library and tool)
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DNQTESTS=OFF
+          cmake --build build
+          cmake --install build --prefix "$PWD/nq"
+      - name: every C example, compiled with -Werror and run
+        run: sh docs/examples/c.sh "$PWD/nq"
 
   site:
     name: site (Astro Starlight)
