@@ -221,6 +221,12 @@ size_t nqrepn(const nqrep *r);
 int nqrepi(const nqrep *r, size_t i, const char **check, int *ok,
            const char **detail);
 void nqrepfree(nqrep *r);
+int nqtsreq(const char *dir, const uint8_t *nonce, size_t noncelen,
+            uint8_t *req, size_t reqlen, size_t *outlen);
+int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
+            const uint8_t *nonce, size_t noncelen,
+            const uint8_t *const *anc, const size_t *anclen, size_t nanc,
+            int64_t *gt, const char **why);
 ```
 
 | Function | Does | Returns |
@@ -231,6 +237,8 @@ void nqrepfree(nqrep *r);
 | `nqrepn` | number of rows (0 for `NULL`) | — |
 | `nqrepi` | row `i`: check name, 1/0, detail; strings live until `nqrepfree` | `NQOK`, `NQEARG` |
 | `nqrepfree` | frees and wipes the report; `NULL` allowed | — |
+| `nqtsreq` | the RFC 3161 `TimeStampReq` for the seal in `dir`: SHA-256 of its signature, the nonce (≤ 32 bytes, or `NULL`), certReq; at most 128 bytes | `NQOK`; `NQEARG`, `NQEBUF`, `NQEDEC` (not a canonical seal), `NQEIO` |
+| `nqtsput` | checks a TSA's reply (granted, imprint, nonce, the token's signature; with up to 32 DER anchors, a path to one) and stores the token as the seal's `timestamp`; `*gt` genTime, `*why` what failed | `NQOK`; `NQEVRFY` (the reply does not check; nothing written), `NQEARG`, `NQEDEC`, `NQELIM`, `NQEIO`, `NQEMEM` |
 
 Without anchors (`nqchk`), a seal that carries a timestamp fails its
 `timestamp` row. Check names are listed in
@@ -238,7 +246,12 @@ Without anchors (`nqchk`), a seal that carries a timestamp fails its
 [capsule specification](/noqtis/spec/capsule/).
 [nqseal(3)](/noqtis/reference/man/nqseal-3/),
 [nqchk(3)](/noqtis/reference/man/nqchk-3/),
-[nqchkt(3)](/noqtis/reference/man/nqchkt-3/)
+[nqchkt(3)](/noqtis/reference/man/nqchkt-3/),
+[nqtsput(3)](/noqtis/reference/man/nqtsput-3/)
+
+The library makes no network request: send the bytes from `nqtsreq` to
+the TSA (HTTP POST, `application/timestamp-query`) and pass its reply to
+`nqtsput`, as `noqtis seal --tsa` does.
 
 ## Shared libraries and Windows
 

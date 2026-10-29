@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd October 29, 2026
 .Dt NOQTIS-CAPSULE 5
 .Os
 .Sh NAME
@@ -122,6 +122,10 @@ Optional: base64 of an RFC 3161 time-stamp token whose message imprint is
 the hash (SHA-256, SHA-384 or SHA-512) of the decoded
 .Cm signature
 bytes.
+.Xr noqtis-seal 1
+.Fl -tsa
+adds it
+.Pq Xr nqtsput 3 .
 .El
 .Ss Limits
 A checker MUST refuse, with a failing check and never by truncating:

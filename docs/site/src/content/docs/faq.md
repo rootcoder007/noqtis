@@ -43,9 +43,9 @@ signatures. See [keys](/noqtis/guides/keys/).
 
 ## Does a check need the network?
 
-No. Checking reads only the folder and the public key. Timestamps need a
-TSA once, when sealing (not yet in the command-line tool), never when
-checking.
+No. Checking reads only the folder, the public key and, for a timestamp,
+the TSA's certificate (`--anchor`). Timestamps need a TSA once, when
+sealing (`noqtis seal --tsa <url>`), never when checking.
 
 ## Can I put the capsule in Git, a ZIP or a tarball?
 

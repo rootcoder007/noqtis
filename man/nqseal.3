@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd October 29, 2026
 .Dt NQSEAL 3
 .Os
 .Sh NAME
@@ -73,8 +73,16 @@ the clock, as an RFC 3339 UTC time to the second.
 must be
 .Dv NULL .
 The library makes no network requests, so it cannot obtain an RFC 3161
-timestamp; any other value returns
+timestamp itself; any other value returns
 .Er NQENOSUP .
+To add one, build the request with
+.Xr nqtsreq 3 ,
+send it to the TSA, and store the reply with
+.Xr nqtsput 3 ,
+as
+.Xr noqtis-seal 1
+.Fl -tsa
+does.
 .Pp
 The capsule and parser layers allocate through the hook of
 .Xr nqsetal 3 .
@@ -149,4 +157,5 @@ if (rc == NQOK)
 .Xr noqtis 3 ,
 .Xr nqchk 3 ,
 .Xr nqsign 3 ,
+.Xr nqtsput 3 ,
 .Xr noqtis-capsule 5

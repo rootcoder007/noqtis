@@ -16,8 +16,8 @@ noqtis help [<command>]
 | `enc -p <key.pub> -o <ct> [--force] (<ss> \| --stdout)` | KEM ciphertext and shared secret | [noqtis-enc(1)](/noqtis/reference/man/noqtis-enc-1/) |
 | `dec -k <key> (-o <ss> \| --stdout) [--force] <ct>` | shared secret; implicit rejection | [noqtis-dec(1)](/noqtis/reference/man/noqtis-dec-1/) |
 | `hash [-a <hash>] [-c\|--check] [<file>...]` | `sha256sum`-format digests, or check them | [noqtis-hash(1)](/noqtis/reference/man/noqtis-hash-1/) |
-| `seal -k <key> [-p <key.pub>] [-m <json-file>] [--tsa <url>] <dir>` | writes `noqtis.json` and `noqtis.sig`; `--tsa` is reserved and fails with exit 2 in this build | [noqtis-seal(1)](/noqtis/reference/man/noqtis-seal-1/) |
-| `check [-p <key.pub>] [-j\|--json] <dir>` | one row per check, then a summary | [noqtis-check(1)](/noqtis/reference/man/noqtis-check-1/) |
+| `seal -k <key> [-p <key.pub>] [-m <json-file>] [--tsa <url>]... [--anchor <der-file>]... <dir>` | writes `noqtis.json` and `noqtis.sig`; `--tsa` adds an RFC 3161 timestamp (http://, repeat for fallbacks), `--anchor` checks the TSA at seal time | [noqtis-seal(1)](/noqtis/reference/man/noqtis-seal-1/) |
+| `check [-p <key.pub>] [-j\|--json] [--anchor <der-file>]... <dir>` | one row per check, then a summary, then what to do about each failed check; `--anchor` (up to 32 DER TSA certificates) checks the timestamp | [noqtis-check(1)](/noqtis/reference/man/noqtis-check-1/) |
 | `algs` | every algorithm and its sizes | [noqtis-algs(1)](/noqtis/reference/man/noqtis-algs-1/) |
 | `version` | `noqtis <version>` (also `--version`, `-V`) | [noqtis-version(1)](/noqtis/reference/man/noqtis-version-1/) |
 
@@ -33,7 +33,8 @@ the options.
 
 Long forms: `-a --alg`, `-o --out`, `-f --force`, `-k --key`, `-p --pub`,
 `-s --sig`, `-c --ctx` (sign, verify) or `--check` (hash), `-d --det`,
-`-q --quiet`, `-m --meta`, `-j --json`.
+`-q --quiet`, `-m --meta`, `-j --json`. `--tsa` and `--anchor` have no
+short form and may be repeated (up to 32 times each).
 
 ## Exit status
 
@@ -41,7 +42,7 @@ Long forms: `-a --alg`, `-o --out`, `-f --force`, `-k --key`, `-p --pub`,
 |---|---|
 | 0 | success: a valid signature, every capsule check passed, every digest matched |
 | 1 | a verification failed: a bad or wrong-length signature, a failed capsule check, a different digest or missing listed file, a malformed `--check` line |
-| 2 | a usage error, an unreadable or unwritable file, the wrong kind of key, or a library error |
+| 2 | a usage error, an unreadable or unwritable file, the wrong kind of key, a library error, or no `--tsa` that gave a timestamp (the seal is then removed) |
 
 ## Files and secrets
 

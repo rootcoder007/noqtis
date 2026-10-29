@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd October 29, 2026
 .Dt NOQTIS-CHECK 1
 .Os
 .Sh NAME
@@ -9,6 +9,7 @@
 .Nm noqtis check
 .Op Fl p Ar key.pub
 .Op Fl j | Fl -json
+.Op Fl -anchor Ar der-file ...
 .Ar dir
 .Sh DESCRIPTION
 .Nm noqtis check
@@ -44,12 +45,22 @@ With
 .Fl p ,
 the seal's key must be exactly the given key.
 .Pp
-A seal that carries a timestamp fails its
+With
+.Fl -anchor ,
+the seal must carry an RFC 3161 timestamp over its signature whose token
+verifies under one of the anchors, with the TSA certificate's path valid
+at the token's genTime; the
 .Ql timestamp
-row here, because this command takes no TSA trust anchors to check it
-with; a timestamp that cannot be checked is never passed silently.
-Programs that need timestamps call
-.Xr nqchkt 3 .
+row then shows the genTime.
+Without
+.Fl -anchor ,
+a seal that carries a timestamp fails its
+.Ql timestamp
+row: a timestamp that cannot be checked is never passed silently.
+.Pp
+After the table, for each failed check, a line on standard error says
+what to do:
+.Dl noqtis check: Ar check : Ar what to do
 .Bl -tag -width Ds
 .It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
 The public signature key the capsule must be sealed with.
@@ -59,6 +70,15 @@ Print one line of JSON instead of the table:
 {"capsule":"<dir>","ok":<bool>,"result":"<nqerr text>",
  "checks":[{"check":"<name>","ok":<bool>,"detail":"<text>"},...]}
 .Ed
+.Pp
+A failed check also has
+.Ql fix ,
+the text of the line on standard error.
+.It Fl -anchor Ar der-file
+A TSA trust anchor: the root or issuing certificate of a time-stamping
+authority, DER-encoded (convert PEM with
+.Ql openssl x509 -outform DER ) .
+Up to 32; one that verifies the token is enough.
 .El
 .Ss Checks
 The row names are stable, for scripts:
@@ -102,7 +122,9 @@ Whether the key was pinned with
 The signature verifies over the exact bytes of
 .Pa noqtis.json .
 .It Cm timestamp
-Present only when the seal has a timestamp (or anchors were given).
+Present only when the seal has a timestamp or
+.Fl -anchor
+was given.
 .It Cm folder
 The folder could be listed within the limits.
 .It Cm file
@@ -136,8 +158,9 @@ signed by
 .It 2
 A usage error,
 .Ar dir
-does not exist, a key that is not a public signature key, or a library
-error such as running out of memory.
+does not exist, a key that is not a public signature key, an anchor that
+cannot be read or is not DER, or a library error such as running out of
+memory.
 .El
 .Sh EXAMPLES
 .Bd -literal -offset indent
@@ -162,7 +185,18 @@ FAIL  file                report.txt: size differs
 \&...
 FAIL  extra               new.txt: not in the manifest
 results: FAILED (2 of 23 checks failed)
+noqtis check: file: a sealed file changed after sealing: restore it from the original, or seal the folder again if the change was intended
+noqtis check: extra: a file was added after sealing: remove it, or seal the folder again to include it
 1
+.Ed
+.Pp
+A timestamped capsule, against the TSA's root certificate:
+.Bd -literal -offset indent
+$ noqtis check -p me.pub --anchor digicert.der results
+\&...
+ok    timestamp           RFC 3161 token over the signature verifies under a TSA anchor; genTime 2026-10-29T09:34:03Z
+\&...
+results: OK (23 checks passed)
 .Ed
 .Pp
 In CI, keeping only the failed rows:
@@ -177,4 +211,5 @@ new.txt: not in the manifest
 .Xr noqtis-seal 1 ,
 .Xr nqchk 3 ,
 .Xr nqchkt 3 ,
+.Xr nqtsput 3 ,
 .Xr noqtis-capsule 5

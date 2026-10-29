@@ -12,7 +12,8 @@
     <td><code class="Fl">-k</code> <var class="Ar">key</var>
       [<code class="Fl">-p</code> <var class="Ar">key.pub</var>]
       [<code class="Fl">-m</code> <var class="Ar">json-file</var>]
-      [<code class="Fl">--tsa</code> <var class="Ar">url</var>]
+      [<code class="Fl">--tsa</code> <var class="Ar">url ...</var>]
+      [<code class="Fl">--anchor</code> <var class="Ar">der-file ...</var>]
       <var class="Ar">dir</var></td>
   </tr>
 </table>
@@ -33,6 +34,27 @@
     replaced. On success it prints</p>
 <div class="Bd Bd-indent"><code class="Li">sealed <var class="Ar">dir</var>
   <span class="No">with</span> <var class="Ar">alg</var></code></div>
+<p class="Pp">With <code class="Fl">--tsa</code>, it then asks a time-stamping
+    authority (TSA) for an RFC 3161 timestamp over the seal's signature and
+    stores the token in <span class="Pa">noqtis.sig</span>
+    (<a class="Xr" href="/noqtis/reference/man/nqtsput-3/">nqtsput(3)</a>). The
+    request
+    (<span class="Xr">nqtsreq(3)</span>) holds
+    only the SHA-256 of the signature, a random nonce and a request for the
+    TSA's certificate; it is sent by an HTTP/1.1 POST
+    (&#x2018;<code class="Li">application/timestamp-query</code>&#x2019;), and
+    the reply must be a granted token over that signature with that nonce,
+    signed by a TSA certificate valid at its genTime. It prints</p>
+<div class="Bd Bd-indent"><code class="Li">timestamp from
+  <var class="Ar">url</var>: <span class="No">genTime</span>
+  <var class="Ar">time</var></code></div>
+and the summary line ends in &#x2018;<code class="Li">and a
+  timestamp</code>&#x2019;. A seal holds one timestamp: give
+  <code class="Fl">--tsa</code> again for fallbacks, tried in order until one
+  gives a token that checks. When none does, the new
+  <span class="Pa">noqtis.json</span> and <span class="Pa">noqtis.sig</span> are
+  removed, so the folder is never left sealed without the timestamp that was
+  asked for, and the exit status is 2.
 <p class="Pp">The folder must hold only regular files and folders with portable
     names. Nothing is written, and the exit status is 2, when it holds a
     symbolic link, a Windows reparse point, a device, pipe or socket, a name
@@ -67,9 +89,22 @@
       signature. noqtis does not interpret it.</dd>
   <dt id="tsa"><a class="permalink" href="#tsa"><code class="Fl">--tsa</code></a>
     <var class="Ar">url</var></dt>
-  <dd>Reserved for an RFC 3161 timestamp from a time-stamping authority. This
-      build does not request timestamps: the option fails with &#x201C;algorithm
-      or option not supported&#x201D; (exit 2) and nothing is written.</dd>
+  <dd>An RFC 3161 time-stamping authority, as
+      &#x2018;<code class="Li">http://<var class="Ar">host</var>[:<var class="Ar">port</var>][/<var class="Ar">path</var>]</code>&#x2019;,
+      up to 32 times. Only plain HTTP: the token is signed by the TSA, so TLS
+      would add no integrity, and noqtis links no TLS library;
+      &#x2018;<code class="Li">https://</code>&#x2019; is refused with that
+      said. Most public TSAs answer on
+      &#x2018;<code class="Li">http://</code>&#x2019;. There is no proxy
+      support. Each connection, read and write waits at most 30 seconds.</dd>
+  <dt id="anchor"><a class="permalink" href="#anchor"><code class="Fl">--anchor</code></a>
+    <var class="Ar">der-file</var></dt>
+  <dd>The TSA's root or issuing certificate (DER), up to 32: the token must then
+      also have a certificate path to one of them, checked as
+      <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>
+      <code class="Fl">--anchor</code> checks it. Without it the reply is
+      checked, but not whether the TSA is one to trust, and a note on standard
+      error says so.</dd>
 </dl>
 </section>
 <section class="Sh">
@@ -93,9 +128,10 @@
 <section class="Sh">
 <h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
   STATUS</a></h1>
-<p class="Pp">0 when the capsule was written; 2 on a usage error, keys that are
-    not a signature key pair, an unsealable folder, a limit, or a file that
-    cannot be read or written.</p>
+<p class="Pp">0 when the capsule was written (with its timestamp, when
+    <code class="Fl">--tsa</code> was given); 2 on a usage error, keys that are
+    not a signature key pair, an unsealable folder, a limit, a file that cannot
+    be read or written, or no TSA that gave a timestamp.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
@@ -113,6 +149,15 @@ data  noqtis.json  noqtis.sig  report.txt</pre>
 <pre>$ SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me results
 sealed results with ML-DSA-65</pre>
 </div>
+<p class="Pp">With a timestamp from one of two authorities, checked at seal
+    time:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>$ noqtis seal -k me --tsa http://timestamp.digicert.com \
+    --tsa http://timestamp.sectigo.com \
+    --anchor digicert.der --anchor sectigo.der results
+timestamp from http://timestamp.digicert.com: genTime 2026-10-29T09:34:03Z, verified under a TSA anchor
+sealed results with ML-DSA-65 and a timestamp</pre>
+</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
@@ -121,6 +166,13 @@ sealed results with ML-DSA-65</pre>
     <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-keygen-1/">noqtis-keygen(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqtsput-3/">nqtsput(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">Internet X.509 Public Key
+    Infrastructure Time-Stamp Protocol (TSP)</span>, <span class="RsR">RFC
+    3161</span>, <span class="RsD">August 2001</span>.</cite></p>
 </section>
 </div>

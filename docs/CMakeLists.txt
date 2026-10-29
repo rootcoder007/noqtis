@@ -17,6 +17,7 @@ set(NQMANAKA
   "nqenc:nqencd,nqdec,nqkkg,nqkkgd,nqksize,nqkname,nqkfind"
   "nqhash:nqhini,nqhupd,nqhfin,nqhlen,nqhmac"
   "nqrep:nqrepn,nqrepi,nqrepfree"
+  "nqtsput:nqtsreq"
   "nqerr:nqver")
 foreach(e ${NQMANAKA})
   string(REPLACE ":" ";" e "${e}")

@@ -1,0 +1,197 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 29, 2026
+.Dt NQTSPUT 3
+.Os
+.Sh NAME
+.Nm nqtsreq ,
+.Nm nqtsput
+.Nd add an RFC 3161 timestamp to a sealed capsule
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqtsreq
+.Fa "const char *dir"
+.Fa "const uint8_t *nonce" "size_t noncelen"
+.Fa "uint8_t *req" "size_t reqlen" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqtsput
+.Fa "const char *dir"
+.Fa "const uint8_t *rsp" "size_t rsplen"
+.Fa "const uint8_t *nonce" "size_t noncelen"
+.Fa "const uint8_t *const *anc" "const size_t *anclen" "size_t nanc"
+.Fa "int64_t *gt" "const char **why"
+.Fc
+.Sh DESCRIPTION
+A timestamp from a time-stamping authority (TSA) shows that a seal's
+signature existed at the time the TSA states.
+The library makes no network request: the caller sends the request and
+passes back the reply, as
+.Xr noqtis-seal 1
+.Fl -tsa
+does over HTTP.
+.Pp
+.Fn nqtsreq
+writes to
+.Fa req
+(of
+.Fa reqlen
+bytes) the DER RFC 3161
+.Vt TimeStampReq
+for the seal in the folder
+.Fa dir :
+version 1, the SHA-256 message imprint of the decoded
+.Ql signature
+of its
+.Pa noqtis.sig ,
+the
+.Fa nonce
+when it is not
+.Dv NULL
+(at most 32 bytes, big-endian; a leading zero is dropped and a sign byte
+added as DER needs), and certReq TRUE, so that the TSA includes its
+certificate.
+The request is at most 128 bytes;
+.Pf * Fa outlen
+gets its size.
+Send it with the media type
+.Ql application/timestamp-query
+(RFC 3161 section 3.4) and keep the nonce for
+.Fn nqtsput .
+.Pp
+.Fn nqtsput
+reads
+.Fa rsp ,
+the TSA's reply of
+.Fa rsplen
+bytes (a
+.Vt TimeStampResp ,
+or a bare token), and, when it checks, stores the token as the
+.Ql timestamp
+of
+.Fa dir Ns 's
+.Pa noqtis.sig ,
+replacing any timestamp it has; every other field keeps its bytes.
+It checks, in order, that:
+.Bl -enum -compact
+.It
+.Pa noqtis.sig
+is a canonical
+.Ql noqtis-seal-1
+seal;
+.It
+the reply is a strict DER RFC 3161 reply and its status is granted;
+.It
+the token's imprint is its hash (SHA-256, SHA-384 or SHA-512) of the
+seal's signature;
+.It
+its nonce is
+.Fa nonce ,
+when that is not
+.Dv NULL ;
+.It
+its CMS signature verifies under its signer certificate, which is a TSA
+certificate (extendedKeyUsage critical and only timeStamping) valid at
+genTime;
+.It
+with
+.Fa nanc
+anchors (DER X.509 certificates
+.Fa anc Ns Bq i
+of
+.Fa anclen Ns Bq i
+bytes, at most 32), that certificate's path leads to one of them and is
+valid at genTime, as
+.Xr nqchkt 3
+checks it.
+.El
+Without anchors the reply is checked but the TSA is not trusted:
+whether to trust it is decided when the capsule is checked, with
+.Xr nqchkt 3 .
+.Pp
+.Pf * Fa gt ,
+when
+.Fa gt
+is not
+.Dv NULL ,
+gets the token's genTime in seconds since the epoch;
+.Pf * Fa why ,
+when
+.Fa why
+is not
+.Dv NULL ,
+gets a sentence saying which check failed, or
+.Dv NULL
+on success.
+Nothing is written unless every check passes.
+.Sh RETURN VALUES
+.Dv NQOK
+(0), or a negative error code:
+.Bl -tag -width NQEVRFY
+.It Bq Er NQEARG
+.Fa dir ,
+.Fa req ,
+.Fa outlen
+or
+.Fa rsp
+is
+.Dv NULL ,
+.Fa rsplen
+is 0, a nonce is over 32 bytes or
+.Dv NULL
+with a length, an anchor is
+.Dv NULL
+or empty, or an anchor is not a certificate.
+.It Bq Er NQEBUF
+.Fa reqlen
+is too small.
+.It Bq Er NQEDEC
+.Pa noqtis.sig
+is not a canonical
+.Ql noqtis-seal-1
+seal.
+.It Bq Er NQEVRFY
+The reply does not check: not granted, not a token in the form noqtis
+reads, an imprint or nonce that differs, a signature or certificate that
+does not verify, or no path to an anchor.
+.It Bq Er NQELIM
+More than 32 anchors, or a seal with the token over 1 MiB.
+.It Bq Er NQEIO
+.Pa noqtis.sig
+cannot be read or written.
+.It Bq Er NQEMEM
+The allocation hook returned
+.Dv NULL .
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+uint8_t nonce[8], req[128];
+size_t qn;
+const char *why;
+int64_t gt;
+nqrand(nonce, sizeof nonce);
+nqtsreq("results", nonce, sizeof nonce, req, sizeof req, &qn);
+/* POST req to the TSA; rsp, rn: the body of its reply */
+if (nqtsput("results", rsp, rn, nonce, sizeof nonce, NULL, NULL, 0,
+            &gt, &why) != NQOK)
+  fprintf(stderr, "refused: %s\en", why);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqchkt 3 ,
+.Xr nqseal 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%R RFC 3161
+.%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%D August 2001
+.Re
+.Rs
+.%R RFC 5816
+.%T ESSCertIDv2 Update for RFC 3161
+.%D April 2010
+.Re

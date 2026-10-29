@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd October 29, 2026
 .Dt NQCHKT 3
 .Os
 .Sh NAME
@@ -98,8 +98,10 @@ nqrep *rep = NULL;
 int rc = nqchkt("results", pk, sizeof pk, anc, anclen, 1, &rep);
 .Ed
 .Sh SEE ALSO
+.Xr noqtis-check 1 ,
 .Xr nqchk 3 ,
 .Xr nqrep 3 ,
+.Xr nqtsput 3 ,
 .Xr noqtis-capsule 5
 .Sh STANDARDS
 .Rs
@@ -113,8 +115,14 @@ int rc = nqchkt("results", pk, sizeof pk, anc, anclen, 1, &rep);
 .%D May 2008
 .Re
 .Sh CAVEATS
-Neither the library nor
+The library makes no network request: a timestamp is obtained by the
+caller, with
+.Xr nqtsreq 3
+and
+.Xr nqtsput 3
+around its own HTTP request, or by
 .Xr noqtis-seal 1
-can yet obtain a timestamp, and
+.Fl -tsa .
 .Xr noqtis-check 1
-takes no anchors; timestamps are checked only through this function.
+.Fl -anchor
+calls this function.

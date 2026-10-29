@@ -52,7 +52,13 @@
     to the second.</p>
 <p class="Pp"><var class="Fa">tsa</var> must be <code class="Dv">NULL</code>.
     The library makes no network requests, so it cannot obtain an RFC 3161
-    timestamp; any other value returns <code class="Er">NQENOSUP</code>.</p>
+    timestamp itself; any other value returns <code class="Er">NQENOSUP</code>.
+    To add one, build the request with
+    <span class="Xr">nqtsreq(3)</span>, send
+    it to the TSA, and store the reply with
+    <a class="Xr" href="/noqtis/reference/man/nqtsput-3/">nqtsput(3)</a>, as
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>
+    <code class="Fl">--tsa</code> does.</p>
 <p class="Pp" id="nqseal~2">The capsule and parser layers allocate through the
     hook of
     <a class="Xr" href="/noqtis/reference/man/nqsetal-3/">nqsetal(3)</a>.
@@ -127,6 +133,7 @@ if (rc == NQOK)
     <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqsign-3/">nqsign(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqtsput-3/">nqtsput(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
 </section>
 </div>

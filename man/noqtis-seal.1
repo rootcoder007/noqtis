@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd October 29, 2026
 .Dt NOQTIS-SEAL 1
 .Os
 .Sh NAME
@@ -10,7 +10,8 @@
 .Fl k Ar key
 .Op Fl p Ar key.pub
 .Op Fl m Ar json-file
-.Op Fl -tsa Ar url
+.Op Fl -tsa Ar url ...
+.Op Fl -anchor Ar der-file ...
 .Ar dir
 .Sh DESCRIPTION
 .Nm noqtis seal
@@ -37,6 +38,33 @@ at the top of
 are left out of the listing and replaced.
 On success it prints
 .Dl sealed Ar dir No with Ar alg
+.Pp
+With
+.Fl -tsa ,
+it then asks a time-stamping authority (TSA) for an RFC 3161 timestamp
+over the seal's signature and stores the token in
+.Pa noqtis.sig
+.Pq Xr nqtsput 3 .
+The request
+.Pq Xr nqtsreq 3
+holds only the SHA-256 of the signature, a random nonce and a request
+for the TSA's certificate; it is sent by an HTTP/1.1 POST
+.Pq Ql application/timestamp-query ,
+and the reply must be a granted token over that signature with that
+nonce, signed by a TSA certificate valid at its genTime.
+It prints
+.Dl timestamp from Ar url : No genTime Ar time
+and the summary line ends in
+.Ql and a timestamp .
+A seal holds one timestamp: give
+.Fl -tsa
+again for fallbacks, tried in order until one gives a token that checks.
+When none does, the new
+.Pa noqtis.json
+and
+.Pa noqtis.sig
+are removed, so the folder is never left sealed without the timestamp
+that was asked for, and the exit status is 2.
 .Pp
 The folder must hold only regular files and folders with portable names.
 Nothing is written, and the exit status is 2, when it holds a symbolic
@@ -72,10 +100,25 @@ manifest's
 field and covered by the signature.
 noqtis does not interpret it.
 .It Fl -tsa Ar url
-Reserved for an RFC 3161 timestamp from a time-stamping authority.
-This build does not request timestamps: the option fails with
-.Dq algorithm or option not supported
-(exit 2) and nothing is written.
+An RFC 3161 time-stamping authority, as
+.Ql http:// Ns Ar host Ns Oo : Ns Ar port Oc Ns Op / Ns Ar path ,
+up to 32 times.
+Only plain HTTP: the token is signed by the TSA, so TLS would add no
+integrity, and noqtis links no TLS library;
+.Ql https://
+is refused with that said.
+Most public TSAs answer on
+.Ql http:// .
+There is no proxy support.
+Each connection, read and write waits at most 30 seconds.
+.It Fl -anchor Ar der-file
+The TSA's root or issuing certificate (DER), up to 32: the token must
+then also have a certificate path to one of them, checked as
+.Xr noqtis-check 1
+.Fl -anchor
+checks it.
+Without it the reply is checked, but not whether the TSA is one to
+trust, and a note on standard error says so.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds
@@ -92,9 +135,11 @@ the manifest
 the seal
 .El
 .Sh EXIT STATUS
-0 when the capsule was written; 2 on a usage error, keys that are not a
-signature key pair, an unsealable folder, a limit, or a file that cannot
-be read or written.
+0 when the capsule was written (with its timestamp, when
+.Fl -tsa
+was given); 2 on a usage error, keys that are not a signature key pair,
+an unsealable folder, a limit, a file that cannot be read or written, or
+no TSA that gave a timestamp.
 .Sh EXAMPLES
 .Bd -literal -offset indent
 $ noqtis keygen -a ML-DSA-65 -o me
@@ -111,9 +156,25 @@ A reproducible capsule:
 $ SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me results
 sealed results with ML-DSA-65
 .Ed
+.Pp
+With a timestamp from one of two authorities, checked at seal time:
+.Bd -literal -offset indent
+$ noqtis seal -k me --tsa http://timestamp.digicert.com \e
+    --tsa http://timestamp.sectigo.com \e
+    --anchor digicert.der --anchor sectigo.der results
+timestamp from http://timestamp.digicert.com: genTime 2026-10-29T09:34:03Z, verified under a TSA anchor
+sealed results with ML-DSA-65 and a timestamp
+.Ed
 .Sh SEE ALSO
 .Xr noqtis 1 ,
 .Xr noqtis-check 1 ,
 .Xr noqtis-keygen 1 ,
 .Xr nqseal 3 ,
+.Xr nqtsput 3 ,
 .Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%R RFC 3161
+.%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%D August 2001
+.Re

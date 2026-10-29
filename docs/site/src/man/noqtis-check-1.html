@@ -11,6 +11,7 @@
     <td><code class="Nm">noqtis check</code></td>
     <td>[<code class="Fl">-p</code> <var class="Ar">key.pub</var>]
       [<code class="Fl">-j</code> | <code class="Fl">--json</code>]
+      [<code class="Fl">--anchor</code> <var class="Ar">der-file ...</var>]
       <var class="Ar">dir</var></td>
   </tr>
 </table>
@@ -42,11 +43,17 @@ or
     standard error says to pass <code class="Fl">-p</code>. With
     <code class="Fl">-p</code>, the seal's key must be exactly the given
   key.</p>
-<p class="Pp">A seal that carries a timestamp fails its
-    &#x2018;<code class="Li">timestamp</code>&#x2019; row here, because this
-    command takes no TSA trust anchors to check it with; a timestamp that cannot
-    be checked is never passed silently. Programs that need timestamps call
-    <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>.</p>
+<p class="Pp">With <code class="Fl">--anchor</code>, the seal must carry an RFC
+    3161 timestamp over its signature whose token verifies under one of the
+    anchors, with the TSA certificate's path valid at the token's genTime; the
+    &#x2018;<code class="Li">timestamp</code>&#x2019; row then shows the
+    genTime. Without <code class="Fl">--anchor</code>, a seal that carries a
+    timestamp fails its &#x2018;<code class="Li">timestamp</code>&#x2019; row: a
+    timestamp that cannot be checked is never passed silently.</p>
+<p class="Pp">After the table, for each failed check, a line on standard error
+    says what to do:</p>
+<div class="Bd Bd-indent"><code class="Li">noqtis check:
+  <var class="Ar">check</var>: <var class="Ar">what to do</var></code></div>
 <dl class="Bl-tag">
   <dt id="p"><a class="permalink" href="#p"><code class="Fl">-p</code></a>
     <var class="Ar">key.pub</var>,
@@ -59,7 +66,16 @@ or
     <pre>{&quot;capsule&quot;:&quot;&lt;dir&gt;&quot;,&quot;ok&quot;:&lt;bool&gt;,&quot;result&quot;:&quot;&lt;nqerr text&gt;&quot;,
  &quot;checks&quot;:[{&quot;check&quot;:&quot;&lt;name&gt;&quot;,&quot;ok&quot;:&lt;bool&gt;,&quot;detail&quot;:&quot;&lt;text&gt;&quot;},...]}</pre>
     </div>
+    <p class="Pp">A failed check also has
+        &#x2018;<code class="Li">fix</code>&#x2019;, the text of the line on
+        standard error.</p>
   </dd>
+  <dt id="anchor"><a class="permalink" href="#anchor"><code class="Fl">--anchor</code></a>
+    <var class="Ar">der-file</var></dt>
+  <dd>A TSA trust anchor: the root or issuing certificate of a time-stamping
+      authority, DER-encoded (convert PEM with &#x2018;<code class="Li">openssl
+      x509 -outform DER</code>&#x2019;). Up to 32; one that verifies the token
+      is enough.</dd>
 </dl>
 <section class="Ss">
 <h2 class="Ss" id="Checks"><a class="permalink" href="#Checks">Checks</a></h2>
@@ -101,7 +117,8 @@ or
   <dd>The signature verifies over the exact bytes of
       <span class="Pa">noqtis.json</span>.</dd>
   <dt id="timestamp"><a class="permalink" href="#timestamp"><code class="Cm">timestamp</code></a></dt>
-  <dd>Present only when the seal has a timestamp (or anchors were given).</dd>
+  <dd>Present only when the seal has a timestamp or
+      <code class="Fl">--anchor</code> was given.</dd>
   <dt id="folder"><a class="permalink" href="#folder"><code class="Cm">folder</code></a></dt>
   <dd>The folder could be listed within the limits.</dd>
   <dt id="file"><a class="permalink" href="#file"><code class="Cm">file</code></a></dt>
@@ -140,8 +157,8 @@ or
       signed by <var class="Ar">key.pub</var>).</dd>
   <dt>2</dt>
   <dd>A usage error, <var class="Ar">dir</var> does not exist, a key that is not
-      a public signature key, or a library error such as running out of
-    memory.</dd>
+      a public signature key, an anchor that cannot be read or is not DER, or a
+      library error such as running out of memory.</dd>
 </dl>
 </section>
 <section class="Sh">
@@ -167,7 +184,17 @@ FAIL  file                report.txt: size differs
 ...
 FAIL  extra               new.txt: not in the manifest
 results: FAILED (2 of 23 checks failed)
+noqtis check: file: a sealed file changed after sealing: restore it from the original, or seal the folder again if the change was intended
+noqtis check: extra: a file was added after sealing: remove it, or seal the folder again to include it
 1</pre>
+</div>
+<p class="Pp">A timestamped capsule, against the TSA's root certificate:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>$ noqtis check -p me.pub --anchor digicert.der results
+...
+ok    timestamp           RFC 3161 token over the signature verifies under a TSA anchor; genTime 2026-10-29T09:34:03Z
+...
+results: OK (23 checks passed)</pre>
 </div>
 <p class="Pp">In CI, keeping only the failed rows:</p>
 <div class="Bd Pp Bd-indent Li">
@@ -184,6 +211,7 @@ new.txt: not in the manifest</pre>
     <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqtsput-3/">nqtsput(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
 </section>
 </div>

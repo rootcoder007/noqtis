@@ -1,0 +1,150 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqtsreq</code>, <code class="Nm">nqtsput</code>
+    &#x2014; <span class="Nd">add an RFC 3161 timestamp to a sealed
+    capsule</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqtsreq</code>(<var class="Fa">const char *dir</var>,
+    <var class="Fa">const uint8_t *nonce</var>, <var class="Fa">size_t
+    noncelen</var>, <var class="Fa">uint8_t *req</var>, <var class="Fa">size_t
+    reqlen</var>, <var class="Fa">size_t *outlen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqtsput</code>(<var class="Fa">const char *dir</var>,
+    <var class="Fa">const uint8_t *rsp</var>, <var class="Fa">size_t
+    rsplen</var>, <var class="Fa">const uint8_t *nonce</var>,
+    <var class="Fa">size_t noncelen</var>, <var class="Fa">const uint8_t *const
+    *anc</var>, <var class="Fa">const size_t *anclen</var>,
+    <var class="Fa">size_t nanc</var>, <var class="Fa">int64_t *gt</var>,
+    <var class="Fa">const char **why</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">A timestamp from a time-stamping authority (TSA) shows that a
+    seal's signature existed at the time the TSA states. The library makes no
+    network request: the caller sends the request and passes back the reply, as
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>
+    <code class="Fl">--tsa</code> does over HTTP.</p>
+<p class="Pp" id="nqtsreq"><a class="permalink" href="#nqtsreq"><code class="Fn">nqtsreq</code></a>()
+    writes to <var class="Fa">req</var> (of <var class="Fa">reqlen</var> bytes)
+    the DER RFC 3161 <var class="Vt">TimeStampReq</var> for the seal in the
+    folder <var class="Fa">dir</var>: version 1, the SHA-256 message imprint of
+    the decoded &#x2018;<code class="Li">signature</code>&#x2019; of its
+    <span class="Pa">noqtis.sig</span>, the <var class="Fa">nonce</var> when it
+    is not <code class="Dv">NULL</code> (at most 32 bytes, big-endian; a leading
+    zero is dropped and a sign byte added as DER needs), and certReq TRUE, so
+    that the TSA includes its certificate. The request is at most 128 bytes;
+    *<var class="Fa">outlen</var> gets its size. Send it with the media type
+    &#x2018;<code class="Li">application/timestamp-query</code>&#x2019; (RFC
+    3161 section 3.4) and keep the nonce for
+  <code class="Fn">nqtsput</code>().</p>
+<p class="Pp" id="nqtsput"><a class="permalink" href="#nqtsput"><code class="Fn">nqtsput</code></a>()
+    reads <var class="Fa">rsp</var>, the TSA's reply of
+    <var class="Fa">rsplen</var> bytes (a <var class="Vt">TimeStampResp</var>,
+    or a bare token), and, when it checks, stores the token as the
+    &#x2018;<code class="Li">timestamp</code>&#x2019; of
+    <var class="Fa">dir</var>'s <span class="Pa">noqtis.sig</span>, replacing
+    any timestamp it has; every other field keeps its bytes. It checks, in
+    order, that:</p>
+<ol class="Bl-enum Bl-compact">
+  <li><span class="Pa">noqtis.sig</span> is a canonical
+      &#x2018;<code class="Li">noqtis-seal-1</code>&#x2019; seal;</li>
+  <li>the reply is a strict DER RFC 3161 reply and its status is granted;</li>
+  <li>the token's imprint is its hash (SHA-256, SHA-384 or SHA-512) of the
+      seal's signature;</li>
+  <li>its nonce is <var class="Fa">nonce</var>, when that is not
+      <code class="Dv">NULL</code>;</li>
+  <li>its CMS signature verifies under its signer certificate, which is a TSA
+      certificate (extendedKeyUsage critical and only timeStamping) valid at
+      genTime;</li>
+  <li>with <var class="Fa">nanc</var> anchors (DER X.509 certificates
+      <var class="Fa">anc</var>[i] of <var class="Fa">anclen</var>[i] bytes, at
+      most 32), that certificate's path leads to one of them and is valid at
+      genTime, as
+      <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a> checks
+      it.</li>
+</ol>
+Without anchors the reply is checked but the TSA is not trusted: whether to
+  trust it is decided when the capsule is checked, with
+  <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>.
+<p class="Pp">*<var class="Fa">gt</var>, when <var class="Fa">gt</var> is not
+    <code class="Dv">NULL</code>, gets the token's genTime in seconds since the
+    epoch; *<var class="Fa">why</var>, when <var class="Fa">why</var> is not
+    <code class="Dv">NULL</code>, gets a sentence saying which check failed, or
+    <code class="Dv">NULL</code> on success. Nothing is written unless every
+    check passes.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><code class="Dv">NQOK</code> (0), or a negative error code:</p>
+<dl class="Bl-tag">
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd><var class="Fa">dir</var>, <var class="Fa">req</var>,
+      <var class="Fa">outlen</var> or <var class="Fa">rsp</var> is
+      <code class="Dv">NULL</code>, <var class="Fa">rsplen</var> is 0, a nonce
+      is over 32 bytes or <code class="Dv">NULL</code> with a length, an anchor
+      is <code class="Dv">NULL</code> or empty, or an anchor is not a
+      certificate.</dd>
+  <dt>[<code class="Er">NQEBUF</code>]</dt>
+  <dd><var class="Fa">reqlen</var> is too small.</dd>
+  <dt>[<code class="Er">NQEDEC</code>]</dt>
+  <dd><span class="Pa">noqtis.sig</span> is not a canonical
+      &#x2018;<code class="Li">noqtis-seal-1</code>&#x2019; seal.</dd>
+  <dt>[<code class="Er">NQEVRFY</code>]</dt>
+  <dd>The reply does not check: not granted, not a token in the form noqtis
+      reads, an imprint or nonce that differs, a signature or certificate that
+      does not verify, or no path to an anchor.</dd>
+  <dt>[<code class="Er">NQELIM</code>]</dt>
+  <dd>More than 32 anchors, or a seal with the token over 1 MiB.</dd>
+  <dt>[<code class="Er">NQEIO</code>]</dt>
+  <dd><span class="Pa">noqtis.sig</span> cannot be read or written.</dd>
+  <dt>[<code class="Er">NQEMEM</code>]</dt>
+  <dd>The allocation hook returned <code class="Dv">NULL</code>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>uint8_t nonce[8], req[128];
+size_t qn;
+const char *why;
+int64_t gt;
+nqrand(nonce, sizeof nonce);
+nqtsreq(&quot;results&quot;, nonce, sizeof nonce, req, sizeof req, &amp;qn);
+/* POST req to the TSA; rsp, rn: the body of its reply */
+if (nqtsput(&quot;results&quot;, rsp, rn, nonce, sizeof nonce, NULL, NULL, 0,
+            &amp;gt, &amp;why) != NQOK)
+  fprintf(stderr, &quot;refused: %s\n&quot;, why);</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">Internet X.509 Public Key
+    Infrastructure Time-Stamp Protocol (TSP)</span>, <span class="RsR">RFC
+    3161</span>, <span class="RsD">August 2001</span>.</cite>
+    <cite class="Rs"><span class="RsT">ESSCertIDv2 Update for RFC 3161</span>,
+    <span class="RsR">RFC 5816</span>, <span class="RsD">April
+    2010</span>.</cite></p>
+</section>
+</div>

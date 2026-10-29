@@ -81,8 +81,10 @@ int rc = nqchkt(&quot;results&quot;, pk, sizeof pk, anc, anclen, 1, &amp;rep);</
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqtsput-3/">nqtsput(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
 </section>
 <section class="Sh">
@@ -96,10 +98,14 @@ int rc = nqchkt(&quot;results&quot;, pk, sizeof pk, anc, anclen, 1, &amp;rep);</
 </section>
 <section class="Sh">
 <h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
-<p class="Pp">Neither the library nor
+<p class="Pp">The library makes no network request: a timestamp is obtained by
+    the caller, with
+    <span class="Xr">nqtsreq(3)</span> and
+    <a class="Xr" href="/noqtis/reference/man/nqtsput-3/">nqtsput(3)</a> around
+    its own HTTP request, or by
     <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>
-    can yet obtain a timestamp, and
+    <code class="Fl">--tsa</code>.
     <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>
-    takes no anchors; timestamps are checked only through this function.</p>
+    <code class="Fl">--anchor</code> calls this function.</p>
 </section>
 </div>

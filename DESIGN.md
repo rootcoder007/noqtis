@@ -120,7 +120,10 @@ A capsule is a folder that holds the files of a result plus `noqtis.json`
   anchors, the seal must carry a timestamp that verifies under one of them
   (RFC 3161 token, signer certificate path valid at genTime); with none
   (`nqchk`), a timestamp present is a failing check, never a silent pass.
-  `nqseal` writes no timestamp (no network in the library); the CLI adds it.
+  `nqseal` writes no timestamp (no network in the library): `nqtsreq`
+  builds the request over the signature, the caller sends it, and
+  `nqtsput` checks the reply and stores the token; `noqtis seal --tsa`
+  does the HTTP part.
 - Limits (each refused with its own report row or `nqcseal` reason, never
   a silent truncation): `noqtis.json` at most 512 MiB (its size is checked
   before it is read, and again if it grows while being read); at most
@@ -287,8 +290,9 @@ below is done. Each item says how it is checked.
       each OS and checks the result on all the others).
 - [ ] Capsules sealed by rmoriebricklayer check with noqtis, and the other
       way round, wherever their formats overlap.
-- [ ] Error messages say what failed and what to do, for every refusal in
-      `noqtis check` (a test reads each one).
+- [x] Error messages say what failed and what to do, for every refusal in
+      `noqtis check` (a test reads each one: tcli reads every check name
+      in `src/cap/chk.c`, makes each fail and requires its advice).
 
 ### Install
 
@@ -439,8 +443,8 @@ prints each command's options.
 | `noqtis enc -p <key.pub> -o <ct> (<ss> \| --stdout)` | KEM encapsulation: ciphertext to `<ct>`, shared secret to `<ss>` |
 | `noqtis dec -k <key> (-o <ss> \| --stdout) <ct>` | KEM decapsulation; a tampered ciphertext gives an unrelated secret and exit 0 (implicit rejection, as FIPS 203 and HQC require) |
 | `noqtis hash [-a <hash>] [-c\|--check] [<file>...]` | `<hex>  <file>` lines in `sha256sum`'s format (names with `\` or a line break are escaped the same way); `--check` reads such lines and prints `<file>: OK` or `FAILED`; hashes `sha224 sha256 sha384 sha512 sha512-224 sha512-256 sha3-224 sha3-256 sha3-384 sha3-512 shake128 shake256` (default `sha256`; SHAKE prints 32 or 64 bytes) |
-| `noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>] [--tsa <url>] <dir>` | `nqseal`: writes `noqtis.json` and `noqtis.sig`; the public key defaults to `<key>.pub` and must pair with `<key>`; `--tsa` is reserved and fails with exit 2 until the CLI requests timestamps |
-| `noqtis check [-p <key.pub>] [--json] <dir>` | `nqchk`: one row per check (`ok`/`FAIL`, check, detail), then a summary; `--json` prints `{"capsule","ok","result","checks":[{"check","ok","detail"}]}` on one line; without `-p` the seal's own key is accepted and the `key` row says so |
+| `noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>] [--tsa <url>]... [--anchor <der-file>]... <dir>` | `nqseal`: writes `noqtis.json` and `noqtis.sig`; the public key defaults to `<key>.pub` and must pair with `<key>`; `--tsa` then asks an RFC 3161 TSA for a timestamp (`nqtsreq`, an HTTP/1.1 POST over plain TCP in `cli/net.c`, http:// only, `nqtsput`); the seal holds one token, so a repeated `--tsa` is a fallback tried in order, and when none gives a token that checks the seal is removed (exit 2); `--anchor` (up to 32 DER certificates) checks the TSA at seal time |
+| `noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]... <dir>` | `nqchkt`: one row per check (`ok`/`FAIL`, check, detail), then a summary, then on stderr what to do about each failed check; `--json` prints `{"capsule","ok","result","checks":[{"check","ok","detail"[,"fix"]}]}` on one line; without `-p` the seal's own key is accepted and the `key` row says so; `--anchor` gives up to 32 DER TSA anchors, and the seal must then carry a timestamp that verifies under one |
 | `noqtis algs` | every algorithm with its public key, secret key, signature or ciphertext, and shared secret sizes in bytes |
 | `noqtis version` | `noqtis <nqver()>` |
 
@@ -498,7 +502,12 @@ twelve SLH-DSA sets with `NQCLIALL=1`), tampered message, signature,
 length, context and key (exit 1), deterministic keys and signatures,
 pre-hash, every ML-KEM and HQC set (round trip, implicit rejection, owner-
 only files, no secret on stdout), digests against known values and
-`--check`, and seal/check with changed, added and removed files and a
-changed manifest or seal. `NQCLIWRAP="valgrind -q --error-exitcode=9
+`--check`, seal/check with changed, added and removed files and a
+changed manifest or seal, `seal --tsa` and `check --anchor` against
+`tests/cli/tsad` (a local TSA over HTTP on 127.0.0.1 that answers with
+`openssl ts -reply` when openssl is on the PATH, or replays a token, an
+HTTP error, a redirect or junk; never the network), and every check name
+in `src/cap/chk.c` made to fail, with what to do printed for each failed
+row. `NQCLIWRAP="valgrind -q --error-exitcode=9
 --leak-check=full"` runs every command under a wrapper; a sanitizer or
 valgrind report in stderr fails the check whatever the exit status.
