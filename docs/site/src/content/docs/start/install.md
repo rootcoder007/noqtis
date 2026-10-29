@@ -59,7 +59,8 @@ docker run --rm -v "$PWD:/w" -w /w noqtis noqtis check results
 ```
 
 The recipes in `packaging/` (Homebrew, Arch `PKGBUILD`, Alpine `APKBUILD`,
-Fedora `noqtis.spec`, Debian `debian/`, Wolfi `melange.yaml`) build from the
+Fedora `noqtis.spec`, Debian `debian/`, Wolfi `melange.yaml`, a Gentoo
+ebuild for an overlay in `packaging/gentoo`) build from the
 local tree with `packaging/pkgtest.sh`; CI builds and tests each one on every
 push.
 

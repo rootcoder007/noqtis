@@ -7,6 +7,24 @@ You received a folder with `noqtis.json` and `noqtis.sig` in it, perhaps
 with a paper, a dataset or a build. Here is how to check it and what the
 result means.
 
+## Look at it first
+
+`noqtis inspect` shows what the capsule says, without checking anything:
+who sealed it (the SHA-256 fingerprint of the key in the seal), with which
+algorithm, when, how many files and bytes, whether it has a timestamp, and
+its `meta`:
+
+```sh
+$ noqtis inspect results
+format     noqtis-capsule-1
+alg        ML-DSA-65
+key        da278e20d47d35382abfa1c10352e1800c33fb5b1a2b725fc24ef18200b41ef7
+...
+results: read, not checked (run `noqtis check` to check it)
+```
+
+Compare the fingerprint with the one the sealer published, then check.
+
 ## Get the sealer's public key from somewhere else
 
 The seal carries its own public key, so

@@ -96,7 +96,8 @@ sha3-256: 3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532
 - Inputs may be `bytes`, `bytearray` or `memoryview`; outputs are `bytes`.
   Python cannot wipe `bytes`, so a secret key you hold in Python lives
   until the garbage collector frees it. Keep long-term keys in key files
-  made by `noqtis keygen` and seal from a short-lived process.
+  made by `noqtis keygen` and seal from a short-lived process;
+  `noqtis.keyfile.read("me", "sec")` loads one.
 - Long operations release the GIL, so threads sign and verify in
   parallel.
 - The package is typed (`py.typed`).

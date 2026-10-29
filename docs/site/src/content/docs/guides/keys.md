@@ -65,6 +65,33 @@ base64-decoding the body) and NOQTIS's raw signatures can be checked by any
 conforming FIPS 204/205 implementation; the ML-DSA module is cross-checked
 against OpenSSL 3.5.
 
+## Key files from Python, JavaScript and R
+
+The bindings read and write the same files, as strictly as the command
+line does, so a key made with `noqtis keygen` works everywhere:
+
+```python
+from noqtis import keyfile
+k = keyfile.read("me", "sec")         # Key(alg, kind, key)
+keyfile.write("me2.pub", k.alg, "pub", public_key_bytes)
+```
+
+```js
+import { keyfile } from 'noqtis';
+const { alg, kind, key } = keyfile.decode(fs.readFileSync('me.pub', 'utf8'));
+```
+
+```r
+k <- nqreadkey("me")                  # list(alg, kind, key)
+nqwritekey("me2.pub", pk, k$alg, "pub")
+```
+
+Written secret key files are owner-only, and no binding replaces an
+existing file unless asked to (`force=True`, `force = TRUE`). See the
+[Python](/noqtis/reference/api/python/),
+[JavaScript](/noqtis/reference/api/javascript/) and
+[R](/noqtis/reference/api/r/) API references.
+
 ## Deterministic keys
 
 `--seed` derives the key pair from the standard's seed, the way the NIST

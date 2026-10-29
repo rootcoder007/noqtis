@@ -103,9 +103,10 @@ nqrepfree(rep);
   [Python](https://rootcoder007.github.io/noqtis/guides/py/),
   [JavaScript](https://rootcoder007.github.io/noqtis/guides/js/) and
   [R](https://rootcoder007.github.io/noqtis/guides/r/), the capsule format,
-  the C API, the command line, and
+  the C, Python, JavaScript and R API references, the command line, and
   [why post-quantum provenance now](https://rootcoder007.github.io/noqtis/explain/why/).
 - Manual pages, installed with the library: `man noqtis`, `man noqtis-seal`,
+  `man noqtis-inspect`,
   `man nqsign`, `man noqtis-capsule` (sources in [man/](man/)).
 - The capsule format specification:
   [docs/site/src/content/docs/spec/capsule.md](docs/site/src/content/docs/spec/capsule.md).

@@ -47,6 +47,9 @@ identical(nqdecap(kk$sk, e$ct, "ML-KEM-768"), e$ss)
 nqhash("abc", "sha3-256", hex = TRUE)
 ```
 
+A key made with `noqtis keygen` loads with `nqreadkey("me")$key`, and
+`nqwritekey()` writes one the command line reads.
+
 Run with `Rscript prov.R` (or `source("prov.R", echo = TRUE)`), the
 interesting lines print:
 
