@@ -37,6 +37,7 @@
 
 #include "noqtis.h"
 #include "core/int.h"
+#include "core/lk.h"
 #include "hash/h.h"
 #include "mlkem/mlkem.h"
 #include "mlkem/ring.h"
@@ -65,7 +66,7 @@ static uint32_t r32(mrng *g) {
     nqksqz(&g->x, g->b, sizeof g->b);
     g->pos = 0;
   }
-  v = nqld32l(g->b + g->pos);
+  v = NQLKZM(nqld32l(g->b + g->pos)); /* zero only in the TVLA control */
   g->pos += 4;
   return v;
 }
@@ -92,8 +93,22 @@ static int16_t caddq(int32_t v) {
 
 static uint64_t op64(uint64_t x) {
   volatile uint64_t v = x;
+  NQLK(x, NQLKKC);
   return v;
 }
+
+/* TVLA build: every coefficient of one share polynomial to the hook */
+#ifdef NQTVLA
+static void lkp(const nqmkpoly *a, int n) {
+  int i, j;
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < 256; j++) NQLK((uint16_t)a[i].c[j], NQLKSH);
+  }
+}
+#define NQLKP(a, n) lkp((a), (n))
+#else
+#define NQLKP(a, n) ((void)0)
+#endif
 
 /* ---- share-pair gadgets: x[0], x[1] are the shares of one word ---- */
 
@@ -190,7 +205,9 @@ static void saddp(bsl *z, const bsl *x, const int16_t c[32], int bits,
     p[1] = x->w[i][1];
     mxor(z->w[i], p, k);
     if (i + 1 < bits) {
+      NQLKKD(NQLKPB);
       t[0] = nqmkop(x->w[i][0] & cw[i]); /* x & c is linear */
+      NQLKKD(NQLKPB);
       t[1] = nqmkop(x->w[i][1] & cw[i]);
       mand(h, k, p, r32(g));
       mxor(k, t, h);
@@ -573,14 +590,18 @@ static void mdec(const nqmkprm *p, const uint8_t *dk, const uint8_t *ct,
   uint8_t n = 0;
 
   /* 1. s-hat, split into fresh arithmetic shares */
+  NQLKST(1);
   for (i = 0; i < k; i++) {
     nqmkbd(&s->raw, dk + 384 * i, 12);
     for (j = 0; j < 256; j++) s->s0[i].c[j] = rq(g);
     for (j = 0; j < 256; j++) {
       const int16_t v = nqmkps(nqmkbr(s->raw.c[j]));
+      NQLK((uint16_t)v, NQLKUN); /* the stored key is not masked */
       s->s1[i].c[j] = caddq((int32_t)v - s->s0[i].c[j]);
     }
   }
+  NQLKP(s->s0, k);
+  NQLKP(s->s1, k);
 
   /* 2. the public ciphertext */
   for (i = 0; i < k; i++) {
@@ -594,6 +615,7 @@ static void mdec(const nqmkprm *p, const uint8_t *dk, const uint8_t *ct,
   for (j = 0; j < 256; j++) s->v.c[j] = nqmkdc((uint16_t)s->v.c[j], p->dv);
 
   /* 3. w = v - s.u, share by share */
+  NQLKST(3);
   nqmkdot(&s->w0, s->s0, s->u, k);
   nqmkint(&s->w0);
   nqmksub(&s->w0, &s->v, &s->w0);
@@ -602,8 +624,11 @@ static void mdec(const nqmkprm *p, const uint8_t *dk, const uint8_t *ct,
   nqmkint(&s->w1);
   for (j = 0; j < 256; j++) s->w1.c[j] = (int16_t)-s->w1.c[j];
   nqmkcan(&s->w1);
+  NQLKP(&s->w0, 1);
+  NQLKP(&s->w1, 1);
 
   /* 4. m' = Compress_1(w), Boolean shares, 32 bits a word */
+  NQLKST(4);
   for (q = 0; q < 8; q++) {
     sdec1(s->mw[q], s->w0.c + 32 * q, s->w1.c + 32 * q, g);
   }
@@ -619,6 +644,7 @@ static void mdec(const nqmkprm *p, const uint8_t *dk, const uint8_t *ct,
   }
 
   /* 5. (K', r) = G(m' || h) */
+  NQLKST(5);
   memcpy(s->gi0, s->m0, 32);
   memcpy(s->gi0 + 32, h, 32);
   memcpy(s->gi1, s->m1, 32);
@@ -626,13 +652,18 @@ static void mdec(const nqmkprm *p, const uint8_t *dk, const uint8_t *ct,
   msponge(s->g0, s->g1, 64, s->gi0, s->gi1, 64, 72, 0x06, g);
 
   /* 6. K-bar = J(z || c), z split afresh */
+  NQLKST(6);
   for (i = 0; i < 32; i++) s->j1[i] = (uint8_t)r32(g);
-  for (i = 0; i < 32; i++) s->j0[i] = (uint8_t)(z[i] ^ s->j1[i]);
+  for (i = 0; i < 32; i++) {
+    NQLK(z[i], NQLKUN);
+    s->j0[i] = (uint8_t)(z[i] ^ s->j1[i]);
+  }
   memcpy(s->j0 + 32, ct, p->ct);
   memset(s->j1 + 32, 0, p->ct);
   msponge(s->kb0, s->kb1, 32, s->j0, s->j1, 32 + p->ct, 136, 0x1f, g);
 
   /* 7. re-encryption of m' under r, in shares */
+  NQLKST(7);
   bad = nqmkekd(s->t, ek, k); /* ek is public */
   nqmkmat(s->a, ek + 384 * k, k, 1);
   for (i = 0; i < k; i++) mprf(&s->r0[i], &s->r1[i], s, n++, p->eta1, g);
@@ -675,8 +706,13 @@ static void mdec(const nqmkprm *p, const uint8_t *dk, const uint8_t *ct,
   }
   nqmkcan(&s->v0);
   nqmkcan(&s->v1);
+  NQLKP(s->u0, k);
+  NQLKP(s->u1, k);
+  NQLKP(&s->v0, 1);
+  NQLKP(&s->v1, 1);
 
   /* 8. c' == c, compared decompressed and in shares */
+  NQLKST(8);
   s->all[0] = 0xffffffffu;
   s->all[1] = 0;
   cint(s->lo, s->wd, p->du);
@@ -698,6 +734,7 @@ static void mdec(const nqmkprm *p, const uint8_t *dk, const uint8_t *ct,
   s->ok[1] &= (uint32_t)bad - 1u;
 
   /* 9. K = ok ? K' : K-bar, in shares, then unmasked */
+  NQLKST(9);
   s->msk[0] = nqmkop(0u - (s->ok[0] & 1u));
   s->msk[1] = nqmkop(0u - (s->ok[1] & 1u));
   for (i = 0; i < 8; i++) {
@@ -710,6 +747,7 @@ static void mdec(const nqmkprm *p, const uint8_t *dk, const uint8_t *ct,
     mand(s->x, s->msk, s->d, r32(g));
     mxor(s->d, s->kq, s->x);
     out = s->d[0] ^ s->d[1]; /* the shared secret, the output */
+    NQLK(out, NQLKOUT);
     nqst32l(ss + 4 * i, out);
   }
 }

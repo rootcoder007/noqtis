@@ -49,7 +49,10 @@ jobs:
           r-version: release
           use-public-rspm: true
       - name: install rmoriebricklayer
+        # built from source here: its configure needs the libcurl headers
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libcurl4-openssl-dev
           Rscript -e 'install.packages("rmoriebricklayer",
             repos = c("https://rootcoder007.r-universe.dev",
                       "https://cloud.r-project.org"))

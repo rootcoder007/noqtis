@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "core/int.h"
+#include "core/lk.h"
 #include "hash/h.h"
 #include "mldsa/md.h"
 #include "mldsa/mldsa.h"
@@ -54,7 +55,7 @@ static uint32_t ru(rng *r) {
       ((uint32_t)r->buf[r->pos + 2] << 16) |
       ((uint32_t)r->buf[r->pos + 3] << 24);
   r->pos += 4;
-  return v;
+  return NQLKZM(v); /* zero only in the TVLA control */
 }
 
 /* uniform on [0, q) up to q / 2^64 + 2^-32, by multiply-and-shift: no
@@ -71,6 +72,7 @@ static int32_t rq(rng *r) {
 /* an opaque copy: the compiler cannot see through it to recombine */
 static uint32_t opq(uint32_t x) {
   volatile uint32_t v = x;
+  NQLKO(x);
   return v;
 }
 
@@ -173,7 +175,9 @@ static void saddp(bs *z, const bs *x, const int32_t c[32], int bits,
     p[1] = opq(x->w[i][1]);
     xor2(z->w[i], p, k);
     if (i + 1 < bits) {
+      NQLKKD(NQLKPB);
       g[0] = opq(x->w[i][0] & cw[i]);
+      NQLKKD(NQLKPB);
       g[1] = opq(x->w[i][1] & cw[i]);
       and2(h, k, p, ru(r));
       xor2(k, g, h);
@@ -582,6 +586,19 @@ static void mg1(const nqmdp *p, int32_t *a0, int32_t *a1,
   nqwipe(&v, sizeof v);
 }
 
+/* TVLA build: every coefficient of n share polynomials to the hook */
+#ifdef NQTVLA
+static void lkp(const nqmdpl *a, unsigned n) {
+  unsigned i, j;
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < NQMDN; j++) NQLK((uint32_t)a[i].c[j], NQLKSH);
+  }
+}
+#define NQLKP(a, n) lkp((a), (n))
+#else
+#define NQLKP(a, n) ((void)0)
+#endif
+
 /* fresh arithmetic shares of n polynomials, in place: v[1] holds the
  * values on entry */
 static void split(nqmdpl *v0, nqmdpl *v1, unsigned n, rng *r) {
@@ -589,9 +606,12 @@ static void split(nqmdpl *v0, nqmdpl *v1, unsigned n, rng *r) {
   for (i = 0; i < n; i++) {
     for (j = 0; j < NQMDN; j++) v0[i].c[j] = rq(r);
     for (j = 0; j < NQMDN; j++) {
+      NQLK((uint32_t)canon(v1[i].c[j]), NQLKUN); /* the stored key */
       v1[i].c[j] = caddm(canon(v1[i].c[j]) - v0[i].c[j]);
     }
   }
+  NQLKP(v0, n);
+  NQLKP(v1, n);
 }
 
 typedef struct {
@@ -631,6 +651,8 @@ static int smk(const nqmdp *p, const uint8_t *sk, const uint8_t mu[64],
   rng *r = &W->r;
   r->pos = sizeof r->buf;
   r->fail = 0;
+  NQLKAT(0);
+  NQLKST(1);
   if (nqmdsku(p, sk, W->rho, W->key, W->s1[1], W->s2[1], W->t0[1])) {
     return NQEDEC;
   }
@@ -638,7 +660,10 @@ static int smk(const nqmdp *p, const uint8_t *sk, const uint8_t mu[64],
   split(W->s2[0], W->s2[1], p->k, r);
   split(W->t0[0], W->t0[1], p->k, r);
   for (i = 0; i < 32; i++) W->k0[i] = (uint8_t)ru(r);
-  for (i = 0; i < 32; i++) W->k1[i] = (uint8_t)(W->key[i] ^ W->k0[i]);
+  for (i = 0; i < 32; i++) {
+    NQLK(W->key[i], NQLKUN);
+    W->k1[i] = (uint8_t)(W->key[i] ^ W->k0[i]);
+  }
   nqwipe(W->key, sizeof W->key);
   /* rho'' = H(K || rnd || mu), K masked; rnd and mu ride on share 0 */
   memcpy(W->in0, W->k0, 32);
@@ -646,6 +671,7 @@ static int smk(const nqmdp *p, const uint8_t *sk, const uint8_t mu[64],
   memcpy(W->in0 + 64, mu, 64);
   memcpy(W->in1, W->k1, 32);
   memset(W->in1 + 32, 0, 96);
+  NQLKST(2);
   spm(W->rp0, W->rp1, 64, W->in0, W->in1, 128, r);
   for (s = 0; s < 2; s++) {
     for (i = 0; i < p->l; i++) nqmdntt(W->s1[s][i].c);
@@ -657,11 +683,16 @@ static int smk(const nqmdp *p, const uint8_t *sk, const uint8_t mu[64],
   for (att = 0; att < NQMDTRIES; att++) {
     allok ok;
     unsigned n = 0;
+    NQLKAT(att);
+    NQLKST(3);
     for (i = 0; i < p->l; i++) {
       mg1(p, W->y[0][i].c, W->y[1][i].c, W->rp0, W->rp1,
           (uint16_t)(att * p->l + i), r);
     }
+    NQLKP(W->y[0], p->l);
+    NQLKP(W->y[1], p->l);
     /* w = A y */
+    NQLKST(4);
     for (s = 0; s < 2; s++) {
       for (i = 0; i < p->l; i++) {
         W->z[s][i] = W->y[s][i];
@@ -676,7 +707,10 @@ static int smk(const nqmdp *p, const uint8_t *sk, const uint8_t mu[64],
         for (j = 0; j < NQMDN; j++) W->w[s][i].c[j] = canon(W->w[s][i].c[j]);
       }
     }
+    NQLKP(W->w[0], p->k);
+    NQLKP(W->w[1], p->k);
     /* w1 = HighBits(w), revealed */
+    NQLKST(5);
     for (i = 0; i < p->k; i++) {
       for (g = 0; g < NQMDN; g += 32) {
         bprime(&W->bp, W->w[0][i].c + g, W->w[1][i].c + g, p->g2, r);
@@ -692,10 +726,16 @@ static int smk(const nqmdp *p, const uint8_t *sk, const uint8_t mu[64],
     nqmdchal(p, W->cp.c, sig);
     nqmdntt(W->cp.c);
     /* z = y + c s1 */
+    NQLKST(6);
     for (s = 0; s < 2; s++) lin(W->z[s], &W->cp, W->s1[s], W->y[s], 0, p->l);
+    NQLKP(W->z[0], p->l);
+    NQLKP(W->z[1], p->l);
     if (!normok(W->z[0], W->z[1], p->l, p->g1 - p->beta, r)) continue;
     /* v = w - c s2 (in w), and the r0 check on its low bits */
+    NQLKST(7);
     for (s = 0; s < 2; s++) lin(W->w[s], &W->cp, W->s2[s], W->w[s], 1, p->k);
+    NQLKP(W->w[0], p->k);
+    NQLKP(W->w[1], p->k);
     okini(&ok);
     for (i = 0; i < p->k; i++) {
       for (g = 0; g < NQMDN; g += 32) {
@@ -707,9 +747,13 @@ static int smk(const nqmdp *p, const uint8_t *sk, const uint8_t mu[64],
     }
     if (!okrev(&ok, r)) continue;
     /* c t0 */
+    NQLKST(8);
     for (s = 0; s < 2; s++) lin(W->u[s], &W->cp, W->t0[s], NULL, 0, p->k);
+    NQLKP(W->u[0], p->k);
+    NQLKP(W->u[1], p->k);
     if (!normok(W->u[0], W->u[1], p->k, p->g2, r)) continue;
     /* the hint: HighBits(w - c s2 + c t0) against w1 */
+    NQLKST(9);
     for (s = 0; s < 2; s++) {
       for (i = 0; i < p->k; i++) {
         for (j = 0; j < NQMDN; j++) {
@@ -731,11 +775,13 @@ static int smk(const nqmdp *p, const uint8_t *sk, const uint8_t mu[64],
     }
     if (n > p->omega) continue;
     /* accepted: z is part of the signature */
+    NQLKST(10);
     for (i = 0; i < p->l; i++) {
       for (j = 0; j < NQMDN; j++) {
         int32_t zz = caddm(W->z[0][i].c[j] + W->z[1][i].c[j] - MQ);
         zz -= MQ & (((MQ - 1) / 2 - zz) >> 31);
         W->y[0][i].c[j] = zz;
+        NQLK((uint32_t)zz, NQLKOUT);
       }
       NQMDPUB(W->y[0][i].c, sizeof W->y[0][i].c);
       nqmdzp(p, sig + p->ctl + (size_t)i * 32 * p->zb, W->y[0][i].c);
