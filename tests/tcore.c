@@ -25,7 +25,7 @@ static void terr(void) {
   NQTCHK(strcmp(nqerr(NQOK), "success") == 0);
   NQTCHK(strcmp(nqerr(NQEVRFY), "verification failed") == 0);
   NQTCHK(strcmp(nqerr(12345), "unknown error") == 0);
-  NQTCHK(strcmp(nqver(), "0.1.0") == 0);
+  NQTCHK(strcmp(nqver(), "0.1.1") == 0);
 }
 
 static void twipe(void) {

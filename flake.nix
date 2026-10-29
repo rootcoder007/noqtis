@@ -17,7 +17,7 @@
       mk = pkgs: rec {
         noqtis = pkgs.stdenv.mkDerivation {
           pname = "noqtis";
-          version = "0.1.0";
+          version = "0.1.1";
           src = self;
           nativeBuildInputs = [ pkgs.cmake ];
           cmakeFlags = [ "-DNQSHARED=ON" "-DNQWERROR=OFF" ];

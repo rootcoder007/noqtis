@@ -25,7 +25,7 @@
 #
 # Environment (the options win):
 #   NOQTIS_PREFIX   where to install (default: $HOME/.local)
-#   NOQTIS_VERSION  a release such as 0.1.0 (default: the latest release)
+#   NOQTIS_VERSION  a release such as 0.1.1 (default: the latest release)
 #   NOQTIS_SHARED   1 for the shared-library archive (Linux only)
 #   NOQTIS_COSIGN   auto (default): check with cosign when it is installed;
 #                   1: require cosign; 0: skip the Sigstore check

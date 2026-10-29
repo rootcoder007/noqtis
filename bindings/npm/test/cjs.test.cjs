@@ -12,7 +12,7 @@ test('require() entry', async () => {
   assert.throws(() => nq.algs(), /init/);
   await nq.init();
   await nq.init();
-  assert.equal(nq.version(), '0.1.0');
+  assert.equal(nq.version(), '0.1.1');
   const { publicKey, secretKey } = nq.sign.keygen('ML-DSA-44');
   const sig = nq.sign.sign('ML-DSA-44', secretKey, 'cjs');
   assert.equal(nq.sign.verify('ML-DSA-44', publicKey, 'cjs', sig), true);

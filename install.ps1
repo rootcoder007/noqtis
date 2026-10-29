@@ -19,7 +19,7 @@
 #
 # Environment:
 #   NOQTIS_PREFIX   where to install (default: $HOME\.local)
-#   NOQTIS_VERSION  a release such as 0.1.0 (default: the latest release)
+#   NOQTIS_VERSION  a release such as 0.1.1 (default: the latest release)
 #   NOQTIS_COSIGN   auto (default): check with cosign when it is installed;
 #                   1: require cosign; 0: skip the Sigstore check
 #   NOQTIS_BASE     the releases URL (default:

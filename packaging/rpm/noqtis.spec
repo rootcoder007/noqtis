@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Fedora, EPEL, openSUSE-style RPM.
 Name:           noqtis
-Version:        0.1.0
+Version:        0.1.1
 Release:        1%{?dist}
 Summary:        Post-quantum signing, KEMs and sealed input records in C11
 License:        Apache-2.0 WITH LLVM-exception
@@ -53,5 +53,8 @@ against %{name}.
 %{_mandir}/man5/*
 
 %changelog
+* Thu Oct 29 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.1.1-1
+- The first release (0.1.0 was not released)
+
 * Wed Oct 28 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.1.0-1
 - First package

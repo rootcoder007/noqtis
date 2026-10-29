@@ -1,4 +1,4 @@
-# noqtis 0.1.0
+# noqtis 0.1.1
 
 * First release: R bindings to the bundled noqtis C library.
 * Signatures: `nqkeygen()`, `nqsign()` and `nqverify()` for ML-DSA-44/65/87
