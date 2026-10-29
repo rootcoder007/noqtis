@@ -64,7 +64,8 @@ static const nccmd cmds[] = {
    "usage: noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>]\n"
    "                   [--tsa <url>] <dir>\n"
    "  Writes noqtis.json and noqtis.sig into <dir>, covering every file.\n"
-   "  The public key defaults to <key>.pub.\n"},
+   "  The public key defaults to <key>.pub. --tsa is reserved: this build\n"
+   "  does not request timestamps and fails with exit 2.\n"},
   {"check", ncchk, "check a sealed capsule folder",
    "usage: noqtis check [-p <key.pub>] [--json] <dir>\n"
    "  Prints every check and its result; exit 0 only if all pass. Without\n"
