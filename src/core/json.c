@@ -205,6 +205,8 @@ static int rdstr(lexer *lx, char **out, size_t *outlen) {
     lx->pos += (lx->s[lx->pos] == '\\') ? 2 : 1;
   }
   if (lx->pos >= lx->len) {
+    /* unterminated; a final backslash stepped one past the end */
+    lx->pos = lx->len;
     return NQEDEC;
   }
   cap = lx->pos - start + 1;

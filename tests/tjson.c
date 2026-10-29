@@ -118,9 +118,31 @@ static void tacvp(void) {
   NQTEQI(nqreadf("vectors/does-not-exist.json", 100, &buf, &len), NQEIO);
 }
 
+/* the error offset is inside the input, also for a string that ends in
+ * a backslash (fuzz/fjson found it one past the end) */
+static void terroff(void) {
+  const char *bad[] = {"\"\\", "[\"ab\\", "{\"k\\", "\"abc", "[1,", "x"};
+  size_t i, off;
+  for (i = 0; i < sizeof bad / sizeof *bad; i++) {
+    nqjs *v = NULL;
+    size_t n = strlen(bad[i]);
+    off = (size_t)-1;
+    NQTEQI(nqjparse(bad[i], n, &v, &off), NQEDEC);
+    NQTCHK(v == NULL);
+    NQTCHK(off <= n);
+  }
+  NQTEQI(nqjparse("[1,]", 4, NULL, &off), NQEARG);
+  {
+    nqjs *v = NULL;
+    NQTEQI(nqjparse("[1,]", 4, &v, &off), NQEDEC);
+    NQTEQI(off, 3);
+  }
+}
+
 int main(void) {
   taccept();
   treject();
+  terroff();
   tdepth();
   tlookup();
   thex();
