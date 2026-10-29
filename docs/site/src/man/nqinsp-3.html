@@ -1,0 +1,78 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqinsp</code> &#x2014; <span class="Nd">read what
+    a capsule says, without checking it</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqinsp</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *dir</var>, <var class="Fa" style="white-space: nowrap;">nqrep
+    **rep</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqinsp"><code class="Fn" id="nqinsp">nqinsp</code></a>()
+    reads the seal <span class="Pa">noqtis.sig</span> and the manifest
+    <span class="Pa">noqtis.json</span> of the capsule in
+    <var class="Fa">dir</var>
+    (<a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>)
+    with the same strict readers as
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a> (canonical
+    JSON, the exact fields, the manifest in its canonical layout) and stores a
+    report in <var class="Fa">*rep</var>
+    (<a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a>). It
+    checks nothing else: not the manifest's SHA-256, the signature, the
+    timestamp or any file in the folder.</p>
+<p class="Pp">When both parse, the report ends with rows that always pass, one
+    per fact:</p>
+<dl class="Bl-tag">
+  <dt>&#x2018;<code class="Li">info.format</code>&#x2019;</dt>
+  <dd>the manifest's format</dd>
+  <dt>&#x2018;<code class="Li">info.alg</code>&#x2019;</dt>
+  <dd>the seal's algorithm</dd>
+  <dt>&#x2018;<code class="Li">info.key</code>&#x2019;</dt>
+  <dd>the SHA-256 of the seal's public key, 64 lower-case hex digits</dd>
+  <dt>&#x2018;<code class="Li">info.created</code>&#x2019;</dt>
+  <dd>the creation time</dd>
+  <dt>&#x2018;<code class="Li">info.files</code>&#x2019;</dt>
+  <dd>the number of files listed, in decimal</dd>
+  <dt>&#x2018;<code class="Li">info.bytes</code>&#x2019;</dt>
+  <dd>their total size, in decimal</dd>
+  <dt>&#x2018;<code class="Li">info.timestamp</code>&#x2019;</dt>
+  <dd>&#x2018;<code class="Li">present</code>&#x2019; or
+      &#x2018;<code class="Li">none</code>&#x2019;</dd>
+  <dt>&#x2018;<code class="Li">info.meta</code>&#x2019;</dt>
+  <dd>the manifest's meta object as canonical JSON, only when it has one</dd>
+</dl>
+<p class="Pp">Before them come the rows of the strict readers
+    (&#x2018;<code class="Li">seal.*, &#x2018;<code class="Li">manifest.*,
+    &#x2018;<code class="Li">path</code>&#x2019;</code>&#x2019;</code>&#x2019;),
+    as in <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><code class="Dv">NQOK</code> when the seal and the manifest parse;
+    <code class="Dv">NQEDEC</code> when one does not (<var class="Fa">*rep</var>
+    holds the failing rows); <code class="Dv">NQEARG</code> for a NULL argument
+    and <code class="Dv">NQEMEM</code> when memory runs out (no report). Free
+    the report with <code class="Fn">nqrepfree</code>().</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-inspect-1/">noqtis-inspect(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+</div>
