@@ -10,6 +10,10 @@
   rejection.
 * Hashes: `nqhash()` (SHA-2, SHA-3, SHAKE; raw vectors, strings and
   files) and `nqhmac()`.
+* Key files: `nqreadkey()` and `nqwritekey()` read and write the
+  command-line tool's `noqtis-key-1` files, as strictly as it reads
+  them; secret key files are owner-only and never overwritten unless
+  `force = TRUE`.
 * Capsules: `nqseal()` and `nqcheck()`, compatible with the `noqtis`
   command-line tool.
 * `nqalgs()`, `nqrand()` and `nqver()`.
