@@ -68,9 +68,9 @@ Each module is one directory under `src/`, with its tests under `tests/`.
 A module is accepted only when every check in its row passes.
 
 The "Must pass" column is the acceptance target, not a record of what
-runs today. Not yet in place before 0.1.0: dudect timing tests and
-simulated TVLA (the constant-time claim rests on the ctgrind tests and
-review until they are published); OpenSSL 3.5 differential fuzzing and
+runs today. dudect and simulated TVLA are in place (`ct/`, workflow
+`ct.yml`; results and their limits under "Side-channel results" below).
+Not yet in place before 0.1.0: OpenSSL 3.5 differential fuzzing and
 cross-checks beyond the fixed RSA/ECDSA set in `tests/vectors/ossl/`;
 libFuzzer in CI (`fuzz/fder.c` exists and is run by hand); fuzzed CLI
 arguments; and cross-verification with rmoriebricklayer. HMAC is tested
@@ -380,10 +380,43 @@ so it is reviewed and tested like the code.
   source URL and SHA-256 in `tests/vectors/SOURCES.md`.
 - `ctest` runs every module's tests; CI runs them on Linux (GCC, Clang),
   macOS (arm64, x86-64) and Windows (MSVC, clang-cl, MinGW), plus
-  ASan+UBSan, valgrind and ctgrind. Planned, not yet in CI: dudect, TVLA,
-  libFuzzer (time-boxed on each push, longer weekly) and an OpenSSL 3.5
-  differential job.
+  ASan+UBSan, valgrind and ctgrind. `ct.yml` runs dudect and the
+  simulated TVLA, short on each push and long weekly, and uploads their
+  JSON results. Planned, not yet in CI: libFuzzer (time-boxed on each
+  push, longer weekly) and an OpenSSL 3.5 differential job.
 - `acvp/` holds one harness per algorithm for NIST CAVP submission.
+
+### Side-channel results
+
+`ct/dd.c` (dudect: Welch's t on fixed-vs-random timings, raw and 100
+upper crops, pass at |t| < 4.5, an early-exit compare as control) and
+`ct/tv.c` (simulated TVLA on traces the masked code records in a
+`-DNQTVLA` build; Hamming weight and Hamming distance; a point leaks at
+|t| > 4.5 in two independent sets with the same sign; controls with the
+masks forced to zero). The hooks compile to nothing otherwise: the 37
+release objects are byte-identical with and without them (GCC 16.2.1,
+Clang 22.1.8). Measured on an Intel Core i5-10310U, Linux 7.2.11,
+GCC 16.2.1 Release, one core; the security page has every target.
+
+| Operation | dudect N, max \|t\| | TVLA traces, masked max \|t\| (value model) |
+|---|---|---|
+| `nqcteq`, `nqcmov`, `nqctmask`/`nqctsel`, base64, hex | 40,000; 1.90 at most | not masked |
+| HMAC, HMAC_DRBG (SHA-256, SHA-512) | 40,000; 2.19 at most | not masked |
+| ML-KEM decaps, masked (512/768/1024; key and validity tests) | 5,000; 3.61 at most | 10,000; 4.19 / 4.67 / 4.87, no point |
+| ML-KEM decaps, unmasked | 40,000; 2.14 at most | not masked |
+| ML-KEM keygen | 20,000; 127.0: fails, its time depends on the public rho | not masked |
+| ML-DSA sign, masked (44/65/87) | 2,500; 2.07 / 1.38 / 1.80 | 2,500 / 1,250 / 1,250; 5.57 / 5.60 / 5.20, no point; nonce test (44) 5.14 |
+| ML-DSA sign, unmasked | 20,000; 1.99 / 1.83 / 4.55 (87: 1.41 at 64,000 when repeated) | not masked |
+| SLH-DSA sign (SHA2-128f, SHAKE-128f) | 1,250 / 625; 5.72 / 4.83: fail (3.59 at 4,000 and 2.24 at 2,000 when repeated) | not masked |
+| HQC decaps (128/192/256; key and validity tests) | 10,000 / 5,000 / 2,500; 2.73 at most | not masked |
+
+dudect runs on one machine with one compiler: a pass is not a proof for
+another CPU, compiler or flags, and says nothing about power. The TVLA is
+a model of the values the C code computes, not a power measurement; it
+finds the stored key leaking as it is loaded and split (expected: keys
+are stored unmasked; the split's sign also leaks), the transition model
+failing (shares are handled one after the other, without the
+reference's assembly), and no leak of a masked value in the value model.
 
 ## Security reporting
 

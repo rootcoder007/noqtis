@@ -84,7 +84,8 @@ secret, except the values the standards themselves make public (for
 example ML-DSA's rejection decisions and hint, SLH-DSA's published tree
 roots). ML-DSA signing and ML-KEM decapsulation are also first-order
 masked: secrets are split into two random shares (for ML-KEM drawn fresh
-from the random source on every call). The base64 coder that reads key files is constant
+from the random source on every call), first order in the value model,
+from the point the stored key is split (see the TVLA results below). The base64 coder that reads key files is constant
 time too.
 
 **How it is tested.**
@@ -100,16 +101,189 @@ time too.
 - **Masked against unmasked**: the masked and unmasked ML-DSA signers and
   ML-KEM decapsulation are run on the same inputs and must give the same
   bytes, including on tampered ciphertexts.
-- **Not yet published**: dudect timing measurements and simulated TVLA
-  leakage tests are part of the plan for every secret operation, and will
-  be published with the release, with what they do and do not show. Until
-  then the constant-time claim rests on the ctgrind tests and review.
+- **dudect** (`ct/dd.c`): timing, measured. See below.
+- **Simulated TVLA** (`ct/tv.c`): first-order leakage of the masked code,
+  simulated. See below.
 
 ctgrind finds secret-dependent control flow and memory access in the
 compiled code under test; it does not see variable-time CPU instructions
 (such as division on some processors) or what another compiler might
-generate, and masking is checked for correctness, not leakage, until the
-TVLA results are published.
+generate. dudect sees those on the machine it runs on, and only there.
+
+### Timing: dudect
+
+**Method.** The fixed-against-random test of Reparaz, Balasch and
+Verbauwhede (*Dude, is my code constant time?*, DATE 2017), written in
+C11 with no dependencies. Each measurement times one call (or a fixed
+batch of calls) with ISO C `timespec_get` on an input of class 0 or
+class 1, the class drawn at random per measurement. Inputs for a chunk
+of measurements are made before any of them is timed and reach their
+slot by the same copy in both classes. Welch's t compares the classes on
+the raw times and under 100 upper crops; a target **passes when every
+|t| < 4.5** after its N measurements. Inputs and classes come from a
+seeded generator (`-s`), so a run repeats. A control, an early-exit
+compare, runs first and must be detected (|t| > 10), or the run stops:
+otherwise the clock could not have seen a leak.
+
+What differs between the classes is the secret. Where an operation's
+time depends on a public value by design, that value is the same in both
+classes or random in both:
+
+- ML-DSA signing: every input signs in one attempt (the number of
+  attempts is public: a signature's time shows it), all keys of a test
+  share rho (ExpandA rejects on rho), and both classes draw a fresh rnd
+  (so c~, and SampleInBall's rejections, vary in both).
+- ML-KEM decapsulation, key test: all keys share rho (SampleNTT rejects
+  on rho during re-encryption); validity test: one key, valid against
+  random (implicitly rejected) ciphertexts.
+- HQC decapsulation, key test: keys whose y-sampler (re-run from seed_dk
+  in every decapsulation) drew no rejected and no repeated position, as
+  most keys do. The sampler's rejections and repeats are declared public
+  in the code, as the specification allows; they are fixed per key, so
+  they are the one place HQC decapsulation time may depend on the key.
+
+**Results**, on an Intel Core i5-10310U (Linux 7.2.11, GCC 16.2.1,
+`-O3` Release build, `taskset` to one core, other jobs running on the
+other cores), `nqdd -n 40000 -s 1`, measured for the tree of the commit
+that added `ct/`:
+
+| Operation | Classes | N | max \|t\| | |
+|---|---|---|---|---|
+| control: early-exit compare | equal vs random | 40,000 | 39,927 | detected |
+| `nqcteq` (64 bytes) | equal vs random | 40,000 | 1.67 | pass |
+| `nqcmov` (32 bytes) | no copy vs random condition and source | 40,000 | 1.42 | pass |
+| `nqctmask` / `nqctsel` | zero vs random words | 40,000 | 1.74 | pass |
+| key-file base64 encode / decode | fixed vs random | 40,000 | 1.31 / 1.51 | pass |
+| seed hex decode | fixed vs random | 40,000 | 1.90 | pass |
+| HMAC-SHA-256 / -512 | fixed vs random key | 40,000 | 1.36 / 1.19 | pass |
+| HMAC_DRBG SHA-256 / -512 | fixed vs random entropy | 40,000 | 2.19 / 1.68 | pass |
+| ML-KEM-512 / 768 / 1024 masked decaps | one key vs others | 5,000 | 2.67 / 1.72 / 3.08 | pass |
+| ML-KEM-512 / 768 / 1024 masked decaps | valid vs random ciphertexts | 5,000 | 3.61 / 2.19 / 1.62 | pass |
+| ML-KEM-512 / 768 / 1024 unmasked decaps | one key vs others | 40,000 | 1.82 / 1.59 / 1.61 | pass |
+| ML-KEM-512 / 768 / 1024 unmasked decaps | valid vs random ciphertexts | 40,000 | 1.25 / 1.28 / 2.14 | pass |
+| ML-DSA-44 / 65 / 87 masked sign | one key vs others | 2,500 | 2.07 / 1.38 / 1.80 | pass |
+| ML-DSA-44 / 65 unmasked sign | one key vs others | 20,000 | 1.99 / 1.83 | pass |
+| ML-DSA-87 unmasked sign | one key vs others | 20,000 | 4.55 | fail, see below |
+| SLH-DSA-SHA2-128f sign | one key and opt_rand vs others | 1,250 | 5.72 | fail, see below |
+| SLH-DSA-SHAKE-128f sign | one key and opt_rand vs others | 625 | 4.83 | fail, see below |
+| HQC-128 / 192 / 256 decaps | one key vs others | 10,000 / 5,000 / 2,500 | 1.57 / 2.73 / 1.51 | pass |
+| HQC-128 / 192 / 256 decaps | valid vs random ciphertexts | 10,000 / 5,000 / 2,500 | 0.43 / 1.69 / 2.08 | pass |
+
+The three failures are in crops (keeping the fastest 24 to 56% of the
+measurements) of the slowest targets, 0.8 ms per ML-DSA-87 signature and
+63 ms and 160 ms per SLH-DSA signature, with raw |t| of 1.41, 0.22 and
+0.66. Measured again with
+another seed and more measurements (`nqdd -n 128000 -s 3`), ML-DSA-87
+unmasked signing gave max |t| 1.41 over 64,000 measurements and
+SLH-DSA-SHA2-128f 3.59 over 4,000 and SLH-DSA-SHAKE-128f 2.24 over 2,000:
+all pass. Nothing in SLH-DSA signing branches on or indexes by a secret
+(ctgrind), so we read the first run as noise; they are reported as failures above because that is what the first run
+gave; nothing in the code under test was changed between the runs.
+
+**Public values, measured on purpose** (`nqdd -n 20000 -s 2 -t kg,raw`).
+These show what the designs above exclude, and they fail:
+
+| Target | max \|t\| | Why |
+|---|---|---|
+| ML-KEM-512 / 768 / 1024 keygen, fixed vs random seed | 27.4 / 127.0 / 110.6 | rho comes from the secret seed; SampleNTT rejects on it |
+| SampleNTT alone on the same rho (768) | 185.5 | 3.37 us mean difference, more than keygen's 2.76 us |
+| ML-KEM-768 unmasked decaps, keys from keygen | 135.9 | each key has its own rho |
+| ML-DSA-44 unmasked sign, keys from keygen, one rnd | 21.0 | rho and c~ differ by class |
+| HQC-128 decaps, keys from keygen | 2.70 | the sampler's counts differ by key; not resolved at 5,000 (an earlier run at 2,000 gave 6.17) |
+
+So ML-KEM key generation does not pass a fixed-vs-random-seed test, and
+cannot: its time depends on rho, which FIPS 203 makes public. Its
+secret-dependent part is covered by ctgrind, not by dudect.
+
+**What this shows and does not show.** A pass means this machine, with
+this compiler and these flags, did not resolve a timing difference
+between the classes in N measurements. It does not show the absence of a
+smaller difference, a difference on another CPU (for example one with
+variable-time multiplication), another compiler or other flags, cache or
+branch-predictor effects across processes, or anything about power or
+electromagnetic emanation. CI (`.github/workflows/ct.yml`) runs the same
+harness on shared GitHub runners, short on every push and long weekly;
+there the noise is larger and a pass is weaker evidence still.
+
+### Simulated power: TVLA
+
+**Method.** The library built with `-DNQTVLA` (a test build only)
+compiles hooks in the masked ML-KEM decapsulation (`src/mlkem/mdec.c`)
+and ML-DSA signer (`src/mldsa/msk.c`): every share word passed through
+the gadgets' opaque copies, every 64-bit lane of the masked Keccak, the
+share polynomials after each linear step, the stored key as it is loaded
+and split, and the unmasked output. In every other build the hooks are
+`((void)0)`: the release objects are byte-identical with and without
+them (all 37 objects of `libnoqtis.a`, GCC 16.2.1 and Clang 22.1.8,
+Release, compared with `cmp`). A trace is one call; each recorded value
+gives one sample under two models: its Hamming weight (the value model)
+and its Hamming distance from the value recorded before it (the
+transition model). The test is TVLA (Goodwill et al. 2011; ISO/IEC
+17825): one secret against random secrets, Welch's t at every sample in
+two independent sets of traces; a point leaks when **|t| > 4.5 in both
+sets with the same sign**. Samples that fewer than 30 traces of a class
+reach are not assessed (none were, in the run below). Controls run the
+same code with every mask forced to zero and must be flagged.
+
+- ML-KEM: one ciphertext for both classes, valid under the fixed key and
+  so rejected under every random key.
+- ML-DSA, key test: one mu, every input signing in one attempt, a fresh
+  rnd in both classes. Nonce test (`mldsa44y`): one key, one rnd against
+  random rnd, which asks whether y, w and z leak. There w1 differs by
+  class; it is public (the signer reveals it), so share words ANDed with
+  constants made from it leak only those constants and are reported
+  apart, not judged.
+
+**Results** (`nqtv -n 10000 -s 1`, same machine):
+
+| Operation | Traces | Samples | Masked, value model: max \|t\|, points | Masked, transition model: points | Key load and split | Output |
+|---|---|---|---|---|---|---|
+| ML-KEM-512 decaps | 10,000 | 123,360 | 4.19, 0: pass | 13,150 | leaks (985 points) | leaks |
+| ML-KEM-768 decaps | 10,000 | 155,184 | 4.67, 0: pass | 16,004 | leaks (1,451) | leaks |
+| ML-KEM-1024 decaps | 10,000 | 195,984 | 4.87, 0: pass | 20,250 | leaks (1,917) | leaks |
+| ML-DSA-44 sign, key test | 2,500 | 672,528 | 5.57, 0: pass | 0 | leaks (6,155) | no points |
+| ML-DSA-65 sign, key test | 1,250 | 939,728 | 5.60, 0: pass | 4 | leaks (8,399) | no points |
+| ML-DSA-87 sign, key test | 1,250 | 1,271,728 | 5.20, 0: pass | 0 | leaks (11,680) | no points |
+| ML-DSA-44 sign, nonce test | 2,500 | 672,528 | 5.14, 0: pass | 104,959 | none | leaks (z is public) |
+| control: ML-KEM-768, masks zero | 2,500 | 155,184 | 87,511 points: flagged | | | |
+| control: ML-DSA-44 key test, masks zero | 1,250 | 672,528 | 47 points: flagged | | | |
+| control: ML-DSA-44 nonce test, masks zero | 1,250 | 672,528 | 366,321 points: flagged | | | |
+
+"max |t|" is the largest in either set; a point needs both. In the value
+model no masked sample leaks in any operation, and every control does.
+
+Three findings, none of them tuned away:
+
+- **The key is loaded unmasked.** Secret keys are stored as the
+  standards encode them, so their coefficients pass through the code
+  unmasked before they are split; those samples leak, as they must.
+  Splitting also leaks one more first-order bit per coefficient: the
+  share is formed as (v - r) mod q with a conditional addition of q,
+  and the mask that selects it is the sign of v - r, whose probability
+  depends on v (ML-KEM 664 points, ML-DSA-44 3,072 at step 1). Masking
+  protects everything after the split, not the key at rest or its
+  loading.
+- **The transition model fails.** Shares of one value are written one
+  after the other, so the Hamming distance between consecutive recorded
+  values is often the distance between the two shares, which is the
+  secret. The reference implementations avoid this with assembly and
+  register scrubbing, which ISO C cannot express; noqtis does not claim
+  security in the transition model, nor against glitches.
+- **ML-DSA's key test is weaker than the others.** With a fresh rnd in
+  both classes most values are already random whatever the key, so even
+  the unmasked control is flagged only at the key's split and the masked
+  hashing of K (47 points). The nonce test, whose control is flagged
+  everywhere, covers y, w, z and the checks.
+
+**What this shows and does not show.** It shows that the values the C
+code computes in the masked parts are, one at a time, independent of the
+secret to the resolution of these traces. It is a model, not a power
+measurement: it does not see what a CPU does with the values (registers
+the compiler reuses, a value and its complement on one bus, glitches,
+the transitions inside a gadget), nor any leakage of the order of two or
+more. It does not cover the unmasked signer and decapsulation
+(`nqmdspl`, `nqmkdecp`), SLH-DSA, HQC or key generation, which are not
+masked. No physical power or electromagnetic traces have been taken.
 
 ## Test vectors
 
