@@ -62,9 +62,9 @@ error say when the key was not pinned.
 
 ## Why was my folder refused by `seal`?
 
-It holds a symbolic link, a special file, a name that is not portable
-(control characters, `\`, `:`, invalid UTF-8), two names that differ only
-in case, or exceeds a limit. See
+It holds a symbolic link, a special file, a NOQTIS secret key, a name
+that is not portable (control characters, `\`, `:`, invalid UTF-8), two
+names that differ only in case, or exceeds a limit. See
 [what cannot be sealed](/noqtis/guides/seal/#what-cannot-be-sealed).
 
 ## Can I change a capsule and keep the seal?

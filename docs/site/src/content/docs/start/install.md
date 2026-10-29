@@ -9,7 +9,7 @@ language binding built on the library.
 
 :::note[Before the first release]
 The repository has not yet published its first tagged release. Channels
-marked **coming with v0.1.0** open on that day; until then, build from
+marked **coming with the first release** open on that day; until then, build from
 source (below). Version numbers on this site come from the release you
 install, never from this page.
 :::
@@ -28,7 +28,9 @@ cmake --install build --prefix ~/.local
 ```
 
 This installs `bin/noqtis`, the library, `include/noqtis.h`, `noqtis.pc`, a
-CMake package and the manual pages (`man noqtis`, `man nqsign`). Options:
+CMake package, the manual pages (`man noqtis`, `man nqsign`) and shell
+completions for bash, zsh and fish (under `share/`, where each shell looks;
+not on Windows). Options:
 
 | Option | Default | Effect |
 |---|---|---|
@@ -60,7 +62,8 @@ docker run --rm -v "$PWD:/w" -w /w noqtis noqtis check results
 
 The recipes in `packaging/` (Homebrew, Arch `PKGBUILD`, Alpine `APKBUILD`,
 Fedora `noqtis.spec`, Debian `debian/`, Wolfi `melange.yaml`, a Gentoo
-ebuild for an overlay in `packaging/gentoo`) build from the
+ebuild for an overlay in `packaging/gentoo`, a Void Linux `xbps-src`
+template in `packaging/void`) build from the
 local tree with `packaging/pkgtest.sh`; CI builds and tests each one on every
 push.
 
@@ -68,20 +71,20 @@ push.
 
 | Channel | Command | Status |
 |---|---|---|
-| Homebrew (macOS, Linux) | `brew install rootcoder007/morie/noqtis` | coming with v0.1.0 (the formula is in `packaging/brew` and tested in CI) |
-| curl / shell | `curl -fsSL https://github.com/rootcoder007/noqtis/releases/latest/download/install.sh \| sh` | coming with v0.1.0 (see [Release archives](#release-archives-coming-with-v010)) |
-| PowerShell (Windows) | `irm https://github.com/rootcoder007/noqtis/releases/latest/download/install.ps1 \| iex` | coming with v0.1.0 |
-| Docker / OCI | `docker run --rm ghcr.io/rootcoder007/noqtis` | coming with v0.1.0 |
-| npm (Node, Deno, Bun, browsers) | `npm install noqtis` | coming with v0.1.0 (WebAssembly, nothing to compile) |
-| PyPI | `pip install noqtis` | coming with v0.1.0 (wheels for every OS and CPU) |
-| CRAN (R) | `install.packages("noqtis")` | after CRAN's review of v0.1.0 |
-| Scoop, winget, Chocolatey | `scoop install noqtis`, `winget install noqtis` | coming with v0.1.0 (winget and Chocolatey after their moderation) |
-| Arch User Repository | `yay -S noqtis` | coming with v0.1.0 |
-| Nixpkgs, conda-forge | `nix-env -iA nixpkgs.noqtis`, `conda install -c conda-forge noqtis` | first weeks after v0.1.0 (their review) |
-| vcpkg, Conan, Alpine, Wolfi | `vcpkg install noqtis`, ... | first weeks after v0.1.0 (their review) |
-| Debian, Ubuntu, Fedora, EPEL, homebrew-core | `apt install noqtis`, `dnf install noqtis` | months after v0.1.0 (sponsorship and review) |
+| Homebrew (macOS, Linux) | `brew install rootcoder007/morie/noqtis` | coming with the first release (the formula is in `packaging/brew` and tested in CI) |
+| curl / shell | `curl -fsSL https://github.com/rootcoder007/noqtis/releases/latest/download/install.sh \| sh` | coming with the first release (see [Release archives](#release-archives-coming-with-the-first-release)) |
+| PowerShell (Windows) | `irm https://github.com/rootcoder007/noqtis/releases/latest/download/install.ps1 \| iex` | coming with the first release |
+| Docker / OCI | `docker run --rm ghcr.io/rootcoder007/noqtis` | coming with the first release |
+| npm (Node, Deno, Bun, browsers) | `npm install noqtis` | coming with the first release (WebAssembly, nothing to compile) |
+| PyPI | `pip install noqtis` | coming with the first release (wheels for every OS and CPU) |
+| CRAN (R) | `install.packages("noqtis")` | after CRAN's review of the first release |
+| Scoop, winget, Chocolatey | `scoop install noqtis`, `winget install noqtis` | coming with the first release (winget and Chocolatey after their moderation) |
+| Arch User Repository | `yay -S noqtis` | coming with the first release |
+| Nixpkgs, conda-forge | `nix-env -iA nixpkgs.noqtis`, `conda install -c conda-forge noqtis` | first weeks after the first release (their review) |
+| vcpkg, Conan, Alpine, Wolfi | `vcpkg install noqtis`, ... | first weeks after the first release (their review) |
+| Debian, Ubuntu, Fedora, EPEL, homebrew-core | `apt install noqtis`, `dnf install noqtis` | months after the first release (sponsorship and review) |
 
-## Release archives (coming with v0.1.0)
+## Release archives (coming with the first release)
 
 Every release carries one archive per platform, built by the release
 workflow from the tagged commit:
@@ -99,8 +102,10 @@ It works wherever it is unpacked: `noqtis.pc` and the CMake package find
 their prefix from their own place. Beside the archives are `SHA256SUMS`
 (every file of the release), its Sigstore bundle `SHA256SUMS.sigstore.json`,
 its SSH signature `SHA256SUMS.sig`, the SPDX SBOM `noqtis-<version>.spdx.json`,
-the SLSA provenance `noqtis-<version>.intoto.jsonl`, `install.sh` and
-`install.ps1`.
+the SLSA provenance `noqtis-<version>.intoto.jsonl`, the side-channel
+results `noqtis-<version>-sidechannel.tar.gz` (dudect and the simulated
+TVLA on the release build), the ABI report against the previous release
+`noqtis-<version>-abi.txt`, `install.sh` and `install.ps1`.
 
 ### install.sh (Linux, macOS)
 

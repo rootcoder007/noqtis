@@ -18,6 +18,8 @@ vectors, with bindings for Python, JavaScript and R.
 
 > **Status: unaudited, before its first release.** The code has not had an
 > external security audit; do not rely on it for anything that matters yet.
+> How it is tested, and the test-vector results, are on the
+> [security page](https://rootcoder007.github.io/noqtis/security/#test-vectors).
 
 
 ```sh
@@ -52,7 +54,7 @@ Every channel, with its status, is on the
 [install page](https://rootcoder007.github.io/noqtis/start/install/).
 In short:
 
-| Platform | Today | From v0.1.0 |
+| Platform | Today | From v0.1.1 |
 |---|---|---|
 | Linux, macOS, Windows, FreeBSD | build from source (below) | release archives with `install.sh` / `install.ps1`, Homebrew tap, Scoop |
 | Containers | `docker build -t noqtis .` | `ghcr.io/rootcoder007/noqtis` |
@@ -62,7 +64,7 @@ In short:
 | Python | `pip install ./bindings/py` | `pip install noqtis` |
 | R | `R CMD INSTALL bindings/r` | `install.packages("noqtis")` after CRAN's review |
 
-No package is published yet: every "From v0.1.0" channel opens with the
+No package is published yet: every "From v0.1.1" channel opens with the
 first tagged release.
 
 ## Build

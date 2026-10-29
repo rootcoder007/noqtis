@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Adoption, reviewed monthly (DESIGN.md, "Launch"): downloads per
+# package manager and per release archive, and the public workflows that
+# use the Action, written to the run's summary. Nothing is stored or
+# sent anywhere else; a source that does not answer is reported as such.
+name: adopt
+
+on:
+  schedule:
+    - cron: "23 7 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: downloads and users
+        run: |
+          s=$GITHUB_STEP_SUMMARY
+          get() { curl -fsS --max-time 30 "$1" 2>/dev/null || echo '{}'; }
+          {
+            echo "## noqtis adoption, $(date -u +%Y-%m)"
+            echo
+            echo "| Channel | Last month |"
+            echo "|---|---|"
+            n=$(get https://api.npmjs.org/downloads/point/last-month/noqtis |
+              jq -r '.downloads // "no answer"')
+            echo "| npm | $n |"
+            p=$(get https://pypistats.org/api/packages/noqtis/recent |
+              jq -r '.data.last_month // "no answer"')
+            echo "| PyPI | $p |"
+            echo
+            echo "### Release archives (all time)"
+            echo
+            echo "| Release | Downloads |"
+            echo "|---|---|"
+            gh api "repos/$REPO/releases?per_page=20" --jq \
+              '.[] | "| \(.tag_name) | \([.assets[].download_count] | add // 0) |"' ||
+              echo "| (no answer) | |"
+            echo
+            echo "### Public workflows using the Action"
+            echo
+            gh api -X GET search/code -f q="\"uses: $REPO@\" path:.github/workflows" \
+              --jq '"\(.total_count) files", (.items[:30][] | "- \(.repository.full_name): \(.path)")' ||
+              echo "(code search did not answer)"
+          } >> "$s"
+          cat "$s"

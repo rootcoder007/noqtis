@@ -73,11 +73,12 @@ runs today. In place: dudect and simulated TVLA (`ct/`, workflow
 libFuzzer targets for every parser of untrusted bytes (`fuzz/`, workflow
 `fuzz.yml`), ACVP harnesses for every algorithm family (`acvp/`), and
 cross-verification with rmoriebricklayer where the formats overlap
-(`tests/interop/`). Not yet in place before 0.1.0: OpenSSL 3.5
-differential fuzzing and cross-checks beyond the fixed RSA/ECDSA set in
-`tests/vectors/ossl/`, and fuzzed CLI arguments. HMAC is tested with the
-ACVP HMAC vectors; Wycheproof has no HMAC set in
-`tests/vectors/wycheproof/`.
+(`tests/interop/`), the cross-check against OpenSSL 3.5 or later
+(`tests/ossl/xossl.c`: the same keys, signatures, ciphertexts and
+digests byte for byte) and its differential fuzzer (`fuzz/ossl/fdiff.c`),
+both in workflow `ossl.yml`, and fuzzed command-line arguments
+(`fuzz/fcli.c`). HMAC is tested with the ACVP and Wycheproof HMAC
+vectors and against OpenSSL.
 
 | # | Module | Contents | Must pass |
 |---|---|---|---|
@@ -175,9 +176,11 @@ with nothing to compile for the user where a package manager allows it.
 | Linux, big-endian | s390x (QEMU) | gcc | catches byte-order bugs |
 | macOS | arm64, x86-64 | Apple clang | universal binaries for releases |
 | Windows | x86-64, arm64 | MSVC, clang-cl, MinGW-w64 | BCryptGenRandom; no POSIX assumed |
-| FreeBSD, OpenBSD | x86-64 | clang | arc4random_buf |
-| WebAssembly | wasm32 | emscripten, wasi-sdk | browsers, Node, Deno, Bun, WASI runtimes |
-| Android, iOS | arm64 | NDK clang, Xcode | built as libraries; no CLI |
+| FreeBSD, OpenBSD, NetBSD | x86-64 | clang; gcc on NetBSD | arc4random_buf |
+| WebAssembly | wasm32 | emscripten | the tests under Node; the npm package on Node, Deno and Bun |
+
+Targets not yet in CI, so not yet supported: WASI (wasi-sdk), Android
+(NDK clang) and iOS (Xcode), as libraries without the CLI.
 
 A platform counts as supported only when the full test suite, including
 every ACVP vector, passes on it in CI. Randomness on each platform comes
@@ -203,7 +206,7 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 - Semantic versioning. The shared library carries an ABI version
   (`libnoqtis.so.0`, `noqtis-0.dll`, `libnoqtis.0.dylib`); the public API
   never exposes a struct whose layout may change (sizes are fixed or
-  opaque). Done (VERSION 0.1.0, SOVERSION 0).
+  opaque). Done (VERSION 0.1.1, SOVERSION 0).
 - `pkg-config` file (`noqtis.pc`) and a CMake package config
   (`find_package(noqtis)`) are installed with the library. Done; CI builds
   `tests/consumer` against each install both ways.
@@ -265,7 +268,8 @@ ecosystem supports, before a release is published.
 
 Where noqtis is published, what each channel requires before it accepts
 the project, and when it can go there. "Day one" means the day the
-repository goes public with a signed v0.1.0 tag.
+repository goes public with a signed v0.1.1 tag (0.1.0 reached npm alone,
+by mistake, and is not a release).
 
 | Channel | What it requires | When |
 |---|---|---|
@@ -298,17 +302,17 @@ around launch (see the launch checklist).
 
 ## Launch checklist
 
-The repository goes public, and v0.1.0 is announced, only when every item
+The repository goes public, and v0.1.1 is announced, only when every item
 below is done. Each item says how it is checked.
 
 ### Product
 
 - [ ] Every module M0-M10 accepted (its "Must pass" row green in CI).
-- [ ] `noqtis seal <dir>` and `noqtis check <dir>` work end to end on Linux,
+- [x] `noqtis seal <dir>` and `noqtis check <dir>` work end to end on Linux,
       macOS and Windows, with a public timestamp from at least two RFC 3161
-      authorities.
-- [ ] A capsule sealed on one platform checks on every other (CI seals on
-      each OS and checks the result on all the others).
+      authorities (`xseal.yml`: DigiCert, Sectigo and FreeTSA).
+- [x] A capsule sealed on one platform checks on every other (`xseal.yml`
+      seals on each OS and checks the result on all the others).
 - [x] Capsules sealed by rmoriebricklayer check with noqtis, and the other
       way round, wherever their formats overlap (`tests/interop/`: tcli
       checks its fixtures everywhere; CTest `tbl` and `interop.yml` run
@@ -322,44 +326,52 @@ below is done. Each item says how it is checked.
 - [ ] Signed, reproducible release archives for every platform in the CI
       matrix, with SHA-256 sums, Sigstore and SSH signatures, an SPDX SBOM
       and SLSA provenance; a second CI build of the tag is byte-identical.
-- [ ] `curl -fsSL .../install.sh | sh` and `install.ps1` verify before they
-      install, tested on a clean machine of each OS.
-- [ ] Homebrew tap, the Wolfi container image, and the Arch, Alpine, Fedora,
-      Debian and Wolfi (melange) recipes build and pass their tests.
+- [x] `curl -fsSL .../install.sh | sh` and `install.ps1` verify before they
+      install, tested on a clean machine of each OS (`install.yml`; the
+      SSH signature by default, a missing or foreign one refused).
+- [x] Homebrew tap, the Wolfi container image, and the Arch, Alpine, Fedora,
+      Debian and Wolfi (melange) recipes build and pass their tests (`ci.yml`
+      jobs package, melange, brew, brewmac, docker).
 - [ ] npm (WebAssembly) and PyPI wheels install and pass the capsule round
       trip with nothing to compile.
-- [ ] The GitHub Action seals and checks a capsule in a sample workflow.
+- [x] The GitHub Action seals and checks a capsule in a sample workflow
+      (`action.yml`).
 
 ### Trust
 
-- [ ] SECURITY.md with a private reporting route, a published key for
-      reports, and the disclosure window.
+- [x] SECURITY.md with a private reporting route (GitHub private
+      vulnerability reports), the release signing key, and the disclosure
+      window (a reply within 7 days, a fix within 90).
 - [x] Fuzzing (libFuzzer on every parser) runs on each push for minutes and
       weekly for hours; OSS-Fuzz application filed (google/oss-fuzz#16392).
 - [ ] dudect and simulated TVLA results for every secret operation are
       published with the release, with what they do and do not show.
-- [ ] OpenSSF Scorecard and Best Practices (passing) badges; no number is
-      claimed that the badge pages do not show.
-- [ ] Every algorithm's ACVP harness produces responses ready for a CAVP
-      lab; the README links the test-vector results.
+- [x] OpenSSF Best Practices (passing) badge in the README; Scorecard runs
+      on every push (`scorecard.yml`) and its alerts are worked through; no
+      score is quoted anywhere.
+- [x] Every algorithm's ACVP harness produces responses ready for a CAVP
+      lab; the README links the test-vector results (the security page,
+      "Test vectors").
 - [ ] The README states plainly that the code is not yet audited, and links
       the audit application and its funding page.
-- [ ] Threat model (what noqtis protects, against whom, and what it does
-      not protect) in `docs/threat.md`.
+- [x] Threat model (what noqtis protects, against whom, and what it does
+      not protect) on the site's security page
+      (`docs/site/src/content/docs/security.md`).
 
 ### Documentation
 
 - [x] README: one-sentence pitch, a 30-second demo (seal, tamper, check
       fails) as an animated terminal recording, install for every platform,
       and the guarantees in plain words.
-- [ ] `docs/`: the capsule format specification (versioned), the C API
-      reference generated from noqtis.h, a tutorial per binding, and a
-      "why post-quantum provenance now" explainer.
+- [x] `docs/`: the capsule format specification (versioned, `spec/capsule`),
+      the C API reference generated from noqtis.h, a tutorial per binding
+      (`guides/c`, `js`, `py`, `r`), and a "why post-quantum provenance now"
+      explainer (`explain/why`).
 - [x] A browser demo page: drop a folder, it is checked in WebAssembly with
       nothing uploaded.
-- [ ] CONTRIBUTING.md (build, tests, commit style, short-name rule,
+- [x] CONTRIBUTING.md (build, tests, commit style, short-name rule,
       Signed-off-by), CODE_OF_CONDUCT.md, issue and pull-request templates,
-      and labelled starter issues.
+      and labelled starter issues ("good first issue", "help wanted").
 - [ ] CITATION.cff and a Zenodo DOI for the release, for researchers.
 
 ### Launch
@@ -373,8 +385,9 @@ below is done. Each item says how it is checked.
 - [ ] Reach out to projects that would use it: reproducible-research and
       data-publishing platforms, CI and supply-chain tools, R and Python
       data communities.
-- [ ] Track adoption: downloads per package manager, Action usage and
-      dependents, reviewed monthly.
+- [x] Track adoption: downloads per package manager, Action usage and
+      dependents, reviewed monthly (`adopt.yml`, on the 1st of each month,
+      in the run summary).
 
 ## Documentation
 
@@ -385,11 +398,12 @@ so it is reviewed and tested like the code.
   tool: `noqtis(3)`, `nqsign(3)`, `nqvrfy(3)`, `nqseal(3)`, ..., `noqtis(1)`.
   They install with the library, so `man nqsign` works offline, and
   `mandoc -T lint` checks them in CI.
-- **ABI:** a symbol-version map exports only the public functions, and
-  libabigail (`abidiff`) compares each build's shared library with the last
-  release in CI; a change that would break programs compiled against an
-  earlier version fails unless the major version changes. Each release
-  publishes the report.
+- **ABI:** a symbol-version map (`src/noqtis.map`, ELF) exports only the
+  public functions, and libabigail (`abidiff`, `packaging/abi.sh`)
+  compares each build's shared library with the last release in CI; a
+  change that would break programs compiled against an earlier version
+  fails unless the major version changes. Each release publishes the
+  report.
 - **Site:** Astro Starlight, built in CI and published on GitHub Pages
   (`rootcoder007.github.io/noqtis` once the repository is public; a custom
   domain can be attached later). It carries getting started per platform,
@@ -410,8 +424,9 @@ so it is reviewed and tested like the code.
   ASan+UBSan, valgrind and ctgrind. `ct.yml` runs dudect and the
   simulated TVLA, short on each push and long weekly, and uploads their
   JSON results. `fuzz.yml` runs libFuzzer on every parser, 90 s on each
-  push and an hour weekly. Planned, not yet in CI: an OpenSSL 3.5
-  differential job.
+  push and an hour weekly. `ossl.yml` runs the OpenSSL 3.5 cross-check
+  and the differential fuzzer on Fedora's OpenSSL, 120 s on each push and
+  an hour weekly.
 - `acvp/` holds one harness per algorithm for NIST CAVP submission.
 
 ### Side-channel results

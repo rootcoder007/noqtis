@@ -7,7 +7,7 @@ The `noqtis` Python package has the C library compiled into it: no
 runtime dependencies, one wheel per platform for CPython 3.9 and later.
 
 :::note[Before the first release]
-`pip install noqtis` works once v0.1.0 is published on PyPI. Until then,
+`pip install noqtis` works once the first release is published on PyPI. Until then,
 install it from the repository; this compiles the library, so it needs a
 C compiler:
 

@@ -1,6 +1,7 @@
-# noqtis 0.1.0
+# noqtis 0.1.1
 
-The first release.
+The first release. (0.1.0 reached npm alone, from an earlier commit, by a
+mistake in the release process; use 0.1.1.)
 
 - One C11 library (`libnoqtis`, header `noqtis.h`) with no dependencies:
   ML-DSA (FIPS 204), SLH-DSA (FIPS 205), ML-KEM (FIPS 203), HQC, SHA-2
@@ -12,6 +13,24 @@ The first release.
   (arm64, x86-64) and Windows (x64, ARM64), with SHA256SUMS, Sigstore and
   SSH signatures, an SPDX SBOM and SLSA provenance; `install.sh` and
   `install.ps1` check them before they install.
+- Cross-checked against OpenSSL 3.5 or later (`tests/ossl/`, workflow
+  `ossl.yml`): the same ML-DSA, SLH-DSA and ML-KEM keys, signatures,
+  ciphertexts and secrets from the same seeds, the same digests and
+  HMACs, and RSA/ECDSA signatures OpenSSL makes accepted, changed ones
+  refused; a differential fuzzer (`fuzz/ossl/fdiff.c`) and a fuzzer of
+  the command line's arguments (`fuzz/fcli.c`) run with the others.
+- Shell completions for bash, zsh and fish (`cli/completions/`, installed
+  with the tool; a test checks they offer every command and option the
+  manual pages list).
+- A Void Linux template (`packaging/void/`), built and tested in CI like
+  the other recipes; CI also runs the tests on OpenBSD and NetBSD, and
+  PyPI wheels for Linux ppc64le, s390x and riscv64 are built under QEMU.
+- The shared library versions its symbols (`NOQTIS_0`, `src/noqtis.map`,
+  on ELF systems) and exports nothing else; CI compares its ABI with the
+  last release (libabigail, `packaging/abi.sh`), and each release
+  carries the report (`noqtis-<ver>-abi.txt`).
+- Releases carry the side-channel results (`noqtis-<ver>-sidechannel.tar.gz`:
+  dudect and simulated TVLA on the release build).
 - Hardened after a manual security review before release:
   - a seal's context must be `noqtis-capsule-1`, so a signature made for
     anything else (a plain `noqtis sign` of the same bytes) is never

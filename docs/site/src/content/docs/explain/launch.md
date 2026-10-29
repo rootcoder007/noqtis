@@ -80,16 +80,22 @@ What runs today, in CI on every push or on the weekly schedule:
   exit codes, owner-only key files, no secret on standard output.
 - **Platforms.** GCC and Clang on Linux (x86-64 and arm64, a dozen
   distributions, musl, 32-bit, big-endian s390x), macOS, Windows (MSVC,
-  clang-cl, MinGW-w64) and FreeBSD.
+  clang-cl, MinGW-w64), FreeBSD, OpenBSD and NetBSD.
 
 - **Side channels.** dudect timing tests and the simulated TVLA run on
   every push and for longer every week (`ct.yml`).
-- **Fuzzing.** libFuzzer runs on every parser of untrusted bytes, briefly
-  on every push and for an hour every week (`fuzz.yml`).
+- **Fuzzing.** libFuzzer runs on every parser of untrusted bytes and on
+  the command line's arguments, briefly on every push and for an hour
+  every week (`fuzz.yml`).
+- **Against OpenSSL 3.5.** From the same seeds, ML-DSA, SLH-DSA and ML-KEM
+  give byte-identical keys, signatures, ciphertexts and secrets to
+  OpenSSL's; the hashes and HMACs agree; and a differential fuzzer checks
+  that NOQTIS never accepts an RSA or ECDSA signature OpenSSL refuses
+  (`ossl.yml`).
+- **ABI.** The shared library's ABI is compared with the last release on
+  every push (libabigail).
 
-Not yet done: OpenSSL 3.5 differential tests beyond a fixed set of
-cross-checks, fuzzed command-line arguments, and an external security
-audit.
+Not yet done: an external security audit.
 
 ## Limits
 
@@ -98,9 +104,9 @@ audit.
 - A passing check says the files are exactly those a key holder sealed.
   It does not say the result is correct, that these were the only
   inputs, or who the key holder is: you pin the public key you trust.
-- Without a timestamp, a seal does not prove when it was made. The
-  command-line tool does not request timestamps yet; the library checks
-  them.
+- Without a timestamp, a seal does not prove when it was made:
+  `noqtis seal --tsa` asks one or more RFC 3161 authorities for one, and
+  `check` verifies it.
 - There is no revocation: a stolen secret key can seal anything.
 - Capsules are not encrypted.
 

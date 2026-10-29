@@ -30,8 +30,13 @@ break the capsule.
   not valid UTF-8;
 - two paths that differ only in ASCII case (`Data.csv` and `data.csv`),
   since they collide on macOS and Windows;
+- a NOQTIS secret key file, which would ship with the capsule (keep keys
+  outside the folder you seal);
 - more than 2,000,000 files, a path over 4096 bytes, folders more than 64
   levels deep, or a manifest over 512 MiB.
+
+A folder swapped for a link while `seal` or `check` runs is refused, not
+followed: files are opened folder by folder from the capsule folder.
 
 Empty folders are not recorded: only files are.
 

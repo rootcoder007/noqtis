@@ -316,9 +316,17 @@ writes responses in the format a CAVP lab accepts.
 - Capsules: round trips, a tamper test of every byte, path containment
   (links, `..`, case collisions, special files), allocation failures, and
   a golden sample capsule.
-- Fuzzing: a libFuzzer target for the DER reader (`fuzz/fder.c`). Fuzzing
-  of every parser on each push, and an OSS-Fuzz application, are on the
-  launch checklist.
+- Fuzzing: libFuzzer targets for every parser of untrusted bytes (DER,
+  X.509, OCSP, timestamp tokens, JSON, capsules, key files, base64) and
+  for the command line's arguments, 90 seconds each on every push and an
+  hour weekly (`fuzz/`); OSS-Fuzz application filed.
+- OpenSSL 3.5 or later: `tests/ossl/xossl.c` checks that ML-DSA, all
+  twelve SLH-DSA sets and ML-KEM give the same keys, signatures,
+  ciphertexts and secrets as OpenSSL from the same seeds, that the
+  digests and HMACs agree, and that noqtis accepts the RSA and ECDSA
+  signatures OpenSSL makes and refuses changed ones; `fuzz/ossl/fdiff.c`
+  fuzzes the same comparisons, and noqtis must never accept an RSA or
+  ECDSA signature that OpenSSL refuses.
 - The command-line tool is tested as a user runs it, including exit codes,
   owner-only files and that no secret reaches standard output.
 
