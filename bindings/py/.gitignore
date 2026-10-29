@@ -1,0 +1,12 @@
+# made by setup.py from ../../src, ../../include, ../../LICENSE, ../../NOTICE
+/vendor/
+/LICENSE
+/NOTICE
+/build/
+/dist/
+*.egg-info/
+*.so
+*.pyd
+__pycache__/
+.venv*/
+.pytest_cache/

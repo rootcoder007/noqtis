@@ -1,0 +1,6 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* the module exports its init function only */
+{
+  global: PyInit__noqtis;
+  local: *;
+};

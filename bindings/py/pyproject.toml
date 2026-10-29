@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "noqtis"
+dynamic = ["version"]  # from NQVMAJ/NQVMIN/NQVPAT in noqtis.h
+description = "Post-quantum signatures, KEMs and sealed file capsules (ML-DSA, SLH-DSA, ML-KEM, HQC) in one C library"
+readme = "README.md"
+license = "Apache-2.0 WITH LLVM-exception"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.9"
+authors = [{ name = "rootcoder007 and the noqtis contributors" }]
+keywords = ["post-quantum", "pqc", "ml-dsa", "slh-dsa", "ml-kem", "hqc",
+            "fips-203", "fips-204", "fips-205", "signature", "provenance"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Security :: Cryptography",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/rootcoder007/noqtis"
+Source = "https://github.com/rootcoder007/noqtis/tree/main/bindings/py"
+Issues = "https://github.com/rootcoder007/noqtis/issues"
+Security = "https://github.com/rootcoder007/noqtis/blob/main/SECURITY.md"
+
+[tool.setuptools]
+packages = ["noqtis"]
+include-package-data = false
+
+[tool.setuptools.package-data]
+noqtis = ["py.typed", "*.pyi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["t*.py"]
+addopts = "-ra"
+
+[tool.cibuildwheel]
+# one abi3 wheel per platform, built on the oldest Python it supports
+build = "cp39-*"
+skip = "*-win32 *-manylinux_i686 *-musllinux_i686"
+build-verbosity = 1
+test-requires = ["pytest"]
+test-command = "pytest -q {package}/tests"
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+musllinux-x86_64-image = "musllinux_1_2"
+musllinux-aarch64-image = "musllinux_1_2"
+
+[tool.cibuildwheel.macos]
+# getentropy, arc4random_buf and O_NOFOLLOW as the library uses them
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }

@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The PyPI package (bindings/py): abi3 wheels with cibuildwheel for Linux
+# (manylinux and musllinux, x86-64 and aarch64), macOS (arm64, x86-64) and
+# Windows (AMD64, ARM64), each tested with the package's pytest suite, plus
+# the sdist, built and tested on its own, and `twine check` over all of it.
+# As in ci.yml, the arm64, macOS and Windows jobs cost runner minutes on a
+# private repository, so there they run weekly and on demand only. A
+# release tag (v*) publishes to PyPI by trusted publishing, and only once
+# the repository is public: while it is private the publish job is skipped.
+# Every action is pinned by commit; the version is in the comment.
+name: py
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "bindings/py/**"
+      - "src/**"
+      - "include/**"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/py.yml"
+  pull_request:
+    paths:
+      - "bindings/py/**"
+      - "src/**"
+      - "include/**"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/py.yml"
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: py-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    name: wheels linux x86_64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
+        with:
+          package-dir: bindings/py
+          output-dir: wheelhouse
+        env:
+          CIBW_ARCHS: x86_64
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: py-linux-x86_64
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  wheels:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    name: wheels ${{ matrix.os }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04-arm, arch: aarch64, build: "cp39-*" }
+          - { os: macos-15, arch: arm64, build: "cp39-*" }
+          - { os: macos-15-intel, arch: x86_64, build: "cp39-*" }
+          - { os: windows-2025, arch: AMD64, build: "cp39-*" }
+          # CPython for Windows on ARM64 starts at 3.11; the wheel is still
+          # cp39-abi3 (Py_LIMITED_API 3.9)
+          - { os: windows-11-arm, arch: ARM64, build: "cp311-*" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
+        with:
+          package-dir: bindings/py
+          output-dir: wheelhouse
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_BUILD: ${{ matrix.build }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: py-${{ matrix.os }}-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  sdist:
+    name: sdist
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: build the sdist, then a wheel from it alone
+        # uv build makes the wheel from the unpacked sdist, so a source
+        # file missing from vendor/ fails here
+        run: uv build --out-dir dist bindings/py
+      - name: the sdist carries the library
+        run: |
+          tar -tzf dist/noqtis-*.tar.gz > list.txt
+          grep -q '/vendor/include/noqtis.h$' list.txt
+          grep -q '/vendor/src/core/core.c$' list.txt
+          grep -q '/LICENSE$' list.txt
+      - name: test the wheel built from the sdist
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/v"
+          uv pip install --python "$RUNNER_TEMP/v" dist/*.whl pytest
+          cd "$RUNNER_TEMP" && "$RUNNER_TEMP/v/bin/pytest" -q \
+            "$GITHUB_WORKSPACE/bindings/py/tests"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: py-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  check:
+    name: twine check
+    needs: [linux, sdist]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: py-*
+          path: dist
+          merge-multiple: true
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: ls -l dist && uvx twine check --strict dist/*
+
+  publish:
+    # trusted publishing (PyPI project noqtis, workflow py.yml, environment
+    # pypi); does nothing while the repository is private
+    if: >
+      startsWith(github.ref, 'refs/tags/v') &&
+      !github.event.repository.private
+    name: publish to PyPI
+    needs: [linux, wheels, sdist, check]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/noqtis/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: py-*
+          path: dist
+          merge-multiple: true
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: ls -l dist && uvx twine check --strict dist/*
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3

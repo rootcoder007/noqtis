@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# the sdist builds on its own: the vendored C library comes with it
+graft vendor
+include src/ext.c src/nq.map LICENSE NOTICE README.md
+include noqtis/py.typed noqtis/*.pyi
+graft tests
+global-exclude *.o *.so *.pyd *.pyc __pycache__
