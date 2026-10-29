@@ -13,6 +13,9 @@ typedef struct {
   size_t n;
 } dv;
 
+/* the parsers zero their dv locals: MSVC /W4 (C4701) cannot see that
+ * tlv() and dint() fill them before any use */
+
 /* Reads one element with tag tag from the front of in; its contents go
  * to out. */
 static int tlv(dv *in, uint8_t tag, dv *out) {
@@ -89,7 +92,7 @@ unsigned nqcho(nqhalg h) {
 /* AlgorithmIdentifier of a SHA-2 / SHA-3 hash, parameters NULL or absent
  * (RFC 4055 2.1). */
 static int hashid(dv *in, nqhalg *h) {
-  dv a, o, z;
+  dv a = {NULL, 0}, o = {NULL, 0}, z = {NULL, 0};
   int rc = tlv(in, 0x30, &a);
   if (rc == NQOK) rc = tlv(&a, 0x06, &o);
   if (rc == NQOK && a.n > 0) {
@@ -107,7 +110,7 @@ static int hashid(dv *in, nqhalg *h) {
 
 /* The contents of RSASSA-PSS-params. */
 static int pssin(dv in, nqpss *p) {
-  dv x, m, o, v;
+  dv x = {NULL, 0}, m = {NULL, 0}, o = {NULL, 0}, v = {NULL, 0};
   int rc, sha1 = 0;
   size_t i;
   memset(p, 0, sizeof *p);
@@ -164,7 +167,7 @@ int nqpssp(nqpss *p, const uint8_t *der, size_t len) {
 }
 
 static int rsain(nqck *k, dv in) {
-  dv s, n, e;
+  dv s = {NULL, 0}, n = {NULL, 0}, e = {NULL, 0};
   uint32_t w[NQBL];
   size_t bits, i;
   uint8_t t;
@@ -207,7 +210,8 @@ int nqrsapk(nqck *k, const uint8_t *der, size_t len) {
 }
 
 int nqckey(nqck *k, const uint8_t *der, size_t len) {
-  dv in, s, a, b, o, x;
+  dv in, s = {NULL, 0}, a = {NULL, 0}, b = {NULL, 0};
+  dv o = {NULL, 0}, x = {NULL, 0};
   int rc, crv = 0;
   if (k == NULL || der == NULL) return NQEARG;
   memset(k, 0, sizeof *k);
@@ -261,7 +265,7 @@ out:
 
 int nqcdsig(const uint8_t *sig, size_t len, const uint8_t **r, size_t *rl,
             const uint8_t **s, size_t *sl) {
-  dv in, q, a, b;
+  dv in, q = {NULL, 0}, a = {NULL, 0}, b = {NULL, 0};
   int rc;
   in.p = sig;
   in.n = len;
