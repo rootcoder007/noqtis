@@ -94,6 +94,7 @@ typedef struct {
   int uset;             /* 1: check the path at t; 0: at genTime */
   int64_t t;
   const nqxops *ops;
+  int self;             /* 1: no anchors; see nqtsvrf */
 } nqtsarg;
 
 /* Parses and verifies: the imprint is the caller's hash, the nonce and
@@ -108,7 +109,12 @@ typedef struct {
  * nqxalias, whoever issued it: a cross-certificate or a copy of the
  * root; it must still parse strictly, and nothing else in it is used).
  * ts gets the token's fields. NQOK
- * only when all of it holds. */
+ * only when all of it holds.
+ *
+ * With a->self (and no anchors) no path is built: the token must still
+ * pass every check up to its signer being a TSA certificate valid at
+ * genTime. That shows the reply is a token over this data, not that the
+ * TSA is trusted: for seal time only, never for a check. */
 int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts);
 
 #endif /* NQTSP_H */
