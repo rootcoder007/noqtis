@@ -1,5 +1,7 @@
 # NOQTIS
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16049/badge)](https://www.bestpractices.dev/projects/16049)
+
 **Seal the exact files behind a result with a post-quantum signature, so
 anyone can check later, offline, that nothing changed.**
 
