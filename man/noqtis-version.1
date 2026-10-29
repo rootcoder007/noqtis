@@ -1,0 +1,29 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-VERSION 1
+.Os
+.Sh NAME
+.Nm noqtis-version
+.Nd print the version of noqtis
+.Sh SYNOPSIS
+.Nm noqtis version
+.Nm noqtis
+.Fl V | Fl -version
+.Sh DESCRIPTION
+.Nm noqtis version
+prints
+.Dl noqtis <major>.<minor>.<patch>
+the version of the library the tool runs on, as
+.Fn nqver
+returns it
+.Pq Xr nqerr 3 .
+.Sh EXIT STATUS
+0, or 2 on a usage error.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis version | cut -d' ' -f1
+noqtis
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr nqerr 3

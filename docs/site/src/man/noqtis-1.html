@@ -1,0 +1,229 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis</code> &#x2014;
+    <span class="Nd">post-quantum signatures, KEMs and sealed capsules of
+    files</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis</code></td>
+    <td><var class="Ar">command</var> [<var class="Ar">options</var>]
+      [<var class="Ar">args</var>]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis</code></td>
+    <td><code class="Fl">-h</code> | <code class="Fl">--help</code></td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis</code></td>
+    <td><code class="Fl">-V</code> | <code class="Fl">--version</code></td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis</code></td>
+    <td><code class="Cm">help</code> [<var class="Ar">command</var>]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Nm">noqtis</code> records the exact files a result
+    came from, signs that record with a post-quantum signature (ML-DSA, FIPS
+    204, or SLH-DSA, FIPS 205) and checks such records later. It also signs and
+    verifies single files, runs the ML-KEM (FIPS 203) and HQC key encapsulation
+    mechanisms, and prints and checks file digests. It is a thin tool over the
+    public C interface of
+    <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a> and calls
+    nothing else.</p>
+<p class="Pp">The commands are:</p>
+<dl class="Bl-tag">
+  <dt id="keygen"><a class="permalink" href="#keygen"><code class="Cm">keygen</code></a></dt>
+  <dd>Make a key pair. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-keygen-1/">noqtis-keygen(1)</a>.</dd>
+  <dt id="sign"><a class="permalink" href="#sign"><code class="Cm">sign</code></a></dt>
+  <dd>Sign a file. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-sign-1/">noqtis-sign(1)</a>.</dd>
+  <dt id="verify"><a class="permalink" href="#verify"><code class="Cm">verify</code></a></dt>
+  <dd>Check a signature. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-verify-1/">noqtis-verify(1)</a>.</dd>
+  <dt id="enc"><a class="permalink" href="#enc"><code class="Cm">enc</code></a></dt>
+  <dd>Encapsulate a shared secret to a KEM public key. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-enc-1/">noqtis-enc(1)</a>.</dd>
+  <dt id="dec"><a class="permalink" href="#dec"><code class="Cm">dec</code></a></dt>
+  <dd>Decapsulate a shared secret with a KEM secret key. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-dec-1/">noqtis-dec(1)</a>.</dd>
+  <dt id="hash"><a class="permalink" href="#hash"><code class="Cm">hash</code></a></dt>
+  <dd>Print or check file digests in the format of
+      <span class="Xr">sha256sum(1)</span>.
+      See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-hash-1/">noqtis-hash(1)</a>.</dd>
+  <dt id="seal"><a class="permalink" href="#seal"><code class="Cm">seal</code></a></dt>
+  <dd>Seal a folder: write <span class="Pa">noqtis.json</span> and
+      <span class="Pa">noqtis.sig</span> into it. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>.</dd>
+  <dt id="check"><a class="permalink" href="#check"><code class="Cm">check</code></a></dt>
+  <dd>Check a sealed folder against its seal. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>.</dd>
+  <dt id="algs"><a class="permalink" href="#algs"><code class="Cm">algs</code></a></dt>
+  <dd>List every algorithm and its sizes. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-algs-1/">noqtis-algs(1)</a>.</dd>
+  <dt id="version"><a class="permalink" href="#version"><code class="Cm">version</code></a></dt>
+  <dd>Print the version. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-version-1/">noqtis-version(1)</a>.</dd>
+  <dt id="help"><a class="permalink" href="#help"><code class="Cm">help</code></a>
+    [<var class="Ar">command</var>]</dt>
+  <dd>Print the list of commands, or the options of one command.</dd>
+</dl>
+<p class="Pp">Options follow the command. A short option takes its value as the
+    next argument or joined to it
+    (<code class="Fl">-k</code><var class="Ar">key</var>); a long option takes
+    it as the next argument or after &#x2018;<code class="Li">=</code>&#x2019;
+    (<code class="Fl">--key</code>=<var class="Ar">key</var>).
+    <code class="Fl">-h</code> or <code class="Fl">--help</code> after any
+    command prints its usage. <code class="Fl">--</code> ends the options; an
+    argument &#x2018;<code class="Li">-</code>&#x2019; alone is a positional
+    argument (standard input where a command allows it).</p>
+<section class="Ss">
+<h2 class="Ss" id="Algorithm_names"><a class="permalink" href="#Algorithm_names">Algorithm
+  names</a></h2>
+<p class="Pp">Algorithms are named as <code class="Cm">noqtis algs</code> prints
+    them, without regard to case: <code class="Cm">ML-DSA-44</code>,
+    <code class="Cm">ML-DSA-65</code>, <code class="Cm">ML-DSA-87</code>,
+    <code class="Cm">SLH-DSA-SHA2-128s</code>,
+    <code class="Cm">SLH-DSA-SHA2-128f</code>,
+    <code class="Cm">SLH-DSA-SHA2-192s</code>,
+    <code class="Cm">SLH-DSA-SHA2-192f</code>,
+    <code class="Cm">SLH-DSA-SHA2-256s</code>,
+    <code class="Cm">SLH-DSA-SHA2-256f</code>,
+    <code class="Cm">SLH-DSA-SHAKE-128s</code>,
+    <code class="Cm">SLH-DSA-SHAKE-128f</code>,
+    <code class="Cm">SLH-DSA-SHAKE-192s</code>,
+    <code class="Cm">SLH-DSA-SHAKE-192f</code>,
+    <code class="Cm">SLH-DSA-SHAKE-256s</code>,
+    <code class="Cm">SLH-DSA-SHAKE-256f</code> (signatures) and
+    <code class="Cm">ML-KEM-512</code>, <code class="Cm">ML-KEM-768</code>,
+    <code class="Cm">ML-KEM-1024</code>, <code class="Cm">HQC-128</code>,
+    <code class="Cm">HQC-192</code>, <code class="Cm">HQC-256</code> (key
+    encapsulation).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Key_files"><a class="permalink" href="#Key_files">Key
+  files</a></h2>
+<p class="Pp">A key file is text: one header line, then the key bytes in the
+    standard's own encoding (FIPS 203, 204, 205; HQC v5.0.0) as base64 (RFC
+    4648, with padding) in lines of 64 characters:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>noqtis-key-1 &lt;algorithm&gt; &lt;pub|sec&gt;
+&lt;base64&gt;
+...</pre>
+</div>
+<p class="Pp">Readers accept &#x2018;<code class="Li">\n</code>&#x2019; or
+    &#x2018;<code class="Li">\r\n</code>&#x2019; line ends and reject any other
+    character, non-canonical padding, a header that is not exactly three
+    space-separated fields, the wrong kind of key
+    (&#x2018;<code class="Li">pub</code>&#x2019; where a secret key is needed,
+    or the reverse), and a key whose decoded length is not the algorithm's size.
+    The base64 encoder and decoder run in constant time.</p>
+<p class="Pp">Signatures and ciphertexts are raw bytes in the standard's
+    encoding, with no header. A shared secret file holds the raw 32 bytes.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Secrets_and_files"><a class="permalink" href="#Secrets_and_files">Secrets
+  and files</a></h2>
+<p class="Pp">Secret key and shared-secret files are created owner-only (mode
+    0600, with <code class="Dv">O_EXCL</code> |
+    <code class="Dv">O_NOFOLLOW</code> on POSIX; on Windows they inherit the
+    folder's ACL) through unbuffered streams. No command overwrites an existing
+    file unless given <code class="Fl">--force</code>; with it the old file is
+    removed first, so the new one never inherits its permissions or follows a
+    link. Every buffer that held a secret key, seed or shared secret is wiped
+    before it is freed. No secret is printed: a shared secret reaches standard
+    output only with <code class="Fl">--stdout</code> (in hex), and keys never
+    do.</p>
+<p class="Pp">On Windows, arguments are read as UTF-16 and passed on as UTF-8,
+    and standard input and output are in binary mode.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<p class="Pp">For every command:</p>
+<dl class="Bl-tag">
+  <dt>0</dt>
+  <dd>Success: a signature is valid, every capsule check passed, every digest
+      matched.</dd>
+  <dt>1</dt>
+  <dd>A verification failed: a bad or wrong-length signature, a failed capsule
+      check, a digest that differs or a listed file that is missing, a malformed
+      <code class="Fl">--check</code> line.</dd>
+  <dt>2</dt>
+  <dd>A usage error, an unreadable or unwritable file, the wrong kind of key, or
+      a library error.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Seal a folder, check it, change a file and check again:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>$ noqtis keygen -a ML-DSA-65 -o me
+ML-DSA-65 key pair: me (secret), me.pub (public)
+$ noqtis seal -k me results
+sealed results with ML-DSA-65
+$ noqtis check -p me.pub results
+...
+results: OK (22 checks passed)
+$ echo extra &gt;&gt; results/report.txt
+$ noqtis check -p me.pub results; echo $?
+...
+FAIL  file                report.txt: size differs
+...
+results: FAILED (1 of 22 checks failed)
+1</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-algs-1/">noqtis-algs(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-dec-1/">noqtis-dec(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-enc-1/">noqtis-enc(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-hash-1/">noqtis-hash(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-keygen-1/">noqtis-keygen(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-sign-1/">noqtis-sign(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-verify-1/">noqtis-verify(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-version-1/">noqtis-version(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">FIPS 203: Module-Lattice-Based
+    Key-Encapsulation Mechanism Standard</span>, <span class="RsQ">NIST</span>,
+    <span class="RsD">August 2024</span>.</cite>
+    <cite class="Rs"><span class="RsT">FIPS 204: Module-Lattice-Based Digital
+    Signature Standard</span>, <span class="RsQ">NIST</span>,
+    <span class="RsD">August 2024</span>.</cite>
+    <cite class="Rs"><span class="RsT">FIPS 205: Stateless Hash-Based Digital
+    Signature Standard</span>, <span class="RsQ">NIST</span>,
+    <span class="RsD">August 2024</span>.</cite>
+    <cite class="Rs"><span class="RsT">Hamming Quasi-Cyclic (HQC), version
+    5.0.0</span>, <span class="RsD">August 2025</span>.</cite></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<p class="Pp">noqtis has not had an external security audit.</p>
+</section>
+</div>

@@ -1,0 +1,56 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-DEC 1
+.Os
+.Sh NAME
+.Nm noqtis-dec
+.Nd decapsulate an ML-KEM or HQC shared secret
+.Sh SYNOPSIS
+.Nm noqtis dec
+.Fl k Ar key
+.Fl o Ar ss | Fl -stdout
+.Op Fl f | Fl -force
+.Ar ct
+.Sh DESCRIPTION
+.Nm noqtis dec
+recovers the shared secret from the ciphertext
+.Ar ct
+with the secret KEM key in
+.Ar key ,
+and writes its 32 bytes to
+.Ar ss
+(created owner-only, mode 0600) or prints them in hex with
+.Fl -stdout .
+Exactly one of the two must be given.
+.Pp
+A ciphertext of the right length that was changed in transit is not an
+error: as FIPS 203 and HQC require (implicit rejection), it gives an
+unrelated pseudorandom secret and exit status 0.
+Whether the secrets agree shows only when they are used, for example when
+an authenticated cipher keyed from them fails.
+A ciphertext of the wrong length is refused (exit 2).
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+A secret KEM key file.
+.It Fl o Ar ss , Fl -out Ns = Ns Ar ss
+The shared-secret file.
+.It Fl -stdout
+Print the secret in hex instead.
+.It Fl f , Fl -force
+Replace an existing
+.Ar ss .
+.El
+.Sh EXIT STATUS
+0 on success (including implicit rejection); 2 on a usage error, a key that
+is not a secret KEM key, a ciphertext of the wrong length, or a file that
+cannot be read or written.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis dec -k box -o receiver.ss msg.ct
+$ noqtis dec -k box --stdout msg.ct | wc -c
+65
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-enc 1 ,
+.Xr nqenc 3

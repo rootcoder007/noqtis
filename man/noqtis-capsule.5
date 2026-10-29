@@ -1,0 +1,241 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-CAPSULE 5
+.Os
+.Sh NAME
+.Nm noqtis-capsule
+.Nd the noqtis capsule format, version 1
+.Sh DESCRIPTION
+A capsule is a folder that holds the files of a result together with
+.Pa noqtis.json ,
+the manifest, and
+.Pa noqtis.sig ,
+the seal, both at the top of the folder.
+The manifest lists every file with its size and two digests; the seal
+signs the manifest's exact bytes with a post-quantum signature.
+.Pp
+The key words MUST, MUST NOT, SHOULD and MAY are to be read as in
+RFC 2119 and RFC 8174.
+.Ss Canonical JSON
+Both files MUST be JSON (RFC 8259) in the canonical form of RFC 8785
+(JCS): UTF-8, no whitespace outside strings, object members sorted by the
+UTF-16 code units of their names, strings with the minimal escapes, and
+numbers in the shortest form that round-trips.
+A checker MUST reject a file that is not byte-identical to its own
+canonical form, has a duplicate member name, or is not valid UTF-8.
+.Ss The manifest, noqtis.json
+An object with exactly these members:
+.Bl -tag -width "created"
+.It Cm created
+A string: the creation time, RFC 3339 in UTC,
+.Ql YYYY-MM-DDTHH:MM:SSZ
+with optional fractional seconds before the
+.Ql Z .
+.It Cm files
+An array with one object per file, sorted by the bytes of
+.Cm path ,
+with no path twice.
+Each object has exactly:
+.Bl -tag -width "sha3_256"
+.It Cm path
+the file's path relative to the capsule folder, a string;
+.It Cm sha256
+its SHA-256, 64 lower-case hex digits;
+.It Cm sha3_256
+its SHA3-256, 64 lower-case hex digits;
+.It Cm size
+its size in bytes, an integer from 0 to 2^53\-1.
+.El
+.It Cm format
+The string
+.Ql noqtis-capsule-1 .
+.It Cm meta
+Optional: any JSON object, at most 1 MiB, opaque to noqtis.
+.El
+.Pp
+Because of the canonical order, the manifest always reads
+.Bd -literal -offset indent
+{"created":...,"files":[{"path":...,"sha256":...,
+"sha3_256":...,"size":...},...],"format":"noqtis-capsule-1"
+[,"meta":{...}]}
+.Ed
+.Ss Paths
+A path MUST use
+.Ql /
+between names, MUST NOT start with
+.Ql / ,
+and MUST be in normal form: no empty segment and no
+.Ql \&. .
+Every name (segment) MUST be valid UTF-8 without overlong forms or
+surrogates, MUST NOT be empty,
+.Ql \&.
+or
+.Ql .. ,
+and MUST NOT contain a control character (U+0000 to U+001F, U+007F),
+.Ql / ,
+.Ql \e
+or
+.Ql \&: .
+Two paths of one capsule MUST NOT differ only in ASCII case.
+A path MUST be at most 4096 bytes.
+.Pp
+.Pa noqtis.json
+and
+.Pa noqtis.sig
+at the top of the folder are not listed.
+Only regular files are listed; folders are implied by the paths, so an
+empty folder is not recorded.
+.Ss The seal, noqtis.sig
+An object with exactly these members:
+.Bl -tag -width "manifest_sha256"
+.It Cm alg
+The signature algorithm, as
+.Fn nqsname
+.Pq Xr nqsign 3
+names it, for example
+.Ql ML-DSA-65
+or
+.Ql SLH-DSA-SHAKE-128s .
+.It Cm context
+The FIPS 204/205 context string the signature was made with, at most 255
+bytes.
+A sealer SHOULD use
+.Ql noqtis-capsule-1 ;
+.Xr nqseal 3
+always does.
+.It Cm format
+The string
+.Ql noqtis-seal-1 .
+.It Cm manifest_sha256
+The SHA-256 of the exact bytes of
+.Pa noqtis.json ,
+64 lower-case hex digits.
+.It Cm public_key
+The signer's public key, base64 (RFC 4648 section 4, padded, no line
+breaks) of the standard's encoding.
+.It Cm signature
+The pure ML-DSA or SLH-DSA signature over the exact bytes of
+.Pa noqtis.json
+with that context, base64 likewise.
+.It Cm timestamp
+Optional: base64 of an RFC 3161 time-stamp token whose message imprint is
+the hash (SHA-256, SHA-384 or SHA-512) of the decoded
+.Cm signature
+bytes.
+.El
+.Ss Limits
+A checker MUST refuse, with a failing check and never by truncating:
+.Pa noqtis.json
+over 512 MiB (its size is checked before it is read, and again if it
+grows while being read);
+.Pa noqtis.sig
+over 1 MiB;
+.Cm meta
+over 1 MiB; more than 2,000,000 files; a path over 4096 bytes; folders
+more than 64 levels deep.
+JSON nesting is limited to 64 levels.
+.Ss Sealing
+A sealer MUST list every entry of the folder without following links and
+MUST refuse to seal a folder that holds a symbolic link, a Windows
+reparse point, a special file (device, pipe, socket), a name the rules
+above refuse, two paths that differ only in ASCII case, or anything over
+a limit.
+It MUST verify the new signature before writing the seal.
+.Ss Checking
+A checker MUST:
+.Bl -enum
+.It
+check that both files are canonical with exactly the fields above and
+the right formats, and that
+.Cm alg
+is known and
+.Cm public_key
+and
+.Cm signature
+have the algorithm's sizes;
+.It
+check that the SHA-256 of
+.Pa noqtis.json
+equals
+.Cm manifest_sha256 ;
+.It
+verify
+.Cm signature
+over the exact bytes of
+.Pa noqtis.json
+with
+.Cm context ,
+using the trusted public key when the caller gave one (and then require
+that
+.Cm public_key
+equal it), otherwise
+.Cm public_key ,
+and say which;
+.It
+for every listed file: require it to exist, to be a regular file reached
+without following a link, and to have the listed size, SHA-256 and
+SHA3-256;
+.It
+fail on every regular file present but not listed, every link, special
+file or refused name in the folder, every path out of order, listed
+twice, not in normal form, or differing from another only in case;
+.It
+when trust anchors for time-stamping authorities are given, require a
+.Cm timestamp
+whose imprint matches and whose token verifies, with the TSA certificate
+path valid at the token's genTime, under one of them; when none are given,
+fail a
+.Cm timestamp
+that is present, since it cannot be checked.
+.El
+.Pp
+A capsule passes only when every check passes.
+.Sh FILES
+.Bl -tag -width Ds -compact
+.It Pa noqtis.json
+the manifest
+.It Pa noqtis.sig
+the seal
+.El
+.Sh EXAMPLES
+A manifest (one line in the file; broken here for width):
+.Bd -literal -offset indent
+{"created":"2026-10-28T23:35:26Z","files":[{"path":"data/in.csv",
+"sha256":"5be08c96...","sha3_256":"cec130cc...","size":4},
+{"path":"report.txt","sha256":"8e54b0ca...","sha3_256":"cfd6402f...",
+"size":2}],"format":"noqtis-capsule-1","meta":{"project":"demo"}}
+.Ed
+.Pp
+Its seal:
+.Bd -literal -offset indent
+{"alg":"ML-DSA-65","context":"noqtis-capsule-1",
+"format":"noqtis-seal-1","manifest_sha256":"9f322e95...",
+"public_key":"1qWycP39...","signature":"..."}
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqchk 3 ,
+.Xr nqchkt 3 ,
+.Xr nqseal 3
+.Sh STANDARDS
+.Rs
+.%R RFC 8785
+.%T JSON Canonicalization Scheme (JCS)
+.%D June 2020
+.Re
+.Rs
+.%R RFC 3161
+.%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%D August 2001
+.Re
+.Rs
+.%R RFC 3339
+.%T Date and Time on the Internet: Timestamps
+.%D July 2002
+.Re
+.Rs
+.%R RFC 4648
+.%T The Base16, Base32, and Base64 Data Encodings
+.%D October 2006
+.Re

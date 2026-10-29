@@ -1,0 +1,219 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS 1
+.Os
+.Sh NAME
+.Nm noqtis
+.Nd post-quantum signatures, KEMs and sealed capsules of files
+.Sh SYNOPSIS
+.Nm
+.Ar command
+.Op Ar options
+.Op Ar args
+.Nm
+.Fl h | Fl -help
+.Nm
+.Fl V | Fl -version
+.Nm
+.Cm help
+.Op Ar command
+.Sh DESCRIPTION
+.Nm
+records the exact files a result came from, signs that record with a
+post-quantum signature (ML-DSA, FIPS 204, or SLH-DSA, FIPS 205) and checks
+such records later.
+It also signs and verifies single files, runs the ML-KEM (FIPS 203) and
+HQC key encapsulation mechanisms, and prints and checks file digests.
+It is a thin tool over the public C interface of
+.Xr noqtis 3
+and calls nothing else.
+.Pp
+The commands are:
+.Bl -tag -width "version"
+.It Cm keygen
+Make a key pair.
+See
+.Xr noqtis-keygen 1 .
+.It Cm sign
+Sign a file.
+See
+.Xr noqtis-sign 1 .
+.It Cm verify
+Check a signature.
+See
+.Xr noqtis-verify 1 .
+.It Cm enc
+Encapsulate a shared secret to a KEM public key.
+See
+.Xr noqtis-enc 1 .
+.It Cm dec
+Decapsulate a shared secret with a KEM secret key.
+See
+.Xr noqtis-dec 1 .
+.It Cm hash
+Print or check file digests in the format of
+.Xr sha256sum 1 .
+See
+.Xr noqtis-hash 1 .
+.It Cm seal
+Seal a folder: write
+.Pa noqtis.json
+and
+.Pa noqtis.sig
+into it.
+See
+.Xr noqtis-seal 1 .
+.It Cm check
+Check a sealed folder against its seal.
+See
+.Xr noqtis-check 1 .
+.It Cm algs
+List every algorithm and its sizes.
+See
+.Xr noqtis-algs 1 .
+.It Cm version
+Print the version.
+See
+.Xr noqtis-version 1 .
+.It Cm help Op Ar command
+Print the list of commands, or the options of one command.
+.El
+.Pp
+Options follow the command.
+A short option takes its value as the next argument or joined to it
+.Pq Fl k Ns Ar key ;
+a long option takes it as the next argument or after
+.Ql =
+.Pq Fl -key Ns = Ns Ar key .
+.Fl h
+or
+.Fl -help
+after any command prints its usage.
+.Fl -
+ends the options; an argument
+.Ql -
+alone is a positional argument (standard input where a command allows it).
+.Ss Algorithm names
+Algorithms are named as
+.Cm noqtis algs
+prints them, without regard to case:
+.Cm ML-DSA-44 , ML-DSA-65 , ML-DSA-87 ,
+.Cm SLH-DSA-SHA2-128s , SLH-DSA-SHA2-128f , SLH-DSA-SHA2-192s ,
+.Cm SLH-DSA-SHA2-192f , SLH-DSA-SHA2-256s , SLH-DSA-SHA2-256f ,
+.Cm SLH-DSA-SHAKE-128s , SLH-DSA-SHAKE-128f , SLH-DSA-SHAKE-192s ,
+.Cm SLH-DSA-SHAKE-192f , SLH-DSA-SHAKE-256s , SLH-DSA-SHAKE-256f
+(signatures) and
+.Cm ML-KEM-512 , ML-KEM-768 , ML-KEM-1024 , HQC-128 , HQC-192 , HQC-256
+(key encapsulation).
+.Ss Key files
+A key file is text: one header line, then the key bytes in the standard's
+own encoding (FIPS 203, 204, 205; HQC v5.0.0) as base64 (RFC 4648, with
+padding) in lines of 64 characters:
+.Bd -literal -offset indent
+noqtis-key-1 <algorithm> <pub|sec>
+<base64>
+\&...
+.Ed
+.Pp
+Readers accept
+.Ql \en
+or
+.Ql \er\en
+line ends and reject any other character, non-canonical padding, a header
+that is not exactly three space-separated fields, the wrong kind of key
+.Po
+.Ql pub
+where a secret key is needed, or the reverse
+.Pc ,
+and a key whose decoded length is not the algorithm's size.
+The base64 encoder and decoder run in constant time.
+.Pp
+Signatures and ciphertexts are raw bytes in the standard's encoding, with
+no header.
+A shared secret file holds the raw 32 bytes.
+.Ss Secrets and files
+Secret key and shared-secret files are created owner-only (mode 0600,
+with
+.Dv O_EXCL | O_NOFOLLOW
+on POSIX; on Windows they inherit the folder's ACL) through unbuffered
+streams.
+No command overwrites an existing file unless given
+.Fl -force ;
+with it the old file is removed first, so the new one never inherits its
+permissions or follows a link.
+Every buffer that held a secret key, seed or shared secret is wiped before
+it is freed.
+No secret is printed: a shared secret reaches standard output only with
+.Fl -stdout
+(in hex), and keys never do.
+.Pp
+On Windows, arguments are read as UTF-16 and passed on as UTF-8, and
+standard input and output are in binary mode.
+.Sh EXIT STATUS
+For every command:
+.Bl -tag -width 3n
+.It 0
+Success: a signature is valid, every capsule check passed, every digest
+matched.
+.It 1
+A verification failed: a bad or wrong-length signature, a failed capsule
+check, a digest that differs or a listed file that is missing, a malformed
+.Fl -check
+line.
+.It 2
+A usage error, an unreadable or unwritable file, the wrong kind of key, or
+a library error.
+.El
+.Sh EXAMPLES
+Seal a folder, check it, change a file and check again:
+.Bd -literal -offset indent
+$ noqtis keygen -a ML-DSA-65 -o me
+ML-DSA-65 key pair: me (secret), me.pub (public)
+$ noqtis seal -k me results
+sealed results with ML-DSA-65
+$ noqtis check -p me.pub results
+\&...
+results: OK (22 checks passed)
+$ echo extra >> results/report.txt
+$ noqtis check -p me.pub results; echo $?
+\&...
+FAIL  file                report.txt: size differs
+\&...
+results: FAILED (1 of 22 checks failed)
+1
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-algs 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-dec 1 ,
+.Xr noqtis-enc 1 ,
+.Xr noqtis-hash 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr noqtis-seal 1 ,
+.Xr noqtis-sign 1 ,
+.Xr noqtis-verify 1 ,
+.Xr noqtis-version 1 ,
+.Xr noqtis 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%T FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard
+.%Q NIST
+.%D August 2024
+.Re
+.Rs
+.%T FIPS 204: Module-Lattice-Based Digital Signature Standard
+.%Q NIST
+.%D August 2024
+.Re
+.Rs
+.%T FIPS 205: Stateless Hash-Based Digital Signature Standard
+.%Q NIST
+.%D August 2024
+.Re
+.Rs
+.%T Hamming Quasi-Cyclic (HQC), version 5.0.0
+.%D August 2025
+.Re
+.Sh CAVEATS
+noqtis has not had an external security audit.

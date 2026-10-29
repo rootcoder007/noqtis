@@ -1,0 +1,125 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQCHK 3
+.Os
+.Sh NAME
+.Nm nqchk
+.Nd check a capsule folder against its seal
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqchk
+.Fa "const char *dir"
+.Fa "const uint8_t *trust" "size_t trustlen"
+.Fa "nqrep **rep"
+.Fc
+.Sh DESCRIPTION
+.Fn nqchk
+checks the capsule in the folder
+.Fa dir
+.Pq Xr noqtis-capsule 5
+and stores in
+.Fa *rep
+a report with one row per check
+.Pq Xr nqrep 3 .
+It runs every check it can, rather than stopping at the first failure,
+so the report says everything that is wrong.
+.Pp
+It reads
+.Pa noqtis.sig
+(at most 1 MiB, never through a link) and checks that it is canonical JSON
+with exactly the seal's fields; reads
+.Pa noqtis.json
+(at most 512 MiB; the size is checked before reading and again if the file
+grows while it is read) and checks that its SHA-256 is the seal's
+.Ql manifest_sha256 ;
+verifies the signature over the exact manifest bytes with the seal's
+algorithm and context; lists the folder; and reads the manifest one entry
+at a time in its canonical layout, checking each listed file (present, a
+regular file, size, SHA-256, SHA3-256) as it goes, the sort order and
+duplicates.
+Finally it reports every regular file present but not listed, every link,
+special file or refused name, and listed paths that differ only in case.
+.Pp
+.Fa trust
+is the public key the capsule must be sealed with,
+.Fa trustlen
+bytes in the algorithm's encoding: the seal's key must equal it, and the
+signature is verified with it.
+With
+.Fa trust
+.Dv NULL
+(and
+.Fa trustlen
+0), the key inside the seal is used, and the report's
+.Ql key
+row says the key was not pinned: the capsule is then shown unchanged
+since it was sealed, but not who sealed it.
+.Pp
+.Fn nqchk
+is
+.Xr nqchkt 3
+with no TSA trust anchors.
+A seal that carries a timestamp therefore fails its
+.Ql timestamp
+row here (with the imprint still checked against the signature): a
+timestamp that cannot be checked is never passed silently.
+.Pp
+Memory use is the manifest bytes once (the signature covers them, so
+they must be in memory to be verified), the folder listing (about 100
+bytes per file), the report (one row per file) and constant state per
+entry; the manifest is never parsed into a tree.
+.Sh RETURN VALUES
+.Bl -tag -width NQEVRFY
+.It Dv NQOK
+Every check passed.
+.Fa *rep
+holds the report.
+.It Bq Er NQEVRFY
+At least one check failed;
+.Fa *rep
+still holds the report, which says which.
+.It Bq Er NQEARG
+.Fa dir
+or
+.Fa rep
+is
+.Dv NULL ,
+or
+.Fa trust
+is
+.Dv NULL
+with a nonzero
+.Fa trustlen .
+No report.
+.It Bq Er NQEMEM
+The allocation hook returned
+.Dv NULL .
+No report.
+.El
+.Pp
+With no report,
+.Fa *rep
+is set to
+.Dv NULL .
+Free a report with
+.Fn nqrepfree
+.Pq Xr nqrep 3 .
+.Sh EXAMPLES
+.Bd -literal -offset indent
+nqrep *rep = NULL;
+int rc = nqchk("results", pk, sizeof pk, &rep);
+if (rc == NQOK)
+  puts("unchanged since sealed by that key");
+else if (rc == NQEVRFY)
+  puts("changed or not sealed by that key: see the report");
+nqrepfree(rep);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr nqchkt 3 ,
+.Xr nqrep 3 ,
+.Xr nqseal 3 ,
+.Xr noqtis-capsule 5

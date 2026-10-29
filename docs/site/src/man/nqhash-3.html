@@ -1,0 +1,213 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqhash</code>, <code class="Nm">nqhini</code>,
+    <code class="Nm">nqhupd</code>, <code class="Nm">nqhfin</code>,
+    <code class="Nm">nqhlen</code>, <code class="Nm">nqhmac</code> &#x2014;
+    <span class="Nd">SHA-2, SHA-3, SHAKE and HMAC</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">size_t</var>
+  <br/>
+  <code class="Fn">nqhlen</code>(<var class="Fa" style="white-space: nowrap;">nqhalg
+    alg</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqhash</code>(<var class="Fa">nqhalg alg</var>,
+    <var class="Fa">const uint8_t *in</var>, <var class="Fa">size_t inlen</var>,
+    <var class="Fa">uint8_t *out</var>, <var class="Fa">size_t
+  outlen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqhini</code>(<var class="Fa" style="white-space: nowrap;">nqhctx
+    *ctx</var>, <var class="Fa" style="white-space: nowrap;">nqhalg
+  alg</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqhupd</code>(<var class="Fa" style="white-space: nowrap;">nqhctx
+    *ctx</var>, <var class="Fa" style="white-space: nowrap;">const uint8_t
+    *in</var>, <var class="Fa" style="white-space: nowrap;">size_t
+  inlen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqhfin</code>(<var class="Fa" style="white-space: nowrap;">nqhctx
+    *ctx</var>, <var class="Fa" style="white-space: nowrap;">uint8_t *out</var>,
+    <var class="Fa" style="white-space: nowrap;">size_t outlen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqhmac</code>(<var class="Fa">nqhalg alg</var>,
+    <var class="Fa">const uint8_t *key</var>, <var class="Fa">size_t
+    keylen</var>, <var class="Fa">const uint8_t *in</var>,
+    <var class="Fa">size_t inlen</var>, <var class="Fa">uint8_t *out</var>,
+    <var class="Fa">size_t outlen</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><var class="Vt">nqhalg</var> names a hash of FIPS 180-4 or FIPS
+    202:</p>
+<table class="Bl-column Bd-indent">
+  <tr id="constant">
+    <td><a class="permalink" href="#constant"><b class="Sy">constant</b></a></td>
+    <td><a class="permalink" href="#hash"><b class="Sy" id="hash">hash</b></a></td>
+    <td><a class="permalink" href="#bytes"><b class="Sy" id="bytes">bytes</b></a></td>
+  </tr>
+  <tr id="NQS224">
+    <td><a class="permalink" href="#NQS224"><code class="Dv">NQS224</code></a></td>
+    <td>SHA-224</td>
+    <td>28</td>
+  </tr>
+  <tr id="NQS256">
+    <td><a class="permalink" href="#NQS256"><code class="Dv">NQS256</code></a></td>
+    <td>SHA-256</td>
+    <td>32</td>
+  </tr>
+  <tr id="NQS384">
+    <td><a class="permalink" href="#NQS384"><code class="Dv">NQS384</code></a></td>
+    <td>SHA-384</td>
+    <td>48</td>
+  </tr>
+  <tr id="NQS512">
+    <td><a class="permalink" href="#NQS512"><code class="Dv">NQS512</code></a></td>
+    <td>SHA-512</td>
+    <td>64</td>
+  </tr>
+  <tr id="NQS512T224">
+    <td><a class="permalink" href="#NQS512T224"><code class="Dv">NQS512T224</code></a></td>
+    <td>SHA-512/224</td>
+    <td>28</td>
+  </tr>
+  <tr id="NQS512T256">
+    <td><a class="permalink" href="#NQS512T256"><code class="Dv">NQS512T256</code></a></td>
+    <td>SHA-512/256</td>
+    <td>32</td>
+  </tr>
+  <tr id="NQS3224">
+    <td><a class="permalink" href="#NQS3224"><code class="Dv">NQS3224</code></a></td>
+    <td>SHA3-224</td>
+    <td>28</td>
+  </tr>
+  <tr id="NQS3256">
+    <td><a class="permalink" href="#NQS3256"><code class="Dv">NQS3256</code></a></td>
+    <td>SHA3-256</td>
+    <td>32</td>
+  </tr>
+  <tr id="NQS3384">
+    <td><a class="permalink" href="#NQS3384"><code class="Dv">NQS3384</code></a></td>
+    <td>SHA3-384</td>
+    <td>48</td>
+  </tr>
+  <tr id="NQS3512">
+    <td><a class="permalink" href="#NQS3512"><code class="Dv">NQS3512</code></a></td>
+    <td>SHA3-512</td>
+    <td>64</td>
+  </tr>
+  <tr id="NQSHK128">
+    <td><a class="permalink" href="#NQSHK128"><code class="Dv">NQSHK128</code></a></td>
+    <td>SHAKE128</td>
+    <td>any (32)</td>
+  </tr>
+  <tr id="NQSHK256">
+    <td><a class="permalink" href="#NQSHK256"><code class="Dv">NQSHK256</code></a></td>
+    <td>SHAKE256</td>
+    <td>any (64)</td>
+  </tr>
+</table>
+<p class="Pp" id="nqhlen"><a class="permalink" href="#nqhlen"><code class="Fn">nqhlen</code></a>()
+    returns the digest size in bytes; for SHAKE, the output length the pre-hash
+    signatures use (32 for SHAKE128, 64 for SHAKE256). It returns 0 for a value
+    that is not an <var class="Vt">nqhalg</var>.</p>
+<p class="Pp" id="nqhash"><a class="permalink" href="#nqhash"><code class="Fn">nqhash</code></a>()
+    hashes the <var class="Fa">inlen</var> bytes at <var class="Fa">in</var>
+    into <var class="Fa">out</var>. For the fixed-length hashes
+    <var class="Fa">outlen</var> must be exactly
+    <code class="Fn">nqhlen</code>(<var class="Fa">alg</var>); for SHAKE it may
+    be any length, including 0.</p>
+<p class="Pp" id="nqhini"><a class="permalink" href="#nqhini"><code class="Fn">nqhini</code></a>(),
+    <a class="permalink" href="#nqhupd"><code class="Fn" id="nqhupd">nqhupd</code></a>()
+    and
+    <a class="permalink" href="#nqhfin"><code class="Fn" id="nqhfin">nqhfin</code></a>()
+    hash a message given in pieces. <var class="Vt">nqhctx</var> is opaque but
+    sized in the header, so it can live on the stack; it needs no cleanup
+    function. <code class="Fn">nqhini</code>() starts <var class="Fa">ctx</var>
+    for <var class="Fa">alg</var>; <code class="Fn">nqhupd</code>() absorbs more
+    input and may be called any number of times;
+    <code class="Fn">nqhfin</code>() writes the digest (the same length rule as
+    <code class="Fn">nqhash</code>()). For a fixed-length hash,
+    <code class="Fn">nqhfin</code>() ends the context, which must be started
+    again with <code class="Fn">nqhini</code>() before reuse. For SHAKE,
+    <code class="Fn">nqhfin</code>() may be called again to squeeze more output;
+    after the first <code class="Fn">nqhfin</code>(),
+    <code class="Fn">nqhupd</code>() fails.</p>
+<p class="Pp" id="nqhmac"><a class="permalink" href="#nqhmac"><code class="Fn">nqhmac</code></a>()
+    computes HMAC (FIPS 198-1, RFC 2104) with any of the ten fixed-length
+    hashes, writing the first <var class="Fa">outlen</var> bytes of the tag (1
+    to <code class="Fn">nqhlen</code>(<var class="Fa">alg</var>)) to
+    <var class="Fa">out</var>. Compare tags with
+    <a class="Xr" href="/noqtis/reference/man/nqcteq-3/">nqcteq(3)</a>, never
+    <span class="Xr">memcmp(3)</span>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><code class="Fn">nqhlen</code>() returns a size. The other
+    functions return <code class="Dv">NQOK</code> (0) or a negative error
+  code:</p>
+<dl class="Bl-tag">
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd><var class="Fa">alg</var> is not an <var class="Vt">nqhalg</var>;
+      <var class="Fa">ctx</var> is <code class="Dv">NULL</code>; a pointer is
+      <code class="Dv">NULL</code> with a nonzero length;
+      <var class="Fa">outlen</var> is larger than a fixed-length digest; or, for
+      <code class="Fn">nqhmac</code>(), <var class="Fa">out</var> is
+      <code class="Dv">NULL</code> or <var class="Fa">outlen</var> is 0 or over
+      the digest size.</dd>
+  <dt>[<code class="Er">NQEBUF</code>]</dt>
+  <dd><var class="Fa">outlen</var> is smaller than a fixed-length digest.</dd>
+  <dt>[<code class="Er">NQESTATE</code>]</dt>
+  <dd><code class="Fn">nqhupd</code>() or <code class="Fn">nqhfin</code>() on a
+      context that was not started, or was finished.</dd>
+  <dt>[<code class="Er">NQENOSUP</code>]</dt>
+  <dd><code class="Fn">nqhmac</code>() with SHAKE128 or SHAKE256.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Adapted from <span class="Pa">docs/examples/hash.c</span> of the
+    source tree:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>const uint8_t abc[] = &quot;abc&quot;;
+uint8_t d[32], x[64];
+nqhctx c;
+int rc = nqhash(NQS256, abc, 3, d, sizeof d);
+/* SHAKE256: 32 bytes, then 32 more from the same context */
+if (rc == NQOK)
+  rc = nqhini(&amp;c, NQSHK256);
+if (rc == NQOK)
+  rc = nqhupd(&amp;c, abc, 3);
+if (rc == NQOK)
+  rc = nqhfin(&amp;c, x, 32);
+if (rc == NQOK)
+  rc = nqhfin(&amp;c, x + 32, 32);</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-hash-1/">noqtis-hash(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqcteq-3/">nqcteq(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqsign-3/">nqsign(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp">FIPS 180-4 (SHA-2), FIPS 202 (SHA-3, SHAKE), FIPS 198-1
+  (HMAC).</p>
+</section>
+</div>

@@ -1,0 +1,72 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQRAND 3
+.Os
+.Sh NAME
+.Nm nqrand
+.Nd random bytes from the operating system
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqrand "uint8_t *buf" "size_t len"
+.Sh DESCRIPTION
+.Fn nqrand
+fills
+.Fa buf
+with
+.Fa len
+bytes from the operating system's cryptographically secure random source:
+.Xr getrandom 2
+on Linux,
+.Xr arc4random_buf 3
+on macOS and the BSDs,
+.Fn BCryptGenRandom
+on Windows, and
+.Xr getentropy 3
+under WebAssembly (WebCrypto
+.Fn getRandomValues
+with emscripten, WASI
+.Fn random_get
+with wasi-sdk).
+Large requests are made in chunks.
+There is no fallback source and no user-space generator: when the
+operating system's source fails, so does
+.Fn nqrand .
+.Pp
+Every function of
+.Xr noqtis 3
+that needs randomness (key generation, hedged signing, encapsulation,
+mask shares) takes it from here.
+.Sh RETURN VALUES
+.Bl -tag -width NQERNG
+.It Dv NQOK
+.Fa buf
+holds
+.Fa len
+random bytes.
+A
+.Fa len
+of 0 succeeds and writes nothing.
+.It Bq Er NQEARG
+.Fa buf
+is
+.Dv NULL
+and
+.Fa len
+is not 0.
+.It Bq Er NQERNG
+The operating system's source failed.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+uint8_t key[32];
+if (nqrand(key, sizeof key) != NQOK)
+  abort();
+/* ... use the key ... */
+nqwipe(key, sizeof key);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 3 ,
+.Xr nqwipe 3

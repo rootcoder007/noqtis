@@ -1,0 +1,81 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQERR 3
+.Os
+.Sh NAME
+.Nm nqerr ,
+.Nm nqver
+.Nd error messages and the library version
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft const char *
+.Fn nqerr "int err"
+.Ft const char *
+.Fn nqver void
+.Fd #define NQVMAJ
+.Fd #define NQVMIN
+.Fd #define NQVPAT
+.Sh DESCRIPTION
+Every function of
+.Xr noqtis 3
+that can fail returns
+.Dv NQOK
+(0) or one of these negative codes:
+.Bl -column "NQESTATE" "-10" -offset indent
+.It Sy code Ta Sy value Ta Sy nqerr text
+.It Dv NQOK Ta 0 Ta success
+.It Dv NQEARG Ta \-1 Ta invalid argument
+.It Dv NQEBUF Ta \-2 Ta output buffer too small
+.It Dv NQEVRFY Ta \-3 Ta verification failed
+.It Dv NQEDEC Ta \-4 Ta input is not in the encoding the standard defines
+.It Dv NQERNG Ta \-5 Ta the operating system's random source failed
+.It Dv NQEMEM Ta \-6 Ta out of memory
+.It Dv NQEIO Ta \-7 Ta file could not be read or written
+.It Dv NQENOSUP Ta \-8 Ta algorithm or option not supported
+.It Dv NQELIM Ta \-9 Ta input exceeds a size or depth limit
+.It Dv NQESTATE Ta \-10 Ta context used out of order
+.El
+.Pp
+.Fn nqerr
+returns the English text of
+.Fa err
+from the table, or
+.Dq unknown error
+for any other value.
+The strings are static; do not free them.
+.Pp
+A failed verification is always
+.Er NQEVRFY
+(or another negative code), never
+.Dv NQOK .
+Test for success with
+.Ql rc == NQOK ,
+never with
+.Ql rc >= 0
+or by truth value alone.
+.Pp
+.Fn nqver
+returns the version of the library as linked,
+.Dq Ar major . Ns Ar minor . Ns Ar patch .
+.Dv NQVMAJ ,
+.Dv NQVMIN
+and
+.Dv NQVPAT
+give the version of the header a program was compiled with.
+The library follows semantic versioning; its shared-library ABI version is
+the major version.
+.Sh RETURN VALUES
+Both functions return a pointer to a static string, never
+.Dv NULL .
+.Sh EXAMPLES
+.Bd -literal -offset indent
+int rc = nqvrfy(alg, pk, pklen, msg, msglen, NULL, 0, 0, sig, siglen);
+if (rc != NQOK)
+  fprintf(stderr, "verify: %s\en", nqerr(rc));
+printf("built with %d.%d.%d, running %s\en", NQVMAJ, NQVMIN, NQVPAT,
+       nqver());
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 3

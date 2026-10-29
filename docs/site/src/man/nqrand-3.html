@@ -1,0 +1,75 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqrand</code> &#x2014; <span class="Nd">random
+    bytes from the operating system</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqrand</code>(<var class="Fa" style="white-space: nowrap;">uint8_t
+    *buf</var>, <var class="Fa" style="white-space: nowrap;">size_t
+  len</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqrand"><code class="Fn" id="nqrand">nqrand</code></a>()
+    fills <var class="Fa">buf</var> with <var class="Fa">len</var> bytes from
+    the operating system's cryptographically secure random source:
+    <span class="Xr">getrandom(2)</span> on
+    Linux,
+    <span class="Xr">arc4random_buf(3)</span>
+    on macOS and the BSDs,
+    <a class="permalink" href="#BCryptGenRandom"><code class="Fn" id="BCryptGenRandom">BCryptGenRandom</code></a>()
+    on Windows, and
+    <span class="Xr">getentropy(3)</span>
+    under WebAssembly (WebCrypto
+    <a class="permalink" href="#getRandomValues"><code class="Fn" id="getRandomValues">getRandomValues</code></a>()
+    with emscripten, WASI
+    <a class="permalink" href="#random_get"><code class="Fn" id="random_get">random_get</code></a>()
+    with wasi-sdk). Large requests are made in chunks. There is no fallback
+    source and no user-space generator: when the operating system's source
+    fails, so does <code class="Fn">nqrand</code>().</p>
+<p class="Pp">Every function of
+    <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a> that
+    needs randomness (key generation, hedged signing, encapsulation, mask
+    shares) takes it from here.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<dl class="Bl-tag">
+  <dt id="NQOK"><a class="permalink" href="#NQOK"><code class="Dv">NQOK</code></a></dt>
+  <dd><var class="Fa">buf</var> holds <var class="Fa">len</var> random bytes. A
+      <var class="Fa">len</var> of 0 succeeds and writes nothing.</dd>
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd><var class="Fa">buf</var> is <code class="Dv">NULL</code> and
+      <var class="Fa">len</var> is not 0.</dd>
+  <dt>[<code class="Er">NQERNG</code>]</dt>
+  <dd>The operating system's source failed.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>uint8_t key[32];
+if (nqrand(key, sizeof key) != NQOK)
+  abort();
+/* ... use the key ... */
+nqwipe(key, sizeof key);</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqwipe-3/">nqwipe(3)</a></p>
+</section>
+</div>

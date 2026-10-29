@@ -1,0 +1,344 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQSIGN 3
+.Os
+.Sh NAME
+.Nm nqsign ,
+.Nm nqsignd ,
+.Nm nqvrfy ,
+.Nm nqskg ,
+.Nm nqskgd ,
+.Nm nqssize ,
+.Nm nqsname ,
+.Nm nqsfind
+.Nd ML-DSA and SLH-DSA signatures
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqskg
+.Fa "nqsalg alg"
+.Fa "uint8_t *pk" "size_t pklen"
+.Fa "uint8_t *sk" "size_t sklen"
+.Fc
+.Ft int
+.Fo nqskgd
+.Fa "nqsalg alg"
+.Fa "const uint8_t *seed" "size_t seedlen"
+.Fa "uint8_t *pk" "size_t pklen"
+.Fa "uint8_t *sk" "size_t sklen"
+.Fc
+.Ft int
+.Fo nqsign
+.Fa "nqsalg alg"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *msg" "size_t msglen"
+.Fa "const uint8_t *ctx" "size_t ctxlen"
+.Fa "int ph"
+.Fa "uint8_t *sig" "size_t siglen" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqsignd
+.Fa "nqsalg alg"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *msg" "size_t msglen"
+.Fa "const uint8_t *ctx" "size_t ctxlen"
+.Fa "int ph"
+.Fa "const uint8_t *rnd" "size_t rndlen"
+.Fa "uint8_t *sig" "size_t siglen" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqvrfy
+.Fa "nqsalg alg"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const uint8_t *msg" "size_t msglen"
+.Fa "const uint8_t *ctx" "size_t ctxlen"
+.Fa "int ph"
+.Fa "const uint8_t *sig" "size_t siglen"
+.Fc
+.Ft int
+.Fn nqssize "nqsalg alg" "nqssz *sz"
+.Ft const char *
+.Fn nqsname "nqsalg alg"
+.Ft int
+.Fn nqsfind "const char *name" "nqsalg *alg"
+.Sh DESCRIPTION
+These functions make keys, sign and verify with the module-lattice
+signature ML-DSA (FIPS 204) and the stateless hash-based signature SLH-DSA
+(FIPS 205).
+Keys and signatures are byte strings in the encodings the standards
+define.
+.Ss Algorithms
+.Vt nqsalg
+names the parameter set:
+.Bl -column "NQSLHK128S" "SLH-DSA-SHAKE-128s" "pk" "sk" "signature" -offset indent
+.It Sy constant Ta Sy name Ta Sy pk Ta Sy sk Ta Sy signature
+.It Dv NQMLDSA44 Ta ML-DSA-44 Ta 1312 Ta 2560 Ta 2420
+.It Dv NQMLDSA65 Ta ML-DSA-65 Ta 1952 Ta 4032 Ta 3309
+.It Dv NQMLDSA87 Ta ML-DSA-87 Ta 2592 Ta 4896 Ta 4627
+.It Dv NQSLH128S Ta SLH-DSA-SHA2-128s Ta 32 Ta 64 Ta 7856
+.It Dv NQSLH128F Ta SLH-DSA-SHA2-128f Ta 32 Ta 64 Ta 17088
+.It Dv NQSLH192S Ta SLH-DSA-SHA2-192s Ta 48 Ta 96 Ta 16224
+.It Dv NQSLH192F Ta SLH-DSA-SHA2-192f Ta 48 Ta 96 Ta 35664
+.It Dv NQSLH256S Ta SLH-DSA-SHA2-256s Ta 64 Ta 128 Ta 29792
+.It Dv NQSLH256F Ta SLH-DSA-SHA2-256f Ta 64 Ta 128 Ta 49856
+.It Dv NQSLHK128S Ta SLH-DSA-SHAKE-128s Ta 32 Ta 64 Ta 7856
+.It Dv NQSLHK128F Ta SLH-DSA-SHAKE-128f Ta 32 Ta 64 Ta 17088
+.It Dv NQSLHK192S Ta SLH-DSA-SHAKE-192s Ta 48 Ta 96 Ta 16224
+.It Dv NQSLHK192F Ta SLH-DSA-SHAKE-192f Ta 48 Ta 96 Ta 35664
+.It Dv NQSLHK256S Ta SLH-DSA-SHAKE-256s Ta 64 Ta 128 Ta 29792
+.It Dv NQSLHK256F Ta SLH-DSA-SHAKE-256f Ta 64 Ta 128 Ta 49856
+.El
+.Pp
+Sizes are in bytes.
+The
+.Ql s
+sets give small signatures and slow signing, the
+.Ql f
+sets fast signing and larger signatures.
+.Pp
+.Fn nqssize
+stores the sizes of
+.Fa alg
+in
+.Fa *sz ,
+a
+.Vt nqssz
+with the members
+.Va pk ,
+.Va sk
+and
+.Va sig .
+.Fn nqsname
+returns the name of
+.Fa alg
+as in the table, or
+.Dv NULL
+for a value that is not an
+.Vt nqsalg .
+.Fn nqsfind
+is its inverse: it stores in
+.Fa *alg
+the algorithm whose name is exactly
+.Fa name
+(case matters).
+.Ss Keys
+.Fn nqskg
+makes a key pair from the operating system's random source
+.Pq Xr nqrand 3 ,
+writing the public key to
+.Fa pk
+and the secret key to
+.Fa sk .
+.Fn nqskgd
+makes it from the standard's seed instead: the 32-byte xi for ML-DSA, or
+SK.seed || SK.prf || PK.seed (3n bytes: 48, 72 or 96) for SLH-DSA.
+It exists for test vectors and for keys that must be derived again; the
+seed is as secret as the key.
+.Ss Signing and verifying
+.Fn nqsign
+signs the
+.Fa msglen
+bytes at
+.Fa msg
+with the secret key
+.Fa sk
+of
+.Fa sklen
+bytes and writes the signature to
+.Fa sig ,
+a buffer of
+.Fa siglen
+bytes; the signature's length is stored in
+.Fa *outlen
+when
+.Fa outlen
+is not
+.Dv NULL .
+Signing is hedged: fresh randomness is mixed in, so signatures of one
+message differ.
+.Pp
+.Fa ctx
+is the FIPS 204/205 context string,
+.Fa ctxlen
+bytes, at most 255;
+.Dv NULL
+and 0 give the empty context.
+A signature verifies only under the context it was made with, which keeps
+signatures made for one purpose from being accepted for another.
+.Pp
+.Fa ph
+selects the interface: 0 for pure ML-DSA or SLH-DSA, or an
+.Vt nqhalg
+.Pq Xr nqhash 3
+for HashML-DSA or HashSLH-DSA, where
+.Fa msg
+is still the message and is hashed by the function.
+Any of the twelve hashes may be used; for SHAKE128 and SHAKE256 the digest
+is 32 and 64 bytes.
+.Pp
+.Fn nqsignd
+is
+.Fn nqsign
+with the standard's per-signature randomness
+.Fa rnd
+given by the caller: exactly 32 bytes for ML-DSA, n bytes (16, 24 or 32)
+for SLH-DSA.
+All zero bytes give the deterministic variant of the standard.
+.Pp
+.Fn nqvrfy
+checks that
+.Fa sig
+of
+.Fa siglen
+bytes is a signature of
+.Fa msg
+under the public key
+.Fa pk
+with the context
+.Fa ctx
+and the interface
+.Fa ph
+used to sign.
+.Ss Buffers
+Output buffers may be larger than the algorithm's size; only the defined
+number of bytes is written.
+Input keys and signatures must have exactly the algorithm's size.
+.Sh RETURN VALUES
+Every function except
+.Fn nqsname
+returns
+.Dv NQOK
+(0) on success or a negative error code:
+.Bl -tag -width NQENOSUP
+.It Bq Er NQEARG
+.Fa alg
+is not an
+.Vt nqsalg ;
+a pointer is
+.Dv NULL
+with a nonzero length, or an output pointer is
+.Dv NULL ;
+.Fa ctxlen
+exceeds 255;
+.Fa ph
+is neither 0 nor an
+.Vt nqhalg ;
+or, for
+.Fn nqskgd
+and
+.Fn nqsignd ,
+.Fa seed
+or
+.Fa rnd
+is
+.Dv NULL
+or not the standard's length.
+.Fn nqsfind
+returns it for a
+.Dv NULL
+argument.
+.It Bq Er NQEBUF
+.Fa pklen ,
+.Fa sklen
+or
+.Fa siglen
+is smaller than the algorithm's size.
+.It Bq Er NQEDEC
+A key or signature given as input does not have the algorithm's length or
+encoding.
+.It Bq Er NQEVRFY
+.Fn nqvrfy :
+the signature does not verify.
+A verification never returns
+.Dv NQOK
+unless the signature is valid.
+.It Bq Er NQERNG
+.Fn nqskg
+or
+.Fn nqsign :
+the operating system's random source failed.
+.It Bq Er NQENOSUP
+.Fn nqsfind :
+no algorithm has that name.
+.El
+.Pp
+On any failure,
+.Fn nqsign
+and
+.Fn nqsignd
+set
+.Fa *outlen
+to 0, and when signing itself fails they wipe the signature buffer.
+.Fn nqsname
+returns
+.Dv NULL
+for an unknown algorithm.
+.Sh EXAMPLES
+Make a key pair, sign and verify (the program
+.Pa docs/examples/sign.c
+of the source tree):
+.Bd -literal -offset indent
+#include <noqtis.h>
+#include <stdio.h>
+
+int main(void) {
+  static uint8_t pk[1952], sk[4032], sig[3309];
+  const uint8_t msg[] = "results v1";
+  size_t n = 0;
+  int rc = nqskg(NQMLDSA65, pk, sizeof pk, sk, sizeof sk);
+  if (rc == NQOK)
+    rc = nqsign(NQMLDSA65, sk, sizeof sk, msg, sizeof msg - 1, NULL, 0, 0,
+                sig, sizeof sig, &n);
+  nqwipe(sk, sizeof sk);
+  if (rc == NQOK)
+    rc = nqvrfy(NQMLDSA65, pk, sizeof pk, msg, sizeof msg - 1, NULL, 0, 0,
+                sig, n);
+  printf("%s\en", nqerr(rc));
+  return rc == NQOK ? 0 : 1;
+}
+.Ed
+.Pp
+Sizes at run time, for code that takes the algorithm as a parameter:
+.Bd -literal -offset indent
+nqsalg alg;
+nqssz sz;
+if (nqsfind("SLH-DSA-SHAKE-128s", &alg) == NQOK &&
+    nqssize(alg, &sz) == NQOK)
+  printf("%s: %zu-byte signatures\en", nqsname(alg), sz.sig);
+.Ed
+.Pp
+Build with
+.Ql cc prog.c $(pkg-config --cflags --libs noqtis) .
+.Sh SEE ALSO
+.Xr noqtis-sign 1 ,
+.Xr noqtis-verify 1 ,
+.Xr noqtis 3 ,
+.Xr nqerr 3 ,
+.Xr nqhash 3 ,
+.Xr nqwipe 3
+.Sh STANDARDS
+.Rs
+.%T FIPS 204: Module-Lattice-Based Digital Signature Standard
+.%Q NIST
+.%D August 2024
+.Re
+.Rs
+.%T FIPS 205: Stateless Hash-Based Digital Signature Standard
+.%Q NIST
+.%D August 2024
+.Re
+.Sh SECURITY CONSIDERATIONS
+Key generation and signing run in constant time with respect to the secret
+key, seed and randomness; ML-DSA signing is also first-order masked (two
+shares).
+Wipe secret keys with
+.Xr nqwipe 3
+when done.
+Outside test vectors, prefer
+.Fn nqsign
+to
+.Fn nqsignd :
+the hedged variant keeps fault and side-channel attacks that rely on
+repeated signatures harder.

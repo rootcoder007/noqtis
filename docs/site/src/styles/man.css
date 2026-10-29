@@ -1,0 +1,51 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* The manual pages as mandoc renders them (-Thtml -Ofragment). */
+.nqman h1.Sh {
+  font-size: var(--sl-text-h3);
+  margin-top: 2rem;
+  letter-spacing: 0.02em;
+}
+.nqman h2.Ss {
+  font-size: var(--sl-text-h4);
+}
+.nqman a.permalink {
+  color: inherit;
+  text-decoration: none;
+}
+.nqman table.Nm td {
+  vertical-align: top;
+  padding-right: 0.5rem;
+}
+.nqman table.Nm,
+.nqman table.Bl-column {
+  display: table;
+  width: auto;
+  border: 0;
+}
+.nqman dl.Bl-tag > dt {
+  font-weight: 600;
+  margin-top: 0.75rem;
+}
+.nqman dl.Bl-tag > dd {
+  margin-left: 2rem;
+}
+.nqman .Bd-indent {
+  margin-left: 1.5rem;
+}
+.nqman pre {
+  overflow-x: auto;
+  padding: 0.75rem 1rem;
+  background: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.25rem;
+  font-size: var(--sl-text-sm);
+}
+.nqman code.Fl,
+.nqman code.Cm,
+.nqman code.Nm,
+.nqman b.Fn {
+  font-weight: 600;
+}
+.nqman var {
+  font-style: italic;
+}

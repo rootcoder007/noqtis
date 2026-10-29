@@ -1,0 +1,43 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-ALGS 1
+.Os
+.Sh NAME
+.Nm noqtis-algs
+.Nd list the algorithms noqtis provides and their sizes
+.Sh SYNOPSIS
+.Nm noqtis algs
+.Sh DESCRIPTION
+.Nm noqtis algs
+prints a table with one row per signature algorithm
+.Pq type Ql sig
+and per key encapsulation mechanism
+.Pq type Ql kem :
+its name, the public key, secret key and signature or ciphertext sizes in
+bytes, and for a KEM the shared-secret size.
+The names are those
+.Xr noqtis-keygen 1
+accepts and key files carry; the sizes are those of
+.Fn nqssize
+and
+.Fn nqksize
+.Pq Xr nqsign 3 , Xr nqenc 3 .
+.Sh EXIT STATUS
+0, or 2 on a usage error.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis algs
+algorithm              type      pk      sk  sig/ct   ss
+ML-DSA-44              sig     1312    2560    2420    -
+ML-DSA-65              sig     1952    4032    3309    -
+ML-DSA-87              sig     2592    4896    4627    -
+SLH-DSA-SHA2-128s      sig       32      64    7856    -
+\&...
+ML-KEM-768             kem     1184    2400    1088   32
+\&...
+HQC-256                kem     7237    7333   14421   32
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr nqenc 3 ,
+.Xr nqsign 3

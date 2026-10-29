@@ -1,0 +1,100 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-SIGN 1
+.Os
+.Sh NAME
+.Nm noqtis-sign
+.Nd sign a file with ML-DSA or SLH-DSA
+.Sh SYNOPSIS
+.Nm noqtis sign
+.Fl k Ar key
+.Op Fl o Ar sig
+.Op Fl c Ar ctx
+.Op Fl d
+.Op Fl -ph Ar hash
+.Op Fl f | Fl -force
+.Ar file
+.Sh DESCRIPTION
+.Nm noqtis sign
+signs the bytes of
+.Ar file
+with the secret key in
+.Ar key
+and writes the raw signature (the FIPS 204 or FIPS 205 encoding, no
+header) to
+.Ar sig ,
+by default
+.Ar file Ns Pa .sig .
+It prints nothing on success.
+.Ar file
+may be
+.Ql -
+for standard input, and then
+.Fl o
+is required.
+.Pp
+Signing is hedged by default: fresh randomness from the operating system
+is mixed into each signature, so two signatures of one file differ.
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+A secret signature key file
+.Pq Ql noqtis-key-1 <alg> sec .
+A KEM key is refused.
+.It Fl o Ar sig , Fl -out Ns = Ns Ar sig
+Where to write the signature.
+.It Fl c Ar ctx , Fl -ctx Ns = Ns Ar ctx
+The FIPS 204/205 context string: the bytes of the argument, at most 255.
+The same context must be given to
+.Xr noqtis-verify 1 .
+Default: empty.
+.It Fl d , Fl -det
+Deterministic signing: the per-signature randomness is all zero (32 bytes
+for ML-DSA, n bytes for SLH-DSA), so the same key, file and options give
+the same signature.
+.It Fl -ph Ar hash
+The pre-hash variant (HashML-DSA, HashSLH-DSA): the file is hashed with
+.Ar hash
+and the digest is signed together with the hash's identifier.
+.Ar hash
+is one of
+.Cm sha224 sha256 sha384 sha512 sha512-224 sha512-256
+.Cm sha3-224 sha3-256 sha3-384 sha3-512 shake128 shake256 .
+A pre-hash signature verifies only with the same
+.Fl -ph .
+.It Fl f , Fl -force
+Replace an existing signature file.
+.El
+.Sh EXIT STATUS
+0 on success; 2 on a usage error, a context over 255 bytes, an unknown
+pre-hash, a key that is not a secret signature key, an existing
+.Ar sig
+without
+.Fl -force ,
+or a file that cannot be read or written.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis keygen -a ML-DSA-65 -o me
+ML-DSA-65 key pair: me (secret), me.pub (public)
+$ noqtis sign -k me report.pdf
+$ noqtis verify -p me.pub -s report.pdf.sig report.pdf
+report.pdf: OK (ML-DSA-65)
+.Ed
+.Pp
+With a context string, deterministically, and from standard input:
+.Bd -literal -offset indent
+$ noqtis sign -k me -c release-2026 -d -o notes.sig - < notes.txt
+$ noqtis verify -p me.pub -s notes.sig -c release-2026 notes.txt
+notes.txt: OK (ML-DSA-65)
+.Ed
+.Pp
+HashML-DSA with SHA-512:
+.Bd -literal -offset indent
+$ noqtis sign -k me --ph sha512 -o big.sig big.tar
+$ noqtis verify -p me.pub -s big.sig --ph sha512 big.tar
+big.tar: OK (ML-DSA-65)
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr noqtis-verify 1 ,
+.Xr nqsign 3

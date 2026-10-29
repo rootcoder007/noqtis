@@ -1,0 +1,172 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis</code> &#x2014;
+    <span class="Nd">post-quantum signatures, KEMs, hashes and sealed capsules
+    in C11</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<div class="Bd Pp Li">
+<pre>cc prog.c $(pkg-config --cflags --libs noqtis)
+
+find_package(noqtis CONFIG REQUIRED)        # CMake
+target_link_libraries(prog PRIVATE noqtis::noqtis)</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">noqtis is a library in ISO C11 with no run-time dependencies. It
+    provides the NIST post-quantum standards, byte-identical to their test
+    vectors, and on top of them capsules: folders whose exact files are
+    recorded, signed and checked.</p>
+<dl class="Bl-tag">
+  <dt id="nqskg"><a class="Xr" href="/noqtis/reference/man/nqsign-3/">nqsign(3)</a></dt>
+  <dd>ML-DSA (FIPS 204) and SLH-DSA (FIPS 205): key generation, signing (pure,
+      with a context, and pre-hash) and verification:
+      <a class="permalink" href="#nqskg"><code class="Fn">nqskg</code></a>(),
+      <a class="permalink" href="#nqskgd"><code class="Fn" id="nqskgd">nqskgd</code></a>(),
+      <a class="permalink" href="#nqsign"><code class="Fn" id="nqsign">nqsign</code></a>(),
+      <a class="permalink" href="#nqsignd"><code class="Fn" id="nqsignd">nqsignd</code></a>(),
+      <a class="permalink" href="#nqvrfy"><code class="Fn" id="nqvrfy">nqvrfy</code></a>(),
+      <a class="permalink" href="#nqssize"><code class="Fn" id="nqssize">nqssize</code></a>(),
+      <a class="permalink" href="#nqsname"><code class="Fn" id="nqsname">nqsname</code></a>(),
+      <a class="permalink" href="#nqsfind"><code class="Fn" id="nqsfind">nqsfind</code></a>().</dd>
+  <dt id="nqkkg"><a class="Xr" href="/noqtis/reference/man/nqenc-3/">nqenc(3)</a></dt>
+  <dd>ML-KEM (FIPS 203) and HQC:
+      <a class="permalink" href="#nqkkg"><code class="Fn">nqkkg</code></a>(),
+      <a class="permalink" href="#nqkkgd"><code class="Fn" id="nqkkgd">nqkkgd</code></a>(),
+      <a class="permalink" href="#nqenc"><code class="Fn" id="nqenc">nqenc</code></a>(),
+      <a class="permalink" href="#nqencd"><code class="Fn" id="nqencd">nqencd</code></a>(),
+      <a class="permalink" href="#nqdec"><code class="Fn" id="nqdec">nqdec</code></a>(),
+      <a class="permalink" href="#nqksize"><code class="Fn" id="nqksize">nqksize</code></a>(),
+      <a class="permalink" href="#nqkname"><code class="Fn" id="nqkname">nqkname</code></a>(),
+      <a class="permalink" href="#nqkfind"><code class="Fn" id="nqkfind">nqkfind</code></a>().</dd>
+  <dt id="nqhash"><a class="Xr" href="/noqtis/reference/man/nqhash-3/">nqhash(3)</a></dt>
+  <dd>SHA-2, SHA-3, SHAKE and HMAC:
+      <a class="permalink" href="#nqhash"><code class="Fn">nqhash</code></a>(),
+      <a class="permalink" href="#nqhini"><code class="Fn" id="nqhini">nqhini</code></a>(),
+      <a class="permalink" href="#nqhupd"><code class="Fn" id="nqhupd">nqhupd</code></a>(),
+      <a class="permalink" href="#nqhfin"><code class="Fn" id="nqhfin">nqhfin</code></a>(),
+      <a class="permalink" href="#nqhlen"><code class="Fn" id="nqhlen">nqhlen</code></a>(),
+      <a class="permalink" href="#nqhmac"><code class="Fn" id="nqhmac">nqhmac</code></a>().</dd>
+  <dt><a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a></dt>
+  <dd>Seal a folder.</dd>
+  <dt><a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a></dt>
+  <dd>Check a capsule.</dd>
+  <dt><a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a></dt>
+  <dd>Check a capsule and its RFC 3161 timestamp.</dd>
+  <dt id="nqrepn"><a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a></dt>
+  <dd>Read the check report:
+      <a class="permalink" href="#nqrepn"><code class="Fn">nqrepn</code></a>(),
+      <a class="permalink" href="#nqrepi"><code class="Fn" id="nqrepi">nqrepi</code></a>(),
+      <a class="permalink" href="#nqrepfree"><code class="Fn" id="nqrepfree">nqrepfree</code></a>().</dd>
+  <dt><a class="Xr" href="/noqtis/reference/man/nqrand-3/">nqrand(3)</a></dt>
+  <dd>The operating system's random source.</dd>
+  <dt><a class="Xr" href="/noqtis/reference/man/nqwipe-3/">nqwipe(3)</a></dt>
+  <dd>Erase secrets.</dd>
+  <dt><a class="Xr" href="/noqtis/reference/man/nqcteq-3/">nqcteq(3)</a></dt>
+  <dd>Constant-time comparison.</dd>
+  <dt><a class="Xr" href="/noqtis/reference/man/nqsetal-3/">nqsetal(3)</a></dt>
+  <dd>The allocation hook.</dd>
+  <dt id="nqver"><a class="Xr" href="/noqtis/reference/man/nqerr-3/">nqerr(3)</a></dt>
+  <dd>Error codes and texts,
+      <a class="permalink" href="#nqver"><code class="Fn">nqver</code></a>().</dd>
+</dl>
+<section class="Ss">
+<h2 class="Ss" id="Conventions"><a class="permalink" href="#Conventions">Conventions</a></h2>
+<ul class="Bl-bullet">
+  <li>Every function that can fail returns <var class="Vt">int</var>:
+      <code class="Dv">NQOK</code> (0) or a negative
+      <code class="Dv">NQE*</code> code
+      (<a class="Xr" href="/noqtis/reference/man/nqerr-3/">nqerr(3)</a>). A
+      failed verification is <code class="Er">NQEVRFY</code>, never
+      <code class="Dv">NQOK</code>.</li>
+  <li>Keys, signatures and ciphertexts are byte strings in the encodings the
+      standards define. Their sizes are fixed per algorithm and available at run
+      time from <code class="Fn">nqssize</code>() and
+      <code class="Fn">nqksize</code>().</li>
+  <li>The caller allocates every output buffer and passes its length. A function
+      never writes past that length, and returns <code class="Er">NQEBUF</code>
+      when it is too small.</li>
+  <li id="nqwipe">Secrets are wiped with
+      <a class="permalink" href="#nqwipe"><code class="Fn">nqwipe</code></a>()
+      before a function returns, on every path. Operations on secret data run in
+      constant time.</li>
+  <li id="nqrand">Randomness comes from
+      <a class="permalink" href="#nqrand"><code class="Fn">nqrand</code></a>()
+      unless a caller passes the standard's seed or randomness through a
+      &#x2018;<code class="Li">d</code>&#x2019; variant
+      (<code class="Fn">nqskgd</code>(), <code class="Fn">nqsignd</code>(),
+      <code class="Fn">nqkkgd</code>(), <code class="Fn">nqencd</code>()), which
+      exist for the test vectors.</li>
+  <li id="nqsetal">The algorithm code never allocates. The capsule layer
+      allocates through the hook of
+      <a class="permalink" href="#nqsetal"><code class="Fn">nqsetal</code></a>().</li>
+  <li>Paths are UTF-8 on every operating system.</li>
+  <li>The functions are thread safe, except <code class="Fn">nqsetal</code>(),
+      as long as threads do not share an <var class="Vt">nqhctx</var>, an
+      <var class="Vt">nqrep</var> being freed, or a capsule folder being
+    sealed.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Building"><a class="permalink" href="#Building">Building</a></h2>
+<p class="Pp">The library builds with CMake (&#x2018;<code class="Li">cmake -S.
+    -B build &amp;&amp; cmake --build build</code>&#x2019;), static by default,
+    <code class="Fl">-DNQSHARED=ON</code> for shared. A shared build exports
+    only the public functions; on Windows, programs that use the DLL define
+    <code class="Dv">NQDLL</code> (the CMake package and
+    <span class="Pa">noqtis.pc</span> do it).</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt><span class="Pa">include/noqtis.h</span></dt>
+  <dd>the public header</dd>
+  <dt><span class="Pa">lib/libnoqtis.a</span>,
+    <span class="Pa">lib/libnoqtis.so.0</span></dt>
+  <dd>the library</dd>
+  <dt><span class="Pa">lib/pkgconfig/noqtis.pc</span></dt>
+  <dd>the pkg-config file</dd>
+  <dt><span class="Pa">lib/cmake/noqtis/</span></dt>
+  <dd>the CMake package</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>#include &lt;noqtis.h&gt;
+#include &lt;stdio.h&gt;
+
+int main(void) {
+  printf(&quot;noqtis %s\n&quot;, nqver());
+  return 0;
+}</pre>
+</div>
+<p class="Pp">More in <span class="Pa">docs/examples</span> of the source tree;
+    every one is compiled and run in CI.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp">FIPS 180-4, FIPS 198-1, FIPS 202, FIPS 203, FIPS 204, FIPS 205, SP
+    800-90A (HMAC_DRBG, internal), HQC version 5.0.0, RFC 3161, RFC 8785.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<p class="Pp">noqtis has not had an external security audit.</p>
+</section>
+</div>

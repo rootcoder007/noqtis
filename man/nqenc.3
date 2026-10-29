@@ -1,0 +1,219 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQENC 3
+.Os
+.Sh NAME
+.Nm nqenc ,
+.Nm nqencd ,
+.Nm nqdec ,
+.Nm nqkkg ,
+.Nm nqkkgd ,
+.Nm nqksize ,
+.Nm nqkname ,
+.Nm nqkfind
+.Nd ML-KEM and HQC key encapsulation
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqkkg
+.Fa "nqkalg alg"
+.Fa "uint8_t *pk" "size_t pklen"
+.Fa "uint8_t *sk" "size_t sklen"
+.Fc
+.Ft int
+.Fo nqkkgd
+.Fa "nqkalg alg"
+.Fa "const uint8_t *seed" "size_t seedlen"
+.Fa "uint8_t *pk" "size_t pklen"
+.Fa "uint8_t *sk" "size_t sklen"
+.Fc
+.Ft int
+.Fo nqenc
+.Fa "nqkalg alg"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "uint8_t *ct" "size_t ctlen"
+.Fa "uint8_t *ss" "size_t sslen"
+.Fc
+.Ft int
+.Fo nqencd
+.Fa "nqkalg alg"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const uint8_t *seed" "size_t seedlen"
+.Fa "uint8_t *ct" "size_t ctlen"
+.Fa "uint8_t *ss" "size_t sslen"
+.Fc
+.Ft int
+.Fo nqdec
+.Fa "nqkalg alg"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *ct" "size_t ctlen"
+.Fa "uint8_t *ss" "size_t sslen"
+.Fc
+.Ft int
+.Fn nqksize "nqkalg alg" "nqksz *sz"
+.Ft const char *
+.Fn nqkname "nqkalg alg"
+.Ft int
+.Fn nqkfind "const char *name" "nqkalg *alg"
+.Sh DESCRIPTION
+A key encapsulation mechanism lets anyone with a public key make a
+ciphertext and a 32-byte shared secret, which only the holder of the
+secret key can recover from the ciphertext.
+noqtis provides ML-KEM (FIPS 203) and HQC (version 5.0.0 of 2025-08-22).
+.Pp
+.Vt nqkalg
+names the parameter set:
+.Bl -column "NQMLKEM1024" "ML-KEM-1024" "pk" "sk" "ciphertext" "ss" -offset indent
+.It Sy constant Ta Sy name Ta Sy pk Ta Sy sk Ta Sy ciphertext Ta Sy ss
+.It Dv NQMLKEM512 Ta ML-KEM-512 Ta 800 Ta 1632 Ta 768 Ta 32
+.It Dv NQMLKEM768 Ta ML-KEM-768 Ta 1184 Ta 2400 Ta 1088 Ta 32
+.It Dv NQMLKEM1024 Ta ML-KEM-1024 Ta 1568 Ta 3168 Ta 1568 Ta 32
+.It Dv NQHQC128 Ta HQC-128 Ta 2241 Ta 2321 Ta 4433 Ta 32
+.It Dv NQHQC192 Ta HQC-192 Ta 4514 Ta 4602 Ta 8978 Ta 32
+.It Dv NQHQC256 Ta HQC-256 Ta 7237 Ta 7333 Ta 14421 Ta 32
+.El
+.Pp
+.Fn nqksize
+stores the sizes in
+.Fa *sz ,
+an
+.Vt nqksz
+with the members
+.Va pk ,
+.Va sk ,
+.Va ct
+and
+.Va ss .
+.Fn nqkname
+returns the name, or
+.Dv NULL
+for an unknown value;
+.Fn nqkfind
+finds the algorithm whose name is exactly
+.Fa name .
+.Pp
+.Fn nqkkg
+makes a key pair from the operating system's random source.
+.Fn nqkkgd
+makes it from the standard's seed: 64 bytes (d || z) for ML-KEM, 32 bytes
+for HQC.
+.Pp
+.Fn nqenc
+encapsulates to the public key
+.Fa pk :
+it writes the ciphertext to
+.Fa ct
+and the shared secret to
+.Fa ss .
+.Fn nqencd
+takes the encapsulation randomness from
+.Fa seed
+instead, for test vectors: the 32-byte m for ML-KEM, and m || salt for
+HQC (32, 40 or 48 bytes for HQC-128, -192, -256).
+For ML-KEM the public key is checked as FIPS 203 section 7.2 requires.
+.Pp
+.Fn nqdec
+recovers the shared secret from
+.Fa ct
+with the secret key
+.Fa sk ;
+for ML-KEM the key is first checked as section 7.3 requires.
+A ciphertext of the right length that was not made for this key, or was
+changed, gives a pseudorandom secret unrelated to the sender's and
+returns
+.Dv NQOK
+(implicit rejection, as both standards require); only malformed sizes
+fail.
+Protocols must therefore confirm the secret, for example by using it in an
+authenticated cipher.
+.Pp
+Output buffers may be larger than the algorithm's sizes; only the defined
+number of bytes is written.
+Keys and ciphertexts given as input must have exactly the algorithm's
+sizes.
+.Sh RETURN VALUES
+Every function except
+.Fn nqkname
+returns
+.Dv NQOK
+(0) or a negative error code:
+.Bl -tag -width NQENOSUP
+.It Bq Er NQEARG
+.Fa alg
+is not an
+.Vt nqkalg ,
+a pointer is
+.Dv NULL ,
+or a
+.Fa seed
+does not have the standard's length.
+.It Bq Er NQEBUF
+An output buffer is smaller than the algorithm's size.
+.It Bq Er NQEDEC
+An input key or ciphertext does not have the algorithm's length, or a
+key fails the standard's input check.
+.It Bq Er NQERNG
+The operating system's random source failed
+.Po
+.Fn nqkkg ,
+.Fn nqenc ,
+and
+.Fn nqdec
+for ML-KEM, whose masked decapsulation draws fresh mask shares
+.Pc .
+.It Bq Er NQENOSUP
+.Fn nqkfind :
+no algorithm has that name.
+.El
+.Pp
+On any failure, the output buffers are zeroed.
+.Sh EXAMPLES
+The program
+.Pa docs/examples/kem.c
+of the source tree, with the sizes taken at run time:
+.Bd -literal -offset indent
+nqksz z;
+uint8_t *pk, *sk, *ct, a[32], b[32];
+int rc = nqksize(NQMLKEM768, &z), same = 0;
+if (rc != NQOK || z.ss != sizeof a)
+  return 2;
+pk = malloc(z.pk);
+sk = malloc(z.sk);
+ct = malloc(z.ct);
+if (pk == NULL || sk == NULL || ct == NULL)
+  return 2;
+rc = nqkkg(NQMLKEM768, pk, z.pk, sk, z.sk);
+if (rc == NQOK)
+  rc = nqenc(NQMLKEM768, pk, z.pk, ct, z.ct, a, sizeof a);
+if (rc == NQOK)
+  rc = nqdec(NQMLKEM768, sk, z.sk, ct, z.ct, b, sizeof b);
+if (rc == NQOK)
+  same = nqcteq(a, b, sizeof a);
+nqwipe(sk, z.sk);
+nqwipe(a, sizeof a);
+nqwipe(b, sizeof b);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-dec 1 ,
+.Xr noqtis-enc 1 ,
+.Xr noqtis 3 ,
+.Xr nqcteq 3 ,
+.Xr nqwipe 3
+.Sh STANDARDS
+.Rs
+.%T FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard
+.%Q NIST
+.%D August 2024
+.Re
+.Rs
+.%T Hamming Quasi-Cyclic (HQC), version 5.0.0
+.%D August 2025
+.Re
+.Sh SECURITY CONSIDERATIONS
+Key generation, encapsulation and decapsulation run in constant time with
+respect to the seeds, the randomness, the secret key and the shared
+secret; ML-KEM decapsulation is also first-order masked.
+In HQC, a secret-derived bit becomes public in the three places its
+specification allows, and nowhere else.

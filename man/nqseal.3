@@ -1,0 +1,152 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQSEAL 3
+.Os
+.Sh NAME
+.Nm nqseal
+.Nd seal a folder of files into a signed capsule
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqseal
+.Fa "const char *dir"
+.Fa "nqsalg alg"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const char *meta"
+.Fa "const char *tsa"
+.Fc
+.Sh DESCRIPTION
+.Fn nqseal
+writes the manifest
+.Pa noqtis.json
+and the seal
+.Pa noqtis.sig
+into the folder
+.Fa dir
+(a UTF-8 path on every operating system), making it a capsule as
+.Xr noqtis-capsule 5
+defines.
+.Pp
+It lists every entry under
+.Fa dir
+without following links, leaving out
+.Pa noqtis.json
+and
+.Pa noqtis.sig
+at the top; records each regular file's path, size, SHA-256 and SHA3-256
+in canonical JSON (RFC 8785), sorted by path; adds
+.Fa meta ;
+signs the exact manifest bytes with
+.Fa alg
+and the secret key
+.Fa sk
+under the context string
+.Ql noqtis-capsule-1
+(pure ML-DSA or SLH-DSA, hedged); verifies the new signature with
+.Fa pk ;
+and only then writes both files, replacing earlier ones.
+.Pp
+.Fa sklen
+and
+.Fa pklen
+must be exactly the algorithm's key sizes
+.Pq Xr nqsign 3 ,
+and the keys one pair: a seal that would not verify is never written.
+.Pp
+.Fa meta
+is
+.Dv NULL
+or a NUL-terminated JSON object of at most 1 MiB, stored in canonical form
+as the manifest's
+.Ql meta
+member and covered by the signature; noqtis does not interpret it.
+.Pp
+The creation time is the environment variable
+.Ev SOURCE_DATE_EPOCH
+(decimal seconds since the epoch) when it is set and not empty, otherwise
+the clock, as an RFC 3339 UTC time to the second.
+.Pp
+.Fa tsa
+must be
+.Dv NULL .
+The library makes no network requests, so it cannot obtain an RFC 3161
+timestamp; any other value returns
+.Er NQENOSUP .
+.Pp
+The capsule and parser layers allocate through the hook of
+.Xr nqsetal 3 .
+.Fn nqseal
+is not safe to call on the same folder from two threads or processes at
+once.
+.Sh RETURN VALUES
+.Dv NQOK
+(0) when both files were written, or a negative error code; nothing is
+written on any error:
+.Bl -tag -width NQENOSUP
+.It Bq Er NQEARG
+.Fa dir ,
+.Fa sk
+or
+.Fa pk
+is
+.Dv NULL ;
+.Fa alg
+is unknown; a key length is not the algorithm's; the keys are not a pair;
+.Ev SOURCE_DATE_EPOCH
+is not a plain decimal number (or after the year 9999); or the folder
+holds a symbolic link, a reparse point, a special file, a refused name
+(empty, a control character,
+.Ql / ,
+.Ql \e ,
+.Ql \&: ,
+invalid UTF-8) or two paths equal but for ASCII case.
+.It Bq Er NQELIM
+More than 2,000,000 files, a path over 4096 bytes, folders more than 64
+levels deep, a manifest over 512 MiB, a file over 2^53\-1 bytes, or
+.Fa meta
+over 1 MiB or nested more than 64 levels deep.
+.It Bq Er NQEDEC
+.Fa meta
+is not a JSON object (strict JSON: no duplicate keys, valid UTF-8).
+.It Bq Er NQEIO
+The folder or a file could not be read, or a file could not be written.
+.It Bq Er NQEMEM
+The allocation hook returned
+.Dv NULL .
+.It Bq Er NQENOSUP
+.Fa tsa
+is not
+.Dv NULL .
+.It Bq Er NQERNG
+The random source failed while signing.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev SOURCE_DATE_EPOCH
+The creation time, for reproducible capsules.
+.El
+.Sh EXAMPLES
+Seal a folder with a fresh ML-DSA-65 key, then check it with that key
+pinned (the program
+.Pa docs/examples/seal.c
+of the source tree):
+.Bd -literal -offset indent
+static uint8_t pk[1952], sk[4032];
+nqrep *rep = NULL;
+int rc = nqskg(NQMLDSA65, pk, sizeof pk, sk, sizeof sk);
+if (rc == NQOK)
+  rc = nqseal(argv[1], NQMLDSA65, sk, sizeof sk, pk, sizeof pk,
+              "{\e"tool\e":\e"example\e"}", NULL);
+nqwipe(sk, sizeof sk);
+if (rc == NQOK)
+  rc = nqchk(argv[1], pk, sizeof pk, &rep);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-seal 1 ,
+.Xr noqtis 3 ,
+.Xr nqchk 3 ,
+.Xr nqsign 3 ,
+.Xr noqtis-capsule 5

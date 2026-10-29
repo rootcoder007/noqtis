@@ -1,0 +1,91 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQSETAL 3
+.Os
+.Sh NAME
+.Nm nqsetal
+.Nd set the allocator of the capsule and parser layers
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Vt typedef void *(*nqmalfn)(size_t size, void *user);
+.Vt typedef void (*nqfreefn)(void *ptr, size_t size, void *user);
+.Ft int
+.Fn nqsetal "nqmalfn mal" "nqfreefn fre" "void *user"
+.Sh DESCRIPTION
+The algorithm code of noqtis never allocates; the capsule layer
+.Pq Xr nqseal 3 , Xr nqchk 3
+and its parsers do, through one hook.
+.Fn nqsetal
+replaces it:
+.Fa mal
+is called with the size wanted and
+.Fa user ,
+and returns the memory or
+.Dv NULL ;
+.Fa fre
+is called with a pointer
+.Fa mal
+returned, the size that was asked for, and
+.Fa user .
+The library wipes memory before it gives it to
+.Fa fre ,
+so a hook need not.
+The size makes pool and arena allocators and allocation accounting easy.
+.Pp
+.Fa mal
+and
+.Fa fre
+both
+.Dv NULL
+restore the default,
+.Xr malloc 3
+and
+.Xr free 3 .
+.Pp
+The hook is global and
+.Fn nqsetal
+is not thread safe: call it before any other function of the library, and
+never while another thread uses the library.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or
+.Er NQEARG
+when exactly one of
+.Fa mal
+and
+.Fa fre
+is
+.Dv NULL
+(the hook is then unchanged).
+A hook that returns
+.Dv NULL
+makes the calling function return
+.Er NQEMEM .
+.Sh EXAMPLES
+Count the bytes in use:
+.Bd -literal -offset indent
+static size_t used;
+
+static void *mal(size_t n, void *u) {
+  void *p = malloc(n);
+  (void)u;
+  if (p != NULL)
+    used += n;
+  return p;
+}
+
+static void fre(void *p, size_t n, void *u) {
+  (void)u;
+  used -= n;
+  free(p);
+}
+
+/* at start-up */
+nqsetal(mal, fre, NULL);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 3 ,
+.Xr nqchk 3 ,
+.Xr nqseal 3

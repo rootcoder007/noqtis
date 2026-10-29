@@ -1,0 +1,180 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-CHECK 1
+.Os
+.Sh NAME
+.Nm noqtis-check
+.Nd check a sealed capsule folder against its seal
+.Sh SYNOPSIS
+.Nm noqtis check
+.Op Fl p Ar key.pub
+.Op Fl j | Fl -json
+.Ar dir
+.Sh DESCRIPTION
+.Nm noqtis check
+checks the capsule
+.Ar dir
+.Pq Xr noqtis-capsule 5 :
+it reads and checks the seal
+.Pa noqtis.sig ,
+checks that the SHA-256 of
+.Pa noqtis.json
+is the one in the seal, verifies the signature over the exact bytes of
+.Pa noqtis.json ,
+then lists the folder and checks every listed file (present, a regular
+file, the size, the SHA-256 and the SHA3-256) and that no file is present
+that the manifest does not list.
+.Pp
+It prints one row per check: a status
+.Pq Ql ok No or Ql FAIL ,
+the check's name and a detail, then a summary line
+.Dl <dir>: OK (<n> checks passed)
+or
+.Dl <dir>: FAILED (<k> of <n> checks failed)
+.Pp
+Without
+.Fl p ,
+the public key inside the seal is accepted: the check then shows that the
+files are those the key holder sealed, not who the key holder is.
+The
+.Ql key
+row says so, and a note on standard error says to pass
+.Fl p .
+With
+.Fl p ,
+the seal's key must be exactly the given key.
+.Pp
+A seal that carries a timestamp fails its
+.Ql timestamp
+row here, because this command takes no TSA trust anchors to check it
+with; a timestamp that cannot be checked is never passed silently.
+Programs that need timestamps call
+.Xr nqchkt 3 .
+.Bl -tag -width Ds
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+The public signature key the capsule must be sealed with.
+.It Fl j , Fl -json
+Print one line of JSON instead of the table:
+.Bd -literal
+{"capsule":"<dir>","ok":<bool>,"result":"<nqerr text>",
+ "checks":[{"check":"<name>","ok":<bool>,"detail":"<text>"},...]}
+.Ed
+.El
+.Ss Checks
+The row names are stable, for scripts:
+.Bl -tag -width "manifest.canonical"
+.It Cm seal.read
+.Pa noqtis.sig
+exists, is a regular file (not a link) and is at most 1 MiB.
+.It Cm seal.parse , seal.canonical
+It is a JSON object in canonical form (RFC 8785).
+.It Cm seal.fields
+It has exactly the fields of
+.Ql noqtis-seal-1 ,
+with the right types;
+.Ql manifest_sha256
+is 64 lower-case hex digits.
+.It Cm seal.format
+.Ql format
+is
+.Ql noqtis-seal-1 .
+.It Cm seal.alg
+.Ql alg
+names a signature algorithm noqtis knows.
+.It Cm seal.context
+.Ql context
+is at most 255 bytes.
+.It Cm seal.key , seal.signature
+.Ql public_key
+and
+.Ql signature
+are base64 of the algorithm's sizes.
+.It Cm manifest.read
+.Pa noqtis.json
+exists, is a regular file and is at most 512 MiB.
+.It Cm manifest.digest
+Its SHA-256 is the seal's
+.Ql manifest_sha256 .
+.It Cm key
+Whether the key was pinned with
+.Fl p .
+.It Cm signature
+The signature verifies over the exact bytes of
+.Pa noqtis.json .
+.It Cm timestamp
+Present only when the seal has a timestamp (or anchors were given).
+.It Cm folder
+The folder could be listed within the limits.
+.It Cm file
+One row per listed file.
+.It Cm manifest.parse , manifest.canonical , manifest.fields
+The manifest is canonical JSON with exactly the fields of
+.Ql noqtis-capsule-1 .
+.It Cm manifest.format , manifest.created , manifest.order
+.Ql format
+is
+.Ql noqtis-capsule-1 ,
+.Ql created
+is an RFC 3339 UTC time, and the files are sorted by path with no repeats.
+.It Cm path
+One row per refused, non-normal, duplicate or too long path, and per two
+paths that differ only in case.
+.It Cm extra
+One row per regular file present but not listed.
+.It Cm unsafe
+One row per link, reparse point, special file or refused name in the
+folder.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width 3n -compact
+.It 0
+Every check passed.
+.It 1
+A check failed (the files changed, the seal or manifest is damaged or not
+signed by
+.Ar key.pub ) .
+.It 2
+A usage error,
+.Ar dir
+does not exist, a key that is not a public signature key, or a library
+error such as running out of memory.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis check -p me.pub results
+      check               detail
+ok    seal.read           noqtis.sig
+\&...
+ok    signature           ML-DSA-65 signature over noqtis.json is valid
+ok    folder              listed
+ok    file                data/in.csv
+ok    file                report.txt
+\&...
+ok    manifest.order      files sorted by path, no repeats
+results: OK (22 checks passed)
+.Ed
+.Pp
+After a file was changed and one added:
+.Bd -literal -offset indent
+$ noqtis check -p me.pub results; echo $?
+\&...
+FAIL  file                report.txt: size differs
+\&...
+FAIL  extra               new.txt: not in the manifest
+results: FAILED (2 of 23 checks failed)
+1
+.Ed
+.Pp
+In CI, keeping only the failed rows:
+.Bd -literal -offset indent
+$ noqtis check --json -p me.pub results |
+    jq -r '.checks[] | select(.ok | not) | .detail'
+report.txt: size differs
+new.txt: not in the manifest
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqchk 3 ,
+.Xr nqchkt 3 ,
+.Xr noqtis-capsule 5

@@ -1,0 +1,189 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis-check</code> &#x2014;
+    <span class="Nd">check a sealed capsule folder against its seal</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis check</code></td>
+    <td>[<code class="Fl">-p</code> <var class="Ar">key.pub</var>]
+      [<code class="Fl">-j</code> | <code class="Fl">--json</code>]
+      <var class="Ar">dir</var></td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Nm">noqtis check</code> checks the capsule
+    <var class="Ar">dir</var>
+    (<a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>):
+    it reads and checks the seal <span class="Pa">noqtis.sig</span>, checks that
+    the SHA-256 of <span class="Pa">noqtis.json</span> is the one in the seal,
+    verifies the signature over the exact bytes of
+    <span class="Pa">noqtis.json</span>, then lists the folder and checks every
+    listed file (present, a regular file, the size, the SHA-256 and the
+    SHA3-256) and that no file is present that the manifest does not list.</p>
+<p class="Pp">It prints one row per check: a status (&#x2018;<code class="Li">ok
+    <span class="No">or</span>
+    &#x2018;<code class="Li">FAIL</code>&#x2019;</code>&#x2019;), the check's
+    name and a detail, then a summary line</p>
+<div class="Bd Bd-indent"><code class="Li">&lt;dir&gt;: OK (&lt;n&gt; checks
+  passed)</code></div>
+or
+<div class="Bd Bd-indent"><code class="Li">&lt;dir&gt;: FAILED (&lt;k&gt; of
+  &lt;n&gt; checks failed)</code></div>
+<p class="Pp">Without <code class="Fl">-p</code>, the public key inside the seal
+    is accepted: the check then shows that the files are those the key holder
+    sealed, not who the key holder is. The
+    &#x2018;<code class="Li">key</code>&#x2019; row says so, and a note on
+    standard error says to pass <code class="Fl">-p</code>. With
+    <code class="Fl">-p</code>, the seal's key must be exactly the given
+  key.</p>
+<p class="Pp">A seal that carries a timestamp fails its
+    &#x2018;<code class="Li">timestamp</code>&#x2019; row here, because this
+    command takes no TSA trust anchors to check it with; a timestamp that cannot
+    be checked is never passed silently. Programs that need timestamps call
+    <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>.</p>
+<dl class="Bl-tag">
+  <dt id="p"><a class="permalink" href="#p"><code class="Fl">-p</code></a>
+    <var class="Ar">key.pub</var>,
+    <code class="Fl">--pub</code>=<var class="Ar">key.pub</var></dt>
+  <dd>The public signature key the capsule must be sealed with.</dd>
+  <dt id="j"><a class="permalink" href="#j"><code class="Fl">-j</code></a>,
+    <code class="Fl">--json</code></dt>
+  <dd>Print one line of JSON instead of the table:
+    <div class="Bd Pp Li">
+    <pre>{&quot;capsule&quot;:&quot;&lt;dir&gt;&quot;,&quot;ok&quot;:&lt;bool&gt;,&quot;result&quot;:&quot;&lt;nqerr text&gt;&quot;,
+ &quot;checks&quot;:[{&quot;check&quot;:&quot;&lt;name&gt;&quot;,&quot;ok&quot;:&lt;bool&gt;,&quot;detail&quot;:&quot;&lt;text&gt;&quot;},...]}</pre>
+    </div>
+  </dd>
+</dl>
+<section class="Ss">
+<h2 class="Ss" id="Checks"><a class="permalink" href="#Checks">Checks</a></h2>
+<p class="Pp">The row names are stable, for scripts:</p>
+<dl class="Bl-tag">
+  <dt id="seal.read"><a class="permalink" href="#seal.read"><code class="Cm">seal.read</code></a></dt>
+  <dd><span class="Pa">noqtis.sig</span> exists, is a regular file (not a link)
+      and is at most 1 MiB.</dd>
+  <dt id="seal.parse"><a class="permalink" href="#seal.parse"><code class="Cm">seal.parse</code></a>,
+    <code class="Cm">seal.canonical</code></dt>
+  <dd>It is a JSON object in canonical form (RFC 8785).</dd>
+  <dt id="seal.fields"><a class="permalink" href="#seal.fields"><code class="Cm">seal.fields</code></a></dt>
+  <dd>It has exactly the fields of
+      &#x2018;<code class="Li">noqtis-seal-1</code>&#x2019;, with the right
+      types; &#x2018;<code class="Li">manifest_sha256</code>&#x2019; is 64
+      lower-case hex digits.</dd>
+  <dt id="seal.format"><a class="permalink" href="#seal.format"><code class="Cm">seal.format</code></a></dt>
+  <dd>&#x2018;<code class="Li">format</code>&#x2019; is
+      &#x2018;<code class="Li">noqtis-seal-1</code>&#x2019;.</dd>
+  <dt id="seal.alg"><a class="permalink" href="#seal.alg"><code class="Cm">seal.alg</code></a></dt>
+  <dd>&#x2018;<code class="Li">alg</code>&#x2019; names a signature algorithm
+      noqtis knows.</dd>
+  <dt id="seal.context"><a class="permalink" href="#seal.context"><code class="Cm">seal.context</code></a></dt>
+  <dd>&#x2018;<code class="Li">context</code>&#x2019; is at most 255 bytes.</dd>
+  <dt id="seal.key"><a class="permalink" href="#seal.key"><code class="Cm">seal.key</code></a>,
+    <code class="Cm">seal.signature</code></dt>
+  <dd>&#x2018;<code class="Li">public_key</code>&#x2019; and
+      &#x2018;<code class="Li">signature</code>&#x2019; are base64 of the
+      algorithm's sizes.</dd>
+  <dt id="manifest.read"><a class="permalink" href="#manifest.read"><code class="Cm">manifest.read</code></a></dt>
+  <dd><span class="Pa">noqtis.json</span> exists, is a regular file and is at
+      most 512 MiB.</dd>
+  <dt id="manifest.digest"><a class="permalink" href="#manifest.digest"><code class="Cm">manifest.digest</code></a></dt>
+  <dd>Its SHA-256 is the seal's
+      &#x2018;<code class="Li">manifest_sha256</code>&#x2019;.</dd>
+  <dt id="key"><a class="permalink" href="#key"><code class="Cm">key</code></a></dt>
+  <dd>Whether the key was pinned with <code class="Fl">-p</code>.</dd>
+  <dt id="signature"><a class="permalink" href="#signature"><code class="Cm">signature</code></a></dt>
+  <dd>The signature verifies over the exact bytes of
+      <span class="Pa">noqtis.json</span>.</dd>
+  <dt id="timestamp"><a class="permalink" href="#timestamp"><code class="Cm">timestamp</code></a></dt>
+  <dd>Present only when the seal has a timestamp (or anchors were given).</dd>
+  <dt id="folder"><a class="permalink" href="#folder"><code class="Cm">folder</code></a></dt>
+  <dd>The folder could be listed within the limits.</dd>
+  <dt id="file"><a class="permalink" href="#file"><code class="Cm">file</code></a></dt>
+  <dd>One row per listed file.</dd>
+  <dt id="manifest.parse"><a class="permalink" href="#manifest.parse"><code class="Cm">manifest.parse</code></a>,
+    <code class="Cm">manifest.canonical</code>,
+    <code class="Cm">manifest.fields</code></dt>
+  <dd>The manifest is canonical JSON with exactly the fields of
+      &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;.</dd>
+  <dt id="manifest.format"><a class="permalink" href="#manifest.format"><code class="Cm">manifest.format</code></a>,
+    <code class="Cm">manifest.created</code>,
+    <code class="Cm">manifest.order</code></dt>
+  <dd>&#x2018;<code class="Li">format</code>&#x2019; is
+      &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;,
+      &#x2018;<code class="Li">created</code>&#x2019; is an RFC 3339 UTC time,
+      and the files are sorted by path with no repeats.</dd>
+  <dt id="path"><a class="permalink" href="#path"><code class="Cm">path</code></a></dt>
+  <dd>One row per refused, non-normal, duplicate or too long path, and per two
+      paths that differ only in case.</dd>
+  <dt id="extra"><a class="permalink" href="#extra"><code class="Cm">extra</code></a></dt>
+  <dd>One row per regular file present but not listed.</dd>
+  <dt id="unsafe"><a class="permalink" href="#unsafe"><code class="Cm">unsafe</code></a></dt>
+  <dd>One row per link, reparse point, special file or refused name in the
+      folder.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt>0</dt>
+  <dd>Every check passed.</dd>
+  <dt>1</dt>
+  <dd>A check failed (the files changed, the seal or manifest is damaged or not
+      signed by <var class="Ar">key.pub</var>).</dd>
+  <dt>2</dt>
+  <dd>A usage error, <var class="Ar">dir</var> does not exist, a key that is not
+      a public signature key, or a library error such as running out of
+    memory.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>$ noqtis check -p me.pub results
+      check               detail
+ok    seal.read           noqtis.sig
+...
+ok    signature           ML-DSA-65 signature over noqtis.json is valid
+ok    folder              listed
+ok    file                data/in.csv
+ok    file                report.txt
+...
+ok    manifest.order      files sorted by path, no repeats
+results: OK (22 checks passed)</pre>
+</div>
+<p class="Pp">After a file was changed and one added:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>$ noqtis check -p me.pub results; echo $?
+...
+FAIL  file                report.txt: size differs
+...
+FAIL  extra               new.txt: not in the manifest
+results: FAILED (2 of 23 checks failed)
+1</pre>
+</div>
+<p class="Pp">In CI, keeping only the failed rows:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>$ noqtis check --json -p me.pub results |
+    jq -r '.checks[] | select(.ok | not) | .detail'
+report.txt: size differs
+new.txt: not in the manifest</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+</div>

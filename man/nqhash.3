@@ -1,0 +1,181 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQHASH 3
+.Os
+.Sh NAME
+.Nm nqhash ,
+.Nm nqhini ,
+.Nm nqhupd ,
+.Nm nqhfin ,
+.Nm nqhlen ,
+.Nm nqhmac
+.Nd SHA-2, SHA-3, SHAKE and HMAC
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft size_t
+.Fn nqhlen "nqhalg alg"
+.Ft int
+.Fo nqhash
+.Fa "nqhalg alg"
+.Fa "const uint8_t *in" "size_t inlen"
+.Fa "uint8_t *out" "size_t outlen"
+.Fc
+.Ft int
+.Fn nqhini "nqhctx *ctx" "nqhalg alg"
+.Ft int
+.Fn nqhupd "nqhctx *ctx" "const uint8_t *in" "size_t inlen"
+.Ft int
+.Fn nqhfin "nqhctx *ctx" "uint8_t *out" "size_t outlen"
+.Ft int
+.Fo nqhmac
+.Fa "nqhalg alg"
+.Fa "const uint8_t *key" "size_t keylen"
+.Fa "const uint8_t *in" "size_t inlen"
+.Fa "uint8_t *out" "size_t outlen"
+.Fc
+.Sh DESCRIPTION
+.Vt nqhalg
+names a hash of FIPS 180-4 or FIPS 202:
+.Bl -column "NQS512T224" "SHA-512/224" "bytes" -offset indent
+.It Sy constant Ta Sy hash Ta Sy bytes
+.It Dv NQS224 Ta SHA-224 Ta 28
+.It Dv NQS256 Ta SHA-256 Ta 32
+.It Dv NQS384 Ta SHA-384 Ta 48
+.It Dv NQS512 Ta SHA-512 Ta 64
+.It Dv NQS512T224 Ta SHA-512/224 Ta 28
+.It Dv NQS512T256 Ta SHA-512/256 Ta 32
+.It Dv NQS3224 Ta SHA3-224 Ta 28
+.It Dv NQS3256 Ta SHA3-256 Ta 32
+.It Dv NQS3384 Ta SHA3-384 Ta 48
+.It Dv NQS3512 Ta SHA3-512 Ta 64
+.It Dv NQSHK128 Ta SHAKE128 Ta any (32)
+.It Dv NQSHK256 Ta SHAKE256 Ta any (64)
+.El
+.Pp
+.Fn nqhlen
+returns the digest size in bytes; for SHAKE, the output length the
+pre-hash signatures use (32 for SHAKE128, 64 for SHAKE256).
+It returns 0 for a value that is not an
+.Vt nqhalg .
+.Pp
+.Fn nqhash
+hashes the
+.Fa inlen
+bytes at
+.Fa in
+into
+.Fa out .
+For the fixed-length hashes
+.Fa outlen
+must be exactly
+.Fn nqhlen alg ;
+for SHAKE it may be any length, including 0.
+.Pp
+.Fn nqhini ,
+.Fn nqhupd
+and
+.Fn nqhfin
+hash a message given in pieces.
+.Vt nqhctx
+is opaque but sized in the header, so it can live on the stack; it needs
+no cleanup function.
+.Fn nqhini
+starts
+.Fa ctx
+for
+.Fa alg ;
+.Fn nqhupd
+absorbs more input and may be called any number of times;
+.Fn nqhfin
+writes the digest (the same length rule as
+.Fn nqhash ) .
+For a fixed-length hash,
+.Fn nqhfin
+ends the context, which must be started again with
+.Fn nqhini
+before reuse.
+For SHAKE,
+.Fn nqhfin
+may be called again to squeeze more output; after the first
+.Fn nqhfin ,
+.Fn nqhupd
+fails.
+.Pp
+.Fn nqhmac
+computes HMAC (FIPS 198-1, RFC 2104) with any of the ten fixed-length
+hashes, writing the first
+.Fa outlen
+bytes of the tag (1 to
+.Fn nqhlen alg )
+to
+.Fa out .
+Compare tags with
+.Xr nqcteq 3 ,
+never
+.Xr memcmp 3 .
+.Sh RETURN VALUES
+.Fn nqhlen
+returns a size.
+The other functions return
+.Dv NQOK
+(0) or a negative error code:
+.Bl -tag -width NQESTATE
+.It Bq Er NQEARG
+.Fa alg
+is not an
+.Vt nqhalg ;
+.Fa ctx
+is
+.Dv NULL ;
+a pointer is
+.Dv NULL
+with a nonzero length;
+.Fa outlen
+is larger than a fixed-length digest; or, for
+.Fn nqhmac ,
+.Fa out
+is
+.Dv NULL
+or
+.Fa outlen
+is 0 or over the digest size.
+.It Bq Er NQEBUF
+.Fa outlen
+is smaller than a fixed-length digest.
+.It Bq Er NQESTATE
+.Fn nqhupd
+or
+.Fn nqhfin
+on a context that was not started, or was finished.
+.It Bq Er NQENOSUP
+.Fn nqhmac
+with SHAKE128 or SHAKE256.
+.El
+.Sh EXAMPLES
+Adapted from
+.Pa docs/examples/hash.c
+of the source tree:
+.Bd -literal -offset indent
+const uint8_t abc[] = "abc";
+uint8_t d[32], x[64];
+nqhctx c;
+int rc = nqhash(NQS256, abc, 3, d, sizeof d);
+/* SHAKE256: 32 bytes, then 32 more from the same context */
+if (rc == NQOK)
+  rc = nqhini(&c, NQSHK256);
+if (rc == NQOK)
+  rc = nqhupd(&c, abc, 3);
+if (rc == NQOK)
+  rc = nqhfin(&c, x, 32);
+if (rc == NQOK)
+  rc = nqhfin(&c, x + 32, 32);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-hash 1 ,
+.Xr noqtis 3 ,
+.Xr nqcteq 3 ,
+.Xr nqsign 3
+.Sh STANDARDS
+FIPS 180-4 (SHA-2), FIPS 202 (SHA-3, SHAKE), FIPS 198-1 (HMAC).

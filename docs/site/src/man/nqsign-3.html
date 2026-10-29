@@ -1,0 +1,371 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqsign</code>, <code class="Nm">nqsignd</code>,
+    <code class="Nm">nqvrfy</code>, <code class="Nm">nqskg</code>,
+    <code class="Nm">nqskgd</code>, <code class="Nm">nqssize</code>,
+    <code class="Nm">nqsname</code>, <code class="Nm">nqsfind</code> &#x2014;
+    <span class="Nd">ML-DSA and SLH-DSA signatures</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqskg</code>(<var class="Fa">nqsalg alg</var>,
+    <var class="Fa">uint8_t *pk</var>, <var class="Fa">size_t pklen</var>,
+    <var class="Fa">uint8_t *sk</var>, <var class="Fa">size_t sklen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqskgd</code>(<var class="Fa">nqsalg alg</var>,
+    <var class="Fa">const uint8_t *seed</var>, <var class="Fa">size_t
+    seedlen</var>, <var class="Fa">uint8_t *pk</var>, <var class="Fa">size_t
+    pklen</var>, <var class="Fa">uint8_t *sk</var>, <var class="Fa">size_t
+    sklen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqsign</code>(<var class="Fa">nqsalg alg</var>,
+    <var class="Fa">const uint8_t *sk</var>, <var class="Fa">size_t sklen</var>,
+    <var class="Fa">const uint8_t *msg</var>, <var class="Fa">size_t
+    msglen</var>, <var class="Fa">const uint8_t *ctx</var>,
+    <var class="Fa">size_t ctxlen</var>, <var class="Fa">int ph</var>,
+    <var class="Fa">uint8_t *sig</var>, <var class="Fa">size_t siglen</var>,
+    <var class="Fa">size_t *outlen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqsignd</code>(<var class="Fa">nqsalg alg</var>,
+    <var class="Fa">const uint8_t *sk</var>, <var class="Fa">size_t sklen</var>,
+    <var class="Fa">const uint8_t *msg</var>, <var class="Fa">size_t
+    msglen</var>, <var class="Fa">const uint8_t *ctx</var>,
+    <var class="Fa">size_t ctxlen</var>, <var class="Fa">int ph</var>,
+    <var class="Fa">const uint8_t *rnd</var>, <var class="Fa">size_t
+    rndlen</var>, <var class="Fa">uint8_t *sig</var>, <var class="Fa">size_t
+    siglen</var>, <var class="Fa">size_t *outlen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqvrfy</code>(<var class="Fa">nqsalg alg</var>,
+    <var class="Fa">const uint8_t *pk</var>, <var class="Fa">size_t pklen</var>,
+    <var class="Fa">const uint8_t *msg</var>, <var class="Fa">size_t
+    msglen</var>, <var class="Fa">const uint8_t *ctx</var>,
+    <var class="Fa">size_t ctxlen</var>, <var class="Fa">int ph</var>,
+    <var class="Fa">const uint8_t *sig</var>, <var class="Fa">size_t
+    siglen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqssize</code>(<var class="Fa" style="white-space: nowrap;">nqsalg
+    alg</var>, <var class="Fa" style="white-space: nowrap;">nqssz
+  *sz</var>);</p>
+<p class="Pp"><var class="Ft">const char *</var>
+  <br/>
+  <code class="Fn">nqsname</code>(<var class="Fa" style="white-space: nowrap;">nqsalg
+    alg</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqsfind</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *name</var>, <var class="Fa" style="white-space: nowrap;">nqsalg
+    *alg</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">These functions make keys, sign and verify with the module-lattice
+    signature ML-DSA (FIPS 204) and the stateless hash-based signature SLH-DSA
+    (FIPS 205). Keys and signatures are byte strings in the encodings the
+    standards define.</p>
+<section class="Ss">
+<h2 class="Ss" id="Algorithms"><a class="permalink" href="#Algorithms">Algorithms</a></h2>
+<p class="Pp"><var class="Vt">nqsalg</var> names the parameter set:</p>
+<table class="Bl-column Bd-indent">
+  <tr id="constant">
+    <td><a class="permalink" href="#constant"><b class="Sy">constant</b></a></td>
+    <td><a class="permalink" href="#name"><b class="Sy" id="name">name</b></a></td>
+    <td><a class="permalink" href="#pk"><b class="Sy" id="pk">pk</b></a></td>
+    <td><a class="permalink" href="#sk"><b class="Sy" id="sk">sk</b></a></td>
+    <td><a class="permalink" href="#signature"><b class="Sy" id="signature">signature</b></a></td>
+  </tr>
+  <tr id="NQMLDSA44">
+    <td><a class="permalink" href="#NQMLDSA44"><code class="Dv">NQMLDSA44</code></a></td>
+    <td>ML-DSA-44</td>
+    <td>1312</td>
+    <td>2560</td>
+    <td>2420</td>
+  </tr>
+  <tr id="NQMLDSA65">
+    <td><a class="permalink" href="#NQMLDSA65"><code class="Dv">NQMLDSA65</code></a></td>
+    <td>ML-DSA-65</td>
+    <td>1952</td>
+    <td>4032</td>
+    <td>3309</td>
+  </tr>
+  <tr id="NQMLDSA87">
+    <td><a class="permalink" href="#NQMLDSA87"><code class="Dv">NQMLDSA87</code></a></td>
+    <td>ML-DSA-87</td>
+    <td>2592</td>
+    <td>4896</td>
+    <td>4627</td>
+  </tr>
+  <tr id="NQSLH128S">
+    <td><a class="permalink" href="#NQSLH128S"><code class="Dv">NQSLH128S</code></a></td>
+    <td>SLH-DSA-SHA2-128s</td>
+    <td>32</td>
+    <td>64</td>
+    <td>7856</td>
+  </tr>
+  <tr id="NQSLH128F">
+    <td><a class="permalink" href="#NQSLH128F"><code class="Dv">NQSLH128F</code></a></td>
+    <td>SLH-DSA-SHA2-128f</td>
+    <td>32</td>
+    <td>64</td>
+    <td>17088</td>
+  </tr>
+  <tr id="NQSLH192S">
+    <td><a class="permalink" href="#NQSLH192S"><code class="Dv">NQSLH192S</code></a></td>
+    <td>SLH-DSA-SHA2-192s</td>
+    <td>48</td>
+    <td>96</td>
+    <td>16224</td>
+  </tr>
+  <tr id="NQSLH192F">
+    <td><a class="permalink" href="#NQSLH192F"><code class="Dv">NQSLH192F</code></a></td>
+    <td>SLH-DSA-SHA2-192f</td>
+    <td>48</td>
+    <td>96</td>
+    <td>35664</td>
+  </tr>
+  <tr id="NQSLH256S">
+    <td><a class="permalink" href="#NQSLH256S"><code class="Dv">NQSLH256S</code></a></td>
+    <td>SLH-DSA-SHA2-256s</td>
+    <td>64</td>
+    <td>128</td>
+    <td>29792</td>
+  </tr>
+  <tr id="NQSLH256F">
+    <td><a class="permalink" href="#NQSLH256F"><code class="Dv">NQSLH256F</code></a></td>
+    <td>SLH-DSA-SHA2-256f</td>
+    <td>64</td>
+    <td>128</td>
+    <td>49856</td>
+  </tr>
+  <tr id="NQSLHK128S">
+    <td><a class="permalink" href="#NQSLHK128S"><code class="Dv">NQSLHK128S</code></a></td>
+    <td>SLH-DSA-SHAKE-128s</td>
+    <td>32</td>
+    <td>64</td>
+    <td>7856</td>
+  </tr>
+  <tr id="NQSLHK128F">
+    <td><a class="permalink" href="#NQSLHK128F"><code class="Dv">NQSLHK128F</code></a></td>
+    <td>SLH-DSA-SHAKE-128f</td>
+    <td>32</td>
+    <td>64</td>
+    <td>17088</td>
+  </tr>
+  <tr id="NQSLHK192S">
+    <td><a class="permalink" href="#NQSLHK192S"><code class="Dv">NQSLHK192S</code></a></td>
+    <td>SLH-DSA-SHAKE-192s</td>
+    <td>48</td>
+    <td>96</td>
+    <td>16224</td>
+  </tr>
+  <tr id="NQSLHK192F">
+    <td><a class="permalink" href="#NQSLHK192F"><code class="Dv">NQSLHK192F</code></a></td>
+    <td>SLH-DSA-SHAKE-192f</td>
+    <td>48</td>
+    <td>96</td>
+    <td>35664</td>
+  </tr>
+  <tr id="NQSLHK256S">
+    <td><a class="permalink" href="#NQSLHK256S"><code class="Dv">NQSLHK256S</code></a></td>
+    <td>SLH-DSA-SHAKE-256s</td>
+    <td>64</td>
+    <td>128</td>
+    <td>29792</td>
+  </tr>
+  <tr id="NQSLHK256F">
+    <td><a class="permalink" href="#NQSLHK256F"><code class="Dv">NQSLHK256F</code></a></td>
+    <td>SLH-DSA-SHAKE-256f</td>
+    <td>64</td>
+    <td>128</td>
+    <td>49856</td>
+  </tr>
+</table>
+<p class="Pp">Sizes are in bytes. The &#x2018;<code class="Li">s</code>&#x2019;
+    sets give small signatures and slow signing, the
+    &#x2018;<code class="Li">f</code>&#x2019; sets fast signing and larger
+    signatures.</p>
+<p class="Pp" id="nqssize"><a class="permalink" href="#nqssize"><code class="Fn">nqssize</code></a>()
+    stores the sizes of <var class="Fa">alg</var> in <var class="Fa">*sz</var>,
+    a <var class="Vt">nqssz</var> with the members <var class="Va">pk</var>,
+    <var class="Va">sk</var> and <var class="Va">sig</var>.
+    <a class="permalink" href="#nqsname"><code class="Fn" id="nqsname">nqsname</code></a>()
+    returns the name of <var class="Fa">alg</var> as in the table, or
+    <code class="Dv">NULL</code> for a value that is not an
+    <var class="Vt">nqsalg</var>.
+    <a class="permalink" href="#nqsfind"><code class="Fn" id="nqsfind">nqsfind</code></a>()
+    is its inverse: it stores in <var class="Fa">*alg</var> the algorithm whose
+    name is exactly <var class="Fa">name</var> (case matters).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Keys"><a class="permalink" href="#Keys">Keys</a></h2>
+<p class="Pp"><a class="permalink" href="#nqskg"><code class="Fn" id="nqskg">nqskg</code></a>()
+    makes a key pair from the operating system's random source
+    (<a class="Xr" href="/noqtis/reference/man/nqrand-3/">nqrand(3)</a>),
+    writing the public key to <var class="Fa">pk</var> and the secret key to
+    <var class="Fa">sk</var>.
+    <a class="permalink" href="#nqskgd"><code class="Fn" id="nqskgd">nqskgd</code></a>()
+    makes it from the standard's seed instead: the 32-byte xi for ML-DSA, or
+    SK.seed || SK.prf || PK.seed (3n bytes: 48, 72 or 96) for SLH-DSA. It exists
+    for test vectors and for keys that must be derived again; the seed is as
+    secret as the key.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Signing_and_verifying"><a class="permalink" href="#Signing_and_verifying">Signing
+  and verifying</a></h2>
+<p class="Pp"><code class="Fn">nqsign</code>() signs the
+    <var class="Fa">msglen</var> bytes at <var class="Fa">msg</var> with the
+    secret key <var class="Fa">sk</var> of <var class="Fa">sklen</var> bytes and
+    writes the signature to <var class="Fa">sig</var>, a buffer of
+    <var class="Fa">siglen</var> bytes; the signature's length is stored in
+    <var class="Fa">*outlen</var> when <var class="Fa">outlen</var> is not
+    <code class="Dv">NULL</code>. Signing is hedged: fresh randomness is mixed
+    in, so signatures of one message differ.</p>
+<p class="Pp"><var class="Fa">ctx</var> is the FIPS 204/205 context string,
+    <var class="Fa">ctxlen</var> bytes, at most 255;
+    <code class="Dv">NULL</code> and 0 give the empty context. A signature
+    verifies only under the context it was made with, which keeps signatures
+    made for one purpose from being accepted for another.</p>
+<p class="Pp"><var class="Fa">ph</var> selects the interface: 0 for pure ML-DSA
+    or SLH-DSA, or an <var class="Vt">nqhalg</var>
+    (<a class="Xr" href="/noqtis/reference/man/nqhash-3/">nqhash(3)</a>) for
+    HashML-DSA or HashSLH-DSA, where <var class="Fa">msg</var> is still the
+    message and is hashed by the function. Any of the twelve hashes may be used;
+    for SHAKE128 and SHAKE256 the digest is 32 and 64 bytes.</p>
+<p class="Pp" id="nqsignd"><a class="permalink" href="#nqsignd"><code class="Fn">nqsignd</code></a>()
+    is
+    <a class="permalink" href="#nqsign"><code class="Fn" id="nqsign">nqsign</code></a>()
+    with the standard's per-signature randomness <var class="Fa">rnd</var> given
+    by the caller: exactly 32 bytes for ML-DSA, n bytes (16, 24 or 32) for
+    SLH-DSA. All zero bytes give the deterministic variant of the standard.</p>
+<p class="Pp" id="nqvrfy"><a class="permalink" href="#nqvrfy"><code class="Fn">nqvrfy</code></a>()
+    checks that <var class="Fa">sig</var> of <var class="Fa">siglen</var> bytes
+    is a signature of <var class="Fa">msg</var> under the public key
+    <var class="Fa">pk</var> with the context <var class="Fa">ctx</var> and the
+    interface <var class="Fa">ph</var> used to sign.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Buffers"><a class="permalink" href="#Buffers">Buffers</a></h2>
+<p class="Pp">Output buffers may be larger than the algorithm's size; only the
+    defined number of bytes is written. Input keys and signatures must have
+    exactly the algorithm's size.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp">Every function except <code class="Fn">nqsname</code>() returns
+    <code class="Dv">NQOK</code> (0) on success or a negative error code:</p>
+<dl class="Bl-tag">
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd><var class="Fa">alg</var> is not an <var class="Vt">nqsalg</var>; a
+      pointer is <code class="Dv">NULL</code> with a nonzero length, or an
+      output pointer is <code class="Dv">NULL</code>;
+      <var class="Fa">ctxlen</var> exceeds 255; <var class="Fa">ph</var> is
+      neither 0 nor an <var class="Vt">nqhalg</var>; or, for
+      <code class="Fn">nqskgd</code>() and <code class="Fn">nqsignd</code>(),
+      <var class="Fa">seed</var> or <var class="Fa">rnd</var> is
+      <code class="Dv">NULL</code> or not the standard's length.
+      <code class="Fn">nqsfind</code>() returns it for a
+      <code class="Dv">NULL</code> argument.</dd>
+  <dt>[<code class="Er">NQEBUF</code>]</dt>
+  <dd><var class="Fa">pklen</var>, <var class="Fa">sklen</var> or
+      <var class="Fa">siglen</var> is smaller than the algorithm's size.</dd>
+  <dt>[<code class="Er">NQEDEC</code>]</dt>
+  <dd>A key or signature given as input does not have the algorithm's length or
+      encoding.</dd>
+  <dt>[<code class="Er">NQEVRFY</code>]</dt>
+  <dd><code class="Fn">nqvrfy</code>(): the signature does not verify. A
+      verification never returns <code class="Dv">NQOK</code> unless the
+      signature is valid.</dd>
+  <dt>[<code class="Er">NQERNG</code>]</dt>
+  <dd><code class="Fn">nqskg</code>() or <code class="Fn">nqsign</code>(): the
+      operating system's random source failed.</dd>
+  <dt>[<code class="Er">NQENOSUP</code>]</dt>
+  <dd><code class="Fn">nqsfind</code>(): no algorithm has that name.</dd>
+</dl>
+<p class="Pp">On any failure, <code class="Fn">nqsign</code>() and
+    <code class="Fn">nqsignd</code>() set <var class="Fa">*outlen</var> to 0,
+    and when signing itself fails they wipe the signature buffer.
+    <code class="Fn">nqsname</code>() returns <code class="Dv">NULL</code> for
+    an unknown algorithm.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Make a key pair, sign and verify (the program
+    <span class="Pa">docs/examples/sign.c</span> of the source tree):</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>#include &lt;noqtis.h&gt;
+#include &lt;stdio.h&gt;
+
+int main(void) {
+  static uint8_t pk[1952], sk[4032], sig[3309];
+  const uint8_t msg[] = &quot;results v1&quot;;
+  size_t n = 0;
+  int rc = nqskg(NQMLDSA65, pk, sizeof pk, sk, sizeof sk);
+  if (rc == NQOK)
+    rc = nqsign(NQMLDSA65, sk, sizeof sk, msg, sizeof msg - 1, NULL, 0, 0,
+                sig, sizeof sig, &amp;n);
+  nqwipe(sk, sizeof sk);
+  if (rc == NQOK)
+    rc = nqvrfy(NQMLDSA65, pk, sizeof pk, msg, sizeof msg - 1, NULL, 0, 0,
+                sig, n);
+  printf(&quot;%s\n&quot;, nqerr(rc));
+  return rc == NQOK ? 0 : 1;
+}</pre>
+</div>
+<p class="Pp">Sizes at run time, for code that takes the algorithm as a
+    parameter:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>nqsalg alg;
+nqssz sz;
+if (nqsfind(&quot;SLH-DSA-SHAKE-128s&quot;, &amp;alg) == NQOK &amp;&amp;
+    nqssize(alg, &amp;sz) == NQOK)
+  printf(&quot;%s: %zu-byte signatures\n&quot;, nqsname(alg), sz.sig);</pre>
+</div>
+<p class="Pp">Build with &#x2018;<code class="Li">cc prog.c $(pkg-config
+    --cflags --libs noqtis)</code>&#x2019;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-sign-1/">noqtis-sign(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-verify-1/">noqtis-verify(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqerr-3/">nqerr(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqhash-3/">nqhash(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqwipe-3/">nqwipe(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">FIPS 204: Module-Lattice-Based
+    Digital Signature Standard</span>, <span class="RsQ">NIST</span>,
+    <span class="RsD">August 2024</span>.</cite>
+    <cite class="Rs"><span class="RsT">FIPS 205: Stateless Hash-Based Digital
+    Signature Standard</span>, <span class="RsQ">NIST</span>,
+    <span class="RsD">August 2024</span>.</cite></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY_CONSIDERATIONS"><a class="permalink" href="#SECURITY_CONSIDERATIONS">SECURITY
+  CONSIDERATIONS</a></h1>
+<p class="Pp">Key generation and signing run in constant time with respect to
+    the secret key, seed and randomness; ML-DSA signing is also first-order
+    masked (two shares). Wipe secret keys with
+    <a class="Xr" href="/noqtis/reference/man/nqwipe-3/">nqwipe(3)</a> when
+    done. Outside test vectors, prefer <code class="Fn">nqsign</code>() to
+    <code class="Fn">nqsignd</code>(): the hedged variant keeps fault and
+    side-channel attacks that rely on repeated signatures harder.</p>
+</section>
+</div>

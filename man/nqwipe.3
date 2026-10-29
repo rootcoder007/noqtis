@@ -1,0 +1,47 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQWIPE 3
+.Os
+.Sh NAME
+.Nm nqwipe
+.Nd erase secret data from memory
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft void
+.Fn nqwipe "void *p" "size_t len"
+.Sh DESCRIPTION
+.Fn nqwipe
+sets the
+.Fa len
+bytes at
+.Fa p
+to zero through a volatile pointer, so the compiler cannot remove the
+stores as dead, even just before the memory is freed or goes out of scope.
+.Fa p
+may be
+.Dv NULL ,
+and then nothing happens.
+.Pp
+The library wipes every secret it holds (keys, seeds, shared secrets,
+intermediate state, freed memory of the capsule layer) before it
+returns, on every path.
+Callers wipe their own copies: secret keys, seeds and shared secrets they
+no longer need.
+.Sh RETURN VALUES
+None.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+static uint8_t sk[4032];
+/* ... sign with sk ... */
+nqwipe(sk, sizeof sk);
+.Ed
+.Sh SEE ALSO
+.Xr explicit_bzero 3 ,
+.Xr noqtis 3 ,
+.Xr nqcteq 3
+.Sh CAVEATS
+.Fn nqwipe
+cannot erase copies outside the buffer it is given: registers, swap,
+core dumps or copies the caller made.

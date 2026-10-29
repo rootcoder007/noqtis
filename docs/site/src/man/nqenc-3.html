@@ -1,0 +1,243 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqenc</code>, <code class="Nm">nqencd</code>,
+    <code class="Nm">nqdec</code>, <code class="Nm">nqkkg</code>,
+    <code class="Nm">nqkkgd</code>, <code class="Nm">nqksize</code>,
+    <code class="Nm">nqkname</code>, <code class="Nm">nqkfind</code> &#x2014;
+    <span class="Nd">ML-KEM and HQC key encapsulation</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqkkg</code>(<var class="Fa">nqkalg alg</var>,
+    <var class="Fa">uint8_t *pk</var>, <var class="Fa">size_t pklen</var>,
+    <var class="Fa">uint8_t *sk</var>, <var class="Fa">size_t sklen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqkkgd</code>(<var class="Fa">nqkalg alg</var>,
+    <var class="Fa">const uint8_t *seed</var>, <var class="Fa">size_t
+    seedlen</var>, <var class="Fa">uint8_t *pk</var>, <var class="Fa">size_t
+    pklen</var>, <var class="Fa">uint8_t *sk</var>, <var class="Fa">size_t
+    sklen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqenc</code>(<var class="Fa">nqkalg alg</var>,
+    <var class="Fa">const uint8_t *pk</var>, <var class="Fa">size_t pklen</var>,
+    <var class="Fa">uint8_t *ct</var>, <var class="Fa">size_t ctlen</var>,
+    <var class="Fa">uint8_t *ss</var>, <var class="Fa">size_t sslen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqencd</code>(<var class="Fa">nqkalg alg</var>,
+    <var class="Fa">const uint8_t *pk</var>, <var class="Fa">size_t pklen</var>,
+    <var class="Fa">const uint8_t *seed</var>, <var class="Fa">size_t
+    seedlen</var>, <var class="Fa">uint8_t *ct</var>, <var class="Fa">size_t
+    ctlen</var>, <var class="Fa">uint8_t *ss</var>, <var class="Fa">size_t
+    sslen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqdec</code>(<var class="Fa">nqkalg alg</var>,
+    <var class="Fa">const uint8_t *sk</var>, <var class="Fa">size_t sklen</var>,
+    <var class="Fa">const uint8_t *ct</var>, <var class="Fa">size_t ctlen</var>,
+    <var class="Fa">uint8_t *ss</var>, <var class="Fa">size_t sslen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqksize</code>(<var class="Fa" style="white-space: nowrap;">nqkalg
+    alg</var>, <var class="Fa" style="white-space: nowrap;">nqksz
+  *sz</var>);</p>
+<p class="Pp"><var class="Ft">const char *</var>
+  <br/>
+  <code class="Fn">nqkname</code>(<var class="Fa" style="white-space: nowrap;">nqkalg
+    alg</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqkfind</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *name</var>, <var class="Fa" style="white-space: nowrap;">nqkalg
+    *alg</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">A key encapsulation mechanism lets anyone with a public key make a
+    ciphertext and a 32-byte shared secret, which only the holder of the secret
+    key can recover from the ciphertext. noqtis provides ML-KEM (FIPS 203) and
+    HQC (version 5.0.0 of 2025-08-22).</p>
+<p class="Pp"><var class="Vt">nqkalg</var> names the parameter set:</p>
+<table class="Bl-column Bd-indent">
+  <tr id="constant">
+    <td><a class="permalink" href="#constant"><b class="Sy">constant</b></a></td>
+    <td><a class="permalink" href="#name"><b class="Sy" id="name">name</b></a></td>
+    <td><a class="permalink" href="#pk"><b class="Sy" id="pk">pk</b></a></td>
+    <td><a class="permalink" href="#sk"><b class="Sy" id="sk">sk</b></a></td>
+    <td><a class="permalink" href="#ciphertext"><b class="Sy" id="ciphertext">ciphertext</b></a></td>
+    <td><a class="permalink" href="#ss"><b class="Sy" id="ss">ss</b></a></td>
+  </tr>
+  <tr id="NQMLKEM512">
+    <td><a class="permalink" href="#NQMLKEM512"><code class="Dv">NQMLKEM512</code></a></td>
+    <td>ML-KEM-512</td>
+    <td>800</td>
+    <td>1632</td>
+    <td>768</td>
+    <td>32</td>
+  </tr>
+  <tr id="NQMLKEM768">
+    <td><a class="permalink" href="#NQMLKEM768"><code class="Dv">NQMLKEM768</code></a></td>
+    <td>ML-KEM-768</td>
+    <td>1184</td>
+    <td>2400</td>
+    <td>1088</td>
+    <td>32</td>
+  </tr>
+  <tr id="NQMLKEM1024">
+    <td><a class="permalink" href="#NQMLKEM1024"><code class="Dv">NQMLKEM1024</code></a></td>
+    <td>ML-KEM-1024</td>
+    <td>1568</td>
+    <td>3168</td>
+    <td>1568</td>
+    <td>32</td>
+  </tr>
+  <tr id="NQHQC128">
+    <td><a class="permalink" href="#NQHQC128"><code class="Dv">NQHQC128</code></a></td>
+    <td>HQC-128</td>
+    <td>2241</td>
+    <td>2321</td>
+    <td>4433</td>
+    <td>32</td>
+  </tr>
+  <tr id="NQHQC192">
+    <td><a class="permalink" href="#NQHQC192"><code class="Dv">NQHQC192</code></a></td>
+    <td>HQC-192</td>
+    <td>4514</td>
+    <td>4602</td>
+    <td>8978</td>
+    <td>32</td>
+  </tr>
+  <tr id="NQHQC256">
+    <td><a class="permalink" href="#NQHQC256"><code class="Dv">NQHQC256</code></a></td>
+    <td>HQC-256</td>
+    <td>7237</td>
+    <td>7333</td>
+    <td>14421</td>
+    <td>32</td>
+  </tr>
+</table>
+<p class="Pp" id="nqksize"><a class="permalink" href="#nqksize"><code class="Fn">nqksize</code></a>()
+    stores the sizes in <var class="Fa">*sz</var>, an
+    <var class="Vt">nqksz</var> with the members <var class="Va">pk</var>,
+    <var class="Va">sk</var>, <var class="Va">ct</var> and
+    <var class="Va">ss</var>.
+    <a class="permalink" href="#nqkname"><code class="Fn" id="nqkname">nqkname</code></a>()
+    returns the name, or <code class="Dv">NULL</code> for an unknown value;
+    <a class="permalink" href="#nqkfind"><code class="Fn" id="nqkfind">nqkfind</code></a>()
+    finds the algorithm whose name is exactly <var class="Fa">name</var>.</p>
+<p class="Pp" id="nqkkg"><a class="permalink" href="#nqkkg"><code class="Fn">nqkkg</code></a>()
+    makes a key pair from the operating system's random source.
+    <a class="permalink" href="#nqkkgd"><code class="Fn" id="nqkkgd">nqkkgd</code></a>()
+    makes it from the standard's seed: 64 bytes (d || z) for ML-KEM, 32 bytes
+    for HQC.</p>
+<p class="Pp" id="nqenc"><a class="permalink" href="#nqenc"><code class="Fn">nqenc</code></a>()
+    encapsulates to the public key <var class="Fa">pk</var>: it writes the
+    ciphertext to <var class="Fa">ct</var> and the shared secret to
+    <var class="Fa">ss</var>.
+    <a class="permalink" href="#nqencd"><code class="Fn" id="nqencd">nqencd</code></a>()
+    takes the encapsulation randomness from <var class="Fa">seed</var> instead,
+    for test vectors: the 32-byte m for ML-KEM, and m || salt for HQC (32, 40 or
+    48 bytes for HQC-128, -192, -256). For ML-KEM the public key is checked as
+    FIPS 203 section 7.2 requires.</p>
+<p class="Pp" id="nqdec"><a class="permalink" href="#nqdec"><code class="Fn">nqdec</code></a>()
+    recovers the shared secret from <var class="Fa">ct</var> with the secret key
+    <var class="Fa">sk</var>; for ML-KEM the key is first checked as section 7.3
+    requires. A ciphertext of the right length that was not made for this key,
+    or was changed, gives a pseudorandom secret unrelated to the sender's and
+    returns <code class="Dv">NQOK</code> (implicit rejection, as both standards
+    require); only malformed sizes fail. Protocols must therefore confirm the
+    secret, for example by using it in an authenticated cipher.</p>
+<p class="Pp">Output buffers may be larger than the algorithm's sizes; only the
+    defined number of bytes is written. Keys and ciphertexts given as input must
+    have exactly the algorithm's sizes.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp">Every function except <code class="Fn">nqkname</code>() returns
+    <code class="Dv">NQOK</code> (0) or a negative error code:</p>
+<dl class="Bl-tag">
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd><var class="Fa">alg</var> is not an <var class="Vt">nqkalg</var>, a
+      pointer is <code class="Dv">NULL</code>, or a <var class="Fa">seed</var>
+      does not have the standard's length.</dd>
+  <dt>[<code class="Er">NQEBUF</code>]</dt>
+  <dd>An output buffer is smaller than the algorithm's size.</dd>
+  <dt>[<code class="Er">NQEDEC</code>]</dt>
+  <dd>An input key or ciphertext does not have the algorithm's length, or a key
+      fails the standard's input check.</dd>
+  <dt>[<code class="Er">NQERNG</code>]</dt>
+  <dd>The operating system's random source failed
+      (<code class="Fn">nqkkg</code>(), <code class="Fn">nqenc</code>(), and
+      <code class="Fn">nqdec</code>() for ML-KEM, whose masked decapsulation
+      draws fresh mask shares).</dd>
+  <dt>[<code class="Er">NQENOSUP</code>]</dt>
+  <dd><code class="Fn">nqkfind</code>(): no algorithm has that name.</dd>
+</dl>
+<p class="Pp">On any failure, the output buffers are zeroed.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">The program <span class="Pa">docs/examples/kem.c</span> of the
+    source tree, with the sizes taken at run time:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>nqksz z;
+uint8_t *pk, *sk, *ct, a[32], b[32];
+int rc = nqksize(NQMLKEM768, &amp;z), same = 0;
+if (rc != NQOK || z.ss != sizeof a)
+  return 2;
+pk = malloc(z.pk);
+sk = malloc(z.sk);
+ct = malloc(z.ct);
+if (pk == NULL || sk == NULL || ct == NULL)
+  return 2;
+rc = nqkkg(NQMLKEM768, pk, z.pk, sk, z.sk);
+if (rc == NQOK)
+  rc = nqenc(NQMLKEM768, pk, z.pk, ct, z.ct, a, sizeof a);
+if (rc == NQOK)
+  rc = nqdec(NQMLKEM768, sk, z.sk, ct, z.ct, b, sizeof b);
+if (rc == NQOK)
+  same = nqcteq(a, b, sizeof a);
+nqwipe(sk, z.sk);
+nqwipe(a, sizeof a);
+nqwipe(b, sizeof b);</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-dec-1/">noqtis-dec(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-enc-1/">noqtis-enc(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqcteq-3/">nqcteq(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqwipe-3/">nqwipe(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">FIPS 203: Module-Lattice-Based
+    Key-Encapsulation Mechanism Standard</span>, <span class="RsQ">NIST</span>,
+    <span class="RsD">August 2024</span>.</cite>
+    <cite class="Rs"><span class="RsT">Hamming Quasi-Cyclic (HQC), version
+    5.0.0</span>, <span class="RsD">August 2025</span>.</cite></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY_CONSIDERATIONS"><a class="permalink" href="#SECURITY_CONSIDERATIONS">SECURITY
+  CONSIDERATIONS</a></h1>
+<p class="Pp">Key generation, encapsulation and decapsulation run in constant
+    time with respect to the seeds, the randomness, the secret key and the
+    shared secret; ML-KEM decapsulation is also first-order masked. In HQC, a
+    secret-derived bit becomes public in the three places its specification
+    allows, and nowhere else.</p>
+</section>
+</div>

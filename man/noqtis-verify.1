@@ -1,0 +1,82 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-VERIFY 1
+.Os
+.Sh NAME
+.Nm noqtis-verify
+.Nd check an ML-DSA or SLH-DSA signature of a file
+.Sh SYNOPSIS
+.Nm noqtis verify
+.Fl p Ar key.pub
+.Fl s Ar sig
+.Op Fl c Ar ctx
+.Op Fl -ph Ar hash
+.Op Fl q
+.Ar file
+.Sh DESCRIPTION
+.Nm noqtis verify
+checks that
+.Ar sig
+is a valid signature of the bytes of
+.Ar file
+under the public key in
+.Ar key.pub .
+On success it prints
+.Dl <file>: OK (<alg>)
+On failure it prints to standard error why
+.Po
+.Dq the signature does not verify ,
+or the signature's length when it is not the algorithm's
+.Pc .
+.Ar file
+may be
+.Ql -
+for standard input.
+.Bl -tag -width Ds
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+A public signature key file
+.Pq Ql noqtis-key-1 <alg> pub .
+The algorithm comes from the key file.
+.It Fl s Ar sig , Fl -sig Ns = Ns Ar sig
+The raw signature.
+.It Fl c Ar ctx , Fl -ctx Ns = Ns Ar ctx
+The context string the signer used (at most 255 bytes; default empty).
+.It Fl -ph Ar hash
+Verify a pre-hash (HashML-DSA, HashSLH-DSA) signature made with
+.Ar hash ;
+the names are those of
+.Xr noqtis-sign 1 .
+.It Fl q , Fl -quiet
+Print nothing on success; only the exit status tells.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width 3n -compact
+.It 0
+The signature is valid.
+.It 1
+It is not: a wrong signature, file, key, context or pre-hash, or a
+signature of the wrong length.
+.It 2
+A usage error, a key that is not a public signature key, or a file that
+cannot be read.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis verify -p me.pub -s report.pdf.sig report.pdf
+report.pdf: OK (ML-DSA-65)
+$ echo changed >> report.pdf
+$ noqtis verify -p me.pub -s report.pdf.sig report.pdf; echo $?
+noqtis verify: report.pdf: FAILED: the signature does not verify
+1
+.Ed
+.Pp
+In a script:
+.Bd -literal -offset indent
+if noqtis verify -q -p me.pub -s data.sig data.csv; then
+  echo trusted
+fi
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-sign 1 ,
+.Xr nqsign 3

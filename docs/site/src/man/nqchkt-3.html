@@ -1,0 +1,105 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqchkt</code> &#x2014; <span class="Nd">check a
+    capsule and its RFC 3161 timestamp</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqchkt</code>(<var class="Fa">const char *dir</var>,
+    <var class="Fa">const uint8_t *trust</var>, <var class="Fa">size_t
+    trustlen</var>, <var class="Fa">const uint8_t *const *anc</var>,
+    <var class="Fa">const size_t *anclen</var>, <var class="Fa">size_t
+    nanc</var>, <var class="Fa">nqrep **rep</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqchkt"><code class="Fn" id="nqchkt">nqchkt</code></a>()
+    is <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a> with
+    <var class="Fa">nanc</var> trust anchors for time-stamping authorities
+    (TSAs): <var class="Fa">anc</var>[i] is a DER X.509 certificate of
+    <var class="Fa">anclen</var>[i] bytes, for i below
+    <var class="Fa">nanc</var>, at most 32.</p>
+<p class="Pp">With anchors, the seal must carry a
+    &#x2018;<code class="Li">timestamp</code>&#x2019;: the base64 of an RFC 3161
+    time-stamp token. The &#x2018;<code class="Li">timestamp</code>&#x2019; row
+    passes only when</p>
+<ul class="Bl-bullet">
+  <li>the token parses as a strict DER RFC 3161 token;</li>
+  <li>its message imprint is its own hash (SHA-256, SHA-384 or SHA-512) of the
+      decoded &#x2018;<code class="Li">signature</code>&#x2019; bytes of the
+      seal;</li>
+  <li>its signature verifies under the TSA's certificate, whose path leads to
+      one of the anchors and is valid at the token's genTime;</li>
+</ul>
+and the row's detail then gives the genTime. A seal without a timestamp fails
+  the row.
+<p class="Pp" id="nqchkt~2">With <var class="Fa">nanc</var> 0,
+    <a class="permalink" href="#nqchkt~2"><code class="Fn">nqchkt</code></a>()
+    is exactly
+    <a class="permalink" href="#nqchk"><code class="Fn" id="nqchk">nqchk</code></a>():
+    a timestamp present fails its row (&#x201C;not checked: no TSA trust anchors
+    given&#x201D;), and no timestamp gives no row.</p>
+<p class="Pp">The timestamp proves that the signature existed at genTime,
+    according to the TSA. It does not make an untrusted seal key trusted; pin
+    the key with <var class="Fa">trust</var>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp">As for
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>, and
+  also:</p>
+<dl class="Bl-tag">
+  <dt>[<code class="Er">NQELIM</code>]</dt>
+  <dd><var class="Fa">nanc</var> is over 32. No report.</dd>
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd><var class="Fa">nanc</var> is nonzero and <var class="Fa">anc</var> or
+      <var class="Fa">anclen</var> is <code class="Dv">NULL</code>, or an anchor
+      is <code class="Dv">NULL</code> or empty. No report. An anchor that is not
+      a certificate fails the &#x2018;<code class="Li">timestamp</code>&#x2019;
+      row instead.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>const uint8_t *anc[1] = {tsa_der};
+size_t anclen[1] = {tsa_der_len};
+nqrep *rep = NULL;
+int rc = nqchkt(&quot;results&quot;, pk, sizeof pk, anc, anclen, 1, &amp;rep);</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">Internet X.509 Public Key
+    Infrastructure Time-Stamp Protocol (TSP)</span>, <span class="RsR">RFC
+    3161</span>, <span class="RsD">August 2001</span>.</cite>
+    <cite class="Rs"><span class="RsT">Internet X.509 Public Key Infrastructure
+    Certificate and CRL Profile</span>, <span class="RsR">RFC 5280</span>,
+    <span class="RsD">May 2008</span>.</cite></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<p class="Pp">Neither the library nor
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>
+    can yet obtain a timestamp, and
+    <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>
+    takes no anchors; timestamps are checked only through this function.</p>
+</section>
+</div>

@@ -1,0 +1,79 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-KEYGEN 1
+.Os
+.Sh NAME
+.Nm noqtis-keygen
+.Nd make a signature or KEM key pair
+.Sh SYNOPSIS
+.Nm noqtis keygen
+.Fl a Ar alg
+.Fl o Ar key
+.Op Fl -seed Ar hex | file
+.Op Fl f | Fl -force
+.Sh DESCRIPTION
+.Nm noqtis keygen
+makes a key pair for
+.Ar alg ,
+writes the secret key to
+.Ar key
+(created owner-only, mode 0600) and the public key to
+.Ar key Ns Pa .pub .
+Both are key files in the format described in
+.Xr noqtis 1 .
+It prints one line naming the algorithm and both files.
+.Bl -tag -width Ds
+.It Fl a Ar alg , Fl -alg Ns = Ns Ar alg
+A signature or KEM algorithm, by any name
+.Xr noqtis-algs 1
+lists; case does not matter.
+.It Fl o Ar key , Fl -out Ns = Ns Ar key
+The secret key file; the public key goes to
+.Ar key Ns Pa .pub .
+.It Fl -seed Ar hex | file
+Deterministic key generation from the standard's seed, for test vectors
+and reproducible keys.
+When a file of that name exists, its raw bytes (1 to 256) are the seed;
+otherwise the argument must be an even number of hex digits.
+The seed must have the standard's length: 32 bytes (xi) for ML-DSA;
+3n bytes (SK.seed || SK.prf || PK.seed) for SLH-DSA, that is 48, 72 or 96;
+64 bytes (d || z) for ML-KEM; 32 bytes for HQC.
+A seed of another length is a library error (exit 2).
+Anyone who knows the seed knows the secret key.
+.It Fl f , Fl -force
+Replace existing files.
+The old files are removed first.
+.El
+.Sh EXIT STATUS
+0 on success; 2 on a usage error, an unknown algorithm, a seed of the wrong
+length, an existing file without
+.Fl -force ,
+or a file that cannot be written.
+.Sh EXAMPLES
+A signing key:
+.Bd -literal -offset indent
+$ noqtis keygen -a ML-DSA-65 -o me
+ML-DSA-65 key pair: me (secret), me.pub (public)
+$ head -1 me.pub
+noqtis-key-1 ML-DSA-65 pub
+.Ed
+.Pp
+A deterministic ML-DSA-44 key from a 32-byte seed:
+.Bd -literal -offset indent
+$ noqtis keygen -a ml-dsa-44 -o det --seed \e
+    000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+ML-DSA-44 key pair: det (secret), det.pub (public)
+.Ed
+.Pp
+A KEM key:
+.Bd -literal -offset indent
+$ noqtis keygen -a ML-KEM-768 -o box
+ML-KEM-768 key pair: box (secret), box.pub (public)
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-algs 1 ,
+.Xr noqtis-enc 1 ,
+.Xr noqtis-sign 1 ,
+.Xr nqenc 3 ,
+.Xr nqsign 3

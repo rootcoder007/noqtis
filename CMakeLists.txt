@@ -167,3 +167,9 @@ write_basic_package_version_file(${PROJECT_BINARY_DIR}/noqtisConfigVersion.cmake
   COMPATIBILITY SameMinorVersion)
 install(FILES ${PROJECT_BINARY_DIR}/noqtisConfig.cmake
   ${PROJECT_BINARY_DIR}/noqtisConfigVersion.cmake DESTINATION ${NQCMDIR})
+
+# the manual pages (man/), installed by docs/CMakeLists.txt
+option(NQMAN "Install the manual pages" ON)
+if(NQMAN)
+  add_subdirectory(docs)
+endif()

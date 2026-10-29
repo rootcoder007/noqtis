@@ -1,0 +1,148 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQREP 3
+.Os
+.Sh NAME
+.Nm nqrepn ,
+.Nm nqrepi ,
+.Nm nqrepfree
+.Nd read and free a capsule check report
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft size_t
+.Fn nqrepn "const nqrep *r"
+.Ft int
+.Fo nqrepi
+.Fa "const nqrep *r" "size_t i"
+.Fa "const char **check" "int *ok" "const char **detail"
+.Fc
+.Ft void
+.Fn nqrepfree "nqrep *r"
+.Sh DESCRIPTION
+A
+.Vt nqrep ,
+made by
+.Xr nqchk 3
+or
+.Xr nqchkt 3 ,
+holds one row per check, in the order the checks ran.
+Its layout is private.
+.Pp
+.Fn nqrepn
+returns the number of rows, or 0 when
+.Fa r
+is
+.Dv NULL .
+.Pp
+.Fn nqrepi
+gives row
+.Fa i :
+.Fa *check
+the check's name, a stable string listed below;
+.Fa *ok
+1 when the check passed, 0 when it failed;
+.Fa *detail
+a UTF-8 text for people (a file's path, what differs).
+Any of the three output pointers may be
+.Dv NULL .
+The strings belong to the report and stay valid until
+.Fn nqrepfree .
+.Pp
+.Fn nqrepfree
+frees the report and wipes its memory;
+.Dv NULL
+is allowed.
+.Ss Check names
+.Bl -tag -width "manifest.canonical" -compact
+.It Cm seal.read
+.Pa noqtis.sig
+read
+.It Cm seal.parse
+it is a JSON object
+.It Cm seal.canonical
+in canonical form
+.It Cm seal.fields
+exactly the seal's fields, with their types
+.It Cm seal.format
+.Ql noqtis-seal-1
+.It Cm seal.alg
+a known signature algorithm
+.It Cm seal.context
+a context of at most 255 bytes
+.It Cm seal.key
+the public key's size
+.It Cm seal.signature
+the signature's size
+.It Cm manifest.read
+.Pa noqtis.json
+read within the limit
+.It Cm manifest.digest
+its SHA-256 is the seal's
+.It Cm key
+pinned or not, and whether it matches
+.It Cm signature
+the signature over the manifest
+.It Cm timestamp
+the RFC 3161 token
+.It Cm folder
+the folder listed
+.It Cm file
+one per listed file
+.It Cm manifest.parse
+the manifest is a JSON object
+.It Cm manifest.canonical
+in canonical form
+.It Cm manifest.fields
+exactly the manifest's fields
+.It Cm manifest.format
+.Ql noqtis-capsule-1
+.It Cm manifest.created
+RFC 3339 UTC
+.It Cm manifest.order
+sorted by path, no repeats
+.It Cm path
+one per refused, non-normal, duplicate or case-colliding path
+.It Cm extra
+one per regular file not listed
+.It Cm unsafe
+one per link, special file or refused name
+.El
+.Pp
+Rows after a failure that makes later checks meaningless are left out
+(for example, no
+.Cm seal.alg
+row when
+.Cm seal.format
+failed).
+A report never has zero rows.
+.Sh RETURN VALUES
+.Fn nqrepi
+returns
+.Dv NQOK ,
+or
+.Er NQEARG
+when
+.Fa r
+is
+.Dv NULL
+or
+.Fa i
+is not below
+.Fn nqrepn r .
+.Sh EXAMPLES
+.Bd -literal -offset indent
+size_t i;
+for (i = 0; i < nqrepn(rep); i++) {
+  const char *check, *detail;
+  int ok;
+  if (nqrepi(rep, i, &check, &ok, &detail) == NQOK)
+    printf("%-4s %s: %s\en", ok ? "ok" : "FAIL", check, detail);
+}
+nqrepfree(rep);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr nqchk 3 ,
+.Xr nqchkt 3

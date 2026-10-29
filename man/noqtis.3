@@ -1,0 +1,177 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS 3
+.Os
+.Sh NAME
+.Nm noqtis
+.Nd post-quantum signatures, KEMs, hashes and sealed capsules in C11
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Bd -literal
+cc prog.c $(pkg-config --cflags --libs noqtis)
+
+find_package(noqtis CONFIG REQUIRED)        # CMake
+target_link_libraries(prog PRIVATE noqtis::noqtis)
+.Ed
+.Sh DESCRIPTION
+noqtis is a library in ISO C11 with no run-time dependencies.
+It provides the NIST post-quantum standards, byte-identical to their test
+vectors, and on top of them capsules: folders whose exact files are
+recorded, signed and checked.
+.Bl -tag -width "nqseal(3)"
+.It Xr nqsign 3
+ML-DSA (FIPS 204) and SLH-DSA (FIPS 205): key generation, signing (pure,
+with a context, and pre-hash) and verification:
+.Fn nqskg ,
+.Fn nqskgd ,
+.Fn nqsign ,
+.Fn nqsignd ,
+.Fn nqvrfy ,
+.Fn nqssize ,
+.Fn nqsname ,
+.Fn nqsfind .
+.It Xr nqenc 3
+ML-KEM (FIPS 203) and HQC:
+.Fn nqkkg ,
+.Fn nqkkgd ,
+.Fn nqenc ,
+.Fn nqencd ,
+.Fn nqdec ,
+.Fn nqksize ,
+.Fn nqkname ,
+.Fn nqkfind .
+.It Xr nqhash 3
+SHA-2, SHA-3, SHAKE and HMAC:
+.Fn nqhash ,
+.Fn nqhini ,
+.Fn nqhupd ,
+.Fn nqhfin ,
+.Fn nqhlen ,
+.Fn nqhmac .
+.It Xr nqseal 3
+Seal a folder.
+.It Xr nqchk 3
+Check a capsule.
+.It Xr nqchkt 3
+Check a capsule and its RFC 3161 timestamp.
+.It Xr nqrep 3
+Read the check report:
+.Fn nqrepn ,
+.Fn nqrepi ,
+.Fn nqrepfree .
+.It Xr nqrand 3
+The operating system's random source.
+.It Xr nqwipe 3
+Erase secrets.
+.It Xr nqcteq 3
+Constant-time comparison.
+.It Xr nqsetal 3
+The allocation hook.
+.It Xr nqerr 3
+Error codes and texts,
+.Fn nqver .
+.El
+.Ss Conventions
+.Bl -bullet
+.It
+Every function that can fail returns
+.Vt int :
+.Dv NQOK
+(0) or a negative
+.Dv NQE*
+code
+.Pq Xr nqerr 3 .
+A failed verification is
+.Er NQEVRFY ,
+never
+.Dv NQOK .
+.It
+Keys, signatures and ciphertexts are byte strings in the encodings the
+standards define.
+Their sizes are fixed per algorithm and available at run time from
+.Fn nqssize
+and
+.Fn nqksize .
+.It
+The caller allocates every output buffer and passes its length.
+A function never writes past that length, and returns
+.Er NQEBUF
+when it is too small.
+.It
+Secrets are wiped with
+.Fn nqwipe
+before a function returns, on every path.
+Operations on secret data run in constant time.
+.It
+Randomness comes from
+.Fn nqrand
+unless a caller passes the standard's seed or randomness through a
+.Ql d
+variant
+.Pf ( Fn nqskgd ,
+.Fn nqsignd ,
+.Fn nqkkgd ,
+.Fn nqencd ) ,
+which exist for the test vectors.
+.It
+The algorithm code never allocates.
+The capsule layer allocates through the hook of
+.Fn nqsetal .
+.It
+Paths are UTF-8 on every operating system.
+.It
+The functions are thread safe, except
+.Fn nqsetal ,
+as long as threads do not share an
+.Vt nqhctx ,
+an
+.Vt nqrep
+being freed, or a capsule folder being sealed.
+.El
+.Ss Building
+The library builds with CMake
+.Pq Ql cmake -S . -B build && cmake --build build ,
+static by default,
+.Fl DNQSHARED=ON
+for shared.
+A shared build exports only the public functions; on Windows, programs
+that use the DLL define
+.Dv NQDLL
+(the CMake package and
+.Pa noqtis.pc
+do it).
+.Sh FILES
+.Bl -tag -width Ds -compact
+.It Pa include/noqtis.h
+the public header
+.It Pa lib/libnoqtis.a , lib/libnoqtis.so.0
+the library
+.It Pa lib/pkgconfig/noqtis.pc
+the pkg-config file
+.It Pa lib/cmake/noqtis/
+the CMake package
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+#include <noqtis.h>
+#include <stdio.h>
+
+int main(void) {
+  printf("noqtis %s\en", nqver());
+  return 0;
+}
+.Ed
+.Pp
+More in
+.Pa docs/examples
+of the source tree; every one is compiled and run in CI.
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+FIPS 180-4, FIPS 198-1, FIPS 202, FIPS 203, FIPS 204, FIPS 205,
+SP 800-90A (HMAC_DRBG, internal), HQC version 5.0.0, RFC 3161, RFC 8785.
+.Sh CAVEATS
+noqtis has not had an external security audit.

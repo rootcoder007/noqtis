@@ -1,0 +1,63 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-ENC 1
+.Os
+.Sh NAME
+.Nm noqtis-enc
+.Nd encapsulate a shared secret to an ML-KEM or HQC public key
+.Sh SYNOPSIS
+.Nm noqtis enc
+.Fl p Ar key.pub
+.Fl o Ar ct
+.Op Fl f | Fl -force
+.Ar ss | Fl -stdout
+.Sh DESCRIPTION
+.Nm noqtis enc
+runs the encapsulation of the KEM named in
+.Ar key.pub
+with fresh randomness.
+It writes the ciphertext (raw bytes, the standard's encoding) to
+.Ar ct
+and the 32-byte shared secret to
+.Ar ss ,
+created owner-only (mode 0600).
+Send
+.Ar ct
+to the holder of the secret key; they recover the same secret with
+.Xr noqtis-dec 1 .
+.Bl -tag -width Ds
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+A public KEM key file
+.Pq Ql noqtis-key-1 ML-KEM-768 pub , No for example .
+A signature key is refused.
+.It Fl o Ar ct , Fl -out Ns = Ns Ar ct
+The ciphertext file.
+.It Fl -stdout
+Print the shared secret in hex (64 digits and a newline) on standard
+output instead of writing
+.Ar ss .
+.It Fl f , Fl -force
+Replace existing files.
+.El
+.Pp
+The shared secret is key material: feed it to a key derivation function
+or an authenticated cipher; it is not a password.
+.Sh EXIT STATUS
+0 on success; 2 on a usage error, a key that is not a public KEM key, an
+existing file without
+.Fl -force ,
+or a file that cannot be written.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis keygen -a ML-KEM-768 -o box
+ML-KEM-768 key pair: box (secret), box.pub (public)
+$ noqtis enc -p box.pub -o msg.ct sender.ss
+$ noqtis dec -k box -o receiver.ss msg.ct
+$ cmp sender.ss receiver.ss && echo same
+same
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-dec 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr nqenc 3

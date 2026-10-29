@@ -1,0 +1,109 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis-hash</code> &#x2014;
+    <span class="Nd">print or check SHA-2, SHA-3 and SHAKE digests of
+    files</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis hash</code></td>
+    <td>[<code class="Fl">-a</code> <var class="Ar">hash</var>]
+      [<var class="Ar">file ...</var>]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis hash</code></td>
+    <td>[<code class="Fl">-a</code> <var class="Ar">hash</var>]
+      <code class="Fl">-c</code> | <code class="Fl">--check</code>
+      [<var class="Ar">list ...</var>]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Nm">noqtis hash</code> prints one line per
+    <var class="Ar">file</var> in the format of
+    <span class="Xr">sha256sum(1)</span>:
+    the digest in lower-case hex, two spaces and the name. A name that holds a
+    backslash, a line feed or a carriage return is written with
+    &#x2018;<code class="Li">\\</code>&#x2019;,
+    &#x2018;<code class="Li">\n</code>&#x2019; and
+    &#x2018;<code class="Li">\r</code>&#x2019;, and the line starts with a
+    backslash, as
+    <span class="Xr">sha256sum(1)</span>
+    does. With no <var class="Ar">file</var>, or with
+    &#x2018;<code class="Li">-</code>&#x2019;, it reads standard input.</p>
+<p class="Pp">With <code class="Fl">-c</code>, each argument is a
+    <var class="Ar">list</var> of such lines (standard input when there is
+    none). For every line it prints &#x2018;<code class="Li">&lt;name&gt;:
+    OK</code>&#x2019;, &#x2018;<code class="Li">&lt;name&gt;:
+    FAILED</code>&#x2019; or &#x2018;<code class="Li">&lt;name&gt;: FAILED open
+    or read</code>&#x2019;. A line may mark binary mode with
+    &#x2018;<code class="Li">*</code>&#x2019; before the name, as
+    <span class="Xr">sha256sum(1)</span>
+    writes it; noqtis always reads files as bytes. Empty lines are skipped; any
+    other line that is not a digest of the chosen hash is reported with its line
+    number.</p>
+<dl class="Bl-tag">
+  <dt id="a"><a class="permalink" href="#a"><code class="Fl">-a</code></a>
+    <var class="Ar">hash</var>,
+    <code class="Fl">--alg</code>=<var class="Ar">hash</var></dt>
+  <dd>One of <code class="Cm">sha224</code>, <code class="Cm">sha256</code> (the
+      default), <code class="Cm">sha384</code>, <code class="Cm">sha512</code>,
+      <code class="Cm">sha512-224</code>, <code class="Cm">sha512-256</code>,
+      <code class="Cm">sha3-224</code>, <code class="Cm">sha3-256</code>,
+      <code class="Cm">sha3-384</code>, <code class="Cm">sha3-512</code>,
+      <code class="Cm">shake128</code> (32 bytes of output) and
+      <code class="Cm">shake256</code> (64 bytes). With
+      <code class="Fl">-c</code>, every line of the lists must use this
+    hash.</dd>
+  <dt id="c"><a class="permalink" href="#c"><code class="Fl">-c</code></a>,
+    <code class="Fl">--check</code></dt>
+  <dd>Check digests instead of printing them.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt>0</dt>
+  <dd>Every digest was printed, or every line checked.</dd>
+  <dt>1</dt>
+  <dd>With <code class="Fl">-c</code>: a digest differs, a listed file cannot be
+      read, a line is malformed, or no line was found.</dd>
+  <dt>2</dt>
+  <dd>A usage error or an unknown hash, a <var class="Ar">file</var> or
+      <var class="Ar">list</var> that cannot be read, or standard output that
+      cannot be written.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>$ printf 'abc' &gt; abc.txt
+$ noqtis hash abc.txt
+ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  abc.txt
+$ noqtis hash -a sha3-256 abc.txt &gt; SUMS
+$ noqtis hash -a sha3-256 -c SUMS
+abc.txt: OK</pre>
+</div>
+<p class="Pp">Checking digests made by
+    <span class="Xr">sha256sum(1)</span>:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>$ sha256sum abc.txt | noqtis hash -c
+abc.txt: OK</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <span class="Xr">sha256sum(1)</span>,
+    <a class="Xr" href="/noqtis/reference/man/nqhash-3/">nqhash(3)</a></p>
+</section>
+</div>

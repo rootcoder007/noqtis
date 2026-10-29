@@ -1,0 +1,46 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQCTEQ 3
+.Os
+.Sh NAME
+.Nm nqcteq
+.Nd compare two buffers in constant time
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqcteq "const void *a" "const void *b" "size_t len"
+.Sh DESCRIPTION
+.Fn nqcteq
+compares the
+.Fa len
+bytes at
+.Fa a
+and
+.Fa b
+in time that depends only on
+.Fa len ,
+not on their contents or on where they first differ.
+Use it for MAC tags, shared secrets and anything else an attacker must not
+learn byte by byte; use
+.Xr memcmp 3
+only for public data.
+.Pp
+It does not order the buffers: it tells only whether they are equal.
+.Sh RETURN VALUES
+1 when the buffers are equal, 0 otherwise.
+A
+.Fa len
+of 0 gives 1.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+uint8_t tag[32];
+if (nqhmac(NQS256, key, keylen, msg, msglen, tag, sizeof tag) == NQOK &&
+    nqcteq(tag, received, sizeof tag))
+  accept();
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 3 ,
+.Xr nqhash 3 ,
+.Xr nqwipe 3

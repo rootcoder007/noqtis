@@ -1,0 +1,132 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqseal</code> &#x2014; <span class="Nd">seal a
+    folder of files into a signed capsule</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqseal</code>(<var class="Fa">const char *dir</var>,
+    <var class="Fa">nqsalg alg</var>, <var class="Fa">const uint8_t *sk</var>,
+    <var class="Fa">size_t sklen</var>, <var class="Fa">const uint8_t *pk</var>,
+    <var class="Fa">size_t pklen</var>, <var class="Fa">const char *meta</var>,
+    <var class="Fa">const char *tsa</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqseal"><code class="Fn" id="nqseal">nqseal</code></a>()
+    writes the manifest <span class="Pa">noqtis.json</span> and the seal
+    <span class="Pa">noqtis.sig</span> into the folder <var class="Fa">dir</var>
+    (a UTF-8 path on every operating system), making it a capsule as
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>
+    defines.</p>
+<p class="Pp">It lists every entry under <var class="Fa">dir</var> without
+    following links, leaving out <span class="Pa">noqtis.json</span> and
+    <span class="Pa">noqtis.sig</span> at the top; records each regular file's
+    path, size, SHA-256 and SHA3-256 in canonical JSON (RFC 8785), sorted by
+    path; adds <var class="Fa">meta</var>; signs the exact manifest bytes with
+    <var class="Fa">alg</var> and the secret key <var class="Fa">sk</var> under
+    the context string &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;
+    (pure ML-DSA or SLH-DSA, hedged); verifies the new signature with
+    <var class="Fa">pk</var>; and only then writes both files, replacing earlier
+    ones.</p>
+<p class="Pp"><var class="Fa">sklen</var> and <var class="Fa">pklen</var> must
+    be exactly the algorithm's key sizes
+    (<a class="Xr" href="/noqtis/reference/man/nqsign-3/">nqsign(3)</a>), and
+    the keys one pair: a seal that would not verify is never written.</p>
+<p class="Pp"><var class="Fa">meta</var> is <code class="Dv">NULL</code> or a
+    NUL-terminated JSON object of at most 1 MiB, stored in canonical form as the
+    manifest's &#x2018;<code class="Li">meta</code>&#x2019; member and covered
+    by the signature; noqtis does not interpret it.</p>
+<p class="Pp">The creation time is the environment variable
+    <code class="Ev">SOURCE_DATE_EPOCH</code> (decimal seconds since the epoch)
+    when it is set and not empty, otherwise the clock, as an RFC 3339 UTC time
+    to the second.</p>
+<p class="Pp"><var class="Fa">tsa</var> must be <code class="Dv">NULL</code>.
+    The library makes no network requests, so it cannot obtain an RFC 3161
+    timestamp; any other value returns <code class="Er">NQENOSUP</code>.</p>
+<p class="Pp" id="nqseal~2">The capsule and parser layers allocate through the
+    hook of
+    <a class="Xr" href="/noqtis/reference/man/nqsetal-3/">nqsetal(3)</a>.
+    <a class="permalink" href="#nqseal~2"><code class="Fn">nqseal</code></a>()
+    is not safe to call on the same folder from two threads or processes at
+    once.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><code class="Dv">NQOK</code> (0) when both files were written, or
+    a negative error code; nothing is written on any error:</p>
+<dl class="Bl-tag">
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd><var class="Fa">dir</var>, <var class="Fa">sk</var> or
+      <var class="Fa">pk</var> is <code class="Dv">NULL</code>;
+      <var class="Fa">alg</var> is unknown; a key length is not the algorithm's;
+      the keys are not a pair; <code class="Ev">SOURCE_DATE_EPOCH</code> is not
+      a plain decimal number (or after the year 9999); or the folder holds a
+      symbolic link, a reparse point, a special file, a refused name (empty, a
+      control character, &#x2018;<code class="Li">/</code>&#x2019;,
+      &#x2018;<code class="Li">\</code>&#x2019;,
+      &#x2018;<code class="Li">:</code>&#x2019;, invalid UTF-8) or two paths
+      equal but for ASCII case.</dd>
+  <dt>[<code class="Er">NQELIM</code>]</dt>
+  <dd>More than 2,000,000 files, a path over 4096 bytes, folders more than 64
+      levels deep, a manifest over 512 MiB, a file over 2^53-1 bytes, or
+      <var class="Fa">meta</var> over 1 MiB or nested more than 64 levels
+    deep.</dd>
+  <dt>[<code class="Er">NQEDEC</code>]</dt>
+  <dd><var class="Fa">meta</var> is not a JSON object (strict JSON: no duplicate
+      keys, valid UTF-8).</dd>
+  <dt>[<code class="Er">NQEIO</code>]</dt>
+  <dd>The folder or a file could not be read, or a file could not be
+    written.</dd>
+  <dt>[<code class="Er">NQEMEM</code>]</dt>
+  <dd>The allocation hook returned <code class="Dv">NULL</code>.</dd>
+  <dt>[<code class="Er">NQENOSUP</code>]</dt>
+  <dd><var class="Fa">tsa</var> is not <code class="Dv">NULL</code>.</dd>
+  <dt>[<code class="Er">NQERNG</code>]</dt>
+  <dd>The random source failed while signing.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt id="SOURCE_DATE_EPOCH"><a class="permalink" href="#SOURCE_DATE_EPOCH"><code class="Ev">SOURCE_DATE_EPOCH</code></a></dt>
+  <dd>The creation time, for reproducible capsules.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Seal a folder with a fresh ML-DSA-65 key, then check it with that
+    key pinned (the program <span class="Pa">docs/examples/seal.c</span> of the
+    source tree):</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>static uint8_t pk[1952], sk[4032];
+nqrep *rep = NULL;
+int rc = nqskg(NQMLDSA65, pk, sizeof pk, sk, sizeof sk);
+if (rc == NQOK)
+  rc = nqseal(argv[1], NQMLDSA65, sk, sizeof sk, pk, sizeof pk,
+              &quot;{\&quot;tool\&quot;:\&quot;example\&quot;}&quot;, NULL);
+nqwipe(sk, sizeof sk);
+if (rc == NQOK)
+  rc = nqchk(argv[1], pk, sizeof pk, &amp;rep);</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqsign-3/">nqsign(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+</div>

@@ -1,0 +1,134 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqerr</code>, <code class="Nm">nqver</code>
+    &#x2014; <span class="Nd">error messages and the library version</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">const char *</var>
+  <br/>
+  <code class="Fn">nqerr</code>(<var class="Fa" style="white-space: nowrap;">int
+    err</var>);</p>
+<p class="Pp"><var class="Ft">const char *</var>
+  <br/>
+  <code class="Fn">nqver</code>(<var class="Fa" style="white-space: nowrap;">void</var>);</p>
+<p class="Pp"><code class="Fd">#define NQVMAJ</code>
+  <br/>
+  <code class="Fd">#define NQVMIN</code>
+  <br/>
+  <code class="Fd">#define NQVPAT</code></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Every function of
+    <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a> that can
+    fail returns <code class="Dv">NQOK</code> (0) or one of these negative
+    codes:</p>
+<table class="Bl-column Bd-indent">
+  <tr id="code">
+    <td><a class="permalink" href="#code"><b class="Sy">code</b></a></td>
+    <td><a class="permalink" href="#value"><b class="Sy" id="value">value</b></a></td>
+    <td><b class="Sy">nqerr text</b></td>
+  </tr>
+  <tr id="NQOK">
+    <td><a class="permalink" href="#NQOK"><code class="Dv">NQOK</code></a></td>
+    <td>0</td>
+    <td>success</td>
+  </tr>
+  <tr id="NQEARG">
+    <td><a class="permalink" href="#NQEARG"><code class="Dv">NQEARG</code></a></td>
+    <td>-1</td>
+    <td>invalid argument</td>
+  </tr>
+  <tr id="NQEBUF">
+    <td><a class="permalink" href="#NQEBUF"><code class="Dv">NQEBUF</code></a></td>
+    <td>-2</td>
+    <td>output buffer too small</td>
+  </tr>
+  <tr id="NQEVRFY">
+    <td><a class="permalink" href="#NQEVRFY"><code class="Dv">NQEVRFY</code></a></td>
+    <td>-3</td>
+    <td>verification failed</td>
+  </tr>
+  <tr id="NQEDEC">
+    <td><a class="permalink" href="#NQEDEC"><code class="Dv">NQEDEC</code></a></td>
+    <td>-4</td>
+    <td>input is not in the encoding the standard defines</td>
+  </tr>
+  <tr id="NQERNG">
+    <td><a class="permalink" href="#NQERNG"><code class="Dv">NQERNG</code></a></td>
+    <td>-5</td>
+    <td>the operating system's random source failed</td>
+  </tr>
+  <tr id="NQEMEM">
+    <td><a class="permalink" href="#NQEMEM"><code class="Dv">NQEMEM</code></a></td>
+    <td>-6</td>
+    <td>out of memory</td>
+  </tr>
+  <tr id="NQEIO">
+    <td><a class="permalink" href="#NQEIO"><code class="Dv">NQEIO</code></a></td>
+    <td>-7</td>
+    <td>file could not be read or written</td>
+  </tr>
+  <tr id="NQENOSUP">
+    <td><a class="permalink" href="#NQENOSUP"><code class="Dv">NQENOSUP</code></a></td>
+    <td>-8</td>
+    <td>algorithm or option not supported</td>
+  </tr>
+  <tr id="NQELIM">
+    <td><a class="permalink" href="#NQELIM"><code class="Dv">NQELIM</code></a></td>
+    <td>-9</td>
+    <td>input exceeds a size or depth limit</td>
+  </tr>
+  <tr id="NQESTATE">
+    <td><a class="permalink" href="#NQESTATE"><code class="Dv">NQESTATE</code></a></td>
+    <td>-10</td>
+    <td>context used out of order</td>
+  </tr>
+</table>
+<p class="Pp" id="nqerr"><a class="permalink" href="#nqerr"><code class="Fn">nqerr</code></a>()
+    returns the English text of <var class="Fa">err</var> from the table, or
+    &#x201C;unknown error&#x201D; for any other value. The strings are static;
+    do not free them.</p>
+<p class="Pp">A failed verification is always <code class="Er">NQEVRFY</code>
+    (or another negative code), never <code class="Dv">NQOK</code>. Test for
+    success with &#x2018;<code class="Li">rc == NQOK</code>&#x2019;, never with
+    &#x2018;<code class="Li">rc &gt;= 0</code>&#x2019; or by truth value
+  alone.</p>
+<p class="Pp" id="nqver"><a class="permalink" href="#nqver"><code class="Fn">nqver</code></a>()
+    returns the version of the library as linked,
+    &#x201C;<var class="Ar">major</var>.<var class="Ar">minor</var>.<var class="Ar">patch</var>&#x201D;.
+    <code class="Dv">NQVMAJ</code>, <code class="Dv">NQVMIN</code> and
+    <code class="Dv">NQVPAT</code> give the version of the header a program was
+    compiled with. The library follows semantic versioning; its shared-library
+    ABI version is the major version.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp">Both functions return a pointer to a static string, never
+    <code class="Dv">NULL</code>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>int rc = nqvrfy(alg, pk, pklen, msg, msglen, NULL, 0, 0, sig, siglen);
+if (rc != NQOK)
+  fprintf(stderr, &quot;verify: %s\n&quot;, nqerr(rc));
+printf(&quot;built with %d.%d.%d, running %s\n&quot;, NQVMAJ, NQVMIN, NQVPAT,
+       nqver());</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a></p>
+</section>
+</div>

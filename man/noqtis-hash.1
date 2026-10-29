@@ -1,0 +1,107 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-HASH 1
+.Os
+.Sh NAME
+.Nm noqtis-hash
+.Nd print or check SHA-2, SHA-3 and SHAKE digests of files
+.Sh SYNOPSIS
+.Nm noqtis hash
+.Op Fl a Ar hash
+.Op Ar file ...
+.Nm noqtis hash
+.Op Fl a Ar hash
+.Fl c | Fl -check
+.Op Ar list ...
+.Sh DESCRIPTION
+.Nm noqtis hash
+prints one line per
+.Ar file
+in the format of
+.Xr sha256sum 1 :
+the digest in lower-case hex, two spaces and the name.
+A name that holds a backslash, a line feed or a carriage return is written
+with
+.Ql \e\e ,
+.Ql \en
+and
+.Ql \er ,
+and the line starts with a backslash, as
+.Xr sha256sum 1
+does.
+With no
+.Ar file ,
+or with
+.Ql - ,
+it reads standard input.
+.Pp
+With
+.Fl c ,
+each argument is a
+.Ar list
+of such lines (standard input when there is none).
+For every line it prints
+.Ql <name>: OK ,
+.Ql <name>: FAILED
+or
+.Ql <name>: FAILED open or read .
+A line may mark binary mode with
+.Ql *
+before the name, as
+.Xr sha256sum 1
+writes it; noqtis always reads files as bytes.
+Empty lines are skipped; any other line that is not a digest of the chosen
+hash is reported with its line number.
+.Bl -tag -width Ds
+.It Fl a Ar hash , Fl -alg Ns = Ns Ar hash
+One of
+.Cm sha224 , sha256
+(the default),
+.Cm sha384 , sha512 , sha512-224 , sha512-256 ,
+.Cm sha3-224 , sha3-256 , sha3-384 , sha3-512 ,
+.Cm shake128
+(32 bytes of output) and
+.Cm shake256
+(64 bytes).
+With
+.Fl c ,
+every line of the lists must use this hash.
+.It Fl c , Fl -check
+Check digests instead of printing them.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width 3n -compact
+.It 0
+Every digest was printed, or every line checked.
+.It 1
+With
+.Fl c :
+a digest differs, a listed file cannot be read, a line is malformed, or no
+line was found.
+.It 2
+A usage error or an unknown hash, a
+.Ar file
+or
+.Ar list
+that cannot be read, or standard output that cannot be written.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ printf 'abc' > abc.txt
+$ noqtis hash abc.txt
+ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  abc.txt
+$ noqtis hash -a sha3-256 abc.txt > SUMS
+$ noqtis hash -a sha3-256 -c SUMS
+abc.txt: OK
+.Ed
+.Pp
+Checking digests made by
+.Xr sha256sum 1 :
+.Bd -literal -offset indent
+$ sha256sum abc.txt | noqtis hash -c
+abc.txt: OK
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr sha256sum 1 ,
+.Xr nqhash 3

@@ -1,0 +1,89 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqsetal</code> &#x2014; <span class="Nd">set the
+    allocator of the capsule and parser layers</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Vt">typedef void *(*nqmalfn)(size_t size, void
+    *user);</var>
+  <br/>
+  <var class="Vt">typedef void (*nqfreefn)(void *ptr, size_t size, void
+    *user);</var></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqsetal</code>(<var class="Fa" style="white-space: nowrap;">nqmalfn
+    mal</var>, <var class="Fa" style="white-space: nowrap;">nqfreefn fre</var>,
+    <var class="Fa" style="white-space: nowrap;">void *user</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The algorithm code of noqtis never allocates; the capsule layer
+    (<a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>) and its
+    parsers do, through one hook.
+    <a class="permalink" href="#nqsetal"><code class="Fn" id="nqsetal">nqsetal</code></a>()
+    replaces it: <var class="Fa">mal</var> is called with the size wanted and
+    <var class="Fa">user</var>, and returns the memory or
+    <code class="Dv">NULL</code>; <var class="Fa">fre</var> is called with a
+    pointer <var class="Fa">mal</var> returned, the size that was asked for, and
+    <var class="Fa">user</var>. The library wipes memory before it gives it to
+    <var class="Fa">fre</var>, so a hook need not. The size makes pool and arena
+    allocators and allocation accounting easy.</p>
+<p class="Pp"><var class="Fa">mal</var> and <var class="Fa">fre</var> both
+    <code class="Dv">NULL</code> restore the default,
+    <span class="Xr">malloc(3)</span> and
+    <span class="Xr">free(3)</span>.</p>
+<p class="Pp" id="nqsetal~2">The hook is global and
+    <a class="permalink" href="#nqsetal~2"><code class="Fn">nqsetal</code></a>()
+    is not thread safe: call it before any other function of the library, and
+    never while another thread uses the library.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><code class="Dv">NQOK</code>, or <code class="Er">NQEARG</code>
+    when exactly one of <var class="Fa">mal</var> and <var class="Fa">fre</var>
+    is <code class="Dv">NULL</code> (the hook is then unchanged). A hook that
+    returns <code class="Dv">NULL</code> makes the calling function return
+    <code class="Er">NQEMEM</code>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Count the bytes in use:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>static size_t used;
+
+static void *mal(size_t n, void *u) {
+  void *p = malloc(n);
+  (void)u;
+  if (p != NULL)
+    used += n;
+  return p;
+}
+
+static void fre(void *p, size_t n, void *u) {
+  (void)u;
+  used -= n;
+  free(p);
+}
+
+/* at start-up */
+nqsetal(mal, fre, NULL);</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a></p>
+</section>
+</div>

@@ -1,0 +1,104 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqchk</code> &#x2014; <span class="Nd">check a
+    capsule folder against its seal</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqchk</code>(<var class="Fa">const char *dir</var>,
+    <var class="Fa">const uint8_t *trust</var>, <var class="Fa">size_t
+    trustlen</var>, <var class="Fa">nqrep **rep</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqchk"><code class="Fn" id="nqchk">nqchk</code></a>()
+    checks the capsule in the folder <var class="Fa">dir</var>
+    (<a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>)
+    and stores in <var class="Fa">*rep</var> a report with one row per check
+    (<a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a>). It runs
+    every check it can, rather than stopping at the first failure, so the report
+    says everything that is wrong.</p>
+<p class="Pp">It reads <span class="Pa">noqtis.sig</span> (at most 1 MiB, never
+    through a link) and checks that it is canonical JSON with exactly the seal's
+    fields; reads <span class="Pa">noqtis.json</span> (at most 512 MiB; the size
+    is checked before reading and again if the file grows while it is read) and
+    checks that its SHA-256 is the seal's
+    &#x2018;<code class="Li">manifest_sha256</code>&#x2019;; verifies the
+    signature over the exact manifest bytes with the seal's algorithm and
+    context; lists the folder; and reads the manifest one entry at a time in its
+    canonical layout, checking each listed file (present, a regular file, size,
+    SHA-256, SHA3-256) as it goes, the sort order and duplicates. Finally it
+    reports every regular file present but not listed, every link, special file
+    or refused name, and listed paths that differ only in case.</p>
+<p class="Pp"><var class="Fa">trust</var> is the public key the capsule must be
+    sealed with, <var class="Fa">trustlen</var> bytes in the algorithm's
+    encoding: the seal's key must equal it, and the signature is verified with
+    it. With <var class="Fa">trust</var> <code class="Dv">NULL</code> (and
+    <var class="Fa">trustlen</var> 0), the key inside the seal is used, and the
+    report's &#x2018;<code class="Li">key</code>&#x2019; row says the key was
+    not pinned: the capsule is then shown unchanged since it was sealed, but not
+    who sealed it.</p>
+<p class="Pp" id="nqchk~2"><a class="permalink" href="#nqchk~2"><code class="Fn">nqchk</code></a>()
+    is <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a> with
+    no TSA trust anchors. A seal that carries a timestamp therefore fails its
+    &#x2018;<code class="Li">timestamp</code>&#x2019; row here (with the imprint
+    still checked against the signature): a timestamp that cannot be checked is
+    never passed silently.</p>
+<p class="Pp">Memory use is the manifest bytes once (the signature covers them,
+    so they must be in memory to be verified), the folder listing (about 100
+    bytes per file), the report (one row per file) and constant state per entry;
+    the manifest is never parsed into a tree.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<dl class="Bl-tag">
+  <dt id="NQOK"><a class="permalink" href="#NQOK"><code class="Dv">NQOK</code></a></dt>
+  <dd>Every check passed. <var class="Fa">*rep</var> holds the report.</dd>
+  <dt>[<code class="Er">NQEVRFY</code>]</dt>
+  <dd>At least one check failed; <var class="Fa">*rep</var> still holds the
+      report, which says which.</dd>
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd><var class="Fa">dir</var> or <var class="Fa">rep</var> is
+      <code class="Dv">NULL</code>, or <var class="Fa">trust</var> is
+      <code class="Dv">NULL</code> with a nonzero
+      <var class="Fa">trustlen</var>. No report.</dd>
+  <dt>[<code class="Er">NQEMEM</code>]</dt>
+  <dd>The allocation hook returned <code class="Dv">NULL</code>. No report.</dd>
+</dl>
+<p class="Pp">With no report, <var class="Fa">*rep</var> is set to
+    <code class="Dv">NULL</code>. Free a report with
+    <code class="Fn">nqrepfree</code>()
+    (<a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a>).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>nqrep *rep = NULL;
+int rc = nqchk(&quot;results&quot;, pk, sizeof pk, &amp;rep);
+if (rc == NQOK)
+  puts(&quot;unchanged since sealed by that key&quot;);
+else if (rc == NQEVRFY)
+  puts(&quot;changed or not sealed by that key: see the report&quot;);
+nqrepfree(rep);</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+</div>

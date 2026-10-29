@@ -1,0 +1,211 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis-capsule</code> &#x2014;
+    <span class="Nd">the noqtis capsule format, version 1</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">A capsule is a folder that holds the files of a result together
+    with <span class="Pa">noqtis.json</span>, the manifest, and
+    <span class="Pa">noqtis.sig</span>, the seal, both at the top of the folder.
+    The manifest lists every file with its size and two digests; the seal signs
+    the manifest's exact bytes with a post-quantum signature.</p>
+<p class="Pp">The key words MUST, MUST NOT, SHOULD and MAY are to be read as in
+    RFC 2119 and RFC 8174.</p>
+<section class="Ss">
+<h2 class="Ss" id="Canonical_JSON"><a class="permalink" href="#Canonical_JSON">Canonical
+  JSON</a></h2>
+<p class="Pp">Both files MUST be JSON (RFC 8259) in the canonical form of RFC
+    8785 (JCS): UTF-8, no whitespace outside strings, object members sorted by
+    the UTF-16 code units of their names, strings with the minimal escapes, and
+    numbers in the shortest form that round-trips. A checker MUST reject a file
+    that is not byte-identical to its own canonical form, has a duplicate member
+    name, or is not valid UTF-8.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_manifest,_noqtis.json"><a class="permalink" href="#The_manifest,_noqtis.json">The
+  manifest, noqtis.json</a></h2>
+<p class="Pp">An object with exactly these members:</p>
+<dl class="Bl-tag">
+  <dt id="created"><a class="permalink" href="#created"><code class="Cm">created</code></a></dt>
+  <dd>A string: the creation time, RFC 3339 in UTC,
+      &#x2018;<code class="Li">YYYY-MM-DDTHH:MM:SSZ</code>&#x2019; with optional
+      fractional seconds before the
+    &#x2018;<code class="Li">Z</code>&#x2019;.</dd>
+  <dt id="files"><a class="permalink" href="#files"><code class="Cm">files</code></a></dt>
+  <dd>An array with one object per file, sorted by the bytes of
+      <code class="Cm">path</code>, with no path twice. Each object has exactly:
+    <dl class="Bl-tag">
+      <dt id="path"><a class="permalink" href="#path"><code class="Cm">path</code></a></dt>
+      <dd>the file's path relative to the capsule folder, a string;</dd>
+      <dt id="sha256"><a class="permalink" href="#sha256"><code class="Cm">sha256</code></a></dt>
+      <dd>its SHA-256, 64 lower-case hex digits;</dd>
+      <dt id="sha3_256"><a class="permalink" href="#sha3_256"><code class="Cm">sha3_256</code></a></dt>
+      <dd>its SHA3-256, 64 lower-case hex digits;</dd>
+      <dt id="size"><a class="permalink" href="#size"><code class="Cm">size</code></a></dt>
+      <dd>its size in bytes, an integer from 0 to 2^53-1.</dd>
+    </dl>
+  </dd>
+  <dt id="format"><a class="permalink" href="#format"><code class="Cm">format</code></a></dt>
+  <dd>The string &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;.</dd>
+  <dt id="meta"><a class="permalink" href="#meta"><code class="Cm">meta</code></a></dt>
+  <dd>Optional: any JSON object, at most 1 MiB, opaque to noqtis.</dd>
+</dl>
+<p class="Pp">Because of the canonical order, the manifest always reads</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>{&quot;created&quot;:...,&quot;files&quot;:[{&quot;path&quot;:...,&quot;sha256&quot;:...,
+&quot;sha3_256&quot;:...,&quot;size&quot;:...},...],&quot;format&quot;:&quot;noqtis-capsule-1&quot;
+[,&quot;meta&quot;:{...}]}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Paths"><a class="permalink" href="#Paths">Paths</a></h2>
+<p class="Pp">A path MUST use &#x2018;<code class="Li">/</code>&#x2019; between
+    names, MUST NOT start with &#x2018;<code class="Li">/</code>&#x2019;, and
+    MUST be in normal form: no empty segment and no
+    &#x2018;<code class="Li">.</code>&#x2019;. Every name (segment) MUST be
+    valid UTF-8 without overlong forms or surrogates, MUST NOT be empty,
+    &#x2018;<code class="Li">.</code>&#x2019; or
+    &#x2018;<code class="Li">..</code>&#x2019;, and MUST NOT contain a control
+    character (U+0000 to U+001F, U+007F),
+    &#x2018;<code class="Li">/</code>&#x2019;,
+    &#x2018;<code class="Li">\</code>&#x2019; or
+    &#x2018;<code class="Li">:</code>&#x2019;. Two paths of one capsule MUST NOT
+    differ only in ASCII case. A path MUST be at most 4096 bytes.</p>
+<p class="Pp"><span class="Pa">noqtis.json</span> and
+    <span class="Pa">noqtis.sig</span> at the top of the folder are not listed.
+    Only regular files are listed; folders are implied by the paths, so an empty
+    folder is not recorded.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_seal,_noqtis.sig"><a class="permalink" href="#The_seal,_noqtis.sig">The
+  seal, noqtis.sig</a></h2>
+<p class="Pp">An object with exactly these members:</p>
+<dl class="Bl-tag">
+  <dt id="alg"><a class="permalink" href="#alg"><code class="Cm">alg</code></a></dt>
+  <dd>The signature algorithm, as
+      <a class="permalink" href="#nqsname"><code class="Fn" id="nqsname">nqsname</code></a>()
+      (<a class="Xr" href="/noqtis/reference/man/nqsign-3/">nqsign(3)</a>) names
+      it, for example &#x2018;<code class="Li">ML-DSA-65</code>&#x2019; or
+      &#x2018;<code class="Li">SLH-DSA-SHAKE-128s</code>&#x2019;.</dd>
+  <dt id="context"><a class="permalink" href="#context"><code class="Cm">context</code></a></dt>
+  <dd>The FIPS 204/205 context string the signature was made with, at most 255
+      bytes. A sealer SHOULD use
+      &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;;
+      <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a> always
+      does.</dd>
+  <dt id="format~2"><a class="permalink" href="#format~2"><code class="Cm">format</code></a></dt>
+  <dd>The string &#x2018;<code class="Li">noqtis-seal-1</code>&#x2019;.</dd>
+  <dt id="manifest_sha256"><a class="permalink" href="#manifest_sha256"><code class="Cm">manifest_sha256</code></a></dt>
+  <dd>The SHA-256 of the exact bytes of <span class="Pa">noqtis.json</span>, 64
+      lower-case hex digits.</dd>
+  <dt id="public_key"><a class="permalink" href="#public_key"><code class="Cm">public_key</code></a></dt>
+  <dd>The signer's public key, base64 (RFC 4648 section 4, padded, no line
+      breaks) of the standard's encoding.</dd>
+  <dt id="signature"><a class="permalink" href="#signature"><code class="Cm">signature</code></a></dt>
+  <dd>The pure ML-DSA or SLH-DSA signature over the exact bytes of
+      <span class="Pa">noqtis.json</span> with that context, base64
+    likewise.</dd>
+  <dt id="timestamp"><a class="permalink" href="#timestamp"><code class="Cm">timestamp</code></a></dt>
+  <dd>Optional: base64 of an RFC 3161 time-stamp token whose message imprint is
+      the hash (SHA-256, SHA-384 or SHA-512) of the decoded
+      <code class="Cm">signature</code> bytes.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Limits"><a class="permalink" href="#Limits">Limits</a></h2>
+<p class="Pp">A checker MUST refuse, with a failing check and never by
+    truncating: <span class="Pa">noqtis.json</span> over 512 MiB (its size is
+    checked before it is read, and again if it grows while being read);
+    <span class="Pa">noqtis.sig</span> over 1 MiB; <code class="Cm">meta</code>
+    over 1 MiB; more than 2,000,000 files; a path over 4096 bytes; folders more
+    than 64 levels deep. JSON nesting is limited to 64 levels.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Sealing"><a class="permalink" href="#Sealing">Sealing</a></h2>
+<p class="Pp">A sealer MUST list every entry of the folder without following
+    links and MUST refuse to seal a folder that holds a symbolic link, a Windows
+    reparse point, a special file (device, pipe, socket), a name the rules above
+    refuse, two paths that differ only in ASCII case, or anything over a limit.
+    It MUST verify the new signature before writing the seal.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Checking"><a class="permalink" href="#Checking">Checking</a></h2>
+<p class="Pp">A checker MUST:</p>
+<ol class="Bl-enum">
+  <li>check that both files are canonical with exactly the fields above and the
+      right formats, and that <code class="Cm">alg</code> is known and
+      <code class="Cm">public_key</code> and <code class="Cm">signature</code>
+      have the algorithm's sizes;</li>
+  <li>check that the SHA-256 of <span class="Pa">noqtis.json</span> equals
+      <code class="Cm">manifest_sha256</code>;</li>
+  <li>verify <code class="Cm">signature</code> over the exact bytes of
+      <span class="Pa">noqtis.json</span> with <code class="Cm">context</code>,
+      using the trusted public key when the caller gave one (and then require
+      that <code class="Cm">public_key</code> equal it), otherwise
+      <code class="Cm">public_key</code>, and say which;</li>
+  <li>for every listed file: require it to exist, to be a regular file reached
+      without following a link, and to have the listed size, SHA-256 and
+      SHA3-256;</li>
+  <li>fail on every regular file present but not listed, every link, special
+      file or refused name in the folder, every path out of order, listed twice,
+      not in normal form, or differing from another only in case;</li>
+  <li>when trust anchors for time-stamping authorities are given, require a
+      <code class="Cm">timestamp</code> whose imprint matches and whose token
+      verifies, with the TSA certificate path valid at the token's genTime,
+      under one of them; when none are given, fail a
+      <code class="Cm">timestamp</code> that is present, since it cannot be
+      checked.</li>
+</ol>
+<p class="Pp">A capsule passes only when every check passes.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt><span class="Pa">noqtis.json</span></dt>
+  <dd>the manifest</dd>
+  <dt><span class="Pa">noqtis.sig</span></dt>
+  <dd>the seal</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">A manifest (one line in the file; broken here for width):</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>{&quot;created&quot;:&quot;2026-10-28T23:35:26Z&quot;,&quot;files&quot;:[{&quot;path&quot;:&quot;data/in.csv&quot;,
+&quot;sha256&quot;:&quot;5be08c96...&quot;,&quot;sha3_256&quot;:&quot;cec130cc...&quot;,&quot;size&quot;:4},
+{&quot;path&quot;:&quot;report.txt&quot;,&quot;sha256&quot;:&quot;8e54b0ca...&quot;,&quot;sha3_256&quot;:&quot;cfd6402f...&quot;,
+&quot;size&quot;:2}],&quot;format&quot;:&quot;noqtis-capsule-1&quot;,&quot;meta&quot;:{&quot;project&quot;:&quot;demo&quot;}}</pre>
+</div>
+<p class="Pp">Its seal:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>{&quot;alg&quot;:&quot;ML-DSA-65&quot;,&quot;context&quot;:&quot;noqtis-capsule-1&quot;,
+&quot;format&quot;:&quot;noqtis-seal-1&quot;,&quot;manifest_sha256&quot;:&quot;9f322e95...&quot;,
+&quot;public_key&quot;:&quot;1qWycP39...&quot;,&quot;signature&quot;:&quot;...&quot;}</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">JSON Canonicalization Scheme
+    (JCS)</span>, <span class="RsR">RFC 8785</span>, <span class="RsD">June
+    2020</span>.</cite> <cite class="Rs"><span class="RsT">Internet X.509 Public
+    Key Infrastructure Time-Stamp Protocol (TSP)</span>, <span class="RsR">RFC
+    3161</span>, <span class="RsD">August 2001</span>.</cite>
+    <cite class="Rs"><span class="RsT">Date and Time on the Internet:
+    Timestamps</span>, <span class="RsR">RFC 3339</span>, <span class="RsD">July
+    2002</span>.</cite> <cite class="Rs"><span class="RsT">The Base16, Base32,
+    and Base64 Data Encodings</span>, <span class="RsR">RFC 4648</span>,
+    <span class="RsD">October 2006</span>.</cite></p>
+</section>
+</div>

@@ -1,0 +1,119 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NOQTIS-SEAL 1
+.Os
+.Sh NAME
+.Nm noqtis-seal
+.Nd seal a folder of files into a signed capsule
+.Sh SYNOPSIS
+.Nm noqtis seal
+.Fl k Ar key
+.Op Fl p Ar key.pub
+.Op Fl m Ar json-file
+.Op Fl -tsa Ar url
+.Ar dir
+.Sh DESCRIPTION
+.Nm noqtis seal
+turns the folder
+.Ar dir
+into a capsule
+.Pq Xr noqtis-capsule 5 .
+It lists every regular file under
+.Ar dir ,
+computes each file's size, SHA-256 and SHA3-256, writes the manifest
+.Pa noqtis.json
+(canonical JSON, RFC 8785), signs its exact bytes with the secret key in
+.Ar key
+under the context string
+.Ql noqtis-capsule-1 ,
+and writes the seal
+.Pa noqtis.sig .
+An existing
+.Pa noqtis.json
+and
+.Pa noqtis.sig
+at the top of
+.Ar dir
+are left out of the listing and replaced.
+On success it prints
+.Dl sealed Ar dir No with Ar alg
+.Pp
+The folder must hold only regular files and folders with portable names.
+Nothing is written, and the exit status is 2, when it holds a symbolic
+link, a Windows reparse point, a device, pipe or socket, a name that is
+empty, holds a control character,
+.Ql / ,
+.Ql \e
+or
+.Ql \&: ,
+is not valid UTF-8, or two paths that differ only in ASCII case; or when it
+exceeds a limit: more than 2,000,000 files, a path over 4096 bytes, folders
+more than 64 levels deep, a manifest over 512 MiB, or a file over
+2^53\-1 bytes.
+.Pp
+The creation time in the manifest is
+.Ev SOURCE_DATE_EPOCH
+when it is set (a decimal number of seconds), otherwise the clock.
+.Pp
+The secret key and the public key must be one pair: the new seal is
+verified before it is written, and a key pair that does not match is
+refused.
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+A secret signature key file (ML-DSA or SLH-DSA).
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+The matching public key, stored in the seal.
+Default:
+.Ar key Ns Pa .pub .
+.It Fl m Ar json-file , Fl -meta Ns = Ns Ar json-file
+A JSON object (at most 1 MiB) stored, in canonical form, as the
+manifest's
+.Ql meta
+field and covered by the signature.
+noqtis does not interpret it.
+.It Fl -tsa Ar url
+Reserved for an RFC 3161 timestamp from a time-stamping authority.
+This build does not request timestamps: the option fails with
+.Dq algorithm or option not supported
+(exit 2) and nothing is written.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev SOURCE_DATE_EPOCH
+Seconds since 1970-01-01T00:00:00Z to record as the creation time,
+for reproducible capsules.
+A value that is not a plain decimal number is refused.
+.El
+.Sh FILES
+.Bl -tag -width Ds -compact
+.It Ar dir Ns Pa /noqtis.json
+the manifest
+.It Ar dir Ns Pa /noqtis.sig
+the seal
+.El
+.Sh EXIT STATUS
+0 when the capsule was written; 2 on a usage error, keys that are not a
+signature key pair, an unsealable folder, a limit, or a file that cannot
+be read or written.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis keygen -a ML-DSA-65 -o me
+ML-DSA-65 key pair: me (secret), me.pub (public)
+$ echo '{"project":"demo"}' > meta.json
+$ noqtis seal -k me -m meta.json results
+sealed results with ML-DSA-65
+$ ls results
+data  noqtis.json  noqtis.sig  report.txt
+.Ed
+.Pp
+A reproducible capsule:
+.Bd -literal -offset indent
+$ SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me results
+sealed results with ML-DSA-65
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr nqseal 3 ,
+.Xr noqtis-capsule 5

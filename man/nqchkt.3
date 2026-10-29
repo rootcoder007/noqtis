@@ -1,0 +1,120 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 28, 2026
+.Dt NQCHKT 3
+.Os
+.Sh NAME
+.Nm nqchkt
+.Nd check a capsule and its RFC 3161 timestamp
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqchkt
+.Fa "const char *dir"
+.Fa "const uint8_t *trust" "size_t trustlen"
+.Fa "const uint8_t *const *anc" "const size_t *anclen" "size_t nanc"
+.Fa "nqrep **rep"
+.Fc
+.Sh DESCRIPTION
+.Fn nqchkt
+is
+.Xr nqchk 3
+with
+.Fa nanc
+trust anchors for time-stamping authorities (TSAs):
+.Fa anc Ns Bq i
+is a DER X.509 certificate of
+.Fa anclen Ns Bq i
+bytes, for i below
+.Fa nanc ,
+at most 32.
+.Pp
+With anchors, the seal must carry a
+.Ql timestamp :
+the base64 of an RFC 3161 time-stamp token.
+The
+.Ql timestamp
+row passes only when
+.Bl -bullet
+.It
+the token parses as a strict DER RFC 3161 token;
+.It
+its message imprint is its own hash (SHA-256, SHA-384 or SHA-512) of the
+decoded
+.Ql signature
+bytes of the seal;
+.It
+its signature verifies under the TSA's certificate, whose path leads to
+one of the anchors and is valid at the token's genTime;
+.El
+and the row's detail then gives the genTime.
+A seal without a timestamp fails the row.
+.Pp
+With
+.Fa nanc
+0,
+.Fn nqchkt
+is exactly
+.Fn nqchk :
+a timestamp present fails its row
+.Pq Dq not checked: no TSA trust anchors given ,
+and no timestamp gives no row.
+.Pp
+The timestamp proves that the signature existed at genTime, according to
+the TSA.
+It does not make an untrusted seal key trusted; pin the key with
+.Fa trust .
+.Sh RETURN VALUES
+As for
+.Xr nqchk 3 ,
+and also:
+.Bl -tag -width NQELIM
+.It Bq Er NQELIM
+.Fa nanc
+is over 32.
+No report.
+.It Bq Er NQEARG
+.Fa nanc
+is nonzero and
+.Fa anc
+or
+.Fa anclen
+is
+.Dv NULL ,
+or an anchor is
+.Dv NULL
+or empty.
+No report.
+An anchor that is not a certificate fails the
+.Ql timestamp
+row instead.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+const uint8_t *anc[1] = {tsa_der};
+size_t anclen[1] = {tsa_der_len};
+nqrep *rep = NULL;
+int rc = nqchkt("results", pk, sizeof pk, anc, anclen, 1, &rep);
+.Ed
+.Sh SEE ALSO
+.Xr nqchk 3 ,
+.Xr nqrep 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%R RFC 3161
+.%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%D August 2001
+.Re
+.Rs
+.%R RFC 5280
+.%T Internet X.509 Public Key Infrastructure Certificate and CRL Profile
+.%D May 2008
+.Re
+.Sh CAVEATS
+Neither the library nor
+.Xr noqtis-seal 1
+can yet obtain a timestamp, and
+.Xr noqtis-check 1
+takes no anchors; timestamps are checked only through this function.
