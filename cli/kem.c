@@ -133,7 +133,7 @@ int ncdec(int argc, char **argv) {
     nclib("dec", k.a.name, NQENOSUP);
     goto done;
   }
-  if (ncrd(argv[0], 0, &ct, &cn) != NQOK) {
+  if (ncrdx(argv[0], 0, NCRDSMALL, &ct, &cn) != NQOK) {
     ncmsg("dec", "cannot read %s", argv[0]);
     goto done;
   }

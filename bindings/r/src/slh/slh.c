@@ -102,7 +102,7 @@ static void sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
                 size_t prelen, const uint8_t *msg, size_t msglen,
                 const uint8_t *rnd, uint8_t *sig) {
   nqslc c;
-  uint8_t pk[2 * NQSLNMX], dg[NQSLMMX], a[32], fpk[NQSLNMX];
+  uint8_t pk[2 * NQSLNMX], dg[NQSLMMX], a[32], fpk[NQSLNMX], r[NQSLNMX];
   uint64_t tree;
   uint32_t leaf;
   unsigned n = p->n;
@@ -110,11 +110,13 @@ static void sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
   memcpy(pk, sk + 2 * n, 2 * (size_t)n);
   NQSLDECL(pk, 2 * (size_t)n);
   nqslini(&c, p, pk, sk);
-  nqslpm(p, sk + n, rnd, pre, prelen, msg, msglen, sig);
-  /* R is the signature's first field; every index below derives from it
-   * and the public message */
-  NQSLDECL(sig, n);
-  nqslhm(p, sig, pk, pre, prelen, msg, msglen, dg);
+  /* R, the signature's first field, goes to sig only once msg has been
+   * read for the last time (by H_msg), so sig may overlap msg */
+  nqslpm(p, sk + n, rnd, pre, prelen, msg, msglen, r);
+  /* every index below derives from R and the public message */
+  NQSLDECL(r, n);
+  nqslhm(p, r, pk, pre, prelen, msg, msglen, dg);
+  memcpy(sig, r, n);
   dsplit(p, dg, &tree, &leaf);
   memset(a, 0, sizeof a);
   nqsatree(a, tree);

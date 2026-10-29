@@ -13,6 +13,9 @@
 #include <stdio.h>
 
 /* exit codes */
+/* s with control characters escaped, for printing to a terminal */
+const char *ncesc(const char *s);
+
 #define NCOK 0   /* success; a signature or capsule verified */
 #define NCBAD 1  /* verification failed, a digest differs */
 #define NCUSE 2  /* usage, file or library error */
@@ -54,6 +57,14 @@ FILE *ncfopen(const char *path, const char *mode);
 /* Reads a whole file ("-" is stdin) into a new buffer. sec: unbuffered,
  * and every intermediate copy is wiped. The caller frees with ncfree. */
 int ncrd(const char *path, int sec, uint8_t **buf, size_t *len);
+/* whether path is a folder (following links) */
+int ncisdir(const char *path);
+/* ncrd that refuses (NQELIM) an input over max bytes, so /dev/zero or a
+ * huge file cannot fill memory or run forever */
+int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
+          size_t *len);
+#define NCRDMAX ((size_t)1 << 30) /* a message or list: 1 GiB */
+#define NCRDSMALL ((size_t)1 << 20) /* a key, signature, anchor: 1 MiB */
 /* Creates path for writing: refuses an existing file unless force; sec
  * gives owner-only permissions (0600 on POSIX). */
 FILE *ncopen(const char *path, int force, int sec);

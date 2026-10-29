@@ -19,7 +19,7 @@ unmodified copy of the noqtis C library
 (https://github.com/rootcoder007/noqtis), made by tools/vendor.sh in
 that repository:
 
-  Copyright 2026 rootcoder007 and the noqtis contributors
+  Copyright 2026 Vansh Singh Ruhela
   License: Apache-2.0 WITH LLVM-exception (see LICENSE)
 
 The library is an independent implementation of public standards

@@ -102,6 +102,15 @@ may be called again to squeeze more output; after the first
 .Fn nqhfin ,
 .Fn nqhupd
 fails.
+.Fn nqhupd
+and
+.Fn nqhfin
+check the fields of the context and return
+.Dv NQESTATE
+for one
+.Fn nqhini
+did not make (copied in from elsewhere and changed), rather than follow
+a position out of its buffer.
 .Pp
 .Fn nqhmac
 computes HMAC (FIPS 198-1, RFC 2104) with any of the ten fixed-length

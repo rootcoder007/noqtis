@@ -49,6 +49,10 @@ prints a warning when given one.
 Replace existing files.
 The old files are removed first.
 .El
+.Pp
+The secret key is written with mode 0600 and the public key with 0644,
+whatever the umask: the public key is a trust anchor, and must not be
+writable by others.
 .Sh EXIT STATUS
 0 on success; 2 on a usage error, an unknown algorithm, a seed of the wrong
 length, an existing file without

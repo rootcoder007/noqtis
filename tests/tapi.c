@@ -568,6 +568,127 @@ static void kems(void) {
   NQTEQI(nqdec((nqkalg)99, ksk, 1632, kct, 768, b, 32), NQEARG);
 }
 
+/* ---- review of a4eec67 (crypto and bindings): aliasing and contracts ---- */
+
+/* a signature made in place (sig overlapping msg) verifies */
+static void tinplace(nqsalg a) {
+  nqssz z;
+  uint8_t seed[96], rnd[32], msg[64];
+  uint8_t *ap, *as, *buf;
+  size_t sl = 0, n, sn;
+  NQTEQI(nqssize(a, &z), NQOK);
+  n = a <= NQMLDSA87 ? 32 : z.pk / 2;
+  sn = a <= NQMLDSA87 ? 32 : 3 * (z.pk / 2);
+  ap = (uint8_t *)malloc(z.pk);
+  as = (uint8_t *)malloc(z.sk);
+  buf = (uint8_t *)malloc(z.sig + sizeof msg);
+  NQTCHK(ap != NULL && as != NULL && buf != NULL);
+  if (ap == NULL || as == NULL || buf == NULL) return;
+  fill(seed, sn, 3);
+  fill(rnd, n, 5);
+  fill(msg, sizeof msg, 9);
+  NQTEQI(nqskgd(a, seed, sn, ap, z.pk, as, z.sk), NQOK);
+  memcpy(buf, msg, sizeof msg);
+  NQTEQI(nqsignd(a, as, z.sk, buf, sizeof msg, NULL, 0, 0, rnd, n, buf,
+                 z.sig, &sl), NQOK);
+  NQTEQI(nqvrfy(a, ap, z.pk, msg, sizeof msg, NULL, 0, 0, buf, sl), NQOK);
+  free(ap);
+  free(as);
+  free(buf);
+}
+
+/* the seed may overlap ap: the same keys as from a separate seed */
+static void tkalias(nqkalg a) {
+  nqksz z;
+  size_t sn = a >= NQHQC128 ? NQHQSEED : NQMKSEED;
+  uint8_t seed[NQMKSEED];
+  uint8_t *ap, *as, *ap2, *as2;
+  NQTEQI(nqksize(a, &z), NQOK);
+  ap = (uint8_t *)malloc(z.pk);
+  as = (uint8_t *)malloc(z.sk);
+  ap2 = (uint8_t *)malloc(z.pk);
+  as2 = (uint8_t *)malloc(z.sk);
+  NQTCHK(ap && as && ap2 && as2 && z.pk >= sn);
+  if (!(ap && as && ap2 && as2)) return;
+  fill(seed, sn, 11);
+  NQTEQI(nqkkgd(a, seed, sn, ap, z.pk, as, z.sk), NQOK);
+  memcpy(ap2, seed, sn);
+  NQTEQI(nqkkgd(a, ap2, sn, ap2, z.pk, as2, z.sk), NQOK);
+  NQTCHK(memcmp(ap, ap2, z.pk) == 0 && memcmp(as, as2, z.sk) == 0);
+  memcpy(as2, seed, sn);
+  NQTEQI(nqkkgd(a, as2, sn, ap2, z.pk, as2, z.sk), NQOK);
+  NQTCHK(memcmp(as, as2, z.sk) == 0);
+  free(ap);
+  free(as);
+  free(ap2);
+  free(as2);
+}
+
+/* a failed signature keygen leaves no half-written key */
+static void tkgfail(void) {
+  nqssz z;
+  uint8_t ap[2592], as[4896], seed[32];
+  size_t i;
+  int clear = 1;
+  NQTEQI(nqssize(NQMLDSA44, &z), NQOK);
+  memset(ap, 0xa5, sizeof ap);
+  memset(as, 0xa5, sizeof as);
+  NQTEQI(nqskgd(NQMLDSA44, seed, 31, ap, z.pk, as, z.sk), NQEARG);
+  for (i = 0; i < z.pk; i++) clear &= ap[i] == 0;
+  for (i = 0; i < z.sk; i++) clear &= as[i] == 0;
+  NQTCHK(clear);
+  memset(ap, 0xa5, sizeof ap);
+  NQTEQI(nqskg(NQMLDSA44, ap, z.pk - 1, as, z.sk), NQEBUF);
+  clear = 1;
+  for (i = 0; i + 1 < z.pk; i++) clear &= ap[i] == 0;
+  NQTCHK(clear);
+}
+
+/* a context whose position was changed is refused, not followed out of
+ * its buffer (the R binding hands contexts to R as raw vectors) */
+typedef struct {
+  uint32_t mag;
+  int st;
+  nqfctx f;
+} tcst;
+
+static void tctx(void) {
+  static const nqhalg al[] = {NQS256, NQS512, NQS3256, NQSHK128};
+  nqhctx c;
+  tcst s;
+  uint8_t in[200], out[64];
+  size_t i;
+  memset(in, 1, sizeof in);
+  for (i = 0; i < sizeof al / sizeof *al; i++) {
+    NQTEQI(nqhini(&c, al[i]), NQOK);
+    NQTEQI(nqhupd(&c, in, 10), NQOK);
+    memcpy(&s, &c, sizeof s);
+    if (al[i] == NQS256) s.f.u.s2.pos = 1000;
+    else if (al[i] == NQS512) s.f.u.s5.pos = (size_t)-8;
+    else s.f.u.k.pos = 4000;
+    memcpy(&c, &s, sizeof s);
+    NQTEQI(nqhupd(&c, in, sizeof in), NQESTATE);
+    NQTEQI(nqhfin(&c, out, nqhlen(al[i])), NQESTATE);
+    NQTEQI(nqhini(&c, al[i]), NQOK);
+    memcpy(&s, &c, sizeof s);
+    s.f.alg = (nqhalg)99;
+    memcpy(&c, &s, sizeof s);
+    NQTEQI(nqhupd(&c, in, 1), NQESTATE);
+  }
+}
+
+static void treview(void) {
+  static const nqsalg sa[] = {NQMLDSA44, NQMLDSA87, NQSLH128F, NQSLHK128F,
+                              NQSLH192F, NQSLHK256F};
+  static const nqkalg ka[] = {NQMLKEM512, NQMLKEM768, NQMLKEM1024,
+                              NQHQC128, NQHQC192, NQHQC256};
+  size_t i;
+  for (i = 0; i < sizeof sa / sizeof *sa; i++) tinplace(sa[i]);
+  for (i = 0; i < sizeof ka / sizeof *ka; i++) tkalias(ka[i]);
+  tkgfail();
+  tctx();
+}
+
 int main(void) {
   const char *f = getenv("NQFAST");
   fast = (f != NULL && f[0] == '1') || getenv("NQSLSUB") != NULL;
@@ -576,6 +697,7 @@ int main(void) {
   snames1();
   sigs();
   kems();
+  treview();
   printf("signature sets: %ld all checks, %ld one signature each, %ld "
          "keys only%s\n", levels[ALL], levels[ONE], levels[KG],
          slow   ? " (NQSLOW=1)"

@@ -541,7 +541,14 @@ static void chkent(nqrep *r, const char *dir, const nqclist *l,
     add(r, "file", 0, e->norm, ": not a regular file", NULL);
     return;
   }
-  rc = nqcdig(dir, e->norm, &size, s2, s3);
+  /* the size the folder listing saw first, then the bytes, reading at
+   * most one byte past the listed size (a 1 TiB sparse file in place of
+   * a small one fails at once, not after hashing it all) */
+  if (l->e[k].size != e->size) {
+    add(r, "file", 0, e->norm, ": size differs", NULL);
+    return;
+  }
+  rc = nqcdigx(dir, e->norm, e->size, &size, s2, s3, NULL);
   if (rc == NQEMEM) {
     r->err = rc;
   } else if (rc != NQOK) {

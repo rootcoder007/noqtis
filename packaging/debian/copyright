@@ -3,7 +3,7 @@ Upstream-Name: noqtis
 Source: https://github.com/rootcoder007/noqtis
 
 Files: *
-Copyright: 2026 rootcoder007 and the noqtis contributors
+Copyright: 2026 Vansh Singh Ruhela
 License: Apache-2.0 WITH LLVM-exception
  On Debian systems the Apache License 2.0 is in
  /usr/share/common-licenses/Apache-2.0. The LLVM exception and the full

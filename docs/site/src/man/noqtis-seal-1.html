@@ -54,7 +54,14 @@ and the summary line ends in &#x2018;<code class="Li">and a
   gives a token that checks. When none does, the new
   <span class="Pa">noqtis.json</span> and <span class="Pa">noqtis.sig</span> are
   removed, so the folder is never left sealed without the timestamp that was
-  asked for, and the exit status is 2.
+  asked for, and the exit status is 2. An interrupt while it waits (Ctrl-C,
+  SIGTERM, SIGHUP) removes them too; only SIGKILL or a power cut can leave the
+  folder sealed without one. A TSA has 120 seconds in all for one request, the
+  name lookup included (30 seconds at most for any one step).
+<p class="Pp">The folder must not hold a noqtis secret key (a file that starts
+    with &#x2018;<code class="Li">noqtis-key-1 &lt;alg&gt; sec</code>&#x2019;),
+    which would ship with the capsule: the seal is refused, with exit status
+  2.</p>
 <p class="Pp">The folder must hold only regular files and folders with portable
     names. Nothing is written, and the exit status is 2, when it holds a
     symbolic link, a Windows reparse point, a device, pipe or socket, a name

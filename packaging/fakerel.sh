@@ -37,6 +37,11 @@ sum() {
     sum "$f" >> SHA256SUMS.new
   done
   mv SHA256SUMS.new SHA256SUMS
+  # signed like a release (SHA256SUMS.sig) with the test key NQTESTKEY,
+  # which the installer is told to trust through NOQTIS_SSHKEY
+  if [ -n "${NQTESTKEY:-}" ]; then
+    ssh-keygen -Y sign -q -f "$NQTESTKEY" -n file SHA256SUMS
+  fi
   if [ "$mode" = tamper ]; then
     for f in noqtis-*; do printf 'x' >> "$f"; done
   fi

@@ -1259,7 +1259,7 @@ static void trefuse(void) {
   }
   /* and the refusals of check itself */
   want(2, "check qnone", NULL);
-  ok(has("q.err", "no such folder (give the folder that holds"),
+  ok(has("q.err", "not a folder (give the folder that holds"),
      "check: a folder that is not there");
   want(2, "check -p q.none qref", NULL);
   ok(has("q.err", "cannot read key file q.none (missing or unreadable; "
@@ -1334,6 +1334,76 @@ static void tinsp(void) {
   rmdirs("qins");
 }
 
+
+/* review of a4eec67 (capsule, CLI and network): options given twice,
+ * folders, the key file's algorithm, terminal escapes, secret keys in the
+ * folder, hex seeds, file modes, input limits, signing a manifest */
+static void treview(void) {
+  rmdirs("qrv");
+  mkd("qrv");
+  wrs("qrv/a", "x\n");
+  want(0, "keygen -a SLH-DSA-SHA2-128f -o q.rk", NULL);
+  want(0, "seal -k q.rk qrv", NULL);
+  want(0, "check -p q.rk.pub qrv", NULL);
+  /* a second -p does not replace the first */
+  want(2, "check -p q.rk.pub -p q.rk.pub qrv", NULL);
+  ok(has("q.err", "is given more than once"), "check: -p twice is refused");
+  want(2, "keygen -a ML-DSA-44 -o q.r1 -o q.r2", NULL);
+  /* a file is not a folder (exit 2, as for no folder) */
+  want(2, "check qrv/a", NULL);
+  ok(has("q.err", "not a folder"), "check: a file given as the folder");
+  want(2, "inspect qrv/a", NULL);
+  /* -p pins the key file's algorithm too: SHAKE-128f has SHA2-128f's sizes */
+  shell("cp q.rk.pub q.rk2.pub");
+  ok(sub("q.rk2.pub", "SLH-DSA-SHA2-128f", "SLH-DSA-SHAKE-128f"),
+     "relabel the key file");
+  want(1, "check -p q.rk2.pub qrv", NULL);
+  ok(has("q.out", "key.alg") && has("q.out", "the seal says SLH-DSA-SHA2-128f"),
+     "check: a key file of another algorithm with the same bytes fails");
+  want(1, "check -j -p q.rk2.pub qrv", NULL);
+  ok(has("q.out", "\"check\":\"key.alg\",\"ok\":false"), "check -j: key.alg");
+#ifndef _WIN32
+  /* terminal escapes in a name reach the terminal escaped */
+  wrs("qrv/\x1b[2K\x1b[1Aesc", "y\n");
+  want(1, "check -p q.rk.pub qrv", NULL);
+  ok(has("q.out", "\\x1b[2K\\x1b[1Aesc") && !has("q.out", "\x1b"),
+     "check: a name's escape characters are printed escaped");
+  shell("rm -f 'qrv/'$(printf '\\033')'[2K'$(printf '\\033')'[1Aesc'");
+  /* the public key's mode does not follow a umask of 000 */
+  {
+    struct stat st;
+    mode_t old = umask(0);
+    want(0, "keygen -a ML-DSA-44 -o q.um", NULL);
+    umask(old);
+    ok(stat("q.um.pub", &st) == 0 && (st.st_mode & 0777) == 0644,
+       "keygen: the .pub is 0644 under umask 000");
+    ok(stat("q.um", &st) == 0 && (st.st_mode & 0777) == 0600,
+       "keygen: the secret key is 0600 under umask 000");
+  }
+  /* /dev/zero as a seed file is refused, not read forever */
+  want(2, "keygen -a ML-DSA-44 --seed /dev/zero -o q.z", NULL);
+#endif
+  /* a secret key in the folder is not sealed */
+  rmdirs("qrv2");
+  mkd("qrv2");
+  wrs("qrv2/a", "x\n");
+  want(0, "keygen -a ML-DSA-44 -o qrv2/me", NULL);
+  want(2, "seal -k qrv2/me qrv2", NULL);
+  ok(has("q.err", "starts like a noqtis secret key"),
+     "seal: a secret key in the folder is refused");
+  ok(!exists("qrv2/noqtis.sig"), "seal: nothing written");
+  /* a seed in hex on the command line is warned about */
+  want(0, "keygen -a ML-DSA-44 --seed "
+          "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f "
+          "-o q.sd", NULL);
+  ok(has("q.err", "warning: a seed given as hex"), "keygen --seed hex warns");
+  /* signing a manifest as a plain file is warned about */
+  want(0, "sign -k q.rk -o q.ms qrv/noqtis.json", NULL);
+  ok(has("q.err", "is a capsule manifest"), "sign: a manifest is warned about");
+  rmdirs("qrv");
+  rmdirs("qrv2");
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -1381,6 +1451,7 @@ int main(int argc, char **argv) {
   thash();
   tcap();
   tinsp();
+  treview();
   if (tsad != NULL) {
     tts();
     trefuse();

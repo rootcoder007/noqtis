@@ -32,10 +32,14 @@
     seal's signature, a random nonce and a request for the TSA's certificate,
     sent by an HTTP/1.1 POST; the reply is stored only once it checks: granted,
     its imprint the hash of this signature, its nonce the one sent, and its
-    signature valid under the TSA certificate at genTime. Give
-    <code class="Fl">--tsa</code> more than once for fallbacks: they are tried
-    in order until one gives a token that checks. When none does, nothing is
-    written and the exit status is 2.</p>
+    signature valid under the TSA certificate at genTime. The TSA certificate is
+    checked at genTime and not for revocation, so a TSA key stolen later could
+    make tokens with an earlier genTime; see
+    <a class="Sx" href="#SECURITY_CONSIDERATIONS">SECURITY CONSIDERATIONS</a> in
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>.
+    Give <code class="Fl">--tsa</code> more than once for fallbacks: they are
+    tried in order until one gives a token that checks. When none does, nothing
+    is written and the exit status is 2.</p>
 <p class="Pp">A seal holds one timestamp. A capsule that already has one is
     refused unless <code class="Fl">--force</code> is given, since replacing a
     timestamp gives up the earlier time it proves.</p>

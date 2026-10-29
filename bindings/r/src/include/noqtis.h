@@ -80,7 +80,9 @@ typedef enum {
   NQSHK128, NQSHK256
 } nqhalg;
 
-/* Opaque, but sized here so callers can keep it on the stack. */
+/* Opaque, but sized here so callers can keep it on the stack. nqhupd and
+ * nqhfin check its fields and return NQESTATE for a context nqhini did
+ * not make (one copied in from elsewhere and changed, say). */
 typedef struct {
   uint64_t opq[52];
 } nqhctx;
@@ -122,13 +124,15 @@ NQAPI int nqsfind(const char *name, nqsalg *alg);
 NQAPI int nqskg(nqsalg alg, uint8_t *pk, size_t pklen,
                 uint8_t *sk, size_t sklen);
 /* Key generation from the standard's seed (xi for ML-DSA; SK.seed ||
- * SK.prf || PK.seed for SLH-DSA), for the test vectors. */
+ * SK.prf || PK.seed for SLH-DSA), for the test vectors. The seed may
+ * overlap pk or sk. On any error pk and sk are cleared. */
 NQAPI int nqskgd(nqsalg alg, const uint8_t *seed, size_t seedlen,
                  uint8_t *pk, size_t pklen, uint8_t *sk, size_t sklen);
 
 /* Signing with a context string (at most 255 bytes; NULL/0 for none).
  * ph is 0 for the pure variant, or an nqhalg for HashML-DSA /
- * HashSLH-DSA, in which case msg is the message and is hashed here. */
+ * HashSLH-DSA, in which case msg is the message and is hashed here.
+ * sig may overlap msg (signing in place). */
 NQAPI int nqsign(nqsalg alg, const uint8_t *sk, size_t sklen,
                  const uint8_t *msg, size_t msglen,
                  const uint8_t *ctx, size_t ctxlen, int ph,
@@ -173,7 +177,10 @@ NQAPI int nqencd(nqkalg alg, const uint8_t *pk, size_t pklen,
                  const uint8_t *seed, size_t seedlen,
                  uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 /* Implicit rejection: a bad ciphertext yields a pseudorandom secret and
- * NQOK, as the standards require; only malformed sizes fail. */
+ * NQOK, as the standards require. It fails on malformed sizes (NQEARG,
+ * NQEBUF), on a secret key whose embedded hash does not match (NQEDEC),
+ * and, since ML-KEM decapsulation is masked with fresh randomness, when
+ * the operating system's random source fails (NQERNG). */
 NQAPI int nqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
                 const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 

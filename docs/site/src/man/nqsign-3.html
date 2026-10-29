@@ -220,7 +220,8 @@
     makes it from the standard's seed instead: the 32-byte xi for ML-DSA, or
     SK.seed || SK.prf || PK.seed (3n bytes: 48, 72 or 96) for SLH-DSA. It exists
     for test vectors and for keys that must be derived again; the seed is as
-    secret as the key.</p>
+    secret as the key. The seed may overlap <var class="Fa">pk</var> or
+    <var class="Fa">sk</var>, and on any error both are cleared.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Signing_and_verifying"><a class="permalink" href="#Signing_and_verifying">Signing
@@ -260,7 +261,8 @@
 <h2 class="Ss" id="Buffers"><a class="permalink" href="#Buffers">Buffers</a></h2>
 <p class="Pp">Output buffers may be larger than the algorithm's size; only the
     defined number of bytes is written. Input keys and signatures must have
-    exactly the algorithm's size.</p>
+    exactly the algorithm's size. The signature buffer may overlap the message
+    (signing in place).</p>
 </section>
 </section>
 <section class="Sh">

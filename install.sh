@@ -12,7 +12,10 @@
 #      arm64; on Linux the static build unless --shared);
 #   2. downloads the release's SHA256SUMS and, when cosign is installed,
 #      checks its Sigstore signature: signed by this repository's release
-#      workflow for that very tag (without cosign it says so and goes on);
+#      workflow for that very tag (without cosign it says so and goes on),
+#      and its SSH signature (SHA256SUMS.sig) with ssh-keygen against the
+#      release key in SECURITY.md, which is required: with neither
+#      ssh-keygen nor cosign it stops, unless NOQTIS_VERIFY=0;
 #   3. downloads the archive and checks its SHA-256 against SHA256SUMS;
 #   4. checks every path in the archive stays inside its top directory;
 #   5. copies bin/, include/, lib/ and share/ into the prefix.
@@ -26,6 +29,10 @@
 #   NOQTIS_SHARED   1 for the shared-library archive (Linux only)
 #   NOQTIS_COSIGN   auto (default): check with cosign when it is installed;
 #                   1: require cosign; 0: skip the Sigstore check
+#   NOQTIS_VERIFY   0: install without checking who signed the release
+#                   (not recommended; the SHA-256 is still checked)
+#   NOQTIS_SSHKEY   the release key, as an allowed-signers line (default:
+#                   the key in SECURITY.md); for forks and tests
 #   NOQTIS_BASE     the releases URL (default:
 #                   https://github.com/rootcoder007/noqtis/releases); only
 #                   https, or http to localhost for testing
@@ -36,6 +43,9 @@ set -eu
 
 nqrepo=rootcoder007/noqtis
 nqissuer=https://token.actions.githubusercontent.com
+# the release signing key (SECURITY.md); a new key is announced there,
+# signed by the old one
+nqsigner='noqtis ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIITExiNM+YezpSqyif5ZOhFb+abk4iy7CadyZnUMLRMj'
 
 say() { printf 'noqtis install: %s\n' "$*" >&2; }
 die() {
@@ -52,7 +62,8 @@ usage() {
   cat >&2 <<'EOF'
 usage: sh install.sh [--prefix DIR] [--version X.Y.Z] [--shared]
 options: --prefix DIR  --version X.Y.Z  --shared  --help
-environment: NOQTIS_PREFIX NOQTIS_VERSION NOQTIS_SHARED NOQTIS_COSIGN NOQTIS_BASE
+environment: NOQTIS_PREFIX NOQTIS_VERSION NOQTIS_SHARED NOQTIS_COSIGN
+             NOQTIS_VERIFY NOQTIS_SSHKEY NOQTIS_BASE
 EOF
 }
 
@@ -67,10 +78,12 @@ fetch() { # fetch <url> <file>
         die "neither curl nor wget is installed"
       fi ;;
     *)
+      # plain http only to this machine (checked by nqmain), and no
+      # redirects, which could lead anywhere
       if command -v curl >/dev/null 2>&1; then
-        curl -fsSL -o "$2" "$1"
+        curl -fsS --proto '=http' --max-redirs 0 -o "$2" "$1"
       elif command -v wget >/dev/null 2>&1; then
-        wget -q -O "$2" "$1"
+        wget -q --max-redirect=0 -O "$2" "$1"
       else
         die "neither curl nor wget is installed"
       fi ;;
@@ -94,6 +107,8 @@ nqmain() {
   ver=${NOQTIS_VERSION:-}
   shared=${NOQTIS_SHARED:-0}
   sigmode=${NOQTIS_COSIGN:-auto}
+  verify=${NOQTIS_VERIFY:-1}
+  sshkey=${NOQTIS_SSHKEY:-$nqsigner}
   base=${NOQTIS_BASE:-https://github.com/$nqrepo/releases}
   while [ $# -gt 0 ]; do
     case $1 in
@@ -119,12 +134,19 @@ nqmain() {
     die "not a release version: $ver"
   fi
   case $sigmode in auto|0|1) ;; *) die "NOQTIS_COSIGN must be auto, 0 or 1" ;; esac
+  case $verify in 0|1) ;; *) die "NOQTIS_VERIFY must be 0 or 1" ;; esac
   base=${base%/}
+  # http only to this machine, with the host parsed whole: no user info
+  # ("http://localhost:@other/" names the host "other"), only a port
   case $base in
     https://*) ;;
-    http://127.0.0.1:*|http://127.0.0.1/*|http://localhost:*|http://localhost/*) ;;
-    *) die "NOQTIS_BASE must be an https URL (or http to localhost): $base" ;;
+    *)
+      printf '%s\n' "$base" |
+        grep -Eq '^http://(127\.0\.0\.1|localhost)(:[0-9]{1,5})?(/[^@]*)?$' ||
+        die "NOQTIS_BASE must be an https URL (or http to localhost): $base" ;;
   esac
+  [ "$sshkey" = "$nqsigner" ] ||
+    say "the release key is NOQTIS_SSHKEY, not the one in SECURITY.md"
 
   # 1. the archive for this machine
   case $(uname -s) in
@@ -195,12 +217,28 @@ nqmain() {
       --certificate-oidc-issuer "$nqissuer" "$tmp/SHA256SUMS" >&2 ||
       die "the Sigstore signature of SHA256SUMS does not verify"
     say "Sigstore signature: good (release workflow of $nqrepo, tag v$ver)"
+    cosok=1
   elif [ "$sigmode" = 1 ]; then
     die "NOQTIS_COSIGN=1 but cosign is not installed"
   else
     say "cosign not found: the Sigstore signature of SHA256SUMS is NOT checked"
-    say "(the archive is still checked against SHA256SUMS; install cosign, or"
-    say "set NOQTIS_COSIGN=1 to require the signature check)"
+  fi
+  # the SSH signature: who published the sums, not only that the archive
+  # matches them
+  if [ "$verify" = 0 ]; then
+    say "NOQTIS_VERIFY=0: who signed this release is NOT checked"
+  elif command -v ssh-keygen >/dev/null 2>&1; then
+    fetch "$url/SHA256SUMS.sig" "$tmp/SHA256SUMS.sig" ||
+      die "SHA256SUMS.sig cannot be downloaded"
+    printf '%s\n' "$sshkey" > "$tmp/signers"
+    ssh-keygen -Y verify -f "$tmp/signers" -I noqtis -n file \
+      -s "$tmp/SHA256SUMS.sig" < "$tmp/SHA256SUMS" > "$tmp/ssh.log" 2>&1 ||
+      { cat "$tmp/ssh.log" >&2; die "the SSH signature of SHA256SUMS does not verify"; }
+    say "SSH signature: good (the noqtis release key)"
+  elif [ "${cosok:-0}" = 1 ]; then
+    say "ssh-keygen not found: the SSH signature is not checked (Sigstore was)"
+  else
+    die "ssh-keygen (OpenSSH) is not installed, so who signed this release cannot be checked; install it (or cosign), or set NOQTIS_VERIFY=0 to go on without"
   fi
 
   # 3. the archive, checked before anything else touches it

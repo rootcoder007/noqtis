@@ -102,6 +102,8 @@ Refuse 'needcosign' @{ NOQTIS_BASE = "$url/ok"; NOQTIS_PREFIX = (Join-Path $Work
   NOQTIS_COSIGN = '1' } 'cosign is not installed'
 Refuse 'plainhttp' @{ NOQTIS_BASE = 'http://example.com/releases';
   NOQTIS_PREFIX = (Join-Path $Work 'p7') } 'must be an https URL'
+Refuse 'userinfo' @{ NOQTIS_BASE = "http://localhost:@127.0.0.2:$port/ok";
+  NOQTIS_PREFIX = (Join-Path $Work 'p9') } 'must be an https URL'
 Refuse 'noversion' @{ NOQTIS_BASE = "$url/ok"; NOQTIS_PREFIX = (Join-Path $Work 'p8');
   NOQTIS_VERSION = '9.9.9' } 'cannot download SHA256SUMS'
 

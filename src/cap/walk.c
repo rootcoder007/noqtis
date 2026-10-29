@@ -178,6 +178,7 @@ static size_t depth(const char *p, size_t n) {
 typedef struct {
   nqclist *l;
   dstack *s;
+  const char *dir; /* the capsule folder */
   const char *rel;
   size_t rl;
 } wctx;
@@ -308,9 +309,65 @@ static FILE *openh(const char *path, int wr) {
   return f;
 }
 
-static FILE *openr(const char *path) { return openh(path, 0); }
-
 static FILE *openw(const char *path) { return openh(path, 1); }
+
+/* The final path of an open handle (\\?\C:\...), or NULL. */
+static wchar_t *finalp(HANDLE h, size_t *bytes) {
+  DWORD n = GetFinalPathNameByHandleW(h, NULL, 0, FILE_NAME_NORMALIZED);
+  wchar_t *w;
+  if (n == 0) return NULL;
+  *bytes = ((size_t)n + 1) * sizeof(wchar_t);
+  w = (wchar_t *)nqmal(*bytes);
+  if (w == NULL) return NULL;
+  if (GetFinalPathNameByHandleW(h, w, n + 1, FILE_NAME_NORMALIZED) == 0 ||
+      GetFinalPathNameByHandleW(h, w, n + 1, FILE_NAME_NORMALIZED) > n) {
+    nqfree(w, *bytes);
+    return NULL;
+  }
+  return w;
+}
+
+/* Opens rel inside dir for reading, refusing it unless the opened file's
+ * final path lies under the folder's own: a folder on the way swapped for
+ * a junction or link while a seal or check runs is refused, not
+ * followed. */
+static FILE *openin(const char *dir, const char *rel) {
+  size_t fl = 0, rb = 0, db = 0, dn, dwb = 0;
+  char *full = join(dir, rel, &fl);
+  wchar_t *wd, *rp = NULL, *dp = NULL;
+  HANDLE dh;
+  FILE *f;
+  int ok = 0;
+  if (full == NULL) return NULL;
+  f = openh(full, 0);
+  nqfree(full, fl + 1);
+  if (f == NULL) return NULL;
+  wd = wide(dir, &dwb);
+  dh = wd == NULL ? INVALID_HANDLE_VALUE
+                  : CreateFileW(wd, 0, FILE_SHARE_READ | FILE_SHARE_WRITE |
+                                           FILE_SHARE_DELETE,
+                                NULL, OPEN_EXISTING,
+                                FILE_FLAG_BACKUP_SEMANTICS, NULL);
+  if (wd != NULL) nqfree(wd, dwb);
+  if (dh != INVALID_HANDLE_VALUE) {
+    dp = finalp(dh, &db);
+    CloseHandle(dh);
+  }
+  rp = finalp((HANDLE)_get_osfhandle(_fileno(f)), &rb);
+  if (dp != NULL && rp != NULL) {
+    dn = wcslen(dp);
+    while (dn > 0 && dp[dn - 1] == L'\\') dn--;
+    ok = wcslen(rp) > dn + 1 && _wcsnicmp(rp, dp, dn) == 0 &&
+         rp[dn] == L'\\';
+  }
+  if (dp != NULL) nqfree(dp, db);
+  if (rp != NULL) nqfree(rp, rb);
+  if (!ok) {
+    fclose(f);
+    return NULL;
+  }
+  return f;
+}
 
 /* Moves the finished temporary file over path, unless path is a link
  * (reparse point) or a folder; a hard link at path is replaced, never
@@ -354,15 +411,77 @@ static int flush(FILE *f) { return fflush(f) == 0 ? NQOK : NQEIO; }
 
 #else
 
+/* Opens rel (rl bytes, '/'-separated) under dir without following a link
+ * anywhere in rel: each folder on the way is opened with openat
+ * (O_DIRECTORY | O_NOFOLLOW) from the one before, so a folder swapped for
+ * a link while a seal or check runs is refused, not followed (dir itself,
+ * the folder the caller named, may be a link). isdir: rel is a folder
+ * ("" is dir). A file must be plain; O_NONBLOCK keeps a FIFO from
+ * blocking the open and is cleared after. Returns an fd, or -1. */
+static int openat1(const char *dir, const char *rel, size_t rl, int isdir) {
+  int fd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC), nfd, fl;
+  char nm[256]; /* one component; no allocation, so no NQEMEM to report */
+  size_t i = 0;
+  struct stat st;
+  if (fd < 0) return -1;
+  if (rl == 0) {
+    if (isdir) return fd;
+    close(fd);
+    return -1;
+  }
+  while (fd >= 0) {
+    const char *s = rel + i, *e = (const char *)memchr(s, '/', rl - i);
+    size_t cl = e == NULL ? rl - i : (size_t)(e - s);
+    int last = e == NULL;
+    if (cl == 0 || cl >= sizeof nm || (cl == 1 && s[0] == '.') ||
+        (cl == 2 && s[0] == '.' && s[1] == '.')) {
+      nfd = -1;
+    } else {
+      memcpy(nm, s, cl);
+      nm[cl] = '\0';
+      if (!last || isdir) {
+        nfd = openat(fd, nm, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+      } else {
+        nfd = openat(fd, nm, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+      }
+    }
+    close(fd);
+    fd = nfd;
+    if (last) break;
+    i += cl + 1;
+  }
+  if (fd >= 0 && !isdir &&
+      (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
+       (fl = fcntl(fd, F_GETFL)) < 0 ||
+       fcntl(fd, F_SETFL, fl & ~O_NONBLOCK) != 0)) {
+    close(fd);
+    fd = -1;
+  }
+  return fd;
+}
+
+static FILE *openin(const char *dir, const char *rel) {
+  FILE *f;
+  int fd = openat1(dir, rel, strlen(rel), 0);
+  if (fd < 0) return NULL;
+  f = fdopen(fd, "rb");
+  if (f == NULL) close(fd);
+  return f;
+}
+
 static int walk1(wctx *w, const char *full) {
-  DIR *d = opendir(full);
+  int dfd = openat1(w->dir, w->rel, w->rl, 1);
+  DIR *d = dfd < 0 ? NULL : fdopendir(dfd);
   struct dirent *de;
   int rc = NQOK;
-  if (d == NULL) return NQEIO;
+  (void)full;
+  if (d == NULL) {
+    if (dfd >= 0) close(dfd);
+    return NQEIO;
+  }
   for (;;) {
     struct stat st;
-    char *cp;
-    size_t cn, nl;
+    size_t nl;
     errno = 0;
     de = readdir(d);
     if (de == NULL) {
@@ -379,12 +498,7 @@ static int walk1(wctx *w, const char *full) {
       rc = NQELIM;
       break;
     }
-    cp = join(full, de->d_name, &cn);
-    if (cp == NULL) {
-      rc = NQEMEM;
-      break;
-    }
-    if (lstat(cp, &st) != 0) {
+    if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) != 0) {
       rc = NQEIO;
     } else if (S_ISLNK(st.st_mode)) {
       rc = child(w, de->d_name, nl, 0, NQCLNK, 0);
@@ -395,30 +509,10 @@ static int walk1(wctx *w, const char *full) {
     } else {
       rc = child(w, de->d_name, nl, 0, NQCODD, 0);
     }
-    nqfree(cp, cn + 1);
     if (rc != NQOK) break;
   }
   closedir(d);
   return rc;
-}
-
-/* O_NONBLOCK, so that a FIFO under a capsule's name does not block the
- * open forever; it is refused below like any file that is not plain,
- * and the flag is cleared for the reads. */
-static FILE *openr(const char *path) {
-  struct stat st;
-  FILE *f;
-  int fl, fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
-  if (fd < 0) return NULL;
-  if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
-      (fl = fcntl(fd, F_GETFL)) < 0 ||
-      fcntl(fd, F_SETFL, fl & ~O_NONBLOCK) != 0) {
-    close(fd);
-    return NULL;
-  }
-  f = fdopen(fd, "rb");
-  if (f == NULL) close(fd);
-  return f;
 }
 
 /* A new file only (O_EXCL): nqcwrite writes a temporary file and then
@@ -477,6 +571,7 @@ int nqcwalk(const char *dir, nqclist *l) {
     }
     w.l = l;
     w.s = &s;
+    w.dir = dir;
     w.rel = rel;
     w.rl = rl;
     rc = walk1(&w, full);
@@ -489,29 +584,48 @@ int nqcwalk(const char *dir, nqclist *l) {
   return rc;
 }
 
+/* whether the first bytes of a file are a noqtis secret key's header
+ * line, "noqtis-key-1 <alg> sec" */
+static int seckey(const unsigned char *b, size_t n) {
+  static const char mg[] = "noqtis-key-1 ";
+  const unsigned char *e;
+  size_t m = sizeof mg - 1;
+  if (n < m + 5 || memcmp(b, mg, m) != 0) return 0;
+  e = (const unsigned char *)memchr(b, '\n', n);
+  if (e == NULL) return 0;
+  if (e > b && e[-1] == '\r') e--;
+  return (size_t)(e - b) >= m + 5 && memcmp(e - 4, " sec", 4) == 0;
+}
+
 int nqcdig(const char *dir, const char *rel, uint64_t *size,
            uint8_t s2[32], uint8_t s3[32]) {
+  return nqcdigx(dir, rel, (uint64_t)-1, size, s2, s3, NULL);
+}
+
+int nqcdigx(const char *dir, const char *rel, uint64_t max, uint64_t *size,
+            uint8_t s2[32], uint8_t s3[32], int *sec) {
   unsigned char buf[16384];
   nqhctx c2, c3;
-  size_t fl = 0, k;
+  size_t k;
   uint64_t tot = 0;
-  char *full;
   FILE *f;
   int rc = NQOK;
   if (dir == NULL || rel == NULL || size == NULL) return NQEARG;
-  full = join(dir, rel, &fl);
-  if (full == NULL) return NQEMEM;
-  f = openr(full);
-  nqfree(full, fl + 1);
+  f = openin(dir, rel);
   if (f == NULL) return NQEIO;
   if (nqhini(&c2, NQS256) != NQOK || nqhini(&c3, NQS3256) != NQOK) {
     fclose(f);
     return NQEARG;
   }
+  if (sec != NULL) *sec = 0;
   while ((k = fread(buf, 1, sizeof buf, f)) > 0) {
+    if (tot == 0 && sec != NULL) *sec = seckey(buf, k);
     nqhupd(&c2, buf, k);
     nqhupd(&c3, buf, k);
     tot += k;
+    /* a file swapped for a bigger (or sparse) one fails without being
+     * read to its end */
+    if (tot > max) break;
   }
   if (ferror(f)) rc = NQEIO;
   fclose(f);
@@ -546,18 +660,15 @@ static int fsize(FILE *f, uint64_t *sz) {
 
 int nqcread(const char *dir, const char *name, size_t max, char **buf,
             size_t *n) {
-  size_t fl = 0, len = 0, k, want;
+  size_t len = 0, k, want;
   uint64_t sz = 0;
-  char *full, *b, extra;
+  char *b, extra;
   FILE *f;
   int rc;
   if (dir == NULL || name == NULL || buf == NULL || n == NULL) {
     return NQEARG;
   }
-  full = join(dir, name, &fl);
-  if (full == NULL) return NQEMEM;
-  f = openr(full);
-  nqfree(full, fl + 1);
+  f = openin(dir, name);
   if (f == NULL) return NQEIO;
   rc = fsize(f, &sz);
   if (rc == NQOK && sz > max) rc = NQELIM; /* refused before reading */

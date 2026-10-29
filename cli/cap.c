@@ -3,8 +3,51 @@
  * seal --tsa and check --anchor. */
 #include "cli.h"
 
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* ---- a seal waiting for its timestamp ---- */
+
+/* While seal --tsa waits for a TSA, an interrupt (Ctrl-C, SIGTERM,
+ * SIGHUP) removes the new noqtis.json and noqtis.sig before the process
+ * ends, so the folder is not left sealed without the timestamp asked
+ * for. Only SIGKILL (or a power cut) can still leave it so. */
+static char pend[2][4200];
+static volatile sig_atomic_t armed = 0;
+
+static void onsig(int s) {
+  if (armed) {
+    remove(pend[0]);
+    remove(pend[1]);
+  }
+  signal(s, SIG_DFL);
+  raise(s);
+}
+
+static int arm(const char *dir) {
+  if (snprintf(pend[0], sizeof pend[0], "%s/noqtis.sig", dir) >=
+          (int)sizeof pend[0] ||
+      snprintf(pend[1], sizeof pend[1], "%s/noqtis.json", dir) >=
+          (int)sizeof pend[1])
+    return 0;
+  armed = 1;
+  signal(SIGINT, onsig);
+  signal(SIGTERM, onsig);
+#ifdef SIGHUP
+  signal(SIGHUP, onsig);
+#endif
+  return 1;
+}
+
+static void disarm(void) {
+  armed = 0;
+  signal(SIGINT, SIG_DFL);
+  signal(SIGTERM, SIG_DFL);
+#ifdef SIGHUP
+  signal(SIGHUP, SIG_DFL);
+#endif
+}
 
 /* ---- TSA anchors (--anchor, DER certificates) ---- */
 
@@ -27,7 +70,7 @@ static int ancrd(const char *cmd, const char *const *p, int np, ncanc *a) {
   for (i = 0; i < np; i++) {
     uint8_t *b = NULL;
     size_t n = 0;
-    if (ncrd(p[i], 0, &b, &n) != NQOK) {
+    if (ncrdx(p[i], 0, NCRDSMALL, &b, &n) != NQOK) {
       ncmsg(cmd, "cannot read TSA anchor %s (give the path to the TSA's "
             "root or issuing certificate, DER)", p[i]);
       ancfree(a);
@@ -109,7 +152,7 @@ static int stamp(const char *cmd, const char *dir, const char *const *tsa,
       continue;
     }
     utc(gt, ts);
-    printf("timestamp from %s: genTime %s%s\n", tsa[i], ts,
+    printf("timestamp from %s: genTime %s%s\n", ncesc(tsa[i]), ts,
            an->k != 0 ? ", verified under a TSA anchor" : "");
     if (an->k == 0)
       ncmsg(cmd, "note: no --anchor given, so the TSA itself was not "
@@ -175,7 +218,7 @@ int ncseal(int argc, char **argv) {
   }
   if (mp != NULL) {
     uint8_t *m;
-    if (ncrd(mp, 0, &meta, &mn) != NQOK) {
+    if (ncrdx(mp, 0, NCRDSMALL, &meta, &mn) != NQOK) {
       ncmsg("seal", "cannot read %s", mp);
       goto out;
     }
@@ -206,19 +249,34 @@ int ncseal(int argc, char **argv) {
             pk.a.name);
     goto done;
   }
+  /* armed before the seal is written, so no interrupt can fall between
+   * writing it and waiting for the TSA */
+  if (nt > 0 && !arm(argv[0])) {
+    ncmsg("seal", "%s: path too long", argv[0]);
+    goto done;
+  }
   rc = nqseal(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
               (const char *)meta, NULL);
   if (rc != NQOK) {
-    nclib("seal", argv[0], rc);
+    disarm();
+    if (rc == NQEARG)
+      ncmsg("seal", "%s: a file in it starts like a noqtis secret key "
+            "(noqtis-key-1 ... sec), which would ship with the capsule: "
+            "move secret keys out of the folder, then seal it", argv[0]);
+    else
+      nclib("seal", argv[0], rc);
     goto done;
   }
   ret = NCOK;
   if (nt == 0 || (rc = stamp("seal", argv[0], tsa, nt, &an)) == NCOK) {
-    printf("sealed %s with %s%s\n", argv[0], sk.a.name,
+    disarm();
+    printf("sealed %s with %s%s\n", ncesc(argv[0]), sk.a.name,
            nt > 0 ? " and a timestamp" : "");
   } else {
     /* a seal asked to carry a timestamp never stays without one */
-    char *f = (char *)malloc(strlen(argv[0]) + 16);
+    char *f;
+    disarm();
+    f = (char *)malloc(strlen(argv[0]) + 16);
     int gone = f != NULL;
     if (f != NULL) {
       sprintf(f, "%s/noqtis.sig", argv[0]);
@@ -374,6 +432,7 @@ int ncchk(int argc, char **argv) {
   nqrep *r = NULL;
   ncanc an;
   size_t n = 0, i, j, w = 5, nf = 0;
+  const char *kn = NULL, *kalg = NULL;
 
   an.k = 0;
   if (ncargs("check", argc, argv, o, sizeof o / sizeof o[0], &np,
@@ -387,8 +446,8 @@ int ncchk(int argc, char **argv) {
     ncuse(stderr, "check");
     return NCUSE;
   }
-  if (!ncexist(argv[0])) {
-    ncmsg("check", "%s: no such folder (give the folder that holds "
+  if (!ncisdir(argv[0])) {
+    ncmsg("check", "%s: not a folder (give the folder that holds "
           "noqtis.json and noqtis.sig)", argv[0]);
     return NCUSE;
   }
@@ -412,6 +471,7 @@ int ncchk(int argc, char **argv) {
   }
   rc = nqchkt(argv[0], pk.b, pk.n, (const uint8_t *const *)an.b, an.n,
               an.k, &r);
+  kn = pp != NULL ? pk.a.name : NULL;
   nckfree(&pk);
   ancfree(&an);
   if (r != NULL)
@@ -424,6 +484,13 @@ int ncchk(int argc, char **argv) {
       continue;
     }
     if (!ok) {
+      all = 0;
+      nf++;
+    }
+    /* -p pins the key file's algorithm too, not only its bytes */
+    if (kn != NULL && ok && strcmp(c, "seal.alg") == 0 && d != NULL &&
+        strcmp(d, kn) != 0) {
+      kalg = d;
       all = 0;
       nf++;
     }
@@ -461,19 +528,32 @@ int ncchk(int argc, char **argv) {
       }
       putchar('}');
     } else {
-      printf("%-4s  %-*s  %s\n", ok ? "ok" : "FAIL", (int)w, c,
-             d != NULL ? d : "");
+      printf("%-4s  %-*s  %s\n", ok ? "ok" : "FAIL", (int)w, ncesc(c),
+             ncesc(d));
+    }
+  }
+  if (kalg != NULL) {
+    if (json) {
+      fputs(n > 0 ? ",{\"check\":\"key.alg\",\"ok\":false,\"detail\":"
+                  : "{\"check\":\"key.alg\",\"ok\":false,\"detail\":",
+            stdout);
+      jstr(kn);
+      putchar('}');
+    } else {
+      printf("%-4s  %-*s  the trusted key file is %s, the seal says %s\n",
+             "FAIL", (int)w, "key.alg", kn, ncesc(kalg));
     }
   }
   if (json) {
     fputs("]}\n", stdout);
   } else if (ret == NCOK) {
-    printf("%s: OK (%lu checks passed)\n", argv[0], (unsigned long)n);
+    printf("%s: OK (%lu checks passed)\n", ncesc(argv[0]),
+           (unsigned long)n);
   } else if (n > 0 && nf > 0) {
-    printf("%s: FAILED (%lu of %lu checks failed)\n", argv[0],
+    printf("%s: FAILED (%lu of %lu checks failed)\n", ncesc(argv[0]),
            (unsigned long)nf, (unsigned long)n);
   } else {
-    printf("%s: FAILED (%s)\n", argv[0], nqerr(rc));
+    printf("%s: FAILED (%s)\n", ncesc(argv[0]), nqerr(rc));
   }
   /* what to do: once per failed check and advice, after the table */
   for (i = 0; i < n && !json; i++) {
@@ -538,8 +618,8 @@ int ncinsp(int argc, char **argv) {
     ncuse(stderr, "inspect");
     return NCUSE;
   }
-  if (!ncexist(argv[0])) {
-    ncmsg("inspect", "%s: no such folder (give the folder that holds "
+  if (!ncisdir(argv[0])) {
+    ncmsg("inspect", "%s: not a folder (give the folder that holds "
           "noqtis.json and noqtis.sig)", argv[0]);
     return NCUSE;
   }
@@ -599,7 +679,7 @@ int ncinsp(int argc, char **argv) {
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
       const char *v = info(r, rows[i][1]);
       if (v != NULL)
-        printf("%-9s  %s\n", rows[i][0], v);
+        printf("%-9s  %s\n", rows[i][0], ncesc(v));
     }
     printf("%s: read, not checked (run `noqtis check` to check it)\n",
            argv[0]);
@@ -608,7 +688,7 @@ int ncinsp(int argc, char **argv) {
       const char *c = NULL, *d = NULL;
       int ok = 1;
       if (nqrepi(r, i, &c, &ok, &d) == NQOK && !ok)
-        printf("FAIL  %s  %s\n", c, d != NULL ? d : "");
+        printf("FAIL  %s  %s\n", ncesc(c), ncesc(d));
     }
     printf("%s: cannot be read as a capsule\n", argv[0]);
   }
@@ -651,8 +731,8 @@ int ncts(int argc, char **argv) {
       return NCUSE;
     }
   }
-  if (!ncexist(argv[0])) {
-    ncmsg("timestamp", "%s: no such folder (give a folder `noqtis seal` "
+  if (!ncisdir(argv[0])) {
+    ncmsg("timestamp", "%s: not a folder (give a folder `noqtis seal` "
           "sealed)", argv[0]);
     return NCUSE;
   }

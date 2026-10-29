@@ -41,8 +41,18 @@ or
     sealed, not who the key holder is. The
     &#x2018;<code class="Li">key</code>&#x2019; row says so, and a note on
     standard error says to pass <code class="Fl">-p</code>. With
-    <code class="Fl">-p</code>, the seal's key must be exactly the given
-  key.</p>
+    <code class="Fl">-p</code>, the seal's key must be exactly the given key,
+    and the seal's algorithm the one the key file names (a
+    &#x2018;<code class="Li">key.alg</code>&#x2019; row fails otherwise). Each
+    option that takes a value may be given once.</p>
+<p class="Pp">Files are opened folder by folder from <var class="Ar">dir</var>,
+    never through a link, so a folder swapped for a link while the check runs
+    fails it instead of being followed. A listed file whose size differs is
+    reported without being read, and no file is read past one byte more than its
+    listed size. File names and other text from the folder or a TSA are printed
+    with control characters escaped
+    (&#x2018;<code class="Li">\x1b</code>&#x2019;), so they cannot rewrite the
+    terminal.</p>
 <p class="Pp">With <code class="Fl">--anchor</code>, the seal must carry an RFC
     3161 timestamp over its signature whose token verifies under one of the
     anchors, with the TSA certificate's path valid at the token's genTime; the

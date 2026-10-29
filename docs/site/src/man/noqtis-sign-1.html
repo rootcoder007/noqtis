@@ -66,6 +66,12 @@
     <code class="Fl">--force</code></dt>
   <dd>Replace an existing signature file.</dd>
 </dl>
+<p class="Pp">A file over 1 GiB is refused. A file that is a capsule manifest
+    (<span class="Pa">noqtis.json</span>) is signed as given, with a warning: a
+    plain signature is never a seal (seals are made with their own context; see
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>),
+    so to seal a folder use
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT

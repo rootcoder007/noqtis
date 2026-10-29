@@ -83,7 +83,7 @@ int nckrd(const char *cmd, const char *path, int sec, nckey *k) {
   k->b = NULL;
   k->n = 0;
   k->sec = sec;
-  rc = ncrd(path, 1, &t, &tn);
+  rc = ncrdx(path, 1, NCRDSMALL, &t, &tn);
   if (rc != NQOK) {
     ncmsg(cmd, "cannot read key file %s (missing or unreadable; give a key "
           "file `noqtis keygen` wrote)", path);

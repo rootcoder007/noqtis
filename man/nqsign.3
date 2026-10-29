@@ -136,6 +136,11 @@ makes it from the standard's seed instead: the 32-byte xi for ML-DSA, or
 SK.seed || SK.prf || PK.seed (3n bytes: 48, 72 or 96) for SLH-DSA.
 It exists for test vectors and for keys that must be derived again; the
 seed is as secret as the key.
+The seed may overlap
+.Fa pk
+or
+.Fa sk ,
+and on any error both are cleared.
 .Ss Signing and verifying
 .Fn nqsign
 signs the
@@ -205,6 +210,7 @@ used to sign.
 Output buffers may be larger than the algorithm's size; only the defined
 number of bytes is written.
 Input keys and signatures must have exactly the algorithm's size.
+The signature buffer may overlap the message (signing in place).
 .Sh RETURN VALUES
 Every function except
 .Fn nqsname

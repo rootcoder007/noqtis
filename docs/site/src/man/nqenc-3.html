@@ -138,9 +138,8 @@
     finds the algorithm whose name is exactly <var class="Fa">name</var>.</p>
 <p class="Pp" id="nqkkg"><a class="permalink" href="#nqkkg"><code class="Fn">nqkkg</code></a>()
     makes a key pair from the operating system's random source.
-    <a class="permalink" href="#nqkkgd"><code class="Fn" id="nqkkgd">nqkkgd</code></a>()
-    makes it from the standard's seed: 64 bytes (d || z) for ML-KEM, 32 bytes
-    for HQC.</p>
+    <code class="Fn">nqkkgd</code>() makes it from the standard's seed: 64 bytes
+    (d || z) for ML-KEM, 32 bytes for HQC.</p>
 <p class="Pp" id="nqenc"><a class="permalink" href="#nqenc"><code class="Fn">nqenc</code></a>()
     encapsulates to the public key <var class="Fa">pk</var>: it writes the
     ciphertext to <var class="Fa">ct</var> and the shared secret to
@@ -156,11 +155,18 @@
     requires. A ciphertext of the right length that was not made for this key,
     or was changed, gives a pseudorandom secret unrelated to the sender's and
     returns <code class="Dv">NQOK</code> (implicit rejection, as both standards
-    require); only malformed sizes fail. Protocols must therefore confirm the
-    secret, for example by using it in an authenticated cipher.</p>
-<p class="Pp">Output buffers may be larger than the algorithm's sizes; only the
-    defined number of bytes is written. Keys and ciphertexts given as input must
-    have exactly the algorithm's sizes.</p>
+    require). It fails only on malformed sizes, on a secret key whose embedded
+    hash does not match (<code class="Dv">NQEDEC</code>), and, as ML-KEM
+    decapsulation is masked with fresh randomness, when the operating system's
+    random source fails (<code class="Dv">NQERNG</code>). Protocols must
+    therefore confirm the secret, for example by using it in an authenticated
+    cipher.</p>
+<p class="Pp" id="nqkkgd">Output buffers may be larger than the algorithm's
+    sizes; only the defined number of bytes is written. Keys and ciphertexts
+    given as input must have exactly the algorithm's sizes. The seed of
+    <a class="permalink" href="#nqkkgd"><code class="Fn">nqkkgd</code></a>() may
+    overlap <var class="Fa">pk</var> or <var class="Fa">sk</var>; on any error
+    the outputs are cleared.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN

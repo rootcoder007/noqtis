@@ -90,11 +90,12 @@
       it, for example &#x2018;<code class="Li">ML-DSA-65</code>&#x2019; or
       &#x2018;<code class="Li">SLH-DSA-SHAKE-128s</code>&#x2019;.</dd>
   <dt id="context"><a class="permalink" href="#context"><code class="Cm">context</code></a></dt>
-  <dd>The FIPS 204/205 context string the signature was made with, at most 255
-      bytes. A sealer SHOULD use
-      &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;;
-      <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a> always
-      does.</dd>
+  <dd>The FIPS 204/205 context string the signature was made with: exactly
+      &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;. A checker
+      refuses any other context, so that a signature made for another purpose (a
+      plain
+      <a class="Xr" href="/noqtis/reference/man/noqtis-sign-1/">noqtis-sign(1)</a>
+      of the same bytes, say) is never taken for a seal.</dd>
   <dt id="format~2"><a class="permalink" href="#format~2"><code class="Cm">format</code></a></dt>
   <dd>The string &#x2018;<code class="Li">noqtis-seal-1</code>&#x2019;.</dd>
   <dt id="manifest_sha256"><a class="permalink" href="#manifest_sha256"><code class="Cm">manifest_sha256</code></a></dt>
@@ -210,5 +211,18 @@
     2002</span>.</cite> <cite class="Rs"><span class="RsT">The Base16, Base32,
     and Base64 Data Encodings</span>, <span class="RsR">RFC 4648</span>,
     <span class="RsD">October 2006</span>.</cite></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY_CONSIDERATIONS"><a class="permalink" href="#SECURITY_CONSIDERATIONS">SECURITY
+  CONSIDERATIONS</a></h1>
+<p class="Pp">The signature's context is always
+    &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;, and a checker
+    refuses any other, so a signature its key holder made for another purpose
+    over the same bytes is never a seal.</p>
+<p class="Pp">A timestamp's TSA certificate path is checked at the token's
+    genTime, and revocation is not checked: a timestamp is only as good as the
+    TSA's key was at that time. If the key is stolen later, tokens with an
+    earlier genTime can be made that still check; pin the TSAs you trust, and
+    stop trusting every token of a TSA that announces a key compromise.</p>
 </section>
 </div>

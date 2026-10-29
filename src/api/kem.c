@@ -133,10 +133,17 @@ int nqkkgd(nqkalg alg, const uint8_t *seed, size_t seedlen, uint8_t *pk,
   if (rc != NQOK) {
     return fail(rc, pk, pklen, sk, sklen);
   }
-  if (ishq(alg)) {
-    rc = nqhqkgd(alg, seed, seedlen, pk, sz.pk, sk, sz.sk);
-  } else {
-    rc = nqmkkgd(nqmkk(alg), seed, seedlen, pk, sz.pk, sk, sz.sk);
+  {
+    /* a copy, so the seed may overlap pk or sk (z is read from it after
+     * pk is written) */
+    uint8_t sd[NQMKSEED > NQHQSEED ? NQMKSEED : NQHQSEED];
+    memcpy(sd, seed, seedlen);
+    if (ishq(alg)) {
+      rc = nqhqkgd(alg, sd, seedlen, pk, sz.pk, sk, sz.sk);
+    } else {
+      rc = nqmkkgd(nqmkk(alg), sd, seedlen, pk, sz.pk, sk, sz.sk);
+    }
+    nqwipe(sd, sizeof sd);
   }
   return rc == NQOK ? NQOK : fail(rc, pk, sz.pk, sk, sz.sk);
 }

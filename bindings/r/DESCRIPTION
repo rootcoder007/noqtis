@@ -4,10 +4,8 @@ Title: Post-Quantum Signatures, Key Encapsulation and Signed File Records
 Version: 0.1.0
 Authors@R: c(
     person(c("Vansh", "Singh"), "Ruhela", email = "vsruhela@proton.me",
-           role = c("aut", "cre"),
-           comment = c(ORCID = "0009-0004-1750-3592", GitHub = "rootcoder007")),
-    person("The noqtis contributors", role = "cph",
-           comment = "bundled C library in src/, see inst/COPYRIGHTS"))
+           role = c("aut", "cre", "cph"),
+           comment = c(ORCID = "0009-0004-1750-3592", GitHub = "rootcoder007")))
 Description: Bindings to 'noqtis', a self-contained C11 library for
     post-quantum cryptography: the 'ML-DSA' (FIPS 204) and 'SLH-DSA'
     (FIPS 205) signature schemes, the 'ML-KEM' (FIPS 203) and 'HQC' key

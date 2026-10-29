@@ -19,6 +19,11 @@ v=$(sed -n 's/^project(noqtis VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
 rm -rf "$w"
 mkdir -p "$w/srv"
 w=$(cd "$w" && pwd)
+# a release key for the fake releases, trusted through NOQTIS_SSHKEY
+ssh-keygen -q -t ed25519 -N "" -C test -f "$w/tk"
+NQTESTKEY=$w/tk
+NOQTIS_SSHKEY="noqtis $(cut -d' ' -f1,2 "$w/tk.pub")"
+export NQTESTKEY NOQTIS_SSHKEY
 for m in ok tamper nosum; do
   packaging/fakerel.sh "$dist" "$w/srv/$m" "$m" > /dev/null
 done
@@ -103,6 +108,25 @@ refuse nosum "$w/p7" "lists no" \
   env NOQTIS_BASE="$url/nosum" NOQTIS_PREFIX="$w/p7" NOQTIS_COSIGN=0 sh install.sh
 refuse plainhttp "$w/p8" "must be an https URL" \
   env NOQTIS_BASE="http://example.com/releases" NOQTIS_PREFIX="$w/p8" sh install.sh
+# "localhost:" as user info names another host: refused
+refuse userinfo "$w/p10" "must be an https URL" \
+  env NOQTIS_BASE="http://localhost:@127.0.0.2:$port/ok" NOQTIS_PREFIX="$w/p10" \
+  NOQTIS_COSIGN=0 sh install.sh
+# the SSH signature: missing, or by another key, is refused
+cp -R "$w/srv/ok" "$w/srv/nossh"
+rm -f "$w/srv/nossh/latest/download/SHA256SUMS.sig" "$w/srv/nossh/download/v$v/SHA256SUMS.sig"
+refuse nossh "$w/p11" "SHA256SUMS.sig cannot be downloaded" \
+  env NOQTIS_BASE="$url/nossh" NOQTIS_PREFIX="$w/p11" NOQTIS_COSIGN=0 sh install.sh
+ssh-keygen -q -t ed25519 -N "" -C other -f "$w/tk2"
+refuse otherkey "$w/p12" "SSH signature of SHA256SUMS does not verify" \
+  env NOQTIS_BASE="$url/ok" NOQTIS_PREFIX="$w/p12" NOQTIS_COSIGN=0 \
+  NOQTIS_SSHKEY="noqtis $(cut -d' ' -f1,2 "$w/tk2.pub")" sh install.sh
+pass noverify "$w/p13" env NOQTIS_BASE="$url/nossh" NOQTIS_PREFIX="$w/p13" \
+  NOQTIS_COSIGN=0 NOQTIS_VERIFY=0 sh install.sh
+grep -q "who signed this release is NOT checked" "$w/noverify.log" ||
+  { echo "FAIL noverify (no word that the SSH check was skipped)"; fail=1; }
+grep -q "SSH signature: good" "$w/pinned.log" 2>/dev/null || [ "$hascosign" = 1 ] ||
+  { echo "FAIL pinned (no word that the SSH signature was checked)"; fail=1; }
 refuse noversion "$w/p9" "cannot download SHA256SUMS" \
   env NOQTIS_BASE="$url/ok" NOQTIS_PREFIX="$w/p9" NOQTIS_COSIGN=0 \
   sh install.sh --version 9.9.9

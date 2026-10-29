@@ -41,7 +41,7 @@ typedef struct {
 extern nqclimt nqclim;
 
 /* which limit a walk or seal ran into (nqclist.lim, nqcseal's *why) */
-enum { NQCLFILES = 1, NQCLPATH, NQCLDEPTH, NQCLMAN, NQCLMETA };
+enum { NQCLFILES = 1, NQCLPATH, NQCLDEPTH, NQCLMAN, NQCLMETA, NQCLSEC };
 
 /* ---- growable buffer: an error sticks (err) and later puts do nothing */
 
@@ -133,6 +133,12 @@ void nqclfree(nqclist *l);
  * and SHA3-256. */
 int nqcdig(const char *dir, const char *rel, uint64_t *size,
            uint8_t s2[32], uint8_t s3[32]);
+/* nqcdig that stops after max + 1 bytes (*size then exceeds max, the
+ * digests are not of the whole file), and sets *sec (when not NULL) to
+ * whether the file starts with a noqtis secret key header
+ * ("noqtis-key-1 <alg> sec"). */
+int nqcdigx(const char *dir, const char *rel, uint64_t max, uint64_t *size,
+            uint8_t s2[32], uint8_t s3[32], int *sec);
 /* Reads dir/name (at most max bytes, never through a link) into a fresh
  * NUL-terminated buffer; free with nqfree(*buf, *n + 1). The size is
  * checked before anything is read, and again if the file grows while it

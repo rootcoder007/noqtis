@@ -132,13 +132,19 @@ jobs:
       - name: fake releases
         shell: bash
         run: |
+          # a release key for the fake releases (install.ps1 trusts it
+          # through NOQTIS_SSHKEY)
+          ssh-keygen -q -t ed25519 -N "" -C test -f "$RUNNER_TEMP/tk"
+          export NQTESTKEY="$RUNNER_TEMP/tk"
           for m in ok tamper nosum; do
             packaging/fakerel.sh dist "$RUNNER_TEMP/srv/$m" "$m"
           done
+          printf 'noqtis %s\n' "$(cut -d' ' -f1,2 "$RUNNER_TEMP/tk.pub")" > "$RUNNER_TEMP/tk.line"
       - name: install.ps1, good and refused cases
         shell: pwsh
         run: |
           if (Get-Command noqtis -ErrorAction SilentlyContinue) { throw 'noqtis is already on PATH' }
+          $env:NOQTIS_SSHKEY = (Get-Content -Raw "$env:RUNNER_TEMP\tk.line").Trim()
           $srv = Start-Process python -PassThru -NoNewWindow -ArgumentList @(
             '-m', 'http.server', '8471', '--bind', '127.0.0.1',
             '--directory', "$env:RUNNER_TEMP\srv")

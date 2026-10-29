@@ -35,6 +35,35 @@ size_t nqhlen(nqhalg alg) {
 }
 
 /* The size rule for fixed digests. */
+/* whether the fields of a context the caller holds (and could have
+ * changed) are ones nqhini and nqhupd can leave: the algorithm, and every
+ * position, length and rate that indexes a buffer. A forged pos would
+ * otherwise write out of bounds. */
+static int sane(const hst *s) {
+  const nqfctx *f = &s->f;
+  size_t d = nqhlen(f->alg), r;
+  switch (f->alg) {
+  case NQS224: case NQS256:
+    return f->u.s2.pos < sizeof f->u.s2.buf && f->u.s2.dlen == d;
+  case NQS384: case NQS512: case NQS512T224: case NQS512T256:
+    return f->u.s5.pos < sizeof f->u.s5.buf && f->u.s5.dlen == d;
+  case NQS3224: case NQS3256: case NQS3384: case NQS3512:
+    r = 200 - 2 * d;
+    break;
+  case NQSHK128:
+    r = 168;
+    break;
+  case NQSHK256:
+    r = 136;
+    break;
+  default:
+    return 0;
+  }
+  return f->u.k.rate == r && f->u.k.pos <= r &&
+         (f->u.k.dnb == 2 || f->u.k.dnb == 4) && f->u.k.dom < 16 &&
+         (f->u.k.sq == 0 || f->u.k.sq == 1);
+}
+
 static int outchk(size_t d, const uint8_t *out, size_t outlen) {
   if (out == NULL) return NQEARG;
   if (outlen < d) return NQEBUF;
@@ -83,7 +112,7 @@ int nqhupd(nqhctx *ctx, const uint8_t *in, size_t inlen) {
   hst s;
   if (ctx == NULL) return NQEARG;
   memcpy(&s, ctx, sizeof s);
-  if (s.mag != MAG || s.st != ABS) {
+  if (s.mag != MAG || s.st != ABS || !sane(&s)) {
     nqwipe(&s, sizeof s);
     return NQESTATE;
   }
@@ -102,7 +131,8 @@ int nqhfin(nqhctx *ctx, uint8_t *out, size_t outlen) {
   int rc = NQOK;
   if (ctx == NULL) return NQEARG;
   memcpy(&s, ctx, sizeof s);
-  if (s.mag != MAG || (s.st != ABS && s.st != SQZ)) {
+  if (s.mag != MAG || (s.st != ABS && s.st != SQZ) || !sane(&s) ||
+      (s.st == SQZ && !isshk(s.f.alg))) {
     rc = NQESTATE;
   } else if (isshk(s.f.alg)) {
     if (out == NULL && outlen > 0) {

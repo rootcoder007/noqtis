@@ -141,20 +141,24 @@ runs:
           chmod 600 "$k"
           set -- -k "$k" -p "$NQPUB"
           [ -z "$NQMETA" ] || set -- "$@" --meta "$NQMETA"
-          "$NQBIN" seal "$@" "$NQDIR"
+          "$NQBIN" seal "$@" -- "$NQDIR"
           exit $?
         fi
         set --
         if [ -n "$NQPUB" ]; then set -- -p "$NQPUB"
         else echo "::warning title=noqtis::no pub given: the key inside the seal is trusted, so any key's seal passes"; fi
+        # one check: ok and json come from the same run, so they cannot
+        # disagree if the folder changes between two
         rc=0
-        "$NQBIN" check "$@" "$NQDIR" || rc=$?
+        if [ "$NQJSON" = true ]; then
+          j=$("$NQBIN" check --json "$@" -- "$NQDIR") || rc=$?
+          printf '%s\n' "$j"
+          printf 'json=%s\n' "$j" >> "$GITHUB_OUTPUT"
+        else
+          "$NQBIN" check "$@" -- "$NQDIR" || rc=$?
+        fi
         if [ "$rc" = 0 ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
         else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
-        if [ "$NQJSON" = true ]; then
-          j=$("$NQBIN" check --json "$@" "$NQDIR" || true)
-          printf 'json=%s\n' "$j" >> "$GITHUB_OUTPUT"
-        fi
         exit "$rc"
 
     - name: remove the key file

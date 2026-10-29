@@ -116,14 +116,23 @@ sh install.sh --prefix ~/.local     # --version X.Y.Z, --shared (Linux)
 ```
 
 It picks the archive for the machine, downloads `SHA256SUMS`, checks its
-Sigstore signature when `cosign` is installed (and says plainly when it is
-not), checks the archive's SHA-256 against `SHA256SUMS`, checks that no
+SSH signature (`SHA256SUMS.sig`) with `ssh-keygen` against the release
+key in [SECURITY.md](https://github.com/rootcoder007/noqtis/blob/main/SECURITY.md),
+and its Sigstore signature when `cosign` is installed, so it knows who
+published the release and not only that the download is whole. Without
+`ssh-keygen` (and without cosign) it stops; `NOQTIS_VERIFY=0` installs
+anyway, and says so. It then checks the archive's SHA-256 against
+`SHA256SUMS`, checks that no
 path in the archive leaves its top directory, and only then copies `bin/`,
 `include/`, `lib/` and `share/` into the prefix. Any failure stops it with
 nothing installed. It never calls `sudo`: if the prefix is not writable it
 says so and stops. The prefix defaults to `~/.local` (`$NOQTIS_PREFIX`);
 `NOQTIS_VERSION` pins a release; `NOQTIS_COSIGN=1` refuses to install
-without the Sigstore check.
+without the Sigstore check. Plain `http` is accepted only for
+`http://127.0.0.1` or `http://localhost` (for testing), with no
+redirects. In latest-version mode the version comes from the signed
+`SHA256SUMS`, so an older signed release could be served in place of the
+newest: pin `NOQTIS_VERSION` when that matters.
 
 ### install.ps1 (Windows)
 
@@ -132,7 +141,8 @@ irm https://github.com/rootcoder007/noqtis/releases/latest/download/install.ps1 
 ```
 
 The same checks and the same variables (`NOQTIS_PREFIX`, default
-`$HOME\.local`; `NOQTIS_VERSION`; `NOQTIS_COSIGN`), for the x64 or ARM64
+`$HOME\.local`; `NOQTIS_VERSION`; `NOQTIS_COSIGN`; `NOQTIS_VERIFY`), for
+the x64 or ARM64
 archive. It needs no administrator rights and does not change `PATH`; it
 prints the command that adds `bin` to your user `PATH`.
 

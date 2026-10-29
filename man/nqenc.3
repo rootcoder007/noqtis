@@ -124,8 +124,13 @@ A ciphertext of the right length that was not made for this key, or was
 changed, gives a pseudorandom secret unrelated to the sender's and
 returns
 .Dv NQOK
-(implicit rejection, as both standards require); only malformed sizes
-fail.
+(implicit rejection, as both standards require).
+It fails only on malformed sizes, on a secret key whose embedded hash
+does not match
+.Pq Dv NQEDEC ,
+and, as ML-KEM decapsulation is masked with fresh randomness, when the
+operating system's random source fails
+.Pq Dv NQERNG .
 Protocols must therefore confirm the secret, for example by using it in an
 authenticated cipher.
 .Pp
@@ -133,6 +138,13 @@ Output buffers may be larger than the algorithm's sizes; only the defined
 number of bytes is written.
 Keys and ciphertexts given as input must have exactly the algorithm's
 sizes.
+The seed of
+.Fn nqkkgd
+may overlap
+.Fa pk
+or
+.Fa sk ;
+on any error the outputs are cleared.
 .Sh RETURN VALUES
 Every function except
 .Fn nqkname

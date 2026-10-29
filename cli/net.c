@@ -16,6 +16,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -28,6 +29,7 @@ typedef int iolen; /* send and recv take an int length */
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <pthread.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -47,6 +49,7 @@ typedef size_t iolen;
 #endif
 
 #define NCWAIT 30          /* seconds to connect, and per read or write */
+#define NCALL 120          /* seconds for a whole request, lookup included */
 #define NCHDR 16384        /* the most header bytes read */
 #define NCBODY (1u << 20)  /* the largest reply (noqtis.sig's own limit) */
 
@@ -166,15 +169,29 @@ static int block(sockt s, int on) {
 #endif
 }
 
-/* waits until s is readable (rd) or writable; 0 when it is */
+/* the end of the request under way: every wait stops at it, so a server
+ * that sends a byte now and then cannot hold a request for longer than
+ * NCALL seconds */
+static time_t dline;
+
+static long left(void) {
+  time_t now = time(NULL);
+  return now >= dline ? 0 : (long)(dline - now);
+}
+
+/* waits until s is readable (rd) or writable, at most NCWAIT seconds and
+ * never past the deadline; 0 when it is */
 static int await(sockt s, int rd) {
   fd_set f, x;
   struct timeval tv;
+  long l = left();
+  if (l <= 0)
+    return -1;
   FD_ZERO(&f);
   FD_ZERO(&x);
   FD_SET(s, &f);
   FD_SET(s, &x);
-  tv.tv_sec = NCWAIT;
+  tv.tv_sec = l < NCWAIT ? l : NCWAIT;
   tv.tv_usec = 0;
   /* the first argument is ignored on Windows */
   if (select((int)s + 1, rd ? &f : NULL, rd ? NULL : &f, &x, &tv) <= 0)
@@ -286,6 +303,152 @@ static long unchunk(uint8_t *b, size_t n) {
   }
 }
 
+/* ---- a name lookup with a deadline: getaddrinfo on a thread ---- */
+
+typedef struct {
+  char host[256], port[8];
+  struct addrinfo hint, *res;
+  int rc, done, refs;
+#ifdef _WIN32
+  CRITICAL_SECTION mu;
+  CONDITION_VARIABLE cv;
+#else
+  pthread_mutex_t mu;
+  pthread_cond_t cv;
+#endif
+} nclook;
+
+static void lkfree(nclook *q) {
+  if (q->res != NULL)
+    freeaddrinfo(q->res);
+#ifdef _WIN32
+  DeleteCriticalSection(&q->mu);
+#else
+  pthread_mutex_destroy(&q->mu);
+  pthread_cond_destroy(&q->cv);
+#endif
+  free(q);
+}
+
+/* the last of the caller and the thread to let go frees q */
+static void lkdrop(nclook *q, int keepres, struct addrinfo **res) {
+  int last;
+#ifdef _WIN32
+  EnterCriticalSection(&q->mu);
+#else
+  pthread_mutex_lock(&q->mu);
+#endif
+  if (keepres && res != NULL) {
+    *res = q->res;
+    q->res = NULL;
+  }
+  last = --q->refs == 0;
+#ifdef _WIN32
+  LeaveCriticalSection(&q->mu);
+#else
+  pthread_mutex_unlock(&q->mu);
+#endif
+  if (last)
+    lkfree(q);
+}
+
+#ifdef _WIN32
+static DWORD WINAPI lkrun(LPVOID p) {
+#else
+static void *lkrun(void *p) {
+#endif
+  nclook *q = (nclook *)p;
+  struct addrinfo *r = NULL;
+  int k = getaddrinfo(q->host, q->port, &q->hint, &r);
+#ifdef _WIN32
+  EnterCriticalSection(&q->mu);
+  q->rc = k;
+  q->res = r;
+  q->done = 1;
+  WakeConditionVariable(&q->cv);
+  LeaveCriticalSection(&q->mu);
+#else
+  pthread_mutex_lock(&q->mu);
+  q->rc = k;
+  q->res = r;
+  q->done = 1;
+  pthread_cond_signal(&q->cv);
+  pthread_mutex_unlock(&q->mu);
+#endif
+  lkdrop(q, 0, NULL);
+#ifdef _WIN32
+  return 0;
+#else
+  return NULL;
+#endif
+}
+
+/* getaddrinfo, given up after NCWAIT seconds (or at the deadline); 1 when
+ * it timed out, else getaddrinfo's own result */
+static int lookup(const char *host, const char *port,
+                  const struct addrinfo *hint, struct addrinfo **res,
+                  int *gai) {
+  nclook *q = (nclook *)calloc(1, sizeof *q);
+  long l = left();
+  int to = 0;
+  *res = NULL;
+  *gai = EAI_FAIL;
+  if (q == NULL || strlen(host) >= sizeof q->host ||
+      strlen(port) >= sizeof q->port) {
+    free(q);
+    return 0;
+  }
+  strcpy(q->host, host);
+  strcpy(q->port, port);
+  q->hint = *hint;
+  q->refs = 2;
+  if (l > NCWAIT)
+    l = NCWAIT;
+#ifdef _WIN32
+  {
+    HANDLE t;
+    InitializeCriticalSection(&q->mu);
+    InitializeConditionVariable(&q->cv);
+    t = CreateThread(NULL, 0, lkrun, q, 0, NULL);
+    if (t == NULL) {
+      lkfree(q);
+      return 0;
+    }
+    CloseHandle(t);
+    EnterCriticalSection(&q->mu);
+    while (!q->done && !to)
+      to = !SleepConditionVariableCS(&q->cv, &q->mu, (DWORD)(l * 1000));
+    if (q->done)
+      to = 0;
+    *gai = q->rc;
+    LeaveCriticalSection(&q->mu);
+  }
+#else
+  {
+    pthread_t t;
+    struct timespec ts;
+    pthread_mutex_init(&q->mu, NULL);
+    pthread_cond_init(&q->cv, NULL);
+    if (pthread_create(&t, NULL, lkrun, q) != 0) {
+      lkfree(q);
+      return 0;
+    }
+    pthread_detach(t);
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += l;
+    pthread_mutex_lock(&q->mu);
+    while (!q->done && !to)
+      to = pthread_cond_timedwait(&q->cv, &q->mu, &ts) != 0;
+    if (q->done)
+      to = 0;
+    *gai = q->rc;
+    pthread_mutex_unlock(&q->mu);
+  }
+#endif
+  lkdrop(q, !to, res);
+  return to;
+}
+
 int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
            size_t *outn, char *err, size_t cap) {
   struct addrinfo hint, *res = NULL, *a;
@@ -319,7 +482,11 @@ int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
   memset(&hint, 0, sizeof hint);
   hint.ai_family = AF_UNSPEC;
   hint.ai_socktype = SOCK_STREAM;
-  k = getaddrinfo(u.host, u.port, &hint, &res);
+  dline = time(NULL) + NCALL;
+  if (lookup(u.host, u.port, &hint, &res, &k)) {
+    say(err, cap, "cannot resolve %s (no answer in %d s)", u.host, NCWAIT);
+    return NCUSE;
+  }
   if (k != 0 || res == NULL) {
     say(err, cap, "cannot resolve %s (%s)", u.host, gai_strerror(k));
     return NCUSE;
@@ -365,7 +532,8 @@ int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
       goto out;
     }
     if (await(s, 1) != 0) {
-      say(err, cap, "no reply in %d s", NCWAIT);
+      say(err, cap, "no complete reply in %d s (at most %d s per read)",
+          NCALL, NCWAIT);
       goto out;
     }
     r = (int)recv(s, buf + got, (iolen)(max - got), 0);

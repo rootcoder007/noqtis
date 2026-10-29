@@ -12,6 +12,7 @@
  * (NQEDEC). */
 #include <string.h>
 
+#include "core/int.h"
 #include "mldsa/mldsa.h"
 #include "slh/slh.h"
 
@@ -103,33 +104,55 @@ static int kbuf(nqsalg alg, const uint8_t *pk, size_t pklen,
   return NQOK;
 }
 
+/* clears the outputs a failed keygen was given, as the KEM functions
+ * do, so no caller reads a half-written key */
+static int kfail(int rc, uint8_t *pk, size_t pklen, uint8_t *sk,
+                 size_t sklen) {
+  if (pk != NULL) {
+    nqwipe(pk, pklen);
+  }
+  if (sk != NULL) {
+    nqwipe(sk, sklen);
+  }
+  return rc;
+}
+
 int nqskg(nqsalg alg, uint8_t *pk, size_t pklen, uint8_t *sk,
           size_t sklen) {
   nqssz sz;
   int rc = kbuf(alg, pk, pklen, sk, sklen, &sz);
   if (rc != NQOK) {
-    return rc;
+    return kfail(rc, pk, pklen, sk, sklen);
   }
   if (ismd(alg)) {
-    return nqmdkg((int)alg, pk, sz.pk, sk, sz.sk);
+    rc = nqmdkg((int)alg, pk, sz.pk, sk, sz.sk);
+  } else {
+    rc = nqslkg(alg, pk, sz.pk, sk, sz.sk);
   }
-  return nqslkg(alg, pk, sz.pk, sk, sz.sk);
+  return rc == NQOK ? NQOK : kfail(rc, pk, sz.pk, sk, sz.sk);
 }
 
 int nqskgd(nqsalg alg, const uint8_t *seed, size_t seedlen, uint8_t *pk,
            size_t pklen, uint8_t *sk, size_t sklen) {
   nqssz sz;
+  /* the longest seed is SLH-DSA's 3n = 96 bytes; a copy, so the seed may
+   * overlap pk or sk */
+  uint8_t sd[96];
   int rc = kbuf(alg, pk, pklen, sk, sklen, &sz);
   if (rc != NQOK) {
-    return rc;
+    return kfail(rc, pk, pklen, sk, sklen);
   }
-  if (seed == NULL) {
-    return NQEARG;
+  if (seed == NULL || seedlen > sizeof sd) {
+    return kfail(NQEARG, pk, sz.pk, sk, sz.sk);
   }
+  memcpy(sd, seed, seedlen);
   if (ismd(alg)) {
-    return nqmdkgd((int)alg, seed, seedlen, pk, sz.pk, sk, sz.sk);
+    rc = nqmdkgd((int)alg, sd, seedlen, pk, sz.pk, sk, sz.sk);
+  } else {
+    rc = nqslkgd(alg, sd, seedlen, pk, sz.pk, sk, sz.sk);
   }
-  return nqslkgd(alg, seed, seedlen, pk, sz.pk, sk, sz.sk);
+  nqwipe(sd, sizeof sd);
+  return rc == NQOK ? NQOK : kfail(rc, pk, sz.pk, sk, sz.sk);
 }
 
 /* The common checks of sign and verify. key is sk or pk; out is the

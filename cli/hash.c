@@ -161,13 +161,13 @@ static int check(const char *cmd, nqhalg h, size_t dn, const char *list,
       continue;
     }
     if (digest(h, nm, got, dn) != NQOK) {
-      printf("%s: FAILED open or read\n", nm);
+      printf("%s: FAILED open or read\n", ncesc(nm));
       (*nbad)++;
     } else if (memcmp(got, want, dn) != 0) {
-      printf("%s: FAILED\n", nm);
+      printf("%s: FAILED\n", ncesc(nm));
       (*nbad)++;
     } else {
-      printf("%s: OK\n", nm);
+      printf("%s: OK\n", ncesc(nm));
       (*nok)++;
     }
   }

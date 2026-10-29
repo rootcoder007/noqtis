@@ -22,6 +22,7 @@
 #include "nqt.h"
 
 #if !defined(_WIN32)
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -490,6 +491,61 @@ static void treview(const key *k) {
   NQTCHK(st.st_nlink == 1);
   NQTEQI(chk(d, k, &r), NQOK);
   nqrepfree(r);
+}
+
+
+/* review of a4eec67 (capsule, CLI): a folder on the way that is a link
+ * is refused, not followed (the race of a folder swapped mid-seal); a
+ * listed file swapped for a huge sparse one fails without being read; a
+ * secret key in the folder is not sealed */
+static void treview2(const key *k) {
+  char d[600], p[600], q[600];
+  nqrep *r = NULL;
+  uint64_t sz = 0;
+  uint8_t s2[32], s3[32];
+  int why = 0, fd;
+  clock_t t0;
+  /* nqcdig never follows a link on the way: sub2 -> sub */
+  fresh(d, sizeof d);
+  path(p, sizeof p, d, "sub2");
+  NQTEQI(symlink("data", p), 0);
+  track(p);
+  NQTEQI(nqcdig(d, "data/b.csv", &sz, s2, s3), NQOK);
+  NQTEQI(nqcdig(d, "sub2/b.csv", &sz, s2, s3), NQEIO);
+  NQTEQI(nqcdig(d, "data/../a.txt", &sz, s2, s3), NQEIO);
+  /* a listed file swapped for a 1 GiB sparse one: fails at once */
+  fresh(d, sizeof d);
+  NQTEQI(sealk(d, k, NULL), NQOK);
+  path(p, sizeof p, d, "a.txt");
+  fd = open(p, O_WRONLY);
+  NQTCHK(fd >= 0);
+  if (fd >= 0) {
+    NQTEQI(ftruncate(fd, (off_t)1 << 30), 0);
+    close(fd);
+  }
+  t0 = clock();
+  NQTEQI(chk(d, k, &r), NQEVRFY);
+  NQTEQI(row(r, "file", "a.txt: size differs"), 0);
+  NQTCHK((double)(clock() - t0) / CLOCKS_PER_SEC < 5.0);
+  nqrepfree(r);
+  r = NULL;
+  /* and one the size of the listed file but swapped after the listing
+   * is read at most one byte past it */
+  NQTEQI(nqcdigx(d, "a.txt", 6, &sz, s2, s3, NULL), NQOK);
+  NQTCHK(sz > 6 && sz <= 6 + 16384);
+  /* a secret key file in the folder */
+  fresh(d, sizeof d);
+  ws(d, "me", "noqtis-key-1 ML-DSA-44 sec\nAAAA\n");
+  NQTEQI(nqcseal(d, k->alg, k->skb, k->sz.sk, k->pkb, k->sz.pk, NULL, NULL,
+                 TSEAL, zero32, k->alg <= NQMLDSA87 ? 32 : k->sz.pk / 2,
+                 &why), NQEARG);
+  NQTEQI(why, NQCLSEC);
+  path(q, sizeof q, d, NQCSIG);
+  NQTCHK(access(q, F_OK) != 0);
+  /* a public key is fine */
+  rm(d, "me");
+  ws(d, "me.pub", "noqtis-key-1 ML-DSA-44 pub\nAAAA\n");
+  NQTEQI(sealk(d, k, NULL), NQOK);
 }
 
 /* seals d with k, then checks that chk(d) passes */
@@ -1474,6 +1530,7 @@ static void tfs(int gen) {
   tpaths(&m44);
   tsealargs(&m44, &other);
   treview(&m44);
+  treview2(&m44);
   tlims(&m44);
   if (getenv("NQCAPBIG") != NULL) tbig(&m44);
   talloc(&m44);

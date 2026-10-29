@@ -8,6 +8,12 @@ add_executable(nqcli ${NQCSRC})
 set_target_properties(nqcli PROPERTIES OUTPUT_NAME noqtis
   RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 target_link_libraries(nqcli PRIVATE noqtis)
+# the TSA client resolves names on a thread, so the lookup has a deadline
+if(NOT WIN32)
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+  target_link_libraries(nqcli PRIVATE Threads::Threads)
+endif()
 target_compile_options(nqcli PRIVATE ${NQWARN})
 if(WIN32)
   target_link_libraries(nqcli PRIVATE shell32 ws2_32)

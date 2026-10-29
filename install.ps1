@@ -46,7 +46,13 @@ function Install-Noqtis {
     try {
       $old = $ProgressPreference
       $ProgressPreference = 'SilentlyContinue'
-      Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $dest
+      # no redirects for plain http (localhost tests); GitHub's https
+      # downloads redirect to their CDN
+      if ($url -like 'http://*') {
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $dest -MaximumRedirection 0
+      } else {
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $dest
+      }
     } catch {
       return $false
     } finally {
@@ -71,11 +77,19 @@ function Install-Noqtis {
   $sigmode = $env:NOQTIS_COSIGN
   if (-not $sigmode) { $sigmode = 'auto' }
   if ($sigmode -notin @('auto', '0', '1')) { Fail 'NOQTIS_COSIGN must be auto, 0 or 1' }
+  $verify = $env:NOQTIS_VERIFY
+  if (-not $verify) { $verify = '1' }
+  if ($verify -notin @('0', '1')) { Fail 'NOQTIS_VERIFY must be 0 or 1' }
+  # the release signing key (SECURITY.md)
+  $signer = 'noqtis ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIITExiNM+YezpSqyif5ZOhFb+abk4iy7CadyZnUMLRMj'
+  $sshkey = $env:NOQTIS_SSHKEY
+  if (-not $sshkey) { $sshkey = $signer }
+  if ($sshkey -ne $signer) { Say 'the release key is NOQTIS_SSHKEY, not the one in SECURITY.md' }
   $base = $env:NOQTIS_BASE
   if (-not $base) { $base = "https://github.com/$repo/releases" }
   $base = $base.TrimEnd('/')
   if ($base -notmatch '^https://' -and
-      $base -notmatch '^http://(127\.0\.0\.1|localhost)(:[0-9]+)?(/|$)') {
+      $base -notmatch '^http://(127\.0\.0\.1|localhost)(:[0-9]{1,5})?(/[^@]*)?$') {
     Fail "NOQTIS_BASE must be an https URL (or http to localhost): $base"
   }
 
@@ -137,12 +151,36 @@ function Install-Noqtis {
         --certificate-oidc-issuer $issuer $sums
       if ($LASTEXITCODE -ne 0) { Fail 'the Sigstore signature of SHA256SUMS does not verify' }
       Say "Sigstore signature: good (release workflow of $repo, tag v$ver)"
+      $cosok = $true
     } elseif ($sigmode -eq '1') {
       Fail 'NOQTIS_COSIGN=1 but cosign is not installed'
     } else {
       Say 'cosign not found: the Sigstore signature of SHA256SUMS is NOT checked'
-      Say '(the archive is still checked against SHA256SUMS; install cosign, or'
-      Say 'set NOQTIS_COSIGN=1 to require the signature check)'
+    }
+    # the SSH signature: who published the sums (Windows 10 and later
+    # carry OpenSSH's ssh-keygen)
+    $sshkg = Get-Command ssh-keygen -ErrorAction SilentlyContinue
+    if ($verify -eq '0') {
+      Say 'NOQTIS_VERIFY=0: who signed this release is NOT checked'
+    } elseif ($sshkg) {
+      $sig = Join-Path $tmp 'SHA256SUMS.sig'
+      if (-not (Get-File "$url/SHA256SUMS.sig" $sig)) { Fail 'SHA256SUMS.sig cannot be downloaded' }
+      $allowed = Join-Path $tmp 'signers'
+      [IO.File]::WriteAllText($allowed, "$sshkey`n")
+      # the sums as stdin, byte for byte (a PowerShell pipe would re-encode)
+      $pr = Start-Process -FilePath $sshkg.Source -NoNewWindow -Wait -PassThru `
+        -ArgumentList @('-Y', 'verify', '-f', "`"$allowed`"", '-I', 'noqtis', '-n', 'file', '-s', "`"$sig`"") `
+        -RedirectStandardInput $sums -RedirectStandardOutput (Join-Path $tmp 'ssh.out') `
+        -RedirectStandardError (Join-Path $tmp 'ssh.err')
+      if ($pr.ExitCode -ne 0) {
+        Get-Content (Join-Path $tmp 'ssh.err') | ForEach-Object { Say $_ }
+        Fail 'the SSH signature of SHA256SUMS does not verify'
+      }
+      Say 'SSH signature: good (the noqtis release key)'
+    } elseif ($cosok) {
+      Say 'ssh-keygen not found: the SSH signature is not checked (Sigstore was)'
+    } else {
+      Fail 'ssh-keygen (OpenSSH) is not installed, so who signed this release cannot be checked; install it (or cosign), or set NOQTIS_VERIFY=0 to go on without'
     }
 
     # 3. the archive, checked before anything else touches it

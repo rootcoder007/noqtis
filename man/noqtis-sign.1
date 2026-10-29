@@ -64,6 +64,14 @@ A pre-hash signature verifies only with the same
 .It Fl f , Fl -force
 Replace an existing signature file.
 .El
+.Pp
+A file over 1 GiB is refused.
+A file that is a capsule manifest
+.Pq Pa noqtis.json
+is signed as given, with a warning: a plain signature is never a seal
+.Pq seals are made with their own context ; see Xr noqtis-capsule 5 ,
+so to seal a folder use
+.Xr noqtis-seal 1 .
 .Sh EXIT STATUS
 0 on success; 2 on a usage error, a context over 255 bytes, an unknown
 pre-hash, a key that is not a secret signature key, an existing

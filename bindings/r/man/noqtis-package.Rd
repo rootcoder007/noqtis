@@ -46,12 +46,8 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Vansh Singh Ruhela \email{vsruhela@proton.me} (\href{https://orcid.org/0009-0004-1750-3592}{ORCID}) (rootcoder007)
+\strong{Maintainer}: Vansh Singh Ruhela \email{vsruhela@proton.me} (\href{https://orcid.org/0009-0004-1750-3592}{ORCID}) (rootcoder007) [copyright holder]
 
-Other contributors:
-\itemize{
-  \item The noqtis contributors (bundled C library in src/, see inst/COPYRIGHTS) [copyright holder]
-}
 
 }
 \keyword{internal}

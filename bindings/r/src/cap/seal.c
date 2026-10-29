@@ -54,7 +54,7 @@ static int sealable(const nqclist *l) {
 }
 
 static int manifest(const char *dir, const nqclist *l, const char *ts,
-                    const nqjs *meta, nqcbuf *m) {
+                    const nqjs *meta, nqcbuf *m, int *sec) {
   size_t i;
   int rc = NQOK;
   nqcputs(m, "{\"created\":");
@@ -64,8 +64,10 @@ static int manifest(const char *dir, const nqclist *l, const char *ts,
     uint8_t s2[32], s3[32];
     char hx[65];
     uint64_t size = 0;
-    rc = nqcdig(dir, l->e[i].path, &size, s2, s3);
+    rc = nqcdigx(dir, l->e[i].path, (uint64_t)-1, &size, s2, s3, sec);
     if (rc != NQOK) return rc;
+    /* a secret key in the folder would ship with the capsule */
+    if (*sec) return NQEARG;
     if (size > NQCMAXINT) return NQELIM;
     if (m->n > nqclim.man) return NQELIM; /* stop early */
     if (i > 0) nqcput(m, ",", 1);
@@ -129,7 +131,7 @@ int nqcseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
   uint8_t mh[32];
   size_t siglen = 0;
   char ts[21];
-  int rc;
+  int rc, sec = 0;
   if (why != NULL) *why = 0;
   if (dir == NULL || sk == NULL || pk == NULL) return NQEARG;
   /* a timestamp needs a request to a TSA over the network, which the
@@ -162,7 +164,8 @@ int nqcseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
     return rc;
   }
   rc = sealable(&l);
-  if (rc == NQOK) rc = manifest(dir, &l, ts, mj, &m);
+  if (rc == NQOK) rc = manifest(dir, &l, ts, mj, &m, &sec);
+  if (rc == NQEARG && sec && why != NULL) *why = NQCLSEC;
   if (rc == NQOK && m.n > nqclim.man) rc = NQELIM;
   if (rc == NQELIM && m.n > nqclim.man && why != NULL) *why = NQCLMAN;
   if (rc == NQOK) rc = nqhash(NQS256, (const uint8_t *)m.p, m.n, mh, 32);

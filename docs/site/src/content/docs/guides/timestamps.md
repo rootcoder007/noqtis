@@ -62,7 +62,10 @@ A seal holds one timestamp. Give `--tsa` more than once for fallbacks:
 they are tried in order until one gives a token that checks. When none
 does, the new `noqtis.json` and `noqtis.sig` are removed and the exit
 status is 2, so a folder is never left sealed without the timestamp that
-was asked for. `check` accepts a token from any TSA whose anchor it is
+was asked for. An interrupt while it waits (Ctrl-C, SIGTERM, SIGHUP)
+removes them too; only SIGKILL or a power cut can leave the folder sealed
+without one. A TSA has 120 seconds in all for a request, its name lookup
+included. `check` accepts a token from any TSA whose anchor it is
 given (`--anchor`, up to 32): one that verifies is enough.
 
 A capsule sealed without one gets a timestamp later, with the same

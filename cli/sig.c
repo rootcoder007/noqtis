@@ -8,6 +8,16 @@
 #define NCSEEDX 256 /* longest seed accepted */
 #define NCCTXX 255  /* longest context string (FIPS 204/205) */
 
+/* whether the n bytes at b contain the string s */
+static int hasstr(const uint8_t *b, size_t n, const char *s) {
+  size_t m = strlen(s), i;
+  if (m == 0 || n < m) return 0;
+  for (i = 0; i + m <= n; i++) {
+    if (b[i] == (uint8_t)s[0] && memcmp(b + i, s, m) == 0) return 1;
+  }
+  return 0;
+}
+
 /* The seed from --seed: a file holding the raw bytes when one exists by
  * that name, else hex digits. */
 static int seedrd(const char *cmd, const char *arg, uint8_t *seed,
@@ -15,7 +25,7 @@ static int seedrd(const char *cmd, const char *arg, uint8_t *seed,
   if (ncexist(arg)) {
     uint8_t *b;
     size_t bn;
-    if (ncrd(arg, 1, &b, &bn) != NQOK) {
+    if (ncrdx(arg, 1, 4096, &b, &bn) != NQOK) {
       ncmsg(cmd, "cannot read seed file %s", arg);
       return NCUSE;
     }
@@ -218,6 +228,15 @@ int ncsign(int argc, char **argv) {
     ncmsg("sign", "cannot read %s", argv[0]);
     goto done;
   }
+  /* someone may hand over a capsule manifest as "a document to sign": a
+   * plain signature never makes a seal (seals use their own context), but
+   * say so */
+  if (mn > 30 && mn < ((size_t)1 << 28) && msg[0] == '{' &&
+      hasstr(msg, mn, "\"format\":\"noqtis-capsule-1\"")) {
+    ncmsg("sign", "warning: %s is a capsule manifest (noqtis.json); this "
+          "signs it as a plain file, which is not a seal: to seal a "
+          "folder, use `noqtis seal`", argv[0]);
+  }
   sig = (uint8_t *)malloc(z.sig);
   if (sig == NULL) {
     nclib("sign", "memory", NQEMEM);
@@ -291,7 +310,7 @@ int ncvrfy(int argc, char **argv) {
     nclib("verify", k.a.name, NQENOSUP);
     goto done;
   }
-  if (ncrd(sp, 0, &sig, &sn) != NQOK) {
+  if (ncrdx(sp, 0, NCRDSMALL, &sig, &sn) != NQOK) {
     ncmsg("verify", "cannot read %s", sp);
     goto done;
   }
@@ -310,7 +329,7 @@ int ncvrfy(int argc, char **argv) {
               phv, sig, sn);
   if (rc == NQOK) {
     if (!quiet)
-      printf("%s: OK (%s)\n", argv[0], k.a.name);
+      printf("%s: OK (%s)\n", ncesc(argv[0]), k.a.name);
     ret = NCOK;
   } else if (rc == NQEVRFY || rc == NQEDEC) {
     ncmsg("verify", "%s: FAILED: the signature does not verify", argv[0]);

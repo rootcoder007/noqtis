@@ -77,6 +77,19 @@ int ncexist(const char *path) {
 #endif
 }
 
+int ncisdir(const char *path) {
+#ifdef _WIN32
+  wchar_t *p = wide(path);
+  struct _stat64 st;
+  int r = p != NULL && _wstat64(p, &st) == 0 && (st.st_mode & _S_IFDIR);
+  free(p);
+  return r;
+#else
+  struct stat st;
+  return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+#endif
+}
+
 static int rmpath(const char *path) {
 #ifdef _WIN32
   wchar_t *p = wide(path);
@@ -97,6 +110,11 @@ void ncfree(void *p, size_t len, int sec) {
 }
 
 int ncrd(const char *path, int sec, uint8_t **buf, size_t *len) {
+  return ncrdx(path, sec, NCRDMAX, buf, len);
+}
+
+int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
+          size_t *len) {
   FILE *f;
   uint8_t *b = NULL;
   size_t n = 0, cap = 0;
@@ -137,6 +155,12 @@ int ncrd(const char *path, int sec, uint8_t **buf, size_t *len) {
     n += got;
     if (got == 0)
       break;
+    if (n > max) {
+      ncfree(b, cap, sec);
+      if (!std)
+        fclose(f);
+      return NQELIM;
+    }
   }
   if (ferror(f)) {
     ncfree(b, cap, sec);
@@ -180,6 +204,14 @@ FILE *ncopen(const char *path, int force, int sec) {
   }
   if (fd < 0)
     return NULL;
+#ifndef _WIN32
+  /* the mode whatever the umask: a public key or signature 0644, never
+   * group- or world-writable (a .pub is a trust anchor), a secret 0600 */
+  if (fchmod(fd, sec ? (mode_t)0600 : (mode_t)0644) != 0) {
+    close(fd);
+    return NULL;
+  }
+#endif
 #ifdef _WIN32
   f = _fdopen(fd, "wb");
   if (f == NULL)

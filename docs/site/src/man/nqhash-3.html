@@ -144,7 +144,11 @@
     again with <code class="Fn">nqhini</code>() before reuse. For SHAKE,
     <code class="Fn">nqhfin</code>() may be called again to squeeze more output;
     after the first <code class="Fn">nqhfin</code>(),
-    <code class="Fn">nqhupd</code>() fails.</p>
+    <code class="Fn">nqhupd</code>() fails. <code class="Fn">nqhupd</code>() and
+    <code class="Fn">nqhfin</code>() check the fields of the context and return
+    <code class="Dv">NQESTATE</code> for one <code class="Fn">nqhini</code>()
+    did not make (copied in from elsewhere and changed), rather than follow a
+    position out of its buffer.</p>
 <p class="Pp" id="nqhmac"><a class="permalink" href="#nqhmac"><code class="Fn">nqhmac</code></a>()
     computes HMAC (FIPS 198-1, RFC 2104) with any of the ten fixed-length
     hashes, writing the first <var class="Fa">outlen</var> bytes of the tag (1

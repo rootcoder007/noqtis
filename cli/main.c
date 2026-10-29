@@ -109,16 +109,76 @@ static const nccmd cmds[] = {
 
 #define NCNCMD (sizeof cmds / sizeof cmds[0])
 
+/* s for a terminal: every C0 control character, DEL and C1 control
+ * (U+0080..U+009F, CSI among them) as \xNN, so a file name or a
+ * server's text cannot move the cursor, clear lines or recolour the
+ * screen. The result lives until the fourth call after. */
+const char *ncesc(const char *s) {
+  static char *b[4];
+  static size_t cap[4];
+  static int k = 0;
+  const unsigned char *p = (const unsigned char *)s;
+  size_t i, n = 0, o = 0;
+  if (s == NULL)
+    return "";
+  for (i = 0; p[i] != 0; i++) {
+    int c1 = p[i] == 0xc2 && p[i + 1] >= 0x80 && p[i + 1] <= 0x9f;
+    if (c1) {
+      n += 8;
+      i++;
+    } else {
+      n += p[i] < 0x20 || p[i] == 0x7f ? 4 : 1;
+    }
+  }
+  if (n == i)
+    return s;
+  k = (k + 1) % 4;
+  if (cap[k] < n + 1) {
+    char *nb = (char *)realloc(b[k], n + 1);
+    if (nb == NULL)
+      return "?";
+    b[k] = nb;
+    cap[k] = n + 1;
+  }
+  for (i = 0; p[i] != 0; i++) {
+    if (p[i] == 0xc2 && p[i + 1] >= 0x80 && p[i + 1] <= 0x9f) {
+      snprintf(b[k] + o, 9, "\\x%02x\\x%02x", p[i], p[i + 1]);
+      o += 8;
+      i++;
+    } else if (p[i] < 0x20 || p[i] == 0x7f) {
+      snprintf(b[k] + o, 5, "\\x%02x", p[i]);
+      o += 4;
+    } else {
+      b[k][o++] = (char)p[i];
+    }
+  }
+  b[k][o] = '\0';
+  return b[k];
+}
+
 void ncmsg(const char *cmd, const char *fmt, ...) {
   va_list ap;
+  char sb[1024], *b = sb;
+  int n;
   fflush(stdout);
   if (cmd != NULL)
     fprintf(stderr, "noqtis %s: ", cmd);
   else
     fputs("noqtis: ", stderr);
   va_start(ap, fmt);
-  vfprintf(stderr, fmt, ap);
+  n = vsnprintf(sb, sizeof sb, fmt, ap);
   va_end(ap);
+  if (n >= (int)sizeof sb && (b = (char *)malloc((size_t)n + 1)) != NULL) {
+    va_start(ap, fmt);
+    vsnprintf(b, (size_t)n + 1, fmt, ap);
+    va_end(ap);
+  } else if (b == NULL) {
+    b = sb;
+  }
+  /* one line, whatever the arguments held */
+  fputs(ncesc(n < 0 ? "" : b), stderr);
+  if (b != sb)
+    free(b);
   fputc('\n', stderr);
 }
 
@@ -170,8 +230,14 @@ static int cmdopt(const char *cmd, const ncopt *o, size_t n, const char *a,
 
 int ncargs(const char *cmd, int argc, char **argv, const ncopt *o,
            size_t n, int *npos, int *help) {
+  /* which one-value options were given: a second -p would otherwise
+   * silently replace the first (`check -p trusted.pub "$@"`) */
+  unsigned char seen[64];
   int i, np = 0, dash = 0;
   *help = 0;
+  memset(seen, 0, sizeof seen);
+  if (n > sizeof seen)
+    return NCUSE;
   for (i = 1; i < argc; i++) {
     char *a = argv[i];
     const char *v;
@@ -220,6 +286,11 @@ int ncargs(const char *cmd, int argc, char **argv, const ncopt *o,
       }
       o[at].val[(*o[at].flag)++] = v;
     } else {
+      if (seen[at]) {
+        ncmsg(cmd, "option %s is given more than once", a);
+        return NCUSE;
+      }
+      seen[at] = 1;
       *o[at].val = v;
     }
   }

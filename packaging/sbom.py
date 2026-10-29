@@ -20,7 +20,7 @@ import time
 
 REPO = "rootcoder007/noqtis"
 LICENSE = "Apache-2.0 WITH LLVM-exception"
-COPYRIGHT = "Copyright 2026 rootcoder007 and the noqtis contributors"
+COPYRIGHT = "Copyright 2026 Vansh Singh Ruhela"
 
 
 def sha256(path):

@@ -47,11 +47,17 @@
       ML-DSA; 3n bytes (SK.seed || SK.prf || PK.seed) for SLH-DSA, that is 48,
       72 or 96; 64 bytes (d || z) for ML-KEM; 32 bytes for HQC. A seed of
       another length is a library error (exit 2). Anyone who knows the seed
-      knows the secret key.</dd>
+      knows the secret key. A seed given as hex digits on the command line can
+      be read by other users (the process list) and is kept in shell history;
+      prefer a seed file with mode 0600. <code class="Nm">noqtis keygen</code>
+      prints a warning when given one.</dd>
   <dt id="f"><a class="permalink" href="#f"><code class="Fl">-f</code></a>,
     <code class="Fl">--force</code></dt>
   <dd>Replace existing files. The old files are removed first.</dd>
 </dl>
+<p class="Pp">The secret key is written with mode 0600 and the public key with
+    0644, whatever the umask: the public key is a trust anchor, and must not be
+    writable by others.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
