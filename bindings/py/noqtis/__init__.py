@@ -14,7 +14,7 @@ import json
 from typing import Any, Iterable, Iterator, List, Mapping, NamedTuple, Optional, Union
 
 from . import _noqtis as _c
-from . import kem, sign
+from . import kem, keyfile, sign
 from ._alg import HASHES, KEMS, SIGS, Alg, AlgLike, Bytes, buf, find, hid, isshake, path
 from ._err import (
     ArgError,
@@ -54,6 +54,7 @@ __all__ = [
     "hashes",
     "hmac",
     "kem",
+    "keyfile",
     "seal",
     "sign",
 ]

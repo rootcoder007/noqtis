@@ -80,6 +80,28 @@ Without `pk`, `check` trusts the key inside the seal and its report says
 so. `anchors=[der, ...]` requires an RFC 3161 timestamp under one of the
 given TSA certificates.
 
+## Key files
+
+`noqtis.keyfile` reads and writes the text key files `noqtis keygen`
+makes (`noqtis-key-1 <alg> <pub|sec>`, then base64), as strictly as the
+command-line tool reads them:
+
+```python
+from noqtis import keyfile
+
+k = keyfile.read("me", "sec")      # Key(alg, kind, key); "me.pub" for pub
+noqtis.sign.sign(k.alg, k.key, b"a message")
+
+pk, sk = noqtis.sign.keygen("ML-DSA-65")
+keyfile.write("you", "ML-DSA-65", "sec", sk)      # owner-only, no overwrite
+keyfile.write("you.pub", "ML-DSA-65", "pub", pk)
+text = keyfile.encode("ML-DSA-65", "pub", pk)     # the same text, as a str
+assert keyfile.decode(text).key == pk
+```
+
+`write` never replaces a file unless `force=True`. Python's base64 is not
+constant time: decode secret key files where timing is not observable.
+
 ## Errors
 
 Every failure raises a subclass of `noqtis.NoqtisError`, one per library
