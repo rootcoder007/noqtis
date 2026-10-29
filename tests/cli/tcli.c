@@ -4,7 +4,12 @@
  * the shell, stdout and stderr to files) and checks exit codes, outputs
  * and the files it writes.
  *
- *   tcli <path to noqtis>
+ *   tcli <path to noqtis> [<path to tsad> <tests/ in the source tree>]
+ *
+ * With tsad (tests/cli/tsad.c, a local TSA) it also runs seal --tsa and
+ * check --anchor, and makes every check nqchk reports fail (the names are
+ * read from src/cap/chk.c) to see that check says what to do about it.
+ * The live TSA uses openssl when it is on the PATH.
  *
  * NQCLIWRAP, when set, is put in front of every command (for example
  * "valgrind -q --error-exitcode=9 --leak-check=full"). NQCLIALL=1 runs
@@ -551,6 +556,580 @@ static void tcap(void) {
   want(2, "check -p q.c.pub qnone", NULL);
 }
 
+/* ---- timestamps (seal --tsa, check --anchor) through tsad ---- */
+
+static const char *tsad;   /* tests/cli/tsad, the local TSA */
+static const char *srcdir; /* tests/ in the source tree */
+
+static void quoted(char *o, size_t cap, const char *p) {
+#ifdef _WIN32
+  snprintf(o, cap, "\"%s\"", p);
+#else
+  snprintf(o, cap, "'%s'", p);
+#endif
+}
+
+/* Runs noqtis with args under tsad (mode, marg): the command goes to
+ * q.cmd, tsad's own output to q.tsd. Returns noqtis's exit status. */
+static int runts(const char *mode, const char *marg, const char *args) {
+  static char c[8192], t[9000];
+  char qm[1200];
+  int st, n;
+#ifdef _WIN32
+  n = snprintf(c, sizeof c, "\"%s\"%s\" %s <NUL >q.out 2>q.err\"", wrap,
+               exe, args);
+#else
+  n = snprintf(c, sizeof c, "%s'%s' %s </dev/null >q.out 2>q.err", wrap,
+               exe, args);
+#endif
+  if (n < 0 || (size_t)n >= sizeof c) {
+    fprintf(stderr, "tcli: command too long\n");
+    exit(2);
+  }
+  wrs("q.cmd", c);
+  quoted(qm, sizeof qm, marg);
+#ifdef _WIN32
+  snprintf(t, sizeof t, "\"\"%s\" q.cmd %s %s >q.tsd 2>&1\"", tsad, mode,
+           qm);
+#else
+  snprintf(t, sizeof t, "'%s' q.cmd %s %s >q.tsd 2>&1", tsad, mode, qm);
+#endif
+  st = system(t);
+#ifndef _WIN32
+  if (st == -1 || !WIFEXITED(st))
+    return -1;
+  st = WEXITSTATUS(st);
+#endif
+  return st;
+}
+
+static void wantts(int code, const char *mode, const char *marg,
+                   const char *args) {
+  int st = runts(mode, marg, args);
+  int rep = has("q.err", "Sanitizer") || has("q.err", "runtime error:") ||
+            has("q.err", "==ERROR") || has("q.err", "Invalid read") ||
+            has("q.err", "Invalid write") || has("q.err", "uninitialised");
+  nrun++;
+  if (st != code || rep) {
+    nbad++;
+    fprintf(stderr, "FAIL: tsad %s: noqtis %s: exit %d, want %d%s\n", mode,
+            args, st, code, rep ? " (memory error report)" : "");
+    dump("q.out");
+    dump("q.err");
+    dump("q.tsd");
+  }
+}
+
+static void src(char *o, size_t cap, const char *rel) {
+  snprintf(o, cap, "%s/%s", srcdir, rel);
+}
+
+/* base64 (RFC 4648, padded) of n bytes, NUL-terminated, new buffer */
+static char *b64(const unsigned char *b, size_t n) {
+  static const char a[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  char *o = (char *)malloc(n / 3 * 4 + 8), *p = o;
+  size_t i;
+  if (o == NULL)
+    exit(2);
+  for (i = 0; i + 2 < n; i += 3, p += 4) {
+    unsigned long v = ((unsigned long)b[i] << 16) |
+                      ((unsigned long)b[i + 1] << 8) | b[i + 2];
+    p[0] = a[v >> 18];
+    p[1] = a[(v >> 12) & 63];
+    p[2] = a[(v >> 6) & 63];
+    p[3] = a[v & 63];
+  }
+  if (n - i == 1) {
+    p[0] = a[b[i] >> 2];
+    p[1] = a[(b[i] & 3) << 4];
+    p[2] = p[3] = '=';
+    p += 4;
+  } else if (n - i == 2) {
+    p[0] = a[b[i] >> 2];
+    p[1] = a[((b[i] & 3) << 4) | (b[i + 1] >> 4)];
+    p[2] = a[(b[i + 1] & 15) << 2];
+    p[3] = '=';
+    p += 4;
+  }
+  *p = '\0';
+  return o;
+}
+
+/* replaces the first from in file p with to; 0 when from is not there */
+static int sub(const char *p, const char *from, const char *to) {
+  size_t n, fl = strlen(from), tl = strlen(to);
+  unsigned char *b = rd(p, &n), *o;
+  char *at;
+  if (b == NULL)
+    return 0;
+  at = strstr((char *)b, from);
+  if (at == NULL) {
+    free(b);
+    return 0;
+  }
+  o = (unsigned char *)malloc(n - fl + tl + 1);
+  if (o == NULL)
+    exit(2);
+  memcpy(o, b, (size_t)(at - (char *)b));
+  memcpy(o + (at - (char *)b), to, tl);
+  memcpy(o + (at - (char *)b) + tl, at + fl,
+         n - (size_t)(at - (char *)b) - fl);
+  wr(p, o, n - fl + tl);
+  free(o);
+  free(b);
+  return 1;
+}
+
+/* puts token file tok into dir's noqtis.sig as its timestamp (by hand,
+ * as a forger or a damaged copy would) */
+static void addts(const char *dir, const char *tok) {
+  char p[600], *e, *t;
+  size_t n;
+  unsigned char *b = rd(tok, &n);
+  if (b == NULL) {
+    fprintf(stderr, "tcli: cannot read %s\n", tok);
+    exit(2);
+  }
+  e = b64(b, n);
+  free(b);
+  t = (char *)malloc(strlen(e) + 32);
+  if (t == NULL)
+    exit(2);
+  sprintf(t, "\",\"timestamp\":\"%s\"}", e);
+  snprintf(p, sizeof p, "%s/noqtis.sig", dir);
+  ok(sub(p, "\"}", t), "the seal ends in a string field");
+  free(t);
+  free(e);
+}
+
+static int haveossl;
+
+/* a throwaway CA and TSA (EC P-256), named n: q.<n>r.der (the root,
+ * DER), q.<n>t.pem, q.<n>t.key and q.<n>.rcmd, the reply command tsad
+ * runs; 0 when openssl cannot make them or answer a request with them */
+static int mktsa(const char *n) {
+  char c[2048], f[64];
+  snprintf(f, sizeof f, "q.%s.cnf", n);
+  snprintf(c, sizeof c,
+           "[ req ]\ndistinguished_name = dn\nprompt = no\n"
+           "[ dn ]\nO = noqtis tcli\nCN = tcli TSA %s\n"
+           "[ root ]\nbasicConstraints = critical,CA:true\n"
+           "keyUsage = critical,keyCertSign,cRLSign\n"
+           "subjectKeyIdentifier = hash\n"
+           "[ tsaext ]\nbasicConstraints = critical,CA:false\n"
+           "keyUsage = critical,digitalSignature\n"
+           "extendedKeyUsage = critical,timeStamping\n"
+           "subjectKeyIdentifier = hash\n"
+           "authorityKeyIdentifier = keyid\n"
+           "[ tsa ]\ndefault_tsa = t\n"
+           "[ t ]\nserial = q.%s.ser\nsigner_digest = sha256\n"
+           "default_policy = 1.2.3.4.1\ndigests = sha256, sha384, sha512\n"
+           "accuracy = secs:1\nordering = no\ntsa_name = no\n"
+           "ess_cert_id_chain = no\n", n, n);
+  wrs(f, c);
+  snprintf(c, sizeof c, "q.%s.ser", n);
+  wrs(c, "01\n");
+  snprintf(c, sizeof c,
+           "(openssl ecparam -name prime256v1 -genkey -noout -out q.%sr.key"
+           " && openssl ecparam -name prime256v1 -genkey -noout "
+           "-out q.%st.key"
+           " && openssl req -x509 -new -key q.%sr.key -out q.%sr.pem -days 3"
+           " -config q.%s.cnf -extensions root -sha256"
+           " && openssl req -new -key q.%st.key -out q.%st.csr"
+           " -config q.%s.cnf"
+           " && openssl x509 -req -in q.%st.csr -CA q.%sr.pem"
+           " -CAkey q.%sr.key -set_serial 7 -days 2 -extfile q.%s.cnf"
+           " -extensions tsaext -out q.%st.pem -sha256"
+           " && openssl x509 -in q.%sr.pem -outform DER -out q.%sr.der"
+           ") >q.ossl 2>&1",
+           n, n, n, n, n, n, n, n, n, n, n, n, n, n, n);
+  if (system(c) != 0 || !exists(f))
+    return 0;
+  snprintf(c, sizeof c, "q.%sr.der", n);
+  if (!exists(c))
+    return 0;
+  snprintf(c, sizeof c,
+           "openssl ts -reply -config q.%s.cnf -section t -queryfile q.tsq "
+           "-signer q.%st.pem -inkey q.%st.key -out q.tsr", n, n, n);
+  snprintf(f, sizeof f, "q.%s.rcmd", n);
+  wrs(f, c);
+  /* the reply command must work here (LibreSSL's ts differs a little) */
+  remove("q.tsr");
+  strcat(c, " >q.ossl 2>&1");
+  if (system("openssl ts -query -data q.c.pub -sha256 -cert -out q.tsq "
+             ">q.ossl 2>&1") != 0 || system(c) != 0 || !exists("q.tsr"))
+    return 0;
+  return 1;
+}
+
+static void tts(void) {
+  char tok[1200], a[2000], x[1200];
+  int i;
+  rmdirs("qts");
+  mkd("qts");
+  wrs("qts/a.txt", "stamped\n");
+  src(tok, sizeof tok, "vectors/cap/tsa/sample.tok");
+  /* refused before anything is sealed */
+  want(2, "seal -k q.c --tsa https://tsa.example/ qts", NULL);
+  ok(has("q.err", "https:// is not supported") &&
+     has("q.err", "give the TSA's http:// URL"), "seal refuses https");
+  want(2, "seal -k q.c --tsa ftp://tsa.example/ qts", NULL);
+  ok(has("q.err", "not an http:// URL"), "seal refuses another scheme");
+  want(2, "seal -k q.c --tsa http://tsa.example:99999/ qts", NULL);
+  ok(has("q.err", "port"), "seal refuses a bad port");
+  want(2, "seal -k q.c --anchor q.none qts", NULL);
+  ok(has("q.err", "give --tsa <url> too"), "--anchor needs --tsa");
+  strcpy(a, "seal -k q.c");
+  for (i = 0; i < 33; i++)
+    strcat(a, " --tsa http://127.0.0.1:1/");
+  strcat(a, " qts");
+  want(2, a, NULL);
+  ok(has("q.err", "at most 32 times"), "at most 32 --tsa");
+  ok(!exists("qts/noqtis.sig"), "nothing sealed after a refused --tsa");
+  /* the TSA answers, but not with a token over this seal: the seal is
+   * removed, never left without its timestamp */
+  wantts(2, "file", tok, "seal -k q.c --tsa http://127.0.0.1:@PORT@/ qts");
+  ok(has("q.err", "imprint is not the hash of this seal's signature") &&
+     has("q.err", "removed noqtis.json and noqtis.sig"),
+     "seal refuses a token over another signature");
+  ok(!exists("qts/noqtis.sig") && !exists("qts/noqtis.json"),
+     "a failed --tsa leaves no seal");
+  ok(exists("q.tsq") && infile("q.tsq", "\x30", 1),
+     "seal sends a DER request");
+  wantts(2, "chunk", tok, "seal -k q.c --tsa http://127.0.0.1:@PORT@/x qts");
+  ok(has("q.err", "imprint is not"), "seal reads a chunked reply");
+  wantts(2, "short", tok, "seal -k q.c --tsa http://127.0.0.1:@PORT@/ qts");
+  ok(has("q.err", "shorter than its Content-Length"), "a cut reply");
+  wantts(2, "type", tok, "seal -k q.c --tsa http://127.0.0.1:@PORT@/ qts");
+  ok(has("q.err", "text/html, not application/timestamp-reply"),
+     "a reply of another type");
+  wantts(2, "http", "404", "seal -k q.c --tsa http://127.0.0.1:@PORT@/ qts");
+  ok(has("q.err", "HTTP 404"), "an HTTP error");
+  wantts(2, "http", "302", "seal -k q.c --tsa http://127.0.0.1:@PORT@/ qts");
+  ok(has("q.err", "moved to http://tsa.example/new; give that URL"),
+     "a redirect names the new URL");
+  wantts(2, "junk", "", "seal -k q.c --tsa http://127.0.0.1:@PORT@/ qts");
+  ok(has("q.err", "not HTTP/1.x"), "a reply that is not HTTP");
+  wantts(2, "http", "200",
+         "seal -k q.c --tsa http://127.0.0.1:@DEAD@/ qts");
+  ok(has("q.err", "cannot connect to 127.0.0.1 port"), "a closed port");
+  /* a live local TSA (openssl ts -reply), when openssl is there */
+  haveossl = system("openssl version >q.ossl 2>&1") == 0 && mktsa("a") &&
+             mktsa("b");
+  if (!haveossl) {
+    printf("tcli: no working openssl; the live TSA checks are skipped\n");
+    return;
+  }
+  wantts(0, "ossl", "q.a.rcmd",
+         "seal -k q.c --tsa http://127.0.0.1:@DEAD@/ "
+         "--tsa http://127.0.0.1:@PORT@/tsr qts");
+  ok(has("q.err", "cannot connect") && has("q.out", "timestamp from "
+     "http://127.0.0.1:") && has("q.out", "genTime 20"),
+     "seal falls back to the next --tsa");
+  ok(has("q.err", "no --anchor given"), "seal says the TSA was not checked");
+  want(0, "check -p q.c.pub --anchor q.ar.der qts", NULL);
+  ok(has("q.out", "verifies under a TSA anchor; genTime 20"),
+     "check --anchor passes a live token");
+  want(0, "check -p q.c.pub --anchor q.br.der --anchor q.ar.der qts", NULL);
+  want(1, "check -p q.c.pub --anchor q.br.der qts", NULL);
+  ok(has("q.err", "noqtis check: timestamp: the token is not from a TSA "
+     "under the anchors given"), "the other TSA's anchor fails");
+  want(1, "check -p q.c.pub qts", NULL);
+  ok(has("q.err", "--anchor <der-file>"), "no anchor: check says to give one");
+  /* the second authority, verified at seal time */
+  wantts(0, "osslc", "q.b.rcmd",
+         "seal -k q.c --tsa http://127.0.0.1:@PORT@/ --anchor q.br.der qts");
+  ok(has("q.out", "verified under a TSA anchor"), "seal --anchor");
+  want(0, "check -p q.c.pub --anchor q.ar.der --anchor q.br.der qts", NULL);
+  want(1, "check -p q.c.pub --anchor q.ar.der qts", NULL);
+  wantts(2, "ossl", "q.a.rcmd",
+         "seal -k q.c --tsa http://127.0.0.1:@PORT@/ --anchor q.br.der qts");
+  ok(has("q.err", "no valid path to a given anchor") &&
+     !exists("qts/noqtis.sig"), "seal --anchor refuses another TSA");
+  /* anchors that are not DER certificates */
+  wantts(0, "ossl", "q.a.rcmd",
+         "seal -k q.c --tsa http://127.0.0.1:@PORT@/ qts");
+  want(2, "check -p q.c.pub --anchor q.ar.pem qts", NULL);
+  ok(has("q.err", "is PEM; give the DER form"), "check refuses a PEM anchor");
+  want(2, "check -p q.c.pub --anchor q.none qts", NULL);
+  ok(has("q.err", "cannot read TSA anchor q.none"), "a missing anchor");
+  want(2, "check -p q.c.pub --anchor q.a.cnf qts", NULL);
+  ok(has("q.err", "not a DER certificate"), "an anchor that is not DER");
+  snprintf(x, sizeof x, "check -p q.c.pub --anchor q.ar.der --json qts");
+  want(0, x, NULL);
+  ok(has("q.out", "\"ok\":true"), "check --anchor --json");
+}
+
+/* ---- every refusal of check says what failed and what to do ---- */
+
+/* the check names nqchk can report, read from src/cap/chk.c */
+static char names[64][32];
+static int nnames, seen[64];
+
+static void rdnames(void) {
+  char p[1200];
+  size_t n, i;
+  unsigned char *b;
+  src(p, sizeof p, "../src/cap/chk.c");
+  b = rd(p, &n);
+  ok(b != NULL, "tcli reads src/cap/chk.c");
+  if (b == NULL)
+    return;
+  for (i = 0; i + 8 < n; i++) {
+    size_t k = 0;
+    int j, dup = 0;
+    if (memcmp(b + i, "add(r, \"", 8) != 0)
+      continue;
+    i += 8;
+    while (i < n && b[i] != '"' && k < 31)
+      names[nnames][k++] = (char)b[i++];
+    names[nnames][k] = '\0';
+    for (j = 0; j < nnames; j++)
+      dup |= strcmp(names[j], names[nnames]) == 0;
+    if (!dup && nnames < 63)
+      nnames++;
+  }
+  free(b);
+  ok(nnames >= 20, "chk.c names at least 20 checks");
+}
+
+/* checks the last run: every FAIL row has its advice on stderr, none is
+ * the fallback, and want (a check name) failed */
+static void advice(const char *want, const char *what) {
+  size_t n, i;
+  unsigned char *b = rd("q.out", &n);
+  int got = 0, j;
+  char line[64], pat[96], msg[200];
+  ok(b != NULL, what);
+  if (b == NULL)
+    return;
+  for (i = 0; i < n; i++) {
+    size_t k = 0;
+    if ((i == 0 || b[i - 1] == '\n') && n - i > 6 &&
+        memcmp(b + i, "FAIL  ", 6) == 0) {
+      i += 6;
+      while (i < n && b[i] != ' ' && k < sizeof line - 16)
+        line[k++] = (char)b[i++];
+      line[k] = '\0';
+      for (j = 0; j < nnames; j++) {
+        if (strcmp(names[j], line) == 0)
+          seen[j] = 1;
+      }
+      if (strcmp(line, want) == 0)
+        got = 1;
+      snprintf(pat, sizeof pat, "noqtis check: %s: ", line);
+      snprintf(msg, sizeof msg, "%s: advice for a failed %s row", what,
+               line);
+      ok(has("q.err", pat), msg);
+    }
+  }
+  free(b);
+  snprintf(msg, sizeof msg, "%s: fails %s", what, want);
+  ok(got, msg);
+  snprintf(msg, sizeof msg, "%s: no row without advice", what);
+  ok(!has("q.err", "no advice for this check"), msg);
+}
+
+/* one refusal: runs args (a check), which must fail chk with advice */
+static void ref1(const char *chk, const char *what, int code,
+                 const char *args) {
+  want(code, args, NULL);
+  advice(chk, what);
+}
+
+static void pristine(void) {
+  rmdirs("qref");
+  mkd("qref");
+  mkd("qref/sub");
+  wrs("qref/a.txt", "first\n");
+  wrs("qref/b.txt", "second\n");
+  wrs("qref/sub/c.txt", "third\n");
+  want(0, "seal -k q.c qref", NULL);
+}
+
+static void trefuse(void) {
+  char tok[1200], oth[1200], ctx[1400];
+  int j;
+  rdnames();
+  src(tok, sizeof tok, "vectors/cap/tsa/sample.tok");
+  src(oth, sizeof oth, "vectors/cap/tsa/other.der");
+#define CHK "check -p q.c.pub qref"
+  pristine();
+  remove("qref/noqtis.sig");
+  ref1("seal.read", "no seal", 1, CHK);
+  wrs("qref/noqtis.sig", "not json");
+  ref1("seal.parse", "seal not JSON", 1, CHK);
+  pristine();
+  sub("qref/noqtis.sig", "{\"alg\"", "{ \"alg\"");
+  ref1("seal.canonical", "seal not canonical", 1, CHK);
+  pristine();
+  sub("qref/noqtis.sig", "\"format\"", "\"extra\":\"x\",\"format\"");
+  ref1("seal.fields", "seal with an unknown field", 1, CHK);
+  pristine();
+  sub("qref/noqtis.sig", "noqtis-seal-1", "noqtis-seal-9");
+  ref1("seal.format", "seal of another format", 1, CHK);
+  pristine();
+  sub("qref/noqtis.sig", "ML-DSA-65", "ML-DSA-99");
+  ref1("seal.alg", "seal of an unknown algorithm", 1, CHK);
+  pristine();
+  memset(ctx, 'c', 300);
+  ctx[300] = '\0';
+  sub("qref/noqtis.sig", "noqtis-capsule-1", ctx);
+  ref1("seal.context", "seal context over 255 bytes", 1, CHK);
+  pristine();
+  sub("qref/noqtis.sig", "\"public_key\":\"", "\"public_key\":\"AAAA");
+  ref1("seal.key", "seal key damaged", 1, CHK);
+  pristine();
+  sub("qref/noqtis.sig", "\"signature\":\"", "\"signature\":\"AAAA");
+  ref1("seal.signature", "seal signature damaged", 1, CHK);
+  pristine();
+  remove("qref/noqtis.json");
+  ref1("manifest.read", "no manifest", 1, CHK);
+  wrs("qref/noqtis.json", "not json");
+  ref1("manifest.parse", "manifest not JSON", 1, CHK);
+  pristine();
+  sub("qref/noqtis.json", "first", "first");
+  sub("qref/noqtis.json", "\"size\":6", "\"size\":7");
+  ref1("manifest.digest", "manifest changed", 1, CHK);
+  advice("signature", "manifest changed");
+  pristine();
+  sub("qref/noqtis.json", "{\"created\"", "{ \"created\"");
+  ref1("manifest.canonical", "manifest not canonical", 1, CHK);
+  pristine();
+  sub("qref/noqtis.json", "\"noqtis-capsule-1\"",
+      "\"noqtis-capsule-1\",\"zzz\":1");
+  ref1("manifest.fields", "manifest with an unknown field", 1, CHK);
+  pristine();
+  sub("qref/noqtis.json", "noqtis-capsule-1", "noqtis-capsule-9");
+  ref1("manifest.format", "manifest of another format", 1, CHK);
+  pristine();
+  sub("qref/noqtis.json", "\"created\":\"", "\"created\":\"x");
+  ref1("manifest.created", "manifest created not RFC 3339", 1, CHK);
+  pristine();
+  sub("qref/noqtis.json", "\"a.txt\"", "\"c.txt\"");
+  ref1("manifest.order", "manifest out of order", 1, CHK);
+  advice("file", "manifest out of order");
+  advice("extra", "manifest out of order");
+  pristine();
+  sub("qref/noqtis.json", "\"a.txt\"", "\"../a.txt\"");
+  ref1("path", "manifest path with ..", 1, CHK);
+  pristine();
+  ref1("key", "another key", 1, "check -p q.c2.pub qref");
+  wrs("qref/a.txt", "first!\n");
+  ref1("file", "a changed file", 1, CHK);
+  pristine();
+  remove("qref/a.txt");
+  ref1("file", "a removed file", 1, CHK);
+  pristine();
+  wrs("qref/new.txt", "added\n");
+  ref1("extra", "an added file", 1, CHK);
+  /* timestamps */
+  pristine();
+  {
+    char q[1200], c[1400];
+    quoted(q, sizeof q, oth);
+    snprintf(c, sizeof c, "check -p q.c.pub --anchor %s qref", q);
+    ref1("timestamp", "anchor, no timestamp", 1, c);
+  }
+  addts("qref", tok);
+  ref1("timestamp", "a token over another signature", 1, CHK);
+  rmdirs("qgold");
+  mkd("qgold");
+  mkd("qgold/data");
+  mkd("qgold/data/deep");
+  {
+    static const char *f[] = {"a.txt",       "empty",      "data/b.csv",
+                              "noqtis.json", "noqtis.sig"};
+    char a[1200], b[64];
+    size_t k;
+    for (k = 0; k < 5; k++) {
+      snprintf(b, sizeof b, "vectors/cap/sample/%s", f[k]);
+      src(a, sizeof a, b);
+      snprintf(b, sizeof b, "qgold/%s", f[k]);
+      cp(a, b);
+    }
+    src(a, sizeof a, "vectors/cap/sample/data/deep/c.bin");
+    cp(a, "qgold/data/deep/c.bin");
+  }
+  want(0, "check qgold", NULL);
+  ok(has("q.out", "qgold: OK"), "the golden capsule copied");
+  addts("qgold", tok);
+  want(1, "check qgold", NULL);
+  advice("timestamp", "a token, no anchor");
+  ok(has("q.err", "--anchor <der-file>"), "no anchor: give one");
+  {
+    char q[1200];
+    quoted(q, sizeof q, oth);
+    snprintf(ctx, sizeof ctx, "check --anchor %s qgold", q);
+  }
+  want(1, ctx, NULL);
+  advice("timestamp", "a token, the wrong anchor");
+  wr("q.notcert", "\x30\x03\x02\x01\x01", 5);
+  want(1, "check --anchor q.notcert qgold", NULL);
+  advice("timestamp", "an anchor that is not a certificate");
+  ok(has("q.err", "DER X.509"), "say a DER certificate is needed");
+  sub("qgold/noqtis.sig", "\"timestamp\":\"MI", "\"timestamp\":\"AA");
+  want(1, "check qgold", NULL);
+  advice("timestamp", "a damaged token");
+#ifndef _WIN32
+  /* a link, and a folder that cannot be listed (not as root) */
+  pristine();
+  shell("ln -s a.txt qref/l");
+  ref1("unsafe", "a symbolic link", 1, CHK);
+  pristine();
+  shell("chmod 000 qref/sub");
+  if (!exists("qref/sub/c.txt")) {
+    ref1("folder", "a folder that cannot be listed", 1, CHK);
+  } else {
+    /* root lists it anyway */
+    for (j = 0; j < nnames; j++) {
+      if (strcmp(names[j], "folder") == 0)
+        seen[j] = 1;
+    }
+  }
+  shell("chmod 755 qref/sub");
+#else
+  for (j = 0; j < nnames; j++) {
+    if (strcmp(names[j], "unsafe") == 0 || strcmp(names[j], "folder") == 0)
+      seen[j] = 1; /* no links or unlistable folders made here */
+  }
+#endif
+#undef CHK
+  /* every check nqchk can fail was made to fail, with advice */
+  for (j = 0; j < nnames; j++) {
+    char m[96];
+    snprintf(m, sizeof m, "check %s was refused and advised on", names[j]);
+    ok(seen[j], m);
+  }
+  /* and the refusals of check itself */
+  want(2, "check qnone", NULL);
+  ok(has("q.err", "no such folder (give the folder that holds"),
+     "check: a folder that is not there");
+  want(2, "check -p q.none qref", NULL);
+  ok(has("q.err", "cannot read key file q.none (missing or unreadable; "
+     "give a key file `noqtis keygen` wrote)"), "check: a missing key");
+  want(2, "check -p q.ck.pub qref", NULL);
+  ok(has("q.err", "not a signature key; give the signer's .pub"),
+     "check: a KEM key");
+  wrs("q.badkey", "noqtis-key-1 ML-DSA-99 pub\nAAAA\n");
+  want(2, "check -p q.badkey qref", NULL);
+  ok(has("q.err", "`noqtis algs` lists"), "check: an unknown algorithm");
+  wrs("q.badkey", "noqtis-key-1 ML-DSA-65 pub\nAAAA\n");
+  want(2, "check -p q.badkey qref", NULL);
+  ok(has("q.err", "use the file keygen wrote"), "check: a short key");
+  wrs("q.badkey", "hello\n");
+  want(2, "check -p q.badkey qref", NULL);
+  ok(has("q.err", "not a noqtis key file (want a first line"),
+     "check: not a key file");
+  want(2, "check --nope qref", NULL);
+  ok(has("q.err", "see `noqtis help check`"), "check: an unknown option");
+  want(2, "check --anchor", NULL);
+  ok(has("q.err", "needs a value"), "check: --anchor without a file");
+  want(1, "check -p q.c.pub --json qgold", NULL);
+  ok(has("q.out", "\"fix\":\""), "check --json gives the fix");
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -568,11 +1147,16 @@ int main(int argc, char **argv) {
   };
   const char *all = getenv("NQCLIALL");
   size_t i;
-  if (argc != 2) {
-    fprintf(stderr, "usage: tcli <path to noqtis>\n");
+  if (argc != 2 && argc != 4) {
+    fprintf(stderr, "usage: tcli <path to noqtis> [<path to tsad> "
+            "<tests/ in the source tree>]\n");
     return 2;
   }
   exe = argv[1];
+  if (argc == 4) {
+    tsad = argv[2];
+    srcdir = argv[3];
+  }
   if (getenv("NQCLIWRAP") != NULL) {
     static char w[1024];
     snprintf(w, sizeof w, "%s ", getenv("NQCLIWRAP"));
@@ -592,6 +1176,10 @@ int main(int argc, char **argv) {
     tkem(kems[i]);
   thash();
   tcap();
+  if (tsad != NULL) {
+    tts();
+    trefuse();
+  }
   printf("tcli: %d checks, %d failed\n", nrun, nbad);
   return nbad == 0 ? 0 : 1;
 }
