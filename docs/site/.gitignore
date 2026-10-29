@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .astro/
+# copied by scripts/wasm.sh
+public/wasm/
+public/sample.json

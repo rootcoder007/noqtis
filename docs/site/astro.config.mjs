@@ -42,6 +42,7 @@ export default defineConfig({
           items: [
             { label: "Install", slug: "start/install" },
             { label: "Your first capsule", slug: "start/quick" },
+            { label: "Check in your browser", slug: "demo" },
           ],
         },
         {

@@ -6,7 +6,10 @@
   "license": "Apache-2.0 WITH LLVM-exception",
   "scripts": {
     "man": "sh scripts/man.sh",
+    "wasm": "sh scripts/wasm.sh",
+    "predev": "sh scripts/wasm.sh",
     "dev": "astro dev",
+    "prebuild": "sh scripts/wasm.sh",
     "build": "astro build",
     "preview": "astro preview"
   },

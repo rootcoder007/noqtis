@@ -1,0 +1,380 @@
+---
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// Checks a capsule folder in the browser with the WebAssembly build of
+// noqtis (public/wasm, copied by scripts/wasm.sh). The files are read in
+// this tab and passed to capsule.check; nothing is sent anywhere.
+---
+
+<div class="nqc">
+  <div class="drop" id="nqdrop" tabindex="0">
+    <p><strong>Drop a capsule folder here</strong></p>
+    <p>or</p>
+    <p class="btns">
+      <label class="btn">
+        Choose a folder
+        <input type="file" id="nqdir" webkitdirectory multiple hidden />
+      </label>
+      <button type="button" class="btn" id="nqsample">Try the sample</button>
+      <button type="button" class="btn" id="nqbad">Try it tampered</button>
+    </p>
+  </div>
+
+  <details class="trust">
+    <summary>Trust this public key (optional)</summary>
+    <p>
+      Paste a public key file (<code>noqtis-key-1 ... pub</code>) or choose
+      one. The seal must then carry exactly this key, as with
+      <code>noqtis check -p</code>. Without it, any key's seal passes.
+    </p>
+    <textarea id="nqkey" rows="4" spellcheck="false" autocomplete="off"
+      placeholder="noqtis-key-1 ML-DSA-65 pub&#10;..."></textarea>
+    <p class="btns">
+      <label class="btn">
+        Choose a .pub file
+        <input type="file" id="nqkeyf" accept=".pub,text/plain" hidden />
+      </label>
+      <button type="button" class="btn" id="nqkeyc">Clear</button>
+    </p>
+  </details>
+
+  <p class="status" id="nqstat" role="status" aria-live="polite"></p>
+  <pre class="rep" id="nqout" hidden></pre>
+</div>
+
+<style>
+  .nqc .drop {
+    border: 2px dashed var(--sl-color-gray-4);
+    border-radius: 0.5rem;
+    padding: 1.5rem 1rem;
+    text-align: center;
+  }
+  .nqc .drop.over {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+  }
+  .nqc .drop p {
+    margin: 0.25rem 0;
+  }
+  .nqc .btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  .nqc .btn {
+    display: inline-block;
+    cursor: pointer;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 0.35rem;
+    padding: 0.35rem 0.8rem;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: var(--sl-text-sm);
+  }
+  .nqc .btn:hover,
+  .nqc .btn:focus-within {
+    border-color: var(--sl-color-accent);
+  }
+  .nqc .trust {
+    margin-top: 1rem;
+  }
+  .nqc textarea {
+    width: 100%;
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-xs);
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-white);
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 0.35rem;
+    padding: 0.5rem;
+  }
+  .nqc .status {
+    margin-top: 1rem;
+    font-weight: 600;
+  }
+  .nqc .status.ok {
+    color: var(--sl-color-green-high);
+  }
+  .nqc .status.bad {
+    color: var(--sl-color-red-high);
+  }
+  .nqc .rep {
+    overflow-x: auto;
+    font-size: var(--sl-text-xs);
+    line-height: 1.5;
+  }
+  .nqc .rep :global(.f) {
+    color: var(--sl-color-red-high);
+    font-weight: 700;
+  }
+  .nqc .rep :global(.o) {
+    color: var(--sl-color-green-high);
+  }
+</style>
+
+<script>
+  const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+  const $ = (id: string) => document.getElementById(id)!;
+  const stat = $("nqstat");
+  const out = $("nqout");
+  const drop = $("nqdrop");
+  const keybox = $("nqkey") as HTMLTextAreaElement;
+  const LIMIT = 1024 * 1024 * 1024; // what one tab can hold comfortably
+
+  type Files = Map<string, Uint8Array>;
+  let nq: any = null;
+
+  function say(text: string, kind = "") {
+    stat.textContent = text;
+    stat.className = `status ${kind}`;
+  }
+
+  async function lib() {
+    if (nq) return nq;
+    say("Loading the WebAssembly module from this site...");
+    try {
+      const m = await import(/* @vite-ignore */ `${base}wasm/lib/index.js`);
+      await m.init();
+      nq = m;
+      return nq;
+    } catch (e) {
+      throw new Error(
+        "The WebAssembly module could not be loaded from this site " +
+          `(${base}wasm/). If this is a local build, run ` +
+          "sh bindings/npm/build.sh and build the site again. " +
+          `(${(e as Error).message})`,
+      );
+    }
+  }
+
+  // the same layout as `noqtis check`
+  function show(name: string, r: any, trusted: boolean) {
+    const rows = r.checks as { check: string; ok: boolean; detail: string }[];
+    const w = Math.max(5, ...rows.map((c) => c.check.length));
+    const esc = (s: string) =>
+      s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
+    const lines: string[] = [];
+    if (rows.length > 0) lines.push(`${"".padEnd(4)}  ${"check".padEnd(w)}  detail`);
+    let nf = 0;
+    for (const c of rows) {
+      if (!c.ok) nf++;
+      const tag = c.ok ? '<span class="o">ok  </span>' : '<span class="f">FAIL</span>';
+      lines.push(`${tag}  ${esc(c.check.padEnd(w))}  ${esc(c.detail)}`);
+    }
+    const pass = r.ok && nf === 0 && rows.length > 0;
+    let last: string;
+    if (pass) last = `${name}: OK (${rows.length} checks passed)`;
+    else if (rows.length > 0 && nf > 0)
+      last = `${name}: FAILED (${nf} of ${rows.length} checks failed)`;
+    else last = `${name}: FAILED (${nq.errmsg(r.code)})`;
+    lines.push(esc(last));
+    if (pass && !trusted)
+      lines.push(
+        "note: no public key given, so the key inside the seal was trusted; " +
+          "give one under “Trust this public key” to check who sealed it",
+      );
+    out.innerHTML = lines.join("\n");
+    out.hidden = false;
+    return pass;
+  }
+
+  function trust(): Uint8Array | undefined {
+    const t = keybox.value.trim();
+    if (t === "") return undefined;
+    let k;
+    try {
+      k = nq.keyfile.decode(`${t}\n`);
+    } catch (e) {
+      throw new Error(
+        `The trusted key is not a noqtis public key file (${(e as Error).message}).`,
+      );
+    }
+    if (k.kind !== "pub") {
+      k.key.fill(0);
+      keybox.value = "";
+      throw new Error(
+        "That is a secret key, not a public key. It was not used and has " +
+          "been cleared from the box; never paste a secret key into a web page.",
+      );
+    }
+    return k.key;
+  }
+
+  async function run(name: string, files: Files) {
+    out.hidden = true;
+    try {
+      if (files.size === 0) throw new Error("The folder has no files.");
+      let total = 0;
+      for (const b of files.values()) total += b.length;
+      if (total > LIMIT)
+        throw new Error(
+          "This folder is too large to hold in a browser tab; check it " +
+            "with the noqtis command instead (it streams).",
+        );
+      if (!files.has("noqtis.json") || !files.has("noqtis.sig"))
+        say("This folder has no noqtis.json or noqtis.sig at its top; checking anyway.");
+      const m = await lib();
+      const t = trust();
+      say(`Checking ${files.size} files in this tab...`);
+      const t0 = performance.now();
+      const r = m.capsule.check(files, t ? { trust: t } : {});
+      const ms = Math.round(performance.now() - t0);
+      const pass = show(name, r, t !== undefined);
+      const mb = (total / 1048576).toFixed(total < 1048576 ? 2 : 1);
+      say(
+        `${pass ? "OK" : "FAILED"}: ${files.size} files (${mb} MB) checked ` +
+          `in ${ms} ms, in this tab. Nothing was uploaded.`,
+        pass ? "ok" : "bad",
+      );
+    } catch (e) {
+      const err = e as Error & { code?: number };
+      let msg = err.message;
+      if (err.name === "NoqtisError")
+        msg = `The capsule could not be checked: ${err.message}.`;
+      say(msg, "bad");
+    }
+  }
+
+  async function read(f: File) {
+    return new Uint8Array(await f.arrayBuffer());
+  }
+
+  // <input webkitdirectory>: paths are "<folder>/<path>"
+  $("nqdir").addEventListener("change", async (ev) => {
+    const list = Array.from((ev.target as HTMLInputElement).files ?? []);
+    (ev.target as HTMLInputElement).value = "";
+    if (list.length === 0) return say("The folder has no files.", "bad");
+    say(`Reading ${list.length} files...`);
+    const files: Files = new Map();
+    let name = "capsule";
+    try {
+      for (const f of list) {
+        const p = (f.webkitRelativePath || f.name).split("/");
+        if (p.length > 1) name = p.shift()!;
+        files.set(p.join("/"), await read(f));
+      }
+    } catch (e) {
+      return say(`A file could not be read: ${(e as Error).message}`, "bad");
+    }
+    run(name, files);
+  });
+
+  // drag and drop: FileSystemEntry trees
+  function entries(dir: FileSystemDirectoryEntry): Promise<FileSystemEntry[]> {
+    const r = dir.createReader();
+    const all: FileSystemEntry[] = [];
+    return new Promise((ok, bad) => {
+      const more = () =>
+        r.readEntries((batch) => {
+          if (batch.length === 0) return ok(all);
+          all.push(...batch);
+          more();
+        }, bad);
+      more();
+    });
+  }
+
+  async function walk(e: FileSystemEntry, pre: string, files: Files) {
+    const p = pre ? `${pre}/${e.name}` : e.name;
+    if (e.isDirectory) {
+      for (const c of await entries(e as FileSystemDirectoryEntry))
+        await walk(c, p, files);
+    } else if (e.isFile) {
+      const f = await new Promise<File>((ok, bad) =>
+        (e as FileSystemFileEntry).file(ok, bad),
+      );
+      files.set(p, await read(f));
+    }
+  }
+
+  drop.addEventListener("dragover", (ev) => {
+    ev.preventDefault();
+    drop.classList.add("over");
+  });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", async (ev) => {
+    ev.preventDefault();
+    drop.classList.remove("over");
+    const items = Array.from(ev.dataTransfer?.items ?? []);
+    // the entries must be taken while the event runs
+    const ents = items
+      .filter((i) => i.kind === "file")
+      .map((i) => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null));
+    // without entries (no folder support, or files from a script), take
+    // the dropped files as the capsule's top level
+    const flat = Array.from(ev.dataTransfer?.files ?? []);
+    if (ents.length === 0 && flat.length === 0)
+      return say("Nothing was dropped that this page can read.", "bad");
+    say("Reading the dropped files...");
+    const files: Files = new Map();
+    let name = "dropped files";
+    try {
+      if (ents.length === 0 || ents.some((x) => x === null)) {
+        for (const f of flat) files.set(f.name, await read(f));
+      } else if (ents.length === 1 && ents[0]!.isDirectory) {
+        name = ents[0]!.name;
+        for (const c of await entries(ents[0] as FileSystemDirectoryEntry))
+          await walk(c, "", files);
+      } else {
+        for (const x of ents) await walk(x!, "", files);
+      }
+    } catch (e) {
+      return say(`A file could not be read: ${(e as Error).message}. If you dropped a folder, try “Choose a folder”.`, "bad");
+    }
+    run(name, files);
+  });
+
+  // the sample capsule, served by this site (tests/vectors/cap/sample)
+  async function sample(): Promise<Files> {
+    let res;
+    try {
+      res = await fetch(`${base}sample.json`);
+    } catch {
+      res = null;
+    }
+    if (!res || !res.ok) throw new Error("The sample capsule is missing from this site.");
+    const files: Files = new Map();
+    for (const [p, b64] of Object.entries(await res.json())) {
+      const s = atob(b64 as string);
+      const b = new Uint8Array(s.length);
+      for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+      files.set(p, b);
+    }
+    return files;
+  }
+
+  $("nqsample").addEventListener("click", async () => {
+    try {
+      run("sample", await sample());
+    } catch (e) {
+      say((e as Error).message, "bad");
+    }
+  });
+  $("nqbad").addEventListener("click", async () => {
+    try {
+      const files = await sample();
+      const b = files.get("a.txt")!.slice();
+      b[0] ^= 1; // one bit of one byte: the size stays the same
+      files.set("a.txt", b);
+      run("sample (a.txt changed by one bit)", files);
+    } catch (e) {
+      say((e as Error).message, "bad");
+    }
+  });
+
+  // load the module now, so the page works offline afterwards
+  lib().then(
+    () => say("Ready. The WebAssembly module is loaded; nothing is uploaded."),
+    (e) => say((e as Error).message, "bad"),
+  );
+
+  $("nqkeyf").addEventListener("change", async (ev) => {
+    const f = (ev.target as HTMLInputElement).files?.[0];
+    (ev.target as HTMLInputElement).value = "";
+    if (f) keybox.value = await f.text();
+  });
+  $("nqkeyc").addEventListener("click", () => {
+    keybox.value = "";
+  });
+</script>

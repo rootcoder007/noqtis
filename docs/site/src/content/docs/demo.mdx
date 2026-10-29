@@ -1,0 +1,47 @@
+---
+title: Check a capsule in your browser
+description: Drop a capsule folder and check it with NOQTIS compiled to WebAssembly, in this tab. Nothing is uploaded.
+head:
+  # the page may fetch only from this site (its own scripts and the sample)
+  - tag: meta
+    attrs:
+      http-equiv: Content-Security-Policy
+      content: "connect-src 'self'"
+---
+
+import Check from "../../components/Check.astro";
+
+Drop a capsule folder (one with `noqtis.json` and `noqtis.sig` at its top)
+onto the box, or choose it. The page reads the files in this tab and
+checks them with the NOQTIS library compiled to WebAssembly, the same code
+as the `noqtis` command. It prints the rows that
+[`noqtis check`](/noqtis/reference/man/noqtis-check-1/) prints.
+
+:::note[Nothing is uploaded]
+Your files never leave this browser tab: the page sends no request with
+them, and its content security policy allows connections only to this
+site, which serves the page, the WebAssembly module and the sample. You can
+load the page, go offline, and check a folder.
+:::
+
+<Check />
+
+## What the result means
+
+- **OK** means every file listed in `noqtis.json` is present with the same
+  size, SHA-256 and SHA3-256, no other file is in the folder, and the
+  signature in `noqtis.sig` over those exact manifest bytes is valid.
+- Without a trusted public key, the check accepts whatever key the seal
+  carries, so anyone could have made it; give the sealer's `.pub` file to
+  check who sealed it. See [Check someone else's
+  capsule](/noqtis/guides/others/).
+- **Try it tampered** changes one bit of one byte of the sample's `a.txt`,
+  keeping its size: the digests no longer match and the check fails.
+- A file your system adds to the folder (`.DS_Store` on macOS, for
+  example) is a file not in the manifest, and fails the check, as it would
+  with the command.
+
+The folder is held in memory while it is checked, so a very large capsule
+is better checked with the `noqtis` command, which streams. Timestamps
+need trust anchors, which this page does not take: a seal that carries one
+fails here, as `noqtis check` without anchors fails.

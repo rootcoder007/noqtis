@@ -2,6 +2,7 @@
 #
 # The documentation: lints the manual pages (mandoc), runs every example
 # of the manual pages and the site against the built library and tool,
+# builds the WebAssembly module for the site's in-browser capsule check,
 # builds the Astro Starlight site (with its internal link check) and, for
 # a push to main or a release, publishes it on GitHub Pages. Publishing
 # runs only once the repository is public; until then the built site is
@@ -13,6 +14,8 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "bindings/npm/**"
+      - "tests/vectors/cap/**"
       - "man/**"
       - "cli/**"
       - "include/**"
@@ -22,6 +25,8 @@ on:
   pull_request:
     paths:
       - "docs/**"
+      - "bindings/npm/**"
+      - "tests/vectors/cap/**"
       - "man/**"
       - "cli/**"
       - "include/**"
@@ -87,6 +92,13 @@ jobs:
         working-directory: docs/site
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
+        with:
+          version: "6.0.12" # as npm.yml
+          actions-cache-folder: emsdk-cache
+      - name: build the WebAssembly module (for the browser check page)
+        working-directory: .
+        run: sh bindings/npm/build.sh
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
@@ -99,7 +111,14 @@ jobs:
       - name: build (fails on a broken internal link)
         env:
           ASTRO_TELEMETRY_DISABLED: "1"
+          NQWASM: "1" # the page's WebAssembly module must be there
         run: npm run build
+      - name: the browser check page and its files are in the site
+        run: |
+          test -f dist/demo/index.html
+          test -f dist/wasm/dist/noqtis.wasm
+          test -f dist/wasm/lib/index.js
+          test -f dist/sample.json
       - name: size
         run: du -sh dist && find dist -type f | wc -l
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
