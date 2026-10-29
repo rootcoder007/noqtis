@@ -56,8 +56,60 @@ same commit gives the same `noqtis.json`. Put the commit, the workflow run
 and the tool versions in `build-meta.json` so the capsule records how the
 results were made.
 
-A GitHub Action (`rootcoder007/noqtis-action`) that installs NOQTIS and
-seals or checks a folder is planned for the first release.
+## The GitHub Action
+
+The repository is also a GitHub Action, `rootcoder007/noqtis@v0`. It
+builds `noqtis` from the action's own source with CMake (cached, so later
+runs skip the build), puts it on `PATH`, and seals or checks a folder. It
+runs on Linux, macOS and Windows runners.
+
+```yaml
+permissions:
+  contents: read
+
+steps:
+  # first check out the repository (actions/checkout, pinned by commit SHA)
+
+  # seal: the secret key file comes from a secret
+  - uses: rootcoder007/noqtis@v0
+    with:
+      mode: seal
+      dir: results
+      key: ${{ secrets.NOQTIS_KEY }}   # the whole secret key file
+      pub: keys/release.pub
+      meta: build-meta.json            # optional
+
+  # check: fails the job unless every check passes
+  - id: check
+    uses: rootcoder007/noqtis@v0
+    with:
+      mode: check
+      dir: results
+      pub: keys/release.pub
+      json: "true"                     # optional: the report as an output
+```
+
+| Input | For | Meaning |
+|---|---|---|
+| `mode` | all | `seal`, `check`, or `install` (only build and put `noqtis` on `PATH`) |
+| `dir` | seal, check | the capsule folder |
+| `key` | seal | the secret key file's text, from a secret; written to an owner-only temporary file for the one command, then deleted, never printed |
+| `pub` | seal, check | the public key file; for `check`, the key the seal must carry (leave it out and any key's seal passes, with a warning) |
+| `meta` | seal | a JSON file kept in the manifest as `meta` |
+| `json` | check | `"true"` sets the `json` output |
+
+Outputs: `ok` (`"true"` or `"false"`, from `check`), `json` (the
+`check --json` line, when asked for) and `bin` (the path to `noqtis`).
+A failing `check` fails its step; add `continue-on-error: true` and read
+`steps.check.outputs.ok` to decide yourself. After the action has run once
+in a job, later `run:` steps can call `noqtis` directly.
+
+For a reproducible manifest, set `SOURCE_DATE_EPOCH` for the seal step
+(for example `echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >>
+"$GITHUB_ENV"` in an earlier step). The repository's own
+`.github/workflows/action.yml` uses the action this way on all three
+systems: it seals a sample folder, checks it, changes one byte and
+asserts that the check fails.
 
 ## Checksums alongside
 

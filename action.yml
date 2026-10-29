@@ -1,0 +1,163 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The NOQTIS GitHub Action: builds noqtis from this checkout of the action
+# (CMake, cached per OS, CPU and source tree), puts it on PATH, and seals
+# or checks a capsule folder. Runs on Linux, macOS and Windows runners.
+#
+#   - uses: rootcoder007/noqtis@v0
+#     with:
+#       mode: check
+#       dir: results
+#       pub: keys/release.pub
+name: NOQTIS
+description: Seal a folder as a post-quantum signed capsule, or check one, with noqtis.
+author: rootcoder007
+branding:
+  icon: check-square
+  color: gray-dark
+
+inputs:
+  mode:
+    description: "seal, check, or install (only build noqtis and put it on PATH)"
+    required: true
+  dir:
+    description: The capsule folder to seal or check
+    required: false
+    default: ""
+  key:
+    description: >-
+      seal only: the whole secret key file (pass a secret, for example
+      secrets.NOQTIS_KEY). It is written to an owner-only temporary file
+      for the one command and deleted; it is never printed.
+    required: false
+    default: ""
+  pub:
+    description: >-
+      Path to the public key file. seal: the key pair's public half
+      (required). check: the key the seal must carry; leave it empty only
+      to accept whatever key the seal carries.
+    required: false
+    default: ""
+  meta:
+    description: seal only, optional. Path to a JSON file kept in the manifest as meta.
+    required: false
+    default: ""
+  json:
+    description: check only. "true" also sets the json output to the check --json line.
+    required: false
+    default: "false"
+
+outputs:
+  ok:
+    description: check only. "true" when every check passed, else "false".
+    value: ${{ steps.run.outputs.ok }}
+  json:
+    description: check only, with json "true". The one-line JSON report of noqtis check --json.
+    value: ${{ steps.run.outputs.json }}
+  bin:
+    description: Path to the noqtis program.
+    value: ${{ steps.path.outputs.bin }}
+
+runs:
+  using: composite
+  steps:
+    - name: source digest (cache key)
+      id: src
+      shell: bash
+      env:
+        NQSRC: ${{ github.action_path }}
+      run: |
+        cd "$NQSRC"
+        if command -v sha256sum > /dev/null 2>&1; then sum="sha256sum"
+        else sum="shasum -a 256"; fi
+        d=$(find CMakeLists.txt cmake include src cli -type f | LC_ALL=C sort |
+          while IFS= read -r f; do $sum "$f"; done | $sum | cut -c1-32)
+        echo "key=noqtis-$RUNNER_OS-$RUNNER_ARCH-$d" >> "$GITHUB_OUTPUT"
+
+    - name: cache
+      id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/noqtis
+        key: ${{ steps.src.outputs.key }}
+
+    - name: build noqtis
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        NQSRC: ${{ github.action_path }}
+        NQOUT: ${{ runner.temp }}/noqtis
+        NQBLD: ${{ runner.temp }}/noqtis-build
+      run: |
+        cmake -S "$NQSRC" -B "$NQBLD" -DCMAKE_BUILD_TYPE=Release \
+          -DNQTESTS=OFF -DNQMAN=OFF -DNQWERROR=OFF
+        cmake --build "$NQBLD" --config Release --parallel 4
+        cmake --install "$NQBLD" --config Release --prefix "$NQOUT"
+        rm -rf "$NQBLD"
+
+    - name: put noqtis on PATH
+      id: path
+      shell: bash
+      env:
+        NQOUT: ${{ runner.temp }}/noqtis
+      run: |
+        b="$NQOUT/bin"
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          b=$(cygpath -w "$b")
+          echo "bin=$b\\noqtis.exe" >> "$GITHUB_OUTPUT"
+        else
+          echo "bin=$b/noqtis" >> "$GITHUB_OUTPUT"
+        fi
+        echo "$b" >> "$GITHUB_PATH"
+        "$NQOUT/bin/noqtis" version
+
+    - name: noqtis ${{ inputs.mode }}
+      id: run
+      shell: bash
+      env:
+        NQBIN: ${{ runner.temp }}/noqtis/bin/noqtis
+        NQMODE: ${{ inputs.mode }}
+        NQDIR: ${{ inputs.dir }}
+        NQKEY: ${{ inputs.key }}
+        NQPUB: ${{ inputs.pub }}
+        NQMETA: ${{ inputs.meta }}
+        NQJSON: ${{ inputs.json }}
+      run: |
+        set -u
+        die() { echo "::error title=noqtis::$*"; exit 2; }
+        case "$NQMODE" in
+          install) exit 0 ;;
+          seal|check) ;;
+          *) die "mode must be seal, check or install, not '$NQMODE'" ;;
+        esac
+        [ -n "$NQDIR" ] || die "dir is required for $NQMODE"
+        [ -d "$NQDIR" ] || die "$NQDIR: no such folder"
+        if [ "$NQMODE" = seal ]; then
+          [ -n "$NQKEY" ] || die "key is required for seal (the secret key file, from a secret)"
+          [ -n "$NQPUB" ] || die "pub is required for seal (the public key file)"
+          k="$RUNNER_TEMP/noqtis-key-$$"
+          trap 'rm -f "$k"' EXIT
+          ( umask 077; printf '%s\n' "$NQKEY" > "$k" )
+          chmod 600 "$k"
+          set -- -k "$k" -p "$NQPUB"
+          [ -z "$NQMETA" ] || set -- "$@" --meta "$NQMETA"
+          "$NQBIN" seal "$@" "$NQDIR"
+          exit $?
+        fi
+        set --
+        if [ -n "$NQPUB" ]; then set -- -p "$NQPUB"
+        else echo "::warning title=noqtis::no pub given: the key inside the seal is trusted, so any key's seal passes"; fi
+        rc=0
+        "$NQBIN" check "$@" "$NQDIR" || rc=$?
+        if [ "$rc" = 0 ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
+        else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+        if [ "$NQJSON" = true ]; then
+          j=$("$NQBIN" check --json "$@" "$NQDIR" || true)
+          printf 'json=%s\n' "$j" >> "$GITHUB_OUTPUT"
+        fi
+        exit "$rc"
+
+    - name: remove the key file
+      if: always() && inputs.mode == 'seal'
+      shell: bash
+      run: rm -f "$RUNNER_TEMP"/noqtis-key-*

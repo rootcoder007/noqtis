@@ -219,7 +219,7 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 | Linux distributions | Debian/Ubuntu, Fedora/EPEL, Arch (AUR), Alpine, Nix, Gentoo | distro packages; recipes for Debian, Fedora, Arch, Alpine and Wolfi in `packaging/` and `flake.nix` for Nix, built and tested in CI; Gentoo ebuild not yet |
 | Windows | winget, Scoop, Chocolatey | the release archives |
 | Containers | `ghcr.io/rootcoder007/noqtis` | distroless image with the CLI; the Wolfi `Dockerfile` carries the library now, the CLI later |
-| CI | GitHub Action `rootcoder007/noqtis-action` | seal and check capsules in workflows |
+| CI | GitHub Action `rootcoder007/noqtis@v0` (`action.yml` in this repository) | seal and check capsules in workflows; tested by `.github/workflows/action.yml` on Linux, macOS and Windows |
 
 Every binding has its own tests that run the capsule round trip and a
 sample of the ACVP vectors through the binding, on every platform the

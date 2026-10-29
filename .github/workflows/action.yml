@@ -1,0 +1,151 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The GitHub Action (action.yml at the repository root), used as users
+# use it but from this checkout (uses: ./): installs noqtis, makes a key
+# pair, seals a sample folder, checks it, then changes one byte of one
+# file and asserts the check fails. On Linux, macOS and Windows.
+name: action
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "action.yml"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "include/**"
+      - "src/**"
+      - "cli/**"
+      - ".github/workflows/action.yml"
+  pull_request:
+    paths:
+      - "action.yml"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "include/**"
+      - "src/**"
+      - "cli/**"
+      - ".github/workflows/action.yml"
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: action-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  action:
+    name: action ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: install
+        id: nq
+        uses: ./
+        with:
+          mode: install
+
+      - name: a key pair and a sample folder
+        run: |
+          d="$RUNNER_TEMP/nqt"
+          mkdir -p "$d" sample/data
+          noqtis keygen -a ML-DSA-65 -o "$d/k"
+          printf 'a,b\n1,2\n' > sample/data/in.csv
+          printf 'the report\n' > sample/report.txt
+          echo '{"run":"${{ github.run_id }}"}' > "$d/meta.json"
+          cp "$d/k.pub" sample.pub
+          # the secret key reaches the action as an input, as a secret would
+          while IFS= read -r l; do echo "::add-mask::$l"; done < "$d/k"
+          {
+            echo "NQTKEY<<NQTEOF"
+            cat "$d/k"
+            echo "NQTEOF"
+          } >> "$GITHUB_ENV"
+          rm -f "$d/k"
+
+      - name: seal
+        uses: ./
+        with:
+          mode: seal
+          dir: sample
+          key: ${{ env.NQTKEY }}
+          pub: sample.pub
+          meta: ${{ runner.temp }}/nqt/meta.json
+
+      - name: the key file is gone
+        run: |
+          ls sample
+          test -f sample/noqtis.json && test -f sample/noqtis.sig
+          if ls "$RUNNER_TEMP"/noqtis-key-* > /dev/null 2>&1; then
+            echo "a key file was left behind" >&2
+            exit 1
+          fi
+
+      - name: check (passes)
+        id: good
+        uses: ./
+        with:
+          mode: check
+          dir: sample
+          pub: sample.pub
+          json: "true"
+
+      - name: the outputs say so
+        env:
+          NQOK: ${{ steps.good.outputs.ok }}
+          NQJ: ${{ steps.good.outputs.json }}
+        run: |
+          test "$NQOK" = true
+          case "$NQJ" in
+            '{"capsule":"sample","ok":true,'*) ;;
+            *) echo "json output: $NQJ" >&2; exit 1 ;;
+          esac
+
+      - name: change one byte
+        run: |
+          printf 'X' | dd of=sample/report.txt bs=1 seek=4 conv=notrunc
+          cat sample/report.txt
+
+      - name: check (must fail)
+        id: bad
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: check
+          dir: sample
+          pub: sample.pub
+
+      - name: the check failed
+        env:
+          NQOUT: ${{ steps.bad.outcome }}
+          NQOK: ${{ steps.bad.outputs.ok }}
+        run: |
+          echo "outcome $NQOUT, ok $NQOK"
+          test "$NQOUT" = failure
+
+      - name: a seal by another key fails too
+        run: |
+          noqtis keygen -a ML-DSA-44 -o "$RUNNER_TEMP/nqt/o"
+          rc=0
+          noqtis check -p "$RUNNER_TEMP/nqt/o.pub" sample > /dev/null || rc=$?
+          test "$rc" = 1
+
+      - name: bin output
+        env:
+          NQBIN: ${{ steps.nq.outputs.bin }}
+        run: |
+          echo "$NQBIN"
+          "$NQBIN" version
