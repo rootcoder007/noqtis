@@ -281,11 +281,13 @@ static int run(int argc, char **argv) {
 int main(void) {
   int argc = 0, i, rc;
   wchar_t **w = CommandLineToArgvW(GetCommandLineW(), &argc);
-  char **argv;
+  char **argv, **own;
   if (w == NULL)
     return NCUSE;
+  /* ncargs() reorders argv in place, so free from a copy of the pointers */
   argv = (char **)calloc((size_t)argc + 1, sizeof *argv);
-  if (argv == NULL)
+  own = (char **)calloc((size_t)argc + 1, sizeof *own);
+  if (argv == NULL || own == NULL)
     return NCUSE;
   for (i = 0; i < argc; i++) {
     int n = WideCharToMultiByte(CP_UTF8, 0, w[i], -1, NULL, 0, NULL, NULL);
@@ -295,11 +297,13 @@ int main(void) {
       fputs("noqtis: cannot convert the arguments to UTF-8\n", stderr);
       return NCUSE;
     }
+    own[i] = argv[i];
   }
   LocalFree(w);
   rc = run(argc, argv);
   for (i = 0; i < argc; i++)
-    free(argv[i]);
+    free(own[i]);
+  free(own);
   free(argv);
   return rc;
 }
