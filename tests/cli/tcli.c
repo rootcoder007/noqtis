@@ -21,6 +21,7 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,22 @@
 #ifndef _WIN32
 #include <sys/stat.h>
 #include <sys/wait.h>
+
+/* snprintf that stops the test when the text does not fit: a cut command
+ * or path would test something else (and GCC's -Wformat-truncation sees
+ * every call checked) */
+static void sn(char *o, size_t cap, const char *f, ...) {
+  va_list ap;
+  int n;
+  va_start(ap, f);
+  n = vsnprintf(o, cap, f, ap);
+  va_end(ap);
+  if (n < 0 || (size_t)n >= cap) {
+    fprintf(stderr, "tcli: text too long for its buffer (%d >= %lu)\n", n,
+            (unsigned long)cap);
+    exit(2);
+  }
+}
 #endif
 
 static const char *exe;
@@ -153,16 +170,16 @@ static void shell(const char *cmd) {
 static void rmdirs(const char *d) {
   char c[256];
 #ifdef _WIN32
-  snprintf(c, sizeof c, "if exist %s rmdir /s /q %s", d, d);
+  sn(c, sizeof c, "if exist %s rmdir /s /q %s", d, d);
 #else
-  snprintf(c, sizeof c, "rm -rf %s", d);
+  sn(c, sizeof c, "rm -rf %s", d);
 #endif
   shell(c);
 }
 
 static void mkd(const char *d) {
   char c[256];
-  snprintf(c, sizeof c, "mkdir %s", d);
+  sn(c, sizeof c, "mkdir %s", d);
   shell(c);
 }
 
@@ -291,13 +308,13 @@ static void nosec(const char *key, const char *what) {
     leak = infile("q.out", b + s, 24) || infile("q.err", b + s, 24);
   }
   free(b);
-  snprintf(m, sizeof m, "%s: no secret key bytes on stdout/stderr", what);
+  sn(m, sizeof m, "%s: no secret key bytes on stdout/stderr", what);
   ok(!leak, m);
 }
 
 static void tsig(const char *alg, int full) {
   char a[512], m[256];
-  snprintf(m, sizeof m, "%s round trip", alg);
+  sn(m, sizeof m, "%s round trip", alg);
   remove("q.k");
   remove("q.k.pub");
   remove("q.k2");
@@ -305,12 +322,12 @@ static void tsig(const char *alg, int full) {
   remove("q.sig");
   remove("q.m.sig");
   wrs("q.m", "the data an analysis used\n");
-  snprintf(a, sizeof a, "keygen -a %s -o q.k", alg);
+  sn(a, sizeof a, "keygen -a %s -o q.k", alg);
   want(0, a, NULL);
   nosec("q.k", alg);
-  snprintf(m, sizeof m, "noqtis-key-1 %s sec\n", alg);
+  sn(m, sizeof m, "noqtis-key-1 %s sec\n", alg);
   ok(has("q.k", m), "secret key file header");
-  snprintf(m, sizeof m, "noqtis-key-1 %s pub\n", alg);
+  sn(m, sizeof m, "noqtis-key-1 %s pub\n", alg);
   ok(has("q.k.pub", m), "public key file header");
 #ifndef _WIN32
   ok(priv("q.k"), "secret key file is owner-only");
@@ -348,7 +365,7 @@ static void tsig(const char *alg, int full) {
   want(1, "verify -p q.k.pub -s q.sig q.m", NULL);
   want(1, "verify -p q.k.pub -c other -s q.sig q.m", NULL);
   /* another key */
-  snprintf(a, sizeof a, "keygen -a %s -o q.k2", alg);
+  sn(a, sizeof a, "keygen -a %s -o q.k2", alg);
   want(0, a, NULL);
   want(1, "verify -p q.k2.pub -s q.m.sig q.m", NULL);
   /* stdin */
@@ -369,9 +386,9 @@ static void tdet(void) {
   remove("q.d2.pub");
   remove("q.s1");
   remove("q.s2");
-  snprintf(a, sizeof a, "keygen -a ml-dsa-44 --seed %s -o q.d1", xi);
+  sn(a, sizeof a, "keygen -a ml-dsa-44 --seed %s -o q.d1", xi);
   want(0, a, NULL);
-  snprintf(a, sizeof a, "keygen -a ML-DSA-44 --seed %s -o q.d2", xi);
+  sn(a, sizeof a, "keygen -a ML-DSA-44 --seed %s -o q.d2", xi);
   want(0, a, NULL);
   ok(same("q.d1.pub", "q.d2.pub") && same("q.d1", "q.d2"),
      "keygen --seed is deterministic");
@@ -395,10 +412,10 @@ static void tdet(void) {
   remove("q.d3.pub");
   remove("q.d4");
   remove("q.d4.pub");
-  snprintf(a, sizeof a, "keygen -a SLH-DSA-SHAKE-128f --seed %s%s -o q.d3",
+  sn(a, sizeof a, "keygen -a SLH-DSA-SHAKE-128f --seed %s%s -o q.d3",
            xi, "000102030405060708090a0b0c0d0e0f");
   want(0, a, NULL);
-  snprintf(a, sizeof a, "keygen -a SLH-DSA-SHAKE-128f --seed %s%s -o q.d4",
+  sn(a, sizeof a, "keygen -a SLH-DSA-SHAKE-128f --seed %s%s -o q.d4",
            xi, "000102030405060708090a0b0c0d0e0f");
   want(0, a, NULL);
   ok(same("q.d3.pub", "q.d4.pub"), "SLH-DSA keygen --seed is deterministic");
@@ -418,14 +435,14 @@ static void tkem(const char *alg) {
   remove("q.ss1");
   remove("q.ss2");
   remove("q.ss3");
-  snprintf(a, sizeof a, "keygen -a %s -o q.e", alg);
+  sn(a, sizeof a, "keygen -a %s -o q.e", alg);
   want(0, a, NULL);
   nosec("q.e", alg);
   want(0, "enc -p q.e.pub -o q.ct q.ss1", NULL);
   want(0, "dec -k q.e -o q.ss2 q.ct", NULL);
   s1 = rd("q.ss1", &n1);
   s2 = rd("q.ss2", &n2);
-  snprintf(m, sizeof m, "%s: enc and dec agree", alg);
+  sn(m, sizeof m, "%s: enc and dec agree", alg);
   ok(s1 != NULL && s2 != NULL && n1 == 32 && n2 == 32 &&
      memcmp(s1, s2, 32) == 0, m);
 #ifndef _WIN32
@@ -433,7 +450,7 @@ static void tkem(const char *alg) {
 #endif
   if (s1 != NULL && n1 == 32) {
     hex(s1, 32, h);
-    snprintf(m, sizeof m, "%s: no shared secret on stdout", alg);
+    sn(m, sizeof m, "%s: no shared secret on stdout", alg);
     ok(!has("q.out", h) && !infile("q.out", s1, 32) && !has("q.err", h), m);
     want(0, "dec -k q.e --stdout q.ct", NULL);
     ok(has("q.out", h), "dec --stdout prints the secret in hex");
@@ -448,7 +465,7 @@ static void tkem(const char *alg) {
   /* implicit rejection: a tampered ciphertext gives another secret */
   flip("q.ct", 7);
   want(0, "dec -k q.e -o q.ss3 q.ct", NULL);
-  snprintf(m, sizeof m, "%s: a tampered ciphertext changes the secret", alg);
+  sn(m, sizeof m, "%s: a tampered ciphertext changes the secret", alg);
   ok(!same("q.ss1", "q.ss3"), m);
   want(0, "enc -p q.e.pub -o q.ct --force --stdout", NULL);
   ok(exists("q.ct"), "enc --stdout still writes the ciphertext");
@@ -565,9 +582,9 @@ static const char *srcdir; /* tests/ in the source tree */
 
 static void quoted(char *o, size_t cap, const char *p) {
 #ifdef _WIN32
-  snprintf(o, cap, "\"%s\"", p);
+  sn(o, cap, "\"%s\"", p);
 #else
-  snprintf(o, cap, "'%s'", p);
+  sn(o, cap, "'%s'", p);
 #endif
 }
 
@@ -591,10 +608,10 @@ static int runts(const char *mode, const char *marg, const char *args) {
   wrs("q.cmd", c);
   quoted(qm, sizeof qm, marg);
 #ifdef _WIN32
-  snprintf(t, sizeof t, "\"\"%s\" q.cmd %s %s >q.tsd 2>&1\"", tsad, mode,
+  sn(t, sizeof t, "\"\"%s\" q.cmd %s %s >q.tsd 2>&1\"", tsad, mode,
            qm);
 #else
-  snprintf(t, sizeof t, "'%s' q.cmd %s %s >q.tsd 2>&1", tsad, mode, qm);
+  sn(t, sizeof t, "'%s' q.cmd %s %s >q.tsd 2>&1", tsad, mode, qm);
 #endif
   st = system(t);
 #ifndef _WIN32
@@ -623,7 +640,7 @@ static void wantts(int code, const char *mode, const char *marg,
 }
 
 static void src(char *o, size_t cap, const char *rel) {
-  snprintf(o, cap, "%s/%s", srcdir, rel);
+  sn(o, cap, "%s/%s", srcdir, rel);
 }
 
 /* base64 (RFC 4648, padded) of n bytes, NUL-terminated, new buffer */
@@ -699,7 +716,7 @@ static void addts(const char *dir, const char *tok) {
   if (t == NULL)
     exit(2);
   sprintf(t, "\",\"timestamp\":\"%s\"}", e);
-  snprintf(p, sizeof p, "%s/noqtis.sig", dir);
+  sn(p, sizeof p, "%s/noqtis.sig", dir);
   ok(sub(p, "\"}", t), "the seal ends in a string field");
   free(t);
   free(e);
@@ -712,8 +729,8 @@ static int haveossl;
  * runs; 0 when openssl cannot make them or answer a request with them */
 static int mktsa(const char *n) {
   char c[2048], f[64];
-  snprintf(f, sizeof f, "q.%s.cnf", n);
-  snprintf(c, sizeof c,
+  sn(f, sizeof f, "q.%s.cnf", n);
+  sn(c, sizeof c,
            "[ req ]\ndistinguished_name = dn\nprompt = no\n"
            "[ dn ]\nO = noqtis tcli\nCN = tcli TSA %s\n"
            "[ root ]\nbasicConstraints = critical,CA:true\n"
@@ -730,9 +747,9 @@ static int mktsa(const char *n) {
            "accuracy = secs:1\nordering = no\ntsa_name = no\n"
            "ess_cert_id_chain = no\n", n, n);
   wrs(f, c);
-  snprintf(c, sizeof c, "q.%s.ser", n);
+  sn(c, sizeof c, "q.%s.ser", n);
   wrs(c, "01\n");
-  snprintf(c, sizeof c,
+  sn(c, sizeof c,
            "(openssl ecparam -name prime256v1 -genkey -noout -out q.%sr.key"
            " && openssl ecparam -name prime256v1 -genkey -noout "
            "-out q.%st.key"
@@ -748,13 +765,13 @@ static int mktsa(const char *n) {
            n, n, n, n, n, n, n, n, n, n, n, n, n, n, n);
   if (system(c) != 0 || !exists(f))
     return 0;
-  snprintf(c, sizeof c, "q.%sr.der", n);
+  sn(c, sizeof c, "q.%sr.der", n);
   if (!exists(c))
     return 0;
-  snprintf(c, sizeof c,
+  sn(c, sizeof c,
            "openssl ts -reply -config q.%s.cnf -section t -queryfile q.tsq "
            "-signer q.%st.pem -inkey q.%st.key -out q.tsr", n, n, n);
-  snprintf(f, sizeof f, "q.%s.rcmd", n);
+  sn(f, sizeof f, "q.%s.rcmd", n);
   wrs(f, c);
   /* the reply command must work here (LibreSSL's ts differs a little) */
   remove("q.tsr");
@@ -858,7 +875,7 @@ static void tts(void) {
   ok(has("q.err", "cannot read TSA anchor q.none"), "a missing anchor");
   want(2, "check -p q.c.pub --anchor q.a.cnf qts", NULL);
   ok(has("q.err", "not a DER certificate"), "an anchor that is not DER");
-  snprintf(x, sizeof x, "check -p q.c.pub --anchor q.ar.der --json qts");
+  sn(x, sizeof x, "check -p q.c.pub --anchor q.ar.der --json qts");
   want(0, x, NULL);
   ok(has("q.out", "\"ok\":true"), "check --anchor --json");
 }
@@ -877,17 +894,17 @@ static void tbl(void) {
   size_t i, j, n;
   unsigned char *b;
   for (i = 0; i < 2; i++) {
-    snprintf(c, sizeof c, "vectors/interop/bl/%s", caps[i]);
+    sn(c, sizeof c, "vectors/interop/bl/%s", caps[i]);
     src(p, sizeof p, c);
-    snprintf(c, sizeof c, "vectors/interop/bl/%s.pub", caps[i]);
+    sn(c, sizeof c, "vectors/interop/bl/%s.pub", caps[i]);
     src(k, sizeof k, c);
     quoted(qp, sizeof qp, p);
     quoted(qk, sizeof qk, k);
-    snprintf(c, sizeof c, "check -p %s %s", qk, qp);
+    sn(c, sizeof c, "check -p %s %s", qk, qp);
     want(0, c, NULL);
     ok(has("q.out", "OK (") && has("q.out", "signature over noqtis.json "
        "is valid"), "a capsule sealed by rmoriebricklayer checks");
-    snprintf(c, sizeof c, "check -p q.c.pub %s", qp);
+    sn(c, sizeof c, "check -p q.c.pub %s", qp);
     want(1, c, NULL);
     /* a copy with one file changed fails */
     rmdirs("qbl");
@@ -895,11 +912,11 @@ static void tbl(void) {
     mkd("qbl/data");
     for (j = 0; j < 4; j++) {
       char t[64];
-      snprintf(f, sizeof f, "%s/%s", p, files[j]);
-      snprintf(t, sizeof t, "qbl/%s", files[j]);
+      sn(f, sizeof f, "%s/%s", p, files[j]);
+      sn(t, sizeof t, "qbl/%s", files[j]);
       cp(f, t);
     }
-    snprintf(c, sizeof c, "check -p %s qbl", qk);
+    sn(c, sizeof c, "check -p %s qbl", qk);
     want(0, c, NULL);
     wrs("qbl/readme.txt", "changed\n");
     want(1, c, NULL);
@@ -914,10 +931,10 @@ static void tbl(void) {
     return;
   src(p, sizeof p, "vectors/interop/bl/bundle");
 #ifdef _WIN32
-  snprintf(c, sizeof c, "verify -p \"%s/attest.pub\" -s \"%s/attest.sig\" "
+  sn(c, sizeof c, "verify -p \"%s/attest.pub\" -s \"%s/attest.sig\" "
            "-c %s \"%s/attest.msg\"", p, p, (char *)b, p);
 #else
-  snprintf(c, sizeof c, "verify -p '%s/attest.pub' -s '%s/attest.sig' "
+  sn(c, sizeof c, "verify -p '%s/attest.pub' -s '%s/attest.sig' "
            "-c %s '%s/attest.msg'", p, p, (char *)b, p);
 #endif
   want(0, c, NULL);
@@ -925,7 +942,7 @@ static void tbl(void) {
      "noqtis verifies rmoriebricklayer's attestation signature");
   free(b);
   /* and the SHA-256 it recorded of each file */
-  snprintf(f, sizeof f, "%s/files.sha256", p);
+  sn(f, sizeof f, "%s/files.sha256", p);
   b = rd(f, &n);
   ok(b != NULL, "the bundle's file digests");
   if (b != NULL) {
@@ -1003,16 +1020,16 @@ static void advice(const char *want, const char *what) {
       }
       if (strcmp(line, want) == 0)
         got = 1;
-      snprintf(pat, sizeof pat, "noqtis check: %s: ", line);
-      snprintf(msg, sizeof msg, "%s: advice for a failed %s row", what,
+      sn(pat, sizeof pat, "noqtis check: %s: ", line);
+      sn(msg, sizeof msg, "%s: advice for a failed %s row", what,
                line);
       ok(has("q.err", pat), msg);
     }
   }
   free(b);
-  snprintf(msg, sizeof msg, "%s: fails %s", what, want);
+  sn(msg, sizeof msg, "%s: fails %s", what, want);
   ok(got, msg);
-  snprintf(msg, sizeof msg, "%s: no row without advice", what);
+  sn(msg, sizeof msg, "%s: no row without advice", what);
   ok(!has("q.err", "no advice for this check"), msg);
 }
 
@@ -1114,7 +1131,7 @@ static void trefuse(void) {
   {
     char q[1200], c[1400];
     quoted(q, sizeof q, oth);
-    snprintf(c, sizeof c, "check -p q.c.pub --anchor %s qref", q);
+    sn(c, sizeof c, "check -p q.c.pub --anchor %s qref", q);
     ref1("timestamp", "anchor, no timestamp", 1, c);
   }
   addts("qref", tok);
@@ -1129,9 +1146,9 @@ static void trefuse(void) {
     char a[1200], b[64];
     size_t k;
     for (k = 0; k < 5; k++) {
-      snprintf(b, sizeof b, "vectors/cap/sample/%s", f[k]);
+      sn(b, sizeof b, "vectors/cap/sample/%s", f[k]);
       src(a, sizeof a, b);
-      snprintf(b, sizeof b, "qgold/%s", f[k]);
+      sn(b, sizeof b, "qgold/%s", f[k]);
       cp(a, b);
     }
     src(a, sizeof a, "vectors/cap/sample/data/deep/c.bin");
@@ -1146,7 +1163,7 @@ static void trefuse(void) {
   {
     char q[1200];
     quoted(q, sizeof q, oth);
-    snprintf(ctx, sizeof ctx, "check --anchor %s qgold", q);
+    sn(ctx, sizeof ctx, "check --anchor %s qgold", q);
   }
   want(1, ctx, NULL);
   advice("timestamp", "a token, the wrong anchor");
@@ -1184,7 +1201,7 @@ static void trefuse(void) {
   /* every check nqchk can fail was made to fail, with advice */
   for (j = 0; j < nnames; j++) {
     char m[96];
-    snprintf(m, sizeof m, "check %s was refused and advised on", names[j]);
+    sn(m, sizeof m, "check %s was refused and advised on", names[j]);
     ok(seen[j], m);
   }
   /* and the refusals of check itself */
@@ -1244,7 +1261,7 @@ int main(int argc, char **argv) {
   }
   if (getenv("NQCLIWRAP") != NULL) {
     static char w[1024];
-    snprintf(w, sizeof w, "%s ", getenv("NQCLIWRAP"));
+    sn(w, sizeof w, "%s ", getenv("NQCLIWRAP"));
     wrap = w;
   }
   remove("q.k");
