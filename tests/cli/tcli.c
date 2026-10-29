@@ -31,6 +31,7 @@
 #else
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #endif
 
 /* snprintf that stops the test when the text does not fit: a cut command
@@ -186,6 +187,20 @@ static void mkd(const char *d) {
 #else
   (void)mkdir(d, 0777);
 #endif
+}
+
+/* p as an absolute path (in a static buffer per slot), so the tests can
+ * run in their own folder */
+static const char *absp(const char *p, int slot) {
+  static char b[3][4096];
+#ifdef _WIN32
+  if (_fullpath(b[slot], p, sizeof b[slot]) == NULL) return p;
+#else
+  char cwd[2048];
+  if (p[0] == '/' || getcwd(cwd, sizeof cwd) == NULL) return p;
+  sn(b[slot], sizeof b[slot], "%s/%s", cwd, p);
+#endif
+  return b[slot];
 }
 
 /* Runs noqtis with args (stdin from in when not NULL); returns its exit
@@ -1436,8 +1451,22 @@ int main(int argc, char **argv) {
     sn(w, sizeof w, "%s ", getenv("NQCLIWRAP"));
     wrap = w;
   }
-  remove("q.k");
-  remove("q.k.pub");
+  /* a fresh folder each run: a second run in the same build (the
+   * Docker image runs the tests again) must not meet the first one's
+   * files */
+  exe = absp(exe, 0);
+  if (tsad != NULL) tsad = absp(tsad, 1);
+  if (srcdir != NULL) srcdir = absp(srcdir, 2);
+  rmdirs("tcli.run");
+  mkd("tcli.run");
+#ifdef _WIN32
+  if (_chdir("tcli.run") != 0) {
+#else
+  if (chdir("tcli.run") != 0) {
+#endif
+    fprintf(stderr, "tcli: cannot enter tcli.run\n");
+    return 2;
+  }
   tbasic();
   for (i = 0; i < sizeof sigs / sizeof sigs[0]; i++)
     tsig(sigs[i], i == 0 || i == 3);

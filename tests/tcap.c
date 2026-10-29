@@ -461,20 +461,26 @@ static void treview(const key *k) {
   r = NULL;
   free(man);
 
-  /* F2: FIFOs (opened without O_NONBLOCK these blocked forever) */
+  /* F2: FIFOs (opened without O_NONBLOCK these blocked forever); under
+   * emscripten's NODERAWFS mkfifo makes a plain file, so the checks run
+   * only where a real FIFO was made */
   fresh(d, sizeof d);
   path(p, sizeof p, d, NQCSIG);
   NQTEQI(mkfifo(p, 0600), 0);
   track(p);
-  NQTCHK(chk(d, k, &r) != NQOK);
-  nqrepfree(r);
-  r = NULL;
-  path(q, sizeof q, d, NQCMAN);
-  NQTEQI(mkfifo(q, 0600), 0);
-  track(q);
-  NQTCHK(sealk(d, k, NULL) != NQOK);
-  NQTEQI(lstat(p, &st), 0);
-  NQTCHK(S_ISFIFO(st.st_mode));
+  if (lstat(p, &st) == 0 && S_ISFIFO(st.st_mode)) {
+    NQTCHK(chk(d, k, &r) != NQOK);
+    nqrepfree(r);
+    r = NULL;
+    path(q, sizeof q, d, NQCMAN);
+    NQTEQI(mkfifo(q, 0600), 0);
+    track(q);
+    NQTCHK(sealk(d, k, NULL) != NQOK);
+    NQTEQI(lstat(p, &st), 0);
+    NQTCHK(S_ISFIFO(st.st_mode));
+  } else {
+    fprintf(stderr, "tcap: no FIFOs here; the FIFO checks are skipped\n");
+  }
 
   /* F3: a hard link to a file outside the folder */
   fresh(d, sizeof d);
