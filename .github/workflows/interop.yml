@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Interop with rmoriebricklayer, live: installs the R package from its
+# r-universe and runs CTest tbl (tests/interop/run.sh), which seals with
+# each tool and checks with the other. tcli checks the committed
+# rmoriebricklayer fixtures on every platform without R; this job is the
+# round trip with the package as it is now. tbl must run, not skip.
+name: interop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "include/**"
+      - "cli/**"
+      - "tests/interop/**"
+      - "tests/vectors/interop/**"
+      - ".github/workflows/interop.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "include/**"
+      - "cli/**"
+      - "tests/interop/**"
+      - "tests/vectors/interop/**"
+      - ".github/workflows/interop.yml"
+  schedule:
+    - cron: "53 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: interop-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  rmoriebricklayer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          r-version: release
+          use-public-rspm: true
+      - name: install rmoriebricklayer
+        run: |
+          Rscript -e 'install.packages("rmoriebricklayer",
+            repos = c("https://rootcoder007.r-universe.dev",
+                      "https://cloud.r-project.org"))
+            cat("rmoriebricklayer", format(packageVersion("rmoriebricklayer")), "\n")'
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build -j4 --target nqcli
+      - name: tbl (must run, not skip)
+        run: |
+          ctest --test-dir build -R '^tbl$' --output-on-failure -V | tee tbl.txt
+          grep -q 'tbl: [0-9]* checks, 0 failed' tbl.txt
