@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# OSS-Fuzz project file: copy this folder to projects/noqtis/ in
+# google/oss-fuzz. primary_contact must be filled in before the pull
+# request is opened (it is left as a placeholder on purpose).
+homepage: "https://github.com/rootcoder007/noqtis"
+main_repo: "https://github.com/rootcoder007/noqtis"
+language: c
+primary_contact: "PLACEHOLDER: the maintainer's address"
+vendor_ccs: []
+sanitizers:
+  - address
+  - undefined
+  - memory
+fuzzing_engines:
+  - libfuzzer
+  - afl
+  - honggfuzz
+architectures:
+  - x86_64
