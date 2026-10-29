@@ -1,16 +1,21 @@
-# noqtis
+# NOQTIS
+
+**Seal the exact files behind a result with a post-quantum signature, so
+anyone can check later, offline, that nothing changed.**
 
 **N**otary **O**f **Q**uantum-safe **T**raceable **I**nputs and **S**eals.
 
-noqtis seals a folder of files (the exact data, code and outputs behind a
-result) with a post-quantum signature, so that anyone can check later,
-offline, that every file is unchanged, nothing was added or removed, and who
-sealed it. It is one C11 library with no dependencies and a command-line
-tool, implementing ML-DSA (FIPS 204), SLH-DSA (FIPS 205), ML-KEM (FIPS 203),
-HQC, SHA-2 and SHA-3, byte-identical to the NIST test vectors.
+A sealed folder (a capsule) carries a manifest of every file and a
+signature over it, so a check finds any file that changed, was added or
+removed, and shows which key sealed it. NOQTIS is one C11 library with no
+dependencies and a command-line tool, implementing ML-DSA (FIPS 204), SLH-DSA (FIPS 205),
+ML-KEM (FIPS 203), HQC, SHA-2 and SHA-3, byte-identical to the NIST test
+vectors, with bindings for Python, JavaScript and R.
 
 > **Status: unaudited, before its first release.** The code has not had an
 > external security audit; do not rely on it for anything that matters yet.
+
+<!-- DEMO: ![noqtis: seal, tamper, check fails](docs/demo.gif) (docs/demo.gif or docs/demo.svg; uncomment once the recording is in the tree) -->
 
 ```sh
 noqtis keygen -a ML-DSA-65 -o me        # me (secret key), me.pub (public key)
@@ -20,33 +25,42 @@ echo oops >> results/report.txt
 noqtis check -p me.pub results/         # exit 1: "report.txt: size differs"
 ```
 
-The same from C (`cc prog.c $(pkg-config --cflags --libs noqtis)`):
+## What a passing check guarantees
 
-```c
-#include <noqtis.h>
-static uint8_t pk[1952], sk[4032];   /* ML-DSA-65 key sizes, see nqssize() */
-nqrep *rep = NULL;
-int rc = nqskg(NQMLDSA65, pk, sizeof pk, sk, sizeof sk);
-if (rc == NQOK)
-  rc = nqseal("results", NQMLDSA65, sk, sizeof sk, pk, sizeof pk, NULL, NULL);
-nqwipe(sk, sizeof sk);
-if (rc == NQOK)
-  rc = nqchk("results", pk, sizeof pk, &rep);   /* NQOK, or NQEVRFY + report */
-nqrepfree(rep);
-```
+- Every file the seal lists is in the folder, byte for byte: same size,
+  same SHA-256 and same SHA3-256.
+- No file was added, removed or renamed, and no link or special file was
+  slipped in.
+- The list itself is exactly what the holder of the secret key signed,
+  with a post-quantum signature (ML-DSA or SLH-DSA) that stays hard to
+  forge after quantum computers break RSA and elliptic curves.
+- With `-p key.pub`, it was that key that sealed it; without `-p`, only
+  that *someone* did, and the report says so.
+- Anything NOQTIS cannot check is a failed check, never a silent pass.
 
-## Documentation
+It does **not** prove that a result is correct, when it was sealed
+(without a timestamp), or who owns a key: see
+[what a check proves](https://rootcoder007.github.io/noqtis/guides/others/)
+and the [threat model](https://rootcoder007.github.io/noqtis/security/).
 
-- The site (Getting started, guides, the capsule format, C API, CLI,
-  security): `docs/site`, published at
-  <https://rootcoder007.github.io/noqtis/> once the repository is public.
-- Manual pages, installed with the library: `man noqtis`, `man noqtis-seal`,
-  `man nqsign`, `man noqtis-capsule` (sources in [man/](man/)).
-- The capsule format specification:
-  [docs/site/src/content/docs/spec/capsule.md](docs/site/src/content/docs/spec/capsule.md).
-- Runnable examples: [docs/examples/](docs/examples/), compiled and run in CI.
-- [DESIGN.md](DESIGN.md): the modules, the checks each must pass, and the
-  release plan. [SECURITY.md](SECURITY.md): how to report a vulnerability.
+## Install
+
+Every channel, with its status, is on the
+[install page](https://rootcoder007.github.io/noqtis/start/install/).
+In short:
+
+| Platform | Today | From v0.1.0 |
+|---|---|---|
+| Linux, macOS, Windows, FreeBSD | build from source (below) | release archives with `install.sh` / `install.ps1`, Homebrew tap, Scoop |
+| Containers | `docker build -t noqtis .` | `ghcr.io/rootcoder007/noqtis` |
+| Nix | `nix build` (`flake.nix`) | Nixpkgs after its review |
+| Arch, Alpine, Fedora, Debian, Wolfi | recipes in `packaging/` (`packaging/pkgtest.sh` builds one) | AUR first; the distributions after their review |
+| JavaScript (Node, Deno, Bun, browsers) | `sh bindings/npm/build.sh` (emscripten) | `npm install noqtis` |
+| Python | `pip install ./bindings/py` | `pip install noqtis` |
+| R | `R CMD INSTALL bindings/r` | `install.packages("noqtis")` after CRAN's review |
+
+No package is published yet: every "From v0.1.0" channel opens with the
+first tagged release.
 
 ## Build
 
@@ -63,21 +77,47 @@ cmake --install build --prefix ~/.local
 `pkg-config --cflags --libs noqtis` or
 `find_package(noqtis CONFIG)` and `target_link_libraries(... noqtis::noqtis)`.
 
-## Install
+The same seal and check from C (`cc prog.c $(pkg-config --cflags --libs noqtis)`):
 
-Now, from a clone of this repository:
+```c
+#include <noqtis.h>
+static uint8_t pk[1952], sk[4032];   /* ML-DSA-65 key sizes, see nqssize() */
+nqrep *rep = NULL;
+int rc = nqskg(NQMLDSA65, pk, sizeof pk, sk, sizeof sk);
+if (rc == NQOK)
+  rc = nqseal("results", NQMLDSA65, sk, sizeof sk, pk, sizeof pk, NULL, NULL);
+nqwipe(sk, sizeof sk);
+if (rc == NQOK)
+  rc = nqchk("results", pk, sizeof pk, &rep);   /* NQOK, or NQEVRFY + report */
+nqrepfree(rep);
+```
 
-- the CMake install above (Linux, macOS, Windows, FreeBSD);
-- `nix build` (the `flake.nix` here);
-- `docker build -t noqtis .` (Wolfi image with the library);
-- the recipes in `packaging/`: Homebrew (`brew`), Arch (`PKGBUILD`), Alpine
-  (`APKBUILD`), Fedora (`noqtis.spec`), Debian (`debian/`) and Wolfi
-  (`melange.yaml`). `packaging/pkgtest.sh` builds one from the local tree;
-  CI builds and tests every one.
+## Documentation
 
-After the first public release: the Homebrew tap, the container image on
-GHCR, and the distribution and language packages listed in
-[DESIGN.md](DESIGN.md).
+- The site: <https://rootcoder007.github.io/noqtis/> (sources in
+  `docs/site`): getting started, guides, a tutorial for
+  [C](https://rootcoder007.github.io/noqtis/guides/c/),
+  [Python](https://rootcoder007.github.io/noqtis/guides/py/),
+  [JavaScript](https://rootcoder007.github.io/noqtis/guides/js/) and
+  [R](https://rootcoder007.github.io/noqtis/guides/r/), the capsule format,
+  the C API, the command line, and
+  [why post-quantum provenance now](https://rootcoder007.github.io/noqtis/explain/why/).
+- Manual pages, installed with the library: `man noqtis`, `man noqtis-seal`,
+  `man nqsign`, `man noqtis-capsule` (sources in [man/](man/)).
+- The capsule format specification:
+  [docs/site/src/content/docs/spec/capsule.md](docs/site/src/content/docs/spec/capsule.md).
+- Runnable examples: [docs/examples/](docs/examples/), compiled and run in CI.
+- [DESIGN.md](DESIGN.md): the modules, the checks each must pass, and the
+  release plan.
+
+## Contributing, security, citing
+
+- [CONTRIBUTING.md](CONTRIBUTING.md): build, tests, commit style and the
+  rules for the code. Everyone follows the
+  [Code of Conduct](CODE_OF_CONDUCT.md).
+- [SECURITY.md](SECURITY.md): report a vulnerability privately.
+- [CITATION.cff](CITATION.cff): how to cite NOQTIS; a Zenodo DOI comes
+  with the first release.
 
 ## Licence
 
