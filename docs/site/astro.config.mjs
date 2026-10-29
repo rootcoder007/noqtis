@@ -65,6 +65,10 @@ export default defineConfig({
           ],
         },
         {
+          label: "Background",
+          items: [{ label: "Why post-quantum provenance now", slug: "explain/why" }],
+        },
+        {
           label: "Specification",
           items: [{ label: "Capsule format v1", slug: "spec/capsule" }],
         },

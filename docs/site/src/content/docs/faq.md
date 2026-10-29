@@ -18,6 +18,7 @@ elliptic-curve signatures are expected to remain safe once large quantum
 computers exist. ML-DSA and SLH-DSA are the NIST standards (FIPS 204 and
 205, 2024) designed to resist them. Sealing with them today means the
 seals do not need redoing later.
+See [why post-quantum provenance now](/noqtis/explain/why/).
 
 ## How is this different from `sha256sum` plus GPG, or from Sigstore?
 
@@ -80,13 +81,18 @@ fail.
 
 ## Can I use NOQTIS from Python, JavaScript or R?
 
-Bindings for npm (WebAssembly), PyPI and CRAN are being prepared for the
-first release; see [install](/noqtis/start/install/). Anything that can call
-C can use `libnoqtis` directly.
+Yes: there are bindings for npm (WebAssembly), PyPI and CRAN, published
+with the first release and installable from the repository until then.
+See the tutorials for [Python](/noqtis/guides/py/),
+[JavaScript](/noqtis/guides/js/) and [R](/noqtis/guides/r/). Anything that
+can call C can use `libnoqtis` directly ([C tutorial](/noqtis/guides/c/)).
 
 ## How do I cite NOQTIS?
 
-A `CITATION.cff` and a Zenodo DOI will come with the first release.
+With the metadata in
+[`CITATION.cff`](https://github.com/rootcoder007/noqtis/blob/main/CITATION.cff)
+(GitHub's "Cite this repository" button reads it). A Zenodo DOI for each
+release comes with the first release.
 
 ## What is the licence?
 
