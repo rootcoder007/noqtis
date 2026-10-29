@@ -6,6 +6,7 @@
 
 #include "noqtis.h"
 #include "core/int.h"
+#include "core/lk.h"
 #include "hash/h.h"
 #include "mlkem/mlkem.h"
 #include "mlkem/ring.h"
@@ -26,6 +27,7 @@ int nqmkpar(int k, nqmkprm *p) {
 
 uint32_t nqmkop(uint32_t x) {
   volatile uint32_t v = x;
+  NQLKO(x);
   return v;
 }
 

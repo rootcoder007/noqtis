@@ -2,6 +2,7 @@
 /* Error strings, version, wiping, constant-time comparison, allocator. */
 #include "noqtis.h"
 #include "core/int.h"
+#include "core/lk.h"
 
 #include <stdlib.h>
 
@@ -100,3 +101,12 @@ void nqfree(void *ptr, size_t size) {
   nqwipe(ptr, size);
   curfree(ptr, size, curuser);
 }
+
+#ifdef NQTVLA
+/* the leakage hooks of core/lk.h, in the TVLA build only */
+void (*nqlkfn)(uint64_t v, unsigned what, unsigned step) = NULL;
+unsigned nqlkst = 0;
+unsigned nqlkatt = 0;
+int nqlkzm = 0;
+unsigned nqlkkd = 0;
+#endif

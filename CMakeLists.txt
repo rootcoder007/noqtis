@@ -11,6 +11,7 @@ option(NQSAN "Build with AddressSanitizer and UBSan" OFF)
 option(NQTESTS "Build the tests" ON)
 option(NQSHARED "Build a shared library instead of a static one" OFF)
 option(NQCLI "Build the noqtis command-line tool" ON)
+option(NQTVLA "Compile the TVLA leakage hooks (a test build, never a release)" OFF)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -51,6 +52,9 @@ target_include_directories(nqobj
   PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_compile_options(nqobj PRIVATE ${NQWARN})
 target_compile_definitions(nqobj PRIVATE NQBUILD)
+if(NQTVLA)
+  target_compile_definitions(nqobj PRIVATE NQTVLA)
+endif()
 set_target_properties(nqobj PROPERTIES
   C_VISIBILITY_PRESET hidden
   POSITION_INDEPENDENT_CODE ${NQSHARED})
