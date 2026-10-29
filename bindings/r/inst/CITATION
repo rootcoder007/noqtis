@@ -1,0 +1,24 @@
+citHeader("To cite NOQTIS in publications, please cite the software.")
+
+# the address of the copy that is installed: CRAN's page for a CRAN
+# install, the r-universe page for an r-universe one, otherwise (from
+# GitHub or a source folder) the repository
+repo <- if (is.null(meta$Repository)) "" else meta$Repository
+url <- if (identical(repo, "CRAN")) {
+  "https://CRAN.R-project.org/package=noqtis"
+} else if (grepl("r-universe.dev", repo, fixed = TRUE)) {
+  "https://rootcoder007.r-universe.dev/noqtis"
+} else {
+  "https://github.com/rootcoder007/noqtis"
+}
+
+bibentry(
+  bibtype = "Manual",
+  key     = "ruhela_noqtis_2026",
+  title   = "NOQTIS: Notary Of Quantum-safe Traceable Inputs and Seals",
+  author  = person(c("Vansh", "Singh"), "Ruhela",
+                   comment = c(ORCID = "0009-0004-1750-3592")),
+  year    = "2026",
+  note    = paste("R package version", meta$Version),
+  url     = url
+)
