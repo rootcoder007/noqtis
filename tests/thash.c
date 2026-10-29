@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Hash tests: every NIST ACVP SHA-2, SHA-3, SHAKE and HMAC vector set in
- * vectors/acvp, known answers, incremental use, and the API's errors.
+ * vectors/acvp, Wycheproof's HMAC-SHA-2 and HMAC-SHA-3 sets, known answers, incremental use, and the API's errors.
  * The large-message tests (LDT, gigabytes each) run only with NQLDT=1. */
 #include <stdint.h>
 #include <stdlib.h>
@@ -59,13 +59,11 @@ static int nmiss = 0; /* failures printed so far */
 
 /* ---- JSON helpers ---- */
 
-static nqjs *ldjs(const char *dir, const char *name) {
-  char path[256];
+static nqjs *ldpath(const char *path) {
   char *buf = NULL;
   size_t len = 0;
   nqjs *v = NULL;
   int rc;
-  snprintf(path, sizeof path, "vectors/acvp/%s/%s", dir, name);
   rc = nqreadf(path, (size_t)1 << 28, &buf, &len);
   if (rc != NQOK) {
     fprintf(stderr, "%s: cannot read (%s)\n", path, nqerr(rc));
@@ -78,6 +76,12 @@ static nqjs *ldjs(const char *dir, const char *name) {
     return NULL;
   }
   return v;
+}
+
+static nqjs *ldjs(const char *dir, const char *name) {
+  char path[256];
+  snprintf(path, sizeof path, "vectors/acvp/%s/%s", dir, name);
+  return ldpath(path);
 }
 
 /* the ACVP-Server files are one object; a live session wraps it as
@@ -729,6 +733,86 @@ static void terr(void) {
   NQTEQI(nqhmac((nqhalg)99, m, 4, m, 4, out, 32), NQEARG);
 }
 
+/* ---- Wycheproof HMAC (vectors/wycheproof/hmac_*_test.json) ---- */
+
+static const struct {
+  const char *f;
+  nqhalg alg;
+} wmac[] = {
+    {"hmac_sha224_test.json", NQS224},
+    {"hmac_sha256_test.json", NQS256},
+    {"hmac_sha384_test.json", NQS384},
+    {"hmac_sha512_test.json", NQS512},
+    {"hmac_sha512_224_test.json", NQS512T224},
+    {"hmac_sha512_256_test.json", NQS512T256},
+    {"hmac_sha3_224_test.json", NQS3224},
+    {"hmac_sha3_256_test.json", NQS3256},
+    {"hmac_sha3_384_test.json", NQS3384},
+    {"hmac_sha3_512_test.json", NQS3512},
+};
+
+/* Every MacTest of one file: a "valid" tag must be the HMAC of the key
+ * and message cut to tagSize bits, an "invalid" one must not be. */
+static void wycmac(const char *f, nqhalg alg) {
+  char path[256];
+  nqjs *v;
+  const nqjs *gs;
+  size_t gi, ti;
+  long run = 0, pass = 0, skip = 0;
+  snprintf(path, sizeof path, "vectors/wycheproof/%s", f);
+  v = ldpath(path);
+  NQTCHK(v != NULL);
+  if (v == NULL) return;
+  gs = nqjget(v, "testGroups");
+  NQTCHK(gs != NULL);
+  for (gi = 0; gs != NULL && gi < gs->n; gi++) {
+    const nqjs *g = nqjat(gs, gi), *ts = nqjget(g, "tests");
+    uint64_t tb = 0;
+    size_t tl;
+    if (ts == NULL || !getf(g, "tagSize", &tb) || tb == 0 || tb % 8 != 0 ||
+        tb / 8 > nqhlen(alg)) {
+      NQTCHK(0);
+      continue;
+    }
+    tl = (size_t)(tb / 8);
+    for (ti = 0; ti < ts->n; ti++) {
+      const nqjs *t = nqjat(ts, ti);
+      const char *res = nqjstr(nqjget(t, "result"));
+      uint8_t out[64];
+      uint8_t *k, *m;
+      size_t kl = 0, ml = 0;
+      int want, got;
+      if (res == NULL || (strcmp(res, "valid") != 0 &&
+                          strcmp(res, "invalid") != 0)) {
+        skip++;
+        continue;
+      }
+      want = strcmp(res, "valid") == 0;
+      k = unhexa(nqjget(t, "key"), 0, &kl);
+      m = unhexa(nqjget(t, "msg"), 0, &ml);
+      run++;
+      got = k != NULL && m != NULL &&
+            nqhmac(alg, k, kl, m, ml, out, tl) == NQOK &&
+            eqhex(nqjget(t, "tag"), out, tl);
+      free(k);
+      free(m);
+      if (got == want) {
+        pass++;
+      } else {
+        uint64_t id = 0;
+        getf(t, "tcId", &id);
+        miss(f, want ? "valid tag refused" : "invalid tag accepted", 0, id);
+      }
+      NQTCHK(got == want);
+    }
+  }
+  printf("%-26s MAC %ld/%ld", f, pass, run);
+  if (skip) printf(" (%ld skipped)", skip);
+  printf("\n");
+  NQTCHK(run > 0);
+  nqjfree(v);
+}
+
 int main(void) {
   const char *env = getenv("NQLDT");
   size_t i;
@@ -739,6 +823,9 @@ int main(void) {
   terr();
   for (i = 0; i < sizeof sets / sizeof *sets; i++) {
     runset(&sets[i]);
+  }
+  for (i = 0; i < sizeof wmac / sizeof *wmac; i++) {
+    wycmac(wmac[i].f, wmac[i].alg);
   }
   if (!ldt) printf("LDT skipped: set NQLDT=1 to run them\n");
   return nqtdone("thash");

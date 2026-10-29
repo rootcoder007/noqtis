@@ -6,6 +6,7 @@
 - `hqc/hqc-kat-digests.txt`: SHA-256 digests of the HQC v5.0.0 (2025-08-22)
   reference KAT records, copied unchanged from rmoriebricklayer
   (tests/testthat/hqc-kat-digests.txt, commit 6450ab1); see hqc/SOURCES.md.
+- `wycheproof/hmac_*_test.json`: Wycheproof's HMAC-SHA-224/256/384/512, -SHA-512/224, -SHA-512/256 and HMAC-SHA3-224/256/384/512 sets, used by `tests/thash.c`, unchanged from https://raw.githubusercontent.com/C2SP/wycheproof/d17cc89fa5c8f4f4d378b5385ebf75da5d0926c9/testvectors_v1/ (fetched 2026-10-29); their SHA-256s are in SHA256SUMS.
 - `wycheproof/` also holds the RSA PKCS#1 v1.5, RSA-PSS and ECDSA (P-256, P-384, P-521; DER and P1363) sets used by `tests/tcls.c`, from the same C2SP testvectors_v1 folder.
 - `ossl/cls.json`: OpenSSL 3.5 differential set for `tests/tcls.c`: keys and signatures made by `openssl`, plus mutated copies, each with OpenSSL's own verdict; `ossl/gen.py` regenerates it (`python3 -I gen.py <workdir> <out.json>`, fixed seed 20261028).
 - `der/`: certificates, OCSP responses, CRLs and RFC 3161 tokens for `tests/tder.c`, `tests/tx509.c` and `tests/ttsp.c`: a local PKI made by `der/gen.sh`, real public TSA tokens, and files from rmoriebricklayer; see `der/SOURCES.md`.
