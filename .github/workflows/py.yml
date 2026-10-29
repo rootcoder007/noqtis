@@ -14,7 +14,7 @@ name: py
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
     paths:
       - "bindings/py/**"
       - "src/**"

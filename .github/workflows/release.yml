@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
-# The release: for a v* tag, builds the archive for each platform
+# The release: for a vX.Y.Z tag, builds the archive for each platform
 # (packaging/dist.sh), rebuilds the Linux archives from scratch on fresh
 # runners and fails unless they are byte-identical, then writes
 # SHA256SUMS, the SPDX SBOM and an SSH signature of the sums (when the
@@ -23,7 +23,7 @@ name: release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
 
 permissions: {}
