@@ -4,8 +4,8 @@
  * in the ECMAScript Number form (the shortest text that reads back as the
  * same double). No recursion: nested values use an explicit stack. */
 #include <errno.h>
+#include <float.h>
 #include <locale.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -146,7 +146,8 @@ int nqcjnum(nqcbuf *b, const char *txt, size_t n) {
   in[o] = 0;
   errno = 0;
   x = strtod(in, &end);
-  if (end != in + o || !isfinite(x)) return NQEDEC;
+  /* finite, without isfinite(): FreeBSD resolves it to libm's __isfinite */
+  if (end != in + o || !(x >= -DBL_MAX && x <= DBL_MAX)) return NQEDEC;
   if (x == 0.0) {
     nqcput(b, "0", 1);
     return b->err;
