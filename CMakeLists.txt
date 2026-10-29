@@ -11,6 +11,7 @@ option(NQSAN "Build with AddressSanitizer and UBSan" OFF)
 option(NQTESTS "Build the tests" ON)
 option(NQSHARED "Build a shared library instead of a static one" OFF)
 option(NQCLI "Build the noqtis command-line tool" ON)
+option(NQCT "Build the dudect and TVLA harnesses in ct/" OFF)
 option(NQTVLA "Compile the TVLA leakage hooks (a test build, never a release)" OFF)
 
 include(GNUInstallDirs)
@@ -124,6 +125,11 @@ if(NQTESTS)
   if(NQCLI AND NOT EMSCRIPTEN)
     add_subdirectory(tests/cli)
   endif()
+endif()
+
+# the side-channel harnesses (ct/), on the static library
+if(NQCT)
+  add_subdirectory(ct)
 endif()
 
 # ---- install ----------------------------------------------------------
