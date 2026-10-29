@@ -1,0 +1,340 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The release: for a v* tag, builds the archive for each platform
+# (packaging/dist.sh), rebuilds the Linux archives from scratch on fresh
+# runners and fails unless they are byte-identical, then writes
+# SHA256SUMS, the SPDX SBOM and an SSH signature of the sums (when the
+# NQ_SSH_SIGNING_KEY secret is set), signs the sums with Sigstore
+# (keyless, through this workflow's OIDC identity), makes SLSA build
+# provenance for every file, and opens a DRAFT GitHub release with the
+# NEWS.md section as its notes. A maintainer reads the draft and
+# publishes it by hand.
+#
+# workflow_dispatch is a dry run: the same builds, reproducibility check,
+# sums, SBOM and SSH signature, kept as run artifacts; nothing is signed
+# with Sigstore (that would write to the public transparency log), no
+# provenance is made and no release is created.
+#
+# Every action is pinned by commit SHA, except the SLSA generator: its
+# reusable workflow must be called by its vX.Y.Z tag, or slsa-verifier
+# cannot check the builder (see its README, "Referencing SLSA builders
+# and generators").
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  meta:
+    # the version (CMakeLists.txt; a tag must match it), the commit time
+    # every build uses as SOURCE_DATE_EPOCH, and whether to publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.m.outputs.version }}
+      sde: ${{ steps.m.outputs.sde }}
+      sha: ${{ steps.m.outputs.sha }}
+      publish: ${{ steps.m.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: m
+        env:
+          REFTYPE: ${{ github.ref_type }}
+          REFNAME: ${{ github.ref_name }}
+        run: |
+          v=$(sed -n 's/^project(noqtis VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          [ -n "$v" ] || { echo "::error::no version in CMakeLists.txt"; exit 1; }
+          publish=false
+          if [ "$REFTYPE" = tag ]; then
+            if [ "$REFNAME" != "v$v" ]; then
+              echo "::error::tag $REFNAME does not match CMakeLists.txt version $v"
+              exit 1
+            fi
+            publish=true
+          fi
+          grep -qx "# noqtis $v" NEWS.md ||
+            { echo "::error::NEWS.md has no '# noqtis $v' section"; exit 1; }
+          {
+            echo "version=$v"
+            echo "sde=$(git log -1 --format=%ct)"
+            echo "sha=$(git rev-parse HEAD)"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build ${{ matrix.target }}
+    needs: meta
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { target: linux-x86_64, os: ubuntu-24.04, py: python3 }
+          - { target: linux-x86_64-shared, os: ubuntu-24.04, py: python3 }
+          - { target: linux-arm64, os: ubuntu-24.04-arm, py: python3 }
+          - { target: linux-arm64-shared, os: ubuntu-24.04-arm, py: python3 }
+          - { target: macos-arm64, os: macos-15, py: python3 }
+          - { target: macos-x86_64, os: macos-15-intel, py: python3 }
+          - { target: windows-x86_64, os: windows-2025, py: python }
+          # cross-built on the x64 runner, as in ci.yml: not run here
+          - { target: windows-arm64, os: windows-2025, py: python }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: archive
+        id: a
+        env:
+          SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.sde }}
+          PY: ${{ matrix.py }}
+          NQJOBS: "4"
+          T: ${{ matrix.target }}
+        run: |
+          a=$(packaging/dist.sh "$T" "$RUNNER_TEMP/dist")
+          echo "file=$a" >> "$GITHUB_OUTPUT"
+          ls -l "$RUNNER_TEMP/dist"
+      - name: the consumer program against the unpacked archive
+        if: "!startsWith(matrix.target, 'windows-')"
+        env:
+          A: ${{ steps.a.outputs.file }}
+        run: |
+          mkdir "$RUNNER_TEMP/x"
+          tar -xzf "$A" -C "$RUNNER_TEMP/x"
+          tests/consumer/run.sh "$RUNNER_TEMP"/x/noqtis-* "$RUNNER_TEMP/use"
+      - name: the consumer program against the unpacked archive (find_package)
+        if: matrix.target == 'windows-x86_64'
+        env:
+          A: ${{ steps.a.outputs.file }}
+        run: |
+          mkdir "$RUNNER_TEMP/x"
+          unzip -q "$A" -d "$RUNNER_TEMP/x"
+          p=$(cd "$RUNNER_TEMP"/x/noqtis-* && pwd -W)
+          cmake -S tests/consumer -B cons -A x64 -DCMAKE_PREFIX_PATH="$p"
+          cmake --build cons --config Release
+          cons/Release/use.exe
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.target }}
+          path: ${{ steps.a.outputs.file }}
+          if-no-files-found: error
+          retention-days: 7
+
+  repro:
+    # the Linux archives again, on a fresh runner from a fresh checkout
+    # in another directory: they must match the build job's byte for byte
+    name: reproduce ${{ matrix.target }}
+    needs: [meta, build]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x86_64, os: ubuntu-24.04 }
+          - { target: linux-x86_64-shared, os: ubuntu-24.04 }
+          - { target: linux-arm64, os: ubuntu-24.04-arm }
+          - { target: linux-arm64-shared, os: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: again/src
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist-${{ matrix.target }}
+          path: first
+      - name: rebuild and compare
+        env:
+          SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.sde }}
+          NQJOBS: "4"
+          T: ${{ matrix.target }}
+          NQDIST: ${{ runner.temp }}/elsewhere/work
+        working-directory: again/src
+        run: |
+          b=$(packaging/dist.sh "$T" "$RUNNER_TEMP/second")
+          a="$GITHUB_WORKSPACE/first/$(basename "$b")"
+          sha256sum "$a" "$b"
+          if ! cmp "$a" "$b"; then
+            echo "::error::$(basename "$b") is not reproducible"
+            mkdir -p "$RUNNER_TEMP/x1" "$RUNNER_TEMP/x2"
+            tar -xzf "$a" -C "$RUNNER_TEMP/x1"
+            tar -xzf "$b" -C "$RUNNER_TEMP/x2"
+            diff -r "$RUNNER_TEMP/x1" "$RUNNER_TEMP/x2" || true
+            exit 1
+          fi
+
+  sums:
+    # SHA256SUMS over every release file, the SBOM, the SSH signature
+    needs: [meta, build, repro]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      hashes: ${{ steps.s.outputs.hashes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+      - name: SBOM and SHA256SUMS
+        id: s
+        env:
+          SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.sde }}
+          V: ${{ needs.meta.outputs.version }}
+          SHA: ${{ needs.meta.outputs.sha }}
+        run: |
+          # one archive per build target above
+          set -- dist/noqtis-"$V"-*
+          [ "$#" -eq 8 ] || { echo "::error::expected 8 archives, found $#"; exit 1; }
+          cp install.sh install.ps1 dist/
+          python3 packaging/sbom.py dist "$V" "$SHA" > "dist/noqtis-$V.spdx.json"
+          cd dist
+          sha256sum -- * | LC_ALL=C sort -k2 > ../SHA256SUMS
+          mv ../SHA256SUMS .
+          cat SHA256SUMS
+          # the SLSA generator's subjects: every file the sums cover
+          echo "hashes=$(base64 -w0 < SHA256SUMS)" >> "$GITHUB_OUTPUT"
+      - name: SSH signature of SHA256SUMS (secret NQ_SSH_SIGNING_KEY)
+        env:
+          KEY: ${{ secrets.NQ_SSH_SIGNING_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::notice::NQ_SSH_SIGNING_KEY is not set: no SSH signature this run"
+            exit 0
+          fi
+          k="$RUNNER_TEMP/k"
+          (umask 077 && printf '%s\n' "$KEY" > "$k")
+          unset KEY
+          # the key's fingerprint only, never the key
+          ssh-keygen -l -f "$k"
+          ssh-keygen -Y sign -q -f "$k" -n file dist/SHA256SUMS
+          rm -f "$k"
+          ls -l dist/SHA256SUMS.sig
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  sign:
+    # keyless Sigstore signature of SHA256SUMS: the certificate names this
+    # workflow at this tag; checked right after signing
+    needs: [meta, sums]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: dist
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.4
+      - name: sign and verify
+        env:
+          ID: https://github.com/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}
+        working-directory: dist
+        run: |
+          cosign sign-blob --yes --bundle SHA256SUMS.sigstore.json SHA256SUMS
+          cosign verify-blob --bundle SHA256SUMS.sigstore.json \
+            --certificate-identity "$ID" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sigstore
+          path: dist/SHA256SUMS.sigstore.json
+          if-no-files-found: error
+          retention-days: 7
+
+  provenance:
+    # SLSA v1 build provenance for every file in SHA256SUMS. The
+    # generator's own upload job asks for contents: write even with
+    # upload-assets off, and a caller must grant what its jobs ask for;
+    # uploading is left to the release job. A job that calls a reusable
+    # workflow cannot set timeout-minutes; the generator's jobs run for
+    # minutes.
+    needs: [meta, sums]
+    if: needs.meta.outputs.publish == 'true'
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0 # f7dd8c54c2067bafc12ca7a55595d5ee9b75204a
+    with:
+      base64-subjects: ${{ needs.sums.outputs.hashes }}
+      provenance-name: noqtis-${{ needs.meta.outputs.version }}.intoto.jsonl
+      upload-assets: false
+
+  release:
+    # a DRAFT release with every file; a maintainer publishes it
+    needs: [meta, sums, sign, provenance]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sigstore
+          path: dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: dist
+      - name: notes from NEWS.md
+        env:
+          V: ${{ needs.meta.outputs.version }}
+        run: |
+          awk -v h="# noqtis $V" '
+            /^# / { p = ($0 == h); next }
+            p' NEWS.md > notes.md
+          grep -q . notes.md || { echo "::error::empty NEWS.md section for $V"; exit 1; }
+          cat notes.md
+      - name: draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          V: ${{ needs.meta.outputs.version }}
+        run: |
+          ls -l dist
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft \
+            --verify-tag --title "noqtis $V" --notes-file notes.md dist/*
