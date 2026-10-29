@@ -334,8 +334,8 @@ below is done. Each item says how it is checked.
 
 - [ ] SECURITY.md with a private reporting route, a published key for
       reports, and the disclosure window.
-- [ ] Fuzzing (libFuzzer on every parser) runs on each push for minutes and
-      weekly for hours; OSS-Fuzz application filed.
+- [x] Fuzzing (libFuzzer on every parser) runs on each push for minutes and
+      weekly for hours; OSS-Fuzz application filed (google/oss-fuzz#16392).
 - [ ] dudect and simulated TVLA results for every secret operation are
       published with the release, with what they do and do not show.
 - [ ] OpenSSF Scorecard and Best Practices (passing) badges; no number is
@@ -409,8 +409,9 @@ so it is reviewed and tested like the code.
   macOS (arm64, x86-64) and Windows (MSVC, clang-cl, MinGW), plus
   ASan+UBSan, valgrind and ctgrind. `ct.yml` runs dudect and the
   simulated TVLA, short on each push and long weekly, and uploads their
-  JSON results. Planned, not yet in CI: libFuzzer (time-boxed on each
-  push, longer weekly) and an OpenSSL 3.5 differential job.
+  JSON results. `fuzz.yml` runs libFuzzer on every parser, 90 s on each
+  push and an hour weekly. Planned, not yet in CI: an OpenSSL 3.5
+  differential job.
 - `acvp/` holds one harness per algorithm for NIST CAVP submission.
 
 ### Side-channel results

@@ -82,11 +82,14 @@ What runs today, in CI on every push or on the weekly schedule:
   distributions, musl, 32-bit, big-endian s390x), macOS, Windows (MSVC,
   clang-cl, MinGW-w64) and FreeBSD.
 
-Planned, not yet done: dudect timing tests and simulated TVLA leakage
-tests (until they are published the constant-time claim rests on ctgrind
-and review), libFuzzer on every parser in CI (a DER fuzz target exists
-and is run by hand), OpenSSL 3.5 differential tests beyond a fixed set of
-cross-checks, and an external security audit.
+- **Side channels.** dudect timing tests and the simulated TVLA run on
+  every push and for longer every week (`ct.yml`).
+- **Fuzzing.** libFuzzer runs on every parser of untrusted bytes, briefly
+  on every push and for an hour every week (`fuzz.yml`).
+
+Not yet done: OpenSSL 3.5 differential tests beyond a fixed set of
+cross-checks, fuzzed command-line arguments, and an external security
+audit.
 
 ## Limits
 

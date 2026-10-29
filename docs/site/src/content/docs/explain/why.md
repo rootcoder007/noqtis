@@ -97,9 +97,9 @@ A passing check is a precise, limited statement. It does not show:
 - **who the key holder is**: that comes from getting the public key
   through a channel you trust. Without a pinned key, a check proves only
   that *someone* sealed the files.
-- **when**, without a timestamp. The command-line tool does not yet
-  request timestamps (`--tsa` is reserved); the C library checks them
-  today ([timestamps](/noqtis/guides/timestamps/)).
+- **when**, without a timestamp. `noqtis timestamp --tsa <url> <dir>`
+  adds an RFC 3161 timestamp to a sealed capsule, and `noqtis check`
+  verifies it ([timestamps](/noqtis/guides/timestamps/)).
 - **anything after a secret key is stolen**: whoever holds it can seal
   anything, and the format has no revocation.
 - **confidentiality**: capsules are not encrypted, and the manifest lists
