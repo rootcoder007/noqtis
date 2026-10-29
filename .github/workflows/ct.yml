@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Side-channel evidence. dudect (ct/dd.c) times every secret operation on
+# fixed against random inputs; the simulated TVLA (ct/tv.c) checks the
+# masked ML-KEM decapsulation and ML-DSA signing for first-order leakage
+# on traces the code records itself (-DNQTVLA). Short runs on every push
+# and pull request, long runs weekly and on demand; the JSON results and
+# the text tables are uploaded as artifacts.
+#
+# Timing on shared GitHub runners is noisy: other tenants, frequency
+# changes and interrupts move the clock, and the runner is a different
+# machine every time. A dudect pass here is weak evidence (it says only
+# that this runner did not resolve a difference with this many
+# measurements) and a failure may be the runner; re-run before reading
+# anything into it. The numbers DESIGN.md and the security page quote
+# were measured on a named machine, pinned to one core. The TVLA is a
+# simulation over the values the code computes and does not depend on
+# the runner.
+name: ct
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 4 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ct-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  dudect:
+    name: dudect ${{ matrix.cc }}
+    runs-on: ubuntu-24.04
+    # short: about 2 minutes of measurement; long: about an hour
+    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 150 || 20 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    env:
+      LONG: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build
+        # Release, as users build it; the harness links the static library
+        run: |
+          CC=${{ matrix.cc }} cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+            -DNQCT=ON -DNQTESTS=OFF -DNQCLI=OFF
+          cmake --build build -j4
+      - name: measure
+        # pinned to one core; exit 1 when a target reaches |t| >= 4.5,
+        # 3 when the control (an early-exit compare) is not detected
+        run: |
+          if [ "$LONG" = true ]; then n=200000; sel=all,slhx; else n=8000; sel=all; fi
+          m="$(grep -m1 'model name' /proc/cpuinfo | sed 's/.*: //'), runner ${{ runner.os }}, ${{ matrix.cc }} $(${{ matrix.cc }} -dumpversion)"
+          rc=0
+          taskset -c 1 build/ct/nqdd -n "$n" -s 1 -m "$m" -t "$sel" \
+            -o dd-${{ matrix.cc }}.json | tee dd-${{ matrix.cc }}.txt || rc=$?
+          { echo '```'; cat dd-${{ matrix.cc }}.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+      - name: public-data targets (reported, expected to differ)
+        # key generation and the raw comparisons, whose time depends on
+        # public values (rho, c~, the HQC sampler's counts) by design; they
+        # are recorded so the attribution can be checked, not judged
+        if: always() && env.LONG == 'true'
+        run: |
+          taskset -c 1 build/ct/nqdd -n 100000 -s 2 -t kg,raw \
+            -o ddx-${{ matrix.cc }}.json | tee ddx-${{ matrix.cc }}.txt || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: dudect-${{ matrix.cc }}
+          path: |
+            dd-${{ matrix.cc }}.json
+            dd-${{ matrix.cc }}.txt
+            ddx-${{ matrix.cc }}.json
+            ddx-${{ matrix.cc }}.txt
+          if-no-files-found: warn
+
+  tvla:
+    name: simulated TVLA
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 120 || 20 }}
+    env:
+      LONG: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build
+        # the hooks exist only in this build (-DNQTVLA); the library tests
+        # run on it too, so the instrumented code still gives the right
+        # answers
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQCT=ON \
+            -DNQTVLA=ON -DNQCLI=OFF
+          cmake --build build -j4
+          NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4 --output-on-failure
+      - name: simulate
+        # exit 1 when a masked value leaks in the value model, or a
+        # control (masks forced to zero) is not flagged
+        run: |
+          if [ "$LONG" = true ]; then n=40000; else n=2000; fi
+          rc=0
+          build/ct/nqtv -n "$n" -s 1 -t all -o tv.json | tee tv.txt || rc=$?
+          { echo '```'; cat tv.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: tvla
+          path: |
+            tv.json
+            tv.txt
+          if-no-files-found: warn
