@@ -75,7 +75,7 @@ jobs:
       !github.event.repository.private
     name: linux arm64 ${{ matrix.cc }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -84,7 +84,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: CC=${{ matrix.cc }} cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build -j4
-      - run: ctest --test-dir build
+      # Debug builds sample the slow SLH-DSA sets, as the x86-64 Debug jobs
+      - run: ctest --test-dir build -j4
+        env:
+          NQSLSUB: "8"
+          NQFAST: "1"
 
   valgrind:
     runs-on: ubuntu-24.04
@@ -185,7 +189,7 @@ jobs:
       !github.event.repository.private
     name: macos ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -194,7 +198,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build -j4
-      - run: ctest --test-dir build
+      - run: ctest --test-dir build -j4
+        env:
+          NQSLSUB: "8"
+          NQFAST: "1"
       - name: static and shared installs, consumer, exported symbols
         run: packaging/check.sh "$RUNNER_TEMP/nqchk"
 
@@ -204,7 +211,7 @@ jobs:
       !github.event.repository.private
     name: windows ${{ matrix.toolset }}
     runs-on: windows-2025
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -220,7 +227,10 @@ jobs:
       - name: test
         # ARM64 binaries cannot run on the x64 runner: build only
         if: matrix.toolset != 'msvc-arm64'
-        run: ctest --test-dir build -C Debug
+        run: ctest --test-dir build -C Debug -j4
+        env:
+          NQSLSUB: "8"
+          NQFAST: "1"
       - name: install and build the consumer with find_package
         if: matrix.toolset != 'msvc-arm64'
         shell: bash
@@ -237,7 +247,7 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: windows-2025
-    timeout-minutes: 15
+    timeout-minutes: 30
     defaults:
       run:
         shell: msys2 {0}
@@ -251,7 +261,10 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
       - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build
-      - run: ctest --test-dir build
+      - run: ctest --test-dir build -j4
+        env:
+          NQSLSUB: "8"
+          NQFAST: "1"
       - name: shared build, install and the consumer with find_package
         run: |
           cmake -S . -B bsh -G Ninja -DNQSHARED=ON -DNQTESTS=OFF
@@ -276,7 +289,7 @@ jobs:
           run: |
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
             cmake --build build -j4
-            ctest --test-dir build
+            NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4
 
   distro:
     # each distribution's own compiler and cmake: static build with every
