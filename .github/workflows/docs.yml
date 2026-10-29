@@ -78,6 +78,12 @@ jobs:
         run: sh docs/examples/cli.sh "$RUNNER_TEMP/nq/bin/noqtis"
       - name: every C example, compiled with -Werror and run
         run: sh docs/examples/c.sh "$RUNNER_TEMP/nq"
+      - name: the README demo (docs/demo/demo.sh) still ends in a failed check
+        run: |
+          out=$(NQFAST=1 sh docs/demo/demo.sh "$RUNNER_TEMP/nq/bin/noqtis")
+          printf '%s\n' "$out" | grep -q '^results: OK (22 checks passed)$'
+          printf '%s\n' "$out" | grep -q '^FAIL  file  *report.txt: sha256 differs$'
+          test "$(printf '%s\n' "$out" | tail -n 1)" = "exit status 1"
       - name: man finds the installed pages
         run: |
           MANPATH="$RUNNER_TEMP/nq/share/man" man -w nqsign nqvrfy noqtis-seal \

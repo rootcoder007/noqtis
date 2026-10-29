@@ -5,6 +5,8 @@ anyone can check later, offline, that nothing changed.**
 
 **N**otary **O**f **Q**uantum-safe **T**raceable **I**nputs and **S**eals.
 
+![NOQTIS in 30 seconds: make a key, seal a folder, check it, change one file, the check fails](docs/demo.svg)
+
 A sealed folder (a capsule) carries a manifest of every file and a
 signature over it, so a check finds any file that changed, was added or
 removed, and shows which key sealed it. NOQTIS is one C11 library with no
@@ -15,7 +17,6 @@ vectors, with bindings for Python, JavaScript and R.
 > **Status: unaudited, before its first release.** The code has not had an
 > external security audit; do not rely on it for anything that matters yet.
 
-<!-- DEMO: ![noqtis: seal, tamper, check fails](docs/demo.gif) (docs/demo.gif or docs/demo.svg; uncomment once the recording is in the tree) -->
 
 ```sh
 noqtis keygen -a ML-DSA-65 -o me        # me (secret key), me.pub (public key)
