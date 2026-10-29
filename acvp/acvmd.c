@@ -24,7 +24,7 @@ static int salg(const char *s) {
 
 static int keygen(acvw *w, int alg, const nqjs *t) {
   static uint8_t pk[NQMDPKMAX], sk[NQMDSKMAX];
-  nqssz sz;
+  nqssz sz = {0};
   size_t n;
   uint8_t *seed = acvhex(nqjget(t, "seed"), &n);
   int ok = seed != NULL && nqmdsz(alg, &sz) == NQOK &&

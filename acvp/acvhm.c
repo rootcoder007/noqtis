@@ -35,7 +35,7 @@ static int run(const nqjs *pr, acvw *w, long *omit) {
     acvgbeg(w, tg);
     for (j = 0; j < ts->n; j++) {
       const nqjs *t = nqjat(ts, j);
-      uint64_t tc = 0, kb, mb, tb;
+      uint64_t tc = 0, kb = 0, mb = 0, tb = 0;
       size_t kn = 0, mn = 0;
       uint8_t *k = NULL, *m = NULL, tag[NQHMAX];
       int ok = 0;
