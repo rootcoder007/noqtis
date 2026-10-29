@@ -1,0 +1,156 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Cross-platform capsules: seals the same tree on Linux, macOS and Windows
+# (one capsule without a timestamp, and two with public RFC 3161
+# timestamps, each asking another TSA first), uploads each OS's capsules,
+# then checks every capsule on every OS: with the sealing key, with the
+# public TSA anchors in tests/vectors/der/public, fail-closed without
+# them, and failing after a file is changed. The sealing jobs talk to
+# public TSAs; the test suite never does. macOS and Windows runners cost
+# minutes, so on a private repository this runs weekly and on demand, as
+# ci.yml does.
+name: xseal
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xseal-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  seal:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    name: seal on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build and install the tool
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQTESTS=OFF
+          cmake --build build --config Release -j4
+          cmake --install build --config Release --prefix "$RUNNER_TEMP/nq"
+      - name: seal three capsules
+        run: |
+          t=$(cygpath -u "$RUNNER_TEMP" 2>/dev/null || echo "$RUNNER_TEMP")
+          nq="$t/nq/bin/noqtis"
+          out="xseal-${{ matrix.os }}"
+          anc=""
+          for f in tests/vectors/der/public/anchor-*.der; do
+            anc="$anc --anchor $f"
+          done
+          mkdir -p "$out"
+          for c in plain tsa1 tsa2; do
+            d="$out/$c"
+            mkdir -p "$d/data/deep"
+            printf 'made on %s\n' "${{ matrix.os }}" > "$d/os.txt"
+            printf 'a,b\r\n1,2\r\n' > "$d/data/crlf.csv"
+            printf 'x\n' > "$d/with space.txt"
+            : > "$d/empty"
+            cp tests/vectors/der/public/anchor-digicert-g4.der \
+              "$d/data/deep/bin.der"
+          done
+          "$nq" keygen -a ML-DSA-65 -o k
+          cp k.pub "$out/k.pub" # only the public key travels
+          "$nq" seal -k k "$out/plain"
+          # two capsules, each asking another public TSA first
+          "$nq" seal -k k $anc \
+            --tsa http://timestamp.digicert.com \
+            --tsa http://timestamp.sectigo.com \
+            --tsa http://freetsa.org/tsr "$out/tsa1" | tee -a tsa.txt
+          "$nq" seal -k k $anc \
+            --tsa http://timestamp.sectigo.com \
+            --tsa http://freetsa.org/tsr \
+            --tsa http://timestamp.digicert.com "$out/tsa2" | tee -a tsa.txt
+          rm -f k
+          { echo "### ${{ matrix.os }}"; grep '^timestamp from' tsa.txt; } \
+            >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: xseal-${{ matrix.os }}
+          path: xseal-${{ matrix.os }}
+          if-no-files-found: error
+          retention-days: 7
+
+  check:
+    needs: seal
+    name: check on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build and install the tool
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQTESTS=OFF
+          cmake --build build --config Release -j4
+          cmake --install build --config Release --prefix "$RUNNER_TEMP/nq"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: xseal-*
+          path: caps
+      - name: check every capsule from every OS
+        run: |
+          t=$(cygpath -u "$RUNNER_TEMP" 2>/dev/null || echo "$RUNNER_TEMP")
+          nq="$t/nq/bin/noqtis"
+          anc=""
+          for f in tests/vectors/der/public/anchor-*.der; do
+            anc="$anc --anchor $f"
+          done
+          n=0
+          # want <status> <args>: runs noqtis and requires that exit status
+          want() {
+            w=$1
+            shift
+            set +e
+            "$nq" "$@" > out.txt 2>&1
+            s=$?
+            set -e
+            if [ "$s" != "$w" ]; then
+              cat out.txt
+              echo "noqtis $*: exit $s, want $w"
+              exit 1
+            fi
+          }
+          for a in caps/xseal-*; do
+            test -f "$a/k.pub"
+            want 0 check -p "$a/k.pub" "$a/plain"
+            for c in tsa1 tsa2; do
+              want 0 check -p "$a/k.pub" $anc "$a/$c"
+              grep 'genTime' out.txt
+              # fail closed: a timestamp is never passed unchecked
+              want 1 check -p "$a/k.pub" "$a/$c"
+            done
+            # a changed byte fails
+            rm -rf tc && cp -R "$a/plain" tc
+            printf 'changed\n' > "tc/os.txt"
+            want 1 check -p "$a/k.pub" tc
+            grep -q 'noqtis check: file:' out.txt
+            n=$((n + 1))
+          done
+          test "$n" = 3
+          echo "checked the capsules of $n systems on ${{ matrix.os }}"
