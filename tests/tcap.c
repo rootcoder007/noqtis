@@ -935,6 +935,123 @@ static int chka(const char *d, const key *k, const char *anc, size_t an,
   return nqchkt(d, k->pkb, k->sz.pk, p, l, 1, r);
 }
 
+/* nqtsreq and nqtsput: the request over the seal's signature, and the
+ * reply checked before it is stored */
+static void tput(const key *k, const uint8_t *tok, size_t tn,
+                 const char *ra, size_t rn, const char *oth, size_t on) {
+  static const uint8_t nonce[3] = {0x00, 0x81, 0x02};
+  char d[600], *s0 = NULL, *s1 = NULL;
+  uint8_t q[128], h[32], *bad;
+  size_t qn = 0, n0 = 0, n1 = 0, i;
+  const uint8_t *p[1];
+  size_t l[1];
+  const char *why = NULL;
+  int64_t gt = 0;
+  nqrep *r = NULL;
+  int rc;
+  p[0] = (const uint8_t *)ra;
+  l[0] = rn;
+  fresh(d, sizeof d);
+  NQTEQI(sealk(d, k, GMETA), NQOK);
+  /* the request: version 1, SHA-256 of the signature, nonce, certReq */
+  NQTEQI(nqtsreq(d, nonce, sizeof nonce, q, sizeof q, &qn), NQOK);
+  NQTCHK(qn > 60 && q[0] == 0x30 && q[1] == qn - 2);
+  NQTCHK(q[2] == 0x02 && q[3] == 0x01 && q[4] == 0x01);
+  NQTCHK(qn >= 3 && q[qn - 3] == 0x01 && q[qn - 1] == 0xff);
+  /* the nonce lost its leading zero and gained the sign byte */
+  NQTCHK(memcmp(q + qn - 3 - 5, "\x02\x03\x00\x81\x02", 5) == 0);
+  NQTEQI(rd(d, NQCSIG, &s0, &n0), NQOK);
+  if (s0 != NULL) {
+    const char *b = strstr(s0, "\"signature\":\"");
+    uint8_t *sg = (uint8_t *)malloc(n0);
+    size_t sn = 0;
+    if (b != NULL && sg != NULL) {
+      b += 13;
+      NQTEQI(nqb64d(b, strcspn(b, "\""), sg, n0, &sn), NQOK);
+      NQTEQI(nqhash(NQS256, sg, sn, h, 32), NQOK);
+      NQTCHK(memcmp(q + 4 + 1 + 2 + 15 + 2, h, 32) == 0);
+    } else {
+      NQTCHK(0);
+    }
+    free(sg);
+  }
+  NQTEQI(nqtsreq(d, NULL, 0, q, sizeof q, &qn), NQOK);
+  NQTEQI(qn, 2 + 3 + 2 + 15 + 2 + 32 + 3);
+  NQTEQI(nqtsreq(d, NULL, 0, q, 10, &qn), NQEBUF);
+  NQTEQI(nqtsreq(d, nonce, 33, q, sizeof q, &qn), NQEARG);
+  NQTEQI(nqtsreq(NULL, NULL, 0, q, sizeof q, &qn), NQEARG);
+  /* the golden token has no nonce: asking for one refuses it */
+  NQTEQI(nqtsput(d, tok, tn, nonce, sizeof nonce, NULL, NULL, 0, &gt, &why),
+         NQEVRFY);
+  NQTCHK(why != NULL && strstr(why, "nonce") != NULL);
+  NQTEQI(rd(d, NQCSIG, &s1, &n1), NQOK);
+  NQTCHK(s0 != NULL && s1 != NULL && n0 == n1 && memcmp(s0, s1, n0) == 0);
+  nqfree(s1, n1 + 1);
+  s1 = NULL;
+  /* the wrong anchor: refused, and nothing written */
+  {
+    const uint8_t *po[1];
+    size_t lo[1];
+    po[0] = (const uint8_t *)oth;
+    lo[0] = on;
+    NQTEQI(nqtsput(d, tok, tn, NULL, 0, po, lo, 1, &gt, &why), NQEVRFY);
+    NQTCHK(why != NULL && strstr(why, "anchor") != NULL);
+    po[0] = (const uint8_t *)"\x30\x03\x02\x01\x01";
+    lo[0] = 5;
+    NQTEQI(nqtsput(d, tok, tn, NULL, 0, po, lo, 1, &gt, &why), NQEARG);
+    NQTCHK(why != NULL && strstr(why, "not a DER X.509") != NULL);
+  }
+  /* without anchors: the token's own signature is checked, and stored */
+  NQTEQI(nqtsput(d, tok, tn, NULL, 0, NULL, NULL, 0, &gt, &why), NQOK);
+  NQTCHK(why == NULL && gt > 1700000000);
+  rc = chka(d, k, ra, rn, &r);
+  NQTEQI(rc, NQOK);
+  if (rc != NQOK) dump(r);
+  NQTEQI(row(r, "seal.canonical", NULL), 1);
+  nqrepfree(r);
+  NQTEQI(rd(d, NQCSIG, &s1, &n1), NQOK);
+  /* again, with the anchor: replaces the timestamp, same bytes */
+  NQTEQI(nqtsput(d, tok, tn, NULL, 0, p, l, 1, NULL, NULL), NQOK);
+  {
+    char *s2 = NULL;
+    size_t n2 = 0;
+    NQTEQI(rd(d, NQCSIG, &s2, &n2), NQOK);
+    NQTCHK(s1 != NULL && s2 != NULL && n1 == n2 &&
+           memcmp(s1, s2, n1) == 0);
+    nqfree(s2, n2 + 1);
+  }
+  /* every 37th byte of the token flipped: never stored */
+  bad = (uint8_t *)malloc(tn);
+  NQTCHK(bad != NULL);
+  for (i = 0; bad != NULL && i < tn; i += 37) {
+    memcpy(bad, tok, tn);
+    bad[i] ^= 0x01;
+    rc = nqtsput(d, bad, tn, NULL, 0, p, l, 1, NULL, &why);
+    NQTCHK(rc != NQOK);
+    NQTCHK(why != NULL);
+  }
+  free(bad);
+  /* a TimeStampResp that refused: status 2, no token */
+  NQTEQI(nqtsput(d, (const uint8_t *)"\x30\x05\x30\x03\x02\x01\x02", 7,
+                 NULL, 0, NULL, NULL, 0, NULL, &why),
+         NQEVRFY);
+  NQTCHK(why != NULL && strstr(why, "did not grant") != NULL);
+  /* another seal's signature */
+  ws(d, "a.txt", "other\n");
+  NQTEQI(sealk(d, k, GMETA), NQOK);
+  NQTEQI(nqtsput(d, tok, tn, NULL, 0, NULL, NULL, 0, NULL, &why), NQEVRFY);
+  NQTCHK(why != NULL && strstr(why, "imprint") != NULL);
+  /* a seal that is not canonical */
+  ws(d, NQCSIG, "{ }");
+  NQTEQI(nqtsput(d, tok, tn, NULL, 0, NULL, NULL, 0, NULL, &why), NQEDEC);
+  NQTEQI(nqtsreq(d, NULL, 0, q, sizeof q, &qn), NQEDEC);
+  NQTEQI(nqtsput(NULL, tok, tn, NULL, 0, NULL, NULL, 0, NULL, NULL),
+         NQEARG);
+  NQTEQI(nqtsput(d, tok, tn, NULL, 0, p, l, 33, NULL, NULL), NQELIM);
+  nqfree(s0, n0 + 1);
+  nqfree(s1, n1 + 1);
+}
+
 static void tstamp(const key *k) {
   char d[600], *tok = NULL, *ra = NULL, *oth = NULL;
   size_t tn = 0, rn = 0, on = 0, i;
@@ -1009,6 +1126,7 @@ static void tstamp(const key *k) {
   NQTEQI(chka(d, k, ra, rn, &r), NQEVRFY);
   NQTEQI(row(r, "timestamp", "imprint is not the signature's"), 0);
   nqrepfree(r);
+  tput(k, (const uint8_t *)tok, tn, ra, rn, oth, on);
   nqfree(tok, tn + 1);
   nqfree(ra, rn + 1);
   nqfree(oth, on + 1);

@@ -186,7 +186,8 @@ typedef struct nqrep nqrep;
  * 2,000,000 files, a path over 4096 bytes, folders over 64 deep or a
  * manifest over 512 MiB is NQELIM). The creation
  * time is SOURCE_DATE_EPOCH when set, else the clock. tsa must be NULL:
- * the library makes no network requests (NQENOSUP otherwise). */
+ * the library makes no network requests (NQENOSUP otherwise); add a
+ * timestamp afterwards with nqtsreq and nqtsput. */
 NQAPI int nqseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
                  const uint8_t *pk, size_t pklen, const char *meta,
                  const char *tsa);
@@ -207,6 +208,29 @@ NQAPI size_t nqrepn(const nqrep *r);
 NQAPI int nqrepi(const nqrep *r, size_t i, const char **check, int *ok,
                  const char **detail);
 NQAPI void nqrepfree(nqrep *r);
+
+/* RFC 3161 timestamps for a sealed capsule. The library makes no network
+ * request: the caller sends the request to a TSA and passes back its
+ * reply. nqtsreq writes the TimeStampReq for the seal in dir (the SHA-256
+ * imprint of the seal's decoded signature, the nonce when not NULL: at
+ * most 32 bytes, big-endian, and certReq TRUE) to req of reqlen bytes; at
+ * most 128 bytes, *outlen gets the size. */
+NQAPI int nqtsreq(const char *dir, const uint8_t *nonce, size_t noncelen,
+                  uint8_t *req, size_t reqlen, size_t *outlen);
+/* Stores the token in rsp (a TimeStampResp, or a bare token) as the
+ * timestamp of dir's noqtis.sig, replacing any it has, once it checks:
+ * granted, its imprint the hash of the seal's signature, its nonce the
+ * given one (when not NULL), and its signature valid under its TSA
+ * certificate at genTime; with nanc anchors (DER, at most 32), that
+ * certificate must also have a path to one of them. Without anchors the
+ * TSA is not trusted, only its reply checked: trust is nqchkt's job.
+ * *gt (when not NULL) gets genTime, in seconds since the epoch; *why
+ * (when not NULL) a sentence on what failed, or NULL. NQEVRFY when the
+ * reply does not check; nothing is written then. */
+NQAPI int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
+                  const uint8_t *nonce, size_t noncelen,
+                  const uint8_t *const *anc, const size_t *anclen,
+                  size_t nanc, int64_t *gt, const char **why);
 
 #ifdef __cplusplus
 }
