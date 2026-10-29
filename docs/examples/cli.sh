@@ -55,6 +55,17 @@ same "results: OK (22 checks passed)" \
   "$(SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me results > /dev/null &&
      noqtis check -p me.pub results | tail -1)"
 same '{"created":"2026-01-01T00:00:00Z",' "$(cut -c1-34 results/noqtis.json)"
+# the same folder, SOURCE_DATE_EPOCH and --meta give a byte-identical
+# manifest (guides/seal.md); the signature differs, ML-DSA signs hedged
+mkdir -p repro/data
+printf 'a,b\n' > repro/data/in.csv
+printf 'r\n' > repro/report.txt
+SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me -m meta.json repro > /dev/null
+cp repro/noqtis.json first.json
+SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me -m meta.json repro > /dev/null
+same "manifests identical" \
+  "$(cmp -s first.json repro/noqtis.json && echo manifests identical ||
+     echo manifests differ)"
 echo extra >> results/report.txt
 code 1 noqtis check -p me.pub results
 same "FAIL  file                report.txt: size differs" \
