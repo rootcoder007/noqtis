@@ -46,7 +46,7 @@ jobs:
       - name: configure
         run: |
           case "${{ matrix.kind }}" in
-            asan) extra="-DNQSAN=ON -DCMAKE_BUILD_TYPE=Debug" ;;
+            asan) extra="-DNQSAN=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo" ;;
             release) extra="-DCMAKE_BUILD_TYPE=Release" ;;
             shared) extra="-DNQSHARED=ON -DCMAKE_BUILD_TYPE=Release" ;;
             *) extra="-DCMAKE_BUILD_TYPE=Debug" ;;

@@ -132,7 +132,7 @@ void nqcmm(uint32_t *r, const uint32_t *a, const uint32_t *b,
 
 void nqcad(uint32_t *r, const uint32_t *a, const uint32_t *b,
            const nqcmod *m) {
-  uint32_t s[NQBL], d[NQBL], c = 0, br;
+  uint32_t s[NQBL] = {0}, d[NQBL], c = 0, br;
   size_t i, nl = m->nl;
   for (i = 0; i < nl; i++) {
     uint64_t x = (uint64_t)a[i] + b[i] + c;
