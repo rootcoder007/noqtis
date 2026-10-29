@@ -194,6 +194,24 @@ static int wrseal(const char *dir, const rseal *s, const uint8_t *tok,
   return rc;
 }
 
+/* whether a refused reply names SHA-1 (sha1, ecdsa-with-SHA1 or
+ * sha1WithRSAEncryption), only to say why it was refused */
+static int sha1(const uint8_t *b, size_t n) {
+  static const uint8_t o[][12] = {
+      {7, 0x06, 0x05, 0x2B, 0x0E, 0x03, 0x02, 0x1A},
+      {9, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x04, 0x01},
+      {11, 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01,
+       0x05}};
+  size_t k, i;
+  for (k = 0; k < sizeof o / sizeof o[0]; k++) {
+    size_t m = o[k][0];
+    for (i = 0; i + m <= n; i++) {
+      if (memcmp(b + i, o[k] + 1, m) == 0) return 1;
+    }
+  }
+  return 0;
+}
+
 int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
             const uint8_t *nonce, size_t noncelen,
             const uint8_t *const *anc, const size_t *anclen, size_t nanc,
@@ -233,8 +251,11 @@ int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
     goto out;
   }
   if (rc != NQOK) {
-    *why = "the reply is not an RFC 3161 TimeStampResp or token in the "
-           "form noqtis reads";
+    *why = sha1(rsp, rsplen)
+               ? "the reply is signed with SHA-1, which noqtis does not "
+                 "accept: use a TSA that signs with SHA-256 or stronger"
+               : "the reply is not an RFC 3161 TimeStampResp or token in "
+                 "the form noqtis reads";
     rc = rc == NQEMEM ? rc : NQEVRFY;
     goto out;
   }
