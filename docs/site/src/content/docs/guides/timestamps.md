@@ -58,6 +58,19 @@ status is 2, so a folder is never left sealed without the timestamp that
 was asked for. `check` accepts a token from any TSA whose anchor it is
 given (`--anchor`, up to 32): one that verifies is enough.
 
+A capsule sealed without one gets a timestamp later, with the same
+`--tsa` and `--anchor`:
+
+```sh
+noqtis timestamp --tsa http://timestamp.digicert.com results
+```
+
+Only the seal file changes: the manifest and the signature stay as they
+were, so the capsule still checks. When no TSA gives a token that checks,
+nothing is written (exit 2). A seal that already has a timestamp keeps it
+unless `--force` is given, because the new one would only prove a later
+time.
+
 Only `http://` URLs: the token is signed by the TSA, so TLS adds no
 integrity, and noqtis links no TLS library. `https://` is refused with
 that said. Most public TSAs answer on `http://`, for example
@@ -71,7 +84,8 @@ The `timestamp` row then shows the genTime.
 The token parser and verifier are tested against real tokens from five
 public TSAs, a local OpenSSL TSA and rmoriebricklayer's, and with an
 exhaustive mutation test of every token byte. The command-line tests run
-`seal --tsa` against a local OpenSSL TSA over HTTP, never the network.
+`seal --tsa` and `timestamp` against a local OpenSSL TSA over HTTP, never
+the network.
 
 ## From C
 

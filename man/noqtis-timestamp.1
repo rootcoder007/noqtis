@@ -1,0 +1,91 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 29, 2026
+.Dt NOQTIS-TIMESTAMP 1
+.Os
+.Sh NAME
+.Nm noqtis-timestamp
+.Nd add an RFC 3161 timestamp to a sealed capsule
+.Sh SYNOPSIS
+.Nm noqtis timestamp
+.Fl -tsa Ar url ...
+.Op Fl -anchor Ar der-file ...
+.Op Fl -force
+.Ar dir
+.Sh DESCRIPTION
+.Nm noqtis timestamp
+asks a time-stamping authority (RFC 3161) for a token over the signature
+of the capsule
+.Ar dir ,
+sealed before with
+.Xr noqtis-seal 1 ,
+and stores it in
+.Pa noqtis.sig .
+The manifest
+.Pa noqtis.json
+and the signature are not changed, so the capsule still checks; with the
+TSA's certificate as an anchor,
+.Xr noqtis-check 1
+then also shows when the seal existed.
+.Pp
+The seal and the manifest must read
+.Pq as Xr noqtis-inspect 1 reads them
+before any TSA is asked.
+The request is the SHA-256 of the seal's signature, a random nonce and a
+request for the TSA's certificate, sent by an HTTP/1.1 POST; the reply is
+stored only once it checks: granted, its imprint the hash of this
+signature, its nonce the one sent, and its signature valid under the TSA
+certificate at genTime.
+Give
+.Fl -tsa
+more than once for fallbacks: they are tried in order until one gives a
+token that checks.
+When none does, nothing is written and the exit status is 2.
+.Pp
+A seal holds one timestamp.
+A capsule that already has one is refused unless
+.Fl -force
+is given, since replacing a timestamp gives up the earlier time it
+proves.
+.Bl -tag -width Ds
+.It Fl -tsa Ar url
+A time-stamping authority,
+.Ql http://
+only: the token is signed by the TSA, so TLS adds no integrity.
+At most 32.
+.It Fl -anchor Ar der-file
+The TSA's root or issuing certificate, DER-encoded: the token must then
+also verify under one of the anchors before it is stored.
+At most 32.
+.It Fl -force
+Replace a timestamp the seal already has.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+a timestamp was stored
+.It 2
+a usage error, a folder that is not a sealed capsule, a timestamp already
+there without
+.Fl -force ,
+or no TSA gave a token that checks (nothing written)
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis seal -k me results
+$ noqtis timestamp --tsa http://timestamp.digicert.com results
+timestamp from http://timestamp.digicert.com: genTime 2026-10-29T16:02:11Z
+timestamped results
+$ noqtis check -p me.pub --anchor digicert.der results
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-inspect 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqtsput 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%R RFC 3161
+.%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.Re

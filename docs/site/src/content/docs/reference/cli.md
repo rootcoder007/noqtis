@@ -18,6 +18,7 @@ noqtis help [<command>]
 | `hash [-a <hash>] [-c\|--check] [<file>...]` | `sha256sum`-format digests, or check them | [noqtis-hash(1)](/noqtis/reference/man/noqtis-hash-1/) |
 | `seal -k <key> [-p <key.pub>] [-m <json-file>] [--tsa <url>]... [--anchor <der-file>]... <dir>` | writes `noqtis.json` and `noqtis.sig`; `--tsa` adds an RFC 3161 timestamp (http://, repeat for fallbacks), `--anchor` checks the TSA at seal time | [noqtis-seal(1)](/noqtis/reference/man/noqtis-seal-1/) |
 | `check [-p <key.pub>] [-j\|--json] [--anchor <der-file>]... <dir>` | one row per check, then a summary, then what to do about each failed check; `--anchor` (up to 32 DER TSA certificates) checks the timestamp | [noqtis-check(1)](/noqtis/reference/man/noqtis-check-1/) |
+| `timestamp --tsa <url>... [--anchor <der-file>]... [--force] <dir>` | adds an RFC 3161 timestamp to a capsule sealed before; the manifest and signature are unchanged, nothing is written if no TSA's token checks, and an existing timestamp is kept unless `--force` | [noqtis-timestamp(1)](/noqtis/reference/man/noqtis-timestamp-1/) |
 | `inspect [-j\|--json] <dir>` | what a capsule says (format, algorithm, key fingerprint, created, files, size, timestamp, meta) without checking anything | [noqtis-inspect(1)](/noqtis/reference/man/noqtis-inspect-1/) |
 | `algs` | every algorithm and its sizes | [noqtis-algs(1)](/noqtis/reference/man/noqtis-algs-1/) |
 | `version` | `noqtis <version>` (also `--version`, `-V`) | [noqtis-version(1)](/noqtis/reference/man/noqtis-version-1/) |

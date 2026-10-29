@@ -811,6 +811,14 @@ static void tts(void) {
   want(2, a, NULL);
   ok(has("q.err", "at most 32 times"), "at most 32 --tsa");
   ok(!exists("qts/noqtis.sig"), "nothing sealed after a refused --tsa");
+  /* timestamp: a --tsa, and a capsule that reads, are needed first */
+  want(2, "timestamp qts", NULL);
+  want(2, "timestamp --tsa https://tsa.example/ qts", NULL);
+  ok(has("q.err", "https:// is not supported"), "timestamp refuses https");
+  want(2, "timestamp --tsa http://127.0.0.1:1/ qts", NULL);
+  ok(has("q.err", "is not a sealed capsule"), "timestamp needs a seal");
+  want(2, "timestamp --tsa http://127.0.0.1:1/ no-such-folder", NULL);
+  want(0, "help timestamp", NULL);
   /* the TSA answers, but not with a token over this seal: the seal is
    * removed, never left without its timestamp */
   wantts(2, "file", tok, "seal -k q.c --tsa http://127.0.0.1:@PORT@/ qts");
@@ -894,6 +902,33 @@ static void tts(void) {
   sn(x, sizeof x, "check -p q.c.pub --anchor q.ar.der --json qts");
   want(0, x, NULL);
   ok(has("q.out", "\"ok\":true"), "check --anchor --json");
+  /* noqtis timestamp on a capsule sealed before */
+  want(2, "timestamp --tsa http://127.0.0.1:1/ qts", NULL);
+  ok(has("q.err", "already has a timestamp"),
+     "timestamp keeps a timestamp the seal has");
+  wantts(0, "ossl", "q.a.rcmd",
+         "timestamp --force --tsa http://127.0.0.1:@PORT@/tsr qts");
+  ok(has("q.out", "timestamped qts (the old timestamp was replaced)"),
+     "timestamp --force replaces it");
+  want(0, "check -p q.c.pub --anchor q.ar.der qts", NULL);
+  want(0, "seal -k q.c qts", NULL);
+  want(0, "inspect qts", NULL);
+  ok(has("q.out", "timestamp  none"), "a seal without a timestamp");
+  wantts(0, "osslc", "q.b.rcmd",
+         "timestamp --tsa http://127.0.0.1:@PORT@/ --anchor q.br.der qts");
+  ok(has("q.out", "verified under a TSA anchor") &&
+     has("q.out", "timestamped qts\n"), "timestamp --anchor");
+  want(0, "check -p q.c.pub --anchor q.br.der qts", NULL);
+  want(0, "inspect qts", NULL);
+  ok(has("q.out", "timestamp  present"), "inspect sees the timestamp");
+  /* a reply that does not check writes nothing */
+  want(0, "seal -k q.c qts", NULL);
+  wantts(2, "ossl", "q.a.rcmd",
+         "timestamp --tsa http://127.0.0.1:@PORT@/ --anchor q.br.der qts");
+  ok(has("q.err", "qts is unchanged"), "a refused reply: unchanged");
+  want(0, "inspect qts", NULL);
+  ok(has("q.out", "timestamp  none"), "still no timestamp");
+  want(0, "check -p q.c.pub qts", NULL);
 }
 
 /* ---- rmoriebricklayer interop: its fixtures, checked by noqtis ----

@@ -1,0 +1,94 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis-timestamp</code> &#x2014;
+    <span class="Nd">add an RFC 3161 timestamp to a sealed capsule</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis timestamp</code></td>
+    <td><code class="Fl">--tsa</code> <var class="Ar">url ...</var>
+      [<code class="Fl">--anchor</code> <var class="Ar">der-file ...</var>]
+      [<code class="Fl">--force</code>] <var class="Ar">dir</var></td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Nm">noqtis timestamp</code> asks a time-stamping
+    authority (RFC 3161) for a token over the signature of the capsule
+    <var class="Ar">dir</var>, sealed before with
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    and stores it in <span class="Pa">noqtis.sig</span>. The manifest
+    <span class="Pa">noqtis.json</span> and the signature are not changed, so
+    the capsule still checks; with the TSA's certificate as an anchor,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>
+    then also shows when the seal existed.</p>
+<p class="Pp">The seal and the manifest must read (as
+    <a class="Xr" href="/noqtis/reference/man/noqtis-inspect-1/">noqtis-inspect(1)</a>
+    reads them) before any TSA is asked. The request is the SHA-256 of the
+    seal's signature, a random nonce and a request for the TSA's certificate,
+    sent by an HTTP/1.1 POST; the reply is stored only once it checks: granted,
+    its imprint the hash of this signature, its nonce the one sent, and its
+    signature valid under the TSA certificate at genTime. Give
+    <code class="Fl">--tsa</code> more than once for fallbacks: they are tried
+    in order until one gives a token that checks. When none does, nothing is
+    written and the exit status is 2.</p>
+<p class="Pp">A seal holds one timestamp. A capsule that already has one is
+    refused unless <code class="Fl">--force</code> is given, since replacing a
+    timestamp gives up the earlier time it proves.</p>
+<dl class="Bl-tag">
+  <dt id="tsa"><a class="permalink" href="#tsa"><code class="Fl">--tsa</code></a>
+    <var class="Ar">url</var></dt>
+  <dd>A time-stamping authority, &#x2018;<code class="Li">http://</code>&#x2019;
+      only: the token is signed by the TSA, so TLS adds no integrity. At most
+      32.</dd>
+  <dt id="anchor"><a class="permalink" href="#anchor"><code class="Fl">--anchor</code></a>
+    <var class="Ar">der-file</var></dt>
+  <dd>The TSA's root or issuing certificate, DER-encoded: the token must then
+      also verify under one of the anchors before it is stored. At most 32.</dd>
+  <dt id="force"><a class="permalink" href="#force"><code class="Fl">--force</code></a></dt>
+  <dd>Replace a timestamp the seal already has.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt>0</dt>
+  <dd>a timestamp was stored</dd>
+  <dt>2</dt>
+  <dd>a usage error, a folder that is not a sealed capsule, a timestamp already
+      there without <code class="Fl">--force</code>, or no TSA gave a token that
+      checks (nothing written)</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>$ noqtis seal -k me results
+$ noqtis timestamp --tsa http://timestamp.digicert.com results
+timestamp from http://timestamp.digicert.com: genTime 2026-10-29T16:02:11Z
+timestamped results
+$ noqtis check -p me.pub --anchor digicert.der results</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-inspect-1/">noqtis-inspect(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqtsput-3/">nqtsput(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">Internet X.509 Public Key
+    Infrastructure Time-Stamp Protocol (TSP)</span>, <span class="RsR">RFC
+    3161</span>.</cite></p>
+</section>
+</div>

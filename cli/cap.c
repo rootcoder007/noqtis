@@ -78,17 +78,17 @@ static void utc(int64_t t, char out[80]) {
 
 /* Asks each TSA in turn for a token over the seal in dir until one
  * gives a token that checks (nqtsput); NCOK once one is stored. */
-static int stamp(const char *dir, const char *const *tsa, int nt,
-                 const ncanc *an) {
+static int stamp(const char *cmd, const char *dir, const char *const *tsa,
+                 int nt, const ncanc *an) {
   uint8_t nonce[8], req[128];
   size_t qn = 0;
   int i, rc;
   if (nqrand(nonce, sizeof nonce) != NQOK)
-    return nclib("seal", "random nonce", NQERNG);
+    return nclib(cmd, "random nonce", NQERNG);
   nonce[0] = (uint8_t)((nonce[0] & 0x7f) | 0x40);
   rc = nqtsreq(dir, nonce, sizeof nonce, req, sizeof req, &qn);
   if (rc != NQOK)
-    return nclib("seal", "timestamp request", rc);
+    return nclib(cmd, "timestamp request", rc);
   for (i = 0; i < nt; i++) {
     uint8_t *rsp = NULL;
     size_t rn = 0;
@@ -97,14 +97,14 @@ static int stamp(const char *dir, const char *const *tsa, int nt,
     int64_t gt = 0;
     char ts[80];
     if (nchttp(tsa[i], req, qn, &rsp, &rn, err, sizeof err) != NCOK) {
-      ncmsg("seal", "%s: %s", tsa[i], err);
+      ncmsg(cmd, "%s: %s", tsa[i], err);
       continue;
     }
     rc = nqtsput(dir, rsp, rn, nonce, sizeof nonce,
                  (const uint8_t *const *)an->b, an->n, an->k, &gt, &why);
     free(rsp);
     if (rc != NQOK) {
-      ncmsg("seal", "%s: refused its reply: %s", tsa[i],
+      ncmsg(cmd, "%s: refused its reply: %s", tsa[i],
             why != NULL ? why : nqerr(rc));
       continue;
     }
@@ -112,7 +112,7 @@ static int stamp(const char *dir, const char *const *tsa, int nt,
     printf("timestamp from %s: genTime %s%s\n", tsa[i], ts,
            an->k != 0 ? ", verified under a TSA anchor" : "");
     if (an->k == 0)
-      ncmsg("seal", "note: no --anchor given, so the TSA itself was not "
+      ncmsg(cmd, "note: no --anchor given, so the TSA itself was not "
             "checked; check with --anchor <der-file> to trust the time");
     return NCOK;
   }
@@ -213,7 +213,7 @@ int ncseal(int argc, char **argv) {
     goto done;
   }
   ret = NCOK;
-  if (nt == 0 || (rc = stamp(argv[0], tsa, nt, &an)) == NCOK) {
+  if (nt == 0 || (rc = stamp("seal", argv[0], tsa, nt, &an)) == NCOK) {
     printf("sealed %s with %s%s\n", argv[0], sk.a.name,
            nt > 0 ? " and a timestamp" : "");
   } else {
@@ -614,4 +614,81 @@ int ncinsp(int argc, char **argv) {
   nqrepfree(r);
   fflush(stdout);
   return ret;
+}
+
+/* noqtis timestamp: a timestamp for a capsule sealed before, from the
+ * first TSA whose reply checks; the seal's signature and the manifest are
+ * not touched, and nothing is written when no reply checks. */
+int ncts(int argc, char **argv) {
+  const char *tsa[NCMAXV], *anc[NCMAXV];
+  int help = 0, force = 0, np, nt = 0, na = 0, rc, has = 0;
+  ncopt o[] = {
+    {'\0', "tsa", NCMANY, tsa, &nt},
+    {'\0', "anchor", NCMANY, anc, &na},
+    {'\0', "force", 0, NULL, &force}
+  };
+  nqrep *r = NULL;
+  ncanc an;
+  size_t i, n;
+
+  an.k = 0;
+  if (ncargs("timestamp", argc, argv, o, sizeof o / sizeof o[0], &np,
+             &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "timestamp");
+    return NCOK;
+  }
+  if (np != 1 || nt == 0) {
+    ncuse(stderr, "timestamp");
+    return NCUSE;
+  }
+  for (rc = 0; rc < nt; rc++) {
+    char err[300];
+    if (ncurlok(tsa[rc], err, sizeof err) != NCOK) {
+      ncmsg("timestamp", "--tsa %s: %s", tsa[rc], err);
+      return NCUSE;
+    }
+  }
+  if (!ncexist(argv[0])) {
+    ncmsg("timestamp", "%s: no such folder (give a folder `noqtis seal` "
+          "sealed)", argv[0]);
+    return NCUSE;
+  }
+  /* the seal and the manifest must read before a TSA is asked */
+  rc = nqinsp(argv[0], &r);
+  if (rc != NQOK) {
+    ncmsg("timestamp", "%s is not a sealed capsule that reads (%s): seal "
+          "it with `noqtis seal`, or see `noqtis inspect %s`", argv[0],
+          nqerr(rc), argv[0]);
+    nqrepfree(r);
+    return NCUSE;
+  }
+  n = nqrepn(r);
+  for (i = 0; i < n; i++) {
+    const char *ck = NULL, *d = NULL;
+    if (nqrepi(r, i, &ck, NULL, &d) == NQOK && ck != NULL &&
+        strcmp(ck, "info.timestamp") == 0 && d != NULL &&
+        strcmp(d, "present") == 0)
+      has = 1;
+  }
+  nqrepfree(r);
+  if (has && !force) {
+    ncmsg("timestamp", "%s already has a timestamp; --force replaces it "
+          "(the earlier time is then no longer shown by the seal)", argv[0]);
+    return NCUSE;
+  }
+  if (ancrd("timestamp", anc, na, &an) != NCOK)
+    return NCUSE;
+  rc = stamp("timestamp", argv[0], tsa, nt, &an);
+  ancfree(&an);
+  if (rc != NCOK) {
+    ncmsg("timestamp", "no --tsa gave a timestamp; %s is unchanged: try "
+          "again, or give another --tsa", argv[0]);
+    return NCUSE;
+  }
+  printf("timestamped %s%s\n", argv[0], has ? " (the old timestamp was "
+         "replaced)" : "");
+  fflush(stdout);
+  return NCOK;
 }

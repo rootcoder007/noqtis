@@ -82,6 +82,16 @@ static const nccmd cmds[] = {
    "            seal must then carry a timestamp that verifies under one\n"
    "            of them. Without --anchor, a timestamped seal fails its\n"
    "            timestamp check (it cannot be checked).\n"},
+  {"timestamp", ncts, "add a timestamp to a sealed capsule",
+   "usage: noqtis timestamp --tsa <url>... [--anchor <der-file>]...\n"
+   "                        [--force] <dir>\n"
+   "  Asks each RFC 3161 time-stamping authority in turn (http:// only)\n"
+   "  for a token over the seal's signature and stores the first that\n"
+   "  checks in noqtis.sig; the manifest and the signature are unchanged.\n"
+   "  --anchor  the TSA's root or issuing certificate (DER), to check the\n"
+   "            token now too (up to 32)\n"
+   "  --force   replace a timestamp the seal already has\n"
+   "  If no TSA gives a token that checks, nothing is written (exit 2).\n"},
   {"inspect", ncinsp, "show what a capsule says (nothing checked)",
    "usage: noqtis inspect [--json] <dir>\n"
    "  Prints the seal's format, algorithm and key fingerprint (SHA-256 of\n"

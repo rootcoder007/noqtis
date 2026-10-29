@@ -106,7 +106,7 @@ nqrepfree(rep);
   the C, Python, JavaScript and R API references, the command line, and
   [why post-quantum provenance now](https://rootcoder007.github.io/noqtis/explain/why/).
 - Manual pages, installed with the library: `man noqtis`, `man noqtis-seal`,
-  `man noqtis-inspect`,
+  `man noqtis-inspect`, `man noqtis-timestamp`,
   `man nqsign`, `man noqtis-capsule` (sources in [man/](man/)).
 - The capsule format specification:
   [docs/site/src/content/docs/spec/capsule.md](docs/site/src/content/docs/spec/capsule.md).
