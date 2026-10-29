@@ -204,7 +204,7 @@ static unsigned short listen1(sockt *out) {
     return 0;
   memset(&a, 0, sizeof a);
   a.sin_family = AF_INET;
-  a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  a.sin_addr.s_addr = htonl(0x7f000001u) /* 127.0.0.1 */;
   a.sin_port = 0;
   if (bind(s, (struct sockaddr *)&a, (socklen_t)sizeof a) != 0 ||
       listen(s, 8) != 0 ||

@@ -29,6 +29,7 @@
 #ifndef _WIN32
 #include <sys/stat.h>
 #include <sys/wait.h>
+#endif
 
 /* snprintf that stops the test when the text does not fit: a cut command
  * or path would test something else (and GCC's -Wformat-truncation sees
@@ -45,7 +46,6 @@ static void sn(char *o, size_t cap, const char *f, ...) {
     exit(2);
   }
 }
-#endif
 
 static const char *exe;
 static const char *wrap = "";

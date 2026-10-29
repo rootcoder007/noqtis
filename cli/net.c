@@ -157,7 +157,7 @@ static void neterr(char *err, size_t cap, const char *what) {
 static int block(sockt s, int on) {
 #ifdef _WIN32
   u_long nb = on ? 0 : 1;
-  return ioctlsocket(s, FIONBIO, &nb) == 0 ? 0 : -1;
+  return ioctlsocket(s, (long)FIONBIO, &nb) == 0 ? 0 : -1;
 #else
   int f = fcntl(s, F_GETFL, 0);
   if (f < 0)
