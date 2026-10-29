@@ -176,12 +176,14 @@ jobs:
         with:
           platforms: s390x
       - name: build and test on s390x
+        # emulated, so it samples the slow SLH-DSA sets like the Debug jobs
         run: >
           docker run --rm --platform linux/s390x -v "$PWD:/src" -w /src
+          -e NQSLSUB=8 -e NQFAST=1
           debian:trixie sh -c "apt-get update -qq &&
           apt-get install -y -qq gcc cmake >/dev/null &&
           cmake -S . -B /tmp/b -DCMAKE_BUILD_TYPE=Release &&
-          cmake --build /tmp/b -j4 && ctest --test-dir /tmp/b"
+          cmake --build /tmp/b -j4 && ctest --test-dir /tmp/b -j4"
 
   macos:
     if: >
