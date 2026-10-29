@@ -3,7 +3,7 @@
 Post-quantum signatures (ML-DSA, SLH-DSA), key encapsulation (ML-KEM,
 HQC), SHA-2/SHA-3 hashes and sealed file capsules for JavaScript: the
 [noqtis](https://github.com/rootcoder007/noqtis) C11 library compiled to
-WebAssembly. One package for Node (18 and later), browsers, Deno and Bun;
+WebAssembly. One package for Node (22 and later), browsers, Deno and Bun;
 nothing to compile, no dependencies, no network access.
 
 The code has not yet been audited. See the main repository's README and
