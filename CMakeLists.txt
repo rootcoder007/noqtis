@@ -121,6 +121,8 @@ if(NQTESTS)
   target_link_libraries(nquse PRIVATE noqtis)
   target_compile_options(nquse PRIVATE ${NQWARN})
   add_test(NAME nquse COMMAND nquse)
+  # the ACVP harnesses, each run on the vector sets in tests/vectors/acvp
+  add_subdirectory(acvp)
   # tcli runs the tool as a child process, which emscripten cannot do
   if(NQCLI AND NOT EMSCRIPTEN)
     add_subdirectory(tests/cli)
