@@ -139,6 +139,25 @@ A capsule is a folder that holds the files of a result plus `noqtis.json`
   200 MB. Bounding it below the manifest size would need a streaming
   verify API or the pre-hash variant (HashML-DSA), a format change.
 
+### Interop with rmoriebricklayer
+
+rmoriebricklayer's capsule is `capsule_bundle.json` (`cpsbndl`): pretty
+JSON, not RFC 8785; per file only `path`, `sha256` and `size_bytes` (no
+SHA3-256); a manifest digest and a time; and an attestation whose
+ML-DSA, SLH-DSA, XMSS or HMAC signature is over the hex SHA-256 of the
+canonical attestation payload (`mnfcanon`), not over the manifest's
+bytes, with its own context. It has no reader for `noqtis.json` and
+`noqtis.sig`, and noqtis none for the bundle, so neither checks the
+other's capsule as such. What they share, and what is tested both ways:
+FIPS 204 and 205 signatures in the standards' encodings with a context
+string, SHA-256 file digests, and RFC 3161 tokens. rmoriebricklayer can
+seal in the noqtis format with its own keys and signatures
+(`tests/interop/blseal.R`, taking SHA3-256 from `noqtis hash` because it
+has none) and check a noqtis capsule with its own code
+(`tests/interop/blchk.R`: signature, SHA-256 and sizes, unlisted files,
+and the timestamp with `tsvrf`; not SHA3-256); noqtis checks its
+bundles' attestation signatures and file digests (`blbndl.R`).
+
 ## Platforms and packaging
 
 noqtis must build, pass its tests and install on every platform people use,
@@ -288,8 +307,10 @@ below is done. Each item says how it is checked.
       authorities.
 - [ ] A capsule sealed on one platform checks on every other (CI seals on
       each OS and checks the result on all the others).
-- [ ] Capsules sealed by rmoriebricklayer check with noqtis, and the other
-      way round, wherever their formats overlap.
+- [x] Capsules sealed by rmoriebricklayer check with noqtis, and the other
+      way round, wherever their formats overlap (`tests/interop/`: tcli
+      checks its fixtures everywhere; CTest `tbl` and `interop.yml` run
+      the live round trip; see "Interop with rmoriebricklayer").
 - [x] Error messages say what failed and what to do, for every refusal in
       `noqtis check` (a test reads each one: tcli reads every check name
       in `src/cap/chk.c`, makes each fail and requires its advice).
