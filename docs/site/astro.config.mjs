@@ -79,6 +79,9 @@ export default defineConfig({
           label: "Reference",
           items: [
             { label: "C API", slug: "reference/c-api" },
+            { label: "Python API", slug: "reference/api/python" },
+            { label: "JavaScript API", slug: "reference/api/javascript" },
+            { label: "R API", slug: "reference/api/r" },
             { label: "Command line", slug: "reference/cli" },
             {
               label: "Manual pages",

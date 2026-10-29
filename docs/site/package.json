@@ -6,10 +6,11 @@
   "license": "Apache-2.0 WITH LLVM-exception",
   "scripts": {
     "man": "sh scripts/man.sh",
+    "api": "python3 scripts/api.py",
     "wasm": "sh scripts/wasm.sh",
-    "predev": "sh scripts/wasm.sh",
+    "predev": "sh scripts/wasm.sh && python3 scripts/api.py",
     "dev": "astro dev",
-    "prebuild": "sh scripts/wasm.sh",
+    "prebuild": "sh scripts/wasm.sh && python3 scripts/api.py",
     "build": "astro build",
     "preview": "astro preview"
   },
