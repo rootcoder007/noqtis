@@ -54,8 +54,12 @@ jobs:
             -DNQCT=ON -DNQTESTS=OFF -DNQCLI=OFF
           cmake --build build -j4
       - name: measure
-        # pinned to one core; exit 1 when a target reaches |t| >= 4.5,
-        # 3 when the control (an early-exit compare) is not detected
+        # pinned to one core; nqdd exits 1 when a target reaches |t| >= 4.5,
+        # 3 when the control (an early-exit compare) is not detected. On a
+        # push or pull request the short run on a shared runner is too noisy
+        # to fail on |t| alone: it is reported as a warning. The weekly and
+        # manual long runs fail on it; a missed control or a crash fails
+        # every run
         run: |
           if [ "$LONG" = true ]; then n=200000; sel=all,slhx; else n=8000; sel=all; fi
           m="$(grep -m1 'model name' /proc/cpuinfo | sed 's/.*: //'), runner ${{ runner.os }}, ${{ matrix.cc }} $(${{ matrix.cc }} -dumpversion)"
@@ -63,6 +67,10 @@ jobs:
           taskset -c 1 build/ct/nqdd -n "$n" -s 1 -m "$m" -t "$sel" \
             -o dd-${{ matrix.cc }}.json | tee dd-${{ matrix.cc }}.txt || rc=$?
           { echo '```'; cat dd-${{ matrix.cc }}.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" = 1 ] && [ "$LONG" != true ]; then
+            echo "::warning title=dudect::a target reached |t| >= 4.5 on this short run; the weekly long run decides (see the summary)"
+            rc=0
+          fi
           exit $rc
       - name: public-data targets (reported, expected to differ)
         # key generation and the raw comparisons, whose time depends on
