@@ -64,7 +64,7 @@ push.
 
 | Channel | Command | Status |
 |---|---|---|
-| Homebrew (macOS, Linux) | `brew install rootcoder007/morie/noqtis` | available (the formula is in `packaging/brew` and tested in CI) |
+| Homebrew (macOS, Linux) | `brew install rootcoder007/noqtis/noqtis` (also in the `rootcoder007/morie` tap) | available (the formula is in `packaging/brew` and tested in CI) |
 | curl / shell | `curl -fsSL https://github.com/rootcoder007/noqtis/releases/latest/download/install.sh \| sh` | available (see [Release archives](#release-archives)) |
 | PowerShell (Windows) | `irm https://github.com/rootcoder007/noqtis/releases/latest/download/install.ps1 \| iex` | available |
 | Docker / OCI | `docker run --rm ghcr.io/rootcoder007/noqtis` | available |

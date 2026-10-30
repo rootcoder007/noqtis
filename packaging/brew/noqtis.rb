@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Homebrew formula (macOS and Linux). publish.yml writes it to the tap
-# rootcoder007/homebrew-morie with the release tarball and its sha256;
+# rootcoder007/homebrew-noqtis and homebrew-morie with the release tarball and its sha256;
 # `brew install --HEAD` builds main.
 class Noqtis < Formula
   desc "Post-quantum signing, KEMs and sealed input records in C11"

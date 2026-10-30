@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # What follows a published release (release.yml makes it a draft; a
-# maintainer publishes it): the Homebrew tap (rootcoder007/morie, so
-# `brew install rootcoder007/morie/noqtis`) gets the formula for the
+# maintainer publishes it): the Homebrew taps (rootcoder007/noqtis, so
+# `brew install rootcoder007/noqtis/noqtis`, and rootcoder007/morie) get the formula for the
 # release's source tarball, the container image goes to
 # ghcr.io/rootcoder007/noqtis, and the Go module proxy is asked for the
 # Go binding's version, so `go get` finds it at once.
@@ -18,7 +18,7 @@
 # checks what it would publish, says so, and publishes nothing.
 #
 # The tap is written with the NQ_TAP_TOKEN secret (a fine-grained token
-# with contents: write on rootcoder007/homebrew-morie only); without it
+# with contents: write on rootcoder007/homebrew-noqtis and homebrew-morie only); without it
 # the job says so and writes nothing. workflow_dispatch runs everything
 # for a given tag except the writes, as a check; with write: true it
 # publishes, to redo a job that failed.
@@ -86,20 +86,22 @@ jobs:
             echo "::warning::NQ_TAP_TOKEN is not set: the tap is not updated"
             exit 0
           fi
-          git clone -q "https://x-access-token:$TOKEN@github.com/rootcoder007/homebrew-morie" tap
-          unset TOKEN
-          mkdir -p tap/Formula
-          cp noqtis.rb tap/Formula/noqtis.rb
-          cd tap
-          git add Formula/noqtis.rb
-          if git diff --cached --quiet; then
-            echo "the tap already has this formula"
-            exit 0
-          fi
-          git -c user.name=rootcoder007 \
-            -c user.email=278967282+rootcoder007@users.noreply.github.com \
-            commit -q -m "noqtis ${TAG#v}"
-          git push -q origin HEAD
+          # the formula goes to both taps: noqtis's own and the morie one
+          for t in homebrew-noqtis homebrew-morie; do
+            git clone -q "https://x-access-token:$TOKEN@github.com/rootcoder007/$t" "$t"
+            mkdir -p "$t/Formula"
+            cp noqtis.rb "$t/Formula/noqtis.rb"
+            git -C "$t" add Formula/noqtis.rb
+            if git -C "$t" diff --cached --quiet; then
+              echo "$t already has this formula"
+              continue
+            fi
+            git -C "$t" -c user.name=rootcoder007 \
+              -c user.email=278967282+rootcoder007@users.noreply.github.com \
+              commit -q -m "noqtis ${TAG#v}"
+            git -C "$t" push -q origin HEAD
+            echo "$t: noqtis ${TAG#v}"
+          done
 
   image:
     runs-on: ubuntu-24.04

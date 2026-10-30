@@ -235,7 +235,7 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 
 | Ecosystem | Package | Form |
 |---|---|---|
-| Homebrew (macOS, Linux) | `noqtis` | tap `rootcoder007/homebrew-morie` first, homebrew-core later; formula in `packaging/brew`, tested in CI |
+| Homebrew (macOS, Linux) | `noqtis` | taps `rootcoder007/homebrew-noqtis` and `rootcoder007/homebrew-morie` first, homebrew-core later; formula in `packaging/brew`, tested in CI |
 | curl / shell | `install.sh`, `install.ps1` | verified binary download (above) |
 | npm (Node, Deno, Bun, browsers) | `noqtis` | WebAssembly build, works everywhere with nothing to compile; optional native addon (Node-API, prebuilt per platform) for speed |
 | PyPI | `noqtis` | wheels for every OS/CPU above (cibuildwheel), no compiler needed |
@@ -280,7 +280,7 @@ not a release).
 |---|---|---|
 | npm, PyPI, crates.io, NuGet, Maven Central, RubyGems, Go modules | published by us | day one |
 | CRAN | CRAN's submission review (policy, `R CMD check --as-cran`, no network in tests, under 5 MB) | after its review, days |
-| Homebrew tap `rootcoder007/homebrew-morie` | ours | day one |
+| Homebrew taps `rootcoder007/homebrew-noqtis` and `homebrew-morie` | ours | day one |
 | Scoop bucket, GHCR and Docker Hub images (Wolfi), GitHub Action Marketplace | ours | day one |
 | winget, Chocolatey | a pull request or package submission; moderated, routine | day one to days |
 | Arch User Repository | an upload by any user | day one |

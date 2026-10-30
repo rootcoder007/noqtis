@@ -212,7 +212,7 @@ mistake in the release process; use 0.1.1.)
   C23 path (job `c23`).
 - Each release carries a reproducible source tarball, `noqtis-<version>.tar.gz`.
   Publishing a release (`publish.yml`) updates the Homebrew tap
-  (`brew install rootcoder007/morie/noqtis`), pushes the container image to
+  (`brew install rootcoder007/noqtis/noqtis`, and the `rootcoder007/morie` tap), pushes the container image to
   `ghcr.io/rootcoder007/noqtis`, and checks that the Go module proxy has the
   Go binding's version; r-universe builds the R package from each release.
 - Java: the jar may carry the library itself (`native/<os>-<arch>/`), and
