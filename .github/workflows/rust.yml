@@ -34,7 +34,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: rust-${{ github.ref }}-${{ github.event_name }}
+  group: rust-${{ github.ref }}-${{ github.event_name }}-${{ github.sha }}
   cancel-in-progress: false
 
 defaults:

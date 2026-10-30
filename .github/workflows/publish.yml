@@ -7,6 +7,13 @@
 # ghcr.io/rootcoder007/noqtis, and the Go module proxy is asked for the
 # Go binding's version, so `go get` finds it at once.
 #
+# With their secrets set, the Rust crate goes to crates.io
+# (CARGO_REGISTRY_TOKEN, a token scoped to publish-update of noqtis) and
+# Fedora COPR builds RPMs for Fedora and EPEL from the release tarball
+# (NQ_COPR_CONFIG, the text of ~/.config/copr; the COPR project
+# rootcoder007/noqtis must exist). Without a secret the job builds and
+# checks what it would publish, says so, and publishes nothing.
+#
 # The tap is written with the NQ_TAP_TOKEN secret (a fine-grained token
 # with contents: write on rootcoder007/homebrew-morie only); without it
 # the job says so and writes nothing. workflow_dispatch runs everything
@@ -133,3 +140,71 @@ jobs:
           done
           echo "::error::the proxy has no $TAG of the Go binding (is bindings/go/$TAG pushed?)"
           exit 1
+
+  crate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: bindings/rust
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: vendor the library; the crate's version is the release's
+        run: |
+          sh tools/vendor.sh
+          grep -qx "version = \"${TAG#v}\"" Cargo.toml
+      - name: publish (secret CARGO_REGISTRY_TOKEN)
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ "$DRY" = true ] || [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            [ "$DRY" = true ] || echo "::warning::CARGO_REGISTRY_TOKEN is not set: the crate is not published"
+            cargo publish --dry-run --allow-dirty
+            exit 0
+          fi
+          cargo publish --allow-dirty
+
+  copr:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    # fedora:latest
+    container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+    steps:
+      - name: deps
+        run: dnf -y install rpm-build copr-cli gh
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - name: the source RPM, from the release tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=${TAG#v}
+          grep -qx "Version:        $v" packaging/rpm/noqtis.spec
+          mkdir -p "$HOME/rpmbuild/SOURCES"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "noqtis-$v.tar.gz" --dir "$HOME/rpmbuild/SOURCES"
+          rpmbuild -bs packaging/rpm/noqtis.spec
+          ls -l "$HOME"/rpmbuild/SRPMS/
+      - name: build on COPR (secret NQ_COPR_CONFIG)
+        env:
+          CFG: ${{ secrets.NQ_COPR_CONFIG }}
+        run: |
+          if [ "$DRY" = true ] || [ -z "$CFG" ]; then
+            [ "$DRY" = true ] || echo "::warning::NQ_COPR_CONFIG is not set: no COPR build"
+            exit 0
+          fi
+          mkdir -p "$HOME/.config"
+          (umask 077 && printf '%s\n' "$CFG" > "$HOME/.config/copr")
+          unset CFG
+          copr-cli build noqtis "$HOME"/rpmbuild/SRPMS/noqtis-*.src.rpm
+          rm -f "$HOME/.config/copr"
