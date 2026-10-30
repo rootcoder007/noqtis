@@ -205,6 +205,49 @@ static int rdin(const char *arg, nqcin *in, char *name, size_t cap) {
   return NCOK;
 }
 
+/* what stopped nqseal with NQEARG: the first thing in dir a capsule
+ * cannot hold, or else a key pair that is not one */
+static void sealwhy(const char *dir, const char *kp, const char *pp) {
+  char p[512];
+  int w = 0;
+  if (nqsealwhy(dir, &w, p, sizeof p) != NQOK) w = -1;
+  switch (w) {
+  case NQSWLINK:
+    ncmsg("seal", "%s: %s is a symbolic link; capsules hold only regular "
+          "files and folders: replace it with the file itself, or move it "
+          "out, then seal", dir, ncesc(p));
+    break;
+  case NQSWODD:
+    ncmsg("seal", "%s: %s is not a regular file or folder (a device, FIFO "
+          "or socket): move it out of the folder, then seal", dir, ncesc(p));
+    break;
+  case NQSWNAME:
+    ncmsg("seal", "%s: the name %s is one noqtis refuses (it holds a "
+          "control character, a backslash or a colon, or is not valid "
+          "UTF-8; see noqtis-capsule(5)): rename it, then seal", dir,
+          ncesc(p));
+    break;
+  case NQSWCASE:
+    ncmsg("seal", "%s: %s differs from another path only in case, which "
+          "breaks on Windows and macOS: rename one, then seal", dir,
+          ncesc(p));
+    break;
+  case NQSWKEY:
+    ncmsg("seal", "%s: %s starts like a noqtis secret key (noqtis-key-1 "
+          "... sec), which would ship with the capsule: move secret keys "
+          "out of the folder, then seal it", dir, ncesc(p));
+    break;
+  case 0:
+    ncmsg("seal", "%s and %s are not one key pair: give the public key "
+          "made with this secret key", kp, pp);
+    break;
+  default:
+    ncmsg("seal", "%s: the folder holds something a capsule cannot (a "
+          "link, a special file, a refused name or a secret key)", dir);
+    break;
+  }
+}
+
 int ncseal(int argc, char **argv) {
   const char *kp = NULL, *pp = NULL, *mp = NULL, *fv = NULL;
   const char *tsa[NCMAXV], *anc[NCMAXV], *inp[NCMAXV];
@@ -328,9 +371,7 @@ int ncseal(int argc, char **argv) {
   if (rc != NQOK) {
     disarm();
     if (rc == NQEARG)
-      ncmsg("seal", "%s: a file in it starts like a noqtis secret key "
-            "(noqtis-key-1 ... sec), which would ship with the capsule: "
-            "move secret keys out of the folder, then seal it", argv[0]);
+      sealwhy(argv[0], kp, pp);
     else
       nclib("seal", argv[0], rc);
     goto done;

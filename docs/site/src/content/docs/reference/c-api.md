@@ -220,6 +220,9 @@ int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
 int nqinsp(const char *dir, nqrep **rep);
 int nqfiles(const char *dir, nqrep **rep);
 
+enum { NQSWLINK = 1, NQSWODD, NQSWNAME, NQSWCASE, NQSWKEY };
+int nqsealwhy(const char *dir, int *why, char *path, size_t cap);
+
 typedef struct { uint8_t id[32]; const char *name; } nqcin;
 int nqseal2(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
             const uint8_t *pk, size_t pklen, const char *meta,
@@ -266,6 +269,7 @@ int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
 | `nqchk` | checks `dir`; `trust` is the pinned public key or `NULL` to accept the seal's | `NQOK` all passed; `NQEVRFY` some failed (report set); `NQEARG`, `NQEMEM` (no report) |
 | `nqchkt` | `nqchk` with up to 32 DER TSA anchors; the seal must then carry a timestamp that verifies under one | as `nqchk`; also `NQELIM` for more than 32 anchors |
 | `nqseal2` | `nqseal` in format 2: a Merkle tree over the entries, the seal over the head, and up to 1024 inputs (`nqcapid` ids with names) | as `nqseal`; also `NQELIM` for more than 1024 inputs |
+| `nqsealwhy` | after `NQEARG` from `nqseal` or `nqseal2`: `*why` gets the first thing in `dir` a capsule cannot hold (`NQSWLINK` a link, `NQSWODD` a special file, `NQSWNAME` a refused name, `NQSWCASE` a case clash, `NQSWKEY` a file that starts like a secret key) and `path` its relative path (`cap` bytes, cut and NUL-terminated); `*why` 0 means the arguments, most often keys that are not one pair | `NQOK`; `NQEARG` (`dir` or `why` `NULL`, or `path` `NULL` with `cap` > 0), `NQEIO`, `NQELIM`, `NQEMEM` |
 | `nqcapid` | the id of the capsule in `dir`: SHA-256 of the bytes its seal signs; checks nothing else | `NQOK`; `NQEDEC`, `NQEIO`, `NQEARG` |
 | `nqchkx` | `nqchkt` with options (`NULL`: none): `only` for a partial check, `lin` folders to find and check the inputs in, `stmt` key statements followed from `trust` | as `nqchkt`; `NQEARG` for statements without `trust` |
 | `nqdsse` | a DSSE envelope of a payload, signed over its PAE; keyid the SHA-256 of `pk` | `NQOK`; `NQEBUF`, `NQEARG`, `NQEMEM` |

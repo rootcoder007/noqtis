@@ -1615,9 +1615,27 @@ static void treview(void) {
   wrs("qrv2/a", "x\n");
   want(0, "keygen -a ML-DSA-44 -o qrv2/me", NULL);
   want(2, "seal -k qrv2/me qrv2", NULL);
-  ok(has("q.err", "starts like a noqtis secret key"),
-     "seal: a secret key in the folder is refused");
+  ok(has("q.err", "qrv2/me starts like a noqtis secret key") ||
+     has("q.err", "me starts like a noqtis secret key"),
+     "seal: a secret key in the folder is refused, by name");
   ok(!exists("qrv2/noqtis.sig"), "seal: nothing written");
+  /* the other refusals say what they are, not "a secret key" */
+  remove("qrv2/me");
+  remove("qrv2/me.pub");
+  want(0, "keygen -a ML-DSA-44 -o q.sw", NULL);
+  want(0, "keygen -a ML-DSA-44 -o q.sw2", NULL);
+  want(2, "seal -k q.sw -p q.sw2.pub qrv2", NULL);
+  ok(has("q.err", "are not one key pair") &&
+     !has("q.err", "secret key (noqtis-key-1"),
+     "seal: a key pair that is not one says so");
+#ifndef _WIN32
+  /* (Windows cannot make the name) */
+  wrs("qrv2/a:b", "x\n");
+  want(2, "seal -k q.sw qrv2", NULL);
+  ok(has("q.err", "is one noqtis refuses") && has("q.err", "a:b"),
+     "seal: a refused name is named");
+  remove("qrv2/a:b");
+#endif
   /* a seed in hex on the command line is warned about */
   want(0, "keygen -a ML-DSA-44 --seed "
           "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f "

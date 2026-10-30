@@ -144,6 +144,9 @@ typedef struct {
  * walked, not listed; a link or a refused name is listed, not entered. */
 int nqcwalk(const char *dir, nqclist *l);
 void nqclfree(nqclist *l);
+/* *sec = whether dir/rel starts like a noqtis secret key ("noqtis-key-1
+ * <alg> sec"), as nqcdigx decides it */
+int nqcsec(const char *dir, const char *rel, int *sec);
 /* Streams dir/rel (a regular file, never through a link) into SHA-256
  * and SHA3-256. */
 int nqcdig(const char *dir, const char *rel, uint64_t *size,

@@ -1,8 +1,9 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp"><code class="Nm">nqseal</code> &#x2014; <span class="Nd">seal a
-    folder of files into a signed capsule</span></p>
+<p class="Pp"><code class="Nm">nqseal</code>, <code class="Nm">nqsealwhy</code>
+    &#x2014; <span class="Nd">seal a folder of files into a signed
+    capsule</span></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
@@ -19,6 +20,12 @@
     <var class="Fa">size_t sklen</var>, <var class="Fa">const uint8_t *pk</var>,
     <var class="Fa">size_t pklen</var>, <var class="Fa">const char *meta</var>,
     <var class="Fa">const char *tsa</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqsealwhy</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *dir</var>, <var class="Fa" style="white-space: nowrap;">int
+    *why</var>, <var class="Fa" style="white-space: nowrap;">char *path</var>,
+    <var class="Fa" style="white-space: nowrap;">size_t cap</var>);</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -65,6 +72,35 @@
     <a class="permalink" href="#nqseal~2"><code class="Fn">nqseal</code></a>()
     is not safe to call on the same folder from two threads or processes at
     once.</p>
+<p class="Pp" id="nqseal~3">When
+    <a class="permalink" href="#nqseal~3"><code class="Fn">nqseal</code></a>()
+    or <a class="Xr" href="/noqtis/reference/man/nqseal2-3/">nqseal2(3)</a>
+    returns <code class="Er">NQEARG</code> for a folder,
+    <a class="permalink" href="#nqsealwhy"><code class="Fn" id="nqsealwhy">nqsealwhy</code></a>()
+    says why: it sets <var class="Fa">*why</var> to the first thing in
+    <var class="Fa">dir</var> that a capsule cannot hold and copies its path,
+    relative to <var class="Fa">dir</var>, into <var class="Fa">path</var>
+    (<var class="Fa">cap</var> bytes, always NUL-terminated when
+    <var class="Fa">cap</var> is not 0, cut when too long):</p>
+<dl class="Bl-tag">
+  <dt id="NQSWLINK"><a class="permalink" href="#NQSWLINK"><code class="Dv">NQSWLINK</code></a></dt>
+  <dd>a symbolic link or reparse point;</dd>
+  <dt id="NQSWODD"><a class="permalink" href="#NQSWODD"><code class="Dv">NQSWODD</code></a></dt>
+  <dd>not a regular file or folder (a device, a FIFO, a socket);</dd>
+  <dt id="NQSWNAME"><a class="permalink" href="#NQSWNAME"><code class="Dv">NQSWNAME</code></a></dt>
+  <dd>a name
+      <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>
+      refuses;</dd>
+  <dt id="NQSWCASE"><a class="permalink" href="#NQSWCASE"><code class="Dv">NQSWCASE</code></a></dt>
+  <dd>a path equal to another but for ASCII case;</dd>
+  <dt id="NQSWKEY"><a class="permalink" href="#NQSWKEY"><code class="Dv">NQSWKEY</code></a></dt>
+  <dd>a file that starts like a noqtis secret key (its first line
+      &#x2018;<code class="Li">noqtis-key-1 &lt;alg&gt; sec</code>&#x2019;),
+      which would ship with the capsule.</dd>
+</dl>
+<p class="Pp"><var class="Fa">*why</var> is 0 when nothing in the folder stops a
+    seal; the <code class="Er">NQEARG</code> was then about the arguments, most
+    often keys that are not one pair.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
@@ -81,8 +117,9 @@
       symbolic link, a reparse point, a special file, a refused name (empty, a
       control character, &#x2018;<code class="Li">/</code>&#x2019;,
       &#x2018;<code class="Li">\</code>&#x2019;,
-      &#x2018;<code class="Li">:</code>&#x2019;, invalid UTF-8) or two paths
-      equal but for ASCII case.</dd>
+      &#x2018;<code class="Li">:</code>&#x2019;, invalid UTF-8), two paths equal
+      but for ASCII case, or a file that starts like a noqtis secret key;
+      <code class="Fn">nqsealwhy</code>() says which.</dd>
   <dt>[<code class="Er">NQELIM</code>]</dt>
   <dd>More than 2,000,000 files, a path over 4096 bytes, folders more than 64
       levels deep, a manifest over 512 MiB, a file over 2^53-1 bytes, or
@@ -101,6 +138,13 @@
   <dt>[<code class="Er">NQERNG</code>]</dt>
   <dd>The random source failed while signing.</dd>
 </dl>
+<p class="Pp"><code class="Fn">nqsealwhy</code>() returns
+    <code class="Dv">NQOK</code>, <code class="Er">NQEARG</code> when
+    <var class="Fa">dir</var> or <var class="Fa">why</var> is
+    <code class="Dv">NULL</code> (or <var class="Fa">path</var> is with
+    <var class="Fa">cap</var> not 0), <code class="Er">NQEIO</code> when the
+    folder or a file cannot be read, or <code class="Er">NQELIM</code> or
+    <code class="Er">NQEMEM</code> as <code class="Fn">nqseal</code>() does.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>

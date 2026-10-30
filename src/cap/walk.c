@@ -608,6 +608,22 @@ static int seckey(const unsigned char *b, size_t n) {
   return (size_t)(e - b) >= m + 5 && memcmp(e - 4, " sec", 4) == 0;
 }
 
+int nqcsec(const char *dir, const char *rel, int *sec) {
+  unsigned char buf[16384]; /* nqcdigx's first read, so both agree */
+  size_t k;
+  FILE *f;
+  int rc = NQOK;
+  if (dir == NULL || rel == NULL || sec == NULL) return NQEARG;
+  *sec = 0;
+  f = openin(dir, rel);
+  if (f == NULL) return NQEIO;
+  k = fread(buf, 1, sizeof buf, f);
+  if (ferror(f)) rc = NQEIO;
+  else *sec = seckey(buf, k);
+  fclose(f);
+  return rc;
+}
+
 int nqcdig(const char *dir, const char *rel, uint64_t *size,
            uint8_t s2[32], uint8_t s3[32]) {
   return nqcdigx(dir, rel, (uint64_t)-1, size, s2, s3, NULL);

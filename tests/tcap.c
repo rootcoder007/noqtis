@@ -701,8 +701,23 @@ static void tamper(const key *k, const key *other) {
     NQTEQI(row(r, "file", "a.txt"), 1);
     NQTEQI(nbad(r), 3);
     nqrepfree(r);
-    /* nqseal refuses a folder with a link */
+    /* nqseal refuses a folder with a link, and nqsealwhy names the first */
     NQTEQI(sealk(d, k, NULL), NQEARG);
+    {
+      char wp[64];
+      int w = -1;
+      NQTEQI(nqsealwhy(d, &w, wp, sizeof wp), NQOK);
+      NQTEQI(w, NQSWLINK);
+      NQTCHK(strcmp(wp, "data/up") == 0);
+      /* a short buffer gets a cut, terminated path */
+      NQTEQI(nqsealwhy(d, &w, wp, 3), NQOK);
+      NQTCHK(strcmp(wp, "da") == 0);
+      NQTEQI(nqsealwhy(d, &w, NULL, 0), NQOK);
+      NQTEQI(w, NQSWLINK);
+      NQTEQI(nqsealwhy(d, NULL, wp, sizeof wp), NQEARG);
+      NQTEQI(nqsealwhy(NULL, &w, wp, sizeof wp), NQEARG);
+      NQTEQI(nqsealwhy(d, &w, NULL, 8), NQEARG);
+    }
     remove(made[--nmade]);
     remove(made[--nmade]);
     remove(made[--nmade]);
@@ -719,6 +734,13 @@ static void tamper(const key *k, const key *other) {
     NQTEQI(row(r, "unsafe", "fifo: not a regular file"), 0);
     nqrepfree(r);
     NQTEQI(sealk(d, k, NULL), NQEARG);
+    {
+      char wp[64];
+      int w = -1;
+      NQTEQI(nqsealwhy(d, &w, wp, sizeof wp), NQOK);
+      NQTEQI(w, NQSWODD);
+      NQTCHK(strcmp(wp, "fifo") == 0);
+    }
     remove(made[--nmade]);
   }
 #endif
@@ -729,6 +751,13 @@ static void tamper(const key *k, const key *other) {
   NQTEQI(row(r, "unsafe", "back\\slash: a name noqtis refuses"), 0);
   nqrepfree(r);
   NQTEQI(sealk(d, k, NULL), NQEARG);
+  {
+    char wp[64];
+    int w = -1;
+    NQTEQI(nqsealwhy(d, &w, wp, sizeof wp), NQOK);
+    NQTEQI(w, NQSWNAME);
+    NQTCHK(strcmp(wp, "back\\slash") == 0);
+  }
   remove(made[--nmade]);
 
   /* a field of the manifest (created), and the format */
@@ -932,6 +961,14 @@ static void tsealargs(const key *k, const key *other) {
   NQTEQI(nqseal(d, k->alg, k->skb, k->sz.sk, other->pkb, other->sz.pk,
                 NULL, NULL),
          NQEARG); /* not one key pair */
+  {
+    /* nothing in the folder stops it: nqsealwhy says 0, so the keys */
+    char wp[8] = "x";
+    int w = -1;
+    NQTEQI(nqsealwhy(d, &w, wp, sizeof wp), NQOK);
+    NQTEQI(w, 0);
+    NQTEQI(wp[0], 0);
+  }
   NQTEQI(nqseal(d, k->alg, k->skb, k->sz.sk, k->pkb, k->sz.pk, NULL,
                 "http://tsa.example"),
          NQENOSUP);
@@ -962,7 +999,11 @@ static void tsealargs(const key *k, const key *other) {
     nqclist l;
     if (nqcwalk(d, &l) == NQOK) {
       if (l.n == 5) {
+        char wp[64];
+        int w = -1;
         NQTEQI(sealk(d, k, NULL), NQEARG);
+        NQTEQI(nqsealwhy(d, &w, wp, sizeof wp), NQOK);
+        NQTEQI(w, NQSWCASE);
       }
       nqclfree(&l);
     }

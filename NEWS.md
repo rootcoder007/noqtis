@@ -65,6 +65,10 @@ mistake in the release process; use 0.1.1.)
   serial only a label. Intermediate and leaf certificates must still
   have a positive serial (RFC 5280 4.1.2.2); every other field of an
   anchor is read as strictly as before.
+- `nqsealwhy` says why a folder cannot be sealed (a link, a special
+  file, a refused name, a case clash or a secret key file, with its
+  path), and `noqtis seal` uses it: every refusal used to be reported as
+  a secret key in the folder, and a key pair that is not one now says so.
 - Shell completions for bash, zsh and fish (`cli/completions/`, installed
   with the tool; a test checks they offer every command and option the
   manual pages list).
