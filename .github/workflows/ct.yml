@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
-# Side-channel evidence. dudect (ct/dd.c) times every secret operation on
+# Side-channel evidence. ctgrind builds the library as users do (Release)
+# with -DNQCTGRIND, marks every secret undefined to valgrind and runs the
+# constant-time tests (tests/t*ct.c): memcheck then fails on any branch or
+# memory index that depends on a secret, in the code the compiler made.
+# dudect (ct/dd.c) times every secret operation on
 # fixed against random inputs; the simulated TVLA (ct/tv.c) checks the
 # masked ML-KEM decapsulation and ML-DSA signing for first-order leakage
 # on traces the code records itself (-DNQTVLA). Short runs on every push
@@ -30,10 +34,52 @@ permissions:
   contents: read
 
 concurrency:
-  group: ct-${{ github.ref }}-${{ github.event_name }}
+  group: ct-${{ github.ref }}-${{ github.event_name }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
+  ctgrind:
+    name: ctgrind ${{ matrix.cc }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sudo apt-get update && sudo apt-get install -y valgrind
+      - name: build
+        # Release (-O2 or -O3 as CMake sets it) plus -g for the reports
+        run: |
+          CC=${{ matrix.cc }} cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_FLAGS="-DNQCTGRIND -g" -DNQCLI=OFF
+          cmake --build build -j4
+      - name: the constant-time tests under valgrind
+        working-directory: tests
+        env:
+          NQFAST: "1"
+        run: |
+          set -e
+          n=0
+          for t in ../build/t*ct; do
+            echo "== $t"
+            valgrind --error-exitcode=9 -q "$t"
+            n=$((n + 1))
+          done
+          [ "$n" -ge 9 ] || { echo "only $n constant-time tests" >&2; exit 1; }
+      - name: a secret-dependent branch is caught (the check works)
+        run: |
+          printf '%s\n' '#include <valgrind/memcheck.h>' '#include <stdio.h>' \
+            'int main(void) { volatile unsigned char s[1] = {1};' \
+            '  VALGRIND_MAKE_MEM_UNDEFINED((void *)s, 1);' \
+            '  if (s[0]) puts("leak"); return 0; }' > "$RUNNER_TEMP/canary.c"
+          ${{ matrix.cc }} -O2 -g -o "$RUNNER_TEMP/canary" "$RUNNER_TEMP/canary.c"
+          if valgrind --error-exitcode=9 -q "$RUNNER_TEMP/canary" > /dev/null; then
+            echo "valgrind missed a secret-dependent branch" >&2
+            exit 1
+          fi
+
   dudect:
     name: dudect ${{ matrix.cc }}
     runs-on: ubuntu-24.04

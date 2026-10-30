@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}-${{ github.event_name }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}-${{ github.sha }}
   cancel-in-progress: false
 
 env:
@@ -343,16 +343,17 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           prepare: pkg install -y cmake
+          # packaging/check.sh: the static build with every test, its
+          # install and the consumer program, then the shared build, its
+          # install, the consumer again and the exported-symbol check
           run: |
-            cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-            cmake --build build -j4
-            NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4 --output-on-failure
+            NQSLSUB=8 NQFAST=1 sh packaging/check.sh /tmp/nqchk
 
   distro:
     # each distribution's own compiler and cmake: static build with every
@@ -451,32 +452,34 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         with:
           prepare: pkg_add cmake
+          # packaging/check.sh: the static build with every test, its
+          # install and the consumer program, then the shared build, its
+          # install, the consumer again and the exported-symbol check
           run: |
-            cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-            cmake --build build -j4
-            NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4 --output-on-failure
+            NQSLSUB=8 NQFAST=1 sh packaging/check.sh /tmp/nqchk
 
   netbsd:
     if: >
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
           prepare: /usr/sbin/pkg_add cmake
+          # packaging/check.sh: the static build with every test, its
+          # install and the consumer program, then the shared build, its
+          # install, the consumer again and the exported-symbol check
           run: |
-            cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-            cmake --build build -j4
-            NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4 --output-on-failure
+            NQSLSUB=8 NQFAST=1 sh packaging/check.sh /tmp/nqchk
 
   abi:
     # the shared library's ABI against the last release (libabigail's

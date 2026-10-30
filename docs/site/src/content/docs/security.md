@@ -97,7 +97,10 @@ time too.
   under valgrind, memcheck reports any branch or address that depends on a
   secret. The places a standard publishes a value are declassified
   explicitly in the source, and only there. Built normally, the same files
-  run as ordinary tests.
+  run as ordinary tests. CI runs the check on every push (`ct.yml`, job
+  `ctgrind`) on gcc and clang Release builds, the way users build the
+  library, after checking that valgrind does catch a deliberately
+  secret-dependent branch.
 - **Masked against unmasked**: the masked and unmasked ML-DSA signers and
   ML-KEM decapsulation are run on the same inputs and must give the same
   bytes, including on tampered ciphertexts.

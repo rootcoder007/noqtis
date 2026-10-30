@@ -41,7 +41,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: docs-${{ github.ref }}-${{ github.event_name }}
+  group: docs-${{ github.ref }}-${{ github.event_name }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:

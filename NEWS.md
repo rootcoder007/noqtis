@@ -69,6 +69,9 @@ mistake in the release process; use 0.1.1.)
   file, a refused name, a case clash or a secret key file, with its
   path), and `noqtis seal` uses it: every refusal used to be reported as
   a secret key in the folder, and a key pair that is not one now says so.
+- The constant-time check (ctgrind: secrets marked undefined to valgrind)
+  now runs in CI on every push, on gcc and clang Release builds; before,
+  CI ran the same tests only as ordinary tests.
 - Shell completions for bash, zsh and fish (`cli/completions/`, installed
   with the tool; a test checks they offer every command and option the
   manual pages list).

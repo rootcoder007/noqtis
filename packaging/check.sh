@@ -28,8 +28,9 @@ tests/consumer/run.sh "$w/psh" "$w/ush"
 
 # the shared library exports only what noqtis.h declares
 lib=
+# (OpenBSD names it libnoqtis.so.<major>.<minor>, with no .so.0 link)
 for f in "$w"/psh/lib*/libnoqtis.so.0 "$w"/psh/lib/*/libnoqtis.so.0 \
-         "$w"/psh/lib/libnoqtis.0.dylib; do
+         "$w"/psh/lib/libnoqtis.so.0.* "$w"/psh/lib/libnoqtis.0.dylib; do
   if [ -f "$f" ]; then lib=$f; break; fi
 done
 [ -n "$lib" ] || { echo "no shared libnoqtis installed" >&2; exit 1; }

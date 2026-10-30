@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: r-${{ github.ref }}
+  group: r-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
