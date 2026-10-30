@@ -376,7 +376,7 @@ below is done. Each item says how it is checked.
 - [x] CONTRIBUTING.md (build, tests, commit style, short-name rule,
       Signed-off-by), CODE_OF_CONDUCT.md, issue and pull-request templates,
       and labelled starter issues ("good first issue", "help wanted").
-- [ ] CITATION.cff and a Zenodo DOI for the release, for researchers.
+- [x] CITATION.cff, for researchers (GitHub's "Cite this repository").
 
 ### Launch
 

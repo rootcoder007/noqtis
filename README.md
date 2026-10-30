@@ -122,8 +122,7 @@ nqrepfree(rep);
   rules for the code. Everyone follows the
   [Code of Conduct](CODE_OF_CONDUCT.md).
 - [SECURITY.md](SECURITY.md): report a vulnerability privately.
-- [CITATION.cff](CITATION.cff): how to cite NOQTIS; a Zenodo DOI comes
-  with the first release.
+- [CITATION.cff](CITATION.cff): how to cite NOQTIS.
 
 ## Licence
 

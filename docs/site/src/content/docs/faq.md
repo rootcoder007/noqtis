@@ -91,8 +91,7 @@ can call C can use `libnoqtis` directly ([C tutorial](/noqtis/guides/c/)).
 
 With the metadata in
 [`CITATION.cff`](https://github.com/rootcoder007/noqtis/blob/main/CITATION.cff)
-(GitHub's "Cite this repository" button reads it). A Zenodo DOI for each
-release comes with the first release.
+(GitHub's "Cite this repository" button reads it).
 
 ## What is the licence?
 

@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # How to cite NOQTIS. The version follows project() in CMakeLists.txt.
-# No doi yet: Zenodo mints one when the first release is published (its
-# metadata comes from .zenodo.json); add it here as `doi:` then.
 cff-version: 1.2.0
 message: "If you use NOQTIS in your work, please cite it as below."
 type: software
