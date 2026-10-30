@@ -83,7 +83,14 @@ nqsign <- function(sk, msg, alg, ctx = NULL, det = FALSE, ph = NULL,
   if (!is.null(rnd)) {
     .rawarg(rnd, "rnd")
   } else if (isTRUE(det)) {
-    n <- if (startsWith(a$name, "ML-DSA")) 32L else a$pk %/% 2L
+    # 32 for ML-DSA and the hybrids, none for Ed25519, n for SLH-DSA
+    n <- if (a$name == "Ed25519") {
+      0L
+    } else if (startsWith(a$name, "ML-DSA")) {
+      32L
+    } else {
+      a$pk %/% 2L
+    }
     rnd <- raw(n)
   } else if (!identical(det, FALSE)) {
     stop("'det' must be TRUE or FALSE", call. = FALSE)

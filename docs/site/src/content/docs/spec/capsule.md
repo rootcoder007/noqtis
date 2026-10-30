@@ -149,8 +149,16 @@ The seal is a JSON object with exactly the following members, at most
 `SLH-DSA-SHA2-128s`, `SLH-DSA-SHA2-128f`, `SLH-DSA-SHA2-192s`,
 `SLH-DSA-SHA2-192f`, `SLH-DSA-SHA2-256s`, `SLH-DSA-SHA2-256f`,
 `SLH-DSA-SHAKE-128s`, `SLH-DSA-SHAKE-128f`, `SLH-DSA-SHAKE-192s`,
-`SLH-DSA-SHAKE-192f`, `SLH-DSA-SHAKE-256s` or `SLH-DSA-SHAKE-256f`,
-spelled exactly so.
+`SLH-DSA-SHAKE-192f`, `SLH-DSA-SHAKE-256s`, `SLH-DSA-SHAKE-256f`,
+`ML-DSA-44+Ed25519`, `ML-DSA-65+Ed25519` or `ML-DSA-87+Ed25519`, spelled
+exactly so. `Ed25519` alone is not post-quantum and MUST be refused.
+
+A hybrid (`ML-DSA-*+Ed25519`) `public_key` is the ML-DSA public key
+followed by the 32-byte Ed25519 one, and its `signature` the ML-DSA
+signature followed by the 64-byte Ed25519 one; both parts MUST verify.
+Each part signs the same bytes with the context `noqtis-hybrid:`
+followed by `context` (ML-DSA with that context string, Ed25519 as
+Ed25519ctx, RFC 8032). The Ed25519 public key MUST be of prime order.
 
 `signature` MUST be a signature of the **pure** variant (ML-DSA.Sign of
 FIPS 204 or slh_sign of FIPS 205, not the pre-hash variants) over the

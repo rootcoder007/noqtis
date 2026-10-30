@@ -138,6 +138,8 @@ int nqcseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
    * library does not make; the CLI is to add it (DESIGN.md, M10) */
   if (tsa != NULL) return NQENOSUP;
   if (nqssize(alg, &sz) != NQOK) return NQEARG;
+  /* Ed25519 alone is not post-quantum: never a seal */
+  if (alg == NQED25519) return NQENOSUP;
   an = nqsname(alg);
   if (an == NULL) return NQENOSUP;
   if (sklen != sz.sk || pklen != sz.pk) return NQEARG;

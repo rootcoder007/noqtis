@@ -214,6 +214,12 @@ static void rdseal(nqrep *r, const char *dir, seal *s) {
   rc = nqsfind(s->an, &s->alg) == NQOK && nqssize(s->alg, &s->sz) == NQOK;
   add(r, "seal.alg", rc, s->an, rc ? NULL : ": not known", NULL);
   if (!rc) return;
+  /* a seal is post-quantum: Ed25519 alone is not (a hybrid is) */
+  rc = s->alg != NQED25519;
+  add(r, "seal.alg", rc, s->an,
+      rc ? NULL : ": not post-quantum (use ML-DSA, SLH-DSA or a hybrid)",
+      NULL);
+  if (!rc) return;
   /* only "noqtis-capsule-1": a signature made for anything else (a plain
    * `noqtis sign`, another protocol's context) is never a seal */
   rc = s->ctxlen == sizeof NQCCTX - 1 &&

@@ -17,8 +17,11 @@ __all__ = ["keygen", "rndlen", "sign", "verify"]
 
 
 def rndlen(alg: AlgLike) -> int:
-    """Bytes of per-signature randomness: 32 for ML-DSA, n for SLH-DSA."""
+    """Bytes of per-signature randomness: 32 for ML-DSA and the hybrids
+    (ML-DSA-65+Ed25519, ...), n for SLH-DSA, 0 for Ed25519."""
     a = find(alg, "sign")
+    if a.name == "Ed25519":
+        return 0
     return 32 if a.name.startswith("ML-DSA") else a.pk // 2
 
 

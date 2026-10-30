@@ -89,6 +89,7 @@ vectors and against OpenSSL.
 | M4 | `slh` | SLH-DSA, all 12 parameter sets, pure and HashSLH-DSA | ACVP keyGen/sigGen/sigVer, OpenSSL 3.5 cross-check, ctgrind |
 | M5 | `mlkem` | ML-KEM-512/768/1024: keygen, encaps, decaps; first-order masked decaps; input checks of FIPS 203 section 7 | ACVP keyGen/encapDecap, Wycheproof ML-KEM, OpenSSL 3.5 cross-check, ctgrind, dudect, TVLA |
 | M6 | `hqc` | HQC-128/192/256 (v5.0.0, 2025-08-22) | the reference KAT files (digests), ctgrind, dudect |
+| M3e | `ed` | Ed25519, Ed25519ctx, Ed25519ph (RFC 8032), strict verification (prime-order keys, S < L, canonical encodings); hybrid ML-DSA + Ed25519 in `api/sig.c` | RFC 8032 vectors, Wycheproof Ed25519, OpenSSL 3.5 cross-check and differential fuzz, ctgrind |
 | M7 | `cls` | verification only: RSA PKCS#1 v1.5 and PSS (2048-4096), ECDSA P-256 and P-384 | Wycheproof RSA and ECDSA, OpenSSL 3.5 differential fuzz |
 | M8 | `der` | strict DER reader (length, tag and depth limits), X.509 path checks, OCSP, CRL, RFC 3161 timestamp tokens | the rmoriebricklayer 1.0.3 x509/timestamp fixtures, libFuzzer corpus, positional-parse tests |
 | M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer |

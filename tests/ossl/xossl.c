@@ -8,11 +8,14 @@
  *   ciphertext and secret for the same encapsulation seed, each
  *   decapsulates the other's ciphertext, and both give the same implicit
  *   rejection secret for a changed ciphertext;
+ * - Ed25519, Ed25519ctx and Ed25519ph: the same key and byte-identical
+ *   signatures, each verifying the other's;
  * - RSA PKCS#1 v1.5 and PSS (2048, 3072), ECDSA P-256 and P-384: noqtis
  *   accepts every OpenSSL signature and refuses each one with a bit
  *   flipped.
  * Built and run only where OpenSSL 3.5 or later is found (CMake option
  * NQOSSL). NQFAST=1 runs fewer rounds. */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -260,6 +263,63 @@ static void tkem(void) {
   tkem1(NQMLKEM1024, "ML-KEM-1024", rounds * 4);
 }
 
+/* ---- Ed25519 ---- */
+
+/* Ed25519, Ed25519ctx and Ed25519ph: the same public key from the same
+ * private key, byte-identical signatures (all three are deterministic),
+ * and each verifies the other's */
+static void ted(void) {
+  static const char *inst[3] = {"Ed25519", "Ed25519ctx", "Ed25519ph"};
+  uint8_t sk[32], pk[32], ob[64], m[300], ctx[64], s1[64], s2[64];
+  size_t i, ol, sl;
+  int v;
+  for (i = 0; i < (size_t)rounds * 12; i++) {
+    EVP_PKEY *k;
+    EVP_MD_CTX *c;
+    OSSL_PARAM p[3];
+    int n = 0;
+    size_t mn = i * 37 % sizeof m, cn = 1 + i % sizeof ctx;
+    v = (int)(i % 3);
+    if (v == 0) cn = 0;
+    rnd(sk, 32);
+    rnd(m, mn);
+    rnd(ctx, cn);
+    NQTEQI(nqskgd(NQED25519, sk, 32, pk, 32, ob, 32), NQOK);
+    k = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, sk, 32);
+    NQTCHK(k != NULL);
+    if (k == NULL) break;
+    ol = sizeof ob;
+    NQTCHK(EVP_PKEY_get_raw_public_key(k, ob, &ol) == 1 && ol == 32);
+    NQTEQM(ob, pk, 32);
+    NQTEQI(nqsign(NQED25519, sk, 32, m, mn, ctx, cn,
+                  v == 2 ? (int)NQS512 : 0, s1, 64, &sl), NQOK);
+    p[n++] = OSSL_PARAM_construct_utf8_string(
+        OSSL_SIGNATURE_PARAM_INSTANCE, (char *)(uintptr_t)inst[v], 0);
+    if (cn > 0)
+      p[n++] = OSSL_PARAM_construct_octet_string(
+          OSSL_SIGNATURE_PARAM_CONTEXT_STRING, ctx, cn);
+    p[n] = OSSL_PARAM_construct_end();
+    c = EVP_MD_CTX_new();
+    sl = sizeof s2;
+    NQTCHK(c != NULL &&
+           EVP_DigestSignInit_ex(c, NULL, NULL, NULL, NULL, k, p) == 1 &&
+           EVP_DigestSign(c, s2, &sl, m, mn) == 1 && sl == 64);
+    EVP_MD_CTX_free(c);
+    NQTEQM(s1, s2, 64);
+    NQTEQI(nqvrfy(NQED25519, pk, 32, m, mn, ctx, cn,
+                  v == 2 ? (int)NQS512 : 0, s2, 64), NQOK);
+    s2[i % 64] ^= 1;
+    c = EVP_MD_CTX_new();
+    NQTCHK(c != NULL &&
+           EVP_DigestVerifyInit_ex(c, NULL, NULL, NULL, NULL, k, p) == 1);
+    NQTCHK(c != NULL && EVP_DigestVerify(c, s2, 64, m, mn) != 1);
+    EVP_MD_CTX_free(c);
+    NQTCHK(nqvrfy(NQED25519, pk, 32, m, mn, ctx, cn,
+                  v == 2 ? (int)NQS512 : 0, s2, 64) != NQOK);
+    EVP_PKEY_free(k);
+  }
+}
+
 /* ---- RSA and ECDSA ---- */
 
 static void tcls1(EVP_PKEY *k, int pss, const char *dn, nqhalg h, int n) {
@@ -335,6 +395,7 @@ int main(void) {
   thash();
   tsig();
   tkem();
+  ted();
   tcls();
   return nqtdone("xossl");
 }

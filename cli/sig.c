@@ -243,8 +243,11 @@ int ncsign(int argc, char **argv) {
     goto done;
   }
   if (det) {
-    /* all-zero rnd: 32 bytes for ML-DSA, n = |pk|/2 for SLH-DSA */
-    size_t rl = k.a.alg <= (int)NQMLDSA87 ? 32 : z.pk / 2;
+    /* all-zero rnd: 32 bytes for ML-DSA and the hybrids, none for
+     * Ed25519, n = |pk|/2 for SLH-DSA */
+    size_t rl = k.a.alg <= (int)NQMLDSA87 || k.a.alg >= (int)NQMDED44
+                    ? 32
+                    : (k.a.alg == (int)NQED25519 ? 0 : z.pk / 2);
     memset(rnd, 0, sizeof rnd);
     rc = nqsignd((nqsalg)k.a.alg, k.b, k.n, msg, mn,
                  (const uint8_t *)ctx, cn, phv, rnd, rl, sig, z.sig, &sl);

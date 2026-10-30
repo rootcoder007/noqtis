@@ -59,7 +59,9 @@ after `init()` is synchronous.
 | `version()` | the library version |
 
 Algorithm names are the standards' (`ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87`,
-`SLH-DSA-SHA2-128s` ... `SLH-DSA-SHAKE-256f`, `ML-KEM-512`, `ML-KEM-768`,
+`SLH-DSA-SHA2-128s` ... `SLH-DSA-SHAKE-256f`, the hybrids
+`ML-DSA-44+Ed25519` ... `ML-DSA-87+Ed25519`, `Ed25519` (classical, not for
+seals), `ML-KEM-512`, `ML-KEM-768`,
 `ML-KEM-1024`, `HQC-128`, `HQC-192`, `HQC-256`); case does not matter.
 Hashes: `sha224 sha256 sha384 sha512 sha512-224 sha512-256 sha3-224
 sha3-256 sha3-384 sha3-512 shake128 shake256`.

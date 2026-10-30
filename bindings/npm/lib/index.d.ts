@@ -12,6 +12,8 @@ export type SignAlg =
   | 'SLH-DSA-SHAKE-128s' | 'SLH-DSA-SHAKE-128f'
   | 'SLH-DSA-SHAKE-192s' | 'SLH-DSA-SHAKE-192f'
   | 'SLH-DSA-SHAKE-256s' | 'SLH-DSA-SHAKE-256f'
+  | 'ML-DSA-44+Ed25519' | 'ML-DSA-65+Ed25519' | 'ML-DSA-87+Ed25519'
+  | 'Ed25519'
   | (string & {});
 
 export type KemAlg =

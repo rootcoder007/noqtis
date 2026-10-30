@@ -8,7 +8,10 @@
  *   2  ML-KEM: the same key, ciphertext and secret from the seeds in the
  *      input; then a ciphertext changed as the input says decapsulates
  *      to the same secret on both;
- *   3  RSA PKCS#1 v1.5, RSA-PSS and ECDSA P-256/P-384 with keys made at
+ *   3  Ed25519, Ed25519ctx and Ed25519ph: the same key and signature
+ *      from a key in the input, then a changed signature accepted by
+ *      both or by neither;
+ *   4  RSA PKCS#1 v1.5, RSA-PSS and ECDSA P-256/P-384 with keys made at
  *      start: OpenSSL signs the message, the input changes the
  *      signature, and whatever noqtis accepts OpenSSL accepts too.
  * Any difference aborts. Built only by fuzz/build.sh with NQOSSL=1 (not
@@ -215,6 +218,50 @@ static void fmlkem(rd *r) {
   EVP_PKEY_free(k);
 }
 
+/* Ed25519 (and ctx, ph) from a key in the input: the same public key and
+ * signature, then a changed signature accepted by both or by neither */
+static void fed(rd *r) {
+  static const char *inst[3] = {"Ed25519", "Ed25519ctx", "Ed25519ph"};
+  uint8_t sk[32], pk[32], ob[32], ctx[32], m[256], s1[64], s2[64];
+  unsigned v = byte(r) % 3;
+  size_t cn = v == 0 ? 0 : 1 + byte(r) % sizeof ctx, mn = byte(r), ol = 32,
+         sl = 64;
+  int ph = v == 2 ? (int)NQS512 : 0, ours, theirs;
+  EVP_PKEY *k;
+  EVP_MD_CTX *c;
+  OSSL_PARAM p[3];
+  int n = 0;
+  take(r, sk, 32);
+  take(r, ctx, cn);
+  take(r, m, mn);
+  NEED(nqskgd(NQED25519, sk, 32, pk, 32, ob, 32) == NQOK);
+  k = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, sk, 32);
+  NEED(k != NULL && EVP_PKEY_get_raw_public_key(k, ob, &ol) == 1 &&
+       memcmp(ob, pk, 32) == 0);
+  NEED(nqsign(NQED25519, sk, 32, m, mn, ctx, cn, ph, s1, 64, &sl) == NQOK);
+  p[n++] = OSSL_PARAM_construct_utf8_string(
+      OSSL_SIGNATURE_PARAM_INSTANCE, (char *)(uintptr_t)inst[v], 0);
+  if (cn > 0)
+    p[n++] = OSSL_PARAM_construct_octet_string(
+        OSSL_SIGNATURE_PARAM_CONTEXT_STRING, ctx, cn);
+  p[n] = OSSL_PARAM_construct_end();
+  c = EVP_MD_CTX_new();
+  sl = 64;
+  NEED(c != NULL &&
+       EVP_DigestSignInit_ex(c, NULL, NULL, NULL, NULL, k, p) == 1 &&
+       EVP_DigestSign(c, s2, &sl, m, mn) == 1 && memcmp(s1, s2, 64) == 0);
+  EVP_MD_CTX_free(c);
+  mutate(r, s1, 64);
+  ours = nqvrfy(NQED25519, pk, 32, m, mn, ctx, cn, ph, s1, 64) == NQOK;
+  c = EVP_MD_CTX_new();
+  NEED(c != NULL &&
+       EVP_DigestVerifyInit_ex(c, NULL, NULL, NULL, NULL, k, p) == 1);
+  theirs = EVP_DigestVerify(c, s1, 64, m, mn) == 1;
+  EVP_MD_CTX_free(c);
+  NEED(ours == theirs);
+  EVP_PKEY_free(k);
+}
+
 /* the classical keys, made once */
 static struct {
   EVP_PKEY *k;
@@ -297,10 +344,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   if (size == 0) return 0;
   r.p = data + 1;
   r.n = size - 1;
-  switch (data[0] % 4) {
+  switch (data[0] % 5) {
     case 0: fhash(&r); break;
     case 1: fmldsa(&r); break;
     case 2: fmlkem(&r); break;
+    case 3: fed(&r); break;
     default: fcls(&r); break;
   }
   return 0;

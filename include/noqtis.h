@@ -103,11 +103,20 @@ NQAPI int nqhmac(nqhalg alg, const uint8_t *key, size_t keylen,
 
 /* ---- signatures ----------------------------------------------------- */
 
-/* NQSLH*: SLH-DSA with SHA-2; NQSLHK*: SLH-DSA with SHAKE. */
+/* NQSLH*: SLH-DSA with SHA-2; NQSLHK*: SLH-DSA with SHAKE.
+ * NQED25519: Ed25519 (RFC 8032), classical: for interoperability (DSSE
+ * envelopes, say), never for a capsule seal.
+ * NQMDED*: hybrid ML-DSA + Ed25519 ("ML-DSA-65+Ed25519"): pk = ML-DSA pk
+ * || Ed25519 pk, sk = ML-DSA sk || Ed25519 sk, sig = ML-DSA sig ||
+ * Ed25519 sig; both must verify. Each part signs with the context
+ * "noqtis-hybrid:" || ctx (so ctx is at most 241 bytes), which keeps a
+ * part from passing as a plain signature; the pre-hash variant is
+ * HashML-DSA with SHA-512 and Ed25519ph. */
 typedef enum {
   NQMLDSA44 = 1, NQMLDSA65, NQMLDSA87,
   NQSLH128S, NQSLH128F, NQSLH192S, NQSLH192F, NQSLH256S, NQSLH256F,
-  NQSLHK128S, NQSLHK128F, NQSLHK192S, NQSLHK192F, NQSLHK256S, NQSLHK256F
+  NQSLHK128S, NQSLHK128F, NQSLHK192S, NQSLHK192F, NQSLHK256S, NQSLHK256F,
+  NQED25519, NQMDED44, NQMDED65, NQMDED87
 } nqsalg;
 
 typedef struct {
@@ -124,7 +133,8 @@ NQAPI int nqsfind(const char *name, nqsalg *alg);
 NQAPI int nqskg(nqsalg alg, uint8_t *pk, size_t pklen,
                 uint8_t *sk, size_t sklen);
 /* Key generation from the standard's seed (xi for ML-DSA; SK.seed ||
- * SK.prf || PK.seed for SLH-DSA), for the test vectors. The seed may
+ * SK.prf || PK.seed for SLH-DSA; the 32-byte private key for Ed25519;
+ * xi || the Ed25519 key, 64 bytes, for a hybrid), for the test vectors. The seed may
  * overlap pk or sk. On any error pk and sk are cleared. */
 NQAPI int nqskgd(nqsalg alg, const uint8_t *seed, size_t seedlen,
                  uint8_t *pk, size_t pklen, uint8_t *sk, size_t sklen);
@@ -137,8 +147,10 @@ NQAPI int nqsign(nqsalg alg, const uint8_t *sk, size_t sklen,
                  const uint8_t *msg, size_t msglen,
                  const uint8_t *ctx, size_t ctxlen, int ph,
                  uint8_t *sig, size_t siglen, size_t *outlen);
-/* rnd is the standard's per-signature randomness (32 bytes for ML-DSA,
- * n bytes for SLH-DSA); all zero gives the deterministic variant. */
+/* rnd is the standard's per-signature randomness (32 bytes for ML-DSA
+ * and the hybrids, n bytes for SLH-DSA, none for Ed25519, which is
+ * deterministic: rnd may then be NULL with rndlen 0); all zero gives the
+ * deterministic variant. */
 NQAPI int nqsignd(nqsalg alg, const uint8_t *sk, size_t sklen,
                   const uint8_t *msg, size_t msglen,
                   const uint8_t *ctx, size_t ctxlen, int ph,

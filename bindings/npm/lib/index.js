@@ -348,7 +348,9 @@ export const sign = Object.freeze({
       const pn = h.alloc(4);
       let rc;
       if (opts.rnd !== undefined || opts.deterministic) {
-        const n = a.name.startsWith('ML-DSA') ? 32 : a.pk / 2;
+        // 32 for ML-DSA and the hybrids, none for Ed25519, n for SLH-DSA
+        const n = a.name === 'Ed25519' ? 0
+          : a.name.startsWith('ML-DSA') ? 32 : a.pk / 2;
         const r = opts.rnd !== undefined ? key(opts.rnd, 'rnd')
           : new Uint8Array(n);
         const pr = h.put(r);

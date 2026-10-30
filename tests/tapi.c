@@ -95,11 +95,11 @@ static void snames1(void) {
     NQTEQI(a, salgs[i]);
   }
   NQTEQI(nqssize((nqsalg)0, &sz), NQEARG);
-  NQTEQI(nqssize((nqsalg)16, &sz), NQEARG);
+  NQTEQI(nqssize((nqsalg)20, &sz), NQEARG);
   NQTEQI(nqssize((nqsalg)-1, &sz), NQEARG);
   NQTEQI(nqssize(NQMLDSA44, NULL), NQEARG);
   NQTCHK(nqsname((nqsalg)0) == NULL);
-  NQTCHK(nqsname((nqsalg)16) == NULL);
+  NQTCHK(nqsname((nqsalg)20) == NULL);
   NQTEQI(nqsfind("ML-DSA-66", &a), NQENOSUP);
   NQTEQI(nqsfind("ml-dsa-44", &a), NQENOSUP);
   NQTEQI(nqsfind("", &a), NQENOSUP);

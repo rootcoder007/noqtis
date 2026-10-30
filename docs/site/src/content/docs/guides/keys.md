@@ -23,6 +23,13 @@ SLH-DSA-SHA2-128s      sig       32      64    7856    -
   `s` sets have smaller signatures and slow signing; the `f` sets sign
   faster with larger signatures. SHA2 and SHAKE variants differ only in the
   hash inside.
+- **ML-DSA-65+Ed25519** (and the 44 and 87 hybrids): an ML-DSA signature
+  and a classical Ed25519 signature at once, both required to verify. For
+  places that must still show a classical signature during the move to
+  post-quantum ones, or that want a second, independent assumption.
+- **Ed25519** alone is classical (RFC 8032), for interoperating with tools
+  that expect it; `noqtis seal` refuses it, since quantum computers will
+  break it.
 - **ML-KEM** (FIPS 203) and **HQC** are key encapsulation mechanisms, for
   [enc](/noqtis/reference/man/noqtis-enc-1/) and
   [dec](/noqtis/reference/man/noqtis-dec-1/); they cannot sign or seal.

@@ -65,8 +65,8 @@ libnoqtis, \-lnoqtis
 .Fn nqsfind "const char *name" "nqsalg *alg"
 .Sh DESCRIPTION
 These functions make keys, sign and verify with the module-lattice
-signature ML-DSA (FIPS 204) and the stateless hash-based signature SLH-DSA
-(FIPS 205).
+signature ML-DSA (FIPS 204), the stateless hash-based signature SLH-DSA
+(FIPS 205), Ed25519 (RFC 8032), and hybrid ML-DSA + Ed25519.
 Keys and signatures are byte strings in the encodings the standards
 define.
 .Ss Algorithms
@@ -89,6 +89,10 @@ names the parameter set:
 .It Dv NQSLHK192F Ta SLH-DSA-SHAKE-192f Ta 48 Ta 96 Ta 35664
 .It Dv NQSLHK256S Ta SLH-DSA-SHAKE-256s Ta 64 Ta 128 Ta 29792
 .It Dv NQSLHK256F Ta SLH-DSA-SHAKE-256f Ta 64 Ta 128 Ta 49856
+.It Dv NQED25519 Ta Ed25519 Ta 32 Ta 32 Ta 64
+.It Dv NQMDED44 Ta ML-DSA-44+Ed25519 Ta 1344 Ta 2592 Ta 2484
+.It Dv NQMDED65 Ta ML-DSA-65+Ed25519 Ta 1984 Ta 4064 Ta 3373
+.It Dv NQMDED87 Ta ML-DSA-87+Ed25519 Ta 2624 Ta 4928 Ta 4691
 .El
 .Pp
 Sizes are in bytes.
@@ -97,6 +101,38 @@ The
 sets give small signatures and slow signing, the
 .Ql f
 sets fast signing and larger signatures.
+.Pp
+.Dv NQED25519
+is Ed25519 (RFC 8032): classical, not post-quantum, for interoperation
+(DSSE envelopes, say); a capsule is never sealed with it alone.
+No context and
+.Fa ph
+0 is Ed25519; a context is Ed25519ctx;
+.Fa ph
+.Dv NQS512
+is Ed25519ph (no other hash).
+It is deterministic:
+.Fn nqsignd
+takes no randomness
+.Pq Fa rnd No may be Dv NULL No with Fa rndlen No 0 .
+Verification refuses a public key of small or mixed order, a scalar S
+not below the group order, and any non-canonical encoding.
+.Pp
+The hybrid sets
+.Dv NQMDED44 , NQMDED65
+and
+.Dv NQMDED87
+sign with ML-DSA and Ed25519 at once: the public key is the ML-DSA public
+key followed by the Ed25519 one, the secret key likewise, the signature
+the ML-DSA signature followed by the Ed25519 one, and a signature
+verifies only when both parts do.
+Each part signs with the context
+.Ql noqtis-hybrid:
+followed by the caller's, so the caller's context is at most 241 bytes,
+and neither part passes as a plain signature under the caller's context.
+The pre-hash variant is HashML-DSA with SHA-512 and Ed25519ph.
+The key-generation seed of a hybrid is the ML-DSA xi followed by the
+Ed25519 private key, 64 bytes.
 .Pp
 .Fn nqssize
 stores the sizes of

@@ -13,6 +13,12 @@ mistake in the release process; use 0.1.1.)
   (arm64, x86-64) and Windows (x64, ARM64), with SHA256SUMS, Sigstore and
   SSH signatures, an SPDX SBOM and SLSA provenance; `install.sh` and
   `install.ps1` check them before they install.
+- Ed25519 (RFC 8032: Ed25519, Ed25519ctx, Ed25519ph; keys of small or
+  mixed order refused) and hybrid signatures ML-DSA-44/65/87+Ed25519,
+  which need both parts to verify and can seal capsules; Ed25519 alone is
+  refused for seals. Tested with the RFC 8032 vectors, all 210 Wycheproof
+  Ed25519 cases, byte-identical signatures against OpenSSL 3.5 and a
+  constant-time check under valgrind.
 - Cross-checked against OpenSSL 3.5 or later (`tests/ossl/`, workflow
   `ossl.yml`): the same ML-DSA, SLH-DSA and ML-KEM keys, signatures,
   ciphertexts and secrets from the same seeds, the same digests and

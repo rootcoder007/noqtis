@@ -7,6 +7,8 @@
   reference KAT records, copied unchanged from rmoriebricklayer
   (tests/testthat/hqc-kat-digests.txt, commit 6450ab1); see hqc/SOURCES.md.
 - `wycheproof/hmac_*_test.json`: Wycheproof's HMAC-SHA-224/256/384/512, -SHA-512/224, -SHA-512/256 and HMAC-SHA3-224/256/384/512 sets, used by `tests/thash.c`, unchanged from https://raw.githubusercontent.com/C2SP/wycheproof/d17cc89fa5c8f4f4d378b5385ebf75da5d0926c9/testvectors_v1/ (fetched 2026-10-29); their SHA-256s are in SHA256SUMS.
+- `wycheproof/ed25519_test.json`: Wycheproof's Ed25519 verification set (210 tests, small- and mixed-order keys among the invalid ones), used by `tests/ted.c`, unchanged from https://raw.githubusercontent.com/C2SP/wycheproof/a3d5d1423f2592d6646836a45a21a1b209da9f4d/testvectors_v1/ed25519_test.json (fetched 2026-10-29).
+- `ed/rfc8032.json`: the test vectors of RFC 8032 sections 7.1 (Ed25519), 7.2 (Ed25519ctx) and 7.3 (Ed25519ph), 10 in all, extracted from https://www.rfc-editor.org/rfc/rfc8032.txt (SHA-256 ed63657ff389301282b169b0abde9b5dd2c7e4d524fdfa5da6ff3094fc93c4c3, fetched 2026-10-29) by `ed/rfcx.py`.
 - `wycheproof/` also holds the RSA PKCS#1 v1.5, RSA-PSS and ECDSA (P-256, P-384, P-521; DER and P1363) sets used by `tests/tcls.c`, from the same C2SP testvectors_v1 folder.
 - `ossl/cls.json`: OpenSSL 3.5 differential set for `tests/tcls.c`: keys and signatures made by `openssl`, plus mutated copies, each with OpenSSL's own verdict; `ossl/gen.py` regenerates it (`python3 -I gen.py <workdir> <out.json>`, fixed seed 20261028).
 - `der/`: certificates, OCSP responses, CRLs and RFC 3161 tokens for `tests/tder.c`, `tests/tx509.c` and `tests/ttsp.c`: a local PKI made by `der/gen.sh`, real public TSA tokens, and files from rmoriebricklayer; see `der/SOURCES.md`.

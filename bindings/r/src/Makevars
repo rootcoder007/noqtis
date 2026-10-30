@@ -24,6 +24,7 @@ OBJECTS = \
   der/tsp.o \
   der/x509.o \
   drbg/drbg.o \
+  ed/ed.o \
   hash/hash.o \
   hash/hmac.o \
   hash/sha1.o \
