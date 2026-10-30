@@ -274,14 +274,16 @@ done:
 }
 
 int ncvrfy(int argc, char **argv) {
-  const char *kp = NULL, *sp = NULL, *ctx = NULL, *ph = NULL;
-  int quiet = 0, help = 0, np, rc, phv, ret = NCUSE;
+  const char *kp = NULL, *sp = NULL, *ctx = NULL, *ph = NULL, *op = NULL;
+  int quiet = 0, help = 0, np, rc, phv, ret = NCUSE, dsse = 0;
   ncopt o[] = {
     {'p', "pub", 1, &kp, NULL},
     {'s', "sig", 1, &sp, NULL},
     {'c', "ctx", 1, &ctx, NULL},
     {'\0', "ph", 1, &ph, NULL},
-    {'q', "quiet", 0, NULL, &quiet}
+    {'q', "quiet", 0, NULL, &quiet},
+    {'\0', "dsse", 0, NULL, &dsse},
+    {'o', "out", 1, &op, NULL}
   };
   nckey k = {{0, 0, NULL}, 0, NULL, 0};
   nqssz z = {0, 0, 0};
@@ -295,7 +297,14 @@ int ncvrfy(int argc, char **argv) {
     ncuse(stdout, "verify");
     return NCOK;
   }
-  if (kp == NULL || sp == NULL || np != 1) {
+  if (dsse) {
+    if (kp == NULL || sp != NULL || ctx != NULL || ph != NULL || np != 1) {
+      ncuse(stderr, "verify");
+      return NCUSE;
+    }
+    return ncvdsse(kp, argv[0], op, quiet);
+  }
+  if (kp == NULL || sp == NULL || np != 1 || op != NULL) {
     ncuse(stderr, "verify");
     return NCUSE;
   }

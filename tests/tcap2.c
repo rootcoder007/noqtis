@@ -211,6 +211,42 @@ static int seal(const char *d, int ver, const nqcin *in, size_t nin) {
                   ver, in, nin, NULL);
 }
 
+/* the value of row chk of r, or NULL */
+static const char *rowd(const nqrep *r, const char *chk) {
+  size_t i;
+  for (i = 0; i < nqrepn(r); i++) {
+    const char *c, *d;
+    int ok;
+    nqrepi(r, i, &c, &ok, &d);
+    if (strcmp(c, chk) == 0) return d;
+  }
+  return NULL;
+}
+
+/* nqinsp and nqfiles read a format 2 capsule's meta and files (the meta
+ * once came back empty: its length was read after the buffer's free) */
+static void tinsp2(void) {
+  char d[400];
+  nqrep *r = NULL;
+  const char *m;
+  mk(d, sizeof d, "insp2");
+  NQTEQI(seal(d, 2, NULL, 0), NQOK);
+  NQTEQI(nqinsp(d, &r), NQOK);
+  m = rowd(r, "info.meta");
+  NQTCHK(m != NULL && strcmp(m, "{\"study\":\"s1\"}") == 0);
+  NQTCHK(rowd(r, "info.file") == NULL);
+  nqrepfree(r);
+  NQTEQI(nqfiles(d, &r), NQOK);
+  m = rowd(r, "info.file");
+  /* "6 <sha256 of alpha\n> a.txt" */
+  NQTCHK(m != NULL && strncmp(m, "6 ", 2) == 0 && strlen(m) == 2 + 64 + 6 &&
+         strcmp(m + 67, "a.txt") == 0);
+  m = rowd(r, "info.meta");
+  NQTCHK(m != NULL && strcmp(m, "{\"study\":\"s1\"}") == 0);
+  nqrepfree(r);
+  rmall(d);
+}
+
 static void tseal(void) {
   char d[400], *m;
   size_t n = 0;
@@ -812,6 +848,7 @@ int main(void) {
     tproof();
     topts();
     tkeys();
+    tinsp2();
     rmdir(root);
   }
 #endif

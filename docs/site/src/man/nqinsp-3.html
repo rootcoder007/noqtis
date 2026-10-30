@@ -67,12 +67,12 @@
     is <code class="Fn">nqinsp</code>() with one
     &#x2018;<code class="Li">info.file</code>&#x2019; row per listed file among
     the reader's rows, in manifest order: the file's size in bytes, in decimal,
-    a space, and its path (normal form,
-    &#x2018;<code class="Li">/</code>&#x2019; between folders). Only paths the
-    checker's rules accept are listed, so a caller may fetch each one into a
-    folder of its own, as &#x2018;<code class="Li">noqtis check
-    <var class="Ar">url</var></code>&#x2019; does, and then check that
-  folder.</p>
+    its SHA-256 as 64 lower-case hex digits, and its path (normal form,
+    &#x2018;<code class="Li">/</code>&#x2019; between folders), with a space
+    between. Only paths the checker's rules accept are listed, so a caller may
+    fetch each one into a folder of its own, as &#x2018;<code class="Li">noqtis
+    check <var class="Ar">url</var></code>&#x2019; does, and then check that
+    folder.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN

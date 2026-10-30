@@ -16,6 +16,16 @@
       [<code class="Fl">-q</code>] <var class="Ar">file</var></td>
   </tr>
 </table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis verify</code></td>
+    <td><code class="Fl">-p</code> <var class="Ar">key.pub</var>
+      <code class="Fl">--dsse</code> [<code class="Fl">-o</code>
+      <var class="Ar">payload</var>] [<code class="Fl">-q</code>]
+      <var class="Ar">envelope</var></td>
+  </tr>
+</table>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -53,6 +63,19 @@ On failure it prints to standard error why (&#x201C;the signature does not
   <dt id="q"><a class="permalink" href="#q"><code class="Fl">-q</code></a>,
     <code class="Fl">--quiet</code></dt>
   <dd>Print nothing on success; only the exit status tells.</dd>
+  <dt id="dsse"><a class="permalink" href="#dsse"><code class="Fl">--dsse</code></a></dt>
+  <dd>Check a DSSE envelope
+      (<a class="Xr" href="/noqtis/reference/man/noqtis-export-1/">noqtis-export(1)</a>
+      <code class="Fl">--as</code> <code class="Cm">dsse</code>) instead: one of
+      its signatures must verify under <var class="Ar">key.pub</var> over the
+      envelope's pre-authentication encoding; then
+      &#x2018;<code class="Li">&lt;envelope&gt;: OK (&lt;alg&gt;), payloadType
+      &lt;type&gt;</code>&#x2019; is printed.</dd>
+  <dt id="o"><a class="permalink" href="#o"><code class="Fl">-o</code></a>
+    <var class="Ar">payload</var>,
+    <code class="Fl">--out</code>=<var class="Ar">payload</var></dt>
+  <dd>With <code class="Fl">--dsse</code>: write the envelope's payload to
+      <var class="Ar">payload</var>.</dd>
 </dl>
 </section>
 <section class="Sh">
@@ -90,7 +113,9 @@ fi</pre>
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-export-1/">noqtis-export(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-sign-1/">noqtis-sign(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqdsse-3/">nqdsse(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqsign-3/">nqsign(3)</a></p>
 </section>
 </div>

@@ -829,9 +829,11 @@ static void tail2(nqrep *r, const char *buf, size_t n, size_t at,
   }
   if (mt != NULL) {
     nqcbuf q;
+    size_t ml;
     memset(&q, 0, sizeof q);
     ok = mt->type == NQJOBJ && nqcjval(&q, mt) == NQOK &&
          q.n <= NQCMETAMAX;
+    ml = q.n; /* before the free, which zeroes it */
     nqcbfree(&q);
     if (!ok) {
       add(r, "manifest.fields", 0, "meta is not a JSON object of at most "
@@ -840,7 +842,6 @@ static void tail2(nqrep *r, const char *buf, size_t n, size_t at,
     }
     if (in != NULL) {
       /* meta is last: its canonical bytes end the manifest */
-      size_t ml = q.n;
       in->meta = buf + n - 1 - ml;
       in->metan = ml;
     }
@@ -995,9 +996,16 @@ static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
             nqcnorm(e->raw, e->rawn, e->norm, sizeof e->norm, &e->nn) ==
                 NQOK &&
             e->nn == e->rawn && memcmp(e->norm, e->raw, e->nn) == 0) {
-          char num[24];
+          char num[24], d[96];
+          size_t k;
           u64s(e->size, num);
-          add(r, "info.file", 1, num, " ", e->norm);
+          k = strlen(num);
+          memcpy(d, num, k);
+          d[k] = ' ';
+          nqhex(e->s2, 32, d + k + 1);
+          d[k + 65] = ' ';
+          d[k + 66] = 0;
+          add(r, "info.file", 1, d, e->norm, NULL);
         }
       }
       t = prev;

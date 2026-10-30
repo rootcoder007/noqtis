@@ -13,6 +13,12 @@
 .Op Fl -ph Ar hash
 .Op Fl q
 .Ar file
+.Nm noqtis verify
+.Fl p Ar key.pub
+.Fl -dsse
+.Op Fl o Ar payload
+.Op Fl q
+.Ar envelope
 .Sh DESCRIPTION
 .Nm noqtis verify
 checks that
@@ -48,6 +54,19 @@ the names are those of
 .Xr noqtis-sign 1 .
 .It Fl q , Fl -quiet
 Print nothing on success; only the exit status tells.
+.It Fl -dsse
+Check a DSSE envelope
+.Pq Xr noqtis-export 1 Fl -as Cm dsse
+instead: one of its signatures must verify under
+.Ar key.pub
+over the envelope's pre-authentication encoding; then
+.Ql <envelope>: OK (<alg>), payloadType <type>
+is printed.
+.It Fl o Ar payload , Fl -out Ns = Ns Ar payload
+With
+.Fl -dsse :
+write the envelope's payload to
+.Ar payload .
 .El
 .Sh EXIT STATUS
 .Bl -tag -width 3n -compact
@@ -78,5 +97,7 @@ fi
 .Ed
 .Sh SEE ALSO
 .Xr noqtis 1 ,
+.Xr noqtis-export 1 ,
 .Xr noqtis-sign 1 ,
+.Xr nqdsse 3 ,
 .Xr nqsign 3

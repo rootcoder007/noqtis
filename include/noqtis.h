@@ -282,6 +282,25 @@ NQAPI int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen,
                   const uint8_t *nsk, size_t nsklen, const uint8_t *npk,
                   size_t npklen, int64_t at, const char *reason, char *out,
                   size_t cap, size_t *outlen);
+/* A DSSE envelope (the in-toto and SLSA signing wrapper) of n payload
+ * bytes of type (1 to 255 printable ASCII bytes, no quote or backslash),
+ * signed by the key pair (sk, pk) of alg over PAE(type, payload), to out
+ * (cap bytes; *outlen gets the size, also with NQEBUF), as canonical
+ * JSON {"payload","payloadType","signatures":[{"keyid","sig"}]}; keyid
+ * is the hex SHA-256 of pk. The signature is checked before the envelope
+ * is written (NQEARG when the pair does not match). */
+NQAPI int nqdsse(nqsalg alg, const uint8_t *sk, size_t sklen,
+                 const uint8_t *pk, size_t pklen, const char *type,
+                 const uint8_t *payload, size_t n, char *out, size_t cap,
+                 size_t *outlen);
+/* Checks the DSSE envelope env (n bytes): NQOK when one of its signatures
+ * verifies under pk over PAE(payloadType, payload); the payload then goes
+ * to payload (cap bytes; *outlen its size, also with NQEBUF) and, when
+ * type is not NULL, the payloadType to type. NQEVRFY when none verifies,
+ * NQEDEC when it is not an envelope. */
+NQAPI int nqdssevrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
+                     const char *env, size_t n, uint8_t *payload, size_t cap,
+                     size_t *outlen, char type[256]);
 /* nqchkt with the options of o (NULL: none). */
 NQAPI int nqchkx(const char *dir, const nqcopt *o, nqrep **rep);
 /* A proof (noqtis-proof-1) that the files paths[0..np) are in the format 2
@@ -309,8 +328,8 @@ NQAPI int nqchkp(const char *proof, size_t n, const nqcopt *o,
  * NQEMEM return no report. Free it with nqrepfree. */
 NQAPI int nqinsp(const char *dir, nqrep **rep);
 /* nqinsp, and before the info rows one "info.file" row per listed file,
- * in manifest order: its size in bytes, a space, then its path (normal
- * form, '/' separated). The paths pass the checker's path rules; nothing
+ * in manifest order: its size in bytes, its SHA-256 (64 hex digits) and
+ * its path (normal form, '/' separated), with a space between. The paths pass the checker's path rules; nothing
  * is checked against a folder or the signature, so a caller fetching
  * the files (noqtis check <url>) checks the capsule after. */
 NQAPI int nqfiles(const char *dir, nqrep **rep);

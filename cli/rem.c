@@ -235,9 +235,11 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out) {
     unsigned long long sz;
     if (nqrepi(r, i, &c, &g, &d) != NQOK || strcmp(c, "info.file") != 0)
       continue;
+    /* "<size> <sha256> <path>" */
     sp = strchr(d, ' ');
-    if (sp == NULL) continue;
+    if (sp == NULL || strlen(sp) < 67 || sp[65] != ' ') continue;
     sz = strtoull(d, NULL, 10);
+    sp += 65;
     if (!listed(co->only, co->nonly, sp + 1)) continue;
     if (++nf > NCREMFILES) {
       ncmsg("check", "%s: more than %d files; the rest are not fetched",

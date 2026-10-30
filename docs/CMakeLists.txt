@@ -19,6 +19,7 @@ set(NQMANAKA
   "nqrep:nqrepn,nqrepi,nqrepfree"
   "nqtsput:nqtsreq"
   "nqinsp:nqfiles"
+  "nqdsse:nqdssevrfy"
   "nqprove:nqchkp"
   "nqseal2:nqcapid"
   "nqerr:nqver"

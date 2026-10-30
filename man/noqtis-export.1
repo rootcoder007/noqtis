@@ -1,0 +1,129 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 30, 2026
+.Dt NOQTIS-EXPORT 1
+.Os
+.Sh NAME
+.Nm noqtis-export
+.Nd a capsule as in-toto, DSSE, RO-Crate or BagIt
+.Sh SYNOPSIS
+.Nm noqtis export
+.Fl -as Cm intoto | dsse | rocrate | bagit
+.Op Fl k Ar key
+.Op Fl p Ar key.pub
+.Op Fl o Ar file | dir
+.Op Fl f
+.Ar dir
+.Sh DESCRIPTION
+.Nm noqtis export
+describes the capsule
+.Ar dir
+.Pq Xr noqtis-capsule 5
+in a format other tools read.
+The capsule must check first, with the key in its seal
+.Pq Xr noqtis-check 1 ;
+pin the key there with
+.Fl p
+before exporting.
+.Bl -tag -width Ds
+.It Cm intoto
+An in-toto Statement v1 (JSON): one subject per file, with its path and
+SHA-256, and a predicate of type
+.Lk https://rootcoder007.github.io/noqtis/spec/capsule/
+holding the capsule's id, format, algorithm, key fingerprint, created
+time and meta.
+.It Cm dsse
+That statement in a DSSE envelope
+.Pq Ql application/vnd.in-toto+json ,
+signed with
+.Fl k
+over the envelope's PAE.
+Most DSSE tools do not verify post-quantum signatures;
+.Xr noqtis-verify 1
+.Fl -dsse
+does.
+.It Cm rocrate
+RO-Crate 1.1 metadata
+.Pq Pa ro-crate-metadata.json :
+the folder as a Dataset whose identifier is the capsule's id, each file
+with its size and SHA-256, the seal and the manifest as files.
+Put it beside the capsule's files to make the folder a crate; it is not
+listed in the manifest, so
+.Ql noqtis check
+then reports it as an
+.Ql extra
+file unless the folder is sealed again.
+.It Cm bagit
+A BagIt 1.0 bag (RFC 8493) in the new folder
+.Fl o :
+a copy of every file under
+.Pa data/ ,
+each checked against the manifest's SHA-256 as it is copied, its
+.Pa manifest-sha256.txt ,
+.Pa bag-info.txt
+(the capsule's id as External-Identifier, Payload-Oxum),
+.Pa bagit.txt ,
+and the seal and the manifest as tag files listed in
+.Pa tagmanifest-sha256.txt .
+.El
+.Bl -tag -width Ds
+.It Fl -as Ar format
+The format, as above.
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+For
+.Cm dsse :
+the secret signature key.
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+Its public key.
+Default:
+.Ar key Ns Pa .pub .
+.It Fl o Ar file , Fl -out Ns = Ns Ar file
+Write to
+.Ar file
+instead of standard output; for
+.Cm bagit ,
+the bag's folder, which must not exist.
+.It Fl f , Fl -force
+Replace
+.Ar file
+if it exists.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width 3n -compact
+.It 0
+Exported.
+.It 1
+The capsule does not check.
+.It 2
+A usage error, a key that cannot be read, a file that changed while it
+was copied, or a file or folder that cannot be written.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis export --as dsse -k me -o results.intoto.json results
+$ noqtis verify -p me.pub --dsse results.intoto.json
+$ noqtis export --as bagit -o results-bag results
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-verify 1 ,
+.Xr nqdsse 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%T in-toto Attestation Framework: Statement v1
+.%U https://github.com/in-toto/attestation/blob/main/spec/v1/statement.md
+.Re
+.Rs
+.%T DSSE: Dead Simple Signing Envelope
+.%U https://github.com/secure-systems-lab/dsse/blob/master/envelope.md
+.Re
+.Rs
+.%T RO-Crate 1.1
+.%U https://w3id.org/ro/crate/1.1
+.Re
+.Rs
+.%R RFC 8493
+.%T The BagIt File Packaging Format (V1.0)
+.%D October 2018
+.Re

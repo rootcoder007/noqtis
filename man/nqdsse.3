@@ -1,0 +1,110 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 30, 2026
+.Dt NQDSSE 3
+.Os
+.Sh NAME
+.Nm nqdsse ,
+.Nm nqdssevrfy
+.Nd sign and check DSSE envelopes
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqdsse
+.Fa "nqsalg alg" "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *pk" "size_t pklen" "const char *type"
+.Fa "const uint8_t *payload" "size_t n"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqdssevrfy
+.Fa "nqsalg alg" "const uint8_t *pk" "size_t pklen"
+.Fa "const char *env" "size_t n"
+.Fa "uint8_t *payload" "size_t cap" "size_t *outlen" "char type[256]"
+.Fc
+.Sh DESCRIPTION
+.Fn nqdsse
+writes to
+.Fa out ,
+of
+.Fa cap
+bytes, a DSSE envelope of the
+.Fa n
+payload bytes, signed with the key pair
+.Fa sk , pk
+of
+.Fa alg
+over the envelope's pre-authentication encoding
+.Bd -literal -offset indent
+"DSSEv1" SP LEN(type) SP type SP LEN(payload) SP payload
+.Ed
+.Pp
+(lengths in ASCII decimal), as canonical JSON:
+.Bd -literal -offset indent
+{"payload":<base64>,"payloadType":<type>,
+ "signatures":[{"keyid":<hex SHA-256 of pk>,"sig":<base64>}]}
+.Ed
+.Pp
+.Fa type
+is 1 to 255 printable ASCII bytes with no space, quote or backslash,
+such as
+.Ql application/vnd.in-toto+json .
+The signature is checked before the envelope is written.
+.Fa *outlen
+gets the envelope's size, also when
+.Fa cap
+is too small.
+.Pp
+.Fn nqdssevrfy
+checks the envelope
+.Fa env
+of
+.Fa n
+bytes: one of its signatures (at most 16) must verify under
+.Fa pk
+over the pre-authentication encoding of its
+.Ql payloadType
+and decoded
+.Ql payload .
+The payload then goes to
+.Fa payload
+.Pf ( Fa *outlen
+its size, also when
+.Fa cap
+is too small) and, when
+.Fa type
+is not
+.Dv NULL ,
+the payload type to it, NUL-terminated.
+.Sh RETURN VALUES
+.Bl -tag -width NQEVRFY
+.It Dv NQOK
+Written, or checked.
+.It Bq Er NQEBUF
+.Fa cap
+is too small.
+.It Bq Er NQEVRFY
+.Fn nqdssevrfy :
+no signature verifies.
+.It Bq Er NQEDEC
+.Fn nqdssevrfy :
+not an envelope.
+.It Bq Er NQEARG
+A
+.Dv NULL
+argument, keys of the wrong size or not a pair, or a type that is not
+allowed.
+.It Bq Er NQEMEM
+The allocation hook returned
+.Dv NULL .
+.El
+.Sh SEE ALSO
+.Xr noqtis-export 1 ,
+.Xr noqtis-verify 1 ,
+.Xr nqsign 3
+.Sh STANDARDS
+.Rs
+.%T DSSE: Dead Simple Signing Envelope
+.%U https://github.com/secure-systems-lab/dsse/blob/master/envelope.md
+.Re

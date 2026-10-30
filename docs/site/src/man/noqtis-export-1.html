@@ -1,0 +1,131 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis-export</code> &#x2014; <span class="Nd">a
+    capsule as in-toto, DSSE, RO-Crate or BagIt</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis export</code></td>
+    <td><code class="Fl">--as</code> <code class="Cm">intoto</code> |
+      <code class="Cm">dsse</code> | <code class="Cm">rocrate</code> |
+      <code class="Cm">bagit</code> [<code class="Fl">-k</code>
+      <var class="Ar">key</var>] [<code class="Fl">-p</code>
+      <var class="Ar">key.pub</var>] [<code class="Fl">-o</code>
+      <var class="Ar">file</var> | <var class="Ar">dir</var>]
+      [<code class="Fl">-f</code>] <var class="Ar">dir</var></td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Nm">noqtis export</code> describes the capsule
+    <var class="Ar">dir</var>
+    (<a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>)
+    in a format other tools read. The capsule must check first, with the key in
+    its seal
+    (<a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>);
+    pin the key there with <code class="Fl">-p</code> before exporting.</p>
+<dl class="Bl-tag">
+  <dt id="intoto"><a class="permalink" href="#intoto"><code class="Cm">intoto</code></a></dt>
+  <dd>An in-toto Statement v1 (JSON): one subject per file, with its path and
+      SHA-256, and a predicate of type
+      <a class="Lk" href="https://rootcoder007.github.io/noqtis/spec/capsule/">https://rootcoder007.github.io/noqtis/spec/capsule/</a>
+      holding the capsule's id, format, algorithm, key fingerprint, created time
+      and meta.</dd>
+  <dt id="dsse"><a class="permalink" href="#dsse"><code class="Cm">dsse</code></a></dt>
+  <dd>That statement in a DSSE envelope
+      (&#x2018;<code class="Li">application/vnd.in-toto+json</code>&#x2019;),
+      signed with <code class="Fl">-k</code> over the envelope's PAE. Most DSSE
+      tools do not verify post-quantum signatures;
+      <a class="Xr" href="/noqtis/reference/man/noqtis-verify-1/">noqtis-verify(1)</a>
+      <code class="Fl">--dsse</code> does.</dd>
+  <dt id="rocrate"><a class="permalink" href="#rocrate"><code class="Cm">rocrate</code></a></dt>
+  <dd>RO-Crate 1.1 metadata (<span class="Pa">ro-crate-metadata.json</span>):
+      the folder as a Dataset whose identifier is the capsule's id, each file
+      with its size and SHA-256, the seal and the manifest as files. Put it
+      beside the capsule's files to make the folder a crate; it is not listed in
+      the manifest, so &#x2018;<code class="Li">noqtis check</code>&#x2019; then
+      reports it as an &#x2018;<code class="Li">extra</code>&#x2019; file unless
+      the folder is sealed again.</dd>
+  <dt id="bagit"><a class="permalink" href="#bagit"><code class="Cm">bagit</code></a></dt>
+  <dd>A BagIt 1.0 bag (RFC 8493) in the new folder <code class="Fl">-o</code>: a
+      copy of every file under <span class="Pa">data/</span>, each checked
+      against the manifest's SHA-256 as it is copied, its
+      <span class="Pa">manifest-sha256.txt</span>,
+      <span class="Pa">bag-info.txt</span> (the capsule's id as
+      External-Identifier, Payload-Oxum), <span class="Pa">bagit.txt</span>, and
+      the seal and the manifest as tag files listed in
+      <span class="Pa">tagmanifest-sha256.txt</span>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="as"><a class="permalink" href="#as"><code class="Fl">--as</code></a>
+    <var class="Ar">format</var></dt>
+  <dd>The format, as above.</dd>
+  <dt id="k"><a class="permalink" href="#k"><code class="Fl">-k</code></a>
+    <var class="Ar">key</var>,
+    <code class="Fl">--key</code>=<var class="Ar">key</var></dt>
+  <dd>For <code class="Cm">dsse</code>: the secret signature key.</dd>
+  <dt id="p"><a class="permalink" href="#p"><code class="Fl">-p</code></a>
+    <var class="Ar">key.pub</var>,
+    <code class="Fl">--pub</code>=<var class="Ar">key.pub</var></dt>
+  <dd>Its public key. Default:
+      <var class="Ar">key</var><span class="Pa">.pub</span>.</dd>
+  <dt id="o"><a class="permalink" href="#o"><code class="Fl">-o</code></a>
+    <var class="Ar">file</var>,
+    <code class="Fl">--out</code>=<var class="Ar">file</var></dt>
+  <dd>Write to <var class="Ar">file</var> instead of standard output; for
+      <code class="Cm">bagit</code>, the bag's folder, which must not
+    exist.</dd>
+  <dt id="f"><a class="permalink" href="#f"><code class="Fl">-f</code></a>,
+    <code class="Fl">--force</code></dt>
+  <dd>Replace <var class="Ar">file</var> if it exists.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt>0</dt>
+  <dd>Exported.</dd>
+  <dt>1</dt>
+  <dd>The capsule does not check.</dd>
+  <dt>2</dt>
+  <dd>A usage error, a key that cannot be read, a file that changed while it was
+      copied, or a file or folder that cannot be written.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>$ noqtis export --as dsse -k me -o results.intoto.json results
+$ noqtis verify -p me.pub --dsse results.intoto.json
+$ noqtis export --as bagit -o results-bag results</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-verify-1/">noqtis-verify(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqdsse-3/">nqdsse(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">in-toto Attestation Framework:
+    Statement v1</span>,
+    <a class="RsU" href="https://github.com/in-toto/attestation/blob/main/spec/v1/statement.md">https://github.com/in-toto/attestation/blob/main/spec/v1/statement.md</a>.</cite>
+    <cite class="Rs"><span class="RsT">DSSE: Dead Simple Signing
+    Envelope</span>,
+    <a class="RsU" href="https://github.com/secure-systems-lab/dsse/blob/master/envelope.md">https://github.com/secure-systems-lab/dsse/blob/master/envelope.md</a>.</cite>
+    <cite class="Rs"><span class="RsT">RO-Crate 1.1</span>,
+    <a class="RsU" href="https://w3id.org/ro/crate/1.1">https://w3id.org/ro/crate/1.1</a>.</cite>
+    <cite class="Rs"><span class="RsT">The BagIt File Packaging Format
+    (V1.0)</span>, <span class="RsR">RFC 8493</span>, <span class="RsD">October
+    2018</span>.</cite></p>
+</section>
+</div>

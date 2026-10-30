@@ -48,8 +48,10 @@ static const nccmd cmds[] = {
   {"verify", ncvrfy, "check a signature",
    "usage: noqtis verify -p <key.pub> -s <sig> [-c <ctx>] [--ph <hash>]\n"
    "                     [-q] <file>\n"
+   "       noqtis verify -p <key.pub> --dsse [-o <payload>] [-q] <env>\n"
    "  Exit 0 when the signature is valid, 1 when it is not, 2 on a usage\n"
-   "  or file error.\n"},
+   "  or file error. --dsse checks a DSSE envelope (from `noqtis export\n"
+   "  --as dsse`); -o writes its payload.\n"},
   {"enc", ncenc, "encapsulate a shared secret (KEM)",
    "usage: noqtis enc -p <key.pub> -o <ct> [--force] (<ss> | --stdout)\n"
    "  Writes the ciphertext to <ct> and the shared secret to <ss>\n"
@@ -115,6 +117,15 @@ static const nccmd cmds[] = {
    "  its entry and audit path. The proof names no other file and holds\n"
    "  no other digest. Check it with `noqtis check --proof`. The capsule\n"
    "  must check first (against -p when given).\n"
+   "  -o  write to <file> (default stdout); -f replaces it\n"},
+  {"export", ncexp, "a capsule as in-toto, DSSE, RO-Crate or BagIt",
+   "usage: noqtis export --as intoto|dsse|rocrate|bagit [-k <key>]\n"
+   "                     [-p <key.pub>] [-o <file|dir>] [-f] <dir>\n"
+   "  The capsule must check. intoto: an in-toto Statement v1 of its\n"
+   "  files and their SHA-256; dsse: that statement in a DSSE envelope\n"
+   "  signed with -k (check it with `noqtis verify --dsse`); rocrate:\n"
+   "  RO-Crate 1.1 metadata (ro-crate-metadata.json); bagit: a BagIt 1.0\n"
+   "  bag in the new folder -o, with a checked copy of every file.\n"
    "  -o  write to <file> (default stdout); -f replaces it\n"},
   {"rotate", ncrot, "say that a seal key was replaced by a new one",
    "usage: noqtis rotate -k <key> [-p <key.pub>] -n <new> [--new-pub <new.pub>]\n"

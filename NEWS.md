@@ -29,6 +29,14 @@ mistake in the release process; use 0.1.1.)
   (`nqcapid`), and `check --lineage` finds and checks them, to 64 levels
   (`nqchkx`). Format 1 is unchanged and stays the default; the spec has
   the new sections 11.1 to 11.6, with a worked example.
+- `noqtis export` describes a checked capsule in other formats: an
+  in-toto Statement v1 of its files (`--as intoto`), that statement in a
+  DSSE envelope signed with a post-quantum key (`--as dsse`, `nqdsse`;
+  `noqtis verify --dsse`, `nqdssevrfy`, checks one), RO-Crate 1.1
+  metadata (`--as rocrate`) and a BagIt 1.0 bag with a checked copy of
+  every file (`--as bagit`).
+- `noqtis inspect` and `nqinsp` showed a format 2 capsule's meta as
+  empty: its length was read after the buffer holding it was freed.
 - Key statements: `noqtis rotate` (`nqkstmt`) says that a seal key was
   replaced by another, signed by both, and `noqtis revoke` that it must
   no longer be trusted, from a given time. `noqtis check -p <key.pub>

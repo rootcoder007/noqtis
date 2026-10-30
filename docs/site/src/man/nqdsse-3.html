@@ -1,0 +1,98 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqdsse</code>, <code class="Nm">nqdssevrfy</code>
+    &#x2014; <span class="Nd">sign and check DSSE envelopes</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqdsse</code>(<var class="Fa">nqsalg alg</var>,
+    <var class="Fa">const uint8_t *sk</var>, <var class="Fa">size_t sklen</var>,
+    <var class="Fa">const uint8_t *pk</var>, <var class="Fa">size_t pklen</var>,
+    <var class="Fa">const char *type</var>, <var class="Fa">const uint8_t
+    *payload</var>, <var class="Fa">size_t n</var>, <var class="Fa">char
+    *out</var>, <var class="Fa">size_t cap</var>, <var class="Fa">size_t
+    *outlen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqdssevrfy</code>(<var class="Fa">nqsalg alg</var>,
+    <var class="Fa">const uint8_t *pk</var>, <var class="Fa">size_t pklen</var>,
+    <var class="Fa">const char *env</var>, <var class="Fa">size_t n</var>,
+    <var class="Fa">uint8_t *payload</var>, <var class="Fa">size_t cap</var>,
+    <var class="Fa">size_t *outlen</var>, <var class="Fa">char
+  type[256]</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqdsse"><code class="Fn" id="nqdsse">nqdsse</code></a>()
+    writes to <var class="Fa">out</var>, of <var class="Fa">cap</var> bytes, a
+    DSSE envelope of the <var class="Fa">n</var> payload bytes, signed with the
+    key pair <var class="Fa">sk</var>, <var class="Fa">pk</var> of
+    <var class="Fa">alg</var> over the envelope's pre-authentication
+  encoding</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>&quot;DSSEv1&quot; SP LEN(type) SP type SP LEN(payload) SP payload</pre>
+</div>
+<p class="Pp">(lengths in ASCII decimal), as canonical JSON:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>{&quot;payload&quot;:&lt;base64&gt;,&quot;payloadType&quot;:&lt;type&gt;,
+ &quot;signatures&quot;:[{&quot;keyid&quot;:&lt;hex SHA-256 of pk&gt;,&quot;sig&quot;:&lt;base64&gt;}]}</pre>
+</div>
+<p class="Pp"><var class="Fa">type</var> is 1 to 255 printable ASCII bytes with
+    no space, quote or backslash, such as
+    &#x2018;<code class="Li">application/vnd.in-toto+json</code>&#x2019;. The
+    signature is checked before the envelope is written.
+    <var class="Fa">*outlen</var> gets the envelope's size, also when
+    <var class="Fa">cap</var> is too small.</p>
+<p class="Pp" id="nqdssevrfy"><a class="permalink" href="#nqdssevrfy"><code class="Fn">nqdssevrfy</code></a>()
+    checks the envelope <var class="Fa">env</var> of <var class="Fa">n</var>
+    bytes: one of its signatures (at most 16) must verify under
+    <var class="Fa">pk</var> over the pre-authentication encoding of its
+    &#x2018;<code class="Li">payloadType</code>&#x2019; and decoded
+    &#x2018;<code class="Li">payload</code>&#x2019;. The payload then goes to
+    <var class="Fa">payload</var> (<var class="Fa">*outlen</var> its size, also
+    when <var class="Fa">cap</var> is too small) and, when
+    <var class="Fa">type</var> is not <code class="Dv">NULL</code>, the payload
+    type to it, NUL-terminated.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<dl class="Bl-tag">
+  <dt id="NQOK"><a class="permalink" href="#NQOK"><code class="Dv">NQOK</code></a></dt>
+  <dd>Written, or checked.</dd>
+  <dt>[<code class="Er">NQEBUF</code>]</dt>
+  <dd><var class="Fa">cap</var> is too small.</dd>
+  <dt>[<code class="Er">NQEVRFY</code>]</dt>
+  <dd><code class="Fn">nqdssevrfy</code>(): no signature verifies.</dd>
+  <dt>[<code class="Er">NQEDEC</code>]</dt>
+  <dd><code class="Fn">nqdssevrfy</code>(): not an envelope.</dd>
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd>A <code class="Dv">NULL</code> argument, keys of the wrong size or not a
+      pair, or a type that is not allowed.</dd>
+  <dt>[<code class="Er">NQEMEM</code>]</dt>
+  <dd>The allocation hook returned <code class="Dv">NULL</code>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-export-1/">noqtis-export(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-verify-1/">noqtis-verify(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqsign-3/">nqsign(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">DSSE: Dead Simple Signing
+    Envelope</span>,
+    <a class="RsU" href="https://github.com/secure-systems-lab/dsse/blob/master/envelope.md">https://github.com/secure-systems-lab/dsse/blob/master/envelope.md</a>.</cite></p>
+</section>
+</div>

@@ -76,6 +76,14 @@ _noqtis_cmd() {
         '--proof=[a proof from noqtis prove]:file:_files' \
         '*--keys=[a key statement]:file:_files' \
         ':dir:_files -/' ;;
+    export)
+      _arguments \
+        '--as=[format]:format:(intoto dsse rocrate bagit)' \
+        '(-k --key)'{-k,--key=}'[secret key (dsse)]:key:_files' \
+        '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
+        '(-o --out)'{-o,--out=}'[file or bag folder to write]:file:_files' \
+        '(-f --force)'{-f,--force}'[replace the file]' \
+        ':dir:_files -/' ;;
     rotate|revoke)
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
@@ -111,6 +119,7 @@ _arguments -C \
     seal\:"seal a folder" check\:"check a sealed folder"
     prove\:"prove some files of a capsule"
     rotate\:"say a seal key was replaced" revoke\:"say a seal key is revoked"
+    export\:"a capsule as in-toto, DSSE, RO-Crate or BagIt"
     inspect\:"show what a seal says" timestamp\:"add public timestamps"
     algs\:"list the algorithms" version\:"print the version"))' \
   '*::arg:_noqtis_cmd'

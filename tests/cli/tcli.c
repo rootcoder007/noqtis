@@ -1175,6 +1175,55 @@ static void tremote(void) {
 #undef URL
 }
 
+/* export: in-toto, DSSE (and verify --dsse), RO-Crate, BagIt */
+static void texport(void) {
+  pristine();
+  want(0, "seal --format 2 -k q.c qref", NULL);
+  want(0, "export --as intoto -o q.st qref", NULL);
+  ok(has("q.st", "\"_type\":\"https://in-toto.io/Statement/v1\"") &&
+     has("q.st", "\"name\":\"sub/c.txt\"") &&
+     has("q.st", "\"predicateType\":\"https://rootcoder007.github.io/"
+         "noqtis/spec/capsule/\""),
+     "export --as intoto: a statement of the files");
+  want(0, "export --as dsse -k q.c -o q.env qref", NULL);
+  want(0, "verify -p q.c.pub --dsse -o q.pl q.env", NULL);
+  ok(has("q.out", "payloadType application/vnd.in-toto+json") &&
+     same("q.pl", "q.st"), "verify --dsse: the statement comes back");
+  want(1, "verify -p q.c2.pub --dsse q.env", NULL);
+  sub("q.env", "\"payload\":\"ey", "\"payload\":\"ex");
+  want(1, "verify -p q.c.pub --dsse q.env", NULL);
+  want(2, "verify -p q.c.pub --dsse -s q.st q.env", NULL);
+  want(0, "export --as rocrate -o q.ro qref", NULL);
+  ok(has("q.ro", "\"conformsTo\":{\"@id\":\"https://w3id.org/ro/crate/"
+         "1.1\"}") && has("q.ro", "{\"@id\":\"sub/c.txt\",\"@type\":"
+         "\"File\""), "export --as rocrate: every file, with its digest");
+  rmdirs("q.bag");
+  want(0, "export --as bagit -o q.bag qref", NULL);
+  ok(has("q.out", "3 files, 19 bytes") &&
+     has("q.bag/bagit.txt", "BagIt-Version: 1.0\nTag-File-Character-"
+         "Encoding: UTF-8\n") &&
+     has("q.bag/bag-info.txt", "Payload-Oxum: 19.3") &&
+     has("q.bag/manifest-sha256.txt", "  data/sub/c.txt\n") &&
+     same("q.bag/data/b.txt", "qref/b.txt") &&
+     same("q.bag/noqtis.sig", "qref/noqtis.sig"),
+     "export --as bagit: the bag, its data and its tags");
+  want(2, "export --as bagit -o q.bag qref", NULL);
+  ok(has("q.err", "exists"), "export --as bagit: an existing folder");
+  rmdirs("q.bag");
+  /* refusals: a capsule that does not check, options that do not fit */
+  wrs("qref/a.txt", "first!\n");
+  want(1, "export --as intoto qref", NULL);
+  ok(has("q.err", "does not check"), "export: a capsule that does not check");
+  want(2, "export --as dsse qref", NULL);
+  want(2, "export --as intoto -k q.c qref", NULL);
+  want(2, "export --as bagit qref", NULL);
+  want(2, "export --as zip qref", NULL);
+  remove("q.st");
+  remove("q.env");
+  remove("q.pl");
+  remove("q.ro");
+}
+
 static void trefuse(void) {
   char tok[1200], oth[1200], ctx[1400];
   int j;
@@ -1641,6 +1690,7 @@ int main(int argc, char **argv) {
   if (tsad != NULL) {
     tts();
     tremote();
+    texport();
     trefuse();
     tbl();
   }

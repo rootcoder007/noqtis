@@ -174,6 +174,10 @@ int ncseal(int argc, char **argv);
 int ncchk(int argc, char **argv);
 int ncprove(int argc, char **argv);
 int ncrot(int argc, char **argv);
+int ncexp(int argc, char **argv);
+/* verify --dsse (exp.c): the envelope env under key file kp; the payload
+ * to out when not NULL */
+int ncvdsse(const char *kp, const char *env, const char *out, int quiet);
 int ncrev(int argc, char **argv);
 int ncinsp(int argc, char **argv);
 int ncts(int argc, char **argv);

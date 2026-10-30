@@ -66,9 +66,10 @@ is
 with one
 .Ql info.file
 row per listed file among the reader's rows, in manifest order: the
-file's size in bytes, in decimal, a space, and its path (normal form,
+file's size in bytes, in decimal, its SHA-256 as 64 lower-case hex
+digits, and its path (normal form,
 .Ql /
-between folders).
+between folders), with a space between.
 Only paths the checker's rules accept are listed, so a caller may fetch
 each one into a folder of its own, as
 .Ql noqtis check Ar url
