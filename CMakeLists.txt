@@ -153,6 +153,18 @@ if(NQTESTS)
       target_compile_definitions(${name} PRIVATE _WASI_EMULATED_PROCESS_CLOCKS)
       target_link_libraries(${name} PRIVATE wasi-emulated-process-clocks)
     endif()
+    if(IOS)
+      # simctl spawn starts a program in /: tests/cwd.c is main, moves
+      # to $NQCWD and calls the test's own main, renamed nqmain
+      target_sources(${name} PRIVATE ${PROJECT_SOURCE_DIR}/tests/cwd.c)
+      set_source_files_properties(${t} PROPERTIES
+        COMPILE_DEFINITIONS main=nqmain
+        COMPILE_OPTIONS -Wno-missing-prototypes)
+      file(STRINGS ${t} nqmv REGEX "^int main\\(void\\)")
+      if(nqmv)
+        target_compile_definitions(${name} PRIVATE NQMAINV)
+      endif()
+    endif()
     add_test(NAME ${name} COMMAND ${name}
              WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests)
   endforeach()
@@ -188,8 +200,10 @@ if(NQTESTS)
   add_subdirectory(acvp)
   # the TLS client against OpenSSL's s_server on the loopback
   # (tests/tls/srv.sh): OpenSSL is the peer only, never linked; skipped
-  # (77) without OpenSSL 3.5 or later
-  if(NOT WIN32 AND NOT EMSCRIPTEN AND NOT CMAKE_SYSTEM_NAME STREQUAL "WASI")
+  # (77) without OpenSSL 3.5 or later; not on Android or iOS, where the
+  # shell scripts would run on the host and the client on the device
+  if(NOT WIN32 AND NOT EMSCRIPTEN AND NOT CMAKE_SYSTEM_NAME STREQUAL "WASI"
+     AND NOT ANDROID AND NOT IOS)
     add_executable(tlcli tests/tls/tlcli.c)
     target_link_libraries(tlcli PRIVATE nqint)
     target_include_directories(tlcli PRIVATE ${PROJECT_SOURCE_DIR}/src)

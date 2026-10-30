@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Builds noqtis for Android and iOS and runs every test there: on an
+# Android x86_64 emulator through adb (tests/adb.sh) and on an iOS
+# simulator through xcrun simctl spawn (tests/sim.sh). Both are run as
+# ctest's CMAKE_CROSSCOMPILING_EMULATOR, as the WASI job in ci.yml runs
+# wasmtime. The tool (cli/) is left out: its tests start it as a child
+# process on the host.
+name: mobile
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.ref }}-${{ github.event_name }}-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  CTEST_OUTPUT_ON_FAILURE: "1"
+
+jobs:
+  android:
+    # the NDK the runner image ships (ANDROID_NDK_LATEST_HOME); API 28 is
+    # the first with getrandom(), which src/core/rand.c uses
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: configure
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQCLI=OFF
+          -DNQMAN=OFF -DNQOSSL=OFF
+          -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake"
+          -DANDROID_ABI=x86_64 -DANDROID_PLATFORM=android-28
+          "-DCMAKE_CROSSCOMPILING_EMULATOR=sh;$GITHUB_WORKSPACE/tests/adb.sh;$GITHUB_WORKSPACE;$GITHUB_WORKSPACE/build"
+      - run: cmake --build build -j4
+      - name: enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: test on the emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            adb shell mkdir -p /data/local/tmp/nq
+            adb push tests /data/local/tmp/nq/ > /dev/null
+            NQSLSUB=8 NQFAST=1 ctest --test-dir build -j2 --output-on-failure
+
+  android-arm64:
+    # build only: GitHub's arm64 Linux runners have no KVM for an arm64
+    # emulator, and an arm64 system image under x86_64 emulation is too
+    # slow to boot and run the suite in a job's time
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: configure
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQCLI=OFF
+          -DNQMAN=OFF -DNQOSSL=OFF
+          -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake"
+          -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28
+      - run: cmake --build build -j4
+
+  ios:
+    # the simulator on Apple silicon (arm64)
+    runs-on: macos-15
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: configure
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQCLI=OFF
+          -DNQMAN=OFF -DNQOSSL=OFF
+          -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator
+          -DCMAKE_OSX_ARCHITECTURES=arm64
+          "-DCMAKE_CROSSCOMPILING_EMULATOR=sh;$GITHUB_WORKSPACE/tests/sim.sh"
+      - run: cmake --build build -j4
+      - name: boot a simulator
+        run: |
+          id=$(xcrun simctl list devices available |
+            sed -n 's/^ *iPhone[^(]*(\([0-9A-F-]\{36\}\)).*/\1/p' | head -n 1)
+          test -n "$id"
+          xcrun simctl boot "$id"
+          xcrun simctl bootstatus "$id" -b
+          echo "NQSIM=$id" >> "$GITHUB_ENV"
+      - run: NQSLSUB=8 NQFAST=1 ctest --test-dir build -j3 --output-on-failure

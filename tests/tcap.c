@@ -14,6 +14,10 @@
 #endif
 #endif
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -279,10 +283,27 @@ static void wr(const char *d, const char *rel, const void *b, size_t n) {
   path(p, sizeof p, d, rel);
   if (lstat(p, &st) != 0) track(p);
   f = fopen(p, "wb");
+#if defined(TARGET_OS_SIMULATOR) && TARGET_OS_SIMULATOR
+  /* the iOS simulator refuses a name that differs only in case from one
+   * it has (EEXIST), where macOS opens that file: the case tests then
+   * see one file, as on macOS */
+  if (f == NULL && errno == EEXIST) return;
+#endif
   NQTCHK(f != NULL);
   if (f == NULL) return;
   if (n) NQTCHK(fwrite(b, 1, n, f) == n);
   fclose(f);
+}
+
+/* 1 when the system refused a FIFO or a hard link to this program:
+ * Android's SELinux policy does to programs run from adb's shell
+ * (EACCES); the checks that need one are then skipped */
+static int denied(void) {
+#if defined(__ANDROID__)
+  return errno == EACCES;
+#else
+  return 0;
+#endif
 }
 
 static void ws(const char *d, const char *rel, const char *s) {
@@ -481,8 +502,11 @@ static void treview(const key *k) {
    * only where a real FIFO was made */
   fresh(d, sizeof d);
   path(p, sizeof p, d, NQCSIG);
-  NQTEQI(mkfifo(p, 0600), 0);
-  track(p);
+  if (mkfifo(p, 0600) == 0) {
+    track(p);
+  } else {
+    NQTCHK(denied());
+  }
   if (lstat(p, &st) == 0 && S_ISFIFO(st.st_mode)) {
     NQTCHK(chk(d, k, &r) != NQOK);
     nqrepfree(r);
@@ -502,8 +526,11 @@ static void treview(const key *k) {
   path(q, sizeof q, root, "outside.txt");
   ws(root, "outside.txt", "keep me\n");
   path(p, sizeof p, d, NQCSIG);
-  NQTEQI(link(q, p), 0);
-  track(p);
+  if (link(q, p) == 0) {
+    track(p);
+  } else {
+    NQTCHK(denied());
+  }
   NQTEQI(sealk(d, k, NULL), NQOK);
   NQTEQI(rd(root, "outside.txt", &b, &n), NQOK);
   NQTCHK(b != NULL && n == 8 && memcmp(b, "keep me\n", 8) == 0);
@@ -728,20 +755,23 @@ static void tamper(const key *k, const key *other) {
   {
     char p[600];
     path(p, sizeof p, d, "fifo");
-    NQTEQI(mkfifo(p, 0600), 0);
-    track(p);
-    NQTEQI(chk(d, k, &r), NQEVRFY);
-    NQTEQI(row(r, "unsafe", "fifo: not a regular file"), 0);
-    nqrepfree(r);
-    NQTEQI(sealk(d, k, NULL), NQEARG);
-    {
-      char wp[64];
-      int w = -1;
-      NQTEQI(nqsealwhy(d, &w, wp, sizeof wp), NQOK);
-      NQTEQI(w, NQSWODD);
-      NQTCHK(strcmp(wp, "fifo") == 0);
+    if (mkfifo(p, 0600) != 0) {
+      NQTCHK(denied());
+    } else {
+      track(p);
+      NQTEQI(chk(d, k, &r), NQEVRFY);
+      NQTEQI(row(r, "unsafe", "fifo: not a regular file"), 0);
+      nqrepfree(r);
+      NQTEQI(sealk(d, k, NULL), NQEARG);
+      {
+        char wp[64];
+        int w = -1;
+        NQTEQI(nqsealwhy(d, &w, wp, sizeof wp), NQOK);
+        NQTEQI(w, NQSWODD);
+        NQTCHK(strcmp(wp, "fifo") == 0);
+      }
+      remove(made[--nmade]);
     }
-    remove(made[--nmade]);
   }
 #endif
 

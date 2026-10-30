@@ -203,4 +203,7 @@ mistake in the release process; use 0.1.1.)
   workflow `cbmc.yml`): the DER reader, the base64 decoder and the JSON
   reader have no access out of bounds, overflow or undefined shift for
   every input up to the sizes `proofs/cbmc/README.md` gives.
+- Android and iOS are tested in CI (`mobile.yml`): the library's tests
+  run on an Android x86-64 emulator and on an iOS simulator; Android
+  arm64 is built. Neither has the command-line tool.
 - Not yet audited: do not rely on it for anything that matters.

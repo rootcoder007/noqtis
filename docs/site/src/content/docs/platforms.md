@@ -16,10 +16,11 @@ every ACVP vector, passes on it in CI.
 | Windows | x86-64, arm64 | MSVC, clang-cl, MinGW-w64 | `BCryptGenRandom`; wide-character paths |
 | FreeBSD, OpenBSD, NetBSD | x86-64 | Clang; GCC on NetBSD | `arc4random_buf` |
 | WebAssembly | wasm32 | emscripten, wasi-sdk | emscripten: the library's tests under Node, the npm package on Node 22, 24 and 26, Deno and Bun; wasi-sdk: the library's tests under wasmtime (no command-line tool) |
+| Android | x86-64; arm64 built only | NDK Clang | the library's tests on an emulator (API 34, built for API 28 and later); `getrandom`; no command-line tool |
+| iOS | arm64 (simulator) | Apple Clang | the library's tests on a simulator with `xcrun simctl spawn`; `arc4random_buf`; no command-line tool |
 
-Not tested in CI yet, so not listed as supported: Android and iOS
-([issue 15](https://github.com/rootcoder007/noqtis/issues/15)). The code
-already has their randomness sources (`getrandom`, `arc4random_buf`).
+Android arm64 is built in CI but its tests do not run there: no GitHub
+runner can boot an arm64 Android emulator in useful time.
 
 Every job runs on every push and pull request, and weekly. Linux ppc64le,
 s390x and riscv64 Python wheels are built (and their tests run) under QEMU
@@ -28,7 +29,7 @@ on release tags, weekly and on demand.
 ## Randomness
 
 Each platform uses its operating system's source: `getrandom` on Linux,
-`arc4random_buf` on macOS and the BSDs, `BCryptGenRandom` on Windows,
+`arc4random_buf` on macOS, iOS and the BSDs, `BCryptGenRandom` on Windows,
 WebCrypto `getRandomValues` (emscripten) or WASI `random_get` (wasi-sdk).
 There is no fallback: if the source fails, the call fails with `NQERNG`.
 
