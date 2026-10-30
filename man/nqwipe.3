@@ -17,8 +17,11 @@ sets the
 .Fa len
 bytes at
 .Fa p
-to zero through a volatile pointer, so the compiler cannot remove the
-stores as dead, even just before the memory is freed or goes out of scope.
+to zero in a way the compiler cannot remove as dead stores, even just
+before the memory is freed or goes out of scope: with C23's
+.Fn memset_explicit
+when the library is built as C23 or later and the C library has it,
+and otherwise through a volatile pointer.
 .Fa p
 may be
 .Dv NULL ,

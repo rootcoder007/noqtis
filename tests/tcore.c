@@ -38,6 +38,9 @@ static void twipe(void) {
     all &= (b[i] == 0);
   }
   NQTCHK(all);
+  b[0] = 1;
+  nqwipe(b, 0); /* nothing to wipe */
+  NQTCHK(b[0] == 1);
   nqwipe(NULL, 10); /* must not crash */
 }
 

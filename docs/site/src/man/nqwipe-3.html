@@ -22,10 +22,12 @@
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <p class="Pp"><a class="permalink" href="#nqwipe"><code class="Fn" id="nqwipe">nqwipe</code></a>()
     sets the <var class="Fa">len</var> bytes at <var class="Fa">p</var> to zero
-    through a volatile pointer, so the compiler cannot remove the stores as
-    dead, even just before the memory is freed or goes out of scope.
-    <var class="Fa">p</var> may be <code class="Dv">NULL</code>, and then
-    nothing happens.</p>
+    in a way the compiler cannot remove as dead stores, even just before the
+    memory is freed or goes out of scope: with C23's
+    <a class="permalink" href="#memset_explicit"><code class="Fn" id="memset_explicit">memset_explicit</code></a>()
+    when the library is built as C23 or later and the C library has it, and
+    otherwise through a volatile pointer. <var class="Fa">p</var> may be
+    <code class="Dv">NULL</code>, and then nothing happens.</p>
 <p class="Pp">The library wipes every secret it holds (keys, seeds, shared
     secrets, intermediate state, freed memory of the capsule layer) before it
     returns, on every path. Callers wipe their own copies: secret keys, seeds

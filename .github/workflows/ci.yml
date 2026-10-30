@@ -481,6 +481,27 @@ jobs:
           run: |
             NQSLSUB=8 NQFAST=1 sh packaging/check.sh /tmp/nqchk
 
+  c23:
+    # the library built as C23 on a C library with memset_explicit
+    # (glibc 2.43): nqwipe must use it (NQHAVEMSX), and every test passes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    # fedora:latest
+    container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+    steps:
+      - name: deps
+        run: dnf -y install gcc cmake make binutils
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: configure as C23
+        run: |
+          cmake -S . -B build -DCMAKE_C_STANDARD=23 -DCMAKE_BUILD_TYPE=Release
+          grep -q "^NQHAVEMSX:INTERNAL=1" build/CMakeCache.txt
+      - run: cmake --build build -j4
+      - name: nqwipe calls memset_explicit
+        run: nm build/CMakeFiles/nqobj.dir/src/core/core.c.o | grep -q " U memset_explicit"
+      - name: test
+        run: NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4
+
   abi:
     # the shared library's ABI against the last release (libabigail's
     # abidiff, packaging/abi.sh): an incompatible change fails unless the

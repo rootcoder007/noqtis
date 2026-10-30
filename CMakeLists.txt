@@ -2,7 +2,11 @@
 cmake_minimum_required(VERSION 3.20)
 project(noqtis VERSION 0.1.1 LANGUAGES C)
 
-set(CMAKE_C_STANDARD 11)
+# C11 unless the builder asks for a later standard (-DCMAKE_C_STANDARD=23:
+# then nqwipe uses memset_explicit where the C library has it)
+if(NOT DEFINED CMAKE_C_STANDARD)
+  set(CMAKE_C_STANDARD 11)
+endif()
 # WASI: wasm-ld gives a program 64 KiB of stack, less than ML-DSA (masked)
 # and HQC use; programs linked here get 8 MiB, as the npm build does
 if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
@@ -22,6 +26,21 @@ option(NQTVLA "Compile the TVLA leakage hooks (a test build, never a release)" O
 # https:// URLs; off until it has been reviewed: nqtl* then return
 # NQENOSUP, and the tests reach the client through its internal API
 option(NQTLS "Enable the TLS 1.3 client (not yet reviewed)" OFF)
+
+# C23's memset_explicit for nqwipe, when the build is C23 or later and
+# the C library declares it (glibc 2.43, for one)
+if(CMAKE_C_STANDARD GREATER_EQUAL 23)
+  include(CheckCSourceCompiles)
+  check_c_source_compiles("#include <string.h>
+int main(void) {
+  char b[1] = {1};
+  memset_explicit(b, 0, sizeof b);
+  return b[0];
+}" NQHAVEMSX)
+  if(NQHAVEMSX)
+    add_compile_definitions(NQHAVEMSX)
+  endif()
+endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

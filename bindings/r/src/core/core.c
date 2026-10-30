@@ -5,6 +5,7 @@
 #include "core/lk.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #define NQSTR2(x) #x
 #define NQSTR(x) NQSTR2(x)
@@ -30,15 +31,30 @@ const char *nqerr(int err) {
   }
 }
 
-/* Stores through a volatile pointer cannot be removed as dead stores. */
+/* C23's memset_explicit where the build is C23 and the C library has it
+ * (NQHAVEMSX, from CMake's check); elsewhere stores through a volatile
+ * pointer, which cannot be removed as dead stores either. */
+#if defined(NQHAVEMSX) && defined(__STDC_VERSION__) && \
+    __STDC_VERSION__ >= 202311L
+#define NQMSX 1
+#else
+#define NQMSX 0
+#endif
+
 void nqwipe(void *p, size_t len) {
-  volatile unsigned char *v = (volatile unsigned char *)p;
   if (p == NULL) {
     return;
   }
-  while (len--) {
-    *v++ = 0;
+#if NQMSX
+  memset_explicit(p, 0, len);
+#else
+  {
+    volatile unsigned char *v = (volatile unsigned char *)p;
+    while (len--) {
+      *v++ = 0;
+    }
   }
+#endif
 }
 
 int nqcteq(const void *a, const void *b, size_t len) {
