@@ -1,14 +1,15 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Checks the shell completions (cli/completions/): each parses in its own
-# shell where that shell is installed, and the bash one offers every
-# command and every option the manual pages list.
+# shell where that shell is installed (none of them need be), and every
+# script offers every command, the bash one every option the manual pages
+# list.
 #   tests/cli/comp.sh <source root>
 set -eu
 top=$1
 c=$top/cli/completions
 fail=0
-bash -n "$c/noqtis.bash" || fail=1
+if command -v bash >/dev/null 2>&1; then bash -n "$c/noqtis.bash" || fail=1; fi
 if command -v zsh >/dev/null 2>&1; then zsh -n "$c/_noqtis" || fail=1; fi
 if command -v fish >/dev/null 2>&1; then fish -n "$c/noqtis.fish" || fail=1; fi
 for m in "$top"/man/noqtis-*.1; do

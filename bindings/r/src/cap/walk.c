@@ -498,7 +498,7 @@ static int walk1(wctx *w, const char *full) {
       rc = NQELIM;
       break;
     }
-    if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) != 0) {
+    if (fstatat(dfd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) != 0) {
       rc = NQEIO;
     } else if (S_ISLNK(st.st_mode)) {
       rc = child(w, de->d_name, nl, 0, NQCLNK, 0);

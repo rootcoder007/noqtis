@@ -141,7 +141,14 @@ if(NQTESTS)
   add_test(NAME nquse COMMAND nquse)
   # the cross-check against OpenSSL 3.5 or later (tests/ossl), where it
   # is found: the same keys, signatures, ciphertexts and digests
-  option(NQOSSL "cross-check against OpenSSL 3.5 when it is found" ON)
+  # off by default on Windows, where a found OpenSSL may be built for
+  # another architecture (the x64 one on the ARM64 runners)
+  if(WIN32)
+    set(NQOSSLDEF OFF)
+  else()
+    set(NQOSSLDEF ON)
+  endif()
+  option(NQOSSL "cross-check against OpenSSL 3.5 when it is found" ${NQOSSLDEF})
   if(NQOSSL)
     find_package(OpenSSL 3.5 QUIET COMPONENTS Crypto)
     if(OpenSSL_FOUND)
