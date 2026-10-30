@@ -79,6 +79,10 @@ push.
 | PyPI | `pip install noqtis` | coming with the first release (wheels for every OS and CPU) |
 | r-universe (R) | `install.packages("noqtis", repos = c("https://rootcoder007.r-universe.dev", "https://cloud.r-project.org"))` | coming with the first release (built from each release, binaries for Windows, macOS and Linux) |
 | CRAN (R) | `install.packages("noqtis")` | after CRAN's review of the first release |
+| Maven Central (Java 22+) | `io.github.rootcoder007:noqtis` | coming with the first release (the jar carries the library for Linux, macOS and Windows, x86-64 and arm64) |
+| crates.io (Rust) | `cargo add noqtis` | coming with the first release |
+| openSUSE Build Service | RPMs and debs for openSUSE, Fedora, Debian, Ubuntu | coming with the first release (`home:` project; repository lines on the release page) |
+| Fedora COPR | `dnf copr enable rootcoder007/noqtis` | coming with the first release (Fedora and EPEL) |
 | Go | `go get github.com/rootcoder007/noqtis/bindings/go@latest` | coming with the first release (cgo; the module proxy has each release) |
 | Scoop, winget, Chocolatey | `scoop install noqtis`, `winget install noqtis` | coming with the first release (winget and Chocolatey after their moderation) |
 | Arch User Repository | `yay -S noqtis` | coming with the first release |

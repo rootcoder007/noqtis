@@ -12,9 +12,13 @@ import java.lang.foreign.Linker;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SymbolLookup;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,8 +26,10 @@ import java.util.List;
  * The functions of noqtis.h, through the Foreign Function and Memory API.
  * The shared library is the file named by the system property
  * {@code noqtis.library} or the environment variable
- * {@code NOQTIS_LIBRARY}, else {@code libnoqtis} (or {@code noqtis-0.dll})
- * on the system's library path.
+ * {@code NOQTIS_LIBRARY}; else the copy the jar carries for this operating
+ * system and CPU ({@code native/<os>-<arch>/}, in the jar published to
+ * Maven Central), unpacked to a private temporary folder; else
+ * {@code libnoqtis} (or {@code noqtis-0.dll}) on the system's library path.
  */
 @SuppressWarnings("restricted") // the FFM calls this class exists to make
 final class Native {
@@ -53,6 +59,10 @@ final class Native {
       }
       return SymbolLookup.libraryLookup(f, Arena.global());
     }
+    SymbolLookup b = bundled(tried);
+    if (b != null) {
+      return b;
+    }
     for (String n :
         new String[] {
           System.mapLibraryName("noqtis"), "libnoqtis.so.0", "libnoqtis.0.dylib", "noqtis-0.dll"
@@ -67,6 +77,50 @@ final class Native {
         "noqtis: cannot load the library (tried "
             + String.join(", ", tried)
             + "); set -Dnoqtis.library=<path> or NOQTIS_LIBRARY");
+  }
+
+  /** The platform's name in the jar: linux, macos or windows, then x86_64 or arm64. */
+  static String platform() {
+    String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+    String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
+    String o =
+        os.startsWith("linux")
+            ? "linux"
+            : os.startsWith("mac") ? "macos" : os.startsWith("windows") ? "windows" : null;
+    String a =
+        arch.equals("amd64") || arch.equals("x86_64")
+            ? "x86_64"
+            : arch.equals("aarch64") || arch.equals("arm64") ? "arm64" : null;
+    return o == null || a == null ? null : o + "-" + a;
+  }
+
+  /** The library the jar carries for this platform, or null when it has none or it will not load. */
+  private static SymbolLookup bundled(List<String> tried) {
+    String pl = platform();
+    if (pl == null) {
+      return null;
+    }
+    String file = System.mapLibraryName("noqtis");
+    if (pl.startsWith("windows")) {
+      file = "noqtis-0.dll";
+    }
+    String res = "/native/" + pl + "/" + file;
+    try (InputStream in = Native.class.getResourceAsStream(res)) {
+      if (in == null) {
+        return null;
+      }
+      // a fresh folder only this user can open; the library is not left behind
+      Path d = Files.createTempDirectory("noqtis");
+      Path f = d.resolve(file);
+      Files.copy(in, f, StandardCopyOption.REPLACE_EXISTING);
+      // deleted at exit in the reverse order: the file, then its folder
+      d.toFile().deleteOnExit();
+      f.toFile().deleteOnExit();
+      return SymbolLookup.libraryLookup(f, Arena.global());
+    } catch (IOException | IllegalArgumentException e) {
+      tried.add("jar:" + res);
+      return null;
+    }
   }
 
   static MethodHandle fn(String name, MemoryLayout ret, MemoryLayout... args) {

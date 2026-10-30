@@ -4,8 +4,10 @@
 # library (CMake, -DNQSHARED=ON) and noqtis.jar (javac and jar, JDK 22 or
 # later), all under build/ (or $NQJB). Then, with "test", runs the tests;
 # with "examples", the two examples. The library is passed to Java as
-# -Dnoqtis.library, so nothing is installed.
-#   sh build.sh [test] [examples]
+# -Dnoqtis.library, so nothing is installed. With "bundled", the jar also
+# carries the library (native/<os>-<arch>/, as the Maven Central jar does)
+# and the tests run with no library given, so they use that copy.
+#   sh build.sh [test] [examples] [bundled]
 set -eu
 
 cd "$(dirname "$0")"
@@ -63,8 +65,34 @@ for w in "$@"; do
     run -cp "$b/noqtis.jar$sep$b/eclasses" SignExample
     run -cp "$b/noqtis.jar$sep$b/eclasses" SealExample
     ;;
+  bundled)
+    case $(uname -s) in
+    Linux) os=linux f=libnoqtis.so ;;
+    Darwin) os=macos f=libnoqtis.dylib ;;
+    MINGW* | MSYS* | CYGWIN*) os=windows f=noqtis-0.dll ;;
+    *) echo "build.sh: no bundled name for $(uname -s)" >&2; exit 2 ;;
+    esac
+    case $(uname -m) in
+    x86_64 | amd64) arch=x86_64 ;;
+    aarch64 | arm64) arch=arm64 ;;
+    *) echo "build.sh: no bundled name for $(uname -m)" >&2; exit 2 ;;
+    esac
+    rm -rf "$b/bclasses"
+    cp -R "$b/classes" "$b/bclasses"
+    mkdir -p "$b/bclasses/native/$os-$arch"
+    cp -L "$lib" "$b/bclasses/native/$os-$arch/$f"
+    jar --create --file "$b/noqtis-bundled.jar" -C "$b/bclasses" .
+    test -d "$b/tclasses" || {
+      echo "build.sh: run the test step before bundled" >&2
+      exit 2
+    }
+    # no -Dnoqtis.library and no NOQTIS_LIBRARY: the jar's own copy
+    env -u NOQTIS_LIBRARY java --enable-native-access=ALL-UNNAMED \
+      -Dnoqtis.repo=../.. -cp "$b/noqtis-bundled.jar$sep$b/tclasses" \
+      io.github.rootcoder007.noqtis.Tests
+    ;;
   *)
-    echo "build.sh: unknown step $w (test, examples)" >&2
+    echo "build.sh: unknown step $w (test, examples, bundled)" >&2
     exit 2
     ;;
   esac

@@ -60,7 +60,7 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.jdk }}
-      - run: sh build.sh test examples
+      - run: sh build.sh test examples bundled
 
   others:
     if: >
@@ -79,4 +79,4 @@ jobs:
         with:
           distribution: temurin
           java-version: "25"
-      - run: sh build.sh test examples
+      - run: sh build.sh test examples bundled

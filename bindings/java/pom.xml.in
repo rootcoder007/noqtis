@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception -->
+<!-- The POM published with the jar (publish.yml fills in the version). -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.rootcoder007</groupId>
+  <artifactId>noqtis</artifactId>
+  <version>@VERSION@</version>
+  <packaging>jar</packaging>
+  <name>noqtis</name>
+  <description>Post-quantum signatures (ML-DSA, SLH-DSA, hybrids with Ed25519), ML-KEM and HQC, SHA-2/SHA-3 and sealed file capsules, from the NOQTIS C11 library through the Foreign Function and Memory API (JDK 22 or later); the jar carries the library for Linux, macOS and Windows on x86-64 and arm64.</description>
+  <url>https://github.com/rootcoder007/noqtis</url>
+  <licenses>
+    <license>
+      <name>Apache-2.0 WITH LLVM-exception</name>
+      <url>https://spdx.org/licenses/LLVM-exception.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>rootcoder007</id>
+      <name>rootcoder007</name>
+      <url>https://github.com/rootcoder007</url>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:https://github.com/rootcoder007/noqtis.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/rootcoder007/noqtis.git</developerConnection>
+    <url>https://github.com/rootcoder007/noqtis</url>
+  </scm>
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/rootcoder007/noqtis/issues</url>
+  </issueManagement>
+</project>

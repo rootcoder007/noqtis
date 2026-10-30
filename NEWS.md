@@ -215,4 +215,9 @@ mistake in the release process; use 0.1.1.)
   (`brew install rootcoder007/morie/noqtis`), pushes the container image to
   `ghcr.io/rootcoder007/noqtis`, and checks that the Go module proxy has the
   Go binding's version; r-universe builds the R package from each release.
+- Java: the jar may carry the library itself (`native/<os>-<arch>/`), and
+  loads that copy when no library is named; the jar on Maven Central
+  (`io.github.rootcoder007:noqtis`) carries it for six platforms. A
+  published release also goes to crates.io, Fedora COPR and the openSUSE
+  Build Service (`publish.yml`).
 - Not yet audited: do not rely on it for anything that matters.

@@ -35,9 +35,24 @@ java --enable-native-access=ALL-UNNAMED \
 ```
 
 The library is the file named by `-Dnoqtis.library` or the environment
-variable `NOQTIS_LIBRARY`, else `libnoqtis` (`noqtis-0.dll` on Windows)
-on the system's library path, as `make install` or a release archive
-puts it.
+variable `NOQTIS_LIBRARY`; else the copy in the jar for this operating
+system and CPU (the jar on Maven Central carries one for Linux, macOS and
+Windows on x86-64 and arm64), unpacked to a private temporary folder;
+else `libnoqtis` (`noqtis-0.dll` on Windows) on the system's library
+path, as `make install` or a release archive puts it.
+
+From Maven Central:
+
+```xml
+<dependency>
+  <groupId>io.github.rootcoder007</groupId>
+  <artifactId>noqtis</artifactId>
+  <version>LATEST_RELEASE</version>
+</dependency>
+```
+
+with the latest release's version in place of `LATEST_RELEASE`
+(Gradle: `implementation("io.github.rootcoder007:noqtis:<version>")`).
 
 ## Signatures
 

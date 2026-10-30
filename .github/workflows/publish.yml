@@ -11,13 +11,17 @@
 # (CARGO_REGISTRY_TOKEN, a token scoped to publish-update of noqtis) and
 # Fedora COPR builds RPMs for Fedora and EPEL from the release tarball
 # (NQ_COPR_CONFIG, the text of ~/.config/copr; the COPR project
-# rootcoder007/noqtis must exist). Without a secret the job builds and
+# rootcoder007/noqtis must exist), the Java jar with its six libraries
+# goes to Maven Central (NQ_MAVEN_USER, NQ_MAVEN_PASS, NQ_MAVEN_GPG_KEY,
+# NQ_MAVEN_GPG_PASS), and the openSUSE Build Service gets the RPM and
+# Debian sources (NQ_OBS_USER, NQ_OBS_PASS). Without a secret the job builds and
 # checks what it would publish, says so, and publishes nothing.
 #
 # The tap is written with the NQ_TAP_TOKEN secret (a fine-grained token
 # with contents: write on rootcoder007/homebrew-morie only); without it
 # the job says so and writes nothing. workflow_dispatch runs everything
-# for a given tag except the writes, as a check.
+# for a given tag except the writes, as a check; with write: true it
+# publishes, to redo a job that failed.
 name: publish
 
 on:
@@ -28,6 +32,10 @@ on:
       tag:
         description: "release tag, e.g. v0.1.1"
         required: true
+      write:
+        description: "publish for real (to redo a failed job), not a dry run"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -37,7 +45,7 @@ concurrency:
 
 env:
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
-  DRY: ${{ github.event_name == 'workflow_dispatch' }}
+  DRY: ${{ github.event_name == 'workflow_dispatch' && !inputs.write }}
 
 jobs:
   brew:
@@ -208,3 +216,229 @@ jobs:
           unset CFG
           copr-cli build noqtis "$HOME"/rpmbuild/SRPMS/noqtis-*.src.rpm
           rm -f "$HOME/.config/copr"
+
+  jnat:
+    # the shared library for the Maven Central jar, per platform: Linux
+    # on the oldest Ubuntu runners (glibc 2.35), macOS 11 and later, and
+    # Windows (arm64 cross-built on the x64 runner)
+    name: jnat ${{ matrix.pl }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { pl: linux-x86_64, os: ubuntu-22.04, f: libnoqtis.so }
+          - { pl: linux-arm64, os: ubuntu-22.04-arm, f: libnoqtis.so }
+          - { pl: macos-arm64, os: macos-15, f: libnoqtis.dylib }
+          - { pl: macos-x86_64, os: macos-15-intel, f: libnoqtis.dylib }
+          - { pl: windows-x86_64, os: windows-2025, f: noqtis-0.dll, a: x64 }
+          - { pl: windows-arm64, os: windows-2025, f: noqtis-0.dll, a: ARM64 }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - name: build
+        env:
+          A: ${{ matrix.a }}
+          F: ${{ matrix.f }}
+          PL: ${{ matrix.pl }}
+        run: |
+          set -- -DCMAKE_BUILD_TYPE=Release -DNQSHARED=ON -DNQTESTS=OFF \
+            -DNQCLI=OFF -DNQMAN=OFF -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          if [ -n "$A" ]; then set -- "$@" -A "$A"; fi
+          cmake -S . -B b "$@"
+          cmake --build b --config Release -j4
+          mkdir -p "out/native/$PL"
+          for s in "b/$F" "b/Release/$F"; do
+            if [ -f "$s" ]; then cp -L "$s" "out/native/$PL/$F"; fi
+          done
+          ls -l "out/native/$PL/$F"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: jnat-${{ matrix.pl }}
+          path: out
+          if-no-files-found: error
+          retention-days: 7
+
+  maven:
+    # io.github.rootcoder007:noqtis on Maven Central: the jar with all six
+    # libraries, the sources and javadoc jars and the POM, each signed with
+    # the release key (NQ_MAVEN_GPG_KEY, NQ_MAVEN_GPG_PASS) and uploaded
+    # with the Central Portal user token (NQ_MAVEN_USER, NQ_MAVEN_PASS).
+    # The jar's own copy of the library must pass the tests first.
+    needs: jnat
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: bindings/java
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: jnat-*
+          merge-multiple: true
+          path: bindings/java/jn
+      - name: the jars and the POM
+        run: |
+          v=${TAG#v}
+          n=$(find jn/native -type f | wc -l)
+          [ "$n" -eq 6 ] || { echo "::error::expected 6 libraries, found $n"; exit 1; }
+          d="m/io/github/rootcoder007/noqtis/$v"
+          mkdir -p "$d" c t
+          # shellcheck disable=SC2046 # no path has a space
+          javac --release 22 -Xlint:all -Werror -d c $(find src/main/java -name '*.java' | sort)
+          cp -R jn/native c/
+          cp ../../LICENSE c/LICENSE
+          jar --create --file "$d/noqtis-$v.jar" -C c .
+          jar --create --file "$d/noqtis-$v-sources.jar" -C src/main/java . -C ../.. LICENSE
+          # shellcheck disable=SC2046
+          javadoc -quiet -Xdoclint:none -d jd $(find src/main/java -name '*.java' | sort)
+          jar --create --file "$d/noqtis-$v-javadoc.jar" -C jd .
+          sed "s/@VERSION@/$v/" pom.xml.in > "$d/noqtis-$v.pom"
+          # the published jar's own library, with no library given
+          # shellcheck disable=SC2046
+          javac --release 22 -cp "$d/noqtis-$v.jar" -d t $(find src/test/java -name '*.java' | sort)
+          env -u NOQTIS_LIBRARY java --enable-native-access=ALL-UNNAMED \
+            -Dnoqtis.repo=../.. -cp "$d/noqtis-$v.jar:t" io.github.rootcoder007.noqtis.Tests
+          ls -l "$d"
+      - name: sign, checksums, bundle (secrets NQ_MAVEN_GPG_KEY, NQ_MAVEN_GPG_PASS)
+        env:
+          KEY: ${{ secrets.NQ_MAVEN_GPG_KEY }}
+          PASS: ${{ secrets.NQ_MAVEN_GPG_PASS }}
+        run: |
+          v=${TAG#v}
+          d="m/io/github/rootcoder007/noqtis/$v"
+          if [ -n "$KEY" ]; then
+            export GNUPGHOME="$RUNNER_TEMP/gnupg"
+            (umask 077 && mkdir -p "$GNUPGHOME")
+            printf '%s\n' "$KEY" | gpg --batch --quiet --import
+            unset KEY
+            for f in "$d"/*; do
+              printf '%s' "$PASS" | gpg --batch --yes --quiet --pinentry-mode loopback \
+                --passphrase-fd 0 --armor --detach-sign "$f"
+            done
+          else
+            echo "::warning::NQ_MAVEN_GPG_KEY is not set: the bundle is not signed"
+          fi
+          for f in "$d"/*.jar "$d"/*.pom; do
+            md5sum "$f" | cut -d' ' -f1 > "$f.md5"
+            sha1sum "$f" | cut -d' ' -f1 > "$f.sha1"
+          done
+          (cd m && zip -q -r ../bundle.zip io)
+          unzip -l bundle.zip
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: maven-bundle
+          path: bindings/java/bundle.zip
+          retention-days: 7
+      - name: upload to the Central Portal (secrets NQ_MAVEN_USER, NQ_MAVEN_PASS)
+        env:
+          U: ${{ secrets.NQ_MAVEN_USER }}
+          P: ${{ secrets.NQ_MAVEN_PASS }}
+          KEY: ${{ secrets.NQ_MAVEN_GPG_KEY }}
+        run: |
+          if [ "$DRY" = true ] || [ -z "$U" ] || [ -z "$P" ] || [ -z "$KEY" ]; then
+            [ "$DRY" = true ] || echo "::warning::Maven Central secrets are not all set: nothing is uploaded"
+            exit 0
+          fi
+          auth="Authorization: Bearer $(printf '%s:%s' "$U" "$P" | base64 -w0)"
+          unset U P KEY
+          id=$(curl -fsS -X POST -H "$auth" -F "bundle=@bundle.zip" \
+            "https://central.sonatype.com/api/v1/publisher/upload?name=noqtis-${TAG#v}&publishingType=AUTOMATIC")
+          echo "deployment $id"
+          for _ in $(seq 1 60); do
+            s=$(curl -fsS -X POST -H "$auth" \
+              "https://central.sonatype.com/api/v1/publisher/status?id=$id" |
+              python3 -c 'import json,sys; print(json.load(sys.stdin)["deploymentState"])')
+            echo "state: $s"
+            case $s in
+            PUBLISHING | PUBLISHED) exit 0 ;;
+            FAILED) echo "::error::Central rejected the deployment $id"; exit 1 ;;
+            esac
+            sleep 30
+          done
+          echo "::error::deployment $id still not validated after 30 minutes"
+          exit 1
+
+  obs:
+    # openSUSE Build Service, home:<NQ_OBS_USER>/noqtis: the release
+    # tarball and RPM spec (openSUSE, Fedora) and a Debian source package
+    # made from packaging/debian (Debian, Ubuntu). OBS builds for the
+    # distributions the home project lists (chosen in its web page).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - name: deps
+        run: sudo apt-get update -q && sudo apt-get install -y -q osc dpkg-dev debhelper
+      - name: the sources OBS builds from
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=${TAG#v}
+          head -1 packaging/debian/changelog | grep -q "^noqtis ($v-"
+          grep -qx "Version:        $v" packaging/rpm/noqtis.spec
+          mkdir obs deb
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "noqtis-$v.tar.gz" --dir obs
+          cp packaging/rpm/noqtis.spec obs/
+          cp "obs/noqtis-$v.tar.gz" "deb/noqtis_$v.orig.tar.gz"
+          tar -xzf "obs/noqtis-$v.tar.gz" -C deb
+          cp -R packaging/debian "deb/noqtis-$v/debian"
+          (cd deb && dpkg-source -b "noqtis-$v")
+          cp deb/*.dsc deb/*.debian.tar.* deb/*.orig.tar.gz obs/
+          ls -l obs
+      - name: commit to OBS (secrets NQ_OBS_USER, NQ_OBS_PASS)
+        env:
+          U: ${{ secrets.NQ_OBS_USER }}
+          P: ${{ secrets.NQ_OBS_PASS }}
+        run: |
+          if [ "$DRY" = true ] || [ -z "$U" ] || [ -z "$P" ]; then
+            [ "$DRY" = true ] || echo "::warning::NQ_OBS_USER/NQ_OBS_PASS are not set: nothing goes to OBS"
+            exit 0
+          fi
+          mkdir -p "$HOME/.config/osc"
+          (umask 077 && cat > "$HOME/.config/osc/oscrc" <<RC
+          [general]
+          apiurl = https://api.opensuse.org
+          [https://api.opensuse.org]
+          user = $U
+          pass = $P
+          credentials_mgr_class = osc.credentials.PlaintextConfigFileCredentialsManager
+          RC
+          )
+          unset P
+          prj="home:$U"
+          if ! osc meta pkg "$prj" noqtis > /dev/null 2>&1; then
+            printf '<package name="noqtis" project="%s"><title>noqtis</title><description>Post-quantum signatures, KEMs and sealed input records (C11)</description><url>https://github.com/rootcoder007/noqtis</url></package>\n' "$prj" > meta.xml
+            osc meta pkg "$prj" noqtis -F meta.xml
+          fi
+          osc checkout -o co "$prj" noqtis
+          find co -maxdepth 1 -type f ! -name '.*' -delete
+          cp obs/* co/
+          cd co
+          osc addremove
+          osc commit -m "noqtis ${TAG#v}"
+          rm -f "$HOME/.config/osc/oscrc"
