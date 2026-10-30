@@ -66,6 +66,9 @@ jobs:
           fi
           grep -qx "# noqtis $v" NEWS.md ||
             { echo "::error::NEWS.md has no '# noqtis $v' section"; exit 1; }
+          # the release notes, built here too so a dry run shows them
+          python3 packaging/notes.py "$v" NEWS.md > notes.md
+          { echo '### Release notes'; echo; cat notes.md; } >> "$GITHUB_STEP_SUMMARY"
           {
             echo "version=$v"
             echo "sde=$(git log -1 --format=%ct)"
@@ -467,10 +470,10 @@ jobs:
       - name: notes from NEWS.md
         env:
           V: ${{ needs.meta.outputs.version }}
+        # one line per paragraph and list item: GitHub shows NEWS.md's
+        # 72-column wraps as line breaks in a release body
         run: |
-          awk -v h="# noqtis $V" '
-            /^# / { p = ($0 == h); next }
-            p' NEWS.md > notes.md
+          python3 packaging/notes.py "$V" NEWS.md > notes.md
           grep -q . notes.md || { echo "::error::empty NEWS.md section for $V"; exit 1; }
           cat notes.md
       - name: draft release
