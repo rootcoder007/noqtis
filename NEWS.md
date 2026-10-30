@@ -43,6 +43,12 @@ mistake in the release process; use 0.1.1.)
   --keys <file>` follows them: a seal by a key the trusted one was
   rotated to passes, and one by a key since rotated away or revoked
   only with a verified timestamp from before then.
+- The bindings have the capsule format 2 API (seals with inputs,
+  ids, proofs, partial and lineage checks, key statements, a
+  manifest's files) and DSSE envelopes:
+  - Python: `seal(format=2, inputs=)`, `capid`, `prove`, `files`,
+    `check(only=, lineage=, keys=, proof=)`, `rotate`, `revoke` and
+    `noqtis.dsse`;
 - `noqtis check <url>` checks a capsule where it is published, over
   http:// or, with the TLS client, https://: the seal and the manifest
   are fetched and checked first, and only then the listed files, each at

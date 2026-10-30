@@ -10,11 +10,14 @@ and HQC), compiled into the package; no runtime dependencies.
 >>> noqtis.check("results", pk).ok  # doctest: +SKIP
 True
 """
+import datetime
 import json
-from typing import Any, Iterable, Iterator, List, Mapping, NamedTuple, Optional, Union
+import os
+import time
+from typing import Any, Iterable, Iterator, List, Mapping, NamedTuple, Optional, Tuple, Union
 
 from . import _noqtis as _c
-from . import kem, keyfile, sign
+from . import dsse, kem, keyfile, sign
 from ._alg import HASHES, KEMS, SIGS, Alg, AlgLike, Bytes, buf, find, hid, isshake, path
 from ._err import (
     ArgError,
@@ -37,6 +40,7 @@ __all__ = [
     "ArgError",
     "BufError",
     "DecodeError",
+    "File",
     "FileError",
     "LimitError",
     "MemError",
@@ -49,12 +53,18 @@ __all__ = [
     "VerifyError",
     "__version__",
     "algs",
+    "capid",
     "check",
+    "dsse",
+    "files",
     "hash",
     "hashes",
     "hmac",
     "kem",
     "keyfile",
+    "prove",
+    "revoke",
+    "rotate",
     "seal",
     "sign",
 ]
@@ -158,13 +168,83 @@ def _salg(sk: bytes, pk: bytes) -> Alg:
                    "pass alg=")
 
 
+def _cstr(s: Union[str, bytes], what: str) -> bytes:
+    """A path or name as the NUL-terminated UTF-8 the library takes."""
+    b = s.encode("utf-8") if isinstance(s, str) else buf(s, what)
+    if b"\0" in b:
+        raise ArgError(-1, "%s: no NUL character" % what)
+    return b
+
+
+def _strs(x: Union[None, str, bytes, Iterable[Union[str, bytes]]],
+          what: str) -> Tuple[bytes, ...]:
+    if x is None:
+        return ()
+    if isinstance(x, (str, bytes)):
+        x = [x]
+    return tuple(_cstr(s, what) for s in x)
+
+
+def _dirs(x: Union[None, PathLike, Iterable[PathLike]],
+          what: str) -> Tuple[bytes, ...]:
+    if x is None:
+        return ()
+    if isinstance(x, (str, bytes, os.PathLike)):
+        x = [x]
+    out = tuple(path(d) for d in x)
+    if any(b"\0" in d for d in out):
+        raise ArgError(-1, "%s: no NUL character" % what)
+    return out
+
+
+def _blob(x: Union[Bytes, PathLike], what: str) -> bytes:
+    """Bytes as given, or the contents of the file a path names."""
+    if isinstance(x, (bytes, bytearray, memoryview)):
+        return buf(x, what)
+    with open(x, "rb") as f:
+        return f.read()
+
+
+def _inputs(inputs: Iterable[Any]) -> Tuple[Tuple[bytes, bytes], ...]:
+    out = []
+    for x in inputs:
+        if isinstance(x, tuple):
+            if len(x) != 2:
+                raise ArgError(-1, "inputs: a folder or a (name, folder) pair")
+            name, src = x
+        else:
+            name, src = None, x
+        if isinstance(src, (bytes, bytearray, memoryview)):
+            # an id: a folder is a str or a path object
+            i = bytes(src)
+            if len(i) != 32 or name is None:
+                raise ArgError(-1, "inputs: an id is 32 bytes, with a name")
+        else:
+            i = capid(src)
+        if name is None:
+            name = os.path.basename(os.path.normpath(os.fspath(src)))
+            if isinstance(name, bytes):
+                name = os.fsdecode(name)
+        out.append((i, _cstr(name, "input name")))
+    return tuple(out)
+
+
 def seal(dir: PathLike, sk: Bytes, pk: Bytes,
          meta: Union[None, str, Mapping[str, Any]] = None,
-         alg: Optional[AlgLike] = None) -> None:
+         alg: Optional[AlgLike] = None, format: Optional[int] = None,
+         inputs: Optional[Iterable[Any]] = None) -> None:
     """Writes noqtis.json and noqtis.sig into ``dir``, covering every
     regular file in it. ``meta`` is a JSON object (a dict, or its text).
     ``alg`` defaults to the algorithm of the key pair. The creation time
-    is SOURCE_DATE_EPOCH when set, else the clock."""
+    is SOURCE_DATE_EPOCH when set, else the clock.
+
+    ``format=2`` writes capsule format 2: the manifest carries a Merkle
+    tree over its files, so that ``prove`` can show some files without
+    the others. ``inputs`` (format 2, the default with it) records the
+    capsules this one was made from: each a capsule folder (named by its
+    last component) or a ``(name, folder)`` pair, or ``(name, id)`` with
+    the 32-byte id from ``capid``. Check the inputs before you name them;
+    ``check(lineage=...)`` follows them back."""
     s, p = buf(sk, "sk"), buf(pk, "pk")
     a = _salg(s, p) if alg is None else find(alg, "sign")
     m: Optional[str]
@@ -174,16 +254,143 @@ def seal(dir: PathLike, sk: Bytes, pk: Bytes,
         m = json.dumps(dict(meta), allow_nan=False, separators=(",", ":"))
     else:
         raise TypeError("meta: a dict, a JSON string or None")
-    _c.seal(path(dir), a.id, s, p, m)
+    f = format if format is not None else (1 if inputs is None else 2)
+    if f not in (1, 2):
+        raise ArgError(-1, "format: 1 or 2")
+    if f == 1 and inputs is not None:
+        raise ArgError(-1, "inputs need format 2")
+    ins = None if inputs is None else _inputs(inputs)
+    if f == 1:
+        _c.seal(path(dir), a.id, s, p, m)
+    else:
+        _c.seal2(path(dir), a.id, s, p, m, ins or ())
 
 
-def check(dir: PathLike, pk: Optional[Bytes] = None,
-          anchors: Optional[Iterable[Bytes]] = None) -> Report:
+def capid(dir: PathLike) -> bytes:
+    """The capsule's id (32 bytes): the SHA-256 of what its seal signs,
+    as ``seal(inputs=...)`` records it. Nothing is checked: ``check``
+    the capsule first."""
+    return _c.capid(path(dir))
+
+
+def check(dir: Optional[PathLike] = None, pk: Optional[Bytes] = None,
+          anchors: Optional[Iterable[Bytes]] = None,
+          only: Union[None, str, Iterable[str]] = None,
+          lineage: Union[None, PathLike, Iterable[PathLike]] = None,
+          keys: Optional[Iterable[Union[Bytes, PathLike]]] = None,
+          proof: Union[None, Bytes, PathLike] = None) -> Report:
     """Checks ``dir`` against its seal. With ``pk`` the seal must be by
     that key; without, the key in the seal is trusted (a row says so).
     ``anchors`` are DER TSA certificates (at most 32): the seal must then
-    carry an RFC 3161 timestamp that verifies under one of them."""
+    carry an RFC 3161 timestamp that verifies under one of them.
+
+    ``only`` checks just these files (paths as the manifest lists them,
+    '/' between folders); "partial" rows say what was left out.
+    ``lineage`` are capsule folders in which the inputs of a format 2
+    capsule are found by id and checked, to 64 levels ("lineage" rows).
+    ``keys`` are key statements (from ``rotate`` or ``revoke``, as bytes
+    or a file path; at most 32) and need ``pk``: the seal may then be by
+    a key ``pk`` was rotated to, and must carry a timestamp from before
+    its key was rotated away or revoked.
+
+    ``proof`` (bytes, or a file path) checks a proof from ``prove``
+    instead of a folder: its seal, its signature and each proven entry;
+    with ``dir`` too, the proven files there. ``only``, ``lineage`` and
+    ``keys`` do not apply to a proof."""
     anc = tuple(buf(x, "anchor") for x in (anchors or ()))
-    code, rows = _c.chk(path(dir), None if pk is None else buf(pk, "pk"),
-                        anc)
+    k = None if pk is None else buf(pk, "pk")
+    pf = None if proof is None else _blob(proof, "proof")
+    if pf is not None and (only is not None or lineage is not None or
+                           keys is not None):
+        raise ArgError(-1, "only, lineage and keys do not apply to a proof")
+    if pf is None and dir is None:
+        raise ArgError(-1, "dir: the capsule folder (or give proof=)")
+    st = tuple(_blob(x, "key statement") for x in (keys or ()))
+    if st and k is None:
+        raise ArgError(-1, "keys need pk, the trusted key")
+    code, rows = _c.chk(None if dir is None else path(dir), k, anc,
+                        _strs(only, "only"), _dirs(lineage, "lineage"), st,
+                        pf)
     return Report(code, (Row(*r) for r in rows))
+
+
+def prove(dir: PathLike, paths: Union[str, Iterable[str]]) -> bytes:
+    """A proof (noqtis-proof-1, JSON) that ``paths`` are files of the
+    format 2 capsule in ``dir``: the seal, the manifest's head and each
+    file's entry and Merkle audit path, and nothing of the other files.
+    ``check(proof=...)`` checks it. Check the capsule first."""
+    p = _strs(paths, "paths")
+    if not p:
+        raise ArgError(-1, "paths: at least one file")
+    return _c.prove(path(dir), p)
+
+
+class File(NamedTuple):
+    """One file a manifest lists: its path, size in bytes and SHA-256
+    (64 hex digits)."""
+
+    path: str
+    size: int
+    sha256: str
+
+
+def files(dir: PathLike) -> List[File]:
+    """The files the capsule's manifest lists, in manifest order, read
+    without checking anything (``check`` does that)."""
+    code, rows = _c.files(path(dir))
+    bad = [r for r in rows if not r[1]]
+    if code != 0 or bad:
+        why = bad[0][2] if bad else "the manifest does not parse"
+        raise DecodeError(code if code < 0 else -4, why)
+    out = []
+    for c, _, d in rows:
+        if c == "info.file":
+            n, h, p = d.split(" ", 2)
+            out.append(File(p, int(n), h))
+    return out
+
+
+def _at(at: Union[None, int, float, datetime.datetime]) -> int:
+    if at is None:
+        return int(time.time())
+    if isinstance(at, datetime.datetime):
+        if at.tzinfo is None:
+            raise ArgError(-1, "at: a datetime with a time zone")
+        return int(at.timestamp())
+    if isinstance(at, bool) or not isinstance(at, (int, float)):
+        raise TypeError("at: seconds since 1970, a datetime or None")
+    return int(at)
+
+
+def _reason(reason: Optional[str]) -> Optional[str]:
+    if reason is not None and not isinstance(reason, str):
+        raise TypeError("reason: a str or None")
+    return reason
+
+
+def rotate(sk: Bytes, pk: Bytes, nsk: Bytes, npk: Bytes,
+           at: Union[None, int, float, datetime.datetime] = None,
+           reason: Optional[str] = None, alg: Optional[AlgLike] = None,
+           nalg: Optional[AlgLike] = None) -> bytes:
+    """A key statement (noqtis-keys-1, JSON) that the key pair (sk, pk)
+    is replaced by (nsk, npk) from ``at`` (seconds since 1970 or an aware
+    datetime; default now), signed by both keys. ``reason`` is up to 255
+    bytes of text. ``alg`` and ``nalg`` default to the pairs' algorithms;
+    both must be post-quantum (Ed25519 alone is refused). Give it to
+    ``check(keys=...)``."""
+    s, p = buf(sk, "sk"), buf(pk, "pk")
+    ns, np = buf(nsk, "nsk"), buf(npk, "npk")
+    a = _salg(s, p) if alg is None else find(alg, "sign")
+    na = _salg(ns, np) if nalg is None else find(nalg, "sign")
+    return _c.kstmt(a.id, s, p, na.id, ns, np, _at(at), _reason(reason))
+
+
+def revoke(sk: Bytes, pk: Bytes,
+           at: Union[None, int, float, datetime.datetime] = None,
+           reason: Optional[str] = None,
+           alg: Optional[AlgLike] = None) -> bytes:
+    """A key statement (noqtis-keys-1, JSON) that the key pair (sk, pk)
+    is revoked from ``at`` (default now), signed by it; as ``rotate``."""
+    s, p = buf(sk, "sk"), buf(pk, "pk")
+    a = _salg(s, p) if alg is None else find(alg, "sign")
+    return _c.kstmt(a.id, s, p, a.id, None, None, _at(at), _reason(reason))

@@ -30,7 +30,8 @@ def fence(lang, code):
 # ---- Python ------------------------------------------------------------
 
 PYMODS = [("noqtis", "__init__.py"), ("noqtis.sign", "sign.py"),
-          ("noqtis.kem", "kem.py"), ("noqtis.keyfile", "keyfile.py"),
+          ("noqtis.kem", "kem.py"), ("noqtis.dsse", "dsse.py"),
+          ("noqtis.keyfile", "keyfile.py"),
           ("Errors", "_err.py")]
 
 

@@ -95,3 +95,25 @@ def test_capsule(tmp_path):
     run("check", d)
     (d / "x").write_bytes(b"2")
     run("check", d, ok=(1,))
+
+
+def test_format2_proof_dsse(tmp_path):
+    k = tmp_path / "k"
+    run("keygen", "-a", "ML-DSA-65", "-o", k)
+    pk, sk = rdkey(str(k) + ".pub"), rdkey(k)
+    d = tmp_path / "cap"
+    d.mkdir()
+    (d / "x").write_bytes(b"1")
+    (d / "y").write_bytes(b"2")
+    noqtis.seal(d, sk, pk, format=2)
+    run("check", "-p", str(k) + ".pub", d)
+    # a proof from either side checks on the other
+    (tmp_path / "py.proof").write_bytes(noqtis.prove(d, ["x"]))
+    run("check", "-p", str(k) + ".pub", "--proof", tmp_path / "py.proof")
+    run("prove", "-o", tmp_path / "cli.proof", d, "y")
+    assert noqtis.check(proof=tmp_path / "cli.proof", pk=pk).ok
+    env = noqtis.dsse.sign("ML-DSA-65", sk, pk, "text/plain", b"hi")
+    (tmp_path / "e.json").write_bytes(env)
+    run("verify", "-p", str(k) + ".pub", "--dsse", "-o", tmp_path / "out",
+        "-q", tmp_path / "e.json")
+    assert (tmp_path / "out").read_bytes() == b"hi"

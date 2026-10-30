@@ -10,6 +10,7 @@ x86-64 and arm64, one abi3 wheel per platform for CPython 3.9 and later.
 |---|---|---|
 | Signatures | ML-DSA-44/65/87 | FIPS 204 |
 | | SLH-DSA-SHA2 and SLH-DSA-SHAKE, 128/192/256, s and f | FIPS 205 |
+| | Ed25519; hybrids ML-DSA-44/65/87+Ed25519 (both parts must verify) | RFC 8032 |
 | KEMs | ML-KEM-512/768/1024 | FIPS 203 |
 | | HQC-128/192/256 | HQC round 4 |
 | Hashes | SHA-224 ... SHA-512/256, SHA3-224 ... SHA3-512, SHAKE128/256, HMAC | FIPS 180-4, FIPS 202 |
@@ -79,6 +80,54 @@ for row in report.rows:     # (check, ok, detail)
 Without `pk`, `check` trusts the key inside the seal and its report says
 so. `anchors=[der, ...]` requires an RFC 3161 timestamp under one of the
 given TSA certificates.
+
+### Format 2, proofs and lineage
+
+`seal(..., format=2)` adds a Merkle tree over the files to the manifest
+and signs its head. `prove` then shows some files to a reader without
+the names or digests of the others:
+
+```python
+noqtis.seal("results/", sk, pk, format=2)
+proof = noqtis.prove("results/", ["tables/t1.csv"])    # bytes (JSON)
+noqtis.check(proof=proof, pk=pk).ok                    # the proof alone
+noqtis.check("results/", pk, proof=proof).ok           # and the files
+```
+
+`seal(..., inputs=["raw/", ("cleaned", "clean/")])` records the capsules
+this one was made from, by id (`noqtis.capid(dir)`, 32 bytes);
+`check(dir, pk, lineage=["raw/", "clean/"])` finds each input among those
+folders and checks it, to 64 levels. `check(dir, pk, only=["a.csv"])`
+checks just those files (a "partial" row says so). `noqtis.files(dir)`
+lists what the manifest holds, `File(path, size, sha256)`, with nothing
+checked.
+
+### Key statements
+
+```python
+st = noqtis.rotate(old_sk, old_pk, new_sk, new_pk, reason="yearly")
+noqtis.check("results/", old_pk, keys=[st]).ok   # sealed by the new key
+rv = noqtis.revoke(old_sk, old_pk, at=1767225600)
+```
+
+A statement (bytes, or a file path) needs `pk`, the trusted key. With
+it, `check` accepts a seal by a key the trusted key was rotated to, and
+requires a verified timestamp from before a seal key was rotated away or
+revoked. Ed25519 alone cannot make statements.
+
+## DSSE envelopes
+
+```python
+from noqtis import dsse
+
+env = dsse.sign("ML-DSA-65", sk, pk, "application/vnd.in-toto+json", stmt)
+dsse.verify("ML-DSA-65", pk, env)   # Signed(type, payload), or None
+```
+
+The envelope (in-toto and SLSA's signing wrapper) is canonical JSON with
+one signature over the pre-authentication encoding; its keyid is the hex
+SHA-256 of `pk`. `verify` returns `None` when no signature verifies and
+raises `DecodeError` for text that is not an envelope.
 
 ## Key files
 

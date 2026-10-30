@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-"""Signatures: ML-DSA (FIPS 204) and SLH-DSA (FIPS 205).
+"""Signatures: ML-DSA (FIPS 204), SLH-DSA (FIPS 205), Ed25519 (RFC 8032)
+and the hybrids ML-DSA-44/65/87+Ed25519, which need both parts to verify.
 
 >>> from noqtis import sign
 >>> pk, sk = sign.keygen("ML-DSA-65")
@@ -31,8 +32,10 @@ def _ph(prehash: Optional[str]) -> int:
 
 def keygen(alg: AlgLike, seed: Optional[Bytes] = None) -> Tuple[bytes, bytes]:
     """A new key pair (pk, sk). With ``seed`` (xi for ML-DSA, 32 bytes;
-    SK.seed || SK.prf || PK.seed for SLH-DSA, 3n bytes) the pair is the
-    standard's deterministic one; without, it comes from the OS CSPRNG."""
+    SK.seed || SK.prf || PK.seed for SLH-DSA, 3n bytes; the 32-byte
+    private key for Ed25519; xi || the Ed25519 key, 64 bytes, for a
+    hybrid) the pair is the standard's deterministic one; without, it
+    comes from the OS CSPRNG."""
     a = find(alg, "sign")
     return _c.skg(a.id, opt(seed, "seed"))
 
