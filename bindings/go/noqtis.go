@@ -96,7 +96,7 @@ func u8(b []byte) *C.uint8_t {
 
 func sz(b []byte) C.size_t { return C.size_t(len(b)) }
 
-// Version is the library's version, "0.1.1".
+// Version is the library's version, "0.1.2".
 func Version() string { return C.GoString(C.nqver()) }
 
 // Alg is one algorithm and its sizes in bytes: Sig is 0 for a KEM, CT

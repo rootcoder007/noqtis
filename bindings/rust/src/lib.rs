@@ -152,7 +152,7 @@ pub fn errmsg(code: i32) -> String {
     cstr(unsafe { ffi::nqerr(code) })
 }
 
-/// The library's version, "0.1.1".
+/// The library's version, "0.1.2".
 pub fn version() -> String {
     // SAFETY: a static string
     cstr(unsafe { ffi::nqver() })

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Fedora, EPEL, openSUSE-style RPM.
 Name:           noqtis
-Version:        0.1.1
+Version:        0.1.2
 Release:        1%{?dist}
 Summary:        Post-quantum signing, KEMs and sealed input records in C11
 License:        Apache-2.0 WITH LLVM-exception
@@ -50,7 +50,11 @@ export NQSLSUB=8 NQFAST=1
 %{_bindir}/noqtis
 %{_mandir}/man1/*
 %{_datadir}/bash-completion/completions/noqtis
+%dir %{_datadir}/zsh
+%dir %{_datadir}/zsh/site-functions
 %{_datadir}/zsh/site-functions/_noqtis
+%dir %{_datadir}/fish
+%dir %{_datadir}/fish/vendor_completions.d
 %{_datadir}/fish/vendor_completions.d/noqtis.fish
 
 %files devel
@@ -62,6 +66,9 @@ export NQSLSUB=8 NQFAST=1
 %{_mandir}/man5/*
 
 %changelog
+* Fri Oct 30 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.1.2-1
+- Hardening from code scanning; own the zsh and fish completion folders
+
 * Fri Oct 30 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.1.1-1
 - The first release (0.1.0 was not released)
 

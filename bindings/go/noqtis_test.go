@@ -52,7 +52,7 @@ const repo = "../.."
 var nodet = &SignOpts{Deterministic: true}
 
 func TestVersionAndTable(t *testing.T) {
-	if Version() != "0.1.1" {
+	if Version() != "0.1.2" {
 		t.Fatalf("version %q", Version())
 	}
 	ns, nk := 0, 0

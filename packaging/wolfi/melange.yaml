@@ -3,7 +3,7 @@
 #   melange build packaging/wolfi/melange.yaml --arch x86_64
 package:
   name: noqtis
-  version: 0.1.1
+  version: 0.1.2
   epoch: 0
   description: Post-quantum signing, KEMs and sealed input records in C11
   copyright:
@@ -83,4 +83,4 @@ test:
       packages:
         - busybox
   pipeline:
-    - runs: test -f /usr/lib/libnoqtis.so.0.1.1 && test -L /usr/lib/libnoqtis.so.0
+    - runs: test -f /usr/lib/libnoqtis.so.0.1.2 && test -L /usr/lib/libnoqtis.so.0

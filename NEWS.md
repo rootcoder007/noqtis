@@ -1,3 +1,11 @@
+# noqtis 0.1.2
+
+- `noqtis check <url>` follows a redirect only on the same server (host and port, or http on 80 to https on 443) and refuses any other, so a server can no longer make the fetch reach a host only the checking machine reaches (localhost, the local network). Code scanning flagged the redirect handling; a test server confirmed the redirect was followed to another host.
+- `noqtis hash -c` refuses a listed name that is not a regular file (a folder, a FIFO, a device) without opening it: a list could otherwise make it wait forever on a FIFO or read /dev/zero to no end.
+- Bounded copies where code scanning asked for them: the temporary folder of `noqtis check <url>` and a redirect's URL are written with `snprintf` (both were already length-checked), and `noqtis export --as bagit` reads the date with `gmtime_r` (`gmtime_s` on Windows) instead of `gmtime`, which is not thread-safe.
+- The RPM spec owns the zsh and fish completion folders, so the openSUSE builds (Tumbleweed, 16.0) pass their file-list check.
+- Releases: a pushed tag only builds, tests and dry-runs the PyPI and npm packages; they are uploaded when the GitHub release is published, from a fresh build of the tag. The ClusterFuzzLite base image is pinned by digest, and the README shows a badge for each place NOQTIS is published.
+
 # noqtis 0.1.1
 
 The first release. (0.1.0 reached npm alone, from an earlier commit, by a

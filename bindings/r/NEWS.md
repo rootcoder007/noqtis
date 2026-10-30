@@ -1,3 +1,7 @@
+# noqtis 0.1.2
+
+* Built with libnoqtis 0.1.2; no change to the R API.
+
 # noqtis 0.1.1
 
 * First release: R bindings to the bundled noqtis C library.
