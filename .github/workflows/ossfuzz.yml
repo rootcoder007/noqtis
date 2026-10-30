@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Builds noqtis the way OSS-Fuzz does, with OSS-Fuzz's own
+# infra/helper.py and the project files of the integration pull request
+# (projects/noqtis on rootcoder007/oss-fuzz, branch noqtis), from this
+# commit's source: every sanitizer and engine project.yaml lists, plus
+# the coverage build. Each build is checked with check_build, and with
+# libFuzzer and ASan every target replays its whole seed corpus
+# (run_fuzzer ... -runs=0). Logs are uploaded as ossfuzz-<build>.
+name: ossfuzz
+
+on:
+  pull_request:
+    paths:
+      - "fuzz/**"
+      - ".github/workflows/ossfuzz.yml"
+  schedule:
+    - cron: "17 4 * * 3"
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "OSS-Fuzz repository with projects/noqtis"
+        default: "rootcoder007/oss-fuzz"
+      ref:
+        description: "its branch"
+        default: "noqtis"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ossfuzz-${{ github.ref }}-${{ github.event_name }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.engine }} ${{ matrix.sanitizer }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { engine: libfuzzer, sanitizer: address }
+          - { engine: libfuzzer, sanitizer: undefined }
+          - { engine: libfuzzer, sanitizer: memory }
+          - { engine: afl, sanitizer: address }
+          - { engine: honggfuzz, sanitizer: address }
+          - { engine: libfuzzer, sanitizer: coverage }
+    env:
+      ENGINE: ${{ matrix.engine }}
+      SAN: ${{ matrix.sanitizer }}
+      OFREPO: ${{ inputs.repo || 'rootcoder007/oss-fuzz' }}
+      OFREF: ${{ inputs.ref || 'noqtis' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: noqtis
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.OFREPO }}
+          ref: ${{ env.OFREF }}
+          path: oss-fuzz
+          persist-credentials: false
+      - name: build image
+        working-directory: oss-fuzz
+        run: python3 infra/helper.py build_image --pull noqtis 2>&1 | tee ../build.log
+      - name: build fuzzers
+        working-directory: oss-fuzz
+        run: >
+          python3 infra/helper.py build_fuzzers --engine "$ENGINE"
+          --sanitizer "$SAN" --architecture x86_64 noqtis
+          "$GITHUB_WORKSPACE/noqtis" 2>&1 | tee -a ../build.log;
+          test "${PIPESTATUS[0]}" = 0
+      - name: check build
+        if: matrix.sanitizer != 'coverage'
+        working-directory: oss-fuzz
+        run: >
+          python3 infra/helper.py check_build --engine "$ENGINE"
+          --sanitizer "$SAN" --architecture x86_64 noqtis
+          2>&1 | tee ../check.log; test "${PIPESTATUS[0]}" = 0
+      - name: replay every seed corpus
+        if: matrix.engine == 'libfuzzer' && matrix.sanitizer == 'address'
+        working-directory: oss-fuzz
+        run: |
+          n=0
+          for z in build/out/noqtis/*_seed_corpus.zip; do
+            t=$(basename "$z" _seed_corpus.zip)
+            s=$(unzip -Z1 "$z" | grep -vc '/$' || true)
+            python3 infra/helper.py run_fuzzer --engine libfuzzer \
+              --sanitizer address noqtis "$t" -- -runs=0 \
+              > "../replay-$t.log" 2>&1 || {
+              cat "../replay-$t.log"
+              exit 1
+            }
+            echo "$t: $s seeds replayed"
+            n=$((n + s))
+          done
+          echo "seeds replayed in all: $n"
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ossfuzz-${{ matrix.engine }}-${{ matrix.sanitizer }}
+          path: "*.log"
+          retention-days: 30

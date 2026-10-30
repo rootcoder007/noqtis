@@ -192,4 +192,7 @@ mistake in the release process; use 0.1.1.)
     a keygen seed may overlap the key outputs, a failed signature keygen
     clears its outputs, and a hash context changed by its holder is
     refused (`NQESTATE`) instead of followed out of bounds.
+- The OSS-Fuzz integration is checked with OSS-Fuzz's own tools every week
+  (`ossfuzz.yml`), and ClusterFuzzLite fuzzes the code a pull request
+  changes and, weekly, every target for an hour (`cflite.yml`).
 - Not yet audited: do not rely on it for anything that matters.
