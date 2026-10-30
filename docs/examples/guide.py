@@ -8,8 +8,10 @@
 blocks (docs/site/src/content/docs/guides/<lang>.md), runs them against
 the binding the calling CI job has built, and fails unless every line of
 the page's text blocks (the output the page shows; for R, its "> "
-prompt lines left out) appears in the output, in order. The binding is
-found as each job leaves it:
+prompt lines left out) appears in the output, in order. For py, r and
+js each program (a block that loads the package; for js, one that calls
+`await init()` at its top level) runs on its own, against the text block
+that follows it. The binding is found as each job leaves it:
 
   py    the `noqtis` package importable by $PYTHON (default python3)
   r     the `noqtis` package installed for Rscript
@@ -79,26 +81,32 @@ def main():
     code = blocks(md, LANGS[lang])
     # a page may also show install lines in its language; the program is
     # the block that loads the package
-    use = {"py": "import noqtis", "r": "library(noqtis)", "js": "noqtis"}
+    use = {"py": "import noqtis", "r": "library(noqtis)",
+           "js": "\nawait init("}
     if lang in use:
-        code = [c for c in code if use[lang] in c]
+        code = [c for c in code if use[lang] in "\n" + c]
     texts = blocks(md, ("text",))
     if not code or not texts:
         sys.exit(f"guide.py: {md} has no code or no output block")
     tmp = pathlib.Path(tempfile.mkdtemp(prefix="nqguide"))
+    if lang in use and len(texts) < len(code):
+        sys.exit(f"guide.py: {md} has {len(code)} programs but "
+                 f"{len(texts)} output blocks")
     if lang == "py":
-        f = tmp / "g.py"
-        f.write_text(code[0])
-        got = run([os.environ.get("PYTHON", "python3"), str(f)], tmp)
-        expect(texts[0], got, "py")
+        for i, c in enumerate(code):
+            f = tmp / f"g{i}.py"
+            f.write_text(c)
+            got = run([os.environ.get("PYTHON", "python3"), str(f)], tmp)
+            expect(texts[i], got, f"py program {i + 1}")
     elif lang == "r":
-        f = tmp / "g.R"
-        f.write_text(code[0])
-        got = run(["Rscript", "-e",
-                   f'source("{f.as_posix()}", print.eval = TRUE)'], tmp)
-        want = "\n".join(l for l in texts[0].splitlines()
-                         if not l.startswith("> "))
-        expect(want, got, "r")
+        for i, c in enumerate(code):
+            f = tmp / f"g{i}.R"
+            f.write_text(c)
+            got = run(["Rscript", "-e",
+                       f'source("{f.as_posix()}", print.eval = TRUE)'], tmp)
+            want = "\n".join(l for l in texts[i].splitlines()
+                             if not l.startswith("> "))
+            expect(want, got, f"r program {i + 1}")
     elif lang == "go":
         # each block is a fragment of main; give each its own scope
         body = "".join("\tfunc() {\n" + c + "\t}()\n" for c in code[1:])
@@ -146,12 +154,13 @@ def main():
         # inside the package, so that 'noqtis' and 'noqtis/node' resolve
         # to it by its own name, as they do for a user who installed it
         f = ROOT / "bindings/npm/test" / "zguide.mjs"
-        try:
-            f.write_text(code[0])
-            got = run(["node", str(f)], ROOT / "bindings/npm")
-        finally:
-            f.unlink(missing_ok=True)
-        expect(texts[0], got, "js")
+        for i, c in enumerate(code):
+            try:
+                f.write_text(c)
+                got = run(["node", str(f)], ROOT / "bindings/npm")
+            finally:
+                f.unlink(missing_ok=True)
+            expect(texts[i], got, f"js program {i + 1}")
     shutil.rmtree(tmp, ignore_errors=True)
 
 
