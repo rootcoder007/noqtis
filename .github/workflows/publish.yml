@@ -216,6 +216,10 @@ jobs:
           mkdir -p "$HOME/.config"
           (umask 077 && printf '%s\n' "$CFG" > "$HOME/.config/copr")
           unset CFG
+          # the project page: the logo, what it is, how to install
+          copr-cli modify noqtis \
+            --description "$(cat packaging/rpm/copr-description.md)" \
+            --instructions "$(cat packaging/rpm/copr-instructions.md)"
           copr-cli build noqtis "$HOME"/rpmbuild/SRPMS/noqtis-*.src.rpm
           rm -f "$HOME/.config/copr"
 
@@ -311,7 +315,8 @@ jobs:
           jar --create --file "$d/noqtis-$v.jar" -C c .
           jar --create --file "$d/noqtis-$v-sources.jar" -C src/main/java . -C ../.. LICENSE
           # shellcheck disable=SC2046
-          javadoc -quiet -Xdoclint:none -d jd $(find src/main/java -name '*.java' | sort)
+          javadoc -quiet -Xdoclint:none -overview src/main/javadoc/overview.html \
+            -doctitle "NOQTIS $v for Java" -d jd $(find src/main/java -name '*.java' | sort)
           jar --create --file "$d/noqtis-$v-javadoc.jar" -C jd .
           sed "s/@VERSION@/$v/" pom.xml.in > "$d/noqtis-$v.pom"
           # the published jar's own library, with no library given

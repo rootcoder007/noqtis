@@ -8,8 +8,8 @@ NEWS.md is wrapped at 72 columns; GitHub shows each of those line
 breaks in a release body. This prints the section headed
 "# noqtis <version>" with each paragraph and each list item joined onto
 one line (nested items keep their indent), and headings, blank lines and
-code blocks left as they are. Exits 1 when the section is missing or
-empty.
+code blocks left as they are, under the NOQTIS logo. Exits 1 when the
+section is missing or empty.
 """
 import re
 import sys
@@ -62,6 +62,9 @@ def main():
     text = "\n".join(out).strip("\n")
     if not text.strip():
         sys.exit(f"notes.py: no {head!r} section in {path}")
+    print('<img src="https://raw.githubusercontent.com/rootcoder007/noqtis/main/docs/logo/noqtis-hex-512.png" align="right" height="120" '
+          'alt="NOQTIS hex logo" />')
+    print()
     print(text)
 
 
