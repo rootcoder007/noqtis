@@ -1,0 +1,97 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis-prove</code> &#x2014;
+    <span class="Nd">prove that some files are in a capsule, without the
+    others</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis prove</code></td>
+    <td>[<code class="Fl">-p</code> <var class="Ar">key.pub</var>]
+      [<code class="Fl">-o</code> <var class="Ar">file</var>]
+      [<code class="Fl">-f</code>] <var class="Ar">dir</var>
+      <var class="Ar">path ...</var></td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Nm">noqtis prove</code> writes a proof that the files
+    <var class="Ar">path ...</var> are in the format 2 capsule
+    <var class="Ar">dir</var>
+    (<a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>):
+    the seal, the manifest's head (its Merkle root and number of files) and, for
+    each file, its entry and its Merkle audit path. A reader checks the proof
+    with
+    <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>
+    <code class="Fl">--proof</code>, which verifies the seal's signature over
+    the head and each path to the signed root, and, given the files, the files
+    against their entries. The proof holds no name, size or digest of the
+    capsule's other files.</p>
+<p class="Pp">Paths are relative to <var class="Ar">dir</var>, with
+    &#x2018;<code class="Li">/</code>&#x2019; between folders, as the manifest
+    lists them; one given twice is proven once. The capsule must check first,
+    against <code class="Fl">-p</code> when given: a proof of a capsule that
+    does not check is not written.</p>
+<dl class="Bl-tag">
+  <dt id="p"><a class="permalink" href="#p"><code class="Fl">-p</code></a>
+    <var class="Ar">key.pub</var>,
+    <code class="Fl">--pub</code>=<var class="Ar">key.pub</var></dt>
+  <dd>The public key the capsule must be sealed with.</dd>
+  <dt id="o"><a class="permalink" href="#o"><code class="Fl">-o</code></a>
+    <var class="Ar">file</var>,
+    <code class="Fl">--out</code>=<var class="Ar">file</var></dt>
+  <dd>Write the proof to <var class="Ar">file</var> instead of standard
+    output.</dd>
+  <dt id="f"><a class="permalink" href="#f"><code class="Fl">-f</code></a>,
+    <code class="Fl">--force</code></dt>
+  <dd>Replace <var class="Ar">file</var> if it exists.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt>0</dt>
+  <dd>The proof was written.</dd>
+  <dt>1</dt>
+  <dd>The capsule does not check.</dd>
+  <dt>2</dt>
+  <dd>A usage error, a format 1 capsule, a path the manifest does not list, a
+      file that cannot be written, or a library error.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Seal in format 2, prove one file, and check the proof without the
+    rest of the folder:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>$ noqtis seal --format 2 -k me results
+$ noqtis prove -p me.pub -o in.proof results data/in.csv
+$ noqtis check -p me.pub --proof in.proof</pre>
+</div>
+<p class="Pp">With the file at hand, check it too:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>$ noqtis check -p me.pub --proof in.proof results</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    <span class="Xr">nqchkp(3)</span>,
+    <a class="Xr" href="/noqtis/reference/man/nqprove-3/">nqprove(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">Certificate Transparency
+    Version 2.0</span>, <span class="RsR">RFC 9162</span>,
+    <span class="RsD">December 2021</span>.</cite></p>
+</section>
+</div>

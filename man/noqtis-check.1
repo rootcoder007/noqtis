@@ -10,7 +10,15 @@
 .Op Fl p Ar key.pub
 .Op Fl j | Fl -json
 .Op Fl -anchor Ar der-file ...
+.Op Fl -only Ar path ...
+.Op Fl -lineage Ar input-dir ...
 .Ar dir
+.Nm noqtis check
+.Op Fl p Ar key.pub
+.Op Fl j | Fl -json
+.Op Fl -anchor Ar der-file ...
+.Fl -proof Ar file
+.Op Ar dir
 .Sh DESCRIPTION
 .Nm noqtis check
 checks the capsule
@@ -94,6 +102,45 @@ A TSA trust anchor: the root or issuing certificate of a time-stamping
 authority, DER-encoded (convert PEM with
 .Ql openssl x509 -outform DER ) .
 Up to 32; one that verifies the token is enough.
+.It Fl -only Ar path
+Check only this listed file, up to 32 times: a partial check.
+The seal, the signature and the whole manifest are still checked; files
+not named are neither read nor needed, and files present but not listed
+are not looked for.
+.Ql partial
+rows say so, so a partial pass is never mistaken for a full one.
+A named path the manifest does not list fails its
+.Ql file
+row.
+.It Fl -lineage Ar input-dir
+The folder of a capsule that may be one of the inputs of
+.Ar dir
+(a format 2 capsule sealed with
+.Xr noqtis-seal 1
+.Fl -input ) ,
+up to 32 times.
+Each input is found among them by its id, the SHA-256 of the bytes its
+seal signs, and checked in full without a pinned key; its own inputs are
+looked for in the same folders, to 64 levels.
+One
+.Ql lineage
+row per input says whether it was found and checks.
+.It Fl -proof Ar file
+Check a proof made by
+.Xr noqtis-prove 1
+instead of a folder: the seal in the proof, its signature over the
+manifest's head, and each proven entry's Merkle audit path to the root
+the head signs
+.Pq Ql proof.entry .
+With
+.Ar dir ,
+the proven files there are also checked against their entries, and a
+.Ql partial
+row says the capsule's other files are not in the proof.
+.Fl -only
+and
+.Fl -lineage
+do not apply.
 .El
 .Ss Checks
 The row names are stable, for scripts:
@@ -150,9 +197,33 @@ The manifest is canonical JSON with exactly the fields of
 .It Cm manifest.format , manifest.created , manifest.order
 .Ql format
 is
-.Ql noqtis-capsule-1 ,
+.Ql noqtis-capsule-1
+(or
+.Ql noqtis-capsule-2
+under a
+.Ql noqtis-seal-2
+seal),
 .Ql created
 is an RFC 3339 UTC time, and the files are sorted by path with no repeats.
+.It Cm manifest.merkle
+Format 2: the Merkle tree over the file entries has the root and leaf
+count the signed head gives.
+.It Cm lineage
+With
+.Fl -lineage :
+one row per input of the capsule.
+.It Cm partial
+With
+.Fl -only
+or
+.Fl -proof :
+what the check left out; never a failure.
+.It Cm proof.parse , proof.canonical , proof.fields , proof.entry
+With
+.Fl -proof :
+the proof is canonical JSON with exactly the fields of
+.Ql noqtis-proof-1 ,
+and each entry's audit path leads to the signed root.
 .It Cm path
 One row per refused, non-normal, duplicate or too long path, and per two
 paths that differ only in case.
@@ -214,6 +285,12 @@ ok    timestamp           RFC 3161 token over the signature verifies under a TSA
 results: OK (23 checks passed)
 .Ed
 .Pp
+Only one file of a format 2 capsule, and its inputs:
+.Bd -literal -offset indent
+$ noqtis check -p me.pub --only data/in.csv results
+$ noqtis check -p me.pub --lineage raw results
+.Ed
+.Pp
 In CI, keeping only the failed rows:
 .Bd -literal -offset indent
 $ noqtis check --json -p me.pub results |
@@ -223,6 +300,7 @@ new.txt: not in the manifest
 .Ed
 .Sh SEE ALSO
 .Xr noqtis 1 ,
+.Xr noqtis-prove 1 ,
 .Xr noqtis-seal 1 ,
 .Xr nqchk 3 ,
 .Xr nqchkt 3 ,

@@ -61,6 +61,8 @@ _noqtis_cmd() {
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
         '(-p --pub)'{-p,--pub=}'[public key to check against]:key.pub:_files' \
         '(-m --meta)'{-m,--meta=}'[metadata JSON]:json-file:_files' \
+        '--format=[capsule format]:format:(1 2)' \
+        '*--input=[an input capsule]:dir:_files -/' \
         '*--tsa[RFC 3161 timestamp authority]:url:_urls' \
         '*--anchor[trusted root certificate]:der-file:_files' \
         ':dir:_files -/' ;;
@@ -69,7 +71,16 @@ _noqtis_cmd() {
         '(-p --pub)'{-p,--pub=}'[expected public key]:key.pub:_files' \
         '(-j --json)'{-j,--json}'[JSON report]' \
         '*--anchor[trusted root certificate]:der-file:_files' \
+        '*--only=[check only this file]:path:_files' \
+        '*--lineage=[an input capsule folder]:dir:_files -/' \
+        '--proof=[a proof from noqtis prove]:file:_files' \
         ':dir:_files -/' ;;
+    prove)
+      _arguments \
+        '(-p --pub)'{-p,--pub=}'[expected public key]:key.pub:_files' \
+        '(-o --out)'{-o,--out=}'[file to write]:file:_files' \
+        '(-f --force)'{-f,--force}'[replace the file]' \
+        ':dir:_files -/' '*:path:_files' ;;
     inspect)
       _arguments '(-j --json)'{-j,--json}'[JSON report]' ':dir:_files -/' ;;
     timestamp)
@@ -87,6 +98,7 @@ _arguments -C \
     verify\:"verify a signature" enc\:"encapsulate a shared secret"
     dec\:"decapsulate a shared secret" hash\:"print or check digests"
     seal\:"seal a folder" check\:"check a sealed folder"
+    prove\:"prove some files of a capsule"
     inspect\:"show what a seal says" timestamp\:"add public timestamps"
     algs\:"list the algorithms" version\:"print the version"))' \
   '*::arg:_noqtis_cmd'

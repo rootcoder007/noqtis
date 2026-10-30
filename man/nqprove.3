@@ -1,0 +1,154 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 29, 2026
+.Dt NQPROVE 3
+.Os
+.Sh NAME
+.Nm nqprove ,
+.Nm nqchkp
+.Nd prove some files of a capsule, and check such a proof
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqprove
+.Fa "const char *dir"
+.Fa "const char *const *paths" "size_t np"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqchkp
+.Fa "const char *proof" "size_t n"
+.Fa "const nqcopt *o"
+.Fa "const char *dir"
+.Fa "nqrep **rep"
+.Fc
+.Sh DESCRIPTION
+.Fn nqprove
+writes to
+.Fa out ,
+of
+.Fa cap
+bytes, a proof
+.Pq Ql noqtis-proof-1 , Xr noqtis-capsule 5
+that the files
+.Fa paths Ns Bq 0..np
+are in the format 2 capsule in
+.Fa dir :
+the seal, the manifest's head and, per file, its entry, its index and
+its Merkle audit path (RFC 9162).
+The proof holds no name, size or digest of the capsule's other files.
+Paths are as the manifest lists them; repeats are proven once.
+.Fa *outlen
+gets the proof's size, also when
+.Fa cap
+is too small, so a call with
+.Fa out
+.Dv NULL
+and
+.Fa cap
+0 gives the size to allocate.
+.Fn nqprove
+reads the seal and the manifest with the checker's strict readers but
+does not check the capsule: call
+.Xr nqchkx 3
+first.
+.Pp
+.Fn nqchkp
+checks a proof of
+.Fa n
+bytes and returns a report as
+.Xr nqchk 3
+does: the proof's form
+.Pq Ql proof.parse , proof.canonical , proof.fields ,
+the seal and its signature over the head with
+.Fa o Ns -> Ns Fa trust
+and its TSA anchors (the other members of
+.Fa o
+are not used;
+.Fa o
+may be
+.Dv NULL ) ,
+and one
+.Ql proof.entry
+row per entry whose audit path leads to the head's Merkle root.
+With
+.Fa dir
+not
+.Dv NULL ,
+each proven file there is also checked against its entry
+.Pq Ql file
+rows, and a
+.Ql partial
+row says the capsule's other files are not in the proof.
+.Sh RETURN VALUES
+.Fn nqprove :
+.Bl -tag -width NQENOSUP
+.It Dv NQOK
+The proof was written.
+.It Bq Er NQEBUF
+.Fa cap
+is too small;
+.Fa *outlen
+is the size needed.
+.It Bq Er NQENOSUP
+The capsule is format 1.
+.It Bq Er NQEIO
+A path is not in the manifest, or a file could not be read.
+.It Bq Er NQEDEC
+The seal or the manifest does not parse.
+.It Bq Er NQELIM
+More paths than a manifest may list.
+.It Bq Er NQEARG
+A
+.Dv NULL
+argument, or
+.Fa np
+0.
+.It Bq Er NQEMEM
+The allocation hook returned
+.Dv NULL .
+.El
+.Pp
+.Fn nqchkp
+returns
+.Dv NQOK
+when every check passed and
+.Er NQEVRFY
+when one failed, with the report in
+.Fa *rep
+either way;
+.Er NQEARG
+and
+.Er NQEMEM
+return no report.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+const char *p[1] = {"data/in.csv"};
+size_t n = 0;
+char *b;
+if (nqprove("results", p, 1, NULL, 0, &n) == NQEBUF &&
+    (b = malloc(n)) != NULL &&
+    nqprove("results", p, 1, b, n, &n) == NQOK) {
+  nqcopt o = {0};
+  nqrep *rep = NULL;
+  o.trust = pk;
+  o.trustlen = sizeof pk;
+  if (nqchkp(b, n, &o, NULL, &rep) == NQOK)
+    puts("data/in.csv is in the capsule that key sealed");
+  nqrepfree(rep);
+}
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-prove 1 ,
+.Xr nqchkx 3 ,
+.Xr nqrep 3 ,
+.Xr nqseal2 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%R RFC 9162
+.%T Certificate Transparency Version 2.0
+.%D December 2021
+.Re

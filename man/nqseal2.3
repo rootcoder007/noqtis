@@ -1,0 +1,98 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 29, 2026
+.Dt NQSEAL2 3
+.Os
+.Sh NAME
+.Nm nqseal2 ,
+.Nm nqcapid
+.Nd seal a format 2 capsule, and a capsule's id
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Bd -literal
+typedef struct {
+  uint8_t id[32];
+  const char *name;
+} nqcin;
+.Ed
+.Pp
+.Ft int
+.Fo nqseal2
+.Fa "const char *dir" "nqsalg alg"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const char *meta"
+.Fa "const nqcin *in" "size_t nin"
+.Fc
+.Ft int
+.Fn nqcapid "const char *dir" "uint8_t id[32]"
+.Sh DESCRIPTION
+.Fn nqseal2
+is
+.Xr nqseal 3
+in format 2
+.Pq Ql noqtis-capsule-2 , Ql noqtis-seal-2 , Xr noqtis-capsule 5 :
+the manifest also carries a Merkle tree over its file entries, and the
+seal signs the manifest's head, which holds the tree's root and size but
+not the list of files.
+.Xr nqprove 3
+can then show single files without the others.
+.Pp
+.Fa in Ns Bq 0..nin
+are the capsules this one was made from, at most 1024, recorded in the
+manifest's
+.Ql inputs :
+each
+.Fa id
+is an input's id from
+.Fn nqcapid ,
+and each
+.Fa name
+1 to 255 bytes of UTF-8 with no control character.
+.Fa in
+may be
+.Dv NULL
+when
+.Fa nin
+is 0.
+.Xr nqchkx 3
+follows these records with its
+.Fa lin
+folders.
+.Pp
+.Fn nqcapid
+stores in
+.Fa id
+the id of the capsule in
+.Fa dir :
+the SHA-256 of the bytes its seal signs
+.Pq Ql manifest_sha256 No of a format 1 seal, Ql head_sha256 No of a format 2 one ,
+read from
+.Pa noqtis.sig .
+Nothing else is checked: check the capsule
+.Pq Xr nqchk 3
+before relying on it.
+.Sh RETURN VALUES
+.Fn nqseal2
+returns what
+.Xr nqseal 3
+returns, and
+.Er NQEARG
+for an input name that is empty, too long or has a control character, and
+.Er NQELIM
+for more than 1024 inputs.
+.Fn nqcapid
+returns
+.Dv NQOK ,
+.Er NQEIO
+when the seal cannot be read,
+.Er NQEDEC
+when it is not a seal of either format, or
+.Er NQEARG .
+.Sh SEE ALSO
+.Xr noqtis-seal 1 ,
+.Xr nqchkx 3 ,
+.Xr nqprove 3 ,
+.Xr nqseal 3 ,
+.Xr noqtis-capsule 5

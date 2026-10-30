@@ -1,0 +1,127 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqprove</code>, <code class="Nm">nqchkp</code>
+    &#x2014; <span class="Nd">prove some files of a capsule, and check such a
+    proof</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqprove</code>(<var class="Fa">const char *dir</var>,
+    <var class="Fa">const char *const *paths</var>, <var class="Fa">size_t
+    np</var>, <var class="Fa">char *out</var>, <var class="Fa">size_t cap</var>,
+    <var class="Fa">size_t *outlen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqchkp</code>(<var class="Fa">const char *proof</var>,
+    <var class="Fa">size_t n</var>, <var class="Fa">const nqcopt *o</var>,
+    <var class="Fa">const char *dir</var>, <var class="Fa">nqrep
+  **rep</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqprove"><code class="Fn" id="nqprove">nqprove</code></a>()
+    writes to <var class="Fa">out</var>, of <var class="Fa">cap</var> bytes, a
+    proof (&#x2018;<code class="Li">noqtis-proof-1,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></code>&#x2019;)
+    that the files <var class="Fa">paths</var>[0..np] are in the format 2
+    capsule in <var class="Fa">dir</var>: the seal, the manifest's head and, per
+    file, its entry, its index and its Merkle audit path (RFC 9162). The proof
+    holds no name, size or digest of the capsule's other files. Paths are as the
+    manifest lists them; repeats are proven once. <var class="Fa">*outlen</var>
+    gets the proof's size, also when <var class="Fa">cap</var> is too small, so
+    a call with <var class="Fa">out</var> <code class="Dv">NULL</code> and
+    <var class="Fa">cap</var> 0 gives the size to allocate.
+    <code class="Fn">nqprove</code>() reads the seal and the manifest with the
+    checker's strict readers but does not check the capsule: call
+    <a class="Xr" href="/noqtis/reference/man/nqchkx-3/">nqchkx(3)</a>
+  first.</p>
+<p class="Pp" id="nqchkp"><a class="permalink" href="#nqchkp"><code class="Fn">nqchkp</code></a>()
+    checks a proof of <var class="Fa">n</var> bytes and returns a report as
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a> does: the
+    proof's form (&#x2018;<code class="Li">proof.parse, proof.canonical,
+    proof.fields</code>&#x2019;), the seal and its signature over the head with
+    <var class="Fa">o</var>-&gt;<var class="Fa">trust</var> and its TSA anchors
+    (the other members of <var class="Fa">o</var> are not used;
+    <var class="Fa">o</var> may be <code class="Dv">NULL</code>), and one
+    &#x2018;<code class="Li">proof.entry</code>&#x2019; row per entry whose
+    audit path leads to the head's Merkle root. With <var class="Fa">dir</var>
+    not <code class="Dv">NULL</code>, each proven file there is also checked
+    against its entry (&#x2018;<code class="Li">file</code>&#x2019;) rows, and a
+    &#x2018;<code class="Li">partial</code>&#x2019; row says the capsule's other
+    files are not in the proof.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><code class="Fn">nqprove</code>():</p>
+<dl class="Bl-tag">
+  <dt id="NQOK"><a class="permalink" href="#NQOK"><code class="Dv">NQOK</code></a></dt>
+  <dd>The proof was written.</dd>
+  <dt>[<code class="Er">NQEBUF</code>]</dt>
+  <dd><var class="Fa">cap</var> is too small; <var class="Fa">*outlen</var> is
+      the size needed.</dd>
+  <dt>[<code class="Er">NQENOSUP</code>]</dt>
+  <dd>The capsule is format 1.</dd>
+  <dt>[<code class="Er">NQEIO</code>]</dt>
+  <dd>A path is not in the manifest, or a file could not be read.</dd>
+  <dt>[<code class="Er">NQEDEC</code>]</dt>
+  <dd>The seal or the manifest does not parse.</dd>
+  <dt>[<code class="Er">NQELIM</code>]</dt>
+  <dd>More paths than a manifest may list.</dd>
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd>A <code class="Dv">NULL</code> argument, or <var class="Fa">np</var>
+    0.</dd>
+  <dt>[<code class="Er">NQEMEM</code>]</dt>
+  <dd>The allocation hook returned <code class="Dv">NULL</code>.</dd>
+</dl>
+<p class="Pp"><code class="Fn">nqchkp</code>() returns
+    <code class="Dv">NQOK</code> when every check passed and
+    <code class="Er">NQEVRFY</code> when one failed, with the report in
+    <var class="Fa">*rep</var> either way; <code class="Er">NQEARG</code> and
+    <code class="Er">NQEMEM</code> return no report.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>const char *p[1] = {&quot;data/in.csv&quot;};
+size_t n = 0;
+char *b;
+if (nqprove(&quot;results&quot;, p, 1, NULL, 0, &amp;n) == NQEBUF &amp;&amp;
+    (b = malloc(n)) != NULL &amp;&amp;
+    nqprove(&quot;results&quot;, p, 1, b, n, &amp;n) == NQOK) {
+  nqcopt o = {0};
+  nqrep *rep = NULL;
+  o.trust = pk;
+  o.trustlen = sizeof pk;
+  if (nqchkp(b, n, &amp;o, NULL, &amp;rep) == NQOK)
+    puts(&quot;data/in.csv is in the capsule that key sealed&quot;);
+  nqrepfree(rep);
+}</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-prove-1/">noqtis-prove(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchkx-3/">nqchkx(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqseal2-3/">nqseal2(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsT">Certificate Transparency
+    Version 2.0</span>, <span class="RsR">RFC 9162</span>,
+    <span class="RsD">December 2021</span>.</cite></p>
+</section>
+</div>

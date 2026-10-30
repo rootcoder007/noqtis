@@ -210,6 +210,25 @@ typedef struct nqrep nqrep;
 NQAPI int nqseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
                  const uint8_t *pk, size_t pklen, const char *meta,
                  const char *tsa);
+/* An input of a capsule: the input capsule's id (nqcapid) and a short
+ * name for it (1 to 255 bytes of UTF-8, no control character). */
+typedef struct {
+  uint8_t id[32];
+  const char *name;
+} nqcin;
+/* nqseal in format 2 (noqtis-capsule-2, noqtis-seal-2): the manifest also
+ * carries a Merkle tree over its entries, so that nqprove can show single
+ * files without the rest, and the nin capsules it was made from (at most
+ * 1024; in may be NULL when nin is 0). The seal signs the manifest's head
+ * (everything but the list of files). */
+NQAPI int nqseal2(const char *dir, nqsalg alg, const uint8_t *sk,
+                  size_t sklen, const uint8_t *pk, size_t pklen,
+                  const char *meta, const nqcin *in, size_t nin);
+/* The id of the capsule in dir: the SHA-256 of the bytes its seal signs
+ * (manifest_sha256 of a format 1 seal, head_sha256 of a format 2 one),
+ * read from noqtis.sig. Nothing else is checked: check the capsule first
+ * (nqchk) before relying on it. */
+NQAPI int nqcapid(const char *dir, uint8_t id[32]);
 /* Checks dir against its seal; trust NULL accepts the key in the seal (and
  * the report says so). The report lists every check. NQOK only when every
  * check passed, NQEVRFY otherwise (*rep is still set); free it with
@@ -223,6 +242,46 @@ NQAPI int nqchk(const char *dir, const uint8_t *trust, size_t trustlen,
 NQAPI int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
                  const uint8_t *const *anc, const size_t *anclen,
                  size_t nanc, nqrep **rep);
+/* What nqchkx checks beyond nqchkt. Any member may be zero/NULL. */
+typedef struct {
+  const uint8_t *trust; /* the trusted public key, or NULL */
+  size_t trustlen;
+  const uint8_t *const *anc; /* TSA trust anchors, as nqchkt */
+  const size_t *anclen;
+  size_t nanc;
+  /* a partial check: only these listed paths (normalised, '/' separated)
+   * are checked; files not named, and files present but not listed, are
+   * not, and the report says so in "partial" rows */
+  const char *const *only;
+  size_t nonly;
+  /* lineage: capsule folders to find a format 2 capsule's inputs in, by
+   * their id (nqcapid); each input found is checked the same way, with no
+   * key pinned, its own inputs too, to 64 levels; one "lineage" row per
+   * input */
+  const char *const *lin;
+  size_t nlin;
+  /* reserved for key statements: NULL and 0 (NQENOSUP otherwise) */
+  const char *const *stmt;
+  const size_t *stmtlen;
+  size_t nstmt;
+} nqcopt;
+/* nqchkt with the options of o (NULL: none). */
+NQAPI int nqchkx(const char *dir, const nqcopt *o, nqrep **rep);
+/* A proof (noqtis-proof-1) that the files paths[0..np) are in the format 2
+ * capsule in dir: the seal, the manifest's head (its Merkle root and leaf
+ * count) and, per file, its entry and audit path, so that nqchkp can
+ * check those files and learns nothing of the others' names or digests.
+ * Written to out (cap bytes); *outlen gets the size, also with NQEBUF
+ * when cap is too small. NQENOSUP for a format 1 capsule, NQEIO for a
+ * path the manifest does not list. Check the capsule (nqchk) first. */
+NQAPI int nqprove(const char *dir, const char *const *paths, size_t np,
+                  char *out, size_t cap, size_t *outlen);
+/* Checks a proof of n bytes: the seal and its signature over the head
+ * (with o's trusted key and TSA anchors; its other members are not used),
+ * and each entry's audit path to the head's root ("proof.entry" rows);
+ * with dir (or NULL), each proven file there against its entry. */
+NQAPI int nqchkp(const char *proof, size_t n, const nqcopt *o,
+                 const char *dir, nqrep **rep);
 /* What the capsule in dir says, read with nqchk's strict readers but with
  * nothing checked: no digest, signature, timestamp or file. NQOK when the
  * seal and the manifest parse: the report then ends with info.format,

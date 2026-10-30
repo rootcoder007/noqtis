@@ -92,8 +92,8 @@ vectors and against OpenSSL.
 | M3e | `ed` | Ed25519, Ed25519ctx, Ed25519ph (RFC 8032), strict verification (prime-order keys, S < L, canonical encodings); hybrid ML-DSA + Ed25519 in `api/sig.c` | RFC 8032 vectors, Wycheproof Ed25519, OpenSSL 3.5 cross-check and differential fuzz, ctgrind |
 | M7 | `cls` | verification only: RSA PKCS#1 v1.5 and PSS (2048-4096), ECDSA P-256 and P-384 | Wycheproof RSA and ECDSA, OpenSSL 3.5 differential fuzz |
 | M8 | `der` | strict DER reader (length, tag and depth limits), X.509 path checks, OCSP, CRL, RFC 3161 timestamp tokens | the rmoriebricklayer 1.0.3 x509/timestamp fixtures, libFuzzer corpus, positional-parse tests |
-| M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer |
-| M10 | `cli` | `noqtis keygen / sign / verify / enc / dec / hash / seal / timestamp / check / inspect / algs / version` | golden-output tests, exit codes, fuzzed arguments |
+| M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify; format 2: Merkle tree over the entries (RFC 9162), seal over the head, partial checks, proofs of single files, inputs and lineage | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer; `tcap2` (tree against RFC 9162 by construction, every proof field tampered), an independent recomputation of the spec's example, `fproof` |
+| M10 | `cli` | `noqtis keygen / sign / verify / enc / dec / hash / seal / timestamp / check / prove / inspect / algs / version` | golden-output tests, exit codes, fuzzed arguments |
 | M11 | `port` | platform layer for files and paths (Windows wide-char), symbol visibility, shared-library versioning, `noqtis.pc` and CMake package config | the full suite passes on every platform in the CI matrix |
 | M12 | `bind` | WebAssembly build and the npm, PyPI and CRAN packages first, then the other bindings | each binding's own tests on every platform it supports |
 

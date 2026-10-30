@@ -70,7 +70,7 @@ int LLVMFuzzerInitialize(int *argc, char ***argv) {
     snprintf(name, sizeof name, "cap/%s", files[i]);
     b = fzread(name, &n);
     if (b == NULL) return 0;
-    if (nqcwrite(dir, files[i], (const char *)b, n) != NQOK) return 0;
+    if (!fzput(dir, files[i], b, n)) return 0;
     nqfree(b, n + 1);
   }
   seal = fzread("cap/noqtis.sig", &sealn);
@@ -122,7 +122,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   const uint8_t *z;
   const char *s = (const char *)seal, *m = (const char *)data;
   size_t sn = sealn, mn = size;
-  if (!ready) return 0;
+  fzready(ready, "fcap");
   z = (const uint8_t *)memchr(data, 0, size);
   if (z != NULL) {
     s = (const char *)data;

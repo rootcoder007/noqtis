@@ -3,6 +3,9 @@
  * seal --tsa and check --anchor. */
 #include "cli.h"
 
+/* the longest input name nqseal2 takes */
+#define NQCNAMEMAXC 255
+
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -162,17 +165,61 @@ static int stamp(const char *cmd, const char *dir, const char *const *tsa,
   return NCBAD;
 }
 
+/* --input [name=]dir: the capsule in dir, which must check, with its id;
+ * the name is the folder's last segment unless given */
+static int rdin(const char *arg, nqcin *in, char *name, size_t cap) {
+  const char *eq = strchr(arg, '='), *dir = eq != NULL ? eq + 1 : arg;
+  const char *nm, *e;
+  size_t nl;
+  nqrep *r = NULL;
+  int rc;
+  if (eq != NULL) {
+    nm = arg;
+    nl = (size_t)(eq - arg);
+  } else {
+    e = dir + strlen(dir);
+    while (e > dir && (e[-1] == '/' || e[-1] == '\\')) e--;
+    nm = e;
+    while (nm > dir && nm[-1] != '/' && nm[-1] != '\\') nm--;
+    nl = (size_t)(e - nm);
+  }
+  if (nl == 0 || nl >= cap) {
+    ncmsg("seal", "--input %s: no name (give name=folder)", arg);
+    return NCUSE;
+  }
+  memcpy(name, nm, nl);
+  name[nl] = 0;
+  rc = nqchk(dir, NULL, 0, &r);
+  nqrepfree(r);
+  if (rc != NQOK) {
+    ncmsg("seal", "--input %s: the capsule there does not check (%s): run "
+          "`noqtis check %s` to see why", arg, nqerr(rc), dir);
+    return NCUSE;
+  }
+  rc = nqcapid(dir, in->id);
+  if (rc != NQOK) {
+    nclib("seal", dir, rc);
+    return NCUSE;
+  }
+  in->name = name;
+  return NCOK;
+}
+
 int ncseal(int argc, char **argv) {
-  const char *kp = NULL, *pp = NULL, *mp = NULL;
-  const char *tsa[NCMAXV], *anc[NCMAXV];
-  int help = 0, np, rc, ret = NCUSE, nt = 0, na = 0;
+  const char *kp = NULL, *pp = NULL, *mp = NULL, *fv = NULL;
+  const char *tsa[NCMAXV], *anc[NCMAXV], *inp[NCMAXV];
+  int help = 0, np, rc, ret = NCUSE, nt = 0, na = 0, ni = 0, fmt = 1, i;
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
     {'p', "pub", 1, &pp, NULL},
     {'m', "meta", 1, &mp, NULL},
+    {'\0', "format", 1, &fv, NULL},
+    {'\0', "input", NCMANY, inp, &ni},
     {'\0', "tsa", NCMANY, tsa, &nt},
     {'\0', "anchor", NCMANY, anc, &na}
   };
+  nqcin ins[NCMAXV];
+  char inm[NCMAXV][NQCNAMEMAXC + 1];
   nckey sk = {{0, 0, NULL}, 0, NULL, 0}, pk = {{0, 0, NULL}, 0, NULL, 0};
   ncanc an;
   uint8_t *meta = NULL;
@@ -194,6 +241,25 @@ int ncseal(int argc, char **argv) {
   if (na > 0 && nt == 0) {
     ncmsg("seal", "--anchor checks a timestamp: give --tsa <url> too");
     return NCUSE;
+  }
+  if (fv != NULL) {
+    if (strcmp(fv, "1") == 0) {
+      fmt = 1;
+    } else if (strcmp(fv, "2") == 0) {
+      fmt = 2;
+    } else {
+      ncmsg("seal", "--format %s: give 1 or 2", fv);
+      return NCUSE;
+    }
+  }
+  /* inputs are a format 2 field */
+  if (ni > 0 && fv == NULL) fmt = 2;
+  if (ni > 0 && fmt != 2) {
+    ncmsg("seal", "--input needs format 2 (--format 2)");
+    return NCUSE;
+  }
+  for (i = 0; i < ni; i++) {
+    if (rdin(inp[i], &ins[i], inm[i], sizeof inm[i]) != NCOK) return NCUSE;
   }
   /* a URL the request could never be sent to is refused before sealing */
   for (rc = 0; rc < nt; rc++) {
@@ -255,8 +321,10 @@ int ncseal(int argc, char **argv) {
     ncmsg("seal", "%s: path too long", argv[0]);
     goto done;
   }
-  rc = nqseal(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
-              (const char *)meta, NULL);
+  rc = fmt == 2 ? nqseal2(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
+                         (const char *)meta, ins, (size_t)ni)
+                 : nqseal(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
+                          (const char *)meta, NULL);
   if (rc != NQOK) {
     disarm();
     if (rc == NQEARG)
@@ -342,11 +410,13 @@ static const ncfix fixes[] = {
    "canonical form noqtis writes): " RESEAL},
   {"seal.fields", NULL, "noqtis.sig was edited or made by another tool: "
    RESEAL},
-  {"seal.format", NULL, "noqtis.sig is not a noqtis-seal-1 seal: " RESEAL},
+  {"seal.format", NULL, "noqtis.sig is not a noqtis-seal-1 or noqtis-seal-2 "
+   "seal: " RESEAL},
   {"seal.alg", NULL, "the seal's algorithm is not one this noqtis knows "
    "(`noqtis algs`): use a newer noqtis, or " RESEAL},
-  {"seal.context", NULL, "the seal's context is not \"noqtis-capsule-1\", so "
-   "its signature was not made for a capsule: " RESEAL},
+  {"seal.context", NULL, "the seal's context is not the capsule context of "
+   "its format (\"noqtis-capsule-1\" or \"noqtis-capsule-2\"), so its "
+   "signature was not made for a capsule: " RESEAL},
   {"seal.key", NULL, "the seal's public_key is damaged: " RESEAL},
   {"seal.signature", NULL, "the seal's signature is damaged: " RESEAL},
   {"manifest.read", "too large", "noqtis.json is over 512 MiB, more than "
@@ -361,12 +431,29 @@ static const ncfix fixes[] = {
    "noqtis checks: split the folder into smaller capsules"},
   {"manifest.fields", NULL, "noqtis.json was edited or made by another "
    "tool: " RESEAL},
-  {"manifest.format", NULL, "noqtis.json is not a noqtis-capsule-1 "
-   "manifest: " RESEAL},
+  {"manifest.format", NULL, "noqtis.json is not a manifest of the seal's "
+   "format (noqtis-capsule-1 or noqtis-capsule-2): " RESEAL},
   {"manifest.created", NULL, "the manifest's created time is not RFC 3339 "
    "UTC: " RESEAL},
   {"manifest.order", NULL, "the manifest's files are not sorted, so it "
    "was edited: " RESEAL},
+  {"manifest.merkle", NULL, "the manifest's file entries are not the ones "
+   "the seal's Merkle root covers, so an entry was edited: " RESEAL},
+  {"lineage", "not found", "an input capsule is not in the --lineage "
+   "folders: give the folder of each input (the row names its id)"},
+  {"lineage", "does not check", "an input capsule does not check: run "
+   "`noqtis check` on it to see why, and restore it"},
+  {"lineage", NULL, "the inputs nest too deep for noqtis to follow: check "
+   "the deepest inputs on their own"},
+  {"proof.parse", NULL, "the proof is not JSON: make it again with "
+   "`noqtis prove`"},
+  {"proof.canonical", NULL, "the proof was edited (it is not in the "
+   "canonical form noqtis writes): make it again with `noqtis prove`"},
+  {"proof.fields", NULL, "the proof was edited or made by another tool: "
+   "make it again with `noqtis prove`"},
+  {"proof.entry", NULL, "a file entry of the proof is not in the sealed "
+   "Merkle tree, so the entry or its path was edited: make the proof "
+   "again with `noqtis prove`"},
   {"key", NULL, "the seal was made with another key than -p gives: check "
    "that -p is the signer's public key; if it is, someone else sealed "
    "the folder again"},
@@ -421,17 +508,23 @@ static const char *fixfor(const char *chk, const char *det) {
 }
 
 int ncchk(int argc, char **argv) {
-  const char *pp = NULL, *anc[NCMAXV];
-  int json = 0, help = 0, np, rc, ret, all = 1, na = 0;
+  const char *pp = NULL, *anc[NCMAXV], *only[NCMAXV], *lin[NCMAXV],
+             *pf = NULL, *lab;
+  int json = 0, help = 0, np, rc, ret, all = 1, na = 0, no = 0, nl = 0;
   ncopt o[] = {
     {'p', "pub", 1, &pp, NULL},
     {'j', "json", 0, NULL, &json},
-    {'\0', "anchor", NCMANY, anc, &na}
+    {'\0', "anchor", NCMANY, anc, &na},
+    {'\0', "only", NCMANY, only, &no},
+    {'\0', "lineage", NCMANY, lin, &nl},
+    {'\0', "proof", 1, &pf, NULL}
   };
   nckey pk = {{0, 0, NULL}, 0, NULL, 0};
   nqrep *r = NULL;
   ncanc an;
-  size_t n = 0, i, j, w = 5, nf = 0;
+  nqcopt co;
+  uint8_t *pb = NULL;
+  size_t n = 0, i, j, w = 5, nf = 0, pn = 0;
   const char *kn = NULL, *kalg = NULL;
 
   an.k = 0;
@@ -442,38 +535,74 @@ int ncchk(int argc, char **argv) {
     ncuse(stdout, "check");
     return NCOK;
   }
-  if (np != 1) {
+  /* a proof stands alone: the folder, when given, holds the proven
+   * files */
+  if (np > 1 || (np == 0 && pf == NULL)) {
     ncuse(stderr, "check");
     return NCUSE;
   }
-  if (!ncisdir(argv[0])) {
+  if (pf != NULL && (no > 0 || nl > 0)) {
+    ncmsg("check", "--proof checks the files the proof names: --only and "
+          "--lineage apply to a capsule folder");
+    return NCUSE;
+  }
+  if (np == 1 && !ncisdir(argv[0])) {
     ncmsg("check", "%s: not a folder (give the folder that holds "
           "noqtis.json and noqtis.sig)", argv[0]);
+    return NCUSE;
+  }
+  for (i = 0; i < (size_t)nl; i++) {
+    if (!ncisdir(lin[i])) {
+      ncmsg("check", "%s: not a folder (--lineage takes a folder of "
+            "input capsules)", lin[i]);
+      return NCUSE;
+    }
+  }
+  lab = pf != NULL ? pf : argv[0];
+  if (pf != NULL && ncrdx(pf, 0, NCRDMAX, &pb, &pn) != NCOK) {
+    ncmsg("check", "%s: cannot read the proof", pf);
     return NCUSE;
   }
   pk.b = NULL;
   pk.n = 0;
   pk.sec = 0;
   if (pp != NULL) {
-    if (nckrd("check", pp, 0, &pk) != NCOK)
+    if (nckrd("check", pp, 0, &pk) != NCOK) {
+      ncfree(pb, pn, 0);
       return NCUSE;
+    }
     if (pk.a.kem) {
       ncmsg("check", "%s is a %s (KEM) key, not a signature key; give the "
             "signer's .pub from `noqtis keygen -a ML-DSA-...` or SLH-DSA",
             pp, pk.a.name);
       nckfree(&pk);
+      ncfree(pb, pn, 0);
       return NCUSE;
     }
   }
   if (ancrd("check", anc, na, &an) != NCOK) {
     nckfree(&pk);
+    ncfree(pb, pn, 0);
     return NCUSE;
   }
-  rc = nqchkt(argv[0], pk.b, pk.n, (const uint8_t *const *)an.b, an.n,
-              an.k, &r);
+  memset(&co, 0, sizeof co);
+  co.trust = pk.b;
+  co.trustlen = pk.n;
+  co.anc = (const uint8_t *const *)an.b;
+  co.anclen = an.n;
+  co.nanc = an.k;
+  co.only = only;
+  co.nonly = (size_t)no;
+  co.lin = lin;
+  co.nlin = (size_t)nl;
+  if (pf != NULL)
+    rc = nqchkp((const char *)pb, pn, &co, np == 1 ? argv[0] : NULL, &r);
+  else
+    rc = nqchkx(argv[0], &co, &r);
   kn = pp != NULL ? pk.a.name : NULL;
   nckfree(&pk);
   ancfree(&an);
+  ncfree(pb, pn, 0);
   if (r != NULL)
     n = nqrepn(r);
   for (i = 0; i < n; i++) {
@@ -504,8 +633,8 @@ int ncchk(int argc, char **argv) {
   else
     ret = NCUSE;
   if (json) {
-    fputs("{\"capsule\":", stdout);
-    jstr(argv[0]);
+    fputs(pf != NULL ? "{\"proof\":" : "{\"capsule\":", stdout);
+    jstr(lab);
     printf(",\"ok\":%s,\"result\":", ret == NCOK ? "true" : "false");
     jstr(nqerr(rc));
     fputs(",\"checks\":[", stdout);
@@ -547,13 +676,13 @@ int ncchk(int argc, char **argv) {
   if (json) {
     fputs("]}\n", stdout);
   } else if (ret == NCOK) {
-    printf("%s: OK (%lu checks passed)\n", ncesc(argv[0]),
+    printf("%s: OK (%lu checks passed)\n", ncesc(lab),
            (unsigned long)n);
   } else if (n > 0 && nf > 0) {
-    printf("%s: FAILED (%lu of %lu checks failed)\n", ncesc(argv[0]),
+    printf("%s: FAILED (%lu of %lu checks failed)\n", ncesc(lab),
            (unsigned long)nf, (unsigned long)n);
   } else {
-    printf("%s: FAILED (%s)\n", ncesc(argv[0]), nqerr(rc));
+    printf("%s: FAILED (%s)\n", ncesc(lab), nqerr(rc));
   }
   /* what to do: once per failed check and advice, after the table */
   for (i = 0; i < n && !json; i++) {
@@ -576,10 +705,95 @@ int ncchk(int argc, char **argv) {
     ncmsg("check", "note: no -p given, so the key inside the seal was "
           "trusted; pass -p <key.pub> to check who sealed it");
   if (ret == NCUSE && !json)
-    ncmsg("check", "%s: %s", argv[0], nqerr(rc));
+    ncmsg("check", "%s: %s", lab, nqerr(rc));
   if (r != NULL)
     nqrepfree(r);
   fflush(stdout);
+  return ret;
+}
+
+/* noqtis prove: a proof of some files of a format 2 capsule */
+int ncprove(int argc, char **argv) {
+  const char *pp = NULL, *out = NULL;
+  int help = 0, force = 0, np, rc, ret = NCUSE;
+  ncopt o[] = {
+    {'p', "pub", 1, &pp, NULL},
+    {'o', "out", 1, &out, NULL},
+    {'f', "force", 0, NULL, &force}
+  };
+  nckey pk = {{0, 0, NULL}, 0, NULL, 0};
+  nqcopt co;
+  nqrep *r = NULL;
+  char *b = NULL;
+  size_t n = 0, i;
+  if (ncargs("prove", argc, argv, o, sizeof o / sizeof o[0], &np,
+             &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "prove");
+    return NCOK;
+  }
+  if (np < 2) {
+    ncuse(stderr, "prove");
+    return NCUSE;
+  }
+  if (!ncisdir(argv[0])) {
+    ncmsg("prove", "%s: not a folder (give the folder that holds "
+          "noqtis.json and noqtis.sig)", argv[0]);
+    return NCUSE;
+  }
+  if (pp != NULL && nckrd("prove", pp, 0, &pk) != NCOK)
+    return NCUSE;
+  /* only what checks is proven: a proof of a broken capsule would be
+   * refused anyway, later and further from the cause */
+  memset(&co, 0, sizeof co);
+  co.trust = pk.b;
+  co.trustlen = pk.n;
+  rc = nqchkx(argv[0], &co, &r);
+  nckfree(&pk);
+  if (r != NULL) {
+    size_t k = nqrepn(r);
+    for (i = 0; i < k && rc == NQOK; i++) {
+      const char *c = NULL, *d = NULL;
+      int ok = 0;
+      if (nqrepi(r, i, &c, &ok, &d) != NQOK || !ok)
+        rc = NQEVRFY;
+    }
+    nqrepfree(r);
+  }
+  if (rc != NQOK) {
+    ncmsg("prove", "%s does not check: run `noqtis check%s%s %s` and fix "
+          "it first", argv[0], pp != NULL ? " -p " : "",
+          pp != NULL ? pp : "", argv[0]);
+    return rc == NQEVRFY || rc == NQEDEC ? NCBAD : NCUSE;
+  }
+  rc = nqprove(argv[0], (const char *const *)(argv + 1), (size_t)np - 1,
+               NULL, 0, &n);
+  if (rc == NQEBUF) {
+    b = (char *)malloc(n);
+    if (b == NULL)
+      return nclib("prove", argv[0], NQEMEM);
+    rc = nqprove(argv[0], (const char *const *)(argv + 1), (size_t)np - 1,
+                 b, n, &n);
+  }
+  if (rc == NQENOSUP) {
+    ncmsg("prove", "%s is a format 1 capsule: seal it again with "
+          "`noqtis seal --format 2` to prove single files", argv[0]);
+  } else if (rc == NQEIO) {
+    ncmsg("prove", "a path is not in the manifest of %s (paths are "
+          "relative to the folder, '/' separated)", argv[0]);
+  } else if (rc != NQOK) {
+    nclib("prove", argv[0], rc);
+  } else if (out == NULL || strcmp(out, "-") == 0) {
+    ncbin();
+    ret = fwrite(b, 1, n, stdout) == n && fflush(stdout) == 0 ? NCOK
+                                                               : NCUSE;
+  } else if (ncwr(out, (const uint8_t *)b, n, force, 0) != NCOK) {
+    ret = ncwfail("prove", out, force);
+  } else {
+    ret = NCOK;
+  }
+  free(b);
   return ret;
 }
 

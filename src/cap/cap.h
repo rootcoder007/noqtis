@@ -19,6 +19,13 @@
 #define NQCFMT "noqtis-capsule-1"
 #define NQCSFMT "noqtis-seal-1"
 #define NQCCTX "noqtis-capsule-1"
+/* format 2: a Merkle tree over the entries, the inputs, a signed head */
+#define NQCFMT2 "noqtis-capsule-2"
+#define NQCSFMT2 "noqtis-seal-2"
+#define NQCCTX2 "noqtis-capsule-2"
+#define NQCINMAX 1024 /* inputs of one capsule */
+#define NQCNAMEMAX 255 /* bytes in one input's name */
+#define NQCMDEPTH 64  /* the deepest audit path (2^64 leaves) */
 
 #define NQCMANMAX ((size_t)512 << 20) /* noqtis.json */
 #define NQCSIGMAX ((size_t)1 << 20)  /* noqtis.sig */
@@ -148,6 +155,23 @@ int nqcread(const char *dir, const char *name, size_t max, char **buf,
 /* Writes n bytes to dir/name, replacing it. */
 int nqcwrite(const char *dir, const char *name, const char *buf, size_t n);
 
+/* ---- the Merkle tree of format 2 (src/cap/mk.c, RFC 6962) ---- */
+
+/* SHA-256(0x00 || e): the leaf of one entry's canonical bytes */
+void nqcmleaf(const char *e, size_t n, uint8_t out[32]);
+/* the root of n leaves (32 bytes each, in order); SHA-256("") for none */
+void nqcmroot(const uint8_t *lv, size_t n, uint8_t out[32]);
+/* the audit path of leaf m: *len sibling hashes, leaf upward, into path
+ * (cap hashes of 32 bytes) */
+int nqcmpath(const uint8_t *lv, size_t n, size_t m, uint8_t *path,
+             size_t cap, size_t *len);
+/* 1 when path proves leaf is number m of n leaves under root */
+int nqcmvrfy(const uint8_t leaf[32], size_t m, size_t n,
+             const uint8_t *path, size_t len, const uint8_t root[32]);
+/* 1 when s may name an input: 1 to NQCNAMEMAX bytes of UTF-8, no
+ * control character */
+int nqcinok(const char *s, size_t n);
+
 /* ---- seal ---- */
 
 /* nqseal with the creation time given and, when rnd is not NULL, the
@@ -157,6 +181,12 @@ int nqcseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
             const uint8_t *pk, size_t pklen, const char *meta,
             const char *tsa, int64_t created, const uint8_t *rnd,
             size_t rndlen, int *why);
+/* nqcseal writing format ver (1 or 2), with nin inputs (format 2 only). */
+int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
+             const uint8_t *pk, size_t pklen, const char *meta,
+             const char *tsa, int64_t created, const uint8_t *rnd,
+             size_t rndlen, int ver, const nqcin *in, size_t nin,
+             int *why);
 /* "too many files", "path too long", ... for an NQCL* code; NULL for 0. */
 const char *nqclwhy(int lim);
 

@@ -73,9 +73,9 @@
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <p class="Pp">These functions make keys, sign and verify with the module-lattice
-    signature ML-DSA (FIPS 204) and the stateless hash-based signature SLH-DSA
-    (FIPS 205). Keys and signatures are byte strings in the encodings the
-    standards define.</p>
+    signature ML-DSA (FIPS 204), the stateless hash-based signature SLH-DSA
+    (FIPS 205), Ed25519 (RFC 8032), and hybrid ML-DSA + Ed25519. Keys and
+    signatures are byte strings in the encodings the standards define.</p>
 <section class="Ss">
 <h2 class="Ss" id="Algorithms"><a class="permalink" href="#Algorithms">Algorithms</a></h2>
 <p class="Pp"><var class="Vt">nqsalg</var> names the parameter set:</p>
@@ -192,11 +192,62 @@
     <td>128</td>
     <td>49856</td>
   </tr>
+  <tr id="NQED25519">
+    <td><a class="permalink" href="#NQED25519"><code class="Dv">NQED25519</code></a></td>
+    <td>Ed25519</td>
+    <td>32</td>
+    <td>32</td>
+    <td>64</td>
+  </tr>
+  <tr id="NQMDED44">
+    <td><a class="permalink" href="#NQMDED44"><code class="Dv">NQMDED44</code></a></td>
+    <td>ML-DSA-44+Ed25519</td>
+    <td>1344</td>
+    <td>2592</td>
+    <td>2484</td>
+  </tr>
+  <tr id="NQMDED65">
+    <td><a class="permalink" href="#NQMDED65"><code class="Dv">NQMDED65</code></a></td>
+    <td>ML-DSA-65+Ed25519</td>
+    <td>1984</td>
+    <td>4064</td>
+    <td>3373</td>
+  </tr>
+  <tr id="NQMDED87">
+    <td><a class="permalink" href="#NQMDED87"><code class="Dv">NQMDED87</code></a></td>
+    <td>ML-DSA-87+Ed25519</td>
+    <td>2624</td>
+    <td>4928</td>
+    <td>4691</td>
+  </tr>
 </table>
 <p class="Pp">Sizes are in bytes. The &#x2018;<code class="Li">s</code>&#x2019;
     sets give small signatures and slow signing, the
     &#x2018;<code class="Li">f</code>&#x2019; sets fast signing and larger
     signatures.</p>
+<p class="Pp" id="nqsignd"><code class="Dv">NQED25519</code> is Ed25519 (RFC
+    8032): classical, not post-quantum, for interoperation (DSSE envelopes,
+    say); a capsule is never sealed with it alone. No context and
+    <var class="Fa">ph</var> 0 is Ed25519; a context is Ed25519ctx;
+    <var class="Fa">ph</var> <code class="Dv">NQS512</code> is Ed25519ph (no
+    other hash). It is deterministic:
+    <a class="permalink" href="#nqsignd"><code class="Fn">nqsignd</code></a>()
+    takes no randomness (<var class="Fa">rnd</var> <span class="No">may
+    be</span> <code class="Dv">NULL</code> <span class="No">with</span>
+    <var class="Fa">rndlen</var> <span class="No">0</span>). Verification
+    refuses a public key of small or mixed order, a scalar S not below the group
+    order, and any non-canonical encoding.</p>
+<p class="Pp">The hybrid sets <code class="Dv">NQMDED44</code>,
+    <code class="Dv">NQMDED65</code> and <code class="Dv">NQMDED87</code> sign
+    with ML-DSA and Ed25519 at once: the public key is the ML-DSA public key
+    followed by the Ed25519 one, the secret key likewise, the signature the
+    ML-DSA signature followed by the Ed25519 one, and a signature verifies only
+    when both parts do. Each part signs with the context
+    &#x2018;<code class="Li">noqtis-hybrid:</code>&#x2019; followed by the
+    caller's, so the caller's context is at most 241 bytes, and neither part
+    passes as a plain signature under the caller's context. The pre-hash variant
+    is HashML-DSA with SHA-512 and Ed25519ph. The key-generation seed of a
+    hybrid is the ML-DSA xi followed by the Ed25519 private key, 64 bytes.</p>
 <p class="Pp" id="nqssize"><a class="permalink" href="#nqssize"><code class="Fn">nqssize</code></a>()
     stores the sizes of <var class="Fa">alg</var> in <var class="Fa">*sz</var>,
     a <var class="Vt">nqssz</var> with the members <var class="Va">pk</var>,
@@ -245,7 +296,7 @@
     HashML-DSA or HashSLH-DSA, where <var class="Fa">msg</var> is still the
     message and is hashed by the function. Any of the twelve hashes may be used;
     for SHAKE128 and SHAKE256 the digest is 32 and 64 bytes.</p>
-<p class="Pp" id="nqsignd"><a class="permalink" href="#nqsignd"><code class="Fn">nqsignd</code></a>()
+<p class="Pp" id="nqsignd~2"><a class="permalink" href="#nqsignd~2"><code class="Fn">nqsignd</code></a>()
     is
     <a class="permalink" href="#nqsign"><code class="Fn" id="nqsign">nqsign</code></a>()
     with the standard's per-signature randomness <var class="Fa">rnd</var> given

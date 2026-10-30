@@ -1,0 +1,101 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 29, 2026
+.Dt NQCHKX 3
+.Os
+.Sh NAME
+.Nm nqchkx
+.Nd check a capsule, partially or with its inputs
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Bd -literal
+typedef struct {
+  const uint8_t *trust;
+  size_t trustlen;
+  const uint8_t *const *anc;
+  const size_t *anclen;
+  size_t nanc;
+  const char *const *only;
+  size_t nonly;
+  const char *const *lin;
+  size_t nlin;
+  const char *const *stmt;
+  const size_t *stmtlen;
+  size_t nstmt;
+} nqcopt;
+.Ed
+.Pp
+.Ft int
+.Fn nqchkx "const char *dir" "const nqcopt *o" "nqrep **rep"
+.Sh DESCRIPTION
+.Fn nqchkx
+is
+.Xr nqchkt 3
+with the options in
+.Fa o ;
+any member may be 0 or
+.Dv NULL ,
+and
+.Fa o
+itself may be
+.Dv NULL .
+.Fa trust ,
+.Fa anc ,
+.Fa anclen
+and
+.Fa nanc
+are as for
+.Xr nqchkt 3 .
+.Pp
+.Fa only Ns Bq 0..nonly
+makes the check partial: the seal, the signature and the manifest are
+checked in full, but only these listed paths are checked as files; the
+others are neither read nor needed, and files present but not listed are
+not looked for.
+.Ql partial
+rows say what was left out.
+A path the manifest does not list fails its
+.Ql file
+row.
+.Pp
+.Fa lin Ns Bq 0..nlin
+are folders of capsules that may be the inputs of a format 2 capsule
+.Pq Xr nqseal2 3 .
+Each input is found among them by its id
+.Pq Xr nqcapid 3
+and checked in full with no key pinned, its own inputs in turn, to 64
+levels; one
+.Ql lineage
+row per input says whether it was found and checks, and for one that does
+not check, its first failing row.
+.Pp
+.Fa stmt
+and
+.Fa stmtlen
+are reserved for key statements: with
+.Fa nstmt
+not 0,
+.Fn nqchkx
+returns
+.Er NQENOSUP
+and no report.
+.Sh RETURN VALUES
+As
+.Xr nqchk 3 :
+.Dv NQOK
+when every check passed,
+.Er NQEVRFY
+when one failed (the report says which),
+.Er NQEARG
+and
+.Er NQEMEM
+with no report.
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr nqchk 3 ,
+.Xr nqchkt 3 ,
+.Xr nqprove 3 ,
+.Xr nqrep 3 ,
+.Xr nqseal2 3 ,
+.Xr noqtis-capsule 5

@@ -19,12 +19,26 @@ mistake in the release process; use 0.1.1.)
   refused for seals. Tested with the RFC 8032 vectors, all 210 Wycheproof
   Ed25519 cases, byte-identical signatures against OpenSSL 3.5 and a
   constant-time check under valgrind.
+- Capsule format 2 (`noqtis seal --format 2`, `nqseal2`): a Merkle tree
+  (RFC 9162) over the file entries, with the seal over the manifest's
+  head, so that `noqtis prove` (`nqprove`) can show some files to a
+  reader without the names or digests of the others, and `noqtis check
+  --proof` (`nqchkp`) checks such a proof alone or against the files.
+  `check --only` checks some files of any capsule, and says so.
+  `seal --input` records the capsules one was made from, by id
+  (`nqcapid`), and `check --lineage` finds and checks them, to 64 levels
+  (`nqchkx`). Format 1 is unchanged and stays the default; the spec has
+  the new sections 11.1 to 11.6, with a worked example.
 - Cross-checked against OpenSSL 3.5 or later (`tests/ossl/`, workflow
   `ossl.yml`): the same ML-DSA, SLH-DSA and ML-KEM keys, signatures,
   ciphertexts and secrets from the same seeds, the same digests and
   HMACs, and RSA/ECDSA signatures OpenSSL makes accepted, changed ones
   refused; a differential fuzzer (`fuzz/ossl/fdiff.c`) and a fuzzer of
-  the command line's arguments (`fuzz/fcli.c`) run with the others.
+  the command line's arguments (`fuzz/fcli.c`) run with the others, as
+  does `fuzz/fproof.c` over proofs. The capsule fuzzer (`fuzz/fcap.c`)
+  had not been fuzzing: its fixture folder was never written, so every
+  input returned at once. It now writes it, and a target whose set-up
+  fails stops instead of passing.
 - Shell completions for bash, zsh and fish (`cli/completions/`, installed
   with the tool; a test checks they offer every command and option the
   manual pages list).

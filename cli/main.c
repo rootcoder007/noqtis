@@ -62,9 +62,14 @@ static const nccmd cmds[] = {
    "          shake128 shake256\n"},
   {"seal", ncseal, "seal a capsule folder",
    "usage: noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>]\n"
+   "                   [--format 1|2] [--input [<name>=]<dir>]...\n"
    "                   [--tsa <url>]... [--anchor <der-file>]... <dir>\n"
    "  Writes noqtis.json and noqtis.sig into <dir>, covering every file.\n"
    "  The public key defaults to <key>.pub.\n"
+   "  --format  2: a Merkle tree over the files, so that `noqtis prove`\n"
+   "            can show some of them without the rest (default 1)\n"
+   "  --input   a sealed capsule this one was made from (up to 32): it\n"
+   "            must check, and its id is recorded; implies --format 2\n"
    "  --tsa     an RFC 3161 time-stamping authority (http:// only; the\n"
    "            token is signed). The seal holds one timestamp: give\n"
    "            --tsa again for fallbacks, tried in order until one\n"
@@ -74,14 +79,30 @@ static const nccmd cmds[] = {
    "            the token at seal time too (up to 32)\n"},
   {"check", ncchk, "check a sealed capsule folder",
    "usage: noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
-   "                    <dir>\n"
+   "                    [--only <path>]... [--lineage <dir>]... <dir>\n"
+   "       noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
+   "                    --proof <file> [<dir>]\n"
    "  Prints every check and its result; exit 0 only if all pass. Without\n"
    "  -p the key inside the seal is trusted, and the report says so.\n"
    "  For each failed check, stderr says what to do.\n"
+   "  --only     check only this file (up to 32): a partial check, which\n"
+   "             the report says; the others are neither read nor needed\n"
+   "  --lineage  the folder of an input capsule (up to 32): each input of\n"
+   "             <dir> found among them is checked too, and theirs\n"
+   "  --proof    check a proof from `noqtis prove`; with <dir>, the\n"
+   "             proven files there too\n"
    "  --anchor  a TSA root or issuing certificate (DER), up to 32: the\n"
    "            seal must then carry a timestamp that verifies under one\n"
    "            of them. Without --anchor, a timestamped seal fails its\n"
    "            timestamp check (it cannot be checked).\n"},
+  {"prove", ncprove, "prove some files of a capsule, without the rest",
+   "usage: noqtis prove [-p <key.pub>] [-o <file>] [-f] <dir> <path>...\n"
+   "  Writes a proof (JSON) that the named files are in the format 2\n"
+   "  capsule <dir>: the seal, the manifest's Merkle root and, per file,\n"
+   "  its entry and audit path. The proof names no other file and holds\n"
+   "  no other digest. Check it with `noqtis check --proof`. The capsule\n"
+   "  must check first (against -p when given).\n"
+   "  -o  write to <file> (default stdout); -f replaces it\n"},
   {"timestamp", ncts, "add a timestamp to a sealed capsule",
    "usage: noqtis timestamp --tsa <url>... [--anchor <der-file>]...\n"
    "                        [--force] <dir>\n"

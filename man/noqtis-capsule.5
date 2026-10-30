@@ -194,6 +194,99 @@ that is present, since it cannot be checked.
 .El
 .Pp
 A capsule passes only when every check passes.
+.Ss Format 2
+A format 2 capsule has the manifest format
+.Ql noqtis-capsule-2
+and the seal format
+.Ql noqtis-seal-2 .
+Its manifest is the format 1 manifest with these members after
+.Cm format ,
+in canonical order:
+.Bl -tag -width Ds
+.It Cm inputs
+Optional: 1 to 1024 objects
+.Brq Cm capsule , name :
+.Cm capsule
+is the id of a capsule this one was made from, 64 lower-case hex
+digits;
+.Cm name
+is 1 to 255 bytes of UTF-8 with no control characters.
+.It Cm merkle
+.Brq Cm alg , leaves , root :
+.Cm alg
+is
+.Ql sha256 ,
+.Cm leaves
+the number of file entries and
+.Cm root
+the Merkle tree head, 64 lower-case hex digits.
+.It Cm meta
+Optional, as in format 1.
+.El
+.Pp
+The tree is the Merkle Tree Hash of RFC 9162, section 2.1.1, over the
+file entries in manifest order: each leaf is SHA-256 of a 0x00 byte and
+the entry's canonical bytes as they appear in the manifest, each node
+SHA-256 of a 0x01 byte and its two children; the tree of no entries is
+SHA-256 of the empty string.
+.Pp
+The
+.Em head
+is the manifest with the member
+.Ql \&"files":[...],
+removed: the bytes before
+.Ql \&"files"
+and the bytes after the comma that ends the array.
+The seal signs the head, not the manifest: it has
+.Cm head_sha256 ,
+the SHA-256 of the head, in place of
+.Cm manifest_sha256 ,
+and its
+.Cm context
+is
+.Ql noqtis-capsule-2 .
+A checker MUST, besides the checks of format 1 made over the head, check
+that the tree over the listed entries has the head's
+.Cm root
+and
+.Cm leaves .
+.Pp
+A capsule's
+.Em id
+is the SHA-256 of the bytes its seal signs: the manifest in format 1,
+the head in format 2.
+.Ss Proofs
+A proof
+.Pq Xr noqtis-prove 1
+shows that some entries are in a format 2 capsule.
+It is canonical JSON:
+.Bd -literal -offset indent
+{"entries":[{"entry":E,"index":I,"path":[H,...]},...],
+ "format":"noqtis-proof-1","head":HEAD,"seal":SEAL}
+.Ed
+.Pp
+.Cm seal
+is the seal object,
+.Cm head
+the head as a JSON object, and each entry
+.Cm entry
+a file entry exactly as in the manifest, at position
+.Cm index
+(from 0), with
+.Cm path
+its audit path (RFC 9162, section 2.1.3.1), each node 64 lower-case hex
+digits, from the leaf up.
+A checker MUST check the seal and its signature over the canonical bytes
+of
+.Cm head
+as for a capsule, then each entry's path to the head's
+.Cm root
+with the tree size
+.Cm leaves
+by the algorithm of RFC 9162, section 2.1.3.2.
+The tree size is authenticated by the signed head, not by the path.
+A proof holds no name, size or digest of the entries it does not
+prove.
 .Sh FILES
 .Bl -tag -width Ds -compact
 .It Pa noqtis.json
@@ -232,6 +325,11 @@ Its seal:
 .%R RFC 3161
 .%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
 .%D August 2001
+.Re
+.Rs
+.%R RFC 9162
+.%T Certificate Transparency Version 2.0
+.%D December 2021
 .Re
 .Rs
 .%R RFC 3339

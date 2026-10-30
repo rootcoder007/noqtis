@@ -12,7 +12,20 @@
     <td>[<code class="Fl">-p</code> <var class="Ar">key.pub</var>]
       [<code class="Fl">-j</code> | <code class="Fl">--json</code>]
       [<code class="Fl">--anchor</code> <var class="Ar">der-file ...</var>]
+      [<code class="Fl">--only</code> <var class="Ar">path ...</var>]
+      [<code class="Fl">--lineage</code> <var class="Ar">input-dir ...</var>]
       <var class="Ar">dir</var></td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis check</code></td>
+    <td>[<code class="Fl">-p</code> <var class="Ar">key.pub</var>]
+      [<code class="Fl">-j</code> | <code class="Fl">--json</code>]
+      [<code class="Fl">--anchor</code> <var class="Ar">der-file ...</var>]
+      <code class="Fl">--proof</code> <var class="Ar">file</var>
+      [<var class="Ar">dir</var>]</td>
   </tr>
 </table>
 </section>
@@ -86,6 +99,37 @@ or
       authority, DER-encoded (convert PEM with &#x2018;<code class="Li">openssl
       x509 -outform DER</code>&#x2019;). Up to 32; one that verifies the token
       is enough.</dd>
+  <dt id="only"><a class="permalink" href="#only"><code class="Fl">--only</code></a>
+    <var class="Ar">path</var></dt>
+  <dd>Check only this listed file, up to 32 times: a partial check. The seal,
+      the signature and the whole manifest are still checked; files not named
+      are neither read nor needed, and files present but not listed are not
+      looked for. &#x2018;<code class="Li">partial</code>&#x2019; rows say so,
+      so a partial pass is never mistaken for a full one. A named path the
+      manifest does not list fails its
+      &#x2018;<code class="Li">file</code>&#x2019; row.</dd>
+  <dt id="lineage"><a class="permalink" href="#lineage"><code class="Fl">--lineage</code></a>
+    <var class="Ar">input-dir</var></dt>
+  <dd>The folder of a capsule that may be one of the inputs of
+      <var class="Ar">dir</var> (a format 2 capsule sealed with
+      <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>
+      <code class="Fl">--input</code>), up to 32 times. Each input is found
+      among them by its id, the SHA-256 of the bytes its seal signs, and checked
+      in full without a pinned key; its own inputs are looked for in the same
+      folders, to 64 levels. One &#x2018;<code class="Li">lineage</code>&#x2019;
+      row per input says whether it was found and checks.</dd>
+  <dt id="proof"><a class="permalink" href="#proof"><code class="Fl">--proof</code></a>
+    <var class="Ar">file</var></dt>
+  <dd>Check a proof made by
+      <a class="Xr" href="/noqtis/reference/man/noqtis-prove-1/">noqtis-prove(1)</a>
+      instead of a folder: the seal in the proof, its signature over the
+      manifest's head, and each proven entry's Merkle audit path to the root the
+      head signs (&#x2018;<code class="Li">proof.entry</code>&#x2019;). With
+      <var class="Ar">dir</var>, the proven files there are also checked against
+      their entries, and a &#x2018;<code class="Li">partial</code>&#x2019; row
+      says the capsule's other files are not in the proof.
+      <code class="Fl">--only</code> and <code class="Fl">--lineage</code> do
+      not apply.</dd>
 </dl>
 <section class="Ss">
 <h2 class="Ss" id="Checks"><a class="permalink" href="#Checks">Checks</a></h2>
@@ -142,9 +186,28 @@ or
     <code class="Cm">manifest.created</code>,
     <code class="Cm">manifest.order</code></dt>
   <dd>&#x2018;<code class="Li">format</code>&#x2019; is
-      &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;,
+      &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019; (or
+      &#x2018;<code class="Li">noqtis-capsule-2</code>&#x2019; under a
+      &#x2018;<code class="Li">noqtis-seal-2</code>&#x2019; seal),
       &#x2018;<code class="Li">created</code>&#x2019; is an RFC 3339 UTC time,
       and the files are sorted by path with no repeats.</dd>
+  <dt id="manifest.merkle"><a class="permalink" href="#manifest.merkle"><code class="Cm">manifest.merkle</code></a></dt>
+  <dd>Format 2: the Merkle tree over the file entries has the root and leaf
+      count the signed head gives.</dd>
+  <dt id="lineage~2"><a class="permalink" href="#lineage~2"><code class="Cm">lineage</code></a></dt>
+  <dd>With <code class="Fl">--lineage</code>: one row per input of the
+    capsule.</dd>
+  <dt id="partial"><a class="permalink" href="#partial"><code class="Cm">partial</code></a></dt>
+  <dd>With <code class="Fl">--only</code> or <code class="Fl">--proof</code>:
+      what the check left out; never a failure.</dd>
+  <dt id="proof.parse"><a class="permalink" href="#proof.parse"><code class="Cm">proof.parse</code></a>,
+    <code class="Cm">proof.canonical</code>,
+    <code class="Cm">proof.fields</code>,
+    <code class="Cm">proof.entry</code></dt>
+  <dd>With <code class="Fl">--proof</code>: the proof is canonical JSON with
+      exactly the fields of
+      &#x2018;<code class="Li">noqtis-proof-1</code>&#x2019;, and each entry's
+      audit path leads to the signed root.</dd>
   <dt id="path"><a class="permalink" href="#path"><code class="Cm">path</code></a></dt>
   <dd>One row per refused, non-normal, duplicate or too long path, and per two
       paths that differ only in case.</dd>
@@ -206,6 +269,11 @@ ok    timestamp           RFC 3161 token over the signature verifies under a TSA
 ...
 results: OK (23 checks passed)</pre>
 </div>
+<p class="Pp">Only one file of a format 2 capsule, and its inputs:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>$ noqtis check -p me.pub --only data/in.csv results
+$ noqtis check -p me.pub --lineage raw results</pre>
+</div>
 <p class="Pp">In CI, keeping only the failed rows:</p>
 <div class="Bd Pp Bd-indent Li">
 <pre>$ noqtis check --json -p me.pub results |
@@ -218,6 +286,7 @@ new.txt: not in the manifest</pre>
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-prove-1/">noqtis-prove(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>,

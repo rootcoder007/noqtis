@@ -60,6 +60,35 @@ static inline uint8_t *fzread(const char *name, size_t *n) {
   return (uint8_t *)b;
 }
 
+/* Writes n bytes to dir/name with stdio: fixture files in subfolders,
+ * which nqcwrite (one name, no '/') does not write. 1 on success. */
+static inline int fzput(const char *dir, const char *name, const void *b,
+                        size_t n) {
+  char path[800];
+  FILE *f;
+  int ok;
+  snprintf(path, sizeof path, "%s/%s", dir, name);
+  f = fopen(path, "wb");
+  if (f == NULL) {
+    fprintf(stderr, "fuzz: cannot write %s\n", path);
+    return 0;
+  }
+  ok = fwrite(b, 1, n, f) == n;
+  ok = fclose(f) == 0 && ok;
+  if (!ok) fprintf(stderr, "fuzz: cannot write %s\n", path);
+  return ok;
+}
+
+/* A target whose set-up failed would only ever return at once and look
+ * like a clean run: stop instead, so the failure is seen. */
+static inline void fzready(int ready, const char *target) {
+  if (!ready) {
+    fprintf(stderr, "%s: set-up failed (see above); not fuzzing\n",
+            target);
+    abort();
+  }
+}
+
 /* A fixture certificate, parsed; its bytes stay allocated for the life
  * of the process (the parse points into them). 0 when it is missing. */
 static inline int fzcert(const char *name, nqcert *c) {

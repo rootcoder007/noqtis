@@ -88,6 +88,27 @@ code 2 noqtis check -p me.pub no-such-folder
 noqtis keygen -a ML-DSA-44 -o other > /dev/null
 code 1 noqtis check -p other.pub results
 
+# ---- noqtis-prove(1); noqtis-check(1) --proof, --only, --lineage
+mkdir -p r2/data
+printf 'a,b\n' > r2/data/in.csv
+printf 'r\n' > r2/report.txt
+same "sealed r2 with ML-DSA-65" "$(noqtis seal --format 2 -k me r2)"
+noqtis prove -p me.pub -o in.proof r2 data/in.csv
+same "absent" "$(grep -q report.txt in.proof && echo present || echo absent)"
+same "in.proof: OK (16 checks passed)" \
+  "$(noqtis check -p me.pub --proof in.proof | tail -1)"
+same "in.proof: OK (19 checks passed)" \
+  "$(noqtis check -p me.pub --proof in.proof r2 | tail -1)"
+code 1 noqtis check -p other.pub --proof in.proof
+same "r2: OK (24 checks passed)" \
+  "$(noqtis check -p me.pub --only data/in.csv r2 | tail -1)"
+code 2 noqtis prove repro report.txt
+mkdir r3
+printf 'x\n' > r3/sum.txt
+noqtis seal -k me --input raw=r2 r3 > /dev/null
+same "ok    lineage             raw: checks, in r2" \
+  "$(noqtis check -p me.pub --lineage r2 r3 | grep '^ok    lineage')"
+
 # ---- noqtis-keygen(1)
 same "ML-DSA-44 key pair: det (secret), det.pub (public)" \
   "$(noqtis keygen -a ml-dsa-44 -o det --seed \

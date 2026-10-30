@@ -1,0 +1,87 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 29, 2026
+.Dt NOQTIS-PROVE 1
+.Os
+.Sh NAME
+.Nm noqtis-prove
+.Nd prove that some files are in a capsule, without the others
+.Sh SYNOPSIS
+.Nm noqtis prove
+.Op Fl p Ar key.pub
+.Op Fl o Ar file
+.Op Fl f
+.Ar dir
+.Ar path ...
+.Sh DESCRIPTION
+.Nm noqtis prove
+writes a proof that the files
+.Ar path ...
+are in the format 2 capsule
+.Ar dir
+.Pq Xr noqtis-capsule 5 :
+the seal, the manifest's head (its Merkle root and number of files) and,
+for each file, its entry and its Merkle audit path.
+A reader checks the proof with
+.Xr noqtis-check 1
+.Fl -proof ,
+which verifies the seal's signature over the head and each path to the
+signed root, and, given the files, the files against their entries.
+The proof holds no name, size or digest of the capsule's other files.
+.Pp
+Paths are relative to
+.Ar dir ,
+with
+.Ql /
+between folders, as the manifest lists them; one given twice is proven
+once.
+The capsule must check first, against
+.Fl p
+when given: a proof of a capsule that does not check is not written.
+.Bl -tag -width Ds
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+The public key the capsule must be sealed with.
+.It Fl o Ar file , Fl -out Ns = Ns Ar file
+Write the proof to
+.Ar file
+instead of standard output.
+.It Fl f , Fl -force
+Replace
+.Ar file
+if it exists.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width 3n -compact
+.It 0
+The proof was written.
+.It 1
+The capsule does not check.
+.It 2
+A usage error, a format 1 capsule, a path the manifest does not list, a
+file that cannot be written, or a library error.
+.El
+.Sh EXAMPLES
+Seal in format 2, prove one file, and check the proof without the rest
+of the folder:
+.Bd -literal -offset indent
+$ noqtis seal --format 2 -k me results
+$ noqtis prove -p me.pub -o in.proof results data/in.csv
+$ noqtis check -p me.pub --proof in.proof
+.Ed
+.Pp
+With the file at hand, check it too:
+.Bd -literal -offset indent
+$ noqtis check -p me.pub --proof in.proof results
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqchkp 3 ,
+.Xr nqprove 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%R RFC 9162
+.%T Certificate Transparency Version 2.0
+.%D December 2021
+.Re

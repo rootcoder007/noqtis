@@ -272,6 +272,10 @@ input over a limit with a failing check, and MUST NOT silently truncate.
   one hash function alone does not let an attacker swap a file.
 - Case-colliding and non-portable names are refused so that a capsule
   checks the same on every file system.
+- In format 2 the signature covers the file list only through the Merkle
+  root: a checker that skips §11.2 accepts any list of entries. A partial
+  check (`--only`) or a proof shows the files it names and nothing about
+  the others; the report says so.
 
 ## 10. Example
 
@@ -290,6 +294,95 @@ Its seal, with the base64 shortened:
 The test suite of NOQTIS carries a complete sample capsule under
 `tests/vectors/cap/sample`.
 
+## 11. Format 2: Merkle manifests and inputs
+
+A format 2 capsule (`noqtis seal --format 2`) lets a reader check some of
+its files without seeing the others, and records the capsules it was made
+from. Its manifest format is `noqtis-capsule-2` and its seal format
+`noqtis-seal-2`.
+
+### 11.1 The manifest
+
+The format 1 manifest with these members after `format`, in canonical
+order:
+
+| Member | Value |
+|---|---|
+| `inputs` | optional: 1 to 1024 objects `{"capsule": <id>, "name": <string>}`; `capsule` is an input's id (§11.4), 64 lower-case hex digits; `name` 1 to 255 bytes of UTF-8 with no control character |
+| `merkle` | `{"alg": "sha256", "leaves": <number of entries>, "root": <64 hex digits>}` |
+| `meta` | optional, as in format 1 |
+
+### 11.2 The tree
+
+`root` is the Merkle Tree Hash of RFC 9162 §2.1.1 over the file entries,
+in manifest order:
+
+- a leaf is `SHA-256(0x00 || entry)`, where `entry` is the entry's
+  canonical bytes exactly as they appear in the manifest;
+- a node is `SHA-256(0x01 || left || right)`, the tree of n entries
+  splitting at the largest power of two below n;
+- the tree of no entries is `SHA-256("")`.
+
+A checker MUST recompute the tree over the listed entries and fail
+(`manifest.merkle`) unless it has the head's `root` and `leaves`.
+
+### 11.3 The head and the seal
+
+The **head** is the manifest with the member `"files":[...],` removed:
+the bytes before `"files"` and the bytes after the comma that ends the
+array. The seal signs the head, not the manifest: in place of
+`manifest_sha256` it has `head_sha256`, the SHA-256 of the head, and its
+`context` is `noqtis-capsule-2`. A checker makes every check of §7 over
+the head where format 1 makes it over the manifest, then §11.2.
+
+### 11.4 Ids and lineage
+
+A capsule's **id** is the SHA-256 of the bytes its seal signs: the
+manifest in format 1, the head in format 2 (`manifest_sha256` or
+`head_sha256`, once the seal checks). `noqtis seal --input` records the id
+of each input after checking it; `noqtis check --lineage <dir>` finds each
+input among the folders given by its id and checks it in full, with its
+own inputs, to 64 levels.
+
+### 11.5 Proofs
+
+A proof (`noqtis prove`) shows that some entries are in a format 2
+capsule. It is canonical JSON:
+
+```text
+{"entries":[{"entry":E,"index":I,"path":[H,...]},...],
+ "format":"noqtis-proof-1","head":HEAD,"seal":SEAL}
+```
+
+`seal` is the seal object and `head` the head as a JSON object. Each
+`entry` is a file entry exactly as in the manifest, at position `index`
+(from 0); `path` is its audit path (RFC 9162 §2.1.3.1), from the leaf up,
+each node 64 lower-case hex digits. A checker MUST check the seal and its
+signature over the canonical bytes of `head`, as for a capsule, then each
+entry's path to the head's `root` for the tree size `leaves`, by RFC 9162
+§2.1.3.2. The tree size is authenticated by the signed head, not by the
+path. A proof holds no name, size or digest of the entries it does not
+prove.
+
+### 11.6 Example
+
+The capsule of §10 sealed in format 2 (one line in the file):
+
+```json
+{"created":"2026-10-28T18:04:05Z","files":[{"path":"data/in.csv","sha256":"5be08c9684a1d25efcee09318204824278b08bbfb4aef973ffefd0b9d7478313","sha3_256":"cec130ccd077888d742e367e7a57930c9c22115e294fb375b29343edc10479a1","size":4},{"path":"report.txt","sha256":"8e54b0ca18020275e4aef1ca0eb5e197e066c065c1864817652a8a39c55402cd","sha3_256":"cfd6402fe57231a13c50feb77a4d9e594287810bfa913618dad5076d1bbd01f5","size":2}],"format":"noqtis-capsule-2","merkle":{"alg":"sha256","leaves":2,"root":"4f701b0322535eca8d47c46459225d0d20407af3f791630ae0642b857952e2b6"},"meta":{"project":"demo"}}
+```
+
+Its head is the same line without `"files":[...],`, and the seal
+carries its SHA-256:
+
+```json
+{"alg":"ML-DSA-65","context":"noqtis-capsule-2","format":"noqtis-seal-2","head_sha256":"dbe89ba080d657b467a517ea72733826e8295309ea30ae553a8ef1b8a4ec7f0f","public_key":"WbxksFmm...","signature":"..."}
+```
+
+The proof of `report.txt` (index 1) has the one-node audit path
+`["d8bd2987be160bc32ab8c239c37ad69a6e18abd2e1ddb801fa819178fe391c73"]`,
+the leaf of `data/in.csv`.
+
 ## References
 
 - RFC 8785, JSON Canonicalization Scheme (JCS).
@@ -297,5 +390,6 @@ The test suite of NOQTIS carries a complete sample capsule under
 - RFC 3339, Date and Time on the Internet: Timestamps.
 - RFC 4648, The Base16, Base32, and Base64 Data Encodings.
 - RFC 3161, Time-Stamp Protocol (TSP); RFC 5280, X.509 certificate paths.
+- RFC 9162, Certificate Transparency Version 2.0 (§2.1, Merkle trees).
 - FIPS 180-4 (SHA-2), FIPS 202 (SHA-3), FIPS 204 (ML-DSA), FIPS 205
   (SLH-DSA).

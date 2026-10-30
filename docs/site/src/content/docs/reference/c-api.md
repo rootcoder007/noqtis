@@ -218,6 +218,24 @@ int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
            const uint8_t *const *anc, const size_t *anclen,
            size_t nanc, nqrep **rep);
 int nqinsp(const char *dir, nqrep **rep);
+
+typedef struct { uint8_t id[32]; const char *name; } nqcin;
+int nqseal2(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
+            const uint8_t *pk, size_t pklen, const char *meta,
+            const nqcin *in, size_t nin);
+int nqcapid(const char *dir, uint8_t id[32]);
+typedef struct {
+  const uint8_t *trust; size_t trustlen;
+  const uint8_t *const *anc; const size_t *anclen; size_t nanc;
+  const char *const *only; size_t nonly;   /* a partial check */
+  const char *const *lin; size_t nlin;     /* input capsule folders */
+  const char *const *stmt; const size_t *stmtlen; size_t nstmt; /* 0 */
+} nqcopt;
+int nqchkx(const char *dir, const nqcopt *o, nqrep **rep);
+int nqprove(const char *dir, const char *const *paths, size_t np,
+            char *out, size_t cap, size_t *outlen);
+int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
+           nqrep **rep);
 size_t nqrepn(const nqrep *r);
 int nqrepi(const nqrep *r, size_t i, const char **check, int *ok,
            const char **detail);
@@ -235,6 +253,11 @@ int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
 | `nqseal` | writes `noqtis.json` and `noqtis.sig` into `dir`; `meta` is `NULL` or a JSON object (≤ 1 MiB); `tsa` must be `NULL`; time from `SOURCE_DATE_EPOCH` or the clock | `NQOK`; `NQEARG` (bad keys or pair, a link, special file, refused or case-colliding name, bad `SOURCE_DATE_EPOCH`), `NQELIM` (a limit), `NQEDEC` (bad `meta`), `NQEIO`, `NQEMEM`, `NQENOSUP` (`tsa` given), `NQERNG`; nothing written on error |
 | `nqchk` | checks `dir`; `trust` is the pinned public key or `NULL` to accept the seal's | `NQOK` all passed; `NQEVRFY` some failed (report set); `NQEARG`, `NQEMEM` (no report) |
 | `nqchkt` | `nqchk` with up to 32 DER TSA anchors; the seal must then carry a timestamp that verifies under one | as `nqchk`; also `NQELIM` for more than 32 anchors |
+| `nqseal2` | `nqseal` in format 2: a Merkle tree over the entries, the seal over the head, and up to 1024 inputs (`nqcapid` ids with names) | as `nqseal`; also `NQELIM` for more than 1024 inputs |
+| `nqcapid` | the id of the capsule in `dir`: SHA-256 of the bytes its seal signs; checks nothing else | `NQOK`; `NQEDEC`, `NQEIO`, `NQEARG` |
+| `nqchkx` | `nqchkt` with options (`NULL`: none): `only` for a partial check, `lin` folders to find and check the inputs in | as `nqchkt`; `NQENOSUP` when `nstmt` is not 0 |
+| `nqprove` | a `noqtis-proof-1` proof of `paths` in the format 2 capsule `dir`; `*outlen` is the size, also with `NQEBUF` | `NQOK`; `NQEBUF`, `NQENOSUP` (format 1), `NQEIO` (path not listed), `NQEDEC`, `NQELIM`, `NQEARG`, `NQEMEM` |
+| `nqchkp` | checks a proof: the seal, its signature over the head and each audit path; with `dir`, the proven files there | as `nqchk` |
 | `nqrepn` | number of rows (0 for `NULL`) | — |
 | `nqinsp` | reads `dir`'s seal and manifest with `nqchk`'s strict readers and checks nothing; on success the report ends with `info.*` rows (format, alg, key fingerprint, created, files, bytes, timestamp, meta) | `NQOK`; `NQEDEC` one does not parse (report set); `NQEARG`, `NQEMEM` (no report) |
 | `nqrepi` | row `i`: check name, 1/0, detail; strings live until `nqrepfree` | `NQOK`, `NQEARG` |
@@ -250,6 +273,9 @@ Without anchors (`nqchk`), a seal that carries a timestamp fails its
 [nqchk(3)](/noqtis/reference/man/nqchk-3/),
 [nqchkt(3)](/noqtis/reference/man/nqchkt-3/),
 [nqinsp(3)](/noqtis/reference/man/nqinsp-3/),
+[nqseal2(3)](/noqtis/reference/man/nqseal2-3/),
+[nqchkx(3)](/noqtis/reference/man/nqchkx-3/),
+[nqprove(3)](/noqtis/reference/man/nqprove-3/),
 [nqtsput(3)](/noqtis/reference/man/nqtsput-3/)
 
 The library makes no network request: send the bytes from `nqtsreq` to

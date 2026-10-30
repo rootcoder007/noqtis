@@ -9,9 +9,10 @@
 #include "core/int.h"
 #include "der/tsp.h"
 
-/* the seal in dir, canonical and with only noqtis-seal-1 fields */
+/* the seal in dir, canonical and with only the fields of its format */
 typedef struct {
   nqjs *v;
+  const char *const *f; /* fld1 or fld2 */
   uint8_t *sig;
   size_t sign;
   size_t cap;
@@ -23,10 +24,15 @@ static void rsfree(rseal *s) {
   memset(s, 0, sizeof *s);
 }
 
-static const char *const fld[] = {"alg",        "context",
-                                  "format",     "manifest_sha256",
-                                  "public_key", "signature",
-                                  "timestamp"};
+static const char *const fld1[] = {"alg",        "context",
+                                   "format",     "manifest_sha256",
+                                   "public_key", "signature",
+                                   "timestamp"};
+/* noqtis-seal-2: head_sha256 in place of manifest_sha256 (same order) */
+static const char *const fld2[] = {"alg",        "context",
+                                   "format",     "head_sha256",
+                                   "public_key", "signature",
+                                   "timestamp"};
 
 static int rdseal(const char *dir, rseal *s, const char **why) {
   char *b = NULL;
@@ -40,7 +46,7 @@ static int rdseal(const char *dir, rseal *s, const char **why) {
   *why = "cannot read noqtis.sig";
   rc = nqcread(dir, NQCSIG, NQCSIGMAX, &b, &n);
   if (rc != NQOK) return rc;
-  *why = "noqtis.sig is not a canonical noqtis-seal-1 seal";
+  *why = "noqtis.sig is not a canonical noqtis seal";
   rc = nqjparse(b, n, &s->v, NULL);
   if (rc == NQOK && s->v->type != NQJOBJ) rc = NQEDEC;
   if (rc == NQOK) {
@@ -51,10 +57,16 @@ static int rdseal(const char *dir, rseal *s, const char **why) {
   }
   nqfree(b, n + 1);
   if (rc != NQOK) return rc;
+  {
+    const nqjs *f = nqjget(s->v, "format");
+    s->f = f != NULL && f->type == NQJSTR && strcmp(f->str, NQCSFMT2) == 0
+               ? fld2
+               : fld1;
+  }
   for (i = 0; i < s->v->n; i++) {
     for (j = 0; j < 7; j++) {
-      if (s->v->klen[i] == strlen(fld[j]) &&
-          memcmp(s->v->keys[i], fld[j], s->v->klen[i]) == 0) {
+      if (s->v->klen[i] == strlen(s->f[j]) &&
+          memcmp(s->v->keys[i], s->f[j], s->v->klen[i]) == 0) {
         break;
       }
     }
@@ -64,7 +76,7 @@ static int rdseal(const char *dir, rseal *s, const char **why) {
     }
   }
   for (j = 0; j < 6; j++) {
-    if (nqjget(s->v, fld[j]) == NULL) return NQEDEC;
+    if (nqjget(s->v, s->f[j]) == NULL) return NQEDEC;
   }
   a = nqjget(s->v, "alg");
   sg = nqjget(s->v, "signature");
@@ -177,9 +189,9 @@ static int wrseal(const char *dir, const rseal *s, const uint8_t *tok,
   memset(&o, 0, sizeof o);
   nqcput(&o, "{", 1);
   for (j = 0; j < 6; j++) {
-    const nqjs *v = nqjget(s->v, fld[j]);
+    const nqjs *v = nqjget(s->v, s->f[j]);
     if (j > 0) nqcput(&o, ",", 1);
-    nqcjstr(&o, fld[j], strlen(fld[j]));
+    nqcjstr(&o, s->f[j], strlen(s->f[j]));
     nqcput(&o, ":", 1);
     nqcjstr(&o, v->str, v->len);
   }

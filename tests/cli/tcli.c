@@ -1057,8 +1057,10 @@ static void rdnames(void) {
     while (i < n && b[i] != '"' && k < 31)
       names[nnames][k++] = (char)b[i++];
     names[nnames][k] = '\0';
-    if (strncmp(names[nnames], "info.", 5) == 0)
-      continue; /* nqinsp's facts: never a failing check */
+    if (strncmp(names[nnames], "info.", 5) == 0 ||
+        strcmp(names[nnames], "partial") == 0)
+      continue; /* nqinsp's facts, and what a partial check left out:
+                   never a failing check */
     for (j = 0; j < nnames; j++)
       dup |= strcmp(names[j], names[nnames]) == 0;
     if (!dup && nnames < 63)
@@ -1185,6 +1187,83 @@ static void trefuse(void) {
   ref1("manifest.order", "manifest out of order", 1, CHK);
   advice("file", "manifest out of order");
   advice("extra", "manifest out of order");
+  /* format 2: the signature covers the head, the Merkle root the files;
+   * a changed entry leaves the signature valid but not the root */
+  pristine();
+  want(0, "seal --format 2 -k q.c qref", NULL);
+  sub("qref/noqtis.json", "\"size\":6", "\"size\":7");
+  ref1("manifest.merkle", "a format 2 entry changed", 1, CHK);
+  /* a proof of b.txt alone: it checks, names no other file, and each of
+   * its rows can be refused */
+  pristine();
+  want(0, "seal --format 2 -k q.c qref", NULL);
+  want(0, "prove -p q.c.pub -o q.pf qref b.txt", NULL);
+  ok(!has("q.pf", "a.txt") && !has("q.pf", "c.txt"),
+     "prove: the proof names no other file");
+  want(0, "check -p q.c.pub --proof q.pf", NULL);
+  ok(has("q.out", "proof.entry") && has("q.out", "q.pf: OK"),
+     "check --proof: the proof alone checks");
+  want(0, "check -p q.c.pub --proof q.pf qref", NULL);
+  ok(has("q.out", "partial"), "check --proof <dir>: says it is partial");
+  want(1, "check -p q.c2.pub --proof q.pf", NULL);
+  cp("q.pf", "q.pf0");
+  wrs("q.pf", "not json");
+  ref1("proof.parse", "proof not JSON", 1, "check -p q.c.pub --proof q.pf");
+  cp("q.pf0", "q.pf");
+  sub("q.pf", "{\"entries\"", "{ \"entries\"");
+  ref1("proof.canonical", "proof not canonical", 1,
+       "check -p q.c.pub --proof q.pf");
+  cp("q.pf0", "q.pf");
+  sub("q.pf", "\"format\":\"noqtis-proof-1\"",
+      "\"extra\":1,\"format\":\"noqtis-proof-1\"");
+  ref1("proof.fields", "proof with an unknown field", 1,
+       "check -p q.c.pub --proof q.pf");
+  cp("q.pf0", "q.pf");
+  sub("q.pf", "\"index\":1", "\"index\":2");
+  ref1("proof.entry", "proof entry at another index", 1,
+       "check -p q.c.pub --proof q.pf");
+  cp("q.pf0", "q.pf");
+  wrs("qref/b.txt", "second!\n");
+  ref1("file", "a proven file changed", 1,
+       "check -p q.c.pub --proof q.pf qref");
+  /* a partial check reads only the files given */
+  pristine();
+  want(0, "seal --format 2 -k q.c qref", NULL);
+  wrs("qref/a.txt", "first!\n");
+  want(0, "check -p q.c.pub --only b.txt qref", NULL);
+  ok(has("q.out", "partial"), "check --only: says it is partial");
+  want(1, "check -p q.c.pub --only a.txt qref", NULL);
+  /* lineage: an input found and checking, not found, changed */
+  rmdirs("qin");
+  mkd("qin");
+  wrs("qin/x.txt", "input\n");
+  want(0, "seal -k q.c qin", NULL);
+  pristine();
+  want(0, "seal -k q.c --input src=qin qref", NULL);
+  want(0, "check -p q.c.pub --lineage qin qref", NULL);
+  ok(has("q.out", "lineage") && has("q.out", "src"),
+     "check --lineage: the input checks");
+  ref1("lineage", "an input not found", 1,
+       "check -p q.c.pub --lineage qref qref");
+  wrs("qin/x.txt", "changed\n");
+  ref1("lineage", "an input that does not check", 1,
+       "check -p q.c.pub --lineage qin qref");
+  want(2, "seal -k q.c --input qin qref", NULL);
+  ok(has("q.err", "qin"), "seal --input: an input that does not check");
+  rmdirs("qin");
+  /* prove refuses a format 1 capsule, an unlisted path, a broken one */
+  pristine();
+  want(2, "prove qref a.txt", NULL);
+  ok(has("q.err", "format 1"), "prove: a format 1 capsule");
+  want(0, "seal --format 2 -k q.c qref", NULL);
+  want(2, "prove qref nope.txt", NULL);
+  ok(has("q.err", "not in the manifest"), "prove: an unlisted path");
+  wrs("qref/a.txt", "first!\n");
+  want(1, "prove qref b.txt", NULL);
+  ok(has("q.err", "does not check"), "prove: a capsule that does not check");
+  want(2, "check --proof q.pf --only a.txt qref", NULL);
+  remove("q.pf");
+  remove("q.pf0");
   pristine();
   sub("qref/noqtis.json", "\"a.txt\"", "\"../a.txt\"");
   ref1("path", "manifest path with ..", 1, CHK);

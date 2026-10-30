@@ -75,6 +75,9 @@
   <dt id="check"><a class="permalink" href="#check"><code class="Cm">check</code></a></dt>
   <dd>Check a sealed folder against its seal. See
       <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>.</dd>
+  <dt id="prove"><a class="permalink" href="#prove"><code class="Cm">prove</code></a></dt>
+  <dd>Prove that some files are in a format 2 capsule, without the others. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-prove-1/">noqtis-prove(1)</a>.</dd>
   <dt id="timestamp"><a class="permalink" href="#timestamp"><code class="Cm">timestamp</code></a></dt>
   <dd>Add an RFC 3161 timestamp to a folder sealed before. See
       <a class="Xr" href="/noqtis/reference/man/noqtis-timestamp-1/">noqtis-timestamp(1)</a>.</dd>
@@ -118,8 +121,12 @@
     <code class="Cm">SLH-DSA-SHAKE-192s</code>,
     <code class="Cm">SLH-DSA-SHAKE-192f</code>,
     <code class="Cm">SLH-DSA-SHAKE-256s</code>,
-    <code class="Cm">SLH-DSA-SHAKE-256f</code> (signatures) and
-    <code class="Cm">ML-KEM-512</code>, <code class="Cm">ML-KEM-768</code>,
+    <code class="Cm">SLH-DSA-SHAKE-256f</code>,
+    <code class="Cm">ML-DSA-44+Ed25519</code>,
+    <code class="Cm">ML-DSA-65+Ed25519</code>,
+    <code class="Cm">ML-DSA-87+Ed25519</code> (post-quantum signatures, the last
+    three hybrid), <code class="Cm">Ed25519</code> (classical, not for seals)
+    and <code class="Cm">ML-KEM-512</code>, <code class="Cm">ML-KEM-768</code>,
     <code class="Cm">ML-KEM-1024</code>, <code class="Cm">HQC-128</code>,
     <code class="Cm">HQC-192</code>, <code class="Cm">HQC-256</code> (key
     encapsulation).</p>
@@ -209,6 +216,7 @@ results: FAILED (1 of 22 checks failed)
     <a class="Xr" href="/noqtis/reference/man/noqtis-hash-1/">noqtis-hash(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-inspect-1/">noqtis-inspect(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-keygen-1/">noqtis-keygen(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-prove-1/">noqtis-prove(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-sign-1/">noqtis-sign(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-timestamp-1/">noqtis-timestamp(1)</a>,

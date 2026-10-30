@@ -1,0 +1,91 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqseal2</code>, <code class="Nm">nqcapid</code>
+    &#x2014; <span class="Nd">seal a format 2 capsule, and a capsule's
+  id</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<div class="Bd Pp Li">
+<pre>typedef struct {
+  uint8_t id[32];
+  const char *name;
+} nqcin;</pre>
+</div>
+<p class="Pp">
+  <br/>
+  <var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqseal2</code>(<var class="Fa">const char *dir</var>,
+    <var class="Fa">nqsalg alg</var>, <var class="Fa">const uint8_t *sk</var>,
+    <var class="Fa">size_t sklen</var>, <var class="Fa">const uint8_t *pk</var>,
+    <var class="Fa">size_t pklen</var>, <var class="Fa">const char *meta</var>,
+    <var class="Fa">const nqcin *in</var>, <var class="Fa">size_t
+  nin</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqcapid</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *dir</var>, <var class="Fa" style="white-space: nowrap;">uint8_t
+    id[32]</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqseal2"><code class="Fn" id="nqseal2">nqseal2</code></a>()
+    is <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a> in
+    format 2 (&#x2018;<code class="Li">noqtis-capsule-2,
+    &#x2018;<code class="Li">noqtis-seal-2,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></code>&#x2019;</code>&#x2019;):
+    the manifest also carries a Merkle tree over its file entries, and the seal
+    signs the manifest's head, which holds the tree's root and size but not the
+    list of files.
+    <a class="Xr" href="/noqtis/reference/man/nqprove-3/">nqprove(3)</a> can
+    then show single files without the others.</p>
+<p class="Pp" id="nqcapid"><var class="Fa">in</var>[0..nin] are the capsules
+    this one was made from, at most 1024, recorded in the manifest's
+    &#x2018;<code class="Li">inputs</code>&#x2019;: each
+    <var class="Fa">id</var> is an input's id from
+    <a class="permalink" href="#nqcapid"><code class="Fn">nqcapid</code></a>(),
+    and each <var class="Fa">name</var> 1 to 255 bytes of UTF-8 with no control
+    character. <var class="Fa">in</var> may be <code class="Dv">NULL</code> when
+    <var class="Fa">nin</var> is 0.
+    <a class="Xr" href="/noqtis/reference/man/nqchkx-3/">nqchkx(3)</a> follows
+    these records with its <var class="Fa">lin</var> folders.</p>
+<p class="Pp" id="nqcapid~2"><a class="permalink" href="#nqcapid~2"><code class="Fn">nqcapid</code></a>()
+    stores in <var class="Fa">id</var> the id of the capsule in
+    <var class="Fa">dir</var>: the SHA-256 of the bytes its seal signs
+    (&#x2018;<code class="Li">manifest_sha256 <span class="No">of a format 1
+    seal,</span> &#x2018;<code class="Li">head_sha256 <span class="No">of a
+    format 2 one</span></code>&#x2019;</code>&#x2019;), read from
+    <span class="Pa">noqtis.sig</span>. Nothing else is checked: check the
+    capsule (<a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>)
+    before relying on it.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><code class="Fn">nqseal2</code>() returns what
+    <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a> returns,
+    and <code class="Er">NQEARG</code> for an input name that is empty, too long
+    or has a control character, and <code class="Er">NQELIM</code> for more than
+    1024 inputs. <code class="Fn">nqcapid</code>() returns
+    <code class="Dv">NQOK</code>, <code class="Er">NQEIO</code> when the seal
+    cannot be read, <code class="Er">NQEDEC</code> when it is not a seal of
+    either format, or <code class="Er">NQEARG</code>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchkx-3/">nqchkx(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqprove-3/">nqprove(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+</div>

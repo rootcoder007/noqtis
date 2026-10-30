@@ -90,11 +90,26 @@
   <dt id="manifest.fields"><a class="permalink" href="#manifest.fields"><code class="Cm">manifest.fields</code></a></dt>
   <dd>exactly the manifest's fields</dd>
   <dt id="manifest.format"><a class="permalink" href="#manifest.format"><code class="Cm">manifest.format</code></a></dt>
-  <dd>&#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;</dd>
+  <dd>&#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019; or
+      &#x2018;<code class="Li">noqtis-capsule-2</code>&#x2019;</dd>
   <dt id="manifest.created"><a class="permalink" href="#manifest.created"><code class="Cm">manifest.created</code></a></dt>
   <dd>RFC 3339 UTC</dd>
   <dt id="manifest.order"><a class="permalink" href="#manifest.order"><code class="Cm">manifest.order</code></a></dt>
   <dd>sorted by path, no repeats</dd>
+  <dt id="manifest.merkle"><a class="permalink" href="#manifest.merkle"><code class="Cm">manifest.merkle</code></a></dt>
+  <dd>format 2: the tree over the entries has the signed root</dd>
+  <dt id="lineage"><a class="permalink" href="#lineage"><code class="Cm">lineage</code></a></dt>
+  <dd>one per input, with
+      <a class="Xr" href="/noqtis/reference/man/nqchkx-3/">nqchkx(3)</a> lineage
+      folders</dd>
+  <dt id="partial"><a class="permalink" href="#partial"><code class="Cm">partial</code></a></dt>
+  <dd>what a partial check or a proof left out; never a failure</dd>
+  <dt id="proof.parse"><a class="permalink" href="#proof.parse"><code class="Cm">proof.parse</code></a>,
+    <code class="Cm">proof.canonical</code>,
+    <code class="Cm">proof.fields</code>,
+    <code class="Cm">proof.entry</code></dt>
+  <dd>a proof's form and each entry's audit path
+      (<a class="Xr" href="/noqtis/reference/man/nqprove-3/">nqprove(3)</a>)</dd>
   <dt id="path"><a class="permalink" href="#path"><code class="Cm">path</code></a></dt>
   <dd>one per refused, non-normal, duplicate or case-colliding path</dd>
   <dt id="extra"><a class="permalink" href="#extra"><code class="Cm">extra</code></a></dt>

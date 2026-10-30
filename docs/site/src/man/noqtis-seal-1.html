@@ -12,6 +12,9 @@
     <td><code class="Fl">-k</code> <var class="Ar">key</var>
       [<code class="Fl">-p</code> <var class="Ar">key.pub</var>]
       [<code class="Fl">-m</code> <var class="Ar">json-file</var>]
+      [<code class="Fl">--format</code> <code class="Cm">1</code> |
+      <code class="Cm">2</code>] [<code class="Fl">--input</code>
+      [<var class="Ar">name</var>=]<var class="Ar">dir ...</var>]
       [<code class="Fl">--tsa</code> <var class="Ar">url ...</var>]
       [<code class="Fl">--anchor</code> <var class="Ar">der-file ...</var>]
       <var class="Ar">dir</var></td>
@@ -94,6 +97,28 @@ and the summary line ends in &#x2018;<code class="Li">and a
   <dd>A JSON object (at most 1 MiB) stored, in canonical form, as the manifest's
       &#x2018;<code class="Li">meta</code>&#x2019; field and covered by the
       signature. noqtis does not interpret it.</dd>
+  <dt id="format"><a class="permalink" href="#format"><code class="Fl">--format</code></a>
+    <code class="Cm">1</code> |
+    <a class="permalink" href="#2"><code class="Cm" id="2">2</code></a></dt>
+  <dd>The capsule format
+      (<a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a>).
+      Format 1 (the default) signs the whole manifest. Format 2 adds a Merkle
+      tree over the file entries and signs the manifest's head, which holds the
+      tree's root but not the list of files, so that
+      <a class="Xr" href="/noqtis/reference/man/noqtis-prove-1/">noqtis-prove(1)</a>
+      can show some files to a reader without the names or digests of the
+      others.</dd>
+  <dt id="input"><a class="permalink" href="#input"><code class="Fl">--input</code></a>
+    [<var class="Ar">name</var>=]<var class="Ar">dir</var></dt>
+  <dd>A sealed capsule this one was made from, up to 32 times; it implies
+      <code class="Fl">--format</code> <code class="Cm">2</code>. The input must
+      check
+      (<a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>),
+      and its id (the SHA-256 of the bytes its seal signs) is recorded under
+      <var class="Ar">name</var>, by default the folder's last component (1 to
+      255 bytes, no control characters).
+      <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>
+      <code class="Fl">--lineage</code> follows these records back.</dd>
   <dt id="tsa"><a class="permalink" href="#tsa"><code class="Fl">--tsa</code></a>
     <var class="Ar">url</var></dt>
   <dd>An RFC 3161 time-stamping authority, as
@@ -172,6 +197,7 @@ sealed results with ML-DSA-65 and a timestamp</pre>
 <p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-keygen-1/">noqtis-keygen(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-prove-1/">noqtis-prove(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqtsput-3/">nqtsput(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>

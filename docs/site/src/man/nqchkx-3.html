@@ -1,0 +1,93 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqchkx</code> &#x2014; <span class="Nd">check a
+    capsule, partially or with its inputs</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<div class="Bd Pp Li">
+<pre>typedef struct {
+  const uint8_t *trust;
+  size_t trustlen;
+  const uint8_t *const *anc;
+  const size_t *anclen;
+  size_t nanc;
+  const char *const *only;
+  size_t nonly;
+  const char *const *lin;
+  size_t nlin;
+  const char *const *stmt;
+  const size_t *stmtlen;
+  size_t nstmt;
+} nqcopt;</pre>
+</div>
+<p class="Pp">
+  <br/>
+  <var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqchkx</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *dir</var>, <var class="Fa" style="white-space: nowrap;">const nqcopt
+    *o</var>, <var class="Fa" style="white-space: nowrap;">nqrep
+  **rep</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqchkx"><code class="Fn" id="nqchkx">nqchkx</code></a>()
+    is <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a> with
+    the options in <var class="Fa">o</var>; any member may be 0 or
+    <code class="Dv">NULL</code>, and <var class="Fa">o</var> itself may be
+    <code class="Dv">NULL</code>. <var class="Fa">trust</var>,
+    <var class="Fa">anc</var>, <var class="Fa">anclen</var> and
+    <var class="Fa">nanc</var> are as for
+    <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>.</p>
+<p class="Pp"><var class="Fa">only</var>[0..nonly] makes the check partial: the
+    seal, the signature and the manifest are checked in full, but only these
+    listed paths are checked as files; the others are neither read nor needed,
+    and files present but not listed are not looked for.
+    &#x2018;<code class="Li">partial</code>&#x2019; rows say what was left out.
+    A path the manifest does not list fails its
+    &#x2018;<code class="Li">file</code>&#x2019; row.</p>
+<p class="Pp"><var class="Fa">lin</var>[0..nlin] are folders of capsules that
+    may be the inputs of a format 2 capsule
+    (<a class="Xr" href="/noqtis/reference/man/nqseal2-3/">nqseal2(3)</a>). Each
+    input is found among them by its id
+    (<span class="Xr">nqcapid(3)</span>) and
+    checked in full with no key pinned, its own inputs in turn, to 64 levels;
+    one &#x2018;<code class="Li">lineage</code>&#x2019; row per input says
+    whether it was found and checks, and for one that does not check, its first
+    failing row.</p>
+<p class="Pp" id="nqchkx~2"><var class="Fa">stmt</var> and
+    <var class="Fa">stmtlen</var> are reserved for key statements: with
+    <var class="Fa">nstmt</var> not 0,
+    <a class="permalink" href="#nqchkx~2"><code class="Fn">nqchkx</code></a>()
+    returns <code class="Er">NQENOSUP</code> and no report.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp">As
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>:
+    <code class="Dv">NQOK</code> when every check passed,
+    <code class="Er">NQEVRFY</code> when one failed (the report says which),
+    <code class="Er">NQEARG</code> and <code class="Er">NQEMEM</code> with no
+    report.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqprove-3/">nqprove(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqrep-3/">nqrep(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqseal2-3/">nqseal2(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+</div>

@@ -10,6 +10,8 @@
 .Fl k Ar key
 .Op Fl p Ar key.pub
 .Op Fl m Ar json-file
+.Op Fl -format Cm 1 | 2
+.Op Fl -input Oo Ar name Ns = Oc Ns Ar dir ...
 .Op Fl -tsa Ar url ...
 .Op Fl -anchor Ar der-file ...
 .Ar dir
@@ -107,6 +109,28 @@ manifest's
 .Ql meta
 field and covered by the signature.
 noqtis does not interpret it.
+.It Fl -format Cm 1 | 2
+The capsule format
+.Pq Xr noqtis-capsule 5 .
+Format 1 (the default) signs the whole manifest.
+Format 2 adds a Merkle tree over the file entries and signs the
+manifest's head, which holds the tree's root but not the list of files,
+so that
+.Xr noqtis-prove 1
+can show some files to a reader without the names or digests of the
+others.
+.It Fl -input Oo Ar name Ns = Oc Ns Ar dir
+A sealed capsule this one was made from, up to 32 times; it implies
+.Fl -format Cm 2 .
+The input must check
+.Pq Xr noqtis-check 1 ,
+and its id (the SHA-256 of the bytes its seal signs) is recorded under
+.Ar name ,
+by default the folder's last component (1 to 255 bytes, no control
+characters).
+.Xr noqtis-check 1
+.Fl -lineage
+follows these records back.
 .It Fl -tsa Ar url
 An RFC 3161 time-stamping authority, as
 .Ql http:// Ns Ar host Ns Oo : Ns Ar port Oc Ns Op / Ns Ar path ,
@@ -177,6 +201,7 @@ sealed results with ML-DSA-65 and a timestamp
 .Xr noqtis 1 ,
 .Xr noqtis-check 1 ,
 .Xr noqtis-keygen 1 ,
+.Xr noqtis-prove 1 ,
 .Xr nqseal 3 ,
 .Xr nqtsput 3 ,
 .Xr noqtis-capsule 5

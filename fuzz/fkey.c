@@ -85,7 +85,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   FILE *f;
   nckey k;
   int sec;
-  if (!ready) return 0;
+  fzready(ready, "fkey");
   f = fopen(file, "wb");
   if (f == NULL) return 0;
   if (size != 0 && fwrite(data, 1, size, f) != size) {
