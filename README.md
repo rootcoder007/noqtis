@@ -17,7 +17,7 @@ ML-KEM (FIPS 203), SHA-2 and SHA-3, byte-identical to the NIST test vectors, and
 (experimental, matching its reference known-answer files), with bindings for Python,
 JavaScript, R, Rust, Go and Java.
 
-> **Status: unaudited, before its first release.** The code has not had an
+> **Status: unaudited.** The code has not had an
 > external security audit; do not rely on it for anything that matters yet.
 > An independent audit through OSTIF has been applied for, and is open for
 > [funding](https://app.lfx.dev/crowdfunding/initiatives/noqtis-security-audit-of-a-post-quantum-signing-and-provenance-library-in-c11).
@@ -57,9 +57,9 @@ Every channel, with its status, is on the
 [install page](https://rootcoder007.github.io/noqtis/start/install/).
 In short:
 
-| Platform | Today | From v0.1.1 |
+| Platform | From source | Packages |
 |---|---|---|
-| Linux, macOS, Windows, FreeBSD | build from source (below) | release archives with `install.sh` / `install.ps1`, Homebrew tap, Scoop; RPMs and debs from the openSUSE Build Service and Fedora COPR |
+| Linux, macOS, Windows, FreeBSD | build from source (below) | release archives with `install.sh` / `install.ps1`, Homebrew tap; RPMs and debs from the openSUSE Build Service and Fedora COPR |
 | Containers | `docker build -t noqtis .` | `ghcr.io/rootcoder007/noqtis` |
 | Nix | `nix build` (`flake.nix`) | Nixpkgs after its review |
 | Arch, Alpine, Fedora, Debian, Wolfi | recipes in `packaging/` (`packaging/pkgtest.sh` builds one) | AUR first; the distributions after their review |
@@ -67,11 +67,9 @@ In short:
 | Python | `pip install ./bindings/py` | `pip install noqtis` |
 | R | `R CMD INSTALL bindings/r` | r-universe (`rootcoder007.r-universe.dev`); `install.packages("noqtis")` after CRAN's review |
 | Rust | `cargo add noqtis --git https://github.com/rootcoder007/noqtis` | `cargo add noqtis` |
-| Go | `go get github.com/rootcoder007/noqtis/bindings/go` (cgo) | the same, at the release tag |
+| Go | `go get github.com/rootcoder007/noqtis/bindings/go` (cgo) | the same, at a release (`@latest`) |
 | Java (JDK 22 or later) | `sh bindings/java/build.sh` (FFM, no JNI) | Maven Central `io.github.rootcoder007:noqtis`, the library inside the jar |
 
-No package is published yet: every "From v0.1.1" channel opens with the
-first tagged release.
 
 ## Build
 

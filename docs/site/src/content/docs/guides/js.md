@@ -7,14 +7,6 @@ The `noqtis` npm package is the C library compiled to WebAssembly: one
 package for Node, browsers, Deno and Bun, with nothing to compile and no
 dependencies. It needs Node 22 or later.
 
-:::note[Before the first release]
-`npm install noqtis` works once the first release is published. Until then, build
-the package from the repository: with emscripten's `emcc` on `PATH`
-(the version `bindings/npm/build.sh` names), run `sh build.sh` in
-`bindings/npm`, then `npm install /path/to/noqtis/bindings/npm` in your
-project.
-:::
-
 ```sh
 npm install noqtis
 ```

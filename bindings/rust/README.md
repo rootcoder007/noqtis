@@ -16,8 +16,8 @@ dependencies and no bindgen.
 | Hashes | SHA-224 ... SHA-512/256, SHA3-224 ... SHA3-512, SHAKE128/256, HMAC | FIPS 180-4, FIPS 202 |
 
 ```sh
-cargo add noqtis        # once it is on crates.io
-cargo add noqtis --git https://github.com/rootcoder007/noqtis    # until then
+cargo add noqtis
+cargo add noqtis --git https://github.com/rootcoder007/noqtis    # the development version
 ```
 
 ## Signatures

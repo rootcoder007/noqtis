@@ -90,8 +90,7 @@ fail.
 
 Yes: npm (WebAssembly), PyPI, r-universe (and CRAN after its review),
 crates.io, a Go module and Maven Central (Java 22 or later, with the
-library inside the jar), published with the first release and
-installable from the repository until then. See the tutorials for [Python](/noqtis/guides/py/),
+library inside the jar), each published with every release. See the tutorials for [Python](/noqtis/guides/py/),
 [JavaScript](/noqtis/guides/js/), [R](/noqtis/guides/r/),
 [Rust](/noqtis/guides/rust/), [Go](/noqtis/guides/go/) and
 [Java](/noqtis/guides/java/). Anything that

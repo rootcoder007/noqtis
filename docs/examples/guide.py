@@ -77,6 +77,11 @@ def main():
     lang = sys.argv[1]
     md = GUIDES / f"{lang}.md"
     code = blocks(md, LANGS[lang])
+    # a page may also show install lines in its language; the program is
+    # the block that loads the package
+    use = {"py": "import noqtis", "r": "library(noqtis)", "js": "noqtis"}
+    if lang in use:
+        code = [c for c in code if use[lang] in c]
     texts = blocks(md, ("text",))
     if not code or not texts:
         sys.exit(f"guide.py: {md} has no code or no output block")

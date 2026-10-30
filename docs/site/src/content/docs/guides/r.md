@@ -7,16 +7,15 @@ The `noqtis` R package bundles the C library: nothing else to install,
 and randomness comes from the operating system, never from R's random
 number generator (`set.seed()` does not make keys repeat).
 
-:::note[Before the first release]
-`install.packages("noqtis")` works once CRAN has reviewed the package.
-Until then, install it from the repository (this compiles the bundled C
-library, so it needs the R build tools):
+From r-universe, with binaries for Windows, macOS and Linux:
 
-```sh
-git clone https://github.com/rootcoder007/noqtis.git
-R CMD INSTALL noqtis/bindings/r
+```r
+install.packages("noqtis", repos = c("https://rootcoder007.r-universe.dev",
+                                     "https://cloud.r-project.org"))
 ```
-:::
+
+`install.packages("noqtis")` from CRAN works once CRAN has reviewed the
+package.
 
 ## Seal the folder behind an analysis
 

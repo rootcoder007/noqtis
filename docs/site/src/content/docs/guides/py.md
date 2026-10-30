@@ -6,17 +6,6 @@ description: The noqtis Python package - seal and check a folder, sign and verif
 The `noqtis` Python package has the C library compiled into it: no
 runtime dependencies, one wheel per platform for CPython 3.9 and later.
 
-:::note[Before the first release]
-`pip install noqtis` works once the first release is published on PyPI. Until then,
-install it from the repository; this compiles the library, so it needs a
-C compiler:
-
-```sh
-git clone https://github.com/rootcoder007/noqtis.git
-uv venv && uv pip install ./noqtis/bindings/py     # or: pip install ./noqtis/bindings/py
-```
-:::
-
 ```sh
 pip install noqtis      # or: uv add noqtis
 ```

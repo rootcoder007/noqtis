@@ -7,15 +7,6 @@ The `noqtis` crate compiles the C library into itself with the `cc`
 crate: it needs a C11 compiler and nothing else (no bindgen, no system
 `libnoqtis`). It builds on Linux, macOS and Windows.
 
-:::note[Before the first release]
-`cargo add noqtis` works once the crate is published on crates.io. Until
-then, take it from the repository:
-
-```sh
-cargo add noqtis --git https://github.com/rootcoder007/noqtis
-```
-:::
-
 ## Seal and check a folder
 
 This is `examples/seal.rs` in the crate (`cargo run --example seal`):
