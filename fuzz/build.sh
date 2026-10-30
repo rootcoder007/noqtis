@@ -20,7 +20,8 @@
 # those and from small ACVP files; fcls from the RSA and EC roots' keys;
 # fkey from key files the tool writes; fsig from the first test of each
 # parameter set in the ACVP sigVer and encapDecap sets; fenc from all of
-# these as text.
+# these as text; ftls from the RFC 8448 server flight (fuzz/t8448.py),
+# ftlsc from the TLS test PKI (tests/vectors/tls/pki).
 set -eu
 
 top=$(cd "$(dirname "$0")/.." && pwd)
