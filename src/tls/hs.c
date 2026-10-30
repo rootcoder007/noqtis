@@ -81,7 +81,8 @@ static void p16(wbuf *w, unsigned v) {
 }
 
 static void pb(wbuf *w, const uint8_t *p, size_t n) {
-  if (w->n + n > w->cap) {
+  /* w->n <= w->cap always, so this cannot wrap as w->n + n could */
+  if (n > w->cap - w->n) {
     w->bad = 1;
     return;
   }

@@ -54,13 +54,27 @@ check() {
   pat=$2
   shift 2
   n=$((n + 1))
-  out=$("$cli" "$@" 2>&1 | head -1)
+  # a server that printed ACCEPT may not take connections at once on a
+  # slow VM: a refused connection is tried again, twice
+  t=0
+  while :; do
+    out=$("$cli" "$@" 2>&1 | head -1)
+    case $out in
+    "fail: cannot connect"*) ;;
+    *) break ;;
+    esac
+    t=$((t + 1))
+    [ $t -gt 2 ] && break
+    sleep 1
+  done
   kill $pid 2>/dev/null
   wait $pid 2>/dev/null
   case $out in
   $pat) echo "ok   $name: $out" ;;
   *)
     echo "FAIL $name: got '$out', wanted '$pat'"
+    echo "  s_server said:"
+    sed 's/^/    /' "$tmp/log" | head -20
     fails=$((fails + 1))
     ;;
   esac
