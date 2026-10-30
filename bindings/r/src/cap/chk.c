@@ -1218,7 +1218,8 @@ int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
 }
 
 int nqchkx(const char *dir, const nqcopt *o, nqrep **rep) {
-  static const nqcopt none;
+  /* zero, never written (MSVC wants a const one initialised) */
+  static nqcopt none;
   if (rep != NULL) *rep = NULL;
   if (o == NULL) o = &none;
   /* key statements are not read yet: refuse rather than ignore them */
@@ -1770,7 +1771,8 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
   int rc, cn = 0, ok, lok = 0;
   size_t i;
   if (rep != NULL) *rep = NULL;
-  static const nqcopt none;
+  /* zero, never written (MSVC wants a const one initialised) */
+  static nqcopt none;
   if (o == NULL) o = &none;
   if (proof == NULL || rep == NULL ||
       (o->trust == NULL && o->trustlen != 0)) {

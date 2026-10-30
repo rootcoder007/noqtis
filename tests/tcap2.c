@@ -630,6 +630,7 @@ static void tproof(void) {
 }
 #endif
 
+#ifdef NQTFS
 /* NULL options are no options; key statements are refused, not ignored */
 static void topts(void) {
   char d[400];
@@ -651,6 +652,7 @@ static void topts(void) {
   NQTCHK(r == NULL);
   rmall(d);
 }
+#endif
 
 int main(void) {
   tmerkle();
