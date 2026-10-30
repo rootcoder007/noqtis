@@ -115,6 +115,23 @@ it, `check` accepts a seal by a key the trusted key was rotated to, and
 requires a verified timestamp from before a seal key was rotated away or
 revoked. Ed25519 alone cannot make statements.
 
+### Identity cards
+
+```python
+card = noqtis.idcard(sk, pk, "Ada Lovelace", orcid="0000-0002-1825-0097",
+                     url="https://example.org/ada")
+c = noqtis.idcheck(card)          # a Card, or None when it does not verify
+c.name, c.orcid, c.key_sha256     # compare the key with the one published
+noqtis.idcheck(card, pk)          # None unless the card is for pk
+```
+
+A card (noqtis-idcard-1, JSON) binds a signing key to its holder's name
+and, when given, ORCID iD (check digit verified), e-mail address,
+https:// page and affiliation, signed by the key under its own context,
+so it is never a seal or a key statement. It is self-signed: it shows
+the key's holder wrote it, not that the name is true. A field out of its
+limits raises `ArgError`; input that is not a card, `DecodeError`.
+
 ## DSSE envelopes
 
 ```python

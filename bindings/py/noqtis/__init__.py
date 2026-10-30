@@ -39,6 +39,7 @@ __all__ = [
     "Alg",
     "ArgError",
     "BufError",
+    "Card",
     "DecodeError",
     "File",
     "FileError",
@@ -60,6 +61,8 @@ __all__ = [
     "hash",
     "hashes",
     "hmac",
+    "idcard",
+    "idcheck",
     "kem",
     "keyfile",
     "prove",
@@ -394,3 +397,70 @@ def revoke(sk: Bytes, pk: Bytes,
     s, p = buf(sk, "sk"), buf(pk, "pk")
     a = _salg(s, p) if alg is None else find(alg, "sign")
     return _c.kstmt(a.id, s, p, a.id, None, None, _at(at), _reason(reason))
+
+
+class Card(NamedTuple):
+    """An identity card that verified: who it names (None for a field it
+    has not), when it was made, and its key: the algorithm, the public key
+    and its SHA-256 in hex, as ``noqtis inspect`` shows a seal's."""
+
+    name: str
+    orcid: Optional[str]
+    email: Optional[str]
+    url: Optional[str]
+    affil: Optional[str]
+    created: str
+    alg: str
+    pk: bytes
+    key_sha256: str
+
+
+def _field(v: Optional[str], what: str) -> Optional[str]:
+    if v is not None and not isinstance(v, str):
+        raise TypeError(what + ": a str or None")
+    if v is not None and "\0" in v:
+        raise ArgError(-1, what + ": no NUL character")
+    return v
+
+
+def idcard(sk: Bytes, pk: Bytes, name: str, orcid: Optional[str] = None,
+           email: Optional[str] = None, url: Optional[str] = None,
+           affil: Optional[str] = None,
+           at: Union[None, int, float, datetime.datetime] = None,
+           alg: Optional[AlgLike] = None) -> bytes:
+    """An identity card (noqtis-idcard-1, JSON): the public key ``pk``
+    with ``name`` and, when given, an ORCID iD (its check digit verified;
+    its https://orcid.org/ address is stored bare), an e-mail address, an
+    https:// web page and an affiliation, made at ``at`` (default now) and
+    signed by ``sk`` under the card's own context. A field out of its
+    limits (see noqtis-idcard(1)) raises ArgError; Ed25519 alone raises
+    UnsupportedError."""
+    if not isinstance(name, str):
+        raise TypeError("name: a str")
+    s, p = buf(sk, "sk"), buf(pk, "pk")
+    a = _salg(s, p) if alg is None else find(alg, "sign")
+    return _c.card(a.id, s, p, _field(name, "name"), _field(orcid, "orcid"),
+                   _field(email, "email"), _field(url, "url"),
+                   _field(affil, "affil"), _at(at))
+
+
+def idcheck(card: Union[Bytes, str, "os.PathLike[str]"],
+            pk: Optional[Bytes] = None) -> Optional[Card]:
+    """The card's fields when it verifies (and, with ``pk``, is for that
+    key); None when its signature does not verify or it is for another
+    key. ``card`` is the card's bytes or the path of a card file. Input
+    that is not a card raises DecodeError. A card is self-signed: compare
+    ``key_sha256`` with the one its holder published, or pass ``pk``."""
+    if isinstance(card, (str, os.PathLike)):
+        with open(card, "rb") as f:
+            b = f.read((256 << 10) + 1)
+    else:
+        b = buf(card, "card")
+    rc, f = _c.cardvrfy(b, None if pk is None else buf(pk, "pk"))
+    if rc == _c.EDEC:
+        raise DecodeError(rc, "not a noqtis-idcard-1 card")
+    if rc != 0 or f is None:
+        return None
+    aid, kp, fp, _, utc, nm, orc, em, u, af = f
+    return Card(nm, orc or None, em or None, u or None, af or None, utc,
+                next(x.name for x in SIGS if x.id == aid), kp, fp.hex())

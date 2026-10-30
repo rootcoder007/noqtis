@@ -715,6 +715,66 @@ static PyObject *pdssevrfy(PyObject *self, PyObject *args) {
   return r;
 }
 
+typedef struct {
+  int alg;
+  const char *sk, *pk, *name, *orcid, *email, *url, *affil;
+  Py_ssize_t skl, pkl;
+  long long at;
+} cdarg;
+
+static int cdcall(void *v, char *out, size_t cap, size_t *outlen) {
+  cdarg *a = (cdarg *)v;
+  return nqcard((nqsalg)a->alg, U8(a->sk), SZ(a->skl), U8(a->pk),
+                SZ(a->pkl), a->name, a->orcid, a->email, a->url, a->affil,
+                (int64_t)a->at, out, cap, outlen);
+}
+
+/* card(alg, sk, pk, name, orcid, email, url, affil, at) -> card; each
+ * optional field None or a str */
+static PyObject *pcard(PyObject *self, PyObject *args) {
+  cdarg a;
+  (void)self;
+  memset(&a, 0, sizeof a);
+  if (!PyArg_ParseTuple(args, "iy#y#szzzzL", &a.alg, &a.sk, &a.skl, &a.pk,
+                        &a.pkl, &a.name, &a.orcid, &a.email, &a.url,
+                        &a.affil, &a.at))
+    return NULL;
+  return grow(cdcall, &a, 4 * SZ(a.pkl) + 65536);
+}
+
+/* cardvrfy(card, pk or None) -> (code, fields): NQOK with (alg, pk,
+ * sha256, created, utc, name, orcid, email, url, affil), or NQEVRFY or
+ * NQEDEC with None; any other code raises */
+static PyObject *pcardvrfy(PyObject *self, PyObject *args) {
+  const char *c, *pk = NULL;
+  Py_ssize_t n, pl = 0;
+  nqcardf *f;
+  int rc;
+  PyObject *r;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#z#", &c, &n, &pk, &pl)) return NULL;
+  f = (nqcardf *)PyMem_Malloc(sizeof *f);
+  if (f == NULL) return PyErr_NoMemory();
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqcardvrfy(c, SZ(n), U8(pk), SZ(pl), f);
+  Py_END_ALLOW_THREADS
+  if (rc == NQEVRFY || rc == NQEDEC) {
+    PyMem_Free(f);
+    return Py_BuildValue("(iO)", rc, Py_None);
+  }
+  if (rc != NQOK) {
+    PyMem_Free(f);
+    return fail(rc);
+  }
+  r = Py_BuildValue("(i(iy#y#Lssssss))", rc, (int)f->alg,
+                    (const char *)f->pk, (Py_ssize_t)f->pklen,
+                    (const char *)f->fp, (Py_ssize_t)32,
+                    (long long)f->created, f->utc, f->name, f->orcid,
+                    f->email, f->url, f->affil);
+  PyMem_Free(f);
+  return r;
+}
+
 /* files(dir) -> (code, rows): nqfiles */
 static PyObject *pfiles(PyObject *self, PyObject *args) {
   const char *dir;
@@ -751,6 +811,8 @@ static PyMethodDef meths[] = {
   {"kstmt", pkstmt, METH_VARARGS, "nqkstmt"},
   {"dsse", pdsse, METH_VARARGS, "nqdsse"},
   {"dssevrfy", pdssevrfy, METH_VARARGS, "nqdssevrfy"},
+  {"card", pcard, METH_VARARGS, "nqcard"},
+  {"cardvrfy", pcardvrfy, METH_VARARGS, "nqcardvrfy"},
   {NULL, NULL, 0, NULL}
 };
 

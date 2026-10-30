@@ -80,6 +80,49 @@ sha3-256: 3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532
   (`ArgError`, `FileError`, `UnsupportedError`, ...) with the library's
   code in `.code`.
 
+## Identity cards
+
+An identity card ties your signing key to who you are, signed by the key
+itself; `noqtis check --card` and `idcheck` read it. Save this as
+`card.py`:
+
+```python
+import noqtis
+from noqtis import sign
+
+pk, sk = sign.keygen("ML-DSA-65")
+card = noqtis.idcard(sk, pk, "Ada Lovelace",
+                     orcid="https://orcid.org/0000-0002-1825-0097",
+                     url="https://example.org/ada")
+
+c = noqtis.idcheck(card, pk)  # None unless it verifies and is pk's
+print("name:", c.name)
+print("orcid:", c.orcid)
+print("key:", c.key_sha256 == noqtis.hash("SHA-256", pk).hex())
+
+# a changed card does not verify; a wrong check digit is refused
+print("changed:", noqtis.idcheck(card.replace(b"Ada", b"Eve")))
+try:
+    noqtis.idcard(sk, pk, "Ada Lovelace", orcid="0000-0002-1825-0098")
+except noqtis.ArgError:
+    print("bad ORCID iD refused")
+```
+
+It prints:
+
+```text
+name: Ada Lovelace
+orcid: 0000-0002-1825-0097
+key: True
+changed: None
+bad ORCID iD refused
+```
+
+The card holds the bare ORCID iD. It is self-signed: it shows that the
+holder of the key wrote it, not that the name is true, so give the key's
+SHA-256 (`c.key_sha256`) where people already know you, or let readers
+pin your public key.
+
 ## Notes
 
 - Inputs may be `bytes`, `bytearray` or `memoryview`; outputs are `bytes`.
