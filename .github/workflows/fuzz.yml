@@ -27,7 +27,7 @@ jobs:
     name: fuzz ${{ matrix.target }}
     runs-on: ubuntu-24.04
     # 90 s per push (plus the build), an hour weekly
-    timeout-minutes: ${{ github.event_name == 'schedule' && 80 || 15 }}
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:

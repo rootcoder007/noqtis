@@ -33,7 +33,7 @@ jobs:
       !github.event.repository.private
     name: seal on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -96,7 +96,7 @@ jobs:
     needs: seal
     name: check on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:

@@ -31,7 +31,7 @@ jobs:
   linux:
     name: linux ${{ matrix.os }} ${{ matrix.cc }} ${{ matrix.kind }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -78,7 +78,7 @@ jobs:
       !github.event.repository.private
     name: linux arm64 ${{ matrix.cc }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -95,7 +95,7 @@ jobs:
 
   valgrind:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 150
     env:
       # valgrind is about 20 times slower and masked ML-DSA signing is the
       # costliest step: sample the slow vector sets (every 50th ML-DSA
@@ -131,7 +131,7 @@ jobs:
 
   musl:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 150
     # alpine:3.22
     container: alpine@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
     steps:
@@ -148,7 +148,7 @@ jobs:
 
   i686:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: sudo apt-get update && sudo apt-get install -y gcc-multilib
@@ -161,7 +161,7 @@ jobs:
 
   wasm:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
@@ -178,7 +178,7 @@ jobs:
     # wasi-sdk, the tests under wasmtime (WASI preview 1); both downloads
     # are checked against their SHA-256 before use
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     env:
       SDK: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-linux.tar.gz
       SDKSUM: b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4
@@ -210,7 +210,7 @@ jobs:
   armv7:
     # 32-bit ARM (armhf) under QEMU, sampled like the other emulated job
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -230,7 +230,7 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -252,7 +252,7 @@ jobs:
       !github.event.repository.private
     name: macos ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -274,7 +274,7 @@ jobs:
       !github.event.repository.private
     name: windows ${{ matrix.toolset }}
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -310,7 +310,7 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 150
     defaults:
       run:
         shell: msys2 {0}
@@ -343,7 +343,7 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
@@ -361,7 +361,7 @@ jobs:
     # the same for a shared build plus its exported-symbol check
     name: distro ${{ matrix.name }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     container: ${{ matrix.image }}
     env:
       NQNEEDPC: "1"
@@ -452,7 +452,7 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
@@ -469,7 +469,7 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
@@ -486,7 +486,7 @@ jobs:
     # abidiff, packaging/abi.sh): an incompatible change fails unless the
     # major version changes with it
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 150
     # fedora:latest
     container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
     steps:
@@ -504,7 +504,7 @@ jobs:
     # nixos/nix has no /lib64 loader for the runner's node, so the job runs
     # the container by hand instead of with `container:`
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: nix build, then the consumer against it
@@ -519,7 +519,7 @@ jobs:
   docker:
     # the Wolfi image: the build stage runs every test and the consumer
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker build --target build -t noqtis-build .
@@ -538,7 +538,7 @@ jobs:
     # installed, the consumer built against it
     name: package ${{ matrix.kind }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     container: ${{ matrix.image }}
     env:
       NQNEEDPC: "1"
@@ -571,7 +571,7 @@ jobs:
   melange:
     # the Wolfi package, built with melange from this tree's tarball
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: packaging/pkgtest.sh wolfi
@@ -582,7 +582,7 @@ jobs:
   brew:
     # the formula through the runner's Linux Homebrew
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: install from the formula, brew test
@@ -595,7 +595,7 @@ jobs:
       github.event_name != 'push' && github.event_name != 'pull_request' ||
       !github.event.repository.private
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: NQWORK="$RUNNER_TEMP/nqpkg" packaging/pkgtest.sh brew

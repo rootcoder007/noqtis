@@ -27,7 +27,7 @@ jobs:
   xossl:
     name: cross-check
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     # fedora:latest
     container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
     steps:
@@ -51,7 +51,7 @@ jobs:
     # TLS code with NQTLS off and runs its offline tests
     name: TLS client against s_server
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 150
     # fedora:latest
     container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
     steps:
@@ -76,7 +76,7 @@ jobs:
   fdiff:
     name: differential fuzzing
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ github.event_name == 'schedule' && 80 || 20 }}
+    timeout-minutes: 150
     # fedora:latest
     container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
     env:

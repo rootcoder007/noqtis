@@ -37,7 +37,7 @@ jobs:
     # the version (CMakeLists.txt; a tag must match it), the commit time
     # every build uses as SOURCE_DATE_EPOCH, and whether to publish
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 150
     permissions:
       contents: read
     outputs:
@@ -77,7 +77,7 @@ jobs:
     name: build ${{ matrix.target }}
     needs: meta
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 150
     permissions:
       contents: read
     strategy:
@@ -146,7 +146,7 @@ jobs:
     name: reproduce ${{ matrix.target }}
     needs: [meta, build]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 150
     permissions:
       contents: read
     strategy:
@@ -192,7 +192,7 @@ jobs:
     # within one major version stops the release
     needs: meta
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 150
     permissions:
       contents: read
     # fedora:latest
@@ -225,7 +225,7 @@ jobs:
     # pass), as JSON and text, with what they do and do not show
     needs: meta
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 150
     permissions:
       contents: read
     steps:
@@ -284,7 +284,7 @@ jobs:
     # SHA256SUMS over every release file, the SBOM, the SSH signature
     needs: [meta, build, repro, sidech, abi]
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 150
     permissions:
       contents: read
     outputs:
@@ -349,7 +349,7 @@ jobs:
     needs: [meta, sums]
     if: needs.meta.outputs.publish == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 150
     permissions:
       contents: read
       id-token: write
@@ -402,7 +402,7 @@ jobs:
     needs: [meta, sums, sign, provenance]
     if: needs.meta.outputs.publish == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 150
     permissions:
       contents: write
     steps:

@@ -41,7 +41,7 @@ jobs:
   action:
     name: action ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:

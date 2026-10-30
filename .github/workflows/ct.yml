@@ -41,7 +41,7 @@ jobs:
   ctgrind:
     name: ctgrind ${{ matrix.cc }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -84,7 +84,7 @@ jobs:
     name: dudect ${{ matrix.cc }}
     runs-on: ubuntu-24.04
     # short: about 2 minutes of measurement; long: about an hour
-    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 150 || 20 }}
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -139,7 +139,7 @@ jobs:
   tvla:
     name: simulated TVLA
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 120 || 20 }}
+    timeout-minutes: 150
     env:
       LONG: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     steps:

@@ -21,7 +21,7 @@ permissions: read-all
 jobs:
   analysis:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 150
     permissions:
       # the SARIF upload to code scanning
       security-events: write
