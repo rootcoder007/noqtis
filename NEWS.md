@@ -59,6 +59,12 @@ mistake in the release process; use 0.1.1.)
   had not been fuzzing: its fixture folder was never written, so every
   input returned at once. It now writes it, and a target whose set-up
   fails stops instead of passing.
+- A root certificate given as a trust anchor (`--anchor` for timestamps,
+  and the TLS client's roots) may have a serial number of 0 or a negative
+  one, as some old roots do: an anchor is the user's own choice and its
+  serial only a label. Intermediate and leaf certificates must still
+  have a positive serial (RFC 5280 4.1.2.2); every other field of an
+  anchor is read as strictly as before.
 - Shell completions for bash, zsh and fish (`cli/completions/`, installed
   with the tool; a test checks they offer every command and option the
   manual pages list).

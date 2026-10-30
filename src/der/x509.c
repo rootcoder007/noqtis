@@ -818,7 +818,7 @@ static int exts(const nqdtlv *t, nqcert *c) {
 
 /* ---- certificates ---- */
 
-int nqcprs(const uint8_t *p, size_t n, nqcert *c) {
+static int prs(const uint8_t *p, size_t n, nqcert *c, int anchor) {
   nqdtlv top, tbs, aid, sig, t, x;
   nqdcur cc, tc, vc;
   int r = NQEDEC, got, neg, empty;
@@ -866,12 +866,25 @@ int nqcprs(const uint8_t *p, size_t n, nqcert *c) {
     }
     c->ver = (int)v + 1;
   }
-  /* serialNumber: positive, at most 20 octets */
-  if ((r = nqdnext(&tc, &t)) != NQOK || (r = nqdint(&t, NULL, &neg)) != NQOK) {
+  /* serialNumber: positive, at most 20 octets (RFC 5280 4.1.2.2). A
+   * trust anchor is the caller's own choice, not a path's link: its
+   * serial is only a label, so old roots with a serial of 0 or a negative
+   * one (a high first octet with no 00 before it) are taken as they are;
+   * the encoding itself is still DER */
+  if ((r = nqdnext(&tc, &t)) != NQOK) {
     return r;
   }
-  if (neg || (t.v.n == 1 && t.v.p[0] == 0)) {
-    return NQEDEC;
+  if (anchor) {
+    if (t.cls != NQDUNI || t.con || t.tag != NQDINT || t.v.n == 0) {
+      return NQEDEC;
+    }
+  } else {
+    if ((r = nqdint(&t, NULL, &neg)) != NQOK) {
+      return r;
+    }
+    if (neg || (t.v.n == 1 && t.v.p[0] == 0)) {
+      return NQEDEC;
+    }
   }
   if (t.v.n > 20) {
     return NQELIM;
@@ -936,4 +949,12 @@ int nqcprs(const uint8_t *p, size_t n, nqcert *c) {
     }
   }
   return nqddone(&tc);
+}
+
+int nqcprs(const uint8_t *p, size_t n, nqcert *c) {
+  return prs(p, n, c, 0);
+}
+
+int nqcprsa(const uint8_t *p, size_t n, nqcert *c) {
+  return prs(p, n, c, 1);
 }

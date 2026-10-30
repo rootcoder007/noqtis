@@ -154,6 +154,10 @@ typedef struct {
 
 /* Parses one certificate that spans all n bytes. */
 int nqcprs(const uint8_t *p, size_t n, nqcert *c);
+/* nqcprs for a trust anchor (a root the caller trusts): its serial may be
+ * 0 or negative, as on some old roots; every other field is read as
+ * strictly. Leaves and intermediates use nqcprs. */
+int nqcprsa(const uint8_t *p, size_t n, nqcert *c);
 
 /* Name comparison (RFC 5280 7.1, the basic form): the same RDNs with
  * the same attribute types in the same order; PrintableString and

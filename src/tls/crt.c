@@ -48,7 +48,7 @@ int nqtlca(nqtls *t, const uint8_t *b, size_t n) {
     if (t->ab == NULL || t->anc == NULL) return NQEMEM;
     memcpy(t->ab, b, n);
     t->abn = n;
-    if ((rc = nqcprs(t->ab, n, &t->anc[0])) != NQOK) return rc;
+    if ((rc = nqcprsa(t->ab, n, &t->anc[0])) != NQOK) return rc;
     t->nanc = 1;
     return NQOK;
   }
@@ -83,7 +83,7 @@ int nqtlca(nqtls *t, const uint8_t *b, size_t n) {
       continue; /* not base64: not a certificate */
     }
     /* a certificate this module cannot read cannot be an anchor */
-    if (nqcprs(t->ab + used, dn, &t->anc[t->nanc]) == NQOK) {
+    if (nqcprsa(t->ab + used, dn, &t->anc[t->nanc]) == NQOK) {
       t->nanc++;
       used += dn;
     }

@@ -288,7 +288,7 @@ int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
     goto out;
   }
   for (i = 0; i < nanc; i++) {
-    if (nqcprs(anc[i], anclen[i], &c[i]) != NQOK) {
+    if (nqcprsa(anc[i], anclen[i], &c[i]) != NQOK) {
       *why = "a TSA anchor is not a DER X.509 certificate";
       rc = NQEARG;
       goto out;

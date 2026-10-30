@@ -362,7 +362,7 @@ static void chkts(nqrep *r, const seal *s, const ancs *an, int64_t *gtv) {
     goto out;
   }
   for (i = 0; i < an->k; i++) {
-    if (nqcprs(an->p[i], an->n[i], &c[i]) != NQOK) {
+    if (nqcprsa(an->p[i], an->n[i], &c[i]) != NQOK) {
       add(r, "timestamp", 0, "a TSA anchor is not a certificate", NULL,
           NULL);
       goto out;

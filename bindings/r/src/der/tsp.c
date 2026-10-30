@@ -674,9 +674,20 @@ int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts) {
   }
   /* the certificates */
   for (i = 0; i < ts->ncert; i++) {
-    if ((r = nqcprs(ts->certs[i].p, ts->certs[i].n, &all[na++])) != NQOK) {
-      return r;
+    if ((r = nqcprs(ts->certs[i].p, ts->certs[i].n, &all[na])) != NQOK) {
+      /* a copy of a trust anchor (which may carry a serial nqcprs
+       * refuses, nqcprsa) is the anchor, parsed as one */
+      size_t ai, hit = 0;
+      for (ai = 0; ai < a->nanc && !hit; ai++) {
+        if (a->anc[ai].raw.n == ts->certs[i].n &&
+            memcmp(a->anc[ai].raw.p, ts->certs[i].p, ts->certs[i].n) == 0) {
+          all[na] = a->anc[ai];
+          hit = 1;
+        }
+      }
+      if (!hit) return r;
     }
+    na++;
   }
   for (i = 0; i < a->nextra; i++) {
     all[na++] = a->extra[i];

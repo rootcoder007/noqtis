@@ -771,6 +771,79 @@ static int revchk(const uint8_t *p, size_t n, const void *arg) {
   return nqocsp(p, n, a->path, a->np, 0, a->t, tdops(1), NULL);
 }
 
+/* ---- trust anchors: a root's serial is only a label ---- */
+
+/* the certificate in src (outer and tbs SEQUENCEs in the 0x82 long form,
+ * version [0] then serialNumber at offset 13) with its serialNumber TLV
+ * replaced by ser */
+static size_t reser(const tdbuf *src, const uint8_t *ser, size_t sn,
+                    uint8_t *out, size_t cap) {
+  size_t ol, tl, old, n;
+  NQTCHK(src->n > 15 && src->p[1] == 0x82 && src->p[5] == 0x82 &&
+         src->p[13] == 0x02 && src->p[14] < 0x80);
+  old = 2 + (size_t)src->p[14];
+  ol = ((size_t)src->p[2] << 8 | src->p[3]) - old + sn;
+  tl = ((size_t)src->p[6] << 8 | src->p[7]) - old + sn;
+  n = src->n - old + sn;
+  NQTCHK(n <= cap);
+  memcpy(out, src->p, 13);
+  out[2] = (uint8_t)(ol >> 8);
+  out[3] = (uint8_t)ol;
+  out[6] = (uint8_t)(tl >> 8);
+  out[7] = (uint8_t)tl;
+  memcpy(out + 13, ser, sn);
+  memcpy(out + 13 + sn, src->p + 13 + old, src->n - 13 - old);
+  return n;
+}
+
+static void tanch(void) {
+  static const uint8_t zero[] = {0x02, 0x01, 0x00};
+  static const uint8_t neg[] = {0x02, 0x01, 0xff};
+  static const uint8_t negl[] = {0x02, 0x02, 0x80, 0x01};
+  static const uint8_t pad[] = {0x02, 0x02, 0x00, 0x01};
+  static const uint8_t one[] = {0x02, 0x01, 0x01};
+  static const uint8_t empty[] = {0x02, 0x00};
+  static const uint8_t octs[] = {0x04, 0x01, 0x00};
+  static const uint8_t big[] = {0x02, 0x15, 0x01, 0, 0, 0, 0, 0, 0, 0, 0,
+                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  static const struct {
+    const uint8_t *s;
+    size_t n;
+    int leaf, anc;
+  } cs[] = {
+      {zero, sizeof zero, NQEDEC, NQOK},  {neg, sizeof neg, NQEDEC, NQOK},
+      {negl, sizeof negl, NQEDEC, NQOK},  {pad, sizeof pad, NQEDEC, NQEDEC},
+      {one, sizeof one, NQOK, NQOK},      {empty, sizeof empty, NQEDEC, NQEDEC},
+      {octs, sizeof octs, NQEDEC, NQEDEC}, {big, sizeof big, NQELIM, NQELIM},
+  };
+  static uint8_t b[4096], ib[4096];
+  size_t i, n, np;
+  nqcert c, anc, pool;
+  const tdbuf *root = &locb[0], *inter = &locb[1];
+  const nqcert *tsa = L("rsa_tsa");
+  NQTCHK(strcmp(locn[0], "rsa_root") == 0 &&
+         strcmp(locn[1], "rsa_inter") == 0);
+  for (i = 0; i < sizeof cs / sizeof cs[0]; i++) {
+    n = reser(root, cs[i].s, cs[i].n, b, sizeof b);
+    NQTEQI(nqcprs(b, n, &c), cs[i].leaf);
+    NQTEQI(nqcprsa(b, n, &c), cs[i].anc);
+    /* an intermediate is never an anchor: it stays strict */
+    n = reser(inter, cs[i].s, cs[i].n, ib, sizeof ib);
+    NQTEQI(nqcprs(ib, n, &c), cs[i].leaf);
+  }
+  /* a root with serial 0 still anchors the TSA's path: its key and name
+   * are what the path checks */
+  n = reser(root, zero, sizeof zero, b, sizeof b);
+  NQTEQI(nqcprsa(b, n, &anc), NQOK);
+  pool = *L("rsa_inter");
+  NQTEQI(chain(tsa, &anc, 1, &pool, 1, tsa->nb + 86400, NQXEKUTS, &np),
+         NQOK);
+  NQTEQI(np, 3);
+  /* the parsed fields are those of the strict parse of the original */
+  NQTEQI(nqxneq(anc.subject, L("rsa_root")->subject), 1);
+  NQTEQI(anc.nb == L("rsa_root")->nb && anc.na == L("rsa_root")->na, 1);
+}
+
 static void tmut(void) {
   static const char *pairs[][2] = {
       {"rsa_root", "rsa_root"},       {"rsa_inter", "rsa_root"},
@@ -853,6 +926,7 @@ int main(void) {
   tchain();
   tocsp();
   tcrl();
+  tanch();
   tmut();
   printf("tx509: %lu signature checks\n", tdcalls);
 #ifdef NQDCLS
