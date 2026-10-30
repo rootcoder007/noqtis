@@ -8,7 +8,8 @@
 #include <time.h>
 
 /* SOURCE_DATE_EPOCH when set, as noqtis seal reads it, else the clock;
- * -1 when it is not a plain decimal number */
+ * -1 when it is not a plain decimal number of seconds up to the end of
+ * the year 9999, the last time a card can hold */
 static int64_t now(void) {
   const char *e = getenv("SOURCE_DATE_EPOCH");
   int64_t v = 0;
@@ -18,7 +19,7 @@ static int64_t now(void) {
       if (e[i] < '0' || e[i] > '9' || i >= 12) return -1;
       v = v * 10 + (e[i] - '0');
     }
-    return v;
+    return v <= 253402300799LL ? v : -1;
   }
   return (int64_t)time(NULL);
 }
@@ -67,7 +68,8 @@ static int mkcard(const char *kp, const char *pp, const char *const v[5],
   int64_t t = now();
   int rc, ret = NCUSE;
   if (t < 0) {
-    ncmsg("idcard", "SOURCE_DATE_EPOCH is not a number of seconds");
+    ncmsg("idcard", "SOURCE_DATE_EPOCH is not a number of seconds "
+           "up to the year 9999");
     return NCUSE;
   }
   if (pp == NULL) {

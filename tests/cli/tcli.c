@@ -251,6 +251,18 @@ static void ok(int cond, const char *what) {
 
 /* Runs and checks the exit status; a sanitizer or valgrind report in
  * stderr is a failure whatever the status. */
+/* SOURCE_DATE_EPOCH for the next runs, or unset with NULL */
+static void sde(const char *v) {
+#ifdef _WIN32
+  _putenv_s("SOURCE_DATE_EPOCH", v != NULL ? v : "");
+#else
+  if (v != NULL)
+    setenv("SOURCE_DATE_EPOCH", v, 1);
+  else
+    unsetenv("SOURCE_DATE_EPOCH");
+#endif
+}
+
 static void want(int code, const char *args, const char *in) {
   int st = run(args, in);
   int rep = has("q.err", "Sanitizer") || has("q.err", "runtime error:") ||
@@ -1711,6 +1723,16 @@ static void tidc(void) {
   want(2, "idcard -k q.idk", NULL);
   want(2, "idcard -k q.idk --name A extra", NULL);
   want(2, "idcard --verify q.icard -k q.idk", NULL);
+  /* a created time past the year 9999 is named as such */
+  sde("253402300800");
+  want(2, "idcard -k q.idk --name A", NULL);
+  ok(has("q.err", "up to the year 9999") && !has("q.err", "key pair"),
+     "idcard: SOURCE_DATE_EPOCH past 9999 is named");
+  sde("253402300799");
+  want(0, "idcard -k q.idk --name A", NULL);
+  ok(has("q.out", "\"created\":\"9999-12-31T23:59:59Z\""),
+     "idcard: the last second of 9999");
+  sde(NULL);
   want(2, "idcard --verify q.icard --name A", NULL);
   want(2, "idcard -k q.idk --name A -o q.icard", NULL);
   ok(has("q.icard", "Ada Lovelace"), "idcard: an existing card is kept");
