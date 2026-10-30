@@ -465,6 +465,9 @@ static const ncfix fixes[] = {
   {"key.time", NULL, "the seal's key was replaced or revoked, and only a "
    "verified timestamp from before then shows the seal is older: check "
    "with --anchor for its timestamp, or ask for a new seal"},
+  {"key.alg", NULL, "the -p key file is for another algorithm than the "
+   "seal's (the row names both): give the signer's public key file as "
+   "`noqtis keygen` wrote it, for the seal's algorithm"},
   {"key", NULL, "the seal was made with another key than -p gives: check "
    "that -p is the signer's public key; if it is, someone else sealed "
    "the folder again"},
@@ -730,7 +733,14 @@ int ncchk(int argc, char **argv) {
       fputs(n > 0 ? ",{\"check\":\"key.alg\",\"ok\":false,\"detail\":"
                   : "{\"check\":\"key.alg\",\"ok\":false,\"detail\":",
             stdout);
-      jstr(kn);
+      {
+        char kd[160];
+        snprintf(kd, sizeof kd, "the trusted key file is %s, the seal says %s",
+                 kn, kalg);
+        jstr(kd);
+      }
+      fputs(",\"fix\":", stdout);
+      jstr(fixfor("key.alg", NULL));
       putchar('}');
     } else {
       printf("%-4s  %-*s  the trusted key file is %s, the seal says %s\n",
@@ -765,6 +775,8 @@ int ncchk(int argc, char **argv) {
     if (!dup)
       ncmsg("check", "%s: %s", c, f);
   }
+  if (kalg != NULL && !json)
+    ncmsg("check", "key.alg: %s", fixfor("key.alg", NULL));
   if (pp == NULL && ret == NCOK && !json)
     ncmsg("check", "note: no -p given, so the key inside the seal was "
           "trusted; pass -p <key.pub> to check who sealed it");

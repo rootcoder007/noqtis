@@ -1581,8 +1581,13 @@ static void treview(void) {
   want(1, "check -p q.rk2.pub qrv", NULL);
   ok(has("q.out", "key.alg") && has("q.out", "the seal says SLH-DSA-SHA2-128f"),
      "check: a key file of another algorithm with the same bytes fails");
+  ok(has("q.err", "key.alg: the -p key file is for another algorithm"),
+     "check: key.alg says what to do");
   want(1, "check -j -p q.rk2.pub qrv", NULL);
   ok(has("q.out", "\"check\":\"key.alg\",\"ok\":false"), "check -j: key.alg");
+  ok(has("q.out", "the seal says SLH-DSA-SHA2-128f\",\"fix\":\"the -p key "
+                  "file is for another algorithm"),
+     "check -j: key.alg has its detail and fix");
 #ifndef _WIN32
   /* terminal escapes in a name reach the terminal escaped */
   wrs("qrv/\x1b[2K\x1b[1Aesc", "y\n");
