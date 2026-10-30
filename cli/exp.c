@@ -139,9 +139,10 @@ static int cread(const char *dir, cinfo *ci) {
   cpy(ci->created, sizeof ci->created, row(ci->files, "info.created"));
   if (row(ci->files, "info.meta") != NULL) {
     const char *m = row(ci->files, "info.meta");
-    ci->meta = (char *)malloc(strlen(m) + 1);
+    size_t ml = strlen(m) + 1;
+    ci->meta = (char *)malloc(ml);
     if (ci->meta == NULL) return nclib("export", "memory", NQEMEM);
-    strcpy(ci->meta, m);
+    memcpy(ci->meta, m, ml);
   }
   n = nqrepn(ci->files);
   for (i = 0; i < n; i++) {
@@ -566,11 +567,9 @@ int ncexp(int argc, char **argv) {
     size_t en = 0;
     rc = NCUSE;
     if (pp == NULL) {
-      dp = (char *)malloc(strlen(kp) + 5);
-      if (dp != NULL) {
-        strcpy(dp, kp);
-        strcat(dp, ".pub");
-      }
+      size_t dn = strlen(kp) + 5;
+      dp = (char *)malloc(dn);
+      if (dp != NULL) snprintf(dp, dn, "%s.pub", kp);
       pp = dp;
     }
     if (pp != NULL && nckrd("export", pp, 0, &pk) == NCOK &&

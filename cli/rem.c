@@ -29,6 +29,7 @@ int ncisurl(const char *s) {
 
 static int keep(ncrem *m, const char *path, int isdir) {
   char *c;
+  size_t n;
   if (m->n == m->cap) {
     size_t nc = m->cap == 0 ? 64 : m->cap * 2;
     char **a = (char **)realloc(m->made, nc * sizeof *a);
@@ -40,9 +41,10 @@ static int keep(ncrem *m, const char *path, int isdir) {
     m->isd = d;
     m->cap = nc;
   }
-  c = (char *)malloc(strlen(path) + 1);
+  n = strlen(path) + 1;
+  c = (char *)malloc(n);
   if (c == NULL) return NCUSE;
-  strcpy(c, path);
+  memcpy(c, path, n);
   m->made[m->n] = c;
   m->isd[m->n] = (unsigned char)isdir;
   m->n++;
@@ -171,7 +173,7 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out) {
     return NCUSE;
   }
   memcpy(m->base, url, ul + 1);
-  if (ul == 0 || url[ul - 1] != '/') strcat(m->base, "/");
+  if (ul == 0 || url[ul - 1] != '/') memcpy(m->base + ul, "/", 2);
   t = getenv("TMPDIR");
   if (t == NULL || *t == '\0') t = getenv("TEMP");
   if (t == NULL || *t == '\0') t = getenv("TMP");

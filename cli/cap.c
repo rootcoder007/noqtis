@@ -104,7 +104,7 @@ static int ancrd(const char *cmd, const char *const *p, int np, ncanc *a) {
 static void utc(int64_t t, char out[80]) {
   int64_t d = t / 86400, s = t % 86400, y, m, doe, yoe, doy, mp, z;
   if (t < 0) {
-    strcpy(out, "before 1970");
+    snprintf(out, 80, "before 1970");
     return;
   }
   z = d + 719468;
@@ -385,12 +385,13 @@ int ncseal(int argc, char **argv) {
     /* a seal asked to carry a timestamp never stays without one */
     char *f;
     disarm();
-    f = (char *)malloc(strlen(argv[0]) + 16);
+    size_t fn = strlen(argv[0]) + 16;
+    f = (char *)malloc(fn);
     int gone = f != NULL;
     if (f != NULL) {
-      sprintf(f, "%s/noqtis.sig", argv[0]);
+      snprintf(f, fn, "%s/noqtis.sig", argv[0]);
       gone = remove(f) == 0;
-      sprintf(f, "%s/noqtis.json", argv[0]);
+      snprintf(f, fn, "%s/noqtis.json", argv[0]);
       gone = remove(f) == 0 && gone;
       free(f);
     }

@@ -139,7 +139,7 @@ static int parse(const char *url, ncurl *u, char *err, size_t cap) {
     say(err, cap, "a user name in the URL is not supported");
     return NCUSE;
   }
-  strcpy(u->port, u->tls ? "443" : "80");
+  snprintf(u->port, sizeof u->port, "%s", u->tls ? "443" : "80");
   if (*p == ':') {
     unsigned long v = 0;
     size_t k = 0;
@@ -433,8 +433,8 @@ static int lookup(const char *host, const char *port,
     free(q);
     return 0;
   }
-  strcpy(q->host, host);
-  strcpy(q->port, port);
+  snprintf(q->host, sizeof q->host, "%s", host);
+  snprintf(q->port, sizeof q->port, "%s", port);
   q->hint = *hint;
   q->refs = 2;
   if (l > NCWAIT)
@@ -921,7 +921,7 @@ int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
     say(err, cap, "the URL is too long");
     return NCUSE;
   }
-  strcpy(cur, url);
+  snprintf(cur, sizeof cur, "%s", url);
   dline = time(NULL) + NCALL;
   for (hop = 0;; hop++) {
     if (parse(cur, &u, err, cap) != NCOK ||
