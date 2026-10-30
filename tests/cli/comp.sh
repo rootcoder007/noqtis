@@ -21,7 +21,7 @@ for m in "$top"/man/noqtis-*.1; do
   # the options in the SYNOPSIS: ".Fl x" and ".Fl -long"
   for o in $(sed -n '/^\.Sh SYNOPSIS/,/^\.Sh DESCRIPTION/p' "$m" |
     grep -o 'Fl -*[a-zA-Z][a-zA-Z-]*' | sed 's/^Fl /-/' | sort -u); do
-    grep -q -- "$o\\b" "$c/noqtis.bash" ||
+    grep -qE -- "(^|[^a-zA-Z0-9-])$o([^a-zA-Z0-9-]|\$)" "$c/noqtis.bash" ||
       { echo "comp: $cmd option $o missing in noqtis.bash"; fail=1; }
   done
 done

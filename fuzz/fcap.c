@@ -10,6 +10,10 @@
  * Without a NUL the input is the manifest and the seal is the sample's.
  * The scratch folder is under $TMPDIR (else /tmp), removed at exit. */
 #define _POSIX_C_SOURCE 200809L
+/* NetBSD hides POSIX 2008 calls (symlink, dirfd) under that alone */
+#if defined(__NetBSD__)
+#define _NETBSD_SOURCE 1
+#endif
 #include <sys/stat.h>
 
 #include "fz.h"

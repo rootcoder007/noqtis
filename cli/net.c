@@ -6,6 +6,10 @@
  * other platform-specific file beside io.c. */
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
+/* NetBSD hides POSIX 2008 calls (symlink, dirfd) under that alone */
+#if defined(__NetBSD__)
+#define _NETBSD_SOURCE 1
+#endif
 #if defined(__APPLE__)
 #define _DARWIN_C_SOURCE /* SO_NOSIGPIPE is hidden under plain POSIX */
 #endif

@@ -8,6 +8,10 @@
  * the unit tests run. */
 #if !defined(_WIN32)
 #define _POSIX_C_SOURCE 200809L
+/* NetBSD hides POSIX 2008 calls (symlink, dirfd) under that alone */
+#if defined(__NetBSD__)
+#define _NETBSD_SOURCE 1
+#endif
 #endif
 
 #include <stdio.h>
