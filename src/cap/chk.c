@@ -17,6 +17,7 @@
  * a timestamp present is a failing row (it cannot be checked).
  * The result is NQOK only when every row passed, NQEVRFY otherwise (the
  * report is still returned); NQEARG and NQEMEM return no report. */
+#include <stdio.h>
 #include <string.h>
 
 #include "cap/cap.h"
@@ -311,7 +312,7 @@ typedef struct {
 /* the token's imprint must be its hash of the signature; with anchors,
  * the token must verify under one of them (nqtsvrf); without, a token is
  * never accepted (fail closed) */
-static void chkts(nqrep *r, const seal *s, const ancs *an) {
+static void chkts(nqrep *r, const seal *s, const ancs *an, int64_t *gtv) {
   uint8_t *tok = NULL;
   size_t cap = s->tsn / 4 * 3, n = 0, dl = 0, i;
   nqts *ts = NULL;
@@ -319,6 +320,7 @@ static void chkts(nqrep *r, const seal *s, const ancs *an) {
   uint8_t d[64];
   char gt[21];
   int rc;
+  *gtv = -1; /* no verified genTime */
   if (s->tsb == NULL) {
     if (an->k != 0) {
       add(r, "timestamp", 0,
@@ -384,6 +386,7 @@ static void chkts(nqrep *r, const seal *s, const ancs *an) {
         "anchors: ", nqerr(rc), NULL);
   } else {
     if (nqctime(ts->gt, gt) != NQOK) memcpy(gt, "out of range", 13);
+    *gtv = ts->gt;
     add(r, "timestamp", 1, "RFC 3161 token over the signature verifies "
         "under a TSA anchor; genTime ", gt, NULL);
   }
@@ -1108,6 +1111,243 @@ int nqchk(const char *dir, const uint8_t *trust, size_t trustlen,
 
 static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep);
 
+/* ---- key statements (noqtis-keys-1; written by nqkstmt, ks.c) ---- */
+
+/* one statement that verified */
+typedef struct {
+  uint8_t *k, *nk; /* the key, and for a rotation the new key */
+  size_t kn, nkn;
+  int64_t at;
+  int rot, used;
+} kst;
+
+/* the trusted key and the keys it was rotated to, in order */
+typedef struct {
+  const uint8_t *k[NQCKMAX + 1];
+  size_t kn[NQCKMAX + 1];
+  int64_t to[NQCKMAX + 1]; /* rotated away or revoked at; -1: neither */
+  int rev[NQCKMAX + 1];
+  size_t n;
+  kst st[NQCKMAX];
+  size_t ns;
+} kch;
+
+/* the base64 member f of o, decoded into a new buffer of exactly want
+ * bytes, or NULL */
+static uint8_t *b64f(const nqjs *o, const char *f, size_t want) {
+  size_t n = 0, got = 0;
+  const char *s = str(o, f, &n);
+  uint8_t *b;
+  if (s == NULL || want == 0) return NULL;
+  b = (uint8_t *)nqmal(want);
+  if (b == NULL) return NULL;
+  if (nqb64d(s, n, b, want, &got) != NQOK || got != want) {
+    nqfree(b, want);
+    return NULL;
+  }
+  return b;
+}
+
+/* the first 16 hex digits of the SHA-256 of a key, for a row */
+static void kfp(const uint8_t *k, size_t n, char out[17]) {
+  uint8_t h[32];
+  char hx[65];
+  nqhash(NQS256, k, n, h, 32);
+  nqhex(h, 32, hx);
+  memcpy(out, hx, 16);
+  out[16] = 0;
+}
+
+/* statement b (n bytes): one "keys" row; 1 with *st when it verifies */
+static int kone(nqrep *r, const char *b, size_t n, kst *st) {
+  /* those every statement has first, then a rotation's */
+  static const char *const nm[] = {"alg",     "at",      "format",
+                                   "key",     "kind",    "reason",
+                                   "signature", "new_alg", "new_key",
+                                   "new_signature"};
+  nqjs *v = NULL;
+  nqcbuf body;
+  nqssz sz, nsz;
+  nqsalg alg = NQMLDSA44, nalg = NQMLDSA44;
+  const char *an, *at, *fm, *kd, *rs, *kb, *nan = NULL, *nkb = NULL;
+  size_t atl = 0, fml = 0, kdl = 0, rsl = 0;
+  uint8_t *sg = NULL, *nsg = NULL;
+  char fp[17], why[160];
+  int cn = 0, rot, rc, ok = 0;
+  memset(st, 0, sizeof *st);
+  memset(&body, 0, sizeof body);
+  why[0] = 0;
+  rc = canon(b, n, &v, &cn);
+  if (rc == NQEMEM) {
+    r->err = rc;
+    return 0;
+  }
+  if (rc != NQOK || !cn || v->type != NQJOBJ) {
+    add(r, "keys", 0, "a statement is not canonical JSON (RFC 8785)", NULL,
+        NULL);
+    goto out;
+  }
+  kd = str(v, "kind", &kdl);
+  rot = kd != NULL && strcmp(kd, "rotate") == 0;
+  fm = str(v, "format", &fml);
+  an = str(v, "alg", NULL);
+  at = str(v, "at", &atl);
+  rs = str(v, "reason", &rsl);
+  kb = str(v, "key", NULL);
+  if (rot) {
+    nan = str(v, "new_alg", NULL);
+    nkb = str(v, "new_key", NULL);
+  }
+  if (!keys(v, nm, 10, rot ? 10 : 7) || (!rot && v->n != 7) ||
+      kd == NULL || (!rot && strcmp(kd, "revoke") != 0) || fm == NULL ||
+      strcmp(fm, NQCKFMT) != 0 || an == NULL || at == NULL || rs == NULL ||
+      kb == NULL || (rot && (nan == NULL || nkb == NULL))) {
+    add(r, "keys", 0, "not a noqtis-keys-1 statement (its fields)", NULL,
+        NULL);
+    goto out;
+  }
+  if (nqsfind(an, &alg) != NQOK || alg == NQED25519 ||
+      nqssize(alg, &sz) != NQOK ||
+      (rot && (nqsfind(nan, &nalg) != NQOK || nalg == NQED25519 ||
+               nqssize(nalg, &nsz) != NQOK))) {
+    add(r, "keys", 0, "a statement's algorithm is not a post-quantum one "
+        "this noqtis knows", NULL, NULL);
+    goto out;
+  }
+  if (!nqctparse(at, atl, &st->at) || rsl > 255 ||
+      (rsl > 0 && !nqcinok(rs, rsl))) {
+    add(r, "keys", 0, "a statement's time is not YYYY-MM-DDTHH:MM:SSZ, or "
+        "its reason not short text", NULL, NULL);
+    goto out;
+  }
+  st->k = b64f(v, "key", sz.pk);
+  st->kn = sz.pk;
+  sg = b64f(v, "signature", sz.sig);
+  if (rot) {
+    st->nk = b64f(v, "new_key", nsz.pk);
+    st->nkn = nsz.pk;
+    nsg = b64f(v, "new_signature", nsz.sig);
+  }
+  if (st->k == NULL || sg == NULL || (rot && (st->nk == NULL || nsg == NULL))) {
+    add(r, "keys", 0, "a statement's key or signature is not base64 of the "
+        "algorithm's size", NULL, NULL);
+    goto out;
+  }
+  rc = nqckbody(&body, an, at, kb, rot, nan, nkb, rs, NULL, NULL);
+  if (rc != NQOK) {
+    r->err = rc;
+    goto out;
+  }
+  rc = nqvrfy(alg, st->k, st->kn, (const uint8_t *)body.p, body.n,
+              (const uint8_t *)NQCKFMT, strlen(NQCKFMT), 0, sg, sz.sig);
+  if (rc == NQOK && rot) {
+    rc = nqvrfy(nalg, st->nk, st->nkn, (const uint8_t *)body.p, body.n,
+                (const uint8_t *)NQCKFMT, strlen(NQCKFMT), 0, nsg, nsz.sig);
+    if (rc != NQOK) snprintf(why, sizeof why, "the new key's signature");
+  } else if (rc != NQOK) {
+    snprintf(why, sizeof why, "the key's own signature");
+  }
+  kfp(st->k, st->kn, fp);
+  if (rc != NQOK) {
+    add(r, "keys", 0, "a statement about key ", fp, ": its signature does "
+        "not verify");
+    goto out;
+  }
+  st->rot = rot;
+  if (rot) {
+    char nf[17];
+    kfp(st->nk, st->nkn, nf);
+    snprintf(why, sizeof why, "key %s rotated to %s at %.20s, signed by "
+             "both", fp, nf, at);
+  } else {
+    snprintf(why, sizeof why, "key %s revoked at %.20s", fp, at);
+  }
+  add(r, "keys", 1, why, NULL, NULL);
+  ok = 1;
+out:
+  if (!ok) {
+    if (st->k != NULL) nqfree(st->k, st->kn);
+    if (st->nk != NULL) nqfree(st->nk, st->nkn);
+    st->k = st->nk = NULL;
+  }
+  if (sg != NULL) nqfree(sg, sz.sig);
+  if (nsg != NULL) nqfree(nsg, nsz.sig);
+  nqcbfree(&body);
+  nqjfree(v);
+  return ok;
+}
+
+static void kfree(kch *c) {
+  size_t i;
+  for (i = 0; i < c->ns; i++) {
+    if (c->st[i].k != NULL) nqfree(c->st[i].k, c->st[i].kn);
+    if (c->st[i].nk != NULL) nqfree(c->st[i].nk, c->st[i].nkn);
+  }
+  c->ns = 0;
+}
+
+static int keq(const uint8_t *a, size_t an, const uint8_t *b, size_t bn) {
+  return an == bn && memcmp(a, b, an) == 0;
+}
+
+/* the chain from the trusted key through the statements in o */
+static void kchain(nqrep *r, const nqcopt *o, kch *c) {
+  size_t i, j;
+  int bad = 0;
+  memset(c, 0, sizeof *c);
+  c->k[0] = o->trust;
+  c->kn[0] = o->trustlen;
+  c->to[0] = -1;
+  c->n = 1;
+  for (i = 0; i < o->nstmt && r->err == NQOK; i++) {
+    if (kone(r, o->stmt[i], o->stmtlen[i], &c->st[c->ns])) c->ns++;
+  }
+  while (!bad && c->n <= NQCKMAX && r->err == NQOK) {
+    size_t at = c->n - 1, hit = 0, w = 0;
+    for (j = 0; j < c->ns; j++) {
+      if (keq(c->st[j].k, c->st[j].kn, c->k[at], c->kn[at])) {
+        hit++;
+        w = j;
+      }
+    }
+    if (hit == 0) break;
+    if (hit > 1) {
+      add(r, "keys", 0, "two statements about one key: which one holds "
+          "is not known", NULL, NULL);
+      bad = 1;
+      break;
+    }
+    c->st[w].used = 1;
+    c->to[at] = c->st[w].at;
+    if (!c->st[w].rot) {
+      c->rev[at] = 1;
+      break;
+    }
+    for (j = 0; j < c->n; j++) {
+      if (keq(c->st[w].nk, c->st[w].nkn, c->k[j], c->kn[j])) bad = 1;
+    }
+    if (bad) {
+      add(r, "keys", 0, "a rotation back to a key already in the chain",
+          NULL, NULL);
+      break;
+    }
+    if (c->n == NQCKMAX + 1) break;
+    c->k[c->n] = c->st[w].nk;
+    c->kn[c->n] = c->st[w].nkn;
+    c->to[c->n] = -1;
+    c->n++;
+  }
+  for (j = 0; j < c->ns && !bad; j++) {
+    if (!c->st[j].used) {
+      char fp[17];
+      kfp(c->st[j].k, c->st[j].kn, fp);
+      add(r, "keys", 1, "not used: key ", fp, " is not the trusted key or "
+          "one it was rotated to");
+    }
+  }
+  if (bad) c->n = 0; /* an ambiguous chain trusts no key */
+}
+
 /* the first failing row of a report, for a one-line summary */
 static void firstbad(const nqrep *r, char *out, size_t cap) {
   size_t i;
@@ -1194,6 +1434,9 @@ static void lineage(nqrep *r, const char *buf, size_t n, const nqcopt *o,
       so.trustlen = 0;
       so.only = NULL;
       so.nonly = 0;
+      so.stmt = NULL;
+      so.stmtlen = NULL;
+      so.nstmt = 0;
       rc = chk1(o->lin[j], &so, depth + 1, &sr);
       if (rc == NQEMEM) {
         r->err = rc;
@@ -1233,8 +1476,6 @@ int nqchkx(const char *dir, const nqcopt *o, nqrep **rep) {
   static nqcopt none;
   if (rep != NULL) *rep = NULL;
   if (o == NULL) o = &none;
-  /* key statements are not read yet: refuse rather than ignore them */
-  if (o->nstmt != 0) return NQENOSUP;
   return chk1(dir, o, 0, rep);
 }
 
@@ -1255,6 +1496,7 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
   const uint8_t *sb;
   size_t sn;
   int rc, mok, lok, hok = 0;
+  kch *kc = NULL;
   if (rep != NULL) *rep = NULL;
   memset(&hb, 0, sizeof hb);
   if (dir == NULL || rep == NULL || (trust == NULL && trustlen != 0)) {
@@ -1265,6 +1507,15 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
   if (o->nonly != 0 && o->only == NULL) return NQEARG;
   if (o->nlin != 0 && o->lin == NULL) return NQEARG;
   if (o->nonly > NQCFILES || o->nlin > NQCINMAX) return NQELIM;
+  /* statements follow the trusted key: without one they mean nothing */
+  if (o->nstmt != 0 &&
+      (o->stmt == NULL || o->stmtlen == NULL || trust == NULL)) {
+    return NQEARG;
+  }
+  if (o->nstmt > NQCKMAX) return NQELIM;
+  for (i = 0; i < o->nstmt; i++) {
+    if (o->stmt[i] == NULL) return NQEARG;
+  }
   for (i = 0; i < nanc; i++) {
     if (anc[i] == NULL || anclen[i] == 0) return NQEARG;
   }
@@ -1322,7 +1573,36 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
   if (s.ok) {
     const uint8_t *key = s.pk;
     size_t kn = s.pkn;
-    if (trust != NULL) {
+    long ki = -1; /* the seal's key in the chain */
+    int64_t gtv = -1;
+    if (trust != NULL && o->nstmt != 0) {
+      kc = (kch *)nqmal(sizeof *kc);
+      if (kc == NULL) {
+        r->err = NQEMEM;
+      } else {
+        size_t j;
+        kchain(r, o, kc);
+        for (j = 0; j < kc->n; j++) {
+          if (keq(kc->k[j], kc->kn[j], s.pk, s.pkn)) ki = (long)j;
+        }
+      }
+    }
+    if (trust != NULL && o->nstmt != 0) {
+      char d[96];
+      if (ki > 0)
+        snprintf(d, sizeof d, "the seal's key is the trusted key's "
+                 "successor by %ld rotation%s", ki, ki == 1 ? "" : "s");
+      add(r, "key", ki >= 0,
+          ki == 0 ? "the seal's key is the trusted key"
+          : ki > 0 ? d
+                   : "the seal's key is neither the trusted key nor one "
+                     "it was rotated to",
+          NULL, NULL);
+      if (ki < 0) {
+        key = trust;
+        kn = trustlen;
+      }
+    } else if (trust != NULL) {
       int same = trustlen == s.pkn && memcmp(trust, s.pk, s.pkn) == 0;
       add(r, "key", same,
           same ? "the seal's key is the trusted key"
@@ -1350,7 +1630,27 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
       add(r, "signature", 0, s.an, " signature not checked: no head",
           NULL);
     }
-    chkts(r, &s, &an);
+    chkts(r, &s, &an, &gtv);
+    /* a key rotated away or revoked seals only before then, which only
+     * a verified timestamp shows (the manifest's created is the
+     * sealer's own word) */
+    if (ki >= 0 && kc->to[ki] >= 0) {
+      char t1[21], t2[21];
+      const char *what = kc->rev[ki] ? "revoked" : "rotated away";
+      if (nqctime(kc->to[ki], t1) != NQOK) memcpy(t1, "?", 2);
+      char d[160];
+      if (gtv < 0) {
+        snprintf(d, sizeof d, " at %s, and no verified timestamp shows "
+                 "the seal is older", t1);
+        add(r, "key.time", 0, "the seal's key was ", what, d);
+      } else {
+        if (nqctime(gtv, t2) != NQOK) memcpy(t2, "?", 2);
+        snprintf(d, sizeof d, "sealed at %s (genTime), %s its key was %s "
+                 "at %s", t2, gtv < kc->to[ki] ? "before" : "after", what,
+                 t1);
+        add(r, "key.time", gtv < kc->to[ki], d, NULL, NULL);
+      }
+    }
   }
 
   if (mok && r->err == NQOK) {
@@ -1390,6 +1690,10 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
   }
 
   nqcbfree(&hb);
+  if (kc != NULL) {
+    kfree(kc);
+    nqfree(kc, sizeof *kc);
+  }
   if (mb != NULL) nqfree(mb, mn + 1);
   nqjfree(s.v);
   nqfree(s.pk, s.sz.pk);
@@ -1899,7 +2203,10 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
         rc == NQOK ? " signature over the head is valid"
                    : " signature over the head does not verify", NULL);
   }
-  chkts(r, &s, &an);
+  {
+    int64_t gtv;
+    chkts(r, &s, &an, &gtv);
+  }
   if (r->err != NQOK) goto out;
   if (dir != NULL) {
     rc = nqcwalk(dir, &l);

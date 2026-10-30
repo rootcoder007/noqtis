@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove inspect timestamp algs version
+set -l cmds keygen sign verify enc dec hash seal check prove rotate revoke inspect timestamp algs version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -22,6 +22,8 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a hash -d 'print 
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a seal -d 'seal a folder'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a check -d 'check a sealed folder'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a prove -d 'prove some files of a capsule'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a rotate -d 'say a seal key was replaced'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a revoke -d 'say a seal key is revoked'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a inspect -d 'show what a seal says'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a timestamp -d 'add public timestamps'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a algs -d 'list the algorithms'
@@ -55,3 +57,12 @@ complete -c noqtis -n "__fish_seen_subcommand_from seal" -l input -x -a '(__fish
 complete -c noqtis -n "__fish_seen_subcommand_from check" -l only -r -F -d 'check only this file'
 complete -c noqtis -n "__fish_seen_subcommand_from check" -l lineage -x -a '(__fish_complete_directories)' -d 'an input capsule folder'
 complete -c noqtis -n "__fish_seen_subcommand_from check" -l proof -r -F -d 'a proof from noqtis prove'
+complete -c noqtis -n "__fish_seen_subcommand_from check" -l keys -r -F -d 'a key statement'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s k -l key -r -F -d 'secret key'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s p -l pub -r -F -d 'its public key'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate" -s n -l new -r -F -d 'the new secret key'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate" -l new-pub -r -F -d 'the new public key'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -l at -x -d 'when, YYYY-MM-DDTHH:MM:SSZ'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -l reason -x -d 'why'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s o -l out -r -F -d 'file to write'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s f -l force -d 'replace the file'

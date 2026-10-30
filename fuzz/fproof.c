@@ -6,7 +6,9 @@
  * a proof by itself; as an edit of the good proof (two bytes of offset,
  * then the bytes to write there), so the mutations reach the audit paths,
  * the entries and the head past the parsers; and that edited proof
- * against the capsule's folder. The folder is removed at exit. */
+ * against the capsule's folder; and each input is also a key statement
+ * (noqtis-keys-1) followed from the trusted key. The folder is removed
+ * at exit. */
 #define _POSIX_C_SOURCE 200809L
 /* NetBSD hides POSIX 2008 calls (symlink, dirfd) under that alone */
 #if defined(__NetBSD__)
@@ -99,6 +101,22 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   nqchkp((const char *)data, size, &o, NULL, &r);
   nqrepfree(r);
   r = NULL;
+  /* the input as a key statement, followed from the trusted key */
+  {
+    const char *st[1];
+    size_t sl[1];
+    st[0] = (const char *)data;
+    sl[0] = size;
+    o.stmt = st;
+    o.stmtlen = sl;
+    o.nstmt = 1;
+    nqchkx(dir, &o, &r);
+    nqrepfree(r);
+    r = NULL;
+    o.stmt = NULL;
+    o.stmtlen = NULL;
+    o.nstmt = 0;
+  }
   /* an edit of the good proof */
   if (size < 2) return 0;
   at = ((size_t)data[0] << 8 | data[1]) % goodn;

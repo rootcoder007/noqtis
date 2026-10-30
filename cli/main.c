@@ -86,7 +86,8 @@ static const nccmd cmds[] = {
    "            the token at seal time too (up to 32)\n"},
   {"check", ncchk, "check a sealed capsule folder",
    "usage: noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
-   "                    [--only <path>]... [--lineage <dir>]... <dir|url>\n"
+   "                    [--only <path>]... [--lineage <dir>]...\n"
+   "                    [--keys <file>]... <dir|url>\n"
    "       noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
    "                    --proof <file|url> [<dir|url>]\n"
    "  Prints every check and its result; exit 0 only if all pass. Without\n"
@@ -101,6 +102,8 @@ static const nccmd cmds[] = {
    "             <dir> found among them is checked too, and theirs\n"
    "  --proof    check a proof from `noqtis prove`; with <dir>, the\n"
    "             proven files there too\n"
+   "  --keys     a key statement from `noqtis rotate` or `revoke` (up to\n"
+   "             32), followed from the -p key, which it needs\n"
    "  --anchor  a TSA root or issuing certificate (DER), up to 32: the\n"
    "            seal must then carry a timestamp that verifies under one\n"
    "            of them. Without --anchor, a timestamped seal fails its\n"
@@ -112,6 +115,23 @@ static const nccmd cmds[] = {
    "  its entry and audit path. The proof names no other file and holds\n"
    "  no other digest. Check it with `noqtis check --proof`. The capsule\n"
    "  must check first (against -p when given).\n"
+   "  -o  write to <file> (default stdout); -f replaces it\n"},
+  {"rotate", ncrot, "say that a seal key was replaced by a new one",
+   "usage: noqtis rotate -k <key> [-p <key.pub>] -n <new> [--new-pub <new.pub>]\n"
+   "                     [--at <time>] [--reason <text>] [-o <file>] [-f]\n"
+   "  Writes a key statement (JSON), signed by both keys, that <key> was\n"
+   "  replaced by <new> from <time> (YYYY-MM-DDTHH:MM:SSZ, UTC; default\n"
+   "  now). `noqtis check -p <key.pub> --keys <file>` then accepts seals\n"
+   "  made with <new>, and seals made with <key> only with a verified\n"
+   "  timestamp from before <time>.\n"
+   "  -o  write to <file> (default stdout); -f replaces it\n"},
+  {"revoke", ncrev, "say that a seal key must no longer be trusted",
+   "usage: noqtis revoke -k <key> [-p <key.pub>] [--at <time>]\n"
+   "                     [--reason <text>] [-o <file>] [-f]\n"
+   "  Writes a key statement (JSON), signed by <key>, that it is revoked\n"
+   "  from <time> (YYYY-MM-DDTHH:MM:SSZ, UTC; default now). With it,\n"
+   "  `noqtis check --keys` accepts a seal made with <key> only with a\n"
+   "  verified timestamp from before <time>.\n"
    "  -o  write to <file> (default stdout); -f replaces it\n"},
   {"timestamp", ncts, "add a timestamp to a sealed capsule",
    "usage: noqtis timestamp --tsa <url>... [--anchor <der-file>]...\n"

@@ -10,6 +10,7 @@ OBJECTS = \
   api/sig.o \
   cap/chk.o \
   cap/jw.o \
+  cap/ks.o \
   cap/misc.o \
   cap/mk.o \
   cap/seal.o \

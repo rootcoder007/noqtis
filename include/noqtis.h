@@ -260,11 +260,28 @@ typedef struct {
    * input */
   const char *const *lin;
   size_t nlin;
-  /* reserved for key statements: NULL and 0 (NQENOSUP otherwise) */
+  /* key statements (noqtis-keys-1, from nqkstmt): stmt[i] of
+   * stmtlen[i] bytes, at most 32; they need a trusted key. The "key" row
+   * then also accepts a key the trusted key was rotated to, and a
+   * "key.time" row requires a verified timestamp from before the seal's
+   * key was rotated away or revoked */
   const char *const *stmt;
   const size_t *stmtlen;
   size_t nstmt;
 } nqcopt;
+/* A key statement (noqtis-keys-1), canonical JSON, to out (cap bytes;
+ * *outlen gets the size, also with NQEBUF): the holder of the key pair
+ * (sk, pk) of alg says that from time at (seconds since 1970, UTC) it is
+ * replaced by the key pair (nsk, npk) of nalg, a rotation, which both
+ * keys sign; or, with nsk and npk NULL, that it is revoked. reason is
+ * NULL or up to 255 bytes of text. Both algorithms must be post-quantum
+ * (NQENOSUP for Ed25519 alone); each signature is checked before the
+ * statement is written (NQEARG when a pair does not match). */
+NQAPI int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen,
+                  const uint8_t *pk, size_t pklen, nqsalg nalg,
+                  const uint8_t *nsk, size_t nsklen, const uint8_t *npk,
+                  size_t npklen, int64_t at, const char *reason, char *out,
+                  size_t cap, size_t *outlen);
 /* nqchkt with the options of o (NULL: none). */
 NQAPI int nqchkx(const char *dir, const nqcopt *o, nqrep **rep);
 /* A proof (noqtis-proof-1) that the files paths[0..np) are in the format 2

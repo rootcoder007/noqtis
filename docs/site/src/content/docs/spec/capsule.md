@@ -383,6 +383,34 @@ The proof of `report.txt` (index 1) has the one-node audit path
 `["d8bd2987be160bc32ab8c239c37ad69a6e18abd2e1ddb801fa819178fe391c73"]`,
 the leaf of `data/in.csv`.
 
+## 12. Key statements
+
+A key statement (`noqtis rotate`, `noqtis revoke`, `nqkstmt`) is
+canonical JSON:
+
+| Member | Value |
+|---|---|
+| `alg`, `key` | the key's algorithm and base64 public key |
+| `at` | when it takes effect, `YYYY-MM-DDTHH:MM:SSZ` |
+| `format` | `noqtis-keys-1` |
+| `kind` | `rotate` or `revoke` |
+| `new_alg`, `new_key` | a rotation's new key |
+| `reason` | up to 255 bytes of text, possibly empty |
+| `signature`, `new_signature` | by `key`, and by `new_key` for a rotation |
+
+Each signature has context `noqtis-keys-1` and covers the statement
+without its two signature members, in canonical form. Both algorithms
+are post-quantum.
+
+A checker given a trusted key and statements follows them: the trusted
+key, the key a valid rotation of it names, and so on, up to 32. It
+trusts no key when two statements are about one key or a rotation leads
+back to an earlier one. A seal's key passes (`key`) when it is in that
+chain; when that key was rotated away or revoked at `at`, the seal
+passes (`key.time`) only with a verified timestamp whose genTime is
+earlier: the manifest's `created` is the sealer's own word, which a
+holder of a stolen key could write.
+
 ## References
 
 - RFC 8785, JSON Canonicalization Scheme (JCS).

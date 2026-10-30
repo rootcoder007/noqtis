@@ -1,0 +1,94 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 30, 2026
+.Dt NQKSTMT 3
+.Os
+.Sh NAME
+.Nm nqkstmt
+.Nd make a key statement: a rotation or a revocation
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqkstmt
+.Fa "nqsalg alg" "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "nqsalg nalg" "const uint8_t *nsk" "size_t nsklen"
+.Fa "const uint8_t *npk" "size_t npklen"
+.Fa "int64_t at" "const char *reason"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Sh DESCRIPTION
+.Fn nqkstmt
+writes to
+.Fa out ,
+of
+.Fa cap
+bytes, a key statement
+.Pq Ql noqtis-keys-1 , Xr noqtis-capsule 5
+in canonical JSON.
+With
+.Fa nsk
+and
+.Fa npk
+given, it is a rotation: the holder of the key pair
+.Fa sk , pk
+of
+.Fa alg
+says that from time
+.Fa at
+(seconds since 1970-01-01T00:00:00Z) it is replaced by
+.Fa nsk , npk
+of
+.Fa nalg ,
+and both keys sign it.
+With
+.Fa nsk
+and
+.Fa npk
+.Dv NULL ,
+it is a revocation of
+.Fa pk
+from
+.Fa at ,
+signed by it.
+.Fa reason
+is
+.Dv NULL
+or up to 255 bytes of UTF-8 with no control character.
+.Fa *outlen
+gets the statement's size, also when
+.Fa cap
+is too small.
+.Pp
+Each signature is verified before the statement is written.
+.Xr nqchkx 3
+follows statements from a trusted key through its
+.Fa stmt
+option.
+.Sh RETURN VALUES
+.Bl -tag -width NQENOSUP
+.It Dv NQOK
+The statement was written.
+.It Bq Er NQEBUF
+.Fa cap
+is too small.
+.It Bq Er NQENOSUP
+An algorithm is not a post-quantum signature (Ed25519 alone).
+.It Bq Er NQEARG
+A
+.Dv NULL
+argument, keys of the wrong sizes or not a pair, the new key equal to
+the old one,
+.Fa at
+before 1970 or after 9999, or a reason that is too long or not plain
+text.
+.It Bq Er NQEMEM
+The allocation hook returned
+.Dv NULL .
+.El
+.Sh SEE ALSO
+.Xr noqtis-revoke 1 ,
+.Xr noqtis-rotate 1 ,
+.Xr nqchkx 3 ,
+.Xr noqtis-capsule 5

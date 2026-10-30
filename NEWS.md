@@ -29,6 +29,12 @@ mistake in the release process; use 0.1.1.)
   (`nqcapid`), and `check --lineage` finds and checks them, to 64 levels
   (`nqchkx`). Format 1 is unchanged and stays the default; the spec has
   the new sections 11.1 to 11.6, with a worked example.
+- Key statements: `noqtis rotate` (`nqkstmt`) says that a seal key was
+  replaced by another, signed by both, and `noqtis revoke` that it must
+  no longer be trusted, from a given time. `noqtis check -p <key.pub>
+  --keys <file>` follows them: a seal by a key the trusted one was
+  rotated to passes, and one by a key since rotated away or revoked
+  only with a verified timestamp from before then.
 - `noqtis check <url>` checks a capsule where it is published, over
   http:// or, with the TLS client, https://: the seal and the manifest
   are fetched and checked first, and only then the listed files, each at

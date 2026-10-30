@@ -902,6 +902,17 @@ static void tts(void) {
   want(0, "check -p q.c.pub --anchor q.ar.der qts", NULL);
   ok(has("q.out", "verifies under a TSA anchor; genTime 20"),
      "check --anchor passes a live token");
+  /* a revoked key: the verified genTime decides */
+  want(0, "revoke -k q.c --at 2099-01-01T00:00:00Z -o q.rv1", NULL);
+  want(0, "check -p q.c.pub --anchor q.ar.der --keys q.rv1 qts", NULL);
+  ok(has("q.out", "before its key was revoked"),
+     "check --keys: a timestamp from before the revocation");
+  want(0, "revoke -k q.c --at 2000-01-01T00:00:00Z -o q.rv2", NULL);
+  want(1, "check -p q.c.pub --anchor q.ar.der --keys q.rv2 qts", NULL);
+  ok(has("q.out", "after its key was revoked"),
+     "check --keys: a timestamp from after the revocation");
+  remove("q.rv1");
+  remove("q.rv2");
   want(0, "check -p q.c.pub --anchor q.br.der --anchor q.ar.der qts", NULL);
   want(1, "check -p q.c.pub --anchor q.br.der qts", NULL);
   ok(has("q.err", "noqtis check: timestamp: the token is not from a TSA "
@@ -1227,6 +1238,29 @@ static void trefuse(void) {
   ref1("manifest.order", "manifest out of order", 1, CHK);
   advice("file", "manifest out of order");
   advice("extra", "manifest out of order");
+  /* key statements: a rotation followed, a changed one, a revoked key */
+  pristine();
+  want(0, "rotate -k q.c -n q.c2 --at 2026-01-01T00:00:00Z -o q.rot", NULL);
+  want(0, "seal -k q.c2 qref", NULL);
+  want(0, "check -p q.c.pub --keys q.rot qref", NULL);
+  ok(has("q.out", "successor by 1 rotation"),
+     "check --keys: a rotation followed");
+  want(1, "check -p q.c.pub qref", NULL);
+  sub("q.rot", "\"reason\":\"\"", "\"reason\":\"x\"");
+  ref1("keys", "a changed key statement", 1,
+       "check -p q.c.pub --keys q.rot qref");
+  pristine();
+  want(0, "revoke -k q.c -o q.rev", NULL);
+  ref1("key.time", "a revoked key, no timestamp", 1,
+       "check -p q.c.pub --keys q.rev qref");
+  want(2, "check --keys q.rev qref", NULL);
+  ok(has("q.err", "give it with -p"), "check --keys needs -p");
+  want(2, "rotate -k q.c -n q.c2 --at 2026-13-01T00:00:00Z", NULL);
+  ok(has("q.err", "YYYY-MM-DDTHH:MM:SSZ"), "rotate --at: a bad time");
+  want(2, "revoke -k q.c -n q.c2", NULL);
+  want(2, "rotate -k q.c -n q.c", NULL);
+  remove("q.rot");
+  remove("q.rev");
   /* format 2: the signature covers the head, the Merkle root the files;
    * a changed entry leaves the signature valid but not the root */
   pristine();

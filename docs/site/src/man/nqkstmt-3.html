@@ -1,0 +1,77 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqkstmt</code> &#x2014; <span class="Nd">make a
+    key statement: a rotation or a revocation</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqkstmt</code>(<var class="Fa">nqsalg alg</var>,
+    <var class="Fa">const uint8_t *sk</var>, <var class="Fa">size_t sklen</var>,
+    <var class="Fa">const uint8_t *pk</var>, <var class="Fa">size_t pklen</var>,
+    <var class="Fa">nqsalg nalg</var>, <var class="Fa">const uint8_t *nsk</var>,
+    <var class="Fa">size_t nsklen</var>, <var class="Fa">const uint8_t
+    *npk</var>, <var class="Fa">size_t npklen</var>, <var class="Fa">int64_t
+    at</var>, <var class="Fa">const char *reason</var>, <var class="Fa">char
+    *out</var>, <var class="Fa">size_t cap</var>, <var class="Fa">size_t
+    *outlen</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqkstmt"><code class="Fn" id="nqkstmt">nqkstmt</code></a>()
+    writes to <var class="Fa">out</var>, of <var class="Fa">cap</var> bytes, a
+    key statement (&#x2018;<code class="Li">noqtis-keys-1,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></code>&#x2019;)
+    in canonical JSON. With <var class="Fa">nsk</var> and
+    <var class="Fa">npk</var> given, it is a rotation: the holder of the key
+    pair <var class="Fa">sk</var>, <var class="Fa">pk</var> of
+    <var class="Fa">alg</var> says that from time <var class="Fa">at</var>
+    (seconds since 1970-01-01T00:00:00Z) it is replaced by
+    <var class="Fa">nsk</var>, <var class="Fa">npk</var> of
+    <var class="Fa">nalg</var>, and both keys sign it. With
+    <var class="Fa">nsk</var> and <var class="Fa">npk</var>
+    <code class="Dv">NULL</code>, it is a revocation of <var class="Fa">pk</var>
+    from <var class="Fa">at</var>, signed by it. <var class="Fa">reason</var> is
+    <code class="Dv">NULL</code> or up to 255 bytes of UTF-8 with no control
+    character. <var class="Fa">*outlen</var> gets the statement's size, also
+    when <var class="Fa">cap</var> is too small.</p>
+<p class="Pp">Each signature is verified before the statement is written.
+    <a class="Xr" href="/noqtis/reference/man/nqchkx-3/">nqchkx(3)</a> follows
+    statements from a trusted key through its <var class="Fa">stmt</var>
+  option.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<dl class="Bl-tag">
+  <dt id="NQOK"><a class="permalink" href="#NQOK"><code class="Dv">NQOK</code></a></dt>
+  <dd>The statement was written.</dd>
+  <dt>[<code class="Er">NQEBUF</code>]</dt>
+  <dd><var class="Fa">cap</var> is too small.</dd>
+  <dt>[<code class="Er">NQENOSUP</code>]</dt>
+  <dd>An algorithm is not a post-quantum signature (Ed25519 alone).</dd>
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd>A <code class="Dv">NULL</code> argument, keys of the wrong sizes or not a
+      pair, the new key equal to the old one, <var class="Fa">at</var> before
+      1970 or after 9999, or a reason that is too long or not plain text.</dd>
+  <dt>[<code class="Er">NQEMEM</code>]</dt>
+  <dd>The allocation hook returned <code class="Dv">NULL</code>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-revoke-1/">noqtis-revoke(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-rotate-1/">noqtis-rotate(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchkx-3/">nqchkx(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+</div>

@@ -12,6 +12,7 @@
 .Op Fl -anchor Ar der-file ...
 .Op Fl -only Ar path ...
 .Op Fl -lineage Ar input-dir ...
+.Op Fl -keys Ar file ...
 .Ar dir | url
 .Nm noqtis check
 .Op Fl p Ar key.pub
@@ -164,10 +165,31 @@ With
 the proven files there are also checked against their entries, and a
 .Ql partial
 row says the capsule's other files are not in the proof.
-.Fl -only
-and
+.Fl -only ,
 .Fl -lineage
+and
+.Fl -keys
 do not apply.
+.It Fl -keys Ar file
+A key statement from
+.Xr noqtis-rotate 1
+or
+.Xr noqtis-revoke 1 ,
+up to 32 times; it needs
+.Fl p .
+The statements are followed from the
+.Fl p
+key: a seal made with a key it was rotated to passes the
+.Ql key
+row, and one made with a key since rotated away or revoked passes only
+when a verified timestamp
+.Pq Fl -anchor
+shows it was sealed before then
+.Pq Ql key.time .
+One
+.Ql keys
+row per statement; two statements about one key, or a rotation back to
+an earlier key, trust no key.
 .El
 .Ss Checks
 The row names are stable, for scripts:
@@ -239,6 +261,15 @@ count the signed head gives.
 With
 .Fl -lineage :
 one row per input of the capsule.
+.It Cm keys
+With
+.Fl -keys :
+one row per statement, and its signatures.
+.It Cm key.time
+With
+.Fl -keys ,
+when the seal's key was rotated away or revoked: the verified
+timestamp's genTime is before then.
 .It Cm partial
 With
 .Fl -only
@@ -333,6 +364,8 @@ new.txt: not in the manifest
 .Sh SEE ALSO
 .Xr noqtis 1 ,
 .Xr noqtis-prove 1 ,
+.Xr noqtis-revoke 1 ,
+.Xr noqtis-rotate 1 ,
 .Xr noqtis-seal 1 ,
 .Xr nqchk 3 ,
 .Xr nqchkt 3 ,

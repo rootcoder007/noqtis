@@ -24,6 +24,8 @@
 #define NQCSFMT2 "noqtis-seal-2"
 #define NQCCTX2 "noqtis-capsule-2"
 #define NQCINMAX 1024 /* inputs of one capsule */
+#define NQCKFMT "noqtis-keys-1" /* key statements, and their context */
+#define NQCKMAX 32 /* key statements in one check, and rotations followed */
 #define NQCNAMEMAX 255 /* bytes in one input's name */
 #define NQCMDEPTH 64  /* the deepest audit path (2^64 leaves) */
 
@@ -76,6 +78,12 @@ void nqcjint(nqcbuf *b, uint64_t v);
 int nqcjval(nqcbuf *b, const nqjs *v);
 /* <0, 0, >0: the RFC 8785 key order of two UTF-8 strings. */
 int nqcjcmp(const char *a, size_t an, const char *b, size_t bn);
+/* key statements (ks.c): the signed body, and a strict time reader
+ * (YYYY-MM-DDTHH:MM:SSZ, 1970 or later; 0 otherwise) */
+int nqckbody(nqcbuf *b, const char *an, const char *at, const char *pkb,
+             int rotate, const char *nan, const char *npkb,
+             const char *reason, const char *nsig, const char *sig);
+int nqctparse(const char *s, size_t n, int64_t *t);
 
 /* ---- base64 (RFC 4648 section 4, padded, strict) ---- */
 

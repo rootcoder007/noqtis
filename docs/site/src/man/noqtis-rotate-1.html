@@ -1,0 +1,109 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis-rotate</code> &#x2014;
+    <span class="Nd">say that a seal key was replaced by a new one</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis rotate</code></td>
+    <td><code class="Fl">-k</code> <var class="Ar">key</var>
+      [<code class="Fl">-p</code> <var class="Ar">key.pub</var>]
+      <code class="Fl">-n</code> <var class="Ar">new</var>
+      [<code class="Fl">--new-pub</code> <var class="Ar">new.pub</var>]
+      [<code class="Fl">--at</code> <var class="Ar">time</var>]
+      [<code class="Fl">--reason</code> <var class="Ar">text</var>]
+      [<code class="Fl">-o</code> <var class="Ar">file</var>]
+      [<code class="Fl">-f</code>]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Nm">noqtis rotate</code> writes a key statement
+    (&#x2018;<code class="Li">noqtis-keys-1,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></code>&#x2019;)
+    that the signing key <var class="Ar">key</var> was replaced by
+    <var class="Ar">new</var> from <var class="Ar">time</var>. Both keys sign
+    it: the old one to say so, the new one to show that its holder has it. Give
+    the statement to those who check your capsules:
+    <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>
+    <code class="Fl">-p</code> <var class="Ar">key.pub</var>
+    <code class="Fl">--keys</code> <var class="Ar">file</var> then accepts
+    capsules sealed with <var class="Ar">new</var>, and capsules sealed with
+    <var class="Ar">key</var> only when a verified timestamp shows they were
+    sealed before <var class="Ar">time</var>. Rotate again from
+    <var class="Ar">new</var> to go on; the chain is followed up to 32
+    rotations.</p>
+<p class="Pp">Each signature is checked before the statement is written. Both
+    keys must be post-quantum signature keys (ML-DSA, SLH-DSA or a hybrid), of
+    the same or of different algorithms.</p>
+<dl class="Bl-tag">
+  <dt id="k"><a class="permalink" href="#k"><code class="Fl">-k</code></a>
+    <var class="Ar">key</var>,
+    <code class="Fl">--key</code>=<var class="Ar">key</var></dt>
+  <dd>The secret key being replaced.</dd>
+  <dt id="p"><a class="permalink" href="#p"><code class="Fl">-p</code></a>
+    <var class="Ar">key.pub</var>,
+    <code class="Fl">--pub</code>=<var class="Ar">key.pub</var></dt>
+  <dd>Its public key. Default:
+      <var class="Ar">key</var><span class="Pa">.pub</span>.</dd>
+  <dt id="n"><a class="permalink" href="#n"><code class="Fl">-n</code></a>
+    <var class="Ar">new</var>,
+    <code class="Fl">--new</code>=<var class="Ar">new</var></dt>
+  <dd>The secret key that replaces it.</dd>
+  <dt id="new-pub"><a class="permalink" href="#new-pub"><code class="Fl">--new-pub</code></a>
+    <var class="Ar">new.pub</var></dt>
+  <dd>Its public key. Default:
+      <var class="Ar">new</var><span class="Pa">.pub</span>.</dd>
+  <dt id="at"><a class="permalink" href="#at"><code class="Fl">--at</code></a>
+    <var class="Ar">time</var></dt>
+  <dd>When the replacement takes effect, as
+      &#x2018;<code class="Li">YYYY-MM-DDTHH:MM:SSZ</code>&#x2019; (UTC, 1970 or
+      later). Default: now.</dd>
+  <dt id="reason"><a class="permalink" href="#reason"><code class="Fl">--reason</code></a>
+    <var class="Ar">text</var></dt>
+  <dd>Up to 255 bytes of text, kept in the statement.</dd>
+  <dt id="o"><a class="permalink" href="#o"><code class="Fl">-o</code></a>
+    <var class="Ar">file</var>,
+    <code class="Fl">--out</code>=<var class="Ar">file</var></dt>
+  <dd>Write the statement to <var class="Ar">file</var> instead of standard
+      output.</dd>
+  <dt id="f"><a class="permalink" href="#f"><code class="Fl">-f</code></a>,
+    <code class="Fl">--force</code></dt>
+  <dd>Replace <var class="Ar">file</var> if it exists.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt>0</dt>
+  <dd>The statement was written.</dd>
+  <dt>2</dt>
+  <dd>A usage error, a key file that cannot be read, keys that are not a pair or
+      not post-quantum, the new key equal to the old one, or a file that cannot
+      be written.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>$ noqtis keygen -a ML-DSA-65 -o me2
+$ noqtis rotate -k me -n me2 --reason &quot;new laptop&quot; -o me-me2.keys
+$ noqtis seal -k me2 results
+$ noqtis check -p me.pub --keys me-me2.keys results</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-revoke-1/">noqtis-revoke(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqkstmt-3/">nqkstmt(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+</div>

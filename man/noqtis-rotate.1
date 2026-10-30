@@ -1,0 +1,97 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 30, 2026
+.Dt NOQTIS-ROTATE 1
+.Os
+.Sh NAME
+.Nm noqtis-rotate
+.Nd say that a seal key was replaced by a new one
+.Sh SYNOPSIS
+.Nm noqtis rotate
+.Fl k Ar key
+.Op Fl p Ar key.pub
+.Fl n Ar new
+.Op Fl -new-pub Ar new.pub
+.Op Fl -at Ar time
+.Op Fl -reason Ar text
+.Op Fl o Ar file
+.Op Fl f
+.Sh DESCRIPTION
+.Nm noqtis rotate
+writes a key statement
+.Pq Ql noqtis-keys-1 , Xr noqtis-capsule 5
+that the signing key
+.Ar key
+was replaced by
+.Ar new
+from
+.Ar time .
+Both keys sign it: the old one to say so, the new one to show that its
+holder has it.
+Give the statement to those who check your capsules:
+.Xr noqtis-check 1
+.Fl p Ar key.pub
+.Fl -keys Ar file
+then accepts capsules sealed with
+.Ar new ,
+and capsules sealed with
+.Ar key
+only when a verified timestamp shows they were sealed before
+.Ar time .
+Rotate again from
+.Ar new
+to go on; the chain is followed up to 32 rotations.
+.Pp
+Each signature is checked before the statement is written.
+Both keys must be post-quantum signature keys (ML-DSA, SLH-DSA or a
+hybrid), of the same or of different algorithms.
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+The secret key being replaced.
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+Its public key.
+Default:
+.Ar key Ns Pa .pub .
+.It Fl n Ar new , Fl -new Ns = Ns Ar new
+The secret key that replaces it.
+.It Fl -new-pub Ar new.pub
+Its public key.
+Default:
+.Ar new Ns Pa .pub .
+.It Fl -at Ar time
+When the replacement takes effect, as
+.Ql YYYY-MM-DDTHH:MM:SSZ
+(UTC, 1970 or later).
+Default: now.
+.It Fl -reason Ar text
+Up to 255 bytes of text, kept in the statement.
+.It Fl o Ar file , Fl -out Ns = Ns Ar file
+Write the statement to
+.Ar file
+instead of standard output.
+.It Fl f , Fl -force
+Replace
+.Ar file
+if it exists.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width 3n -compact
+.It 0
+The statement was written.
+.It 2
+A usage error, a key file that cannot be read, keys that are not a pair
+or not post-quantum, the new key equal to the old one, or a file that
+cannot be written.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis keygen -a ML-DSA-65 -o me2
+$ noqtis rotate -k me -n me2 --reason "new laptop" -o me-me2.keys
+$ noqtis seal -k me2 results
+$ noqtis check -p me.pub --keys me-me2.keys results
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-revoke 1 ,
+.Xr nqkstmt 3 ,
+.Xr noqtis-capsule 5

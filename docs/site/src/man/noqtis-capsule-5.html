@@ -234,6 +234,37 @@
     2.1.3.2. The tree size is authenticated by the signed head, not by the path.
     A proof holds no name, size or digest of the entries it does not prove.</p>
 </section>
+<section class="Ss">
+<h2 class="Ss" id="Key_statements"><a class="permalink" href="#Key_statements">Key
+  statements</a></h2>
+<p class="Pp">A key statement is canonical JSON with the members
+    <code class="Cm">alg</code>, <code class="Cm">at</code>,
+    <code class="Cm">format</code>, <code class="Cm">key</code>,
+    <code class="Cm">kind</code>, <code class="Cm">reason</code> and
+    <code class="Cm">signature</code>, and for a rotation
+    <code class="Cm">new_alg</code>, <code class="Cm">new_key</code> and
+    <code class="Cm">new_signature</code>: <code class="Cm">format</code> is
+    &#x2018;<code class="Li">noqtis-keys-1</code>&#x2019;;
+    <code class="Cm">kind</code> is
+    &#x2018;<code class="Li">rotate</code>&#x2019; or
+    &#x2018;<code class="Li">revoke</code>&#x2019;; <code class="Cm">alg</code>
+    and <code class="Cm">key</code> are the key's algorithm and base64 public
+    key, <code class="Cm">new_alg</code> and <code class="Cm">new_key</code>
+    those of the key that replaces it; <code class="Cm">at</code> is a time as
+    &#x2018;<code class="Li">YYYY-MM-DDTHH:MM:SSZ</code>&#x2019;;
+    <code class="Cm">reason</code> is up to 255 bytes of text, possibly empty.
+    <code class="Cm">signature</code> is by <code class="Cm">key</code>, and
+    <code class="Cm">new_signature</code> by <code class="Cm">new_key</code>,
+    each with context &#x2018;<code class="Li">noqtis-keys-1</code>&#x2019; over
+    the statement without its two signature members, in canonical form. Both
+    algorithms are post-quantum.</p>
+<p class="Pp">A checker given a trusted key and statements follows them: the
+    trusted key, the key a valid rotation of it names, and so on. It trusts no
+    key when two statements are about one key or a rotation leads back to an
+    earlier one. A seal's key passes when it is in that chain. When that key was
+    rotated away or revoked at <code class="Cm">at</code>, the seal passes only
+    with a verified timestamp whose genTime is earlier.</p>
+</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>

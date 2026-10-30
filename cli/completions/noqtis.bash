@@ -18,7 +18,7 @@ _noqtis() {
   prev=${COMP_WORDS[COMP_CWORD-1]}
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=($(compgen -W "keygen sign verify enc dec hash seal check
-      prove inspect timestamp algs version -V --version" -- "$cur"))
+      prove rotate revoke inspect timestamp algs version -V --version" -- "$cur"))
     return
   fi
   cmd=${COMP_WORDS[1]}
@@ -33,14 +33,14 @@ _noqtis() {
     --ph)
       COMPREPLY=($(compgen -W "$hashes" -- "$cur"))
       return ;;
-    --tsa | -c | --ctx | --format)
+    --tsa | -c | --ctx | --format | --at | --reason)
       [ "$prev" = --format ] && COMPREPLY=($(compgen -W "1 2" -- "$cur"))
       return ;;
     --input | --lineage)
       COMPREPLY=($(compgen -d -- "$cur"))
       return ;;
     -k | --key | -p | --pub | -s | --sig | -o | --out | -m | --meta | \
-      --anchor | --seed | --proof)
+      --anchor | --seed | --proof | --keys | -n | --new | --new-pub)
       COMPREPLY=($(compgen -f -- "$cur"))
       return ;;
   esac
@@ -53,7 +53,11 @@ _noqtis() {
     hash) opts="-a --alg -c --check" ;;
     seal) opts="-k --key -p --pub -m --meta --format --input --tsa
       --anchor" ;;
-    check) opts="-p --pub -j --json --anchor --only --lineage --proof" ;;
+    check) opts="-p --pub -j --json --anchor --only --lineage --proof
+      --keys" ;;
+    rotate) opts="-k --key -p --pub -n --new --new-pub --at --reason -o --out
+      -f --force" ;;
+    revoke) opts="-k --key -p --pub --at --reason -o --out -f --force" ;;
     prove) opts="-p --pub -o --out -f --force" ;;
     inspect) opts="-j --json" ;;
     timestamp) opts="--tsa --anchor --force" ;;

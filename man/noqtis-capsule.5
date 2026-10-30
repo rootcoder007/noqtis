@@ -287,6 +287,57 @@ by the algorithm of RFC 9162, section 2.1.3.2.
 The tree size is authenticated by the signed head, not by the path.
 A proof holds no name, size or digest of the entries it does not
 prove.
+.Ss Key statements
+A key statement is canonical JSON with the members
+.Cm alg , at , format , key , kind , reason
+and
+.Cm signature ,
+and for a rotation
+.Cm new_alg , new_key
+and
+.Cm new_signature :
+.Cm format
+is
+.Ql noqtis-keys-1 ;
+.Cm kind
+is
+.Ql rotate
+or
+.Ql revoke ;
+.Cm alg
+and
+.Cm key
+are the key's algorithm and base64 public key,
+.Cm new_alg
+and
+.Cm new_key
+those of the key that replaces it;
+.Cm at
+is a time as
+.Ql YYYY-MM-DDTHH:MM:SSZ ;
+.Cm reason
+is up to 255 bytes of text, possibly empty.
+.Cm signature
+is by
+.Cm key ,
+and
+.Cm new_signature
+by
+.Cm new_key ,
+each with context
+.Ql noqtis-keys-1
+over the statement without its two signature members, in canonical
+form.
+Both algorithms are post-quantum.
+.Pp
+A checker given a trusted key and statements follows them: the trusted
+key, the key a valid rotation of it names, and so on.
+It trusts no key when two statements are about one key or a rotation
+leads back to an earlier one.
+A seal's key passes when it is in that chain.
+When that key was rotated away or revoked at
+.Cm at ,
+the seal passes only with a verified timestamp whose genTime is earlier.
 .Sh FILES
 .Bl -tag -width Ds -compact
 .It Pa noqtis.json

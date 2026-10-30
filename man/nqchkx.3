@@ -70,16 +70,24 @@ levels; one
 row per input says whether it was found and checks, and for one that does
 not check, its first failing row.
 .Pp
-.Fa stmt
-and
-.Fa stmtlen
-are reserved for key statements: with
-.Fa nstmt
-not 0,
-.Fn nqchkx
-returns
-.Er NQENOSUP
-and no report.
+.Fa stmt Ns Bq 0..nstmt
+are key statements of
+.Fa stmtlen Ns Bq i
+bytes, at most 32, from
+.Xr nqkstmt 3 ;
+they need
+.Fa trust
+.Pq Er NQEARG No otherwise .
+One
+.Ql keys
+row per statement.
+The
+.Ql key
+row then also passes for a key the trusted key was rotated to, through
+the statements, and a
+.Ql key.time
+row requires a verified timestamp from before the seal's key was rotated
+away or revoked, when it was.
 .Sh RETURN VALUES
 As
 .Xr nqchk 3 :
@@ -95,6 +103,7 @@ with no report.
 .Xr noqtis-check 1 ,
 .Xr nqchk 3 ,
 .Xr nqchkt 3 ,
+.Xr nqkstmt 3 ,
 .Xr nqprove 3 ,
 .Xr nqrep 3 ,
 .Xr nqseal2 3 ,

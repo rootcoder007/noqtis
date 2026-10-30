@@ -1,0 +1,79 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 30, 2026
+.Dt NOQTIS-REVOKE 1
+.Os
+.Sh NAME
+.Nm noqtis-revoke
+.Nd say that a seal key must no longer be trusted
+.Sh SYNOPSIS
+.Nm noqtis revoke
+.Fl k Ar key
+.Op Fl p Ar key.pub
+.Op Fl -at Ar time
+.Op Fl -reason Ar text
+.Op Fl o Ar file
+.Op Fl f
+.Sh DESCRIPTION
+.Nm noqtis revoke
+writes a key statement
+.Pq Ql noqtis-keys-1 , Xr noqtis-capsule 5 ,
+signed by
+.Ar key ,
+that it is revoked from
+.Ar time ,
+for instance because it may have been copied.
+.Xr noqtis-check 1
+.Fl -keys Ar file
+then accepts a capsule sealed with
+.Ar key
+only when a verified timestamp
+.Pq Fl -anchor
+shows that it was sealed before
+.Ar time :
+the manifest's
+.Ql created
+is the sealer's own word, and a thief holding the key could write any.
+Make the statement while you still hold the key, and keep a copy apart
+from it.
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+The secret key being revoked.
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+Its public key.
+Default:
+.Ar key Ns Pa .pub .
+.It Fl -at Ar time
+When the revocation takes effect, as
+.Ql YYYY-MM-DDTHH:MM:SSZ
+(UTC, 1970 or later).
+Default: now.
+.It Fl -reason Ar text
+Up to 255 bytes of text, kept in the statement.
+.It Fl o Ar file , Fl -out Ns = Ns Ar file
+Write the statement to
+.Ar file
+instead of standard output.
+.It Fl f , Fl -force
+Replace
+.Ar file
+if it exists.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width 3n -compact
+.It 0
+The statement was written.
+.It 2
+A usage error, a key file that cannot be read, a key that is not a
+post-quantum signature key pair, or a file that cannot be written.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis revoke -k me --reason "laptop lost" -o me.revoked
+$ noqtis check -p me.pub --anchor tsa-root.der --keys me.revoked results
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-rotate 1 ,
+.Xr nqkstmt 3 ,
+.Xr noqtis-capsule 5

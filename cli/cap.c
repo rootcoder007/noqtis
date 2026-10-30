@@ -454,6 +454,17 @@ static const ncfix fixes[] = {
   {"proof.entry", NULL, "a file entry of the proof is not in the sealed "
    "Merkle tree, so the entry or its path was edited: make the proof "
    "again with `noqtis prove`"},
+  {"keys", "two statements", "two key statements are about one key, so "
+   "which one holds is not known: keep the one its holder gave last"},
+  {"keys", "back to a key", "a rotation leads back to an earlier key: the "
+   "statements are not a chain; ask their holder"},
+  {"keys", NULL, "a key statement does not check: get it again from the "
+   "key holder, or leave it out"},
+  {"key.time", "after", "the seal was made after its key was replaced or "
+   "revoked: do not trust it; ask for a seal with the current key"},
+  {"key.time", NULL, "the seal's key was replaced or revoked, and only a "
+   "verified timestamp from before then shows the seal is older: check "
+   "with --anchor for its timestamp, or ask for a new seal"},
   {"key", NULL, "the seal was made with another key than -p gives: check "
    "that -p is the signer's public key; if it is, someone else sealed "
    "the folder again"},
@@ -509,20 +520,24 @@ static const char *fixfor(const char *chk, const char *det) {
 
 int ncchk(int argc, char **argv) {
   const char *pp = NULL, *anc[NCMAXV], *only[NCMAXV], *lin[NCMAXV],
-             *pf = NULL, *lab;
-  int json = 0, help = 0, np, rc, ret, all = 1, na = 0, no = 0, nl = 0;
+             *kf[NCMAXV], *pf = NULL, *lab;
+  int json = 0, help = 0, np, rc, ret, all = 1, na = 0, no = 0, nl = 0,
+      nk = 0, k;
   ncopt o[] = {
     {'p', "pub", 1, &pp, NULL},
     {'j', "json", 0, NULL, &json},
     {'\0', "anchor", NCMANY, anc, &na},
     {'\0', "only", NCMANY, only, &no},
     {'\0', "lineage", NCMANY, lin, &nl},
-    {'\0', "proof", 1, &pf, NULL}
+    {'\0', "proof", 1, &pf, NULL},
+    {'\0', "keys", NCMANY, kf, &nk}
   };
   nckey pk = {{0, 0, NULL}, 0, NULL, 0};
   nqrep *r = NULL;
   ncanc an;
   nqcopt co;
+  uint8_t *stb[NCMAXV];
+  size_t stl[NCMAXV];
   ncrem *rm = NULL;
   uint8_t *pb = NULL;
   size_t n = 0, i, j, w = 5, nf = 0, pn = 0;
@@ -542,10 +557,25 @@ int ncchk(int argc, char **argv) {
     ncuse(stderr, "check");
     return NCUSE;
   }
-  if (pf != NULL && (no > 0 || nl > 0)) {
-    ncmsg("check", "--proof checks the files the proof names: --only and "
-          "--lineage apply to a capsule folder");
+  if (pf != NULL && (no > 0 || nl > 0 || nk > 0)) {
+    ncmsg("check", "--proof checks the files the proof names: --only, "
+          "--lineage and --keys apply to a capsule folder");
     return NCUSE;
+  }
+  if (nk > 0 && pp == NULL) {
+    ncmsg("check", "--keys follows key statements from a trusted key: give "
+          "it with -p <key.pub>");
+    return NCUSE;
+  }
+  for (k = 0; k < nk; k++) {
+    if (ncrdx(kf[k], 0, NCRDSMALL, &stb[k], &stl[k]) != NCOK) {
+      ncmsg("check", "%s: cannot read the key statement", kf[k]);
+      while (k > 0) {
+        k--;
+        ncfree(stb[k], stl[k], 0);
+      }
+      return NCUSE;
+    }
   }
   if (np == 1 && !ncisurl(argv[0]) && !ncisdir(argv[0])) {
     ncmsg("check", "%s: not a folder (give the folder that holds "
@@ -578,6 +608,8 @@ int ncchk(int argc, char **argv) {
   if (pp != NULL) {
     if (nckrd("check", pp, 0, &pk) != NCOK) {
       ncfree(pb, pn, 0);
+      for (k = 0; k < nk; k++)
+        ncfree(stb[k], stl[k], 0);
       return NCUSE;
     }
     if (pk.a.kem) {
@@ -586,12 +618,16 @@ int ncchk(int argc, char **argv) {
             pp, pk.a.name);
       nckfree(&pk);
       ncfree(pb, pn, 0);
+      for (k = 0; k < nk; k++)
+        ncfree(stb[k], stl[k], 0);
       return NCUSE;
     }
   }
   if (ancrd("check", anc, na, &an) != NCOK) {
     nckfree(&pk);
     ncfree(pb, pn, 0);
+    for (k = 0; k < nk; k++)
+      ncfree(stb[k], stl[k], 0);
     return NCUSE;
   }
   memset(&co, 0, sizeof co);
@@ -604,11 +640,16 @@ int ncchk(int argc, char **argv) {
   co.nonly = (size_t)no;
   co.lin = lin;
   co.nlin = (size_t)nl;
+  co.stmt = (const char *const *)stb;
+  co.stmtlen = stl;
+  co.nstmt = (size_t)nk;
   if (dir != NULL && ncisurl(dir)) {
     if (ncremget(dir, &co, &rm) != NCOK) {
       nckfree(&pk);
       ancfree(&an);
       ncfree(pb, pn, 0);
+      for (k = 0; k < nk; k++)
+        ncfree(stb[k], stl[k], 0);
       return NCUSE;
     }
     dir = ncremdir(rm);
@@ -622,6 +663,8 @@ int ncchk(int argc, char **argv) {
   nckfree(&pk);
   ancfree(&an);
   ncfree(pb, pn, 0);
+  for (k = 0; k < nk; k++)
+    ncfree(stb[k], stl[k], 0);
   if (r != NULL)
     n = nqrepn(r);
   for (i = 0; i < n; i++) {
@@ -635,8 +678,10 @@ int ncchk(int argc, char **argv) {
       all = 0;
       nf++;
     }
-    /* -p pins the key file's algorithm too, not only its bytes */
-    if (kn != NULL && ok && strcmp(c, "seal.alg") == 0 && d != NULL &&
+    /* -p pins the key file's algorithm too, not only its bytes (with
+     * --keys the verified chain decides the key, and so its algorithm) */
+    if (kn != NULL && nk == 0 && ok && strcmp(c, "seal.alg") == 0 &&
+        d != NULL &&
         strcmp(d, kn) != 0) {
       kalg = d;
       all = 0;

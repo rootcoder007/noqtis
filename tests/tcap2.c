@@ -631,7 +631,7 @@ static void tproof(void) {
 #endif
 
 #ifdef NQTFS
-/* NULL options are no options; key statements are refused, not ignored */
+/* NULL options are no options; key statements need a trusted key */
 static void topts(void) {
   char d[400];
   nqrep *r = NULL;
@@ -648,8 +648,147 @@ static void topts(void) {
   o.stmtlen = sl;
   o.nstmt = 1;
   r = (nqrep *)&o;
-  NQTEQI(nqchkx(d, &o, &r), NQENOSUP);
+  NQTEQI(nqchkx(d, &o, &r), NQEARG);
   NQTCHK(r == NULL);
+  rmall(d);
+}
+
+/* a statement of (k1 -> k2), or a revocation of k1 with k2 NULL, into a
+ * new buffer */
+static char *stmt(const uint8_t *p1, const uint8_t *s1, const uint8_t *p2,
+                  const uint8_t *s2, int64_t at, size_t *n) {
+  char *b;
+  int rc = nqkstmt(NQMLDSA44, s1, 2560, p1, 1312, NQMLDSA44, s2,
+                   s2 ? 2560 : 0, p2, p2 ? 1312 : 0, at, "test", NULL, 0, n);
+  NQTEQI(rc, NQEBUF);
+  b = (char *)malloc(*n + 1);
+  if (b == NULL) return NULL;
+  rc = nqkstmt(NQMLDSA44, s1, 2560, p1, 1312, NQMLDSA44, s2, s2 ? 2560 : 0,
+               p2, p2 ? 1312 : 0, at, "test", b, *n, n);
+  NQTEQI(rc, NQOK);
+  b[*n] = 0;
+  return b;
+}
+
+/* rotations and revocations followed from the trusted key */
+static void tkeys(void) {
+  char d[400], *a, *bb, *c, *e;
+  size_t an = 0, bn = 0, cn = 0, en = 0;
+  uint8_t p2[1312], s2[2560], p3[1312], s3[2560];
+  const char *st[3];
+  size_t sl[3];
+  nqrep *r = NULL;
+  nqcopt o;
+  int64_t at = 1793210645 + 86400;
+  NQTEQI(nqskg(NQMLDSA44, p2, sizeof p2, s2, sizeof s2), NQOK);
+  NQTEQI(nqskg(NQMLDSA44, p3, sizeof p3, s3, sizeof s3), NQOK);
+  mk(d, sizeof d, "keys");
+  a = stmt(pk, sk, p2, s2, at, &an);  /* pk -> p2 */
+  bb = stmt(p2, s2, p3, s3, at, &bn); /* p2 -> p3 */
+  c = stmt(p2, s2, pk, sk, at, &cn);  /* p2 -> pk, back */
+  e = stmt(p3, s3, NULL, NULL, at, &en);
+  NQTCHK(a != NULL && bb != NULL && c != NULL && e != NULL);
+  if (a == NULL || bb == NULL || c == NULL || e == NULL) return;
+  {
+    static const char want[] = "{\"alg\":\"ML-DSA-44\",\"at\":";
+    NQTCHK(strncmp(a, want, sizeof want - 1) == 0);
+  }
+  /* sealed with p3: two rotations from the trusted pk */
+  NQTEQI(nqcsealx(d, NQMLDSA44, s3, sizeof s3, p3, sizeof p3, NULL, NULL,
+                  1793210645, rnd, sizeof rnd, 2, NULL, 0, NULL),
+         NQOK);
+  memset(&o, 0, sizeof o);
+  o.trust = pk;
+  o.trustlen = sizeof pk;
+  NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+  NQTEQI(row(r, "key"), 0);
+  nqrepfree(r);
+  st[0] = bb;
+  sl[0] = bn;
+  st[1] = a;
+  sl[1] = an;
+  o.stmt = st;
+  o.stmtlen = sl;
+  o.nstmt = 2;
+  NQTEQI(nqchkx(d, &o, &r), NQOK);
+  NQTEQI(row(r, "key"), 1);
+  NQTEQI(row(r, "keys"), 1);
+  NQTEQI(row(r, "key.time"), -1);
+  nqrepfree(r);
+  /* only the first rotation: p3 is not reached */
+  o.nstmt = 1;
+  st[0] = a;
+  sl[0] = an;
+  NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+  NQTEQI(row(r, "key"), 0);
+  nqrepfree(r);
+  /* two statements about p2: ambiguous, so no key is trusted */
+  st[1] = bb;
+  sl[1] = bn;
+  st[2] = c;
+  sl[2] = cn;
+  o.nstmt = 3;
+  NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+  NQTEQI(row(r, "key"), 0);
+  nqrepfree(r);
+  /* a rotation back to the trusted key */
+  st[1] = c;
+  sl[1] = cn;
+  o.nstmt = 2;
+  NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+  nqrepfree(r);
+  /* p3 revoked: its seal needs a verified timestamp from before */
+  st[0] = a;
+  sl[0] = an;
+  st[1] = bb;
+  sl[1] = bn;
+  st[2] = e;
+  sl[2] = en;
+  o.nstmt = 3;
+  NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+  NQTEQI(row(r, "key"), 1);
+  NQTEQI(row(r, "key.time"), 0);
+  nqrepfree(r);
+  /* a statement about another key is not used */
+  o.nstmt = 3;
+  st[2] = a;
+  sl[2] = an;
+  st[0] = e;
+  sl[0] = en;
+  st[1] = a;
+  sl[1] = an;
+  o.nstmt = 1;
+  NQTEQI(nqchkx(d, &o, &r), NQEVRFY); /* e alone: p3 is not reached */
+  NQTEQI(row(r, "keys"), 1);
+  nqrepfree(r);
+  /* changed bytes: not canonical, or a signature that fails */
+  a[an - 3] = a[an - 3] == 'A' ? 'B' : 'A';
+  st[0] = a;
+  sl[0] = an;
+  o.nstmt = 1;
+  NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+  NQTEQI(row(r, "keys"), 0);
+  nqrepfree(r);
+  /* refusals of nqkstmt */
+  NQTEQI(nqkstmt(NQED25519, sk, 32, pk, 32, NQMLDSA44, NULL, 0, NULL, 0, at,
+                 NULL, NULL, 0, &an),
+         NQENOSUP);
+  NQTEQI(nqkstmt(NQMLDSA44, sk, sizeof sk, pk, sizeof pk, NQMLDSA44, sk,
+                 sizeof sk, pk, sizeof pk, at, NULL, NULL, 0, &an),
+         NQEARG);
+  NQTEQI(nqkstmt(NQMLDSA44, s2, sizeof s2, pk, sizeof pk, NQMLDSA44, NULL,
+                 0, NULL, 0, at, NULL, NULL, 0, &an),
+         NQEARG); /* not a pair */
+  NQTEQI(nqkstmt(NQMLDSA44, sk, sizeof sk, pk, sizeof pk, NQMLDSA44, NULL,
+                 0, NULL, 0, -1, NULL, NULL, 0, &an),
+         NQEARG);
+  NQTEQI(nqkstmt(NQMLDSA44, sk, sizeof sk, pk, sizeof pk, NQMLDSA44, NULL,
+                 0, NULL, 0, at, "a\nb", NULL, 0, &an),
+         NQEARG);
+  free(a);
+  free(bb);
+  free(c);
+  free(e);
   rmall(d);
 }
 #endif
@@ -672,6 +811,7 @@ int main(void) {
     tlineage();
     tproof();
     topts();
+    tkeys();
     rmdir(root);
   }
 #endif

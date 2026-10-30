@@ -14,6 +14,7 @@
       [<code class="Fl">--anchor</code> <var class="Ar">der-file ...</var>]
       [<code class="Fl">--only</code> <var class="Ar">path ...</var>]
       [<code class="Fl">--lineage</code> <var class="Ar">input-dir ...</var>]
+      [<code class="Fl">--keys</code> <var class="Ar">file ...</var>]
       <var class="Ar">dir</var> | <var class="Ar">url</var></td>
   </tr>
 </table>
@@ -147,8 +148,23 @@ or
       <var class="Ar">dir</var>, the proven files there are also checked against
       their entries, and a &#x2018;<code class="Li">partial</code>&#x2019; row
       says the capsule's other files are not in the proof.
-      <code class="Fl">--only</code> and <code class="Fl">--lineage</code> do
-      not apply.</dd>
+      <code class="Fl">--only</code>, <code class="Fl">--lineage</code> and
+      <code class="Fl">--keys</code> do not apply.</dd>
+  <dt id="keys"><a class="permalink" href="#keys"><code class="Fl">--keys</code></a>
+    <var class="Ar">file</var></dt>
+  <dd>A key statement from
+      <a class="Xr" href="/noqtis/reference/man/noqtis-rotate-1/">noqtis-rotate(1)</a>
+      or
+      <a class="Xr" href="/noqtis/reference/man/noqtis-revoke-1/">noqtis-revoke(1)</a>,
+      up to 32 times; it needs <code class="Fl">-p</code>. The statements are
+      followed from the <code class="Fl">-p</code> key: a seal made with a key
+      it was rotated to passes the &#x2018;<code class="Li">key</code>&#x2019;
+      row, and one made with a key since rotated away or revoked passes only
+      when a verified timestamp (<code class="Fl">--anchor</code>) shows it was
+      sealed before then (&#x2018;<code class="Li">key.time</code>&#x2019;). One
+      &#x2018;<code class="Li">keys</code>&#x2019; row per statement; two
+      statements about one key, or a rotation back to an earlier key, trust no
+      key.</dd>
 </dl>
 <section class="Ss">
 <h2 class="Ss" id="Checks"><a class="permalink" href="#Checks">Checks</a></h2>
@@ -216,6 +232,12 @@ or
   <dt id="lineage~2"><a class="permalink" href="#lineage~2"><code class="Cm">lineage</code></a></dt>
   <dd>With <code class="Fl">--lineage</code>: one row per input of the
     capsule.</dd>
+  <dt id="keys~2"><a class="permalink" href="#keys~2"><code class="Cm">keys</code></a></dt>
+  <dd>With <code class="Fl">--keys</code>: one row per statement, and its
+      signatures.</dd>
+  <dt id="key.time"><a class="permalink" href="#key.time"><code class="Cm">key.time</code></a></dt>
+  <dd>With <code class="Fl">--keys</code>, when the seal's key was rotated away
+      or revoked: the verified timestamp's genTime is before then.</dd>
   <dt id="partial"><a class="permalink" href="#partial"><code class="Cm">partial</code></a></dt>
   <dd>With <code class="Fl">--only</code> or <code class="Fl">--proof</code>:
       what the check left out; never a failure.</dd>
@@ -311,6 +333,8 @@ new.txt: not in the manifest</pre>
   ALSO</a></h1>
 <p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-prove-1/">noqtis-prove(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-revoke-1/">noqtis-revoke(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-rotate-1/">noqtis-rotate(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>,
