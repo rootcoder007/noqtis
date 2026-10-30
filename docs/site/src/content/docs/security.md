@@ -313,7 +313,8 @@ Each test prints how many vectors of each set ran, passed and were
 skipped; the CI logs of every push and the release notes carry those
 counts. Every vector file's source URL and SHA-256 are in
 `tests/vectors/SOURCES.md`. Each algorithm also has an ACVP harness that
-writes responses in the format a CAVP lab accepts.
+writes responses in the format a CAVP lab accepts; [Validation](/noqtis/validation/)
+says how a lab would run them. There is no CAVP or CMVP certificate.
 
 ## Other testing
 

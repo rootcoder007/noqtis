@@ -195,6 +195,10 @@ mistake in the release process; use 0.1.1.)
 - The OSS-Fuzz integration is checked with OSS-Fuzz's own tools every week
   (`ossfuzz.yml`), and ClusterFuzzLite fuzzes the code a pull request
   changes and, weekly, every target for an hour (`cflite.yml`).
+- `acvp/run.sh` answers every ACVP request in a folder with the right
+  harness, as a lab's ACVP client saves them, and the site has a
+  Validation page on how an accredited lab would run ACVP against
+  noqtis. There is no CAVP or CMVP certificate; this is lab-ready only.
 - Bounded CBMC proofs of the parsers of untrusted bytes (`proofs/cbmc/`,
   workflow `cbmc.yml`): the DER reader, the base64 decoder and the JSON
   reader have no access out of bounds, overflow or undefined shift for

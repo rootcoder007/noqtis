@@ -48,7 +48,10 @@ the `tgId` and `tcId`, and no response is written.
    the harnesses leave such groups out of the response with a message.
 2. For each vector set the lab's ACVP client downloads, run the
    harness for its algorithm on the request file and give the response
-   file back to the client to upload.
+   file back to the client to upload. `sh acvp/run.sh build/acvp
+   <request dir> <response dir>` does this for every `<name>.json` in a
+   folder, picking the harness from each request's `algorithm`
+   (`-e <expected dir>` also compares; ctest runs it as `acvp-run`).
 3. Run the harnesses with `NQFAST` and `NQSLSUB` unset. Those variables
    are the test suite's sampling switches: `NQFAST=1` leaves out the
    large-data hash tests (`acvsh`) and three of every four SLH-DSA "s"

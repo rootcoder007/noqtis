@@ -361,6 +361,10 @@ below is done. Each item says how it is checked.
 - [x] Every algorithm's ACVP harness produces responses ready for a CAVP
       lab; the README links the test-vector results (the security page,
       "Test vectors").
+- [x] Lab-ready ACVP: `acvp/run.sh` answers a folder of ACVP requests
+      (tested as `acvp-run`), and the site's Validation page says how an
+      accredited lab would run the harnesses, what they cover, and that
+      there is no CAVP or CMVP certificate.
 - [ ] The README states plainly that the code is not yet audited, and links
       the audit application and its funding page.
 - [x] Threat model (what noqtis protects, against whom, and what it does

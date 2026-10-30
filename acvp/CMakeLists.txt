@@ -47,3 +47,21 @@ foreach(s ${NQASETS})
     set_tests_properties(acvp-${s} PROPERTIES ENVIRONMENT "NQFAST=1")
   endif()
 endforeach()
+
+# acvp/run.sh, the folder runner a lab uses, on a few fast vector sets
+# copied as a client saves them (<name>.json); the shell runs on the
+# host, so not where the harnesses run on another device
+if(NOT WIN32 AND NOT CMAKE_CROSSCOMPILING)
+  set(NQARUN hmacDRBG-1.0 HMAC-SHA2-256-2.0 SHA3-256-2.0
+      ML-KEM-keyGen-FIPS203 ML-DSA-keyGen-FIPS204 SLH-DSA-sigVer-FIPS205)
+  foreach(s ${NQARUN})
+    configure_file(${NQAVEC}/${s}/prompt.json
+                   ${CMAKE_CURRENT_BINARY_DIR}/req/${s}.json COPYONLY)
+    configure_file(${NQAVEC}/${s}/expectedResults.json
+                   ${CMAKE_CURRENT_BINARY_DIR}/exp/${s}.json COPYONLY)
+  endforeach()
+  add_test(NAME acvp-run COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/run.sh
+           -e ${CMAKE_CURRENT_BINARY_DIR}/exp $<TARGET_FILE_DIR:acvsh>
+           ${CMAKE_CURRENT_BINARY_DIR}/req ${CMAKE_CURRENT_BINARY_DIR}/rsp)
+  set_tests_properties(acvp-run PROPERTIES ENVIRONMENT "NQFAST=1")
+endif()

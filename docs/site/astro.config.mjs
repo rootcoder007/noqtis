@@ -109,6 +109,7 @@ export default defineConfig({
           ],
         },
         { label: "Security", slug: "security" },
+        { label: "Validation", slug: "validation" },
         { label: "Platforms", slug: "platforms" },
         { label: "FAQ", slug: "faq" },
       ],
