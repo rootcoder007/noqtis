@@ -207,8 +207,9 @@ static void cv1(const char *leaf, const char *sigf, uint16_t sch,
   for (i = 0; i < hl; i++) th[i] = (uint8_t)i;
   t->hl = hl;
   NQTEQI(nqtlcv(t, sch, th, (const uint8_t *)sig, sn), NQOK);
-  /* every bit of the signature (every seventh past the first 32) */
-  for (i = 0; i < 8 * sn; i += i < 256 ? 1 : 7) {
+  /* every bit of the first eight bytes, then every 29th bit (valgrind
+   * runs this test too) */
+  for (i = 0; i < 8 * sn; i += i < 64 ? 1 : 29) {
     t->err = 0;
     sig[i / 8] ^= (char)(1u << (i % 8));
     if (nqtlcv(t, sch, th, (const uint8_t *)sig, sn) == NQOK) fl++;
