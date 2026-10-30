@@ -6,6 +6,8 @@
  *   tlget URL          GET: prints "ok <bytes> <first line of body>"
  *   tlget -p URL FILE  POST FILE as an RFC 3161 request: "ok <bytes>"
  *   tlget -r URL LOC   prints the URL a redirect to LOC from URL names
+ *   tlget -s URL LOC   prints "same" when that redirect stays on URL's
+ *                      server (and is followed), "other" when refused
  *
  * or "fail: <why>" and exit 1. */
 #include "../../cli/net.c"
@@ -39,6 +41,19 @@ int main(int argc, char **argv) {
     printf("%s\n", nx);
     return 0;
   }
+  if (argc == 4 && strcmp(argv[1], "-s") == 0) {
+    ncurl a, b;
+    char nx[2048];
+    if (parse(argv[2], &a, err, sizeof err) != NCOK ||
+        redir(argv[2], &a, argv[3], strlen(argv[3]), nx, sizeof nx) !=
+            NCOK ||
+        parse(nx, &b, err, sizeof err) != NCOK) {
+      printf("fail\n");
+      return 1;
+    }
+    printf("%s\n", samehost(&a, &b) ? "same" : "other");
+    return 0;
+  }
   if (argc == 4 && strcmp(argv[1], "-p") == 0) {
     if (ncrdx(argv[3], 0, 1u << 20, &q, &qn) != NQOK) {
       printf("fail: cannot read %s\n", argv[3]);
@@ -49,7 +64,7 @@ int main(int argc, char **argv) {
   } else if (argc == 2) {
     rc = ncget(argv[1], (size_t)1 << 24, &out, &n, err, sizeof err);
   } else {
-    fprintf(stderr, "usage: tlget URL | -p URL FILE | -r URL LOC\n");
+    fprintf(stderr, "usage: tlget URL | -p URL FILE | -r URL LOC | -s URL LOC\n");
     return 2;
   }
   if (rc != NCOK) {

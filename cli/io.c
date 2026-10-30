@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -69,6 +70,14 @@ FILE *ncfopen(const char *path, const char *mode) {
 #endif
 }
 
+int ncgmtime(time_t t, struct tm *tm) {
+#ifdef _WIN32
+  return gmtime_s(tm, &t) == 0 ? NCOK : NCUSE;
+#else
+  return gmtime_r(&t, tm) != NULL ? NCOK : NCUSE;
+#endif
+}
+
 int ncexist(const char *path) {
 #ifdef _WIN32
   wchar_t *p = wide(path);
@@ -79,6 +88,19 @@ int ncexist(const char *path) {
 #else
   struct stat st;
   return stat(path, &st) == 0;
+#endif
+}
+
+int ncisreg(const char *path) {
+#ifdef _WIN32
+  wchar_t *p = wide(path);
+  struct _stat64 st;
+  int r = p != NULL && _wstat64(p, &st) == 0 && (st.st_mode & _S_IFREG);
+  free(p);
+  return r;
+#else
+  struct stat st;
+  return stat(path, &st) == 0 && S_ISREG(st.st_mode);
 #endif
 }
 

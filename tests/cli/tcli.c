@@ -544,6 +544,12 @@ static void thash(void) {
   wrs("q.bad", "not a checksum line\n");
   want(1, "hash -c q.bad", NULL);
   want(1, "hash -a sha512 -c q.sums", NULL);
+  mkd("q.dir");
+  wrs("q.dsum", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b"
+      "7852b855  q.dir\n");
+  want(1, "hash -c q.dsum", NULL);
+  ok(has("q.out", "q.dir: FAILED not a regular file"),
+     "--check refuses a folder without reading it");
   want(2, "hash -c nosuch.sums", NULL);
   want(2, "hash -a nosuch q.h1", NULL);
   want(2, "hash nosuch", NULL);

@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 
 /* exit codes */
 /* s with control characters escaped, for printing to a terminal */
@@ -80,6 +81,11 @@ int ncrmdir(const char *path);
 int ncwfail(const char *cmd, const char *path, int force);
 /* 1 when path names an existing file. */
 int ncexist(const char *path);
+/* 1 when path names a regular file (after links). */
+int ncisreg(const char *path);
+/* The UTC calendar time of t into *tm (gmtime_r, gmtime_s on Windows;
+ * gmtime itself is not thread-safe). NCOK or NCUSE. */
+int ncgmtime(time_t t, struct tm *tm);
 /* Closes f; removes path when bad or when the close fails. 0 on success. */
 int ncclose(FILE *f, const char *path, int bad);
 /* Wipes (when sec) and frees. */

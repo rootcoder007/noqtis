@@ -193,6 +193,22 @@ if [ -n "$get" ]; then
     http://a.example r
   getc "redirect, scheme-relative" "http://c.example/z" "$get" -r \
     http://a.example/ //c.example/z
+  # which redirects ncget follows: the same server only
+  getc "follow, same host" "same" "$get" -s http://a.example/p /q
+  getc "follow, host in another case" "same" "$get" -s \
+    http://a.example/p http://A.Example/q
+  if [ "$tlson" = on ]; then
+    getc "follow, http to https" "same" "$get" -s \
+      http://a.example/p https://a.example/q
+  fi
+  getc "refuse, another host" "other" "$get" -s \
+    http://a.example/p http://b.example/q
+  getc "refuse, localhost" "other" "$get" -s \
+    http://a.example/p http://127.0.0.1:8080/secret
+  getc "refuse, another port" "other" "$get" -s \
+    http://a.example:8000/p http://a.example:9000/q
+  getc "refuse, scheme-relative to another host" "other" "$get" -s \
+    http://a.example/p //c.example/z
 fi
 
 echo "srv.sh: $n cases, $fails failed"

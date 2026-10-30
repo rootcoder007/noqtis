@@ -160,7 +160,12 @@ static int check(const char *cmd, nqhalg h, size_t dn, const char *list,
       (*nbad)++;
       continue;
     }
-    if (digest(h, nm, got, dn) != NQOK) {
+    /* a list may name anything: a folder, FIFO or device fails unread
+     * (opening a FIFO, or reading /dev/zero, would never end) */
+    if (strcmp(nm, "-") != 0 && !ncisreg(nm)) {
+      printf("%s: FAILED not a regular file\n", ncesc(nm));
+      (*nbad)++;
+    } else if (digest(h, nm, got, dn) != NQOK) {
       printf("%s: FAILED open or read\n", ncesc(nm));
       (*nbad)++;
     } else if (memcmp(got, want, dn) != 0) {

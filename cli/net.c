@@ -892,6 +892,20 @@ static int redir(const char *cur, const ncurl *u, const char *v, size_t vl,
   return NCOK;
 }
 
+/* 1 when a redirect from a to b stays on a's server: the same host (in
+ * any case) and port, or http on port 80 moving to https on 443. Any other
+ * target is refused: a server could otherwise point the fetch at a
+ * host only this machine reaches (localhost, the local network). */
+static int samehost(const ncurl *a, const ncurl *b) {
+  size_t i;
+  for (i = 0; a->host[i] != '\0' || b->host[i] != '\0'; i++)
+    if (lower((unsigned char)a->host[i]) != lower((unsigned char)b->host[i]))
+      return 0;
+  if (strcmp(a->port, b->port) == 0) return 1;
+  return !a->tls && b->tls && strcmp(a->port, "80") == 0 &&
+         strcmp(b->port, "443") == 0;
+}
+
 int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
           char *err, size_t cap) {
   char head[1024], cur[2048], nx[2048];
@@ -899,7 +913,7 @@ int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
   size_t got = 0, hl = 0, hn = 0, vl = 0;
   const char *v;
   int rc = NCUSE, code = 0, hop, was;
-  ncurl u;
+  ncurl u, o, t;
   *out = NULL;
   *outn = 0;
   err[0] = '\0';
@@ -918,6 +932,7 @@ int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
         status(buf, &code, &hl, err, cap) != NCOK) {
       break;
     }
+    if (hop == 0) o = u;
     if (code == 301 || code == 302 || code == 303 || code == 307 ||
         code == 308) {
       v = hval(buf, "location:", &vl);
@@ -939,7 +954,13 @@ int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
         say(err, cap, "a redirect from https:// to %.100s refused", nx);
         break;
       }
-      strcpy(cur, nx);
+      if (parse(nx, &t, err, cap) != NCOK) break;
+      if (!samehost(&o, &t)) {
+        say(err, cap, "a redirect to another server refused: %.100s (give "
+            "that URL if you trust it)", nx);
+        break;
+      }
+      snprintf(cur, sizeof cur, "%s", nx);
       free(buf);
       buf = NULL;
       continue;

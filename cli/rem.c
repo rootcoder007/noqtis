@@ -152,7 +152,7 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out) {
   size_t ul = strlen(url), i, nf = 0;
   nqrep *r = NULL;
   nqcopt pre;
-  int ok;
+  int ok, n;
   *out = NULL;
   if (strchr(url, '?') != NULL || strchr(url, '#') != NULL) {
     ncmsg("check", "%s: give the URL of the capsule's folder, without a "
@@ -186,14 +186,12 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out) {
   }
   nchexe(rb, sizeof rb, hx);
   hx[16] = '\0';
-  if (strlen(t) + 32 > sizeof m->dir) {
+  n = snprintf(m->dir, sizeof m->dir, "%s/noqtis-%s", t, hx);
+  if (n < 0 || (size_t)n >= sizeof m->dir) {
     ncmsg("check", "the temporary folder's path is too long");
     free(m);
     return NCUSE;
   }
-  strcpy(m->dir, t);
-  strcat(m->dir, "/noqtis-");
-  strcat(m->dir, hx);
   if (ncmkdir(m->dir) != NCOK || keep(m, m->dir, 1) != NCOK) {
     ncmsg("check", "%s: cannot make a temporary folder", ncesc(m->dir));
     ncremfree(m);

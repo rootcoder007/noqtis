@@ -101,10 +101,18 @@ its listed size, a file over 1 GiB or past the 10000th not at all.
 The folder is then checked as any other, so a file the server lacks or
 changed fails its row, and everything written to it is removed after.
 The report names the URL.
-Redirects are followed, at most five, never from
+Redirects are followed, at most five, and only on the same server (the
+same host and port, or
+.Ql http://
+on port 80 to
+.Ql https://
+on 443); never from
 .Ql https://
 to
 .Ql http:// .
+A redirect to another server is refused, so a server cannot point the
+fetch at a host only this machine reaches, such as localhost or the
+local network; give the new URL itself if you trust it.
 A
 .Fl -proof
 may also be a URL.

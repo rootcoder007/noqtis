@@ -372,7 +372,7 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
                              "manifest-sha256.txt", "noqtis.json",
                              "noqtis.sig"};
   time_t now = time(NULL);
-  struct tm *g = gmtime(&now);
+  struct tm gt, *g = &gt;
   int rc = NCUSE;
   if (ncexist(bag)) {
     ncmsg("export", "%s exists: a bag goes into a new folder", ncesc(bag));
@@ -407,6 +407,7 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
     bpath(&man, p);
     tstr(&man, "\n");
   }
+  if (ncgmtime(now, &gt) != NCOK) g = NULL;
   if (g != NULL)
     snprintf(day, sizeof day, "%04d-%02d-%02d", g->tm_year + 1900,
              g->tm_mon + 1, g->tm_mday);
