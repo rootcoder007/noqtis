@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Classical signature verification (internal API): RSA PKCS#1 v1.5 and
  * RSASSA-PSS (RFC 8017; moduli of 2048 to 4096 bits, odd public exponent
- * 3 to 2^32-1) and ECDSA over P-256 and P-384 (FIPS 186-5, SEC 1).
- * Verification only: no signing, no key generation, no allocation.
+ * 3 to 2^32-1) and ECDSA over P-256 and P-384 (FIPS 186-5, SEC 1);
+ * and ECDH over the same curves, for the TLS client's key exchange. No
+ * signing, no allocation.
  *
  * Every verifier returns NQOK, NQEVRFY when the signature does not verify
  * (including a signature of the wrong length or out of range, or a DER
@@ -86,6 +87,20 @@ int nqecv(const nqck *k, nqhalg h, const uint8_t *msg, size_t mlen,
 int nqecvh(const nqck *k, const uint8_t *dig, size_t dlen,
            const uint8_t *sig, size_t slen, int raw);
 
+/* ECDH over curve crv (NQP256, NQP384; SP 800-56A 5.7.1.2). sk is a
+ * scalar in [1, n - 1], big-endian, of the curve's size (32 or 48
+ * bytes); pk is the uncompressed point 04 x y (65 or 97 bytes). nqeckg
+ * draws sk from nqrand (rejection sampling) and sets pk = sk G; nqecpub
+ * sets pk from a given sk. nqecdh writes to z the x coordinate of
+ * sk peer (the curve's size); peer must be an uncompressed point on the
+ * curve (RFC 8446 4.2.8.2), and NQEDEC is returned for any other, or for
+ * a product that is the point at infinity. An sk out of range gives
+ * NQEARG. The scalar multiplication is constant time in sk. */
+int nqeckg(int crv, uint8_t *sk, uint8_t *pk);
+int nqecpub(int crv, const uint8_t *sk, uint8_t *pk);
+int nqecdh(int crv, const uint8_t *sk, const uint8_t *peer, size_t plen,
+           uint8_t *z);
+
 /* ---- internal to src/cls ---- */
 
 #define NQEL 12 /* field limbs: 384 bits */
@@ -93,6 +108,12 @@ int nqecvh(const nqck *k, const uint8_t *dig, size_t dlen,
 /* The last arc of the hash's OID under 2.16.840.1.101.3.4.2 (1 to 12),
  * 0 if none. */
 unsigned nqcho(nqhalg h);
+/* k P for the nb-byte big-endian scalar k (any value) and the point p
+ * (04 x y on the curve; NULL for the base point), into the affine x and
+ * y (y may be NULL); 0 when k P is infinity, else 1. No branch or memory
+ * index depends on k; tests/teccct.c checks that under valgrind. */
+uint32_t nqecsm(int crv, const uint8_t *k, const uint8_t *p, uint8_t *x,
+                uint8_t *y);
 /* Splits a strict DER ECDSA-Sig-Value into the magnitudes of r and s
  * (leading zero removed); NQEDEC if it is not strict DER. */
 int nqcdsig(const uint8_t *sig, size_t len, const uint8_t **r, size_t *rl,

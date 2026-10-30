@@ -123,6 +123,7 @@ int nqxspki(const nqdtlv *t, nqxkey *k);
 #define NQXHASSKI 0x08u
 #define NQXHASAKI 0x10u
 #define NQXHASSAN 0x20u
+#define NQXHASNC 0x40u
 
 #define NQXMAXEXT 32 /* extensions in one certificate */
 
@@ -149,6 +150,8 @@ typedef struct {
   nqspan ski;      /* subjectKeyIdentifier */
   nqspan aki;      /* authorityKeyIdentifier keyIdentifier (may be empty) */
   nqspan san;      /* subjectAltName: the GeneralNames contents */
+  nqspan ncp;      /* nameConstraints: permittedSubtrees contents (n 0 */
+  nqspan nce;      /* when absent) and excludedSubtrees contents */
   int bad;         /* an unrecognised critical extension: unusable */
 } nqcert;
 
@@ -165,6 +168,11 @@ int nqcprsa(const uint8_t *p, size_t n, nqcert *c);
  * collapsing internal spaces, other values byte for byte. 1 when equal,
  * 0 when not or when a name does not parse. */
 int nqxneq(nqspan a, nqspan b);
+
+/* 1 when the Name a is a prefix of the Name b (RDN by RDN, compared as
+ * nqxneq does): the directoryName rule of RFC 5280 4.2.1.10. 0 when not
+ * or when a name does not parse. */
+int nqxnpre(nqspan a, nqspan b);
 
 /* Checks a Name element: SEQUENCE OF non-empty SET OF { OID, value };
  * *empty gets whether it holds no RDN. */
@@ -199,7 +207,14 @@ typedef struct {
  * leaf ... anchor (*np entries, at most cap). NQEVRFY when no path
  * checks out. An intermediate that is an alias of an anchor (nqxalias)
  * ends the path at the anchor itself; the leaf is never its own
- * anchor. */
+ * anchor. The name constraints (RFC 5280 4.2.1.10) of every issuer in
+ * the path, the anchor's too, bind every certificate below it except a
+ * self-issued intermediate (the leaf always): its subject and its
+ * subjectAltName entries of the forms dNSName, rfc822Name, iPAddress
+ * and directoryName (with no subjectAltName, the emailAddress
+ * attributes of the subject as rfc822Names), never the common name. A
+ * constraint of another form fails a certificate that has a name of
+ * that form, and binds nothing otherwise. */
 /* 1 when c stands for the trust anchor anc: the same subject Name
  * (nqxneq) and a byte-identical SubjectPublicKeyInfo (a self-signed
  * anchor's cross-certificate, say). Nothing else in c is trusted. */

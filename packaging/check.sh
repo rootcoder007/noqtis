@@ -38,8 +38,10 @@ if command -v nm >/dev/null 2>&1; then
   echo "== exported symbols"
   case $lib in
   *.dylib) syms=$(nm -gU "$lib" | awk '{print $3}' | sed 's/^_//') ;;
-  # ELF names carry their version (nqsign@@NOQTIS_0): compare the name
-  *) syms=$(nm -D --defined-only "$lib" |
+  # ELF names carry their version (nqsign@@NOQTIS_0): compare the name.
+  # Defined globals only (T, D, B, R; an undefined one is U), so no
+  # --defined-only, which OpenBSD's nm lacks; nm -g where -D fails
+  *) syms=$( (nm -D "$lib" 2>/dev/null || nm -g "$lib") |
             awk '$2 ~ /^[TDBR]$/ {print $3}' | sed 's/@.*//') ;;
   esac
   n=0
