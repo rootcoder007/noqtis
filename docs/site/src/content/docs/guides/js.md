@@ -83,6 +83,57 @@ in memory; for very large capsules use the command-line tool, which
 streams. CommonJS works too: `const nq = require('noqtis')`, and the
 `require('noqtis/node')` functions return promises.
 
+## Identity cards
+
+An identity card ties your signing key to who you are, signed by the
+key itself; `noqtis check --card` reads it too. Save this as
+`card.mjs`:
+
+```js
+import { init, sign, idcard, hash } from 'noqtis';
+
+await init();
+
+const { publicKey, secretKey } = sign.keygen('ML-DSA-65');
+const card = idcard.make('ML-DSA-65', secretKey, publicKey, {
+  name: 'Ada Lovelace',
+  orcid: 'https://orcid.org/0000-0002-1825-0097',
+  url: 'https://example.org/ada',
+});
+
+const c = idcard.verify(card, { trust: publicKey }); // null unless it is
+console.log('name:', c.name);
+console.log('orcid:', c.orcid);
+const fp = Buffer.from(hash('sha256', publicKey)).toString('hex');
+console.log('key:', c.keySha256 === fp);
+
+// a changed card does not verify; a wrong check digit is refused
+const text = new TextDecoder().decode(card);
+console.log('changed:', idcard.verify(text.replace('Ada', 'Eve')));
+try {
+  idcard.make('ML-DSA-65', secretKey, publicKey,
+    { name: 'Ada', orcid: '0000-0002-1825-0098' });
+} catch (e) {
+  console.log('refused:', e.code);
+}
+secretKey.fill(0); // wipe the secret key when done
+```
+
+It prints:
+
+```text
+name: Ada Lovelace
+orcid: 0000-0002-1825-0097
+key: true
+changed: null
+refused: -1
+```
+
+The card holds the bare ORCID iD. It is self-signed: it shows that the
+holder of the key wrote it, not that the name is true, so give the key's
+SHA-256 (`keySha256`) where people already know you, or let readers pin
+your public key with `trust`.
+
 ## Browser: seal files the user picks
 
 In a browser a capsule is a `Map` of `/`-separated relative paths to

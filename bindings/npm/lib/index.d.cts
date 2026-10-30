@@ -183,6 +183,39 @@ export const dsse: {
     { payload: Bytes; payloadType: string } | null;
 };
 
+export interface CardFields {
+  /** 1 to 255 bytes of text, no control character, no edge spaces. */
+  name: string;
+  /** An ORCID iD or its https://orcid.org/ address; check digit verified. */
+  orcid?: string | null;
+  email?: string | null;
+  /** An https:// address. */
+  url?: string | null;
+  affil?: string | null;
+}
+
+export interface Card {
+  name: string;
+  orcid: string | null;
+  email: string | null;
+  url: string | null;
+  affil: string | null;
+  /** YYYY-MM-DDTHH:MM:SSZ */
+  created: string;
+  alg: string;
+  publicKey: Bytes;
+  /** The SHA-256 of publicKey, hex. */
+  keySha256: string;
+}
+
+export const idcard: {
+  /** An identity card (JSON bytes) for the key pair, signed by it. */
+  make(alg: SignAlg, secretKey: Bytes, publicKey: Bytes, fields: CardFields,
+    opts?: { at?: number | Date }): Bytes;
+  /** The card, or null when it does not verify or is not trust's. */
+  verify(card: Data, opts?: { trust?: Bytes | null }): Card | null;
+};
+
 export const keyfile: {
   encode(alg: SignAlg | KemAlg, kind: 'pub' | 'sec', key: Bytes): string;
   decode(text: string | Bytes):

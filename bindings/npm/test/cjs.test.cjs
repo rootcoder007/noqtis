@@ -32,4 +32,8 @@ test('require() entry', async () => {
   for (const f of ['id', 'prove', 'files', 'rotate', 'revoke']) {
     assert.equal(typeof nq.capsule[f], 'function');
   }
+  const card = nq.idcard.make('ML-DSA-44', secretKey, publicKey,
+    { name: 'CJS', orcid: '0000-0002-1825-0097' });
+  assert.equal(nq.idcard.verify(card, { trust: publicKey }).orcid,
+    '0000-0002-1825-0097');
 });

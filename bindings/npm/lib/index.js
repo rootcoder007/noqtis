@@ -834,6 +834,91 @@ export const capsule = Object.freeze({
   },
 });
 
+// ---- identity cards ------------------------------------------------------
+
+// nqcardf in wasm32 memory: the offsets of include/noqtis.h's struct,
+// which tests/tcard.c asserts when built for wasm32
+const CF = {
+  alg: 0, pk: 4, pklen: 2628, fp: 2632, utc: 2672, name: 2693, orcid: 2949,
+  email: 2969, url: 3224, affil: 4249, size: 4512,
+};
+const FIELDS = ['name', 'orcid', 'email', 'url', 'affil'];
+
+export const idcard = Object.freeze({
+  /**
+   * An identity card (noqtis-idcard-1, canonical JSON bytes): the public
+   * key with `fields.name` and, when given, `orcid` (its check digit
+   * verified; its https://orcid.org/ address is stored bare), `email`,
+   * `url` (https://) and `affil`, made at `opts.at` (seconds since 1970
+   * or a Date; default now) and signed by the key pair under the card's
+   * own context. A field out of its limits throws NQEARG; Ed25519 alone
+   * NQENOSUP.
+   */
+  make(alg, secretKey, publicKey, fields, opts = {}) {
+    const a = salg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const pk = key(publicKey, 'publicKey');
+    if (fields === null || typeof fields !== 'object') {
+      throw new TypeError('noqtis: fields must be an object with a name');
+    }
+    for (const f of FIELDS) {
+      const v = fields[f];
+      if (v === undefined || v === null) {
+        if (f === 'name') throw new TypeError('noqtis: fields.name is needed');
+        continue;
+      }
+      if (typeof v !== 'string') {
+        throw new TypeError(`noqtis: fields.${f} must be a string`);
+      }
+      if (v.includes('\0')) throw new NoqtisError(CODES.EARG, f);
+    }
+    const at = epoch(opts.at);
+    return run((h) => {
+      const psk = h.put(sk);
+      const ppk = h.put(pk);
+      const p = FIELDS.map((f) =>
+        (fields[f] === undefined || fields[f] === null ? 0 : h.str(fields[f])));
+      return sized(h, (po, cap, pn) => M._nqcard(a.id, psk, sk.length, ppk,
+        pk.length, p[0], p[1], p[2], p[3], p[4], at, po, cap, pn),
+      4 * pk.length + 65536);
+    });
+  },
+
+  /**
+   * The card's fields when it verifies (and, with `opts.trust`, is for
+   * that public key): { name, orcid, email, url, affil } (null for a
+   * field it has not), `created`, `alg`, `publicKey` and `keySha256` (hex,
+   * as `noqtis inspect` shows a seal's key); null when its signature does
+   * not verify or it is for another key. Input that is not a card throws
+   * (NQEDEC). A card is self-signed: compare keySha256 with the one its
+   * holder published, or give `trust`.
+   */
+  verify(card, opts = {}) {
+    const c = bytes(card, 'card');
+    const t = opts.trust === undefined || opts.trust === null
+      ? null : key(opts.trust, 'trust');
+    return run((h) => {
+      const pc = h.put(c);
+      const pt = t ? h.put(t) : 0;
+      const f = h.alloc(CF.size);
+      const rc = M._nqcardvrfy(pc, c.length, pt, t ? t.length : 0, f);
+      if (rc === CODES.EVRFY) return null;
+      check(rc);
+      const s = (o) => M.UTF8ToString(f + o);
+      const opt = (o) => (M.HEAPU8[f + o] === 0 ? null : s(o));
+      const fp = h.get(f + CF.fp, 32);
+      return {
+        name: s(CF.name), orcid: opt(CF.orcid), email: opt(CF.email),
+        url: opt(CF.url), affil: opt(CF.affil), created: s(CF.utc),
+        alg: M.UTF8ToString(M._nqsname(M.HEAPU32[f >>> 2])),
+        publicKey: h.get(f + CF.pk, h.u32(f + CF.pklen)),
+        keySha256: Array.from(fp, (b) => b.toString(16).padStart(2, '0'))
+          .join(''),
+      };
+    });
+  },
+});
+
 // ---- DSSE envelopes ------------------------------------------------------
 
 export const dsse = Object.freeze({
@@ -1015,5 +1100,5 @@ export function _heap() {
 
 export default {
   init, version, algs, random, hash, hmac, sign, kem, capsule, dsse,
-  keyfile, NoqtisError, codes, errmsg,
+  idcard, keyfile, NoqtisError, codes, errmsg,
 };

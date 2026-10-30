@@ -59,6 +59,8 @@ after `init()` is synchronous.
 | `capsule.prove(files, paths)` | a proof (JSON bytes) that `paths` are in the format 2 capsule |
 | `capsule.files(files)` | `[{ path, size, sha256 }]` as the manifest lists them (nothing checked) |
 | `capsule.rotate(alg, sk, pk, newAlg, newSk, newPk, { at, reason })`, `capsule.revoke(alg, sk, pk, { at, reason })` | a key statement (JSON bytes) for `check`'s `keys` |
+| `idcard.make(alg, sk, pk, { name, orcid, email, url, affil }, { at })` | an identity card (JSON bytes) for the key, signed by it; the ORCID check digit is verified |
+| `idcard.verify(card, { trust })` | `{ name, orcid, email, url, affil, created, alg, publicKey, keySha256 }`, or `null` when it does not verify or is not `trust`'s |
 | `dsse.sign(alg, sk, pk, type, payload)` | a DSSE envelope (canonical JSON bytes) |
 | `dsse.verify(alg, pk, envelope)` | `{ payload, payloadType }`, or `null` when no signature verifies |
 | `keyfile.encode(alg, 'pub' \| 'sec', key)`, `keyfile.decode(text)` | the CLI's key file text, and back (`{ alg, kind, key }`) |
@@ -124,6 +126,21 @@ so in `partial` rows.
 rotated to then checks, and a seal by a key rotated away or revoked
 needs a verified timestamp from before that time. Ed25519 alone cannot
 make statements, or seals.
+
+## Identity cards
+
+```js
+const card = idcard.make('ML-DSA-65', sk, pk,
+  { name: 'Ada Lovelace', orcid: '0000-0002-1825-0097' });
+idcard.verify(card, { trust: pk }); // { name, orcid, ..., keySha256 } or null
+```
+
+A card (noqtis-idcard-1) binds the key to its holder's name and, when
+given, ORCID iD, e-mail address, https:// page and affiliation, signed
+by the key under its own context, so it is never a seal or a key
+statement. It is self-signed: compare `keySha256` with the one its
+holder published, or pass `trust`. A field out of its limits throws
+`NQEARG`; input that is not a card, `NQEDEC`.
 
 ## DSSE envelopes
 

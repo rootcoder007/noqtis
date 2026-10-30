@@ -61,6 +61,10 @@ module.exports = {
     sign: fwd('dsse', 'sign'),
     verify: fwd('dsse', 'verify'),
   }),
+  idcard: Object.freeze({
+    make: fwd('idcard', 'make'),
+    verify: fwd('idcard', 'verify'),
+  }),
   keyfile: Object.freeze({
     encode: fwd('keyfile', 'encode'),
     decode: fwd('keyfile', 'decode'),

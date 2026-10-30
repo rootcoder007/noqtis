@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // Compiled with `tsc -p test/tsconfig.json` (no output): the types cover
 // the API as the tests use it.
-import nq, { init, sign, kem, hash, capsule, dsse, algs, NoqtisError,
-  codes }
+import nq, { init, sign, kem, hash, capsule, dsse, idcard, algs,
+  NoqtisError, codes }
   from 'noqtis';
 import { checkDir } from 'noqtis/node';
 
@@ -27,7 +27,11 @@ async function main(): Promise<void> {
     k.publicKey, { at: new Date(), reason: 'r' });
   const env = dsse.sign('ML-DSA-65', k.secretKey, k.publicKey, 't', 'p');
   const v = dsse.verify('ML-DSA-65', k.publicKey, env);
-  console.log(id, r3.ok, fl, st, v?.payloadType);
+  const card: Uint8Array = idcard.make('ML-DSA-65', k.secretKey,
+    k.publicKey, { name: 'A', orcid: null, url: 'https://a' }, { at: 0 });
+  const c = idcard.verify(card, { trust: k.publicKey });
+  const who: string | null = c ? c.orcid : null;
+  console.log(id, r3.ok, fl, st, v?.payloadType, who, c?.keySha256);
   for (const a of algs()) {
     if (a.kind === 'kem') console.log(a.ciphertext);
   }

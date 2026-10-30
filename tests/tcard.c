@@ -14,6 +14,7 @@
 #endif
 #endif
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +31,20 @@
 #endif
 
 #define T0 1767225600 /* 2026-01-01T00:00:00Z */
+
+#if defined(__wasm32__)
+/* bindings/npm/lib/index.js reads nqcardf at these offsets */
+_Static_assert(offsetof(nqcardf, pk) == 4, "nqcardf.pk");
+_Static_assert(offsetof(nqcardf, pklen) == 2628, "nqcardf.pklen");
+_Static_assert(offsetof(nqcardf, fp) == 2632, "nqcardf.fp");
+_Static_assert(offsetof(nqcardf, utc) == 2672, "nqcardf.utc");
+_Static_assert(offsetof(nqcardf, name) == 2693, "nqcardf.name");
+_Static_assert(offsetof(nqcardf, orcid) == 2949, "nqcardf.orcid");
+_Static_assert(offsetof(nqcardf, email) == 2969, "nqcardf.email");
+_Static_assert(offsetof(nqcardf, url) == 3224, "nqcardf.url");
+_Static_assert(offsetof(nqcardf, affil) == 4249, "nqcardf.affil");
+_Static_assert(sizeof(nqcardf) == 4512, "nqcardf");
+#endif
 
 static uint8_t pk[1312], sk[2560], pk2[1312], sk2[2560];
 
