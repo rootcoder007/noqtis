@@ -69,9 +69,13 @@ int nqtlmk(nqtls **out, const char *host, const uint8_t *ca, size_t calen,
   return NQOK;
 }
 
+#ifdef NQTEST
 void nqtlhook(nqtls *t, const nqtlhk *hk) {
   t->hk = *hk;
 }
+#else
+const nqtlhk nqtlhk0;
+#endif
 
 int nqtlw(nqtls *t, const uint8_t *b, size_t n) {
   if (t == NULL || (b == NULL && n > 0)) return NQEARG;

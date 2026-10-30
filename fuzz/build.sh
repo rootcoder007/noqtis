@@ -53,7 +53,7 @@ for f in b64 key io; do
   printf '%s %s\n' "$top/cli/$f.c" "$obj/cli/$f.o"
 done > "$obj/cli.lst"
 cat "$obj/lib.lst" "$obj/cli.lst" | xargs -P "$NQJ" -n 2 sh -c '
-  $CC $CFLAGS -std=c11 -I"$top/include" -I"$top/src" -I"$top/cli" \
+  $CC $CFLAGS -std=c11 -DNQTEST -I"$top/include" -I"$top/src" -I"$top/cli" \
     -c "$0" -o "$1"'
 # the whole tool, its main renamed, for fcli (fuzzed arguments)
 for f in "$top"/cli/*.c; do
@@ -67,7 +67,7 @@ ar rcs "$obj/libnqcli.a" "$obj"/cli/*.o
 
 for f in "$top"/fuzz/f*.c; do
   t=$(basename "$f" .c)
-  $CC $CFLAGS -std=c11 -I"$top/include" -I"$top/src" -I"$top/cli" \
+  $CC $CFLAGS -std=c11 -DNQTEST -I"$top/include" -I"$top/src" -I"$top/cli" \
     -I"$top/fuzz" -c "$f" -o "$obj/$t.o"
   if [ "$t" = fcli ]; then
     $LD $LDFLAGS "$obj/$t.o" "$obj"/clif/*.o "$obj/libnq.a" -pthread \

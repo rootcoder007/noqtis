@@ -59,25 +59,33 @@ endif()
 # They compile once, as objects with every symbol hidden except those
 # noqtis.h marks NQAPI; the installed library and the test library are
 # both made from these objects.
+# src/tls compiles twice: for the library, and with NQTEST (its test
+# hooks, src/tls/tls.h) for the test library alone.
 file(GLOB NQSRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*/*.c)
-add_library(nqobj OBJECT ${NQSRC})
-target_include_directories(nqobj
-  PUBLIC ${PROJECT_SOURCE_DIR}/include
-  PRIVATE ${PROJECT_SOURCE_DIR}/src)
-target_compile_options(nqobj PRIVATE ${NQWARN})
-target_compile_definitions(nqobj PRIVATE NQBUILD)
-if(NQTVLA)
-  target_compile_definitions(nqobj PRIVATE NQTVLA)
-endif()
-set_target_properties(nqobj PROPERTIES
-  C_VISIBILITY_PRESET hidden
-  POSITION_INDEPENDENT_CODE ${NQSHARED})
-if(NQSHARED AND WIN32)
-  target_compile_definitions(nqobj PRIVATE NQDLL)
-endif()
+file(GLOB NQTLSRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/tls/*.c)
+list(REMOVE_ITEM NQSRC ${NQTLSRC})
+function(nqobjlib name)
+  add_library(${name} OBJECT ${ARGN})
+  target_include_directories(${name}
+    PUBLIC ${PROJECT_SOURCE_DIR}/include
+    PRIVATE ${PROJECT_SOURCE_DIR}/src)
+  target_compile_options(${name} PRIVATE ${NQWARN})
+  target_compile_definitions(${name} PRIVATE NQBUILD)
+  if(NQTVLA)
+    target_compile_definitions(${name} PRIVATE NQTVLA)
+  endif()
+  set_target_properties(${name} PROPERTIES
+    C_VISIBILITY_PRESET hidden
+    POSITION_INDEPENDENT_CODE ${NQSHARED})
+  if(NQSHARED AND WIN32)
+    target_compile_definitions(${name} PRIVATE NQDLL)
+  endif()
+endfunction()
+nqobjlib(nqobj ${NQSRC})
+nqobjlib(nqtl ${NQTLSRC})
 
 if(NQSHARED)
-  add_library(noqtis SHARED $<TARGET_OBJECTS:nqobj>)
+  add_library(noqtis SHARED $<TARGET_OBJECTS:nqobj> $<TARGET_OBJECTS:nqtl>)
   set_target_properties(noqtis PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR})
@@ -96,7 +104,7 @@ if(NQSHARED)
     target_compile_definitions(noqtis INTERFACE NQDLL)
   endif()
 else()
-  add_library(noqtis STATIC $<TARGET_OBJECTS:nqobj>)
+  add_library(noqtis STATIC $<TARGET_OBJECTS:nqobj> $<TARGET_OBJECTS:nqtl>)
 endif()
 add_library(noqtis::noqtis ALIAS noqtis)
 target_include_directories(noqtis PUBLIC
@@ -114,15 +122,14 @@ endif()
 if(NQTESTS)
   enable_testing()
   # the tests call internal functions, which a shared library hides, so
-  # they link a static library made from the same objects
-  if(NQSHARED)
-    add_library(nqint STATIC $<TARGET_OBJECTS:nqobj>)
-    target_include_directories(nqint PUBLIC ${PROJECT_SOURCE_DIR}/include)
-    if(WIN32)
-      target_link_libraries(nqint PUBLIC bcrypt)
-    endif()
-  else()
-    add_library(nqint ALIAS noqtis)
+  # they link a static library made from the same objects, with src/tls
+  # built with its test hooks (NQTEST)
+  nqobjlib(nqtlt ${NQTLSRC})
+  target_compile_definitions(nqtlt PRIVATE NQTEST)
+  add_library(nqint STATIC $<TARGET_OBJECTS:nqobj> $<TARGET_OBJECTS:nqtlt>)
+  target_include_directories(nqint PUBLIC ${PROJECT_SOURCE_DIR}/include)
+  if(WIN32)
+    target_link_libraries(nqint PUBLIC bcrypt)
   endif()
   # one executable per tests/t*.c
   file(GLOB NQTSRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/tests/t*.c)
@@ -133,6 +140,7 @@ if(NQTESTS)
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src
                                ${PROJECT_SOURCE_DIR}/tests)
     target_compile_options(${name} PRIVATE ${NQWARN})
+    target_compile_definitions(${name} PRIVATE NQTEST)
     if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
       # the tests time loops with clock(), which wasi-libc emulates
       target_compile_definitions(${name} PRIVATE _WASI_EMULATED_PROCESS_CLOCKS)
@@ -179,6 +187,7 @@ if(NQTESTS)
     target_link_libraries(tlcli PRIVATE nqint)
     target_include_directories(tlcli PRIVATE ${PROJECT_SOURCE_DIR}/src)
     target_compile_options(tlcli PRIVATE ${NQWARN})
+    target_compile_definitions(tlcli PRIVATE NQTEST)
     # the tool's HTTP client (cli/net.c, included by tlget.c)
     set(NQTLGET "")
     if(NQCLI)

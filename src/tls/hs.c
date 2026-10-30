@@ -199,8 +199,8 @@ static void thnow(const nqtls *t, uint8_t *out) {
 /* fresh key shares for the groups to send */
 static int keys(nqtls *t, int hyb) {
   int rc;
-  if (t->hk.xsk != NULL) {
-    memcpy(t->xsk, t->hk.xsk, 32);
+  if (NQTLHK(t)->xsk != NULL) {
+    memcpy(t->xsk, NQTLHK(t)->xsk, 32);
   } else if ((rc = nqrand(t->xsk, 32)) != NQOK) {
     return rc;
   }
@@ -295,15 +295,15 @@ static int mkch(nqtls *t, const uint16_t *g, size_t ng) {
 
 /* sends ClientHello number k (1 or 2) */
 static int sendch(nqtls *t, int k) {
-  const uint8_t *hc = k == 1 ? t->hk.ch1 : t->hk.ch2;
-  size_t hn = k == 1 ? t->hk.ch1n : t->hk.ch2n;
+  const uint8_t *hc = k == 1 ? NQTLHK(t)->ch1 : NQTLHK(t)->ch2;
+  size_t hn = k == 1 ? NQTLHK(t)->ch1n : NQTLHK(t)->ch2n;
   int rc;
   if (hc != NULL) {
     if (hn > sizeof t->ch) return nqtlfail(t, NQEARG, -1, "hook too long");
     memcpy(t->ch, hc, hn);
     t->chn = hn;
-    if (k == 1 && t->hk.xsk != NULL) {
-      memcpy(t->xsk, t->hk.xsk, 32);
+    if (k == 1 && NQTLHK(t)->xsk != NULL) {
+      memcpy(t->xsk, NQTLHK(t)->xsk, 32);
     }
   } else {
     uint16_t g[2];
@@ -314,7 +314,7 @@ static int sendch(nqtls *t, int k) {
         return nqtlfail(t, rc, -1, "the random source failed");
       }
       g[ng++] = NQTLHYB;
-      if (!t->hk.one) g[ng++] = NQTLX25519;
+      if (!NQTLHK(t)->one) g[ng++] = NQTLX25519;
     } else if (t->hrrg != 0) {
       g[ng++] = t->hrrg;
     } else {
@@ -350,10 +350,10 @@ static const uint8_t hrrmagic[32] = {
 /* the (EC)DHE secret for the server's share of group g */
 static int kex(nqtls *t, unsigned g, cur *ks, uint8_t *ss, size_t *sn) {
   int rc;
-  if (t->hk.ss != NULL) {
-    if (t->hk.ssn > 64) return nqtlfail(t, NQEARG, -1, "hook too long");
-    memcpy(ss, t->hk.ss, t->hk.ssn);
-    *sn = t->hk.ssn;
+  if (NQTLHK(t)->ss != NULL) {
+    if (NQTLHK(t)->ssn > 64) return nqtlfail(t, NQEARG, -1, "hook too long");
+    memcpy(ss, NQTLHK(t)->ss, NQTLHK(t)->ssn);
+    *sn = NQTLHK(t)->ssn;
     return NQOK;
   }
   if (g == NQTLX25519) {
@@ -634,8 +634,8 @@ static int oncert(nqtls *t, const uint8_t *m, size_t n) {
     t->ncrt++;
   }
   thadd(t, t->cm, n);
-  if (!t->hk.nopath) {
-    int64_t now = t->hk.now != 0 ? t->hk.now : (int64_t)time(NULL);
+  if (!NQTLHK(t)->nopath) {
+    int64_t now = NQTLHK(t)->now != 0 ? NQTLHK(t)->now : (int64_t)time(NULL);
     if ((rc = nqtlpath(t, now)) != NQOK) return rc;
   }
   return NQOK;
@@ -658,7 +658,7 @@ static int oncv(nqtls *t, const uint8_t *m, size_t n) {
     BAD(47, "a CertificateVerify scheme that was not offered");
   }
   thnow(t, th);
-  if (!t->hk.nocv && (rc = nqtlcv(t, (uint16_t)sch, th, s.p, s.n)) != NQOK) {
+  if (!NQTLHK(t)->nocv && (rc = nqtlcv(t, (uint16_t)sch, th, s.p, s.n)) != NQOK) {
     return rc;
   }
   t->cvs = (uint16_t)sch;

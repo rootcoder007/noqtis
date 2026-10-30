@@ -86,7 +86,11 @@ typedef struct {
  * HelloRetryRequest), the client's X25519 private key, the (EC)DHE
  * secret itself (for a group noqtis does not implement), and switches
  * that skip the path check or the CertificateVerify signature (the RFC
- * 8448 server has a 1024-bit RSA key and a self-signed certificate) */
+ * 8448 server has a 1024-bit RSA key and a self-signed certificate).
+ * They exist only where NQTEST is defined (the test library and the
+ * fuzzers): elsewhere a context has no hooks, nqtlhook does not exist,
+ * and NQTLHK reads a constant all-zero set, so every hook branch is
+ * compiled out of the library that is installed. */
 typedef struct {
   const uint8_t *ch1, *ch2;
   size_t ch1n, ch2n;
@@ -125,7 +129,9 @@ struct nqtls {
   size_t abn;
   nqcert *anc;
   size_t nanc, ancap;
+#ifdef NQTEST
   nqtlhk hk;
+#endif
   /* state */
   int st;
   int err;              /* the first error, sticky */
@@ -184,8 +190,14 @@ struct nqtls {
  * tests' constructor) */
 int nqtlmk(nqtls **t, const char *host, const uint8_t *ca, size_t calen,
            const nqtlio *io);
+#ifdef NQTEST
 /* sets the test hooks; before nqtlhand */
 void nqtlhook(nqtls *t, const nqtlhk *hk);
+#define NQTLHK(t) (&(t)->hk)
+#else
+extern const nqtlhk nqtlhk0;
+#define NQTLHK(t) ((void)(t), &nqtlhk0)
+#endif
 /* nqtlwr, nqtlrd and nqtlend without the NQTLS switch */
 int nqtlw(nqtls *t, const uint8_t *b, size_t n);
 int nqtlr(nqtls *t, uint8_t *b, size_t cap, size_t *got);
