@@ -20,7 +20,8 @@ set(NQMANAKA
   "nqtsput:nqtsreq"
   "nqprove:nqchkp"
   "nqseal2:nqcapid"
-  "nqerr:nqver")
+  "nqerr:nqver"
+  "nqtlnew:nqtlhs,nqtlwr,nqtlrd,nqtlend,nqtlwhy,nqtlfree")
 foreach(e ${NQMANAKA})
   string(REPLACE ":" ";" e "${e}")
   list(GET e 0 page)

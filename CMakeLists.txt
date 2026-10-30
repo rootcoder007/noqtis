@@ -18,6 +18,10 @@ option(NQSHARED "Build a shared library instead of a static one" OFF)
 option(NQCLI "Build the noqtis command-line tool" ON)
 option(NQCT "Build the dudect and TVLA harnesses in ct/" OFF)
 option(NQTVLA "Compile the TVLA leakage hooks (a test build, never a release)" OFF)
+# the TLS 1.3 client (src/tls) in the public API (nqtl*) and the tool's
+# https:// URLs; off until it has been reviewed: nqtl* then return
+# NQENOSUP, and the tests reach the client through its internal API
+option(NQTLS "Enable the TLS 1.3 client (not yet reviewed)" OFF)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -39,6 +43,10 @@ else()
   if(NQWERROR)
     list(APPEND NQWARN -Werror)
   endif()
+endif()
+
+if(NQTLS)
+  add_compile_definitions(NQTLSON)
 endif()
 
 if(NQSAN AND NOT MSVC)

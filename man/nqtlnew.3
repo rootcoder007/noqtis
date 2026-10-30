@@ -1,0 +1,159 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 29, 2026
+.Dt NQTLNEW 3
+.Os
+.Sh NAME
+.Nm nqtlnew ,
+.Nm nqtlhs ,
+.Nm nqtlwr ,
+.Nm nqtlrd ,
+.Nm nqtlend ,
+.Nm nqtlwhy ,
+.Nm nqtlfree
+.Nd a TLS 1.3 client over the caller's transport
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Bd -literal
+typedef struct {
+  int (*wr)(void *user, const uint8_t *b, size_t n);
+  int (*rd)(void *user, uint8_t *b, size_t cap, size_t *got);
+  void *user;
+} nqtlio;
+.Ed
+.Ft int
+.Fo nqtlnew
+.Fa "nqtls **t" "const char *host"
+.Fa "const uint8_t *ca" "size_t calen" "const nqtlio *io"
+.Fc
+.Ft int
+.Fn nqtlhs "nqtls *t"
+.Ft int
+.Fn nqtlwr "nqtls *t" "const uint8_t *b" "size_t n"
+.Ft int
+.Fn nqtlrd "nqtls *t" "uint8_t *b" "size_t cap" "size_t *got"
+.Ft int
+.Fn nqtlend "nqtls *t"
+.Ft const char *
+.Fn nqtlwhy "const nqtls *t"
+.Ft void
+.Fn nqtlfree "nqtls *t"
+.Sh DESCRIPTION
+These functions are a TLS 1.3 client (RFC 8446), so that a program can
+fetch over HTTPS with noqtis alone.
+They exist only when noqtis was built with the CMake option
+.Dv NQTLS ;
+otherwise every one returns
+.Er NQENOSUP
+and
+.Fn nqtlwhy
+says so.
+The library opens no connection: the caller connects a socket and passes
+two callbacks.
+.Fa wr
+sends all
+.Fa n
+bytes and returns
+.Dv NQOK ,
+or
+.Er NQEIO .
+.Fa rd
+reads 1 to
+.Fa cap
+bytes, sets
+.Fa *got ,
+and returns
+.Dv NQOK
+(with
+.Fa *got
+0 at the end of the stream) or
+.Er NQEIO .
+Deadlines are the callbacks' job.
+.Pp
+.Fn nqtlnew
+makes a client for
+.Fa host :
+a DNS name (ASCII letters, digits and hyphens, at most 253 bytes; one
+trailing dot is dropped), sent as the server name and matched against
+the certificate, or an IPv4 or IPv6 address literal, matched against the
+certificate's addresses and not sent.
+.Fa ca
+is the trust anchors: a PEM bundle (every
+.Li "BEGIN CERTIFICATE"
+block; a block noqtis cannot read is left out) or one DER certificate,
+.Fa calen
+bytes, copied.
+.Pp
+.Fn nqtlhs
+runs the handshake: one ClientHello offering the groups
+X25519MLKEM768 (the ML-KEM-768 hybrid of draft-ietf-tls-ecdhe-mlkem)
+and X25519 with a key share for each, the suites
+TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384 and
+TLS_CHACHA20_POLY1305_SHA256, and the signature schemes
+ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384,
+rsa_pss_rsae_sha256/384/512 and, for certificates only, rsa_pkcs1;
+at most one HelloRetryRequest; the server's certificate path to one of
+the anchors at the current time (names, signatures, validity,
+basicConstraints, keyUsage, the serverAuth purpose), the host name
+(subjectAltName only; a wildcard only as the whole leftmost label), the
+CertificateVerify signature and the Finished MAC.
+A CertificateRequest is answered with an empty Certificate.
+.Pp
+.Fn nqtlwr
+sends application data;
+.Fn nqtlrd
+reads it, 1 to
+.Fa cap
+bytes at a time, or
+.Fa *got
+0 once the server has sent close_notify.
+A stream that ends without close_notify is
+.Er NQEIO :
+the data may have been cut short.
+Session tickets are read and dropped; a KeyUpdate is followed, and
+answered when the server asks.
+.Fn nqtlend
+sends close_notify.
+.Pp
+Any error is final: the client sends the alert RFC 8446 names, records
+a sentence that
+.Fn nqtlwhy
+returns, and every later call returns the same code.
+.Fn nqtlfree
+wipes every secret and frees the client;
+.Dv NULL
+is allowed.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or:
+.Bl -tag -width NQENOSUP
+.It Er NQEVRFY
+a certificate, signature or MAC that does not check out
+.It Er NQEDEC
+a message TLS 1.3 does not allow at that point, or a bundle with no
+certificate
+.It Er NQENOSUP
+a server that speaks nothing the client offers, or a build without
+.Dv NQTLS
+.It Er NQEIO
+the transport failed, the server ended the connection, or sent an alert
+.It Er NQESTATE
+a call out of order (data before the handshake, after close_notify)
+.It Er NQEARG
+a bad argument, or a host name the client will not send
+.It Er NQELIM , NQEMEM
+a message over its limit (256 KiB, ten certificates), or no memory
+.El
+.Sh STANDARDS
+RFC 8446 (TLS 1.3), RFC 8448 (its example traces, which the tests
+reproduce byte for byte), draft-ietf-tls-ecdhe-mlkem, RFC 5280,
+RFC 6125.
+.Sh CAVEATS
+Not done: revocation (no OCSP stapling, no CRL), name constraints and
+policy constraints (a certificate that carries them as critical
+extensions is refused), Certificate Transparency, P-256 and P-384 key
+exchange (a server with neither offered group fails), Ed25519 and
+ML-DSA server keys, TLS 1.2, resumption, 0-RTT, client certificates.
+.Sh SEE ALSO
+.Xr noqtis 3
