@@ -64,11 +64,11 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.jdk }}
+      - run: sh build.sh test examples bundled
       - name: the Java guide prints what its page shows
         run: >
           NQJAR="$PWD/build/noqtis.jar" NQLIB="$PWD/build/lib/libnoqtis.so"
           python3 ../../docs/examples/guide.py java
-      - run: sh build.sh test examples bundled
 
   others:
     if: >
