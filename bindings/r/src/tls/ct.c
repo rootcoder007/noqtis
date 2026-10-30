@@ -206,17 +206,24 @@ static void put24(nqfctx *c, size_t n) {
   nqfupd(c, b, 3);
 }
 
-/* a DER header for tag and length n into b; its size */
-static size_t hdr(uint8_t tag, size_t n, uint8_t *b) {
+/* a DER header for tag and length n into b (12 bytes); its size. The
+ * length bytes go through t, at most 8 of them, so the bound on what
+ * is written to b is plain to the compiler as well (gcc 14 saw a
+ * 16-byte store into b's last 10 bytes in the loop it replaced) */
+static size_t hdr(uint8_t tag, size_t n, uint8_t b[12]) {
+  uint8_t t[8];
   size_t k = 0, i;
   b[0] = tag;
   if (n < 128) {
     b[1] = (uint8_t)n;
     return 2;
   }
-  for (i = n; i > 0; i >>= 8) k++;
+  while (n > 0 && k < sizeof t) {
+    t[k++] = (uint8_t)n;
+    n >>= 8;
+  }
   b[1] = (uint8_t)(0x80 | k);
-  for (i = 0; i < k; i++) b[2 + i] = (uint8_t)(n >> (8 * (k - 1 - i)));
+  for (i = 0; i < k; i++) b[2 + i] = t[k - 1 - i];
   return 2 + k;
 }
 
