@@ -97,7 +97,8 @@ static int zero(const void *p, size_t n) {
  * val NULL, the member removed), into a new buffer */
 static char *setf(const char *s, const char *key, const char *val,
                   size_t *n) {
-  char pat[64], *at, *e, *o;
+  char pat[64], *o;
+  const char *at, *e;
   size_t a, b, vl = val != NULL ? strlen(val) : 0;
   snprintf(pat, sizeof pat, "\"%s\":\"", key);
   at = strstr(s, pat);
