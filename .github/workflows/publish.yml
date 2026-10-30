@@ -366,9 +366,9 @@ jobs:
             "https://central.sonatype.com/api/v1/publisher/upload?name=noqtis-${TAG#v}&publishingType=AUTOMATIC")
           echo "deployment $id"
           for _ in $(seq 1 60); do
-            s=$(curl -fsS -X POST -H "$auth" \
-              "https://central.sonatype.com/api/v1/publisher/status?id=$id" |
-              python3 -c 'import json,sys; print(json.load(sys.stdin)["deploymentState"])')
+            curl -fsS -X POST -H "$auth" -o status.json \
+              "https://central.sonatype.com/api/v1/publisher/status?id=$id"
+            s=$(python3 -c 'import json; print(json.load(open("status.json"))["deploymentState"])')
             echo "state: $s"
             case $s in
             PUBLISHING | PUBLISHED) exit 0 ;;

@@ -7,8 +7,10 @@
 # the sdist, built and tested on its own, and `twine check` over all of it.
 # As in ci.yml, the arm64, macOS and Windows jobs cost runner minutes on a
 # private repository, so there they run weekly and on demand only. A
-# release tag (v*) publishes to PyPI by trusted publishing, and only once
-# the repository is public: while it is private the publish job is skipped.
+# release tag (v*) builds and checks everything but uploads nothing; only
+# publishing the GitHub release (after CI and the release dry run are
+# green on the tag) uploads to PyPI, by trusted publishing, from a fresh
+# build of the tag. PyPI versions are permanent.
 # Every action is pinned by commit; the version is in the comment.
 name: py
 
@@ -33,6 +35,8 @@ on:
       - "docs/examples/guide.py"
       - "tests/vectors/cap/**"
       - ".github/workflows/py.yml"
+  release:
+    types: [published]
   schedule:
     - cron: "41 6 * * 1"
   workflow_dispatch:
@@ -178,8 +182,9 @@ jobs:
 
   publish:
     # trusted publishing (PyPI project noqtis, workflow py.yml, environment
-    # pypi); does nothing while the repository is private
+    # pypi), only for a published release, never for a pushed tag alone
     if: >
+      github.event_name == 'release' &&
       startsWith(github.ref, 'refs/tags/v') &&
       !github.event.repository.private
     name: publish to PyPI

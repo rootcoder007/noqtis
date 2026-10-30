@@ -4,7 +4,8 @@
 # of the manual pages and the site against the built library and tool,
 # builds the WebAssembly module for the site's in-browser capsule check,
 # builds the Astro Starlight site (with its internal link check) and, for
-# a push to main or a release, publishes it on GitHub Pages. Publishing
+# a push to main, publishes it on GitHub Pages (a release is a commit
+# already on main, so it needs no deploy of its own). Publishing
 # runs only once the repository is public; until then the built site is
 # kept as the run's Pages artifact.
 name: docs
@@ -33,8 +34,6 @@ on:
       - "src/**"
       - "CMakeLists.txt"
       - ".github/workflows/docs.yml"
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
