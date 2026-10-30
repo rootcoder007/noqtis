@@ -29,7 +29,10 @@ the network and trusts its services. NOQTIS is one offline file format and
 library: the manifest records every file with two digests, the check also
 fails on anything extra, and the signature is post-quantum. They can be
 combined: sign a capsule's `noqtis.json` with another tool as well, if you
-like.
+like. [How NOQTIS compares](/noqtis/explain/compare/) and the
+coming-from pages ([sha256sum and GPG](/noqtis/from/sha256sum-gpg/),
+[minisign](/noqtis/from/minisign/), [Sigstore](/noqtis/from/sigstore/),
+[BagIt](/noqtis/from/bagit/)) go into detail.
 
 ## Is it audited?
 

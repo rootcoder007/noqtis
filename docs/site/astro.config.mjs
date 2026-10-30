@@ -56,6 +56,16 @@ export default defineConfig({
             { label: "Keys and key files", slug: "guides/keys" },
             { label: "Timestamps", slug: "guides/timestamps" },
             { label: "Use in CI", slug: "guides/ci" },
+            { label: "Recipes", slug: "recipes" },
+          ],
+        },
+        {
+          label: "Coming from",
+          items: [
+            { label: "sha256sum and GPG", slug: "from/sha256sum-gpg" },
+            { label: "minisign or signify", slug: "from/minisign" },
+            { label: "Sigstore", slug: "from/sigstore" },
+            { label: "BagIt", slug: "from/bagit" },
           ],
         },
         {
@@ -69,7 +79,10 @@ export default defineConfig({
         },
         {
           label: "Background",
-          items: [{ label: "Why post-quantum provenance now", slug: "explain/why" }],
+          items: [
+            { label: "Why post-quantum provenance now", slug: "explain/why" },
+            { label: "How NOQTIS compares", slug: "explain/compare" },
+          ],
         },
         {
           label: "Specification",
@@ -83,6 +96,8 @@ export default defineConfig({
             { label: "JavaScript API", slug: "reference/api/javascript" },
             { label: "R API", slug: "reference/api/r" },
             { label: "Command line", slug: "reference/cli" },
+            { label: "Exit codes and errors", slug: "reference/errors" },
+            { label: "Glossary", slug: "glossary" },
             {
               label: "Manual pages",
               collapsed: true,
