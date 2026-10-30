@@ -14,7 +14,7 @@ signature over it, so a check finds any file that changed, was added or
 removed, and shows which key sealed it. NOQTIS is one C11 library with no
 dependencies and a command-line tool, implementing ML-DSA (FIPS 204), SLH-DSA (FIPS 205),
 ML-KEM (FIPS 203), HQC (experimental), SHA-2 and SHA-3, byte-identical to the NIST test
-vectors, with bindings for Python, JavaScript, R, Rust and Go.
+vectors, with bindings for Python, JavaScript, R, Rust, Go and Java.
 
 > **Status: unaudited, before its first release.** The code has not had an
 > external security audit; do not rely on it for anything that matters yet.
@@ -65,6 +65,7 @@ In short:
 | R | `R CMD INSTALL bindings/r` | `install.packages("noqtis")` after CRAN's review |
 | Rust | `cargo add noqtis --git https://github.com/rootcoder007/noqtis` | `cargo add noqtis` |
 | Go | `go get github.com/rootcoder007/noqtis/bindings/go` (cgo) | the same, at the release tag |
+| Java (JDK 22 or later) | `sh bindings/java/build.sh` (FFM, no JNI) | a jar beside `libnoqtis` |
 
 No package is published yet: every "From v0.1.1" channel opens with the
 first tagged release.
@@ -108,7 +109,8 @@ nqrepfree(rep);
   [JavaScript](https://rootcoder007.github.io/noqtis/guides/js/),
   [R](https://rootcoder007.github.io/noqtis/guides/r/),
   [Rust](https://rootcoder007.github.io/noqtis/guides/rust/),
-  [Go](https://rootcoder007.github.io/noqtis/guides/go/), the capsule format,
+  [Go](https://rootcoder007.github.io/noqtis/guides/go/) and
+  [Java](https://rootcoder007.github.io/noqtis/guides/java/), the capsule format,
   the C, Python, JavaScript and R API references, the command line, and
   [why post-quantum provenance now](https://rootcoder007.github.io/noqtis/explain/why/).
 - Manual pages, installed with the library: `man noqtis`, `man noqtis-seal`,

@@ -82,12 +82,15 @@ unrelated secret rather than an error, so an attacker learns nothing from
 failures. Use the secret with an authenticated cipher, which will then
 fail.
 
-## Can I use NOQTIS from Python, JavaScript or R?
+## Can I use NOQTIS from Python, JavaScript, R, Rust, Go or Java?
 
 Yes: there are bindings for npm (WebAssembly), PyPI and CRAN, published
-with the first release and installable from the repository until then.
-See the tutorials for [Python](/noqtis/guides/py/),
-[JavaScript](/noqtis/guides/js/) and [R](/noqtis/guides/r/). Anything that
+with the first release and installable from the repository until then,
+and a Rust crate, a Go package and a Java binding (JDK 22 or later) in
+the repository. See the tutorials for [Python](/noqtis/guides/py/),
+[JavaScript](/noqtis/guides/js/), [R](/noqtis/guides/r/),
+[Rust](/noqtis/guides/rust/), [Go](/noqtis/guides/go/) and
+[Java](/noqtis/guides/java/). Anything that
 can call C can use `libnoqtis` directly ([C tutorial](/noqtis/guides/c/)).
 
 ## How do I cite NOQTIS?

@@ -77,6 +77,7 @@ export default defineConfig({
             { label: "R", slug: "guides/r" },
             { label: "Rust", slug: "guides/rust" },
             { label: "Go", slug: "guides/go" },
+            { label: "Java", slug: "guides/java" },
           ],
         },
         {

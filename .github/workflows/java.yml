@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The Java binding (bindings/java): the shared library and noqtis.jar
+# built with CMake, javac and jar alone (build.sh; no Maven or Gradle,
+# nothing downloaded), then the tests and the two examples, on Linux
+# (JDK 22, the oldest with the final FFM API, and JDK 25), macOS and
+# Windows. As in py.yml, the macOS and Windows jobs cost runner minutes
+# on a private repository, so there they run weekly and on demand only.
+# Nothing is published from here.
+# Every action is pinned by commit; the version is in the comment.
+name: java
+
+on:
+  push:
+    branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+    paths:
+      - "bindings/java/**"
+      - "src/**"
+      - "include/**"
+      - "CMakeLists.txt"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/java.yml"
+  pull_request:
+    paths:
+      - "bindings/java/**"
+      - "src/**"
+      - "include/**"
+      - "CMakeLists.txt"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/java.yml"
+  schedule:
+    - cron: "59 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: java-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+    working-directory: bindings/java
+
+jobs:
+  linux:
+    name: test linux JDK ${{ matrix.jdk }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: ["22", "25"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk }}
+      - run: sh build.sh test examples
+
+  others:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    name: test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "25"
+      - run: sh build.sh test examples

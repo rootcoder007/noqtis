@@ -114,6 +114,10 @@ mistake in the release process; use 0.1.1.)
 - A Go package (`bindings/go`, cgo) with the library compiled in from a
   vendored copy (`tools/vendor.sh`; CI checks it is current): the same
   API as the Rust crate; tested on Linux, macOS and Windows (`go.yml`).
+- Java bindings (`bindings/java`) over the shared library with the
+  Foreign Function and Memory API (JDK 22 or later; no JNI code to
+  build): the same API as the Rust crate; tested on Linux, macOS and
+  Windows (`java.yml`).
 - Hardened after a manual security review before release:
   - a seal's context must be `noqtis-capsule-1`, so a signature made for
     anything else (a plain `noqtis sign` of the same bytes) is never
