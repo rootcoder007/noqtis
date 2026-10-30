@@ -199,6 +199,19 @@ static long left(void) {
   return now >= dline ? 0 : (long)(dline - now);
 }
 
+/* FD_SET: on 32-bit musl the macro converts the descriptor to unsigned,
+ * which -Wsign-conversion refuses; the conversion is of a valid socket */
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+static void fdadd(sockt s, fd_set *f) {
+  FD_SET(s, f);
+}
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
 /* waits until s is readable (rd) or writable, at most NCWAIT seconds and
  * never past the deadline; 0 when it is */
 static int await(sockt s, int rd) {
@@ -209,8 +222,8 @@ static int await(sockt s, int rd) {
     return -1;
   FD_ZERO(&f);
   FD_ZERO(&x);
-  FD_SET(s, &f);
-  FD_SET(s, &x);
+  fdadd(s, &f);
+  fdadd(s, &x);
   tv.tv_sec = l < NCWAIT ? l : NCWAIT;
   tv.tv_usec = 0;
   /* the first argument is ignored on Windows */

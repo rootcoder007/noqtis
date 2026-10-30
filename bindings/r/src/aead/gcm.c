@@ -143,12 +143,18 @@ static void gtag(const nqgcm *g, const uint8_t *j, const uint8_t *aad,
   nqwipe(e, sizeof e);
 }
 
+/* a > b on 64 bits: a size_t compared with a bound past 2^32 directly is
+ * always false where size_t has 32 bits, which -Wtype-limits refuses */
+static int gt64(uint64_t a, uint64_t b) {
+  return a > b;
+}
+
 static int args(const nqgcm *g, const uint8_t *iv, size_t ivlen,
                 const uint8_t *aad, size_t alen, const uint8_t *in,
                 size_t n, const uint8_t *out) {
-  if (g == NULL || iv == NULL || ivlen == 0 || (uint64_t)ivlen > IVMAX ||
-      (aad == NULL && alen > 0) || (uint64_t)alen > ((uint64_t)1 << 60) ||
-      (n > 0 && (in == NULL || out == NULL)) || (uint64_t)n > PMAX) {
+  if (g == NULL || iv == NULL || ivlen == 0 || gt64(ivlen, IVMAX) ||
+      (aad == NULL && alen > 0) || gt64(alen, (uint64_t)1 << 60) ||
+      (n > 0 && (in == NULL || out == NULL)) || gt64(n, PMAX)) {
     return NQEARG;
   }
   return NQOK;

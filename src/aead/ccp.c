@@ -223,12 +223,19 @@ static void ctag(const uint8_t *otk, const uint8_t *aad, size_t alen,
   nqp1fin(&p, tag);
 }
 
+
+/* a > b on 64 bits: a size_t compared with a bound past 2^32 directly is
+ * always false where size_t has 32 bits, which -Wtype-limits refuses */
+static int gt64(uint64_t a, uint64_t b) {
+  return a > b;
+}
+
 static int cargs(const uint8_t *key, size_t klen, const uint8_t *nonce,
                  size_t nlen, const uint8_t *aad, size_t alen,
                  const uint8_t *in, size_t n, const uint8_t *out) {
   if (key == NULL || klen != 32 || nonce == NULL || nlen != 12 ||
       (aad == NULL && alen > 0) || (n > 0 && (in == NULL || out == NULL)) ||
-      (uint64_t)n > CMAX) {
+      gt64(n, CMAX)) {
     return NQEARG;
   }
   return NQOK;

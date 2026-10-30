@@ -123,11 +123,13 @@ and the summary line ends in &#x2018;<code class="Li">and a
     <var class="Ar">url</var></dt>
   <dd>An RFC 3161 time-stamping authority, as
       &#x2018;<code class="Li">http://<var class="Ar">host</var>[:<var class="Ar">port</var>][/<var class="Ar">path</var>]</code>&#x2019;,
-      up to 32 times. Only plain HTTP: the token is signed by the TSA, so TLS
-      would add no integrity, and noqtis links no TLS library;
-      &#x2018;<code class="Li">https://</code>&#x2019; is refused with that
-      said. Most public TSAs answer on
-      &#x2018;<code class="Li">http://</code>&#x2019;. There is no proxy
+      up to 32 times. Plain HTTP is enough: the token is signed by the TSA, so
+      TLS adds no integrity. &#x2018;<code class="Li">https://</code>&#x2019;
+      works when noqtis was built with its own TLS 1.3 client (the CMake option
+      <code class="Dv">NQTLS</code>), the server's certificate checked against
+      the PEM bundle <code class="Ev">SSL_CERT_FILE</code> names, else the
+      system's; otherwise it is refused with that said. Most public TSAs answer
+      on &#x2018;<code class="Li">http://</code>&#x2019;. There is no proxy
       support. Each connection, read and write waits at most 30 seconds.</dd>
   <dt id="anchor"><a class="permalink" href="#anchor"><code class="Fl">--anchor</code></a>
     <var class="Ar">der-file</var></dt>

@@ -118,10 +118,11 @@ jobs:
         working-directory: tests
         run: |
           # tslhct repeats tslh's keygen/sign/verify for the ctgrind check;
-          # tcls (RSA bignum, OpenSSL set) is too slow here: ASan runs it
+          # tcls (RSA bignum, OpenSSL set) is too slow here: ASan runs it;
+          # tlcli and tlget are the TLS tests' clients, which srv.sh runs
           # shellcheck disable=SC2016 # the quoted script is for the inner sh
           find ../build -maxdepth 1 -type f -name 't*' -perm -u+x |
-            grep -Ev '/(tslhct|tcls)$' | xargs -P4 -I{} sh -c '
+            grep -Ev '/(tslhct|tcls|tlcli|tlget)$' | xargs -P4 -I{} sh -c '
             n=$(basename {}); s=$(date +%s)
             valgrind --error-exitcode=9 --leak-check=full -q {} \
               > "$RUNNER_TEMP/vg.$n" 2>&1; rc=$?
@@ -351,7 +352,7 @@ jobs:
           run: |
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
             cmake --build build -j4
-            NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4
+            NQSLSUB=8 NQFAST=1 ctest --test-dir build -j4 --output-on-failure
 
   distro:
     # each distribution's own compiler and cmake: static build with every

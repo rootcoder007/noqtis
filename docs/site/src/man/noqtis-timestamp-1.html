@@ -46,9 +46,11 @@
 <dl class="Bl-tag">
   <dt id="tsa"><a class="permalink" href="#tsa"><code class="Fl">--tsa</code></a>
     <var class="Ar">url</var></dt>
-  <dd>A time-stamping authority, &#x2018;<code class="Li">http://</code>&#x2019;
-      only: the token is signed by the TSA, so TLS adds no integrity. At most
-      32.</dd>
+  <dd>A time-stamping authority,
+      &#x2018;<code class="Li">http://</code>&#x2019;, or
+      &#x2018;<code class="Li">https://</code>&#x2019; with the TLS client (see
+      <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>):
+      the token is signed by the TSA, so TLS adds no integrity. At most 32.</dd>
   <dt id="anchor"><a class="permalink" href="#anchor"><code class="Fl">--anchor</code></a>
     <var class="Ar">der-file</var></dt>
   <dd>The TSA's root or issuing certificate, DER-encoded: the token must then

@@ -145,6 +145,8 @@ a bad argument, or a host name the client will not send
 .It Er NQELIM , NQEMEM
 a message over its limit (256 KiB, ten certificates), or no memory
 .El
+.Sh SEE ALSO
+.Xr noqtis 3
 .Sh STANDARDS
 RFC 8446 (TLS 1.3), RFC 8448 (its example traces, which the tests
 reproduce byte for byte), draft-ietf-tls-ecdhe-mlkem, RFC 5280,
@@ -155,5 +157,3 @@ policy constraints (a certificate that carries them as critical
 extensions is refused), Certificate Transparency, P-256 and P-384 key
 exchange (a server with neither offered group fails), Ed25519 and
 ML-DSA server keys, TLS 1.2, resumption, 0-RTT, client certificates.
-.Sh SEE ALSO
-.Xr noqtis 3

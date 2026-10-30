@@ -146,6 +146,10 @@ int nqtlhs(nqtls *t) {
 }
 
 int nqtlwr(nqtls *t, const uint8_t *b, size_t n) {
+  /* used whether or not ON is 0 (MSVC's C4100) */
+  (void)t;
+  (void)b;
+  (void)n;
   return ON ? nqtlw(t, b, n) : NQENOSUP;
 }
 
@@ -158,6 +162,7 @@ int nqtlrd(nqtls *t, uint8_t *b, size_t cap, size_t *got) {
 }
 
 int nqtlend(nqtls *t) {
+  (void)t;
   return ON ? nqtle(t) : NQENOSUP;
 }
 

@@ -70,11 +70,23 @@ c="-cert $pki/rsa.pem -key $pki/rsa.key -cert_chain $pki/inter.pem"
 e="-cert $pki/ec.pem -key $pki/ec.key -cert_chain $pki/inter.pem"
 r=$pki/root.pem
 
-serve $c -www && check "RSA, X25519MLKEM768" "ok 1301 11ec 0 *" localhost $port $r
+# X25519MLKEM768 asked for by name: some builds leave it out of their
+# default groups (Rocky 9), and a few out altogether; then X25519
+hy=11ec
+hg="-groups X25519MLKEM768:X25519"
+if serve $c -www -groups X25519MLKEM768 > /dev/null 2>&1; then
+  kill $pid 2>/dev/null
+  wait $pid 2>/dev/null
+else
+  echo "note: this OpenSSL does not serve X25519MLKEM768; X25519 expected"
+  hy=001d
+  hg=""
+fi
+serve $c -www $hg && check "RSA, X25519MLKEM768" "ok 1301 $hy 0 *" localhost $port $r
 serve $c -www -groups X25519 && check "HelloRetryRequest to X25519" "ok 1301 001d 1 *" -1 localhost $port $r
 serve $c -www -groups X25519 && check "X25519 share" "ok 1301 001d 0 *" localhost $port $r
-serve $e -www -ciphersuites TLS_CHACHA20_POLY1305_SHA256 && check "ECDSA P-256, ChaCha20" "ok 1303 11ec 0 *" localhost $port $r
-serve -cert $pki/ec384.pem -key $pki/ec384.key -www -ciphersuites TLS_AES_256_GCM_SHA384 && check "ECDSA P-384, AES-256" "ok 1302 11ec 0 *" localhost $port $r
+serve $e -www $hg -ciphersuites TLS_CHACHA20_POLY1305_SHA256 && check "ECDSA P-256, ChaCha20" "ok 1303 $hy 0 *" localhost $port $r
+serve -cert $pki/ec384.pem -key $pki/ec384.key -www $hg -ciphersuites TLS_AES_256_GCM_SHA384 && check "ECDSA P-384, AES-256" "ok 1302 $hy 0 *" localhost $port $r
 serve $c -www -sigalgs rsa_pss_rsae_sha384 && check "RSA-PSS SHA-384" "ok 1301 *" localhost $port $r
 serve $c -www && check "IPv4 address" "ok 1301 *" 127.0.0.1 $port $r
 serve $c -www -6 -accept "[::1]:$((port + 1))" && check "IPv6 address" "ok 1301 *" -6 ::1 $port $r
@@ -92,7 +104,7 @@ serve $c -www -max_send_frag 512 && check "small records" "ok 1301 *" localhost 
 serve $c -www -groups P-256 && check "no common group" "fail: *handshake_failure*" localhost $port $r
 serve $c -www -tls1_2 && check "TLS 1.2 only" "fail: *" localhost $port $r
 head -c 300000 /dev/zero | tr '\0' 'x' > "$tmp/big.txt"
-serve $c -WWW && check "a 300 kB reply" "ok 1301 11ec 0 3000[0-9][0-9]" localhost $port $r /big.txt
+serve $c -WWW $hg && check "a 300 kB reply" "ok 1301 $hy 0 3000[0-9][0-9]" localhost $port $r /big.txt
 
 # the tool's client: GET over TLS, the system bundle overridden
 getc() {
