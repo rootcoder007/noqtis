@@ -507,6 +507,14 @@ static const ncfix fixes[] = {
   {"key.time", NULL, "the seal's key was replaced or revoked, and only a "
    "verified timestamp from before then shows the seal is older: check "
    "with --anchor for its timestamp, or ask for a new seal"},
+  {"card", "does not verify", "the identity card was changed after it was "
+   "made, or is not a card: get it again from its holder (`noqtis idcard "
+   "--verify <card>` says why)"},
+  {"card", "another key", "the identity card is for another key than the "
+   "one that made the seal, so it does not say who sealed the folder: ask "
+   "the sealer for the card of their seal key"},
+  {"card", NULL, "the seal cannot be read, so the card cannot be matched "
+   "to its key: see the seal rows"},
   {"key.alg", NULL, "the -p key file is for another algorithm than the "
    "seal's (the row names both): give the signer's public key file as "
    "`noqtis keygen` wrote it, for the seal's algorithm"},
@@ -563,9 +571,67 @@ static const char *fixfor(const char *chk, const char *det) {
   return "no advice for this check: please report it as a bug";
 }
 
+static const char *info(const nqrep *r, const char *name);
+
+/* the card row of check --card: whether the card cf (read with ncidrd:
+ * vr and why) is for the key that made the seal in dir, and who it
+ * names, into det */
+static int cardrow(const char *dir, int vr, const char *why,
+                   const nqcardf *cf, char *det, size_t cap) {
+  nqrep *ir = NULL;
+  const char *ia, *ik;
+  char hx[65];
+  int ok = 0;
+  if (vr != NCOK) {
+    snprintf(det, cap, "the card does not verify: %s", why);
+    return 0;
+  }
+  if (nqinsp(dir, &ir) != NQOK || (ia = info(ir, "info.alg")) == NULL ||
+      (ik = info(ir, "info.key")) == NULL) {
+    snprintf(det, cap, "the seal's key cannot be read, so the card "
+             "cannot be matched to it");
+  } else {
+    nchexe(cf->fp, 32, hx);
+    hx[64] = 0;
+    if (strcmp(ia, nqsname(cf->alg)) == 0 && strcmp(ik, hx) == 0) {
+      char who[2048];
+      ncidwho(cf, who, sizeof who);
+      snprintf(det, cap, "sealed by %s; card made %s", who, cf->utc);
+      ok = 1;
+    } else {
+      snprintf(det, cap, "the card is for another key (%s %.16s) than "
+               "the seal's (%s %.16s)", nqsname(cf->alg), hx, ia, ik);
+    }
+  }
+  nqrepfree(ir);
+  return ok;
+}
+
+static void jcard(const nqcardf *f) {
+  static const char *const k[] = {"name", "orcid", "email", "url", "affil"};
+  const char *v[5];
+  char hx[65];
+  size_t i;
+  v[0] = f->name;
+  v[1] = f->orcid;
+  v[2] = f->email;
+  v[3] = f->url;
+  v[4] = f->affil;
+  fputs(",\"card\":{", stdout);
+  for (i = 0; i < 5; i++) {
+    if (v[i][0] == 0) continue;
+    printf("%s\"%s\":", i > 0 ? "," : "", k[i]);
+    jstr(v[i]);
+  }
+  nchexe(f->fp, 32, hx);
+  hx[64] = 0;
+  printf(",\"created\":\"%s\",\"alg\":\"%s\",\"key_sha256\":\"%s\"}",
+         f->utc, nqsname(f->alg), hx);
+}
+
 int ncchk(int argc, char **argv) {
   const char *pp = NULL, *anc[NCMAXV], *only[NCMAXV], *lin[NCMAXV],
-             *kf[NCMAXV], *pf = NULL, *lab;
+             *kf[NCMAXV], *pf = NULL, *lab, *cf = NULL;
   int json = 0, help = 0, np, rc, ret, all = 1, na = 0, no = 0, nl = 0,
       nk = 0, k;
   ncopt o[] = {
@@ -575,10 +641,14 @@ int ncchk(int argc, char **argv) {
     {'\0', "only", NCMANY, only, &no},
     {'\0', "lineage", NCMANY, lin, &nl},
     {'\0', "proof", 1, &pf, NULL},
-    {'\0', "keys", NCMANY, kf, &nk}
+    {'\0', "keys", NCMANY, kf, &nk},
+    {'\0', "card", 1, &cf, NULL}
   };
   nckey pk = {{0, 0, NULL}, 0, NULL, 0};
   nqrep *r = NULL;
+  nqcardf card;
+  char cwhy[200], cdet[2400];
+  int cvr = NCOK, cok = 0;
   ncanc an;
   nqcopt co;
   uint8_t *stb[NCMAXV];
@@ -602,10 +672,19 @@ int ncchk(int argc, char **argv) {
     ncuse(stderr, "check");
     return NCUSE;
   }
-  if (pf != NULL && (no > 0 || nl > 0 || nk > 0)) {
+  if (pf != NULL && (no > 0 || nl > 0 || nk > 0 || cf != NULL)) {
     ncmsg("check", "--proof checks the files the proof names: --only, "
-          "--lineage and --keys apply to a capsule folder");
+          "--lineage, --keys and --card apply to a capsule folder");
     return NCUSE;
+  }
+  /* the card is read first: one that cannot be read is a usage error,
+   * one that does not verify a failed row */
+  if (cf != NULL) {
+    cvr = ncidrd(cf, &card, cwhy, sizeof cwhy);
+    if (cvr == NCUSE) {
+      ncmsg("check", "--card %s: %s", cf, cwhy);
+      return NCUSE;
+    }
   }
   if (nk > 0 && pp == NULL) {
     ncmsg("check", "--keys follows key statements from a trusted key: give "
@@ -703,6 +782,8 @@ int ncchk(int argc, char **argv) {
     rc = nqchkp((const char *)pb, pn, &co, dir, &r);
   else
     rc = nqchkx(dir, &co, &r);
+  if (cf != NULL && dir != NULL)
+    cok = cardrow(dir, cvr, cwhy, &card, cdet, sizeof cdet);
   ncremfree(rm);
   kn = pp != NULL ? pk.a.name : NULL;
   nckfree(&pk);
@@ -734,6 +815,10 @@ int ncchk(int argc, char **argv) {
     }
     if (strlen(c) > w)
       w = strlen(c);
+  }
+  if (cf != NULL && !cok) {
+    all = 0;
+    nf++;
   }
   if (rc == NQOK && all && n > 0)
     ret = NCOK;
@@ -789,14 +874,33 @@ int ncchk(int argc, char **argv) {
              "FAIL", (int)w, "key.alg", kn, ncesc(kalg));
     }
   }
+  if (cf != NULL && n > 0) {
+    if (json) {
+      fputs(",{\"check\":\"card\",\"ok\":", stdout);
+      fputs(cok ? "true" : "false", stdout);
+      fputs(",\"detail\":", stdout);
+      jstr(cdet);
+      if (!cok) {
+        fputs(",\"fix\":", stdout);
+        jstr(fixfor("card", cdet));
+      }
+      putchar('}');
+    } else {
+      printf("%-4s  %-*s  %s\n", cok ? "ok" : "FAIL", (int)w, "card",
+             ncesc(cdet));
+    }
+  }
   if (json) {
-    fputs("]}\n", stdout);
+    fputs("]", stdout);
+    if (cf != NULL && cok)
+      jcard(&card);
+    fputs("}\n", stdout);
   } else if (ret == NCOK) {
     printf("%s: OK (%lu checks passed)\n", ncesc(lab),
-           (unsigned long)n);
+           (unsigned long)(n + (size_t)(cf != NULL)));
   } else if (n > 0 && nf > 0) {
     printf("%s: FAILED (%lu of %lu checks failed)\n", ncesc(lab),
-           (unsigned long)nf, (unsigned long)n);
+           (unsigned long)nf, (unsigned long)(n + (size_t)(cf != NULL)));
   } else {
     printf("%s: FAILED (%s)\n", ncesc(lab), nqerr(rc));
   }
@@ -819,6 +923,12 @@ int ncchk(int argc, char **argv) {
   }
   if (kalg != NULL && !json)
     ncmsg("check", "key.alg: %s", fixfor("key.alg", NULL));
+  if (cf != NULL && n > 0 && !cok && !json)
+    ncmsg("check", "card: %s", fixfor("card", cdet));
+  if (cf != NULL && cok && pp == NULL && !json)
+    ncmsg("check", "note: the card is signed by the seal's own key, so it "
+          "names the sealer only if that key is the one they published: "
+          "compare its SHA-256 (`noqtis idcard --verify`), or pass -p");
   if (pp == NULL && ret == NCOK && !json)
     ncmsg("check", "note: no -p given, so the key inside the seal was "
           "trusted; pass -p <key.pub> to check who sealed it");

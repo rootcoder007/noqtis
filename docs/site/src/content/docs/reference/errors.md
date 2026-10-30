@@ -82,6 +82,7 @@ fails:
 | `key.alg` | The `-p` key file is for another algorithm than the seal's (the row names both). | Give the signer's public key file as `noqtis keygen` wrote it, for the seal's algorithm. |
 | `keys` | A key statement (`--keys`) does not check; two statements are about one key; or a rotation leads back to an earlier key. | Get the statement again from the key holder, or leave it out; for two statements, keep the one its holder gave last. |
 | `key.time` | The seal's key was replaced or revoked, and no verified timestamp shows the seal is older. If the timestamp is later than the replacement, the seal was made after it. | Check with `--anchor` for its timestamp, or ask for a seal with the current key. Do not trust a seal made after its key was revoked. |
+| `card` | (With `--card`.) The identity card does not verify (it was changed, or is not a card), or it is for another key than the one that made the seal. | Get the card again from its holder (`noqtis idcard --verify <card>` says why); for another key, ask the sealer for the card of their seal key. |
 | `signature` | The signature over `noqtis.json` does not verify. | `noqtis.json` or `noqtis.sig` changed after sealing: restore both from the sealed copy. |
 
 ### Timestamps (with `--anchor`)

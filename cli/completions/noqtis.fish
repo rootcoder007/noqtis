@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke inspect timestamp algs version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp algs version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -27,6 +27,7 @@ complete -c noqtis -n "__fish_seen_subcommand_from export" -l as -x -a "intoto d
 complete -c noqtis -n "__fish_seen_subcommand_from verify" -l dsse -d 'check a DSSE envelope'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a rotate -d 'say a seal key was replaced'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a revoke -d 'say a seal key is revoked'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a idcard -d 'make or check an identity card'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a inspect -d 'show what a seal says'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a timestamp -d 'add public timestamps'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a algs -d 'list the algorithms'
@@ -61,6 +62,17 @@ complete -c noqtis -n "__fish_seen_subcommand_from check" -l only -r -F -d 'chec
 complete -c noqtis -n "__fish_seen_subcommand_from check" -l lineage -x -a '(__fish_complete_directories)' -d 'an input capsule folder'
 complete -c noqtis -n "__fish_seen_subcommand_from check" -l proof -r -F -d 'a proof from noqtis prove'
 complete -c noqtis -n "__fish_seen_subcommand_from check" -l keys -r -F -d 'a key statement'
+complete -c noqtis -n "__fish_seen_subcommand_from check" -l card -r -F -d 'an identity card'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -s k -l key -r -F -d 'secret key'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -s p -l pub -r -F -d 'its public key'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -l name -x -d 'your name'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -l orcid -x -d 'your ORCID iD'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -l email -x -d 'your e-mail address'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -l url -x -d 'your web page, https://'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -l affil -x -d 'your affiliation'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -s o -l out -r -F -d 'file to write'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -s f -l force -d 'replace the file'
+complete -c noqtis -n "__fish_seen_subcommand_from idcard" -l verify -r -F -d 'check a card'
 complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s k -l key -r -F -d 'secret key'
 complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s p -l pub -r -F -d 'its public key'
 complete -c noqtis -n "__fish_seen_subcommand_from rotate" -s n -l new -r -F -d 'the new secret key'

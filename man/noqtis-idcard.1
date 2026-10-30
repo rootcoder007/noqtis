@@ -1,0 +1,152 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 30, 2026
+.Dt NOQTIS-IDCARD 1
+.Os
+.Sh NAME
+.Nm noqtis-idcard
+.Nd make or check an identity card for a signing key
+.Sh SYNOPSIS
+.Nm noqtis idcard
+.Fl k Ar key
+.Op Fl p Ar key.pub
+.Fl -name Ar name
+.Op Fl -orcid Ar id
+.Op Fl -email Ar address
+.Op Fl -url Ar url
+.Op Fl -affil Ar text
+.Op Fl o Ar file
+.Op Fl f
+.Nm noqtis idcard
+.Fl -verify Ar card
+.Op Fl p Ar key.pub
+.Sh DESCRIPTION
+.Nm noqtis idcard
+writes an identity card
+.Pq Ql noqtis-idcard-1 , Xr noqtis-capsule 5 :
+the public key of
+.Ar key
+with your name and, when given, your ORCID iD, e-mail address, web page
+and affiliation, signed by
+.Ar key
+itself.
+Publish the card beside your capsules (on your web page, in a
+repository, with a paper) and give the SHA-256 of the key somewhere
+people already know you by.
+.Xr noqtis-check 1
+.Fl -card
+then says who sealed a capsule.
+.Pp
+A card is self-signed: its signature shows that whoever holds the key
+wrote it and that nothing in it changed since, not that the name is
+true.
+What ties the name to the key is the key's SHA-256 that you published,
+or a public key the checker already trusts
+.Pq Fl p .
+Its signature is made under its own context,
+.Ql noqtis-idcard-1 ,
+so a card is never taken for a seal or a key statement, nor they for a
+card.
+The signature is checked before the card is written, and the secret key
+is never in it.
+.Pp
+The creation time is
+.Ev SOURCE_DATE_EPOCH
+when set, as for
+.Xr noqtis-seal 1 ,
+else the clock.
+.Pp
+With
+.Fl -verify ,
+.Nm
+checks
+.Ar card
+and prints the fields it holds, its key's algorithm and the SHA-256 of
+its public key (as
+.Xr noqtis-inspect 1
+prints a seal's).
+With
+.Fl p ,
+the card must also be for that key.
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+The secret signing key the card is for: ML-DSA, SLH-DSA or a hybrid,
+not Ed25519 alone.
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+Its public key (default
+.Ar key Ns Pa .pub ) ;
+with
+.Fl -verify ,
+the key the card must be for.
+.It Fl -name Ar name
+Your name as you want it shown: 1 to 255 bytes of UTF-8, no control
+character, no space at either end.
+.It Fl -orcid Ar id
+Your ORCID iD, as
+.Ql 0000-0002-1825-0097
+or its
+.Ql https://orcid.org/
+address; its last character must be its ISO 7064 MOD 11-2 check digit
+(X for 10).
+The card holds the bare iD.
+.It Fl -email Ar address
+An e-mail address
+.Ql local@domain.tld ,
+at most 254 bytes, no space.
+.It Fl -url Ar url
+A web page: an
+.Ql https://
+address with a host, at most 1024 bytes, no space.
+.It Fl -affil Ar text
+Your affiliation, as
+.Fl -name .
+.It Fl o Ar file , Fl -out Ns = Ns Ar file
+Write the card to
+.Ar file
+(mode 0644) instead of standard output.
+.It Fl f , Fl -force
+Replace
+.Ar file
+if it exists.
+.It Fl -verify Ar card
+Check a card instead of making one.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width 3n -compact
+.It 0
+The card was written, or it verifies.
+.It 1
+The card does not verify, is not a card, or is for another key than
+.Fl p .
+.It 2
+A usage error, a field out of its limits, a key file that cannot be
+read, keys that are not a pair or not post-quantum, or a file that
+cannot be read or written.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis idcard -k me --name "Ada Lovelace" \e
+    --orcid 0000-0002-1825-0097 --url https://example.org/ada -o me.card
+$ noqtis idcard --verify me.card
+name     Ada Lovelace
+orcid    0000-0002-1825-0097
+url      https://example.org/ada
+created  2026-10-30T12:00:00Z
+alg      ML-DSA-65
+key      4587412415426cb336627c940b6a8c921c903d6149cc3e632a891d6de86fe710
+me.card: OK (self-signed: compare the key with the one its holder gave)
+$ noqtis check -p me.pub --card me.card results
+.Ed
+.Pp
+An iD with a wrong check digit is refused:
+.Bd -literal -offset indent
+$ noqtis idcard -k me --name Ada --orcid 0000-0002-1825-0098
+noqtis idcard: --orcid 0000-0002-1825-0098: give an ORCID iD such as
+0000-0002-1825-0097 (or its https://orcid.org/ address) whose last
+character is its check digit
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr nqcard 3 ,
+.Xr noqtis-capsule 5

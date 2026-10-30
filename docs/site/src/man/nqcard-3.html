@@ -1,0 +1,135 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqcard</code>, <code class="Nm">nqcardvrfy</code>
+    &#x2014; <span class="Nd">make and check an identity card for a signing
+    key</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqcard</code>(<var class="Fa">nqsalg alg</var>,
+    <var class="Fa">const uint8_t *sk</var>, <var class="Fa">size_t sklen</var>,
+    <var class="Fa">const uint8_t *pk</var>, <var class="Fa">size_t pklen</var>,
+    <var class="Fa">const char *name</var>, <var class="Fa">const char
+    *orcid</var>, <var class="Fa">const char *email</var>, <var class="Fa">const
+    char *url</var>, <var class="Fa">const char *affil</var>,
+    <var class="Fa">int64_t created</var>, <var class="Fa">char *out</var>,
+    <var class="Fa">size_t cap</var>, <var class="Fa">size_t *outlen</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqcardvrfy</code>(<var class="Fa">const char *card</var>,
+    <var class="Fa">size_t n</var>, <var class="Fa">const uint8_t *pk</var>,
+    <var class="Fa">size_t pklen</var>, <var class="Fa">nqcardf *f</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqcard"><code class="Fn" id="nqcard">nqcard</code></a>()
+    writes to <var class="Fa">out</var>, of <var class="Fa">cap</var> bytes, an
+    identity card (&#x2018;<code class="Li">noqtis-idcard-1,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></code>&#x2019;)
+    in canonical JSON: the public key <var class="Fa">pk</var> of
+    <var class="Fa">alg</var> with <var class="Fa">name</var> and, when not
+    <code class="Dv">NULL</code>, <var class="Fa">orcid</var>,
+    <var class="Fa">email</var>, <var class="Fa">url</var> and
+    <var class="Fa">affil</var>, made at <var class="Fa">created</var> (seconds
+    since 1970-01-01T00:00:00Z) and signed by <var class="Fa">sk</var> under the
+    context &#x2018;<code class="Li">noqtis-idcard-1</code>&#x2019;.
+    <var class="Fa">*outlen</var> gets the card's size, also when
+    <var class="Fa">cap</var> is too small. The signature is verified before the
+    card is written.</p>
+<p class="Pp">The fields, in bytes: <var class="Fa">name</var> and
+    <var class="Fa">affil</var> are 1 to 255 bytes of UTF-8 with no control
+    character (C0, DEL or C1) and no space at either end;
+    <var class="Fa">orcid</var> is an ORCID iD,
+    &#x2018;<code class="Li">0000-0002-1825-0097</code>&#x2019;, or its
+    &#x2018;<code class="Li">https://orcid.org/</code>&#x2019; address, whose
+    last character is its ISO 7064 MOD 11-2 check digit
+    (&#x2018;<code class="Li">X <span class="No">for 10</span></code>&#x2019;),
+    a lower-case &#x2018;<code class="Li">x</code>&#x2019; taken as
+    &#x2018;<code class="Li">X</code>&#x2019;; the card holds the bare iD.
+    <var class="Fa">email</var> is
+    &#x2018;<code class="Li">local@domain.tld</code>&#x2019;, at most
+    <code class="Dv">NQCARDEMAIL</code> (254) bytes; <var class="Fa">url</var>
+    an &#x2018;<code class="Li">https://</code>&#x2019; address with a host, at
+    most <code class="Dv">NQCARDURL</code> (1024) bytes; neither has a space or
+    a control character. The arguments and fields are checked before the
+    algorithm, so a call refused for a field returns
+    <code class="Er">NQEARG</code> whatever <var class="Fa">alg</var> is.</p>
+<p class="Pp" id="nqcardvrfy"><a class="permalink" href="#nqcardvrfy"><code class="Fn">nqcardvrfy</code></a>()
+    checks the <var class="Fa">n</var> bytes at <var class="Fa">card</var> (at
+    most <code class="Dv">NQCARDMAX</code>, 256 KiB): it must be a
+    &#x2018;<code class="Li">noqtis-idcard-1</code>&#x2019; card in canonical
+    form, with exactly its members, fields within the limits above (the ORCID iD
+    bare, its check digit right), a post-quantum algorithm, a key and a
+    signature of that algorithm's sizes, and a signature that verifies under the
+    key it carries with the context
+    &#x2018;<code class="Li">noqtis-idcard-1</code>&#x2019;. With
+    <var class="Fa">pk</var> not <code class="Dv">NULL</code>, the card's key
+    must also be <var class="Fa">pk</var>, of <var class="Fa">pklen</var> bytes.
+    On success <var class="Fa">*f</var> gets the card:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>typedef struct {
+  nqsalg alg;
+  uint8_t pk[NQCARDPK];   /* the card's public key, pklen bytes */
+  size_t pklen;
+  uint8_t fp[32];         /* its SHA-256 (nqinsp's info.key) */
+  int64_t created;        /* seconds since 1970, UTC */
+  char utc[21];           /* the same, YYYY-MM-DDTHH:MM:SSZ */
+  char name[256];
+  char orcid[20];         /* &quot;&quot; for a field the card has not */
+  char email[NQCARDEMAIL + 1];
+  char url[NQCARDURL + 1];
+  char affil[256];
+} nqcardf;</pre>
+</div>
+<p class="Pp">On any other result <var class="Fa">*f</var> is zeroed. A card is
+    self-signed: a card that verifies was written by whoever holds its key and
+    is unchanged, which does not make the name true; compare
+    <var class="Fa">fp</var> with the one its holder published, or pin
+    <var class="Fa">pk</var>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<dl class="Bl-tag">
+  <dt id="NQOK"><a class="permalink" href="#NQOK"><code class="Dv">NQOK</code></a></dt>
+  <dd>The card was written, or it verifies.</dd>
+  <dt>[<code class="Er">NQEBUF</code>]</dt>
+  <dd><var class="Fa">cap</var> is too small.</dd>
+  <dt>[<code class="Er">NQENOSUP</code>]</dt>
+  <dd><code class="Fn">nqcard</code>(): the algorithm is not a post-quantum
+      signature (Ed25519 alone).</dd>
+  <dt>[<code class="Er">NQEARG</code>]</dt>
+  <dd>A <code class="Dv">NULL</code> argument, a field out of its limits, keys
+      of the wrong sizes or not a pair, or <var class="Fa">created</var> before
+      1970 or after 9999.</dd>
+  <dt>[<code class="Er">NQEVRFY</code>]</dt>
+  <dd><code class="Fn">nqcardvrfy</code>(): the signature does not verify, or
+      the card is not for <var class="Fa">pk</var>.</dd>
+  <dt>[<code class="Er">NQEDEC</code>]</dt>
+  <dd><code class="Fn">nqcardvrfy</code>(): not a card as above.</dd>
+  <dt>[<code class="Er">NQELIM</code>]</dt>
+  <dd><code class="Fn">nqcardvrfy</code>(): more than
+      <code class="Dv">NQCARDMAX</code> bytes.</dd>
+  <dt>[<code class="Er">NQEMEM</code>]</dt>
+  <dd>The allocation hook returned <code class="Dv">NULL</code>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-idcard-1/">noqtis-idcard(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqinsp-3/">nqinsp(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqkstmt-3/">nqkstmt(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-capsule-5/">noqtis-capsule(5)</a></p>
+</section>
+</div>

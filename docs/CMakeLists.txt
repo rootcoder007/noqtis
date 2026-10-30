@@ -20,6 +20,7 @@ set(NQMANAKA
   "nqtsput:nqtsreq"
   "nqinsp:nqfiles"
   "nqdsse:nqdssevrfy"
+  "nqcard:nqcardvrfy"
   "nqprove:nqchkp"
   "nqseal2:nqcapid"
   "nqerr:nqver"

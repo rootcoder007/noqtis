@@ -1,0 +1,184 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd October 30, 2026
+.Dt NQCARD 3
+.Os
+.Sh NAME
+.Nm nqcard ,
+.Nm nqcardvrfy
+.Nd make and check an identity card for a signing key
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqcard
+.Fa "nqsalg alg" "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *pk" "size_t pklen" "const char *name"
+.Fa "const char *orcid" "const char *email" "const char *url"
+.Fa "const char *affil" "int64_t created"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqcardvrfy
+.Fa "const char *card" "size_t n" "const uint8_t *pk" "size_t pklen"
+.Fa "nqcardf *f"
+.Fc
+.Sh DESCRIPTION
+.Fn nqcard
+writes to
+.Fa out ,
+of
+.Fa cap
+bytes, an identity card
+.Pq Ql noqtis-idcard-1 , Xr noqtis-capsule 5
+in canonical JSON: the public key
+.Fa pk
+of
+.Fa alg
+with
+.Fa name
+and, when not
+.Dv NULL ,
+.Fa orcid ,
+.Fa email ,
+.Fa url
+and
+.Fa affil ,
+made at
+.Fa created
+(seconds since 1970-01-01T00:00:00Z) and signed by
+.Fa sk
+under the context
+.Ql noqtis-idcard-1 .
+.Fa *outlen
+gets the card's size, also when
+.Fa cap
+is too small.
+The signature is verified before the card is written.
+.Pp
+The fields, in bytes:
+.Fa name
+and
+.Fa affil
+are 1 to 255 bytes of UTF-8 with no control character (C0, DEL or C1)
+and no space at either end;
+.Fa orcid
+is an ORCID iD,
+.Ql 0000-0002-1825-0097 ,
+or its
+.Ql https://orcid.org/
+address, whose last character is its ISO 7064 MOD 11-2 check digit
+.Pq Ql X No for 10 ,
+a lower-case
+.Ql x
+taken as
+.Ql X ;
+the card holds the bare iD.
+.Fa email
+is
+.Ql local@domain.tld ,
+at most
+.Dv NQCARDEMAIL
+(254) bytes;
+.Fa url
+an
+.Ql https://
+address with a host, at most
+.Dv NQCARDURL
+(1024) bytes; neither has a space or a control character.
+The arguments and fields are checked before the algorithm, so a call
+refused for a field returns
+.Er NQEARG
+whatever
+.Fa alg
+is.
+.Pp
+.Fn nqcardvrfy
+checks the
+.Fa n
+bytes at
+.Fa card
+(at most
+.Dv NQCARDMAX ,
+256 KiB): it must be a
+.Ql noqtis-idcard-1
+card in canonical form, with exactly its members, fields within the
+limits above (the ORCID iD bare, its check digit right), a post-quantum
+algorithm, a key and a signature of that algorithm's sizes, and a
+signature that verifies under the key it carries with the context
+.Ql noqtis-idcard-1 .
+With
+.Fa pk
+not
+.Dv NULL ,
+the card's key must also be
+.Fa pk ,
+of
+.Fa pklen
+bytes.
+On success
+.Fa *f
+gets the card:
+.Bd -literal -offset indent
+typedef struct {
+  nqsalg alg;
+  uint8_t pk[NQCARDPK];   /* the card's public key, pklen bytes */
+  size_t pklen;
+  uint8_t fp[32];         /* its SHA-256 (nqinsp's info.key) */
+  int64_t created;        /* seconds since 1970, UTC */
+  char utc[21];           /* the same, YYYY-MM-DDTHH:MM:SSZ */
+  char name[256];
+  char orcid[20];         /* "" for a field the card has not */
+  char email[NQCARDEMAIL + 1];
+  char url[NQCARDURL + 1];
+  char affil[256];
+} nqcardf;
+.Ed
+.Pp
+On any other result
+.Fa *f
+is zeroed.
+A card is self-signed: a card that verifies was written by whoever holds
+its key and is unchanged, which does not make the name true; compare
+.Fa fp
+with the one its holder published, or pin
+.Fa pk .
+.Sh RETURN VALUES
+.Bl -tag -width NQENOSUP
+.It Dv NQOK
+The card was written, or it verifies.
+.It Bq Er NQEBUF
+.Fa cap
+is too small.
+.It Bq Er NQENOSUP
+.Fn nqcard :
+the algorithm is not a post-quantum signature (Ed25519 alone).
+.It Bq Er NQEARG
+A
+.Dv NULL
+argument, a field out of its limits, keys of the wrong sizes or not a
+pair, or
+.Fa created
+before 1970 or after 9999.
+.It Bq Er NQEVRFY
+.Fn nqcardvrfy :
+the signature does not verify, or the card is not for
+.Fa pk .
+.It Bq Er NQEDEC
+.Fn nqcardvrfy :
+not a card as above.
+.It Bq Er NQELIM
+.Fn nqcardvrfy :
+more than
+.Dv NQCARDMAX
+bytes.
+.It Bq Er NQEMEM
+The allocation hook returned
+.Dv NULL .
+.El
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-idcard 1 ,
+.Xr nqinsp 3 ,
+.Xr nqkstmt 3 ,
+.Xr noqtis-capsule 5

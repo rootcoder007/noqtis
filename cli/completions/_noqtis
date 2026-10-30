@@ -75,7 +75,20 @@ _noqtis_cmd() {
         '*--lineage=[an input capsule folder]:dir:_files -/' \
         '--proof=[a proof from noqtis prove]:file:_files' \
         '*--keys=[a key statement]:file:_files' \
+        '--card=[an identity card from noqtis idcard]:file:_files' \
         ':dir:_files -/' ;;
+    idcard)
+      _arguments \
+        '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
+        '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
+        '--name=[your name]:name:' \
+        '--orcid=[your ORCID iD]:id:' \
+        '--email=[your e-mail address]:address:' \
+        '--url=[your web page, https://]:url:_urls' \
+        '--affil=[your affiliation]:text:' \
+        '(-o --out)'{-o,--out=}'[file to write]:file:_files' \
+        '(-f --force)'{-f,--force}'[replace the file]' \
+        '--verify=[check a card]:card:_files' ;;
     export)
       _arguments \
         '--as=[format]:format:(intoto dsse rocrate bagit)' \
@@ -119,6 +132,7 @@ _arguments -C \
     seal\:"seal a folder" check\:"check a sealed folder"
     prove\:"prove some files of a capsule"
     rotate\:"say a seal key was replaced" revoke\:"say a seal key is revoked"
+    idcard\:"make or check an identity card"
     export\:"a capsule as in-toto, DSSE, RO-Crate or BagIt"
     inspect\:"show what a seal says" timestamp\:"add public timestamps"
     algs\:"list the algorithms" version\:"print the version"))' \

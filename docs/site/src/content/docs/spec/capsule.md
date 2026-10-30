@@ -411,6 +411,45 @@ passes (`key.time`) only with a verified timestamp whose genTime is
 earlier: the manifest's `created` is the sealer's own word, which a
 holder of a stolen key could write.
 
+## 13. Identity cards
+
+An identity card (`noqtis idcard`, `nqcard`) binds a post-quantum
+signing key to who holds it, in canonical JSON:
+
+| Member | Value |
+|---|---|
+| `alg`, `key` | the key's algorithm and base64 public key |
+| `created` | when the card was made, `YYYY-MM-DDTHH:MM:SSZ` |
+| `format` | `noqtis-idcard-1` |
+| `name` | 1 to 255 bytes of UTF-8, no control character (C0, DEL, C1), no space at either end |
+| `orcid` | optional: a bare ORCID iD, `0000-0002-1825-0097`, whose last character is its ISO 7064 MOD 11-2 check digit (`X` for 10) |
+| `email` | optional: `local@domain.tld`, at most 254 bytes, no space |
+| `url` | optional: an `https://` address with a host, at most 1024 bytes, no space |
+| `affil` | optional: as `name` |
+| `signature` | by `key`, context `noqtis-idcard-1` |
+
+An optional member not given is left out, never empty. The signature
+covers the card without its `signature` member, in canonical form. A
+card is at most 256 KiB; a checker refuses one not in canonical form,
+with another member, or with a field outside these limits, whatever its
+signature says.
+
+For example (one line in the file; keys and signature cut):
+
+```text
+{"alg":"ML-DSA-65","created":"2026-01-01T00:00:00Z","format":"noqtis-idcard-1",
+"key":"uiAYRF5m...","name":"Ada Lovelace","orcid":"0000-0002-1825-0097",
+"signature":"...","url":"https://example.org/ada"}
+```
+
+A card is self-signed: it shows that the holder of `key` wrote it and
+that it is unchanged, not that the name is true. A checker that knows
+the key (pinned, or by the SHA-256 of `key` its holder published where
+people know them) and finds it is the key of a capsule's seal may say
+who sealed the capsule. Seals (`noqtis-capsule-1`, `-2`), key
+statements (`noqtis-keys-1`) and cards each sign under their own
+context, so none of the three passes for another.
+
 ## References
 
 - RFC 8785, JSON Canonicalization Scheme (JCS).

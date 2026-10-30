@@ -15,6 +15,7 @@
       [<code class="Fl">--only</code> <var class="Ar">path ...</var>]
       [<code class="Fl">--lineage</code> <var class="Ar">input-dir ...</var>]
       [<code class="Fl">--keys</code> <var class="Ar">file ...</var>]
+      [<code class="Fl">--card</code> <var class="Ar">file</var>]
       <var class="Ar">dir</var> | <var class="Ar">url</var></td>
   </tr>
 </table>
@@ -89,10 +90,16 @@ or
     its listed size, a file over 1 GiB or past the 10000th not at all. The
     folder is then checked as any other, so a file the server lacks or changed
     fails its row, and everything written to it is removed after. The report
-    names the URL. Redirects are followed, at most five, never from
+    names the URL. Redirects are followed, at most five, and only on the same
+    server (the same host and port, or
+    &#x2018;<code class="Li">http://</code>&#x2019; on port 80 to
+    &#x2018;<code class="Li">https://</code>&#x2019; on 443); never from
     &#x2018;<code class="Li">https://</code>&#x2019; to
-    &#x2018;<code class="Li">http://</code>&#x2019;. A
-    <code class="Fl">--proof</code> may also be a URL.</p>
+    &#x2018;<code class="Li">http://</code>&#x2019;. A redirect to another
+    server is refused, so a server cannot point the fetch at a host only this
+    machine reaches, such as localhost or the local network; give the new URL
+    itself if you trust it. A <code class="Fl">--proof</code> may also be a
+  URL.</p>
 <p class="Pp">After the table, for each failed check, a line on standard error
     says what to do:</p>
 <div class="Bd Bd-indent"><code class="Li">noqtis check:
@@ -148,8 +155,9 @@ or
       <var class="Ar">dir</var>, the proven files there are also checked against
       their entries, and a &#x2018;<code class="Li">partial</code>&#x2019; row
       says the capsule's other files are not in the proof.
-      <code class="Fl">--only</code>, <code class="Fl">--lineage</code> and
-      <code class="Fl">--keys</code> do not apply.</dd>
+      <code class="Fl">--only</code>, <code class="Fl">--lineage</code>,
+      <code class="Fl">--keys</code> and <code class="Fl">--card</code> do not
+      apply.</dd>
   <dt id="keys"><a class="permalink" href="#keys"><code class="Fl">--keys</code></a>
     <var class="Ar">file</var></dt>
   <dd>A key statement from
@@ -165,6 +173,16 @@ or
       &#x2018;<code class="Li">keys</code>&#x2019; row per statement; two
       statements about one key, or a rotation back to an earlier key, trust no
       key.</dd>
+  <dt id="card"><a class="permalink" href="#card"><code class="Fl">--card</code></a>
+    <var class="Ar">file</var></dt>
+  <dd>An identity card from
+      <a class="Xr" href="/noqtis/reference/man/noqtis-idcard-1/">noqtis-idcard(1)</a>.
+      When it verifies and is for the key that made the seal, the
+      &#x2018;<code class="Li">card</code>&#x2019; row names who sealed the
+      folder; when it does not verify, or is for another key, the row fails and
+      says why. The card is signed by its own key, so without
+      <code class="Fl">-p</code> it names the sealer only if the seal's key is
+      the one they published. A card that cannot be read is a usage error.</dd>
 </dl>
 <section class="Ss">
 <h2 class="Ss" id="Checks"><a class="permalink" href="#Checks">Checks</a></h2>
@@ -235,6 +253,9 @@ or
   <dt id="keys~2"><a class="permalink" href="#keys~2"><code class="Cm">keys</code></a></dt>
   <dd>With <code class="Fl">--keys</code>: one row per statement, and its
       signatures.</dd>
+  <dt id="card~2"><a class="permalink" href="#card~2"><code class="Cm">card</code></a></dt>
+  <dd>With <code class="Fl">--card</code>: the card verifies and is for the
+      seal's key, and who it names.</dd>
   <dt id="key.time"><a class="permalink" href="#key.time"><code class="Cm">key.time</code></a></dt>
   <dd>With <code class="Fl">--keys</code>, when the seal's key was rotated away
       or revoked: the verified timestamp's genTime is before then.</dd>
@@ -350,6 +371,7 @@ new.txt: not in the manifest</pre>
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-idcard-1/">noqtis-idcard(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-prove-1/">noqtis-prove(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-revoke-1/">noqtis-revoke(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-rotate-1/">noqtis-rotate(1)</a>,

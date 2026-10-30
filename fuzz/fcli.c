@@ -3,10 +3,11 @@
  * input's first byte picks a command, the rest is cut at NUL bytes into at
  * most 16 arguments, and the tool's own entry point runs them in a sandbox
  * folder of fixtures (a signature key pair, a KEM key pair, a message and
- * its signature, a sealed capsule). A run that changed the sandbox is
- * followed by a fresh one. No argument may hold "://" (no network), start
- * with "/" or hold ".." (nothing written outside the sandbox), and the slow
- * SLH-DSA "s" sets are skipped, so every run stays fast.
+ * its signature, a sealed capsule, an identity card). A run that changed
+ * the sandbox is followed by a fresh one. No argument may hold "://" (no
+ * network), start with "/" or hold ".." (nothing written outside the
+ * sandbox), and the slow SLH-DSA "s" sets are skipped, so every run stays
+ * fast.
  *
  * Built with the CLI's sources compiled under -Dmain=nqclimain (see
  * fuzz/build.sh). */
@@ -31,7 +32,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 static const char *const cmds[] = {
     "keygen", "sign", "verify", "enc",     "dec",   "hash",    "seal",
-    "check",  "inspect", "timestamp", "algs", "version", "help", "nope"};
+    "check",  "inspect", "timestamp", "algs", "version", "help", "idcard",
+    "nope"};
 #define NCMD (sizeof cmds / sizeof *cmds)
 #define MAXA 16
 #define MAXL 512
@@ -130,6 +132,8 @@ static void make(void) {
   put("cap/a.txt", "hello\n");
   put("cap/sub/b.csv", "x,y\n1,2\n");
   cli("seal", "-k", "k", "cap", NULL);
+  cli("idcard", "-k", "k", "--name", "A", "--orcid", "0000-0002-1825-0097",
+      "-o", "k.card", NULL);
   snap = walk(".", 0);
   /* libFuzzer reads and writes its corpus relative to where it started */
   if (chdir(home) != 0) abort();

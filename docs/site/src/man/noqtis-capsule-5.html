@@ -265,6 +265,40 @@
     rotated away or revoked at <code class="Cm">at</code>, the seal passes only
     with a verified timestamp whose genTime is earlier.</p>
 </section>
+<section class="Ss">
+<h2 class="Ss" id="Identity_cards"><a class="permalink" href="#Identity_cards">Identity
+  cards</a></h2>
+<p class="Pp">An identity card is canonical JSON with the members
+    <code class="Cm">alg</code>, <code class="Cm">created</code>,
+    <code class="Cm">format</code>, <code class="Cm">key</code>,
+    <code class="Cm">name</code> and <code class="Cm">signature</code>, and any
+    of <code class="Cm">orcid</code>, <code class="Cm">email</code>,
+    <code class="Cm">url</code> and <code class="Cm">affil</code>:
+    <code class="Cm">format</code> is
+    &#x2018;<code class="Li">noqtis-idcard-1</code>&#x2019;;
+    <code class="Cm">alg</code> and <code class="Cm">key</code> are a
+    post-quantum signature algorithm and the base64 public key;
+    <code class="Cm">created</code> is a time as
+    &#x2018;<code class="Li">YYYY-MM-DDTHH:MM:SSZ</code>&#x2019;;
+    <code class="Cm">name</code> and <code class="Cm">affil</code> are 1 to 255
+    bytes of text with no control character and no space at either end;
+    <code class="Cm">orcid</code> is a bare ORCID iD
+    (&#x2018;<code class="Li">0000-0002-1825-0097</code>&#x2019;) whose last
+    character is its ISO 7064 MOD 11-2 check digit, X for 10;
+    <code class="Cm">email</code> is
+    &#x2018;<code class="Li">local@domain.tld</code>&#x2019; in at most 254
+    bytes, and <code class="Cm">url</code> an
+    &#x2018;<code class="Li">https://</code>&#x2019; address with a host in at
+    most 1024 bytes, neither with a space. A member not given is left out, never
+    empty. <code class="Cm">signature</code> is by <code class="Cm">key</code>
+    with context &#x2018;<code class="Li">noqtis-idcard-1</code>&#x2019; over
+    the card without its <code class="Cm">signature</code> member, in canonical
+    form. A card is at most 256 KiB.</p>
+<p class="Pp">A card is self-signed: it shows that the holder of
+    <code class="Cm">key</code> wrote it, not that the name is true. A checker
+    that also knows the key (pinned, or by the SHA-256 its holder published) and
+    finds it is the seal's key may say who sealed the capsule.</p>
+</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
@@ -295,6 +329,7 @@
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-idcard-1/">noqtis-idcard(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>,
     <a class="Xr" href="/noqtis/reference/man/nqchkt-3/">nqchkt(3)</a>,
@@ -322,7 +357,10 @@
 <p class="Pp">The signature's context is always
     &#x2018;<code class="Li">noqtis-capsule-1</code>&#x2019;, and a checker
     refuses any other, so a signature its key holder made for another purpose
-    over the same bytes is never a seal.</p>
+    over the same bytes is never a seal. Key statements and identity cards have
+    contexts of their own (&#x2018;<code class="Li">noqtis-keys-1,
+    &#x2018;<code class="Li">noqtis-idcard-1</code>&#x2019;</code>&#x2019;), so
+    none of the three passes for another.</p>
 <p class="Pp">A timestamp's TSA certificate path is checked at the token's
     genTime, and revocation is not checked: a timestamp is only as good as the
     TSA's key was at that time. If the key is stolen later, tokens with an

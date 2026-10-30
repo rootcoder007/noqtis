@@ -1664,6 +1664,117 @@ static void treview(void) {
   rmdirs("qrv2");
 }
 
+/* noqtis idcard, and check --card */
+static void tidc(void) {
+  want(0, "keygen -a ML-DSA-44 -o q.idk", NULL);
+  want(0, "keygen -a ML-DSA-65 -o q.idk2", NULL);
+  want(0, "keygen -a Ed25519 -o q.ide", NULL);
+  want(0, "idcard -k q.idk --name \"Ada Lovelace\" --orcid "
+       "https://orcid.org/0000-0002-1694-233x --email ada@example.org "
+       "--url https://example.org/ada --affil AES -o q.icard", NULL);
+  ok(has("q.icard", "\"orcid\":\"0000-0002-1694-233X\"") &&
+     !has("q.icard", "orcid.org"),
+     "idcard: the bare ORCID iD, its X in upper case");
+  ok(has("q.icard", "\"format\":\"noqtis-idcard-1\""), "idcard: the format");
+  want(0, "idcard --verify q.icard", NULL);
+  ok(has("q.out", "name     Ada Lovelace\n") &&
+     has("q.out", "orcid    0000-0002-1694-233X\n") &&
+     has("q.out", "email    ada@example.org\n") &&
+     has("q.out", "url      https://example.org/ada\n") &&
+     has("q.out", "affil    AES\n") && has("q.out", "alg      ML-DSA-44\n") &&
+     has("q.out", "q.icard: OK (self-signed"),
+     "idcard --verify: every field");
+  want(0, "idcard --verify q.icard -p q.idk.pub", NULL);
+  ok(has("q.out", "q.icard: OK (the -p key)"), "idcard --verify -p");
+  want(1, "idcard --verify q.icard -p q.idk2.pub", NULL);
+  ok(has("q.err", "another key"), "idcard --verify -p: another key");
+  want(0, "idcard -k q.idk --name A", NULL);
+  ok(has("q.out", "\"name\":\"A\"") && !has("q.out", "\"orcid\""),
+     "idcard: to stdout, only the fields given");
+  /* each field refused names its option */
+  want(2, "idcard -k q.idk --name A --orcid 0000-0002-1825-0098", NULL);
+  ok(has("q.err", "--orcid 0000-0002-1825-0098") &&
+     has("q.err", "check digit"), "idcard: a wrong ORCID check digit");
+  want(2, "idcard -k q.idk --name A --email ada", NULL);
+  ok(has("q.err", "--email"), "idcard: a bad e-mail address");
+  want(2, "idcard -k q.idk --name A --url http://example.org", NULL);
+  ok(has("q.err", "--url"), "idcard: a page not on https://");
+  want(2, "idcard -k q.idk --name \" A\"", NULL);
+  ok(has("q.err", "--name"), "idcard: a name with a leading space");
+  want(2, "idcard -k q.idk --name A --affil \"\"", NULL);
+  ok(has("q.err", "--affil"), "idcard: an empty affiliation");
+  want(2, "idcard -k q.ide --name A", NULL);
+  ok(has("q.err", "not Ed25519"), "idcard: Ed25519 alone is refused");
+  want(2, "idcard -k q.idk -p q.idk2.pub --name A", NULL);
+  want(2, "idcard -k q.idk.pub --name A", NULL);
+  want(2, "idcard --name A", NULL);
+  want(2, "idcard -k q.idk", NULL);
+  want(2, "idcard -k q.idk --name A extra", NULL);
+  want(2, "idcard --verify q.icard -k q.idk", NULL);
+  want(2, "idcard --verify q.icard --name A", NULL);
+  want(2, "idcard -k q.idk --name A -o q.icard", NULL);
+  ok(has("q.icard", "Ada Lovelace"), "idcard: an existing card is kept");
+  want(0, "idcard -k q.idk --name A -o q.icard5", NULL);
+  want(0, "idcard -k q.idk --name B -o q.icard5 -f", NULL);
+  ok(has("q.icard5", "\"name\":\"B\""), "idcard -f replaces a card");
+  /* changed cards */
+  cp("q.icard", "q.icard3");
+  sub("q.icard3", "Ada Lovelace", "Ada Lovelacf");
+  want(1, "idcard --verify q.icard3", NULL);
+  ok(has("q.err", "signature does not verify"), "idcard: a changed name");
+  cp("q.icard", "q.icard6");
+  sub("q.icard6", "{\"affil\"", "{ \"affil\"");
+  want(1, "idcard --verify q.icard6", NULL);
+  ok(has("q.err", "not a noqtis-idcard-1 card"),
+     "idcard: a card not in canonical form");
+  want(1, "idcard --verify q.idk.pub", NULL);
+  want(2, "idcard --verify nosuch", NULL);
+  /* check --card: who sealed the folder */
+  rmdirs("qic");
+  mkd("qic");
+  wrs("qic/a.txt", "alpha\n");
+  want(0, "seal -k q.idk qic", NULL);
+  want(0, "check -p q.idk.pub --card q.icard qic", NULL);
+  ok(has("q.out", "ok    card ") &&
+     has("q.out", "sealed by Ada Lovelace (ORCID 0000-0002-1694-233X, "
+                  "ada@example.org, https://example.org/ada, AES)"),
+     "check --card: the sealer named");
+  want(0, "check --json -p q.idk.pub --card q.icard qic", NULL);
+  ok(has("q.out", "{\"check\":\"card\",\"ok\":true") &&
+     has("q.out", "\"card\":{\"name\":\"Ada Lovelace\",\"orcid\":"
+                  "\"0000-0002-1694-233X\""),
+     "check --json --card");
+  want(0, "check --card q.icard qic", NULL);
+  ok(has("q.err", "the card is signed by the seal's own key"),
+     "check --card without -p: the card is the seal key's word");
+  want(0, "idcard -k q.idk2 --name B -o q.icard4", NULL);
+  want(1, "check -p q.idk.pub --card q.icard4 qic", NULL);
+  ok(has("q.out", "FAIL  card ") && has("q.out", "another key") &&
+     has("q.err", "noqtis check: card: "),
+     "check --card: a card of another key fails, with advice");
+  want(1, "check --json -p q.idk.pub --card q.icard4 qic", NULL);
+  ok(has("q.out", "{\"check\":\"card\",\"ok\":false") &&
+     !has("q.out", "\"card\":{"), "check --json --card: another key");
+  want(1, "check -p q.idk.pub --card q.icard3 qic", NULL);
+  ok(has("q.out", "the card does not verify") &&
+     has("q.err", "noqtis check: card: "),
+     "check --card: a changed card fails, with advice");
+  want(1, "check -p q.idk.pub --card q.icard6 qic", NULL);
+  want(2, "check -p q.idk.pub --card nosuch qic", NULL);
+  want(2, "check -p q.idk.pub --card q.icard --proof q.icard", NULL);
+  ok(has("q.err", "--card apply to a capsule folder"),
+     "check --card does not apply to --proof");
+  /* a changed file fails the check with a good card */
+  wrs("qic/a.txt", "beta\n");
+  want(1, "check -p q.idk.pub --card q.icard qic", NULL);
+  ok(has("q.out", "ok    card "), "check --card: the card row stands");
+  /* a card is not a seal, nor a seal a card */
+  cp("q.icard", "qic/noqtis.sig");
+  want(1, "check -p q.idk.pub qic", NULL);
+  want(1, "idcard --verify qic/noqtis.json", NULL);
+  rmdirs("qic");
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -1726,6 +1837,7 @@ int main(int argc, char **argv) {
   tcap();
   tinsp();
   treview();
+  tidc();
   if (tsad != NULL) {
     tts();
     tremote();

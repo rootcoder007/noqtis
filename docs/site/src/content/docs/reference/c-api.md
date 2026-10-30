@@ -247,6 +247,17 @@ int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen,
             const uint8_t *nsk, size_t nsklen, const uint8_t *npk,
             size_t npklen, int64_t at, const char *reason, char *out,
             size_t cap, size_t *outlen);
+typedef struct {
+  nqsalg alg; uint8_t pk[NQCARDPK]; size_t pklen; uint8_t fp[32];
+  int64_t created; char utc[21]; char name[256]; char orcid[20];
+  char email[NQCARDEMAIL + 1]; char url[NQCARDURL + 1]; char affil[256];
+} nqcardf;
+int nqcard(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
+           size_t pklen, const char *name, const char *orcid,
+           const char *email, const char *url, const char *affil,
+           int64_t created, char *out, size_t cap, size_t *outlen);
+int nqcardvrfy(const char *card, size_t n, const uint8_t *pk, size_t pklen,
+               nqcardf *f);
 int nqprove(const char *dir, const char *const *paths, size_t np,
             char *out, size_t cap, size_t *outlen);
 int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
@@ -275,6 +286,8 @@ int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
 | `nqdsse` | a DSSE envelope of a payload, signed over its PAE; keyid the SHA-256 of `pk` | `NQOK`; `NQEBUF`, `NQEARG`, `NQEMEM` |
 | `nqdssevrfy` | checks an envelope: one signature under `pk`; gives the payload and its type | `NQOK`; `NQEVRFY`, `NQEDEC`, `NQEBUF`, `NQEARG`, `NQEMEM` |
 | `nqkstmt` | a `noqtis-keys-1` statement: a rotation to `npk` (both keys sign) or, with `nsk`/`npk` `NULL`, a revocation, from `at` | `NQOK`; `NQEBUF`, `NQENOSUP` (Ed25519 alone), `NQEARG`, `NQEMEM` |
+| `nqcard` | a `noqtis-idcard-1` identity card: `pk` with `name` and, when not `NULL`, `orcid` (check digit verified, stored bare), `email`, `url` (`https://`) and `affil`, made at `created`, signed by `sk` under its own context | `NQOK`; `NQEBUF`, `NQEARG` (a field out of its limits, keys not a pair), `NQENOSUP` (Ed25519 alone), `NQEMEM` |
+| `nqcardvrfy` | checks a card (≤ 256 KiB): canonical, its fields within `nqcard`'s limits, its signature under the key it carries, and that key `pk` when not `NULL`; `*f` gets its fields and key (SHA-256 in `fp`), zeroed on failure | `NQOK`; `NQEVRFY`, `NQEDEC`, `NQELIM`, `NQEARG`, `NQEMEM` |
 | `nqprove` | a `noqtis-proof-1` proof of `paths` in the format 2 capsule `dir`; `*outlen` is the size, also with `NQEBUF` | `NQOK`; `NQEBUF`, `NQENOSUP` (format 1), `NQEIO` (path not listed), `NQEDEC`, `NQELIM`, `NQEARG`, `NQEMEM` |
 | `nqchkp` | checks a proof: the seal, its signature over the head and each audit path; with `dir`, the proven files there | as `nqchk` |
 | `nqrepn` | number of rows (0 for `NULL`) | — |
@@ -297,6 +310,7 @@ Without anchors (`nqchk`), a seal that carries a timestamp fails its
 [nqchkx(3)](/noqtis/reference/man/nqchkx-3/),
 [nqprove(3)](/noqtis/reference/man/nqprove-3/),
 [nqkstmt(3)](/noqtis/reference/man/nqkstmt-3/),
+[nqcard(3)](/noqtis/reference/man/nqcard-3/),
 [nqdsse(3)](/noqtis/reference/man/nqdsse-3/),
 [nqtsput(3)](/noqtis/reference/man/nqtsput-3/)
 

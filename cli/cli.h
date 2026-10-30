@@ -185,6 +185,13 @@ int ncexp(int argc, char **argv);
  * to out when not NULL */
 int ncvdsse(const char *kp, const char *env, const char *out, int quiet);
 int ncrev(int argc, char **argv);
+int ncidc(int argc, char **argv);
+/* the identity card at path (idc.c), checked: NCOK with *f, else NCBAD
+ * (not a card, or one that does not verify) or NCUSE (unreadable), and a
+ * sentence in why */
+int ncidrd(const char *path, nqcardf *f, char *why, size_t cap);
+/* "name (ORCID ..., email, url, affil)" for a report */
+void ncidwho(const nqcardf *f, char *out, size_t cap);
 int ncinsp(int argc, char **argv);
 int ncts(int argc, char **argv);
 

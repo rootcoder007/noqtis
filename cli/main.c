@@ -89,7 +89,7 @@ static const nccmd cmds[] = {
   {"check", ncchk, "check a sealed capsule folder",
    "usage: noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
    "                    [--only <path>]... [--lineage <dir>]...\n"
-   "                    [--keys <file>]... <dir|url>\n"
+   "                    [--keys <file>]... [--card <file>] <dir|url>\n"
    "       noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
    "                    --proof <file|url> [<dir|url>]\n"
    "  Prints every check and its result; exit 0 only if all pass. Without\n"
@@ -106,6 +106,10 @@ static const nccmd cmds[] = {
    "             proven files there too\n"
    "  --keys     a key statement from `noqtis rotate` or `revoke` (up to\n"
    "             32), followed from the -p key, which it needs\n"
+   "  --card     an identity card from `noqtis idcard`: when it verifies\n"
+   "             and is for the key that made the seal, the report says\n"
+   "             who sealed the folder; otherwise its row fails and says\n"
+   "             why\n"
    "  --anchor  a TSA root or issuing certificate (DER), up to 32: the\n"
    "            seal must then carry a timestamp that verifies under one\n"
    "            of them. Without --anchor, a timestamped seal fails its\n"
@@ -144,6 +148,21 @@ static const nccmd cmds[] = {
    "  `noqtis check --keys` accepts a seal made with <key> only with a\n"
    "  verified timestamp from before <time>.\n"
    "  -o  write to <file> (default stdout); -f replaces it\n"},
+  {"idcard", ncidc, "make or check an identity card for a signing key",
+   "usage: noqtis idcard -k <key> [-p <key.pub>] --name <name>\n"
+   "                     [--orcid <id>] [--email <addr>] [--url <url>]\n"
+   "                     [--affil <text>] [-o <file>] [-f]\n"
+   "       noqtis idcard --verify <card> [-p <key.pub>]\n"
+   "  Writes an identity card (JSON) that binds the public key of <key> to\n"
+   "  a name and, when given, an ORCID iD, an e-mail address, an https://\n"
+   "  web page and an affiliation, signed by <key> itself. --verify checks\n"
+   "  a card and prints who it names and its key's SHA-256; with -p, the\n"
+   "  card must be for that key. `noqtis check --card` names the sealer.\n"
+   "  --orcid  0000-0002-1825-0097 or https://orcid.org/...; its check\n"
+   "           digit must be right, and the card holds the bare iD\n"
+   "  -o  write to <file> (default stdout); -f replaces it\n"
+   "  Exit 0 when a card is written or verifies, 1 when it does not\n"
+   "  verify, 2 on a usage or file error.\n"},
   {"timestamp", ncts, "add a timestamp to a sealed capsule",
    "usage: noqtis timestamp --tsa <url>... [--anchor <der-file>]...\n"
    "                        [--force] <dir>\n"

@@ -109,6 +109,25 @@ noqtis seal -k me --input raw=r2 r3 > /dev/null
 same "ok    lineage             raw: checks, in r2" \
   "$(noqtis check -p me.pub --lineage r2 r3 | grep '^ok    lineage')"
 
+# ---- noqtis-idcard(1); noqtis-check(1) --card
+noqtis idcard -k me --name "Ada Lovelace" --orcid 0000-0002-1825-0097 \
+  --url https://example.org/ada -o me.card
+same "name     Ada Lovelace" "$(noqtis idcard --verify me.card | head -1)"
+same "orcid    0000-0002-1825-0097" \
+  "$(noqtis idcard --verify me.card | grep '^orcid ')"
+same "alg      ML-DSA-65" "$(noqtis idcard --verify me.card | grep '^alg ')"
+same "me.card: OK (self-signed: compare the key with the one its holder gave)" \
+  "$(noqtis idcard --verify me.card | tail -1)"
+same "noqtis idcard: --orcid 0000-0002-1825-0098: give an ORCID iD such as 0000-0002-1825-0097 (or its https://orcid.org/ address) whose last character is its check digit" \
+  "$(noqtis idcard -k me --name Ada --orcid 0000-0002-1825-0098 2>&1 || true)"
+code 2 noqtis idcard -k me --name Ada --orcid 0000-0002-1825-0098
+code 1 noqtis idcard --verify me.card -p other.pub
+same "sealed by Ada Lovelace (ORCID 0000-0002-1825-0097, https://example.org/ada)" \
+  "$(noqtis check -p me.pub --card me.card r2 | grep '^ok    card ' |
+     sed 's/^ok    card  *//' | cut -d';' -f1)"
+noqtis idcard -k other --name Other -o other.card
+code 1 noqtis check -p me.pub --card other.card r2
+
 # ---- noqtis-keygen(1)
 same "ML-DSA-44 key pair: det (secret), det.pub (public)" \
   "$(noqtis keygen -a ml-dsa-44 -o det --seed \

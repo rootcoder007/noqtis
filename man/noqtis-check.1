@@ -13,6 +13,7 @@
 .Op Fl -only Ar path ...
 .Op Fl -lineage Ar input-dir ...
 .Op Fl -keys Ar file ...
+.Op Fl -card Ar file
 .Ar dir | url
 .Nm noqtis check
 .Op Fl p Ar key.pub
@@ -174,9 +175,10 @@ the proven files there are also checked against their entries, and a
 .Ql partial
 row says the capsule's other files are not in the proof.
 .Fl -only ,
-.Fl -lineage
-and
+.Fl -lineage ,
 .Fl -keys
+and
+.Fl -card
 do not apply.
 .It Fl -keys Ar file
 A key statement from
@@ -198,6 +200,17 @@ One
 .Ql keys
 row per statement; two statements about one key, or a rotation back to
 an earlier key, trust no key.
+.It Fl -card Ar file
+An identity card from
+.Xr noqtis-idcard 1 .
+When it verifies and is for the key that made the seal, the
+.Ql card
+row names who sealed the folder; when it does not verify, or is for
+another key, the row fails and says why.
+The card is signed by its own key, so without
+.Fl p
+it names the sealer only if the seal's key is the one they published.
+A card that cannot be read is a usage error.
 .El
 .Ss Checks
 The row names are stable, for scripts:
@@ -273,6 +286,10 @@ one row per input of the capsule.
 With
 .Fl -keys :
 one row per statement, and its signatures.
+.It Cm card
+With
+.Fl -card :
+the card verifies and is for the seal's key, and who it names.
 .It Cm key.time
 With
 .Fl -keys ,
@@ -392,6 +409,7 @@ new.txt: not in the manifest
 .Ed
 .Sh SEE ALSO
 .Xr noqtis 1 ,
+.Xr noqtis-idcard 1 ,
 .Xr noqtis-prove 1 ,
 .Xr noqtis-revoke 1 ,
 .Xr noqtis-rotate 1 ,

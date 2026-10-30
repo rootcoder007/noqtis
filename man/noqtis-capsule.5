@@ -338,6 +338,59 @@ A seal's key passes when it is in that chain.
 When that key was rotated away or revoked at
 .Cm at ,
 the seal passes only with a verified timestamp whose genTime is earlier.
+.Ss Identity cards
+An identity card is canonical JSON with the members
+.Cm alg , created , format , key , name
+and
+.Cm signature ,
+and any of
+.Cm orcid , email , url
+and
+.Cm affil :
+.Cm format
+is
+.Ql noqtis-idcard-1 ;
+.Cm alg
+and
+.Cm key
+are a post-quantum signature algorithm and the base64 public key;
+.Cm created
+is a time as
+.Ql YYYY-MM-DDTHH:MM:SSZ ;
+.Cm name
+and
+.Cm affil
+are 1 to 255 bytes of text with no control character and no space at
+either end;
+.Cm orcid
+is a bare ORCID iD
+.Pq Ql 0000-0002-1825-0097
+whose last character is its ISO 7064 MOD 11-2 check digit, X for 10;
+.Cm email
+is
+.Ql local@domain.tld
+in at most 254 bytes, and
+.Cm url
+an
+.Ql https://
+address with a host in at most 1024 bytes, neither with a space.
+A member not given is left out, never empty.
+.Cm signature
+is by
+.Cm key
+with context
+.Ql noqtis-idcard-1
+over the card without its
+.Cm signature
+member, in canonical form.
+A card is at most 256 KiB.
+.Pp
+A card is self-signed: it shows that the holder of
+.Cm key
+wrote it, not that the name is true.
+A checker that also knows the key (pinned, or by the SHA-256 its holder
+published) and finds it is the seal's key may say who sealed the
+capsule.
 .Sh FILES
 .Bl -tag -width Ds -compact
 .It Pa noqtis.json
@@ -362,6 +415,7 @@ Its seal:
 .Ed
 .Sh SEE ALSO
 .Xr noqtis-check 1 ,
+.Xr noqtis-idcard 1 ,
 .Xr noqtis-seal 1 ,
 .Xr nqchk 3 ,
 .Xr nqchkt 3 ,
@@ -397,6 +451,9 @@ The signature's context is always
 .Ql noqtis-capsule-1 ,
 and a checker refuses any other, so a signature its key holder made for
 another purpose over the same bytes is never a seal.
+Key statements and identity cards have contexts of their own
+.Pq Ql noqtis-keys-1 , Ql noqtis-idcard-1 ,
+so none of the three passes for another.
 .Pp
 A timestamp's TSA certificate path is checked at the token's genTime, and
 revocation is not checked: a timestamp is only as good as the TSA's key
