@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# What follows a published release (release.yml makes it a draft; a
+# maintainer publishes it): the Homebrew tap (rootcoder007/morie, so
+# `brew install rootcoder007/morie/noqtis`) gets the formula for the
+# release's source tarball, the container image goes to
+# ghcr.io/rootcoder007/noqtis, and the Go module proxy is asked for the
+# Go binding's version, so `go get` finds it at once.
+#
+# The tap is written with the NQ_TAP_TOKEN secret (a fine-grained token
+# with contents: write on rootcoder007/homebrew-morie only); without it
+# the job says so and writes nothing. workflow_dispatch runs everything
+# for a given tag except the writes, as a check.
+name: publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "release tag, e.g. v0.1.1"
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: publish-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  DRY: ${{ github.event_name == 'workflow_dispatch' }}
+
+jobs:
+  brew:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - name: the formula for the release tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=${TAG#v}
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "noqtis-$v.tar.gz" --pattern SHA256SUMS --dir rel
+          (cd rel && grep " noqtis-$v.tar.gz\$" SHA256SUMS | sha256sum -c -)
+          s=$(sha256sum "rel/noqtis-$v.tar.gz" | cut -d' ' -f1)
+          u="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/noqtis-$v.tar.gz"
+          sed -e "s|^  url \".*\"|  url \"$u\"|" \
+              -e "s|^  sha256 \".*\"|  sha256 \"$s\"|" \
+              packaging/brew/noqtis.rb > noqtis.rb
+          grep -q "sha256 \"$s\"" noqtis.rb
+          grep -q "url \"$u\"" noqtis.rb
+          cat noqtis.rb
+      - name: write the tap (secret NQ_TAP_TOKEN)
+        env:
+          TOKEN: ${{ secrets.NQ_TAP_TOKEN }}
+        run: |
+          if [ "$DRY" = true ]; then
+            echo "::notice::dry run: the tap is not written"
+            exit 0
+          fi
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::NQ_TAP_TOKEN is not set: the tap is not updated"
+            exit 0
+          fi
+          git clone -q "https://x-access-token:$TOKEN@github.com/rootcoder007/homebrew-morie" tap
+          unset TOKEN
+          mkdir -p tap/Formula
+          cp noqtis.rb tap/Formula/noqtis.rb
+          cd tap
+          git add Formula/noqtis.rb
+          if git diff --cached --quiet; then
+            echo "the tap already has this formula"
+            exit 0
+          fi
+          git -c user.name=rootcoder007 \
+            -c user.email=278967282+rootcoder007@users.noreply.github.com \
+            commit -q -m "noqtis ${TAG#v}"
+          git push -q origin HEAD
+
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - name: build (the build stage runs every test)
+        run: |
+          docker build -t "ghcr.io/rootcoder007/noqtis:${TAG#v}" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.version=${TAG#v}" .
+          docker run --rm "ghcr.io/rootcoder007/noqtis:${TAG#v}" noqtis version
+      - name: push
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$DRY" = true ]; then
+            echo "::notice::dry run: the image is not pushed"
+            exit 0
+          fi
+          printf '%s\n' "$GH_TOKEN" |
+            docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "ghcr.io/rootcoder007/noqtis:${TAG#v}" ghcr.io/rootcoder007/noqtis:latest
+          docker push "ghcr.io/rootcoder007/noqtis:${TAG#v}"
+          docker push ghcr.io/rootcoder007/noqtis:latest
+
+  go:
+    # the binding's own tag, bindings/go/vX.Y.Z, is pushed with the release
+    # tag; the proxy fetches the module the first time it is asked for it
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions: {}
+    steps:
+      - name: ask the Go module proxy
+        run: |
+          u="https://proxy.golang.org/github.com/rootcoder007/noqtis/bindings/go/@v/$TAG.info"
+          for _ in 1 2 3 4 5 6; do
+            if curl -fsS "$u"; then echo; exit 0; fi
+            sleep 30
+          done
+          echo "::error::the proxy has no $TAG of the Go binding (is bindings/go/$TAG pushed?)"
+          exit 1

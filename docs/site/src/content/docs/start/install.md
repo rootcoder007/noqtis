@@ -77,7 +77,9 @@ push.
 | Docker / OCI | `docker run --rm ghcr.io/rootcoder007/noqtis` | coming with the first release |
 | npm (Node, Deno, Bun, browsers) | `npm install noqtis` | coming with the first release (WebAssembly, nothing to compile) |
 | PyPI | `pip install noqtis` | coming with the first release (wheels for every OS and CPU) |
+| r-universe (R) | `install.packages("noqtis", repos = c("https://rootcoder007.r-universe.dev", "https://cloud.r-project.org"))` | coming with the first release (built from each release, binaries for Windows, macOS and Linux) |
 | CRAN (R) | `install.packages("noqtis")` | after CRAN's review of the first release |
+| Go | `go get github.com/rootcoder007/noqtis/bindings/go@latest` | coming with the first release (cgo; the module proxy has each release) |
 | Scoop, winget, Chocolatey | `scoop install noqtis`, `winget install noqtis` | coming with the first release (winget and Chocolatey after their moderation) |
 | Arch User Repository | `yay -S noqtis` | coming with the first release |
 | Nixpkgs, conda-forge | `nix-env -iA nixpkgs.noqtis`, `conda install -c conda-forge noqtis` | first weeks after the first release (their review) |

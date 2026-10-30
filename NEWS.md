@@ -210,4 +210,9 @@ mistake in the release process; use 0.1.1.)
   (`-DCMAKE_C_STANDARD=23`) on a C library that has it, and the volatile
   stores elsewhere; the default build stays C11. CI builds and tests the
   C23 path (job `c23`).
+- Each release carries a reproducible source tarball, `noqtis-<version>.tar.gz`.
+  Publishing a release (`publish.yml`) updates the Homebrew tap
+  (`brew install rootcoder007/morie/noqtis`), pushes the container image to
+  `ghcr.io/rootcoder007/noqtis`, and checks that the Go module proxy has the
+  Go binding's version; r-universe builds the R package from each release.
 - Not yet audited: do not rely on it for anything that matters.

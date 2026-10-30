@@ -280,9 +280,51 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  source:
+    # the source tarball noqtis-X.Y.Z.tar.gz (what Homebrew and the
+    # distributions build from): git archive of the tagged commit, made
+    # twice and compared, so it is the same bytes every time
+    needs: meta
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tarball, twice
+        env:
+          V: ${{ needs.meta.outputs.version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/src"
+          for i in 1 2; do
+            git archive --format=tar --prefix="noqtis-$V/" HEAD |
+              gzip -n -9 > "$RUNNER_TEMP/src/$i.tar.gz"
+          done
+          cmp "$RUNNER_TEMP/src/1.tar.gz" "$RUNNER_TEMP/src/2.tar.gz"
+          mv "$RUNNER_TEMP/src/1.tar.gz" "$RUNNER_TEMP/src/noqtis-$V.tar.gz"
+          rm "$RUNNER_TEMP/src/2.tar.gz"
+          tar -tzf "$RUNNER_TEMP/src/noqtis-$V.tar.gz" | grep -qx "noqtis-$V/CMakeLists.txt"
+          ls -l "$RUNNER_TEMP/src"
+      - name: it builds and passes its tests
+        env:
+          V: ${{ needs.meta.outputs.version }}
+        run: |
+          tar -xzf "$RUNNER_TEMP/src/noqtis-$V.tar.gz" -C "$RUNNER_TEMP"
+          cmake -S "$RUNNER_TEMP/noqtis-$V" -B "$RUNNER_TEMP/b" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/b" -j4
+          NQSLSUB=8 NQFAST=1 ctest --test-dir "$RUNNER_TEMP/b" -j4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-source
+          path: ${{ runner.temp }}/src/noqtis-${{ needs.meta.outputs.version }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
   sums:
     # SHA256SUMS over every release file, the SBOM, the SSH signature
-    needs: [meta, build, repro, sidech, abi]
+    needs: [meta, build, source, repro, sidech, abi]
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     permissions:
@@ -312,6 +354,7 @@ jobs:
             case $f in *-sidechannel.tar.gz | *-abi.txt) ;; *) n=$((n + 1)) ;; esac
           done
           [ "$n" -eq 8 ] || { echo "::error::expected 8 archives, found $n"; exit 1; }
+          [ -f "dist/noqtis-$V.tar.gz" ] || { echo "::error::no source tarball"; exit 1; }
           cp install.sh install.ps1 dist/
           python3 packaging/sbom.py dist "$V" "$SHA" > "dist/noqtis-$V.spdx.json"
           cd dist

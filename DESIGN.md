@@ -224,6 +224,8 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
   (SPDX) and build provenance (SLSA).
 - Builds are reproducible: the same tag gives byte-identical archives;
   CI rebuilds each release twice and compares.
+- A source tarball, `noqtis-<version>.tar.gz` (`git archive` of the tag,
+  made twice and compared), is what Homebrew and distributions build from.
 - `install.sh` (for `curl -fsSL .../install.sh | sh`) picks the archive for
   the machine, checks its SHA-256 and signature, and installs into
   `~/.local` or a chosen prefix; it never runs anything it has not verified.
@@ -239,7 +241,7 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 | PyPI | `noqtis` | wheels for every OS/CPU above (cibuildwheel), no compiler needed |
 | CRAN (R) | `noqtis` | the C sources vendored in an R package; no network in tests, under 5 MB (test vectors stay in this repo) |
 | crates.io (Rust) | `noqtis-sys`, `noqtis` | raw bindings plus a safe wrapper |
-| Go | `github.com/rootcoder007/noqtis/go` | cgo binding |
+| Go | `github.com/rootcoder007/noqtis/bindings/go` | cgo binding; its own tag `bindings/go/vX.Y.Z` with each release |
 | Java / Kotlin | Maven Central `noqtis` | Panama (JDK 22+) with a JNI fallback; per-platform natives in the jar |
 | .NET | NuGet `Noqtis` | P/Invoke with runtime-specific natives |
 | Swift / iOS / macOS apps | Swift Package | XCFramework |
