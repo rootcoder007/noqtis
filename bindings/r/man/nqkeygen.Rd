@@ -12,15 +12,17 @@ nqkeygen(alg, seed = NULL)
 \item{seed}{\code{NULL} (the default) for fresh randomness from the operating
 system, or a raw vector holding the standard's seed for deterministic
 key generation: xi (32 bytes) for ML-DSA; SK.seed, SK.prf and PK.seed
-(3n bytes) for SLH-DSA; d and z (64 bytes) for ML-KEM; the HQC seed.}
+(3n bytes) for SLH-DSA; the 32-byte private key for Ed25519; xi and
+the Ed25519 key (64 bytes) for a hybrid; d and z (64 bytes) for
+ML-KEM; the HQC seed.}
 }
 \value{
 A list with the raw vectors \code{pk} (public key) and \code{sk} (secret
 key) in the standard's encoding, and \code{alg}, the algorithm name.
 }
 \description{
-Generates a signature key pair (ML-DSA, SLH-DSA) or a key encapsulation
-key pair (ML-KEM, HQC).
+Generates a signature key pair (ML-DSA, SLH-DSA, Ed25519, the hybrids
+ML-DSA-44/65/87+Ed25519) or a key encapsulation key pair (ML-KEM, HQC).
 }
 \examples{
 k <- nqkeygen("ML-DSA-44")

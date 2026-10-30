@@ -5,9 +5,25 @@
 \alias{nqcheck}
 \title{Seal and check a capsule}
 \usage{
-nqseal(dir, sk, pk, alg, meta = NULL)
+nqseal(
+  dir,
+  sk,
+  pk,
+  alg,
+  meta = NULL,
+  format = if (is.null(inputs)) 1L else 2L,
+  inputs = NULL
+)
 
-nqcheck(dir, pk = NULL, anchors = NULL)
+nqcheck(
+  dir,
+  pk = NULL,
+  anchors = NULL,
+  only = NULL,
+  lineage = NULL,
+  keys = NULL,
+  proof = NULL
+)
 }
 \arguments{
 \item{dir}{Path of the folder.}
@@ -25,9 +41,38 @@ made with this key.}
 \item{meta}{\code{NULL}, or one string of JSON text (an object) stored in
 the manifest under \code{"meta"}.}
 
+\item{format}{\code{1} (the default) or \code{2}. Format 2 adds a Merkle tree over
+the files to the manifest and signs its head, so that \code{\link[=nqprove]{nqprove()}} can
+show some files without the others.}
+
+\item{inputs}{\code{NULL}, or the folders of the capsules this one was made
+from (format 2, the default with it). Each is recorded by its id
+(\code{\link[=nqcapid]{nqcapid()}}) under its name: \code{names(inputs)} where given, else the
+folder's last component. Check the inputs first.}
+
 \item{anchors}{\code{NULL}, or a list of up to 32 raw vectors, DER encoded
 certificates of trusted timestamp authorities; the seal must then
 carry an RFC 3161 timestamp token that verifies under one of them.}
+
+\item{only}{\code{NULL}, or the paths (as the manifest lists them, \code{/}
+between folders) of the files to check; the others are not read, and
+\code{partial} rows say so.}
+
+\item{lineage}{\code{NULL}, or capsule folders among which the inputs of a
+format 2 capsule are found by id and checked, with no key pinned, to
+64 levels; one \code{lineage} row per input.}
+
+\item{keys}{\code{NULL}, or key statements from \code{\link[=nqrotate]{nqrotate()}} or
+\code{\link[=nqrevoke]{nqrevoke()}} (a list of raw vectors, or a character vector of
+files), at most 32; they need \code{pk}. The seal may then be by a key
+\code{pk} was rotated to, and must carry a verified timestamp from before
+its key was rotated away or revoked.}
+
+\item{proof}{\code{NULL}, or a proof from \code{\link[=nqprove]{nqprove()}} (a raw vector or the
+path of a file), checked instead of the folder: its seal, its
+signature over the manifest's head and each proven entry. \code{dir} may
+then be \code{NULL}; given, the proven files in it are checked too.
+\code{only}, \code{lineage} and \code{keys} do not apply.}
 }
 \value{
 \code{nqseal()}: the paths of the two files written, invisibly.
@@ -63,5 +108,6 @@ r
 attr(r, "ok")
 writeLines("hellO", file.path(d, "a.txt"))
 attr(nqcheck(d, k$pk), "ok")
+attr(nqcheck(d, k$pk, only = "b.txt"), "ok")
 unlink(d, recursive = TRUE)
 }

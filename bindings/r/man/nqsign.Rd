@@ -29,7 +29,8 @@ per-signature randomness).}
 for HashML-DSA / HashSLH-DSA, which hash \code{msg} with it first.}
 
 \item{rnd}{\code{NULL}, or the standard's per-signature randomness as a raw
-vector (32 bytes for ML-DSA, n bytes for SLH-DSA), for test vectors;
+vector (32 bytes for ML-DSA and the hybrids, n bytes for SLH-DSA,
+none for Ed25519), for test vectors;
 it overrides \code{det}.}
 
 \item{pk}{Public key, a raw vector.}
@@ -42,8 +43,9 @@ when the signature verifies, \code{FALSE} otherwise (including a signature,
 key or context of the wrong length or encoding).
 }
 \description{
-\code{nqsign()} signs a message with ML-DSA (FIPS 204) or SLH-DSA (FIPS 205);
-\code{nqverify()} checks such a signature.
+\code{nqsign()} signs a message with ML-DSA (FIPS 204), SLH-DSA (FIPS 205),
+Ed25519 (RFC 8032) or a hybrid ML-DSA+Ed25519, whose signature verifies
+only when both parts do; \code{nqverify()} checks such a signature.
 }
 \examples{
 k <- nqkeygen("ML-DSA-44")

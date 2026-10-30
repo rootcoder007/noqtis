@@ -362,41 +362,67 @@ static void repfin(SEXP p) {
   }
 }
 
-/* list(rc, check, ok, detail); the report is held by an external pointer
- * with a finalizer while R vectors are allocated, so an allocation error
- * cannot leak it. */
-static SEXP Cchk(SEXP dir, SEXP pk, SEXP anc) {
-  const uint8_t *ap[32];
-  size_t al[32], n, i, na = 0;
-  const char *d, *c, *t;
-  nqrep *r = NULL;
-  int rc, ok;
-  SEXP p, out, ck, okv, dt;
-  chkraw(pk, "pk", 1);
-  if (anc != R_NilValue) {
-    if (TYPEOF(anc) != VECSXP) Rf_error("'anchors' must be a list");
-    na = (size_t)XLENGTH(anc);
-    if (na > 32) Rf_error("at most 32 anchors");
-    for (i = 0; i < na; i++) {
-      SEXP e = VECTOR_ELT(anc, (R_xlen_t)i);
-      chkraw(e, "anchors[[i]]", 0);
-      ap[i] = rp(e);
-      al[i] = rn(e);
-    }
+/* A path in the encoding the library expects, as rpath. */
+static const char *rpathe(SEXP x) {
+#if defined(_WIN32)
+  return Rf_translateCharUTF8(x);
+#else
+  return Rf_translateChar(x);
+#endif
+}
+
+/* A character vector as an array of C strings, R_alloc'd (freed when the
+ * .Call returns, also on error); utf8 for manifest paths, else paths in
+ * the native encoding. NULL for NULL or an empty vector. */
+static const char **strs(SEXP x, const char *what, int utf8, size_t *n) {
+  const char **p;
+  R_xlen_t i, k;
+  *n = 0;
+  if (x == R_NilValue) return NULL;
+  if (TYPEOF(x) != STRSXP) Rf_error("'%s' must be a character vector", what);
+  k = XLENGTH(x);
+  if (k == 0) return NULL;
+  p = (const char **)R_alloc((size_t)k, sizeof *p);
+  for (i = 0; i < k; i++) {
+    SEXP e = STRING_ELT(x, i);
+    if (e == NA_STRING) Rf_error("'%s' must not hold NA", what);
+    p[i] = utf8 ? Rf_translateCharUTF8(e) : rpathe(e);
   }
-  d = rpath(dir);
-  p = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
-  R_RegisterCFinalizerEx(p, repfin, TRUE);
-  if (na > 0) {
-    rc = nqchkt(d, rp(pk), rn(pk), ap, al, na, &r);
-  } else {
-    rc = nqchk(d, rp(pk), rn(pk), &r);
+  *n = (size_t)k;
+  return p;
+}
+
+/* A list of raw vectors as pointer and length arrays, R_alloc'd. */
+static size_t raws(SEXP x, const char *what, size_t max,
+                   const uint8_t ***p, size_t **l) {
+  size_t i, k;
+  *p = NULL;
+  *l = NULL;
+  if (x == R_NilValue) return 0;
+  if (TYPEOF(x) != VECSXP) Rf_error("'%s' must be a list", what);
+  k = (size_t)XLENGTH(x);
+  if (k > max) Rf_error("at most %d %s", (int)max, what);
+  if (k == 0) return 0;
+  *p = (const uint8_t **)R_alloc(k, sizeof **p);
+  *l = (size_t *)R_alloc(k, sizeof **l);
+  for (i = 0; i < k; i++) {
+    SEXP e = VECTOR_ELT(x, (R_xlen_t)i);
+    chkraw(e, what, 0);
+    (*p)[i] = rp(e);
+    (*l)[i] = rn(e);
   }
-  R_SetExternalPtrAddr(p, r);
-  if (r == NULL) {
-    UNPROTECT(1);
-    fail(rc == NQOK ? NQEMEM : rc, "nqchk");
-  }
+  return k;
+}
+
+/* list(rc, check, ok, detail) from a report that p (an external pointer
+ * with a finalizer, protected by the caller) holds, so an allocation
+ * error cannot leak it; frees it. */
+static SEXP repout(int rc, nqrep *r, SEXP p, const char *what) {
+  size_t n, i;
+  const char *c, *t;
+  int ok;
+  SEXP out, ck, okv, dt;
+  if (r == NULL) fail(rc == NQOK ? NQEMEM : rc, what);
   n = nqrepn(r);
   out = PROTECT(Rf_allocVector(VECSXP, 4));
   SET_VECTOR_ELT(out, 0, Rf_ScalarInteger(rc));
@@ -416,7 +442,245 @@ static SEXP Cchk(SEXP dir, SEXP pk, SEXP anc) {
     SET_STRING_ELT(dt, (R_xlen_t)i, Rf_mkCharCE(t ? t : "", CE_UTF8));
   }
   repfin(p);
-  UNPROTECT(2);
+  UNPROTECT(1);
+  return out;
+}
+
+/* nqchkx, or nqchkp with a proof (dir then NULL or the folder of the
+ * proven files): list(rc, check, ok, detail) */
+static SEXP Cchk(SEXP dir, SEXP pk, SEXP anc, SEXP only, SEXP lin,
+                 SEXP stmt, SEXP proof) {
+  nqcopt o;
+  const uint8_t **ap, **sp;
+  const char *d = NULL;
+  size_t *al, *sl;
+  nqrep *r = NULL;
+  int rc;
+  SEXP p, out;
+  memset(&o, 0, sizeof o);
+  chkraw(pk, "pk", 1);
+  chkraw(proof, "proof", 1);
+  o.trust = rp(pk);
+  o.trustlen = rn(pk);
+  o.nanc = raws(anc, "anchors", 32, &ap, &al);
+  o.anc = ap;
+  o.anclen = al;
+  o.only = strs(only, "only", 1, &o.nonly);
+  o.lin = strs(lin, "lineage", 0, &o.nlin);
+  o.nstmt = raws(stmt, "keys", 32, &sp, &sl);
+  o.stmt = (const char *const *)sp;
+  o.stmtlen = sl;
+  if (dir != R_NilValue) d = rpath(dir);
+  p = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(p, repfin, TRUE);
+  if (proof != R_NilValue) {
+    rc = nqchkp((const char *)rp(proof), rn(proof), &o, d, &r);
+  } else {
+    rc = nqchkx(d, &o, &r);
+  }
+  R_SetExternalPtrAddr(p, r);
+  out = repout(rc, r, p, "nqchk");
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Cfiles(SEXP dir) {
+  nqrep *r = NULL;
+  int rc;
+  const char *d = rpath(dir);
+  SEXP p, out;
+  p = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(p, repfin, TRUE);
+  rc = nqfiles(d, &r);
+  R_SetExternalPtrAddr(p, r);
+  out = repout(rc, r, p, "nqfiles");
+  UNPROTECT(1);
+  return out;
+}
+
+/* ids: a list of 32-byte raw vectors; names: their names */
+static SEXP Cseal2(SEXP dir, SEXP alg, SEXP sk, SEXP pk, SEXP meta,
+                   SEXP ids, SEXP names) {
+  int a = ival(alg, "alg"), rc;
+  const char *m = NULL, *d;
+  const char **nm;
+  size_t n, i, k;
+  nqcin *in = NULL;
+  chkraw(sk, "sk", 0);
+  chkraw(pk, "pk", 0);
+  if (meta != R_NilValue) {
+    if (TYPEOF(meta) != STRSXP || XLENGTH(meta) != 1 ||
+        STRING_ELT(meta, 0) == NA_STRING)
+      Rf_error("'meta' must be one string of JSON text");
+    m = Rf_translateCharUTF8(STRING_ELT(meta, 0));
+  }
+  nm = strs(names, "names", 1, &n);
+  if (TYPEOF(ids) != VECSXP || (size_t)XLENGTH(ids) != n)
+    Rf_error("'inputs': one id per name");
+  if (n > 1024) Rf_error("at most 1024 inputs");
+  if (n > 0) in = (nqcin *)R_alloc(n, sizeof *in);
+  for (i = 0; i < n; i++) {
+    SEXP e = VECTOR_ELT(ids, (R_xlen_t)i);
+    chkraw(e, "inputs", 0);
+    if (XLENGTH(e) != 32) Rf_error("an input id is 32 bytes");
+    for (k = 0; k < 32; k++) in[i].id[k] = RAW(e)[k];
+    in[i].name = nm[i];
+  }
+  d = rpath(dir);
+  rc = nqseal2(d, (nqsalg)a, rp(sk), rn(sk), rp(pk), rn(pk), m, in, n);
+  if (rc != NQOK) fail(rc, "nqseal2");
+  return Rf_ScalarInteger(rc);
+}
+
+static SEXP Ccapid(SEXP dir) {
+  int rc;
+  SEXP out = PROTECT(rawn(32));
+  rc = nqcapid(rpath(dir), RAW(out));
+  if (rc != NQOK) fail(rc, "nqcapid");
+  UNPROTECT(1);
+  return out;
+}
+
+/* The bytes a call writes that sets *outlen also with NQEBUF: tried with
+ * cap bytes, then once more with the size it asked for. */
+typedef int (*outfn)(void *a, char *out, size_t cap, size_t *outlen);
+
+static SEXP grow(outfn f, void *a, size_t cap, const char *what) {
+  size_t on = 0;
+  int rc = NQEBUF, k;
+  char *b = NULL;
+  SEXP out;
+  for (k = 0; k < 2; k++) {
+    b = R_alloc(cap > 0 ? cap : 1, 1);
+    rc = f(a, b, cap, &on);
+    if (rc == NQEBUF && on > cap && k == 0) {
+      cap = on;
+      continue;
+    }
+    break;
+  }
+  if (rc != NQOK) fail(rc, what);
+  out = rawn(on);
+  if (on > 0) memcpy(RAW(out), b, on);
+  return out;
+}
+
+typedef struct {
+  const char *dir;
+  const char **p;
+  size_t n;
+} prvarg;
+
+static int prvcall(void *v, char *out, size_t cap, size_t *outlen) {
+  prvarg *a = (prvarg *)v;
+  return nqprove(a->dir, a->p, a->n, out, cap, outlen);
+}
+
+static SEXP Cprove(SEXP dir, SEXP paths) {
+  prvarg a;
+  a.p = strs(paths, "paths", 1, &a.n);
+  if (a.n == 0) Rf_error("'paths' must name at least one file");
+  a.dir = rpath(dir);
+  return grow(prvcall, &a, 65536, "nqprove");
+}
+
+typedef struct {
+  int alg, nalg;
+  SEXP sk, pk, nsk, npk;
+  const char *why;
+  int64_t at;
+} ksarg;
+
+static int kscall(void *v, char *out, size_t cap, size_t *outlen) {
+  ksarg *a = (ksarg *)v;
+  return nqkstmt((nqsalg)a->alg, rp(a->sk), rn(a->sk), rp(a->pk),
+                 rn(a->pk), (nqsalg)a->nalg, rp(a->nsk), rn(a->nsk),
+                 rp(a->npk), rn(a->npk), a->at, a->why, out, cap, outlen);
+}
+
+/* nsk and npk NULL for a revocation; at in seconds since 1970 */
+static SEXP Ckstmt(SEXP alg, SEXP sk, SEXP pk, SEXP nalg, SEXP nsk, SEXP npk,
+                   SEXP at, SEXP reason) {
+  ksarg a;
+  double t;
+  a.alg = ival(alg, "alg");
+  a.nalg = ival(nalg, "nalg");
+  chkraw(sk, "sk", 0);
+  chkraw(pk, "pk", 0);
+  chkraw(nsk, "nsk", 1);
+  chkraw(npk, "npk", 1);
+  a.sk = sk;
+  a.pk = pk;
+  a.nsk = nsk;
+  a.npk = npk;
+  if (TYPEOF(at) != REALSXP || XLENGTH(at) != 1 || !R_FINITE(REAL(at)[0]))
+    Rf_error("'at' must be one time");
+  t = REAL(at)[0];
+  if (t < 0 || t > 253402300799.0) Rf_error("'at' must be 1970 to 9999");
+  a.at = (int64_t)t;
+  a.why = NULL;
+  if (reason != R_NilValue) {
+    if (TYPEOF(reason) != STRSXP || XLENGTH(reason) != 1 ||
+        STRING_ELT(reason, 0) == NA_STRING)
+      Rf_error("'reason' must be NULL or one string");
+    a.why = Rf_translateCharUTF8(STRING_ELT(reason, 0));
+  }
+  return grow(kscall, &a, 4 * (rn(pk) + rn(npk)) + 16384, "nqkstmt");
+}
+
+typedef struct {
+  int alg;
+  SEXP sk, pk, pl;
+  const char *type;
+} dsarg;
+
+static int dscall(void *v, char *out, size_t cap, size_t *outlen) {
+  dsarg *a = (dsarg *)v;
+  return nqdsse((nqsalg)a->alg, rp(a->sk), rn(a->sk), rp(a->pk), rn(a->pk),
+                a->type, rp(a->pl), rn(a->pl), out, cap, outlen);
+}
+
+static SEXP Cdsse(SEXP alg, SEXP sk, SEXP pk, SEXP type, SEXP pl) {
+  dsarg a;
+  a.alg = ival(alg, "alg");
+  chkraw(sk, "sk", 0);
+  chkraw(pk, "pk", 0);
+  chkraw(pl, "payload", 0);
+  if (TYPEOF(type) != STRSXP || XLENGTH(type) != 1 ||
+      STRING_ELT(type, 0) == NA_STRING)
+    Rf_error("'type' must be one string");
+  a.sk = sk;
+  a.pk = pk;
+  a.pl = pl;
+  a.type = Rf_translateCharUTF8(STRING_ELT(type, 0));
+  return grow(dscall, &a, 2 * rn(pl) + 65536, "nqdsse");
+}
+
+/* list(rc, type, payload): NQOK, NQEVRFY or NQEDEC (type and payload
+ * NULL then); any other code is an error */
+static SEXP Cdssevrfy(SEXP alg, SEXP pk, SEXP env) {
+  int a = ival(alg, "alg"), rc;
+  size_t on = 0, n;
+  char type[256];
+  uint8_t *b;
+  SEXP out, pl;
+  chkraw(pk, "pk", 0);
+  chkraw(env, "env", 0);
+  n = rn(env);
+  /* the payload is the decoding of base64 inside env: shorter than it */
+  b = (uint8_t *)R_alloc(n > 0 ? n : 1, 1);
+  rc = nqdssevrfy((nqsalg)a, rp(pk), rn(pk), (const char *)rp(env), n, b,
+                  n, &on, type);
+  if (rc != NQOK && rc != NQEVRFY && rc != NQEDEC) fail(rc, "nqdssevrfy");
+  out = PROTECT(Rf_allocVector(VECSXP, 3));
+  SET_VECTOR_ELT(out, 0, Rf_ScalarInteger(rc));
+  if (rc == NQOK) {
+    SET_VECTOR_ELT(out, 1, Rf_mkString(type));
+    pl = rawn(on);
+    SET_VECTOR_ELT(out, 2, pl);
+    if (on > 0) memcpy(RAW(pl), b, on);
+  }
+  UNPROTECT(1);
   return out;
 }
 
@@ -434,7 +698,9 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cver, 0),  CDEF(Calgs, 0), CDEF(Crand, 1), CDEF(Chash, 3),
   CDEF(Chini, 1), CDEF(Chupd, 2), CDEF(Chfin, 2), CDEF(Chmac, 3),
   CDEF(Ckg, 3),   CDEF(Csign, 6), CDEF(Cvrfy, 6), CDEF(Cenc, 3),
-  CDEF(Cdec, 3),  CDEF(Cseal, 5), CDEF(Cchk, 3),  CDEF(Cerr, 1),
+  CDEF(Cdec, 3),  CDEF(Cseal, 5), CDEF(Cchk, 7),  CDEF(Cerr, 1),
+  CDEF(Cseal2, 7), CDEF(Ccapid, 1), CDEF(Cprove, 2), CDEF(Cfiles, 1),
+  CDEF(Ckstmt, 8), CDEF(Cdsse, 5), CDEF(Cdssevrfy, 3),
   {NULL, NULL, 0}
 };
 

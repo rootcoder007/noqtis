@@ -16,4 +16,14 @@
   `force = TRUE`.
 * Capsules: `nqseal()` and `nqcheck()`, compatible with the `noqtis`
   command-line tool.
+* Capsule format 2: `nqseal(format = 2)` adds a Merkle tree over the
+  files, and `inputs` records the capsules one was made from, by
+  `nqcapid()`. `nqprove()` writes a proof that some files are in such a
+  capsule, and `nqcheck(proof = )` checks it. `nqcheck()` also takes
+  `only` (a partial check), `lineage` (capsule folders the inputs are
+  found in) and `keys` (key statements). `nqfiles()` lists a manifest.
+* Key statements: `nqrotate()` and `nqrevoke()`.
+* DSSE envelopes: `nqdsse()` and `nqdsseverify()`.
+* Ed25519 and the hybrids ML-DSA-44/65/87+Ed25519 in `nqkeygen()`,
+  `nqsign()` and `nqverify()`; a hybrid key can seal a capsule.
 * `nqalgs()`, `nqrand()` and `nqver()`.

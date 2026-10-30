@@ -81,6 +81,24 @@ g <- system.file("extdata", "capsule", package = "noqtis")
 attr(nqcheck(g), "ok")
 ```
 
+A format 2 capsule can also prove single files to a reader who should not
+see the others, and records the capsules it was made from:
+
+```{r}
+d2 <- file.path(tempdir(), "model")
+dir.create(d2)
+writeLines("coef,0.4", file.path(d2, "fit.csv"))
+writeLines("private", file.path(d2, "notes.txt"))
+nqseal(d2, k$sk, k$pk, "ML-DSA-44", inputs = c(raw = g))
+p <- nqprove(d2, "fit.csv")
+attr(nqcheck(NULL, k$pk, proof = p), "ok")
+attr(nqcheck(d2, k$pk, lineage = g), "ok")
+```
+
+`nqrotate()` and `nqrevoke()` write key statements that `nqcheck(keys = )`
+follows, and `nqdsse()` signs a DSSE envelope, the wrapper in-toto and
+SLSA use.
+
 ## Randomness
 
 Key generation, signing and encapsulation take their randomness from the

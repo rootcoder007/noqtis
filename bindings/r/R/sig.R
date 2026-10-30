@@ -16,14 +16,16 @@ nqalgs <- function() .tab()
 
 #' Generate a key pair
 #'
-#' Generates a signature key pair (ML-DSA, SLH-DSA) or a key encapsulation
-#' key pair (ML-KEM, HQC).
+#' Generates a signature key pair (ML-DSA, SLH-DSA, Ed25519, the hybrids
+#' ML-DSA-44/65/87+Ed25519) or a key encapsulation key pair (ML-KEM, HQC).
 #'
 #' @param alg Algorithm name, one of `nqalgs()$name` (case is ignored).
 #' @param seed `NULL` (the default) for fresh randomness from the operating
 #'   system, or a raw vector holding the standard's seed for deterministic
 #'   key generation: xi (32 bytes) for ML-DSA; SK.seed, SK.prf and PK.seed
-#'   (3n bytes) for SLH-DSA; d and z (64 bytes) for ML-KEM; the HQC seed.
+#'   (3n bytes) for SLH-DSA; the 32-byte private key for Ed25519; xi and
+#'   the Ed25519 key (64 bytes) for a hybrid; d and z (64 bytes) for
+#'   ML-KEM; the HQC seed.
 #'
 #' @return A list with the raw vectors `pk` (public key) and `sk` (secret
 #'   key) in the standard's encoding, and `alg`, the algorithm name.
@@ -45,8 +47,9 @@ nqkeygen <- function(alg, seed = NULL) {
 
 #' Sign and verify
 #'
-#' `nqsign()` signs a message with ML-DSA (FIPS 204) or SLH-DSA (FIPS 205);
-#' `nqverify()` checks such a signature.
+#' `nqsign()` signs a message with ML-DSA (FIPS 204), SLH-DSA (FIPS 205),
+#' Ed25519 (RFC 8032) or a hybrid ML-DSA+Ed25519, whose signature verifies
+#' only when both parts do; `nqverify()` checks such a signature.
 #'
 #' @param sk Secret key, a raw vector (as from [nqkeygen()]).
 #' @param msg The message: a raw vector, or one string, which is signed as
@@ -61,7 +64,8 @@ nqkeygen <- function(alg, seed = NULL) {
 #' @param ph `NULL` for the pure algorithm, or a hash name (see [nqhash()])
 #'   for HashML-DSA / HashSLH-DSA, which hash `msg` with it first.
 #' @param rnd `NULL`, or the standard's per-signature randomness as a raw
-#'   vector (32 bytes for ML-DSA, n bytes for SLH-DSA), for test vectors;
+#'   vector (32 bytes for ML-DSA and the hybrids, n bytes for SLH-DSA,
+#'   none for Ed25519), for test vectors;
 #'   it overrides `det`.
 #'
 #' @return `nqsign()`: the signature, a raw vector. `nqverify()`: `TRUE`
