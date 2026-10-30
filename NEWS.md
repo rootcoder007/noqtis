@@ -195,4 +195,8 @@ mistake in the release process; use 0.1.1.)
 - The OSS-Fuzz integration is checked with OSS-Fuzz's own tools every week
   (`ossfuzz.yml`), and ClusterFuzzLite fuzzes the code a pull request
   changes and, weekly, every target for an hour (`cflite.yml`).
+- Bounded CBMC proofs of the parsers of untrusted bytes (`proofs/cbmc/`,
+  workflow `cbmc.yml`): the DER reader, the base64 decoder and the JSON
+  reader have no access out of bounds, overflow or undefined shift for
+  every input up to the sizes `proofs/cbmc/README.md` gives.
 - Not yet audited: do not rely on it for anything that matters.

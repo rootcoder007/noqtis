@@ -327,6 +327,13 @@ writes responses in the format a CAVP lab accepts.
   X.509, OCSP, timestamp tokens, JSON, capsules, key files, base64) and
   for the command line's arguments, 90 seconds each on every push and an
   hour weekly (`fuzz/`); OSS-Fuzz application filed.
+- Bounded proofs with CBMC (`proofs/cbmc/`, on every push): for every
+  input up to a size, no access out of bounds, no arithmetic overflow and
+  no undefined shift in the DER reader (one header of any length, whole
+  trees up to 6 bytes), the base64 decoder (up to 32 characters) and the
+  JSON reader (its lexers up to 4 bytes, the whole parser on 1 byte). A
+  bounded proof says nothing about longer inputs; those are left to the
+  fuzzers and the tests.
 - OpenSSL 3.5 or later: `tests/ossl/xossl.c` checks that ML-DSA, all
   twelve SLH-DSA sets and ML-KEM give the same keys, signatures,
   ciphertexts and secrets as OpenSSL from the same seeds, that the

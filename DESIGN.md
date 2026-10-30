@@ -348,6 +348,11 @@ below is done. Each item says how it is checked.
       window (a reply within 7 days, a fix within 90).
 - [x] Fuzzing (libFuzzer on every parser) runs on each push for minutes and
       weekly for hours; OSS-Fuzz application filed (google/oss-fuzz#16392).
+- [x] Bounded CBMC proofs of the parsers of untrusted bytes: no access out
+      of bounds, overflow or undefined shift in the DER reader (headers of
+      any length, trees to 6 bytes), the base64 decoder (to 32 characters)
+      and the JSON reader (lexers to 4 bytes, the parser to 1), on every
+      push (`proofs/cbmc/`, `cbmc.yml`).
 - [ ] dudect and simulated TVLA results for every secret operation are
       published with the release, with what they do and do not show.
 - [x] OpenSSF Best Practices (passing) badge in the README; Scorecard runs

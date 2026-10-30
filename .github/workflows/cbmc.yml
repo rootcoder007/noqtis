@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The CBMC proofs of the parsers of untrusted bytes (proofs/cbmc): the
+# DER reader, the base64 decoder and the JSON reader, each a bounded
+# proof (see proofs/cbmc/README.md). CBMC comes from Fedora 43's
+# packages, in an image pinned by digest.
+name: cbmc
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "53 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cbmc-${{ github.ref }}-${{ github.event_name }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  cbmc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    # fedora:43
+    container: fedora@sha256:a651ddf48ea28a06ed4e1e6519f51c9f47e7a5a138722ade87369b8fbb7e5b42
+    steps:
+      - run: dnf -y -q install cbmc gcc
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: prove
+        run: timeout 1500 sh proofs/cbmc/run.sh
