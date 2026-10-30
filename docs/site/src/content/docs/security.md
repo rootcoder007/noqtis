@@ -83,7 +83,11 @@ shifts) depends on a secret key, seed, signing randomness or shared
 secret, except the values the standards themselves make public (for
 example ML-DSA's rejection decisions and hint, SLH-DSA's published tree
 roots). ML-DSA signing and ML-KEM decapsulation are also first-order
-masked: secrets are split into two random shares (for ML-KEM drawn fresh
+masked. The evidence for the masking is a simulated TVLA over the values
+the code computes, not power or EM traces from real hardware: it shows
+the shares are used as intended, not that a given chip leaks nothing,
+and compilers and processors can recombine shares in ways a simulation
+does not see. Masked: secrets are split into two random shares (for ML-KEM drawn fresh
 from the random source on every call), first order in the value model,
 from the point the stored key is split (see the TVLA results below). The base64 coder that reads key files is constant
 time too.

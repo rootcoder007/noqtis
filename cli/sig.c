@@ -164,6 +164,47 @@ static int ctxopt(const char *cmd, const char *c, size_t *n) {
   return NCOK;
 }
 
+/* checks sig with the public key file beside the secret key kp, if any */
+static int vas(const char *kp, const nckey *k, const uint8_t *msg,
+               size_t mn, const char *ctx, size_t cn, int phv,
+               const uint8_t *sig, size_t sl) {
+  nckey p = {{0, 0, NULL}, 0, NULL, 0};
+  size_t l = strlen(kp);
+  char *pp = (char *)malloc(l + 5);
+  int ret = NCUSE, rc;
+  if (pp == NULL) {
+    nclib("sign", "memory", NQEMEM);
+    return NCUSE;
+  }
+  memcpy(pp, kp, l);
+  memcpy(pp + l, ".pub", 5);
+  if (!ncexist(pp)) {
+    free(pp);
+    return NCOK; /* nothing to check against */
+  }
+  if (nckrd("sign", pp, 0, &p) != NCOK)
+    goto done;
+  if (p.a.kem || p.a.alg != k->a.alg) {
+    ncmsg("sign", "%s (%s) is not the public key of %s (%s): nothing was "
+          "written", pp, p.a.name, kp, k->a.name);
+    goto done;
+  }
+  rc = nqvrfy((nqsalg)k->a.alg, p.b, p.n, msg, mn, (const uint8_t *)ctx,
+              cn, phv, sig, sl);
+  if (rc != NQOK) {
+    ncmsg("sign", "the new signature does not verify with %s, so it was "
+          "not written: %s and %s are not one key pair, or signing went "
+          "wrong (a hardware fault); sign again, and check the key files",
+          pp, kp, pp);
+    goto done;
+  }
+  ret = NCOK;
+done:
+  nckfree(&p);
+  free(pp);
+  return ret;
+}
+
 int ncsign(int argc, char **argv) {
   const char *kp = NULL, *out = NULL, *ctx = NULL, *ph = NULL;
   int det = 0, force = 0, help = 0, np, rc, phv, ret = NCUSE;
@@ -259,6 +300,11 @@ int ncsign(int argc, char **argv) {
     nclib("sign", "signing", rc);
     goto done;
   }
+  /* verify before writing, with <key>.pub when it is there: a signature
+   * that does not verify (a wrong pair, or a fault while signing) is never
+   * written */
+  if (vas(kp, &k, msg, mn, ctx, cn, phv, sig, sl) != NCOK)
+    goto done;
   rc = ncwr(out, sig, sl, force, 0);
   if (rc != NQOK) {
     ncwfail("sign", out, force);

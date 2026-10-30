@@ -13,7 +13,7 @@ A sealed folder (a capsule) carries a manifest of every file and a
 signature over it, so a check finds any file that changed, was added or
 removed, and shows which key sealed it. NOQTIS is one C11 library with no
 dependencies and a command-line tool, implementing ML-DSA (FIPS 204), SLH-DSA (FIPS 205),
-ML-KEM (FIPS 203), HQC, SHA-2 and SHA-3, byte-identical to the NIST test
+ML-KEM (FIPS 203), HQC (experimental), SHA-2 and SHA-3, byte-identical to the NIST test
 vectors, with bindings for Python, JavaScript and R.
 
 > **Status: unaudited, before its first release.** The code has not had an

@@ -35,6 +35,15 @@ is required.
 .Pp
 Signing is hedged by default: fresh randomness from the operating system
 is mixed into each signature, so two signatures of one file differ.
+.Pp
+When the public key file
+.Ar key Ns .pub
+is beside the secret key, the new signature is checked with it before
+anything is written: a signature that does not verify (a public key that
+is not the pair of
+.Ar key ,
+or a fault while signing) is not written and the exit status is 2.
+Without that file the signature is written unchecked.
 .Bl -tag -width Ds
 .It Fl k Ar key , Fl -key Ns = Ns Ar key
 A secret signature key file

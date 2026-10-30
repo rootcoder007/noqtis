@@ -67,7 +67,10 @@
 <p class="Pp">A key encapsulation mechanism lets anyone with a public key make a
     ciphertext and a 32-byte shared secret, which only the holder of the secret
     key can recover from the ciphertext. noqtis provides ML-KEM (FIPS 203) and
-    HQC (version 5.0.0 of 2025-08-22).</p>
+    HQC (version 5.0.0 of 2025-08-22). HQC is experimental: NIST selected it in
+    March 2025 but its standard is not final, and the final one may differ in
+    its encoding; keys, ciphertexts and secrets made now may then not
+    interoperate. Use ML-KEM for anything that must last.</p>
 <p class="Pp"><var class="Vt">nqkalg</var> names the parameter set:</p>
 <table class="Bl-column Bd-indent">
   <tr id="constant">

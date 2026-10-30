@@ -35,7 +35,7 @@ noqtis check -p me.pub results/           # exit 1: report.txt: size differs
     Checking finds any changed, missing or added file.
   </Card>
   <Card title="Post-quantum, standard" icon="approve-check">
-    ML-DSA (FIPS 204), SLH-DSA (FIPS 205), ML-KEM (FIPS 203) and HQC,
+    ML-DSA (FIPS 204), SLH-DSA (FIPS 205), ML-KEM (FIPS 203) and HQC (experimental),
     byte-identical to the NIST ACVP test vectors and Wycheproof.
   </Card>
   <Card title="Fail closed" icon="warning">
@@ -44,6 +44,6 @@ noqtis check -p me.pub results/           # exit 1: report.txt: size differs
   </Card>
   <Card title="Constant time" icon="setting">
     No branch or memory index depends on a secret, checked with valgrind
-    (ctgrind); ML-DSA signing and ML-KEM decapsulation are also masked.
+    (ctgrind); ML-DSA signing and ML-KEM decapsulation are also masked (checked by a simulated power model, not yet measured on hardware).
   </Card>
 </CardGrid>

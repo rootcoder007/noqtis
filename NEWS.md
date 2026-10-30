@@ -72,6 +72,13 @@ mistake in the release process; use 0.1.1.)
 - The constant-time check (ctgrind: secrets marked undefined to valgrind)
   now runs in CI on every push, on gcc and clang Release builds; before,
   CI ran the same tests only as ordinary tests.
+- `noqtis sign` checks each new signature with `<key>.pub` when that
+  file is there, and writes nothing if it does not verify (a wrong pair,
+  or a fault while signing).
+- HQC is marked experimental: it follows the HQC specification of
+  2025-08-22, which NIST selected in March 2025 but has not yet published
+  as a final standard, so its encoding may still change. ML-KEM is the
+  KEM to use for anything that must last.
 - Shell completions for bash, zsh and fish (`cli/completions/`, installed
   with the tool; a test checks they offer every command and option the
   manual pages list).

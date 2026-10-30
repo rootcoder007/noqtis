@@ -392,6 +392,16 @@ static void tsig(const char *alg, int full) {
   sn(a, sizeof a, "keygen -a %s -o q.k2", alg);
   want(0, a, NULL);
   want(1, "verify -p q.k2.pub -s q.m.sig q.m", NULL);
+  /* a signature is checked with <key>.pub before it is written */
+  remove("q.sig3");
+  cp("q.k", "q.k3");
+  cp("q.k2.pub", "q.k3.pub");
+  want(2, "sign -k q.k3 -o q.sig3 q.m", NULL);
+  ok(has("q.err", "does not verify with q.k3.pub") && !exists("q.sig3"),
+     "sign: a signature that does not verify is not written");
+  remove("q.k3.pub");
+  want(0, "sign -k q.k3 -o q.sig3 q.m", NULL);
+  want(0, "verify -p q.k.pub -s q.sig3 q.m", NULL);
   /* stdin */
   want(0, "sign -k q.k -o q.sig --force -", "q.m");
   want(0, "verify -p q.k.pub -s q.sig q.m", NULL);

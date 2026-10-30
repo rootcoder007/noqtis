@@ -31,6 +31,12 @@
 <p class="Pp">Signing is hedged by default: fresh randomness from the operating
     system is mixed into each signature, so two signatures of one file
   differ.</p>
+<p class="Pp">When the public key file <var class="Ar">key</var>.pub is beside
+    the secret key, the new signature is checked with it before anything is
+    written: a signature that does not verify (a public key that is not the pair
+    of <var class="Ar">key</var>, or a fault while signing) is not written and
+    the exit status is 2. Without that file the signature is written
+  unchecked.</p>
 <dl class="Bl-tag">
   <dt id="k"><a class="permalink" href="#k"><code class="Fl">-k</code></a>
     <var class="Ar">key</var>,

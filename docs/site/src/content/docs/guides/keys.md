@@ -30,7 +30,8 @@ SLH-DSA-SHA2-128s      sig       32      64    7856    -
 - **Ed25519** alone is classical (RFC 8032), for interoperating with tools
   that expect it; `noqtis seal` refuses it, since quantum computers will
   break it.
-- **ML-KEM** (FIPS 203) and **HQC** are key encapsulation mechanisms, for
+- **ML-KEM** (FIPS 203) and **HQC** (experimental: its NIST standard is
+  not final, and the final encoding may differ) are key encapsulation mechanisms, for
   [enc](/noqtis/reference/man/noqtis-enc-1/) and
   [dec](/noqtis/reference/man/noqtis-dec-1/); they cannot sign or seal.
 
