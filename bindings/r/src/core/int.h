@@ -12,9 +12,19 @@ void nqfree(void *ptr, size_t size);
 
 /* ---- constant-time selection on secret values ---- */
 
+/* A value barrier. A compiler that can prove a mask is 0 or all ones may
+ * turn a masked select into a branch on it (clang did: the final
+ * subtraction of nqcmm became `if (mask) copy`). Passing the mask through
+ * a volatile read it cannot see through hides that, in plain C11. The
+ * read costs one load per mask, not per word. */
+static volatile uint32_t nqctz = 0;
+static inline uint32_t nqctbar(uint32_t x) {
+  return x ^ nqctz;
+}
+
 /* All ones when x != 0, all zeros otherwise. */
 static inline uint32_t nqctmask(uint32_t x) {
-  return (uint32_t)0 - ((x | ((uint32_t)0 - x)) >> 31);
+  return nqctbar((uint32_t)0 - ((x | ((uint32_t)0 - x)) >> 31));
 }
 
 /* a when mask is all ones, b when it is all zeros. */
@@ -25,7 +35,7 @@ static inline uint32_t nqctsel(uint32_t mask, uint32_t a, uint32_t b) {
 /* Copies src over dst when cond is 1, leaves dst when 0; cond is 0 or 1. */
 static inline void nqcmov(uint8_t *dst, const uint8_t *src, size_t len,
                           uint8_t cond) {
-  uint8_t m = (uint8_t)(0u - (unsigned int)cond);
+  uint8_t m = (uint8_t)nqctbar((uint32_t)(0u - (unsigned int)cond));
   size_t i;
   for (i = 0; i < len; i++) {
     dst[i] = (uint8_t)(dst[i] ^ (m & (dst[i] ^ src[i])));
