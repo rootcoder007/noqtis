@@ -122,6 +122,7 @@ int nqxspki(const nqdtlv *t, nqxkey *k);
 #define NQXHASEKU 0x04u
 #define NQXHASSKI 0x08u
 #define NQXHASAKI 0x10u
+#define NQXHASSAN 0x20u
 
 #define NQXMAXEXT 32 /* extensions in one certificate */
 
@@ -147,6 +148,7 @@ typedef struct {
   unsigned ekun;   /* key purposes listed */
   nqspan ski;      /* subjectKeyIdentifier */
   nqspan aki;      /* authorityKeyIdentifier keyIdentifier (may be empty) */
+  nqspan san;      /* subjectAltName: the GeneralNames contents */
   int bad;         /* an unrecognised critical extension: unusable */
 } nqcert;
 

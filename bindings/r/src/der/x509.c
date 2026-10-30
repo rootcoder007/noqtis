@@ -48,6 +48,7 @@ OID(oku, 0x55, 0x1d, 0x0f);
 OID(oeku, 0x55, 0x1d, 0x25);
 OID(oski, 0x55, 0x1d, 0x0e);
 OID(oaki, 0x55, 0x1d, 0x23);
+OID(osan, 0x55, 0x1d, 0x11);
 OID(oanyeku, 0x55, 0x1d, 0x25, 0x00);
 
 /* 2.16.840.1.101.3.4.3.17 .. 31: ML-DSA-44/65/87, then SLH-DSA in the
@@ -718,6 +719,21 @@ static int extaki(nqspan v, nqcert *c) {
   return nqddone(&e);
 }
 
+/* subjectAltName: GeneralNames, SIZE (1..MAX); kept for the TLS client
+ * to match a host name (src/tls/crt.c), whatever its criticality */
+static int extsan(nqspan v, nqcert *c) {
+  nqdtlv t;
+  int r = nqdone(v.p, v.n, &t);
+  if (r != NQOK) {
+    return r;
+  }
+  if (t.cls != NQDUNI || t.tag != NQDSEQ || t.v.n == 0) {
+    return NQEDEC;
+  }
+  c->san = t.v;
+  return NQOK;
+}
+
 static int exts(const nqdtlv *t, nqcert *c) {
   nqspan seen[NQXMAXEXT];
   size_t ns = 0, i;
@@ -777,6 +793,9 @@ static int exts(const nqdtlv *t, nqcert *c) {
       if (crit) {
         return NQEDEC; /* MUST be non-critical */
       }
+    } else if (nqxoideq(&oid, &osan)) {
+      bit = NQXHASSAN;
+      r = extsan(val.v, c);
     } else if (nqxoideq(&oid, &oaki)) {
       bit = NQXHASAKI;
       r = extaki(val.v, c);

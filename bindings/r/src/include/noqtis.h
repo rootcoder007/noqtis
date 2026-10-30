@@ -319,6 +319,53 @@ NQAPI int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
                   const uint8_t *const *anc, const size_t *anclen,
                   size_t nanc, int64_t *gt, const char **why);
 
+/* ---- TLS 1.3 client ------------------------------------------------- */
+
+/* A TLS 1.3 client (RFC 8446): X25519MLKEM768 and X25519 key shares,
+ * the AES-GCM and ChaCha20-Poly1305 suites, and the server's
+ * certificate path and host name checked against the caller's trust
+ * anchors, so noqtis can fetch over HTTPS with no other library. The
+ * library opens no connection: the caller connects a socket and passes
+ * two callbacks that move bytes. No TLS 1.2, PSK, 0-RTT or client
+ * certificates. Built without the CMake option NQTLS, every nqtl
+ * function returns NQENOSUP. See nqtlnew(3). */
+typedef struct nqtls nqtls;
+
+/* wr sends all n bytes (NQOK, or NQEIO); rd reads 1 to cap bytes into b
+ * and sets *got, 0 at the end of the stream (NQOK, or NQEIO). */
+typedef struct {
+  int (*wr)(void *user, const uint8_t *b, size_t n);
+  int (*rd)(void *user, uint8_t *b, size_t cap, size_t *got);
+  void *user;
+} nqtlio;
+
+/* A client for host (a DNS name, sent as SNI and matched against the
+ * certificate, or an IPv4 / IPv6 literal matched against its
+ * addresses) that trusts the certificates in ca (a PEM bundle or one
+ * DER certificate of calen bytes, copied). NQEDEC when ca holds no
+ * certificate noqtis can read, NQEARG for a host name it will not
+ * send. */
+NQAPI int nqtlnew(nqtls **t, const char *host, const uint8_t *ca,
+                  size_t calen, const nqtlio *io);
+/* The handshake. NQEVRFY for a certificate, signature or MAC that does
+ * not check out, NQEDEC for a message TLS 1.3 does not allow here,
+ * NQENOSUP for a server that offers nothing noqtis speaks, NQEIO for
+ * the transport. Every error is final: the alert is sent, nqtlwhy says
+ * what failed, and every later call returns the same code. */
+NQAPI int nqtlhs(nqtls *t);
+/* Sends n bytes of application data. */
+NQAPI int nqtlwr(nqtls *t, const uint8_t *b, size_t n);
+/* Reads 1 to cap bytes of application data into b, or *got 0 after the
+ * server's close_notify. A stream that ends without close_notify is
+ * NQEIO (it may have been cut short). */
+NQAPI int nqtlrd(nqtls *t, uint8_t *b, size_t cap, size_t *got);
+/* Sends close_notify; nothing more can be written. */
+NQAPI int nqtlend(nqtls *t);
+/* A sentence on the first error, "" when there is none. */
+NQAPI const char *nqtlwhy(const nqtls *t);
+/* Wipes and frees t; NULL is fine. */
+NQAPI void nqtlfree(nqtls *t);
+
 #ifdef __cplusplus
 }
 #endif

@@ -145,4 +145,14 @@ void nqs1(const uint8_t *in, size_t len, uint8_t out[20]);
  * NULL out or a NULL in with len > 0. */
 int nqs1hk(void *user, const uint8_t *in, size_t len, uint8_t out[20]);
 
+/* ---- HKDF (RFC 5869), on the HMAC above ---- */
+
+/* HKDF-Extract: prk gets nqhlen(alg) bytes; no salt (NULL, 0) is
+ * nqhlen(alg) zero bytes (section 2.2). NQENOSUP for SHAKE. */
+int nqhkx(nqhalg alg, const uint8_t *salt, size_t slen, const uint8_t *ikm,
+          size_t ilen, uint8_t *prk);
+/* HKDF-Expand: n bytes of okm, at most 255 * nqhlen(alg). */
+int nqhke(nqhalg alg, const uint8_t *prk, size_t plen, const uint8_t *info,
+          size_t ilen, uint8_t *okm, size_t n);
+
 #endif /* NQH_H */

@@ -2,6 +2,9 @@
 PKG_CPPFLAGS = -I. -Iinclude
 OBJECTS = \
   rnq.o \
+  aead/aes.o \
+  aead/ccp.o \
+  aead/gcm.o \
   api/kem.o \
   api/sig.o \
   cap/chk.o \
@@ -27,6 +30,7 @@ OBJECTS = \
   drbg/drbg.o \
   ed/ed.o \
   hash/hash.o \
+  hash/hkdf.o \
   hash/hmac.o \
   hash/sha1.o \
   hash/sha2.o \
@@ -41,4 +45,11 @@ OBJECTS = \
   mlkem/mdec.o \
   slh/hsh.o \
   slh/slh.o \
-  slh/tree.o
+  slh/tree.o \
+  tls/api.o \
+  tls/crt.o \
+  tls/hs.o \
+  tls/ks.o \
+  tls/rec.o \
+  xdh/hyb.o \
+  xdh/x25519.o
