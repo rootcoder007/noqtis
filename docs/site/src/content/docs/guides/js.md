@@ -69,6 +69,18 @@ console.log('decap matches:', back.every((b, i) => b === sharedSecret[i]));
 console.log('sha3-256:', Buffer.from(hash('sha3-256', 'abc')).toString('hex'));
 ```
 
+It prints:
+
+```text
+check: true
+after edit: false
+FAIL file report.txt: size differs
+verify: true
+other context: false
+decap matches: true
+sha3-256: 3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532
+```
+
 The first check passes. After the edit it fails, and the failing row
 names the file and why (`report.txt: size differs`); the signature
 verifies only under its own context.

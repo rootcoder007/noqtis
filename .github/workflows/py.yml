@@ -20,6 +20,8 @@ on:
       - "bindings/py/**"
       - "src/**"
       - "include/**"
+      - "docs/site/src/content/docs/guides/py.md"
+      - "docs/examples/guide.py"
       - "tests/vectors/cap/**"
       - ".github/workflows/py.yml"
   pull_request:
@@ -27,6 +29,8 @@ on:
       - "bindings/py/**"
       - "src/**"
       - "include/**"
+      - "docs/site/src/content/docs/guides/py.md"
+      - "docs/examples/guide.py"
       - "tests/vectors/cap/**"
       - ".github/workflows/py.yml"
   schedule:
@@ -53,6 +57,11 @@ jobs:
           output-dir: wheelhouse
         env:
           CIBW_ARCHS: x86_64
+      - name: the Python guide prints what its page shows
+        run: |
+          python3 -m venv "$RUNNER_TEMP/v"
+          "$RUNNER_TEMP/v/bin/pip" install -q --no-index --find-links wheelhouse noqtis
+          PYTHON="$RUNNER_TEMP/v/bin/python" python3 docs/examples/guide.py py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: py-linux-x86_64

@@ -9,12 +9,16 @@ on:
       - "bindings/r/**"
       - "src/**"
       - "include/**"
+      - "docs/site/src/content/docs/guides/r.md"
+      - "docs/examples/guide.py"
       - ".github/workflows/r.yml"
   pull_request:
     paths:
       - "bindings/r/**"
       - "src/**"
       - "include/**"
+      - "docs/site/src/content/docs/guides/r.md"
+      - "docs/examples/guide.py"
       - ".github/workflows/r.yml"
   workflow_dispatch:
 
@@ -80,3 +84,9 @@ jobs:
           args: 'c("--no-manual", "--as-cran")'
           error-on: '"warning"'
           upload-snapshots: false
+      - name: the R guide prints what its page shows
+        if: matrix.os == 'ubuntu-latest' && matrix.r == 'release'
+        run: |
+          mkdir -p "$RUNNER_TEMP/rl"
+          R CMD INSTALL -l "$RUNNER_TEMP/rl" bindings/r
+          R_LIBS="$RUNNER_TEMP/rl" python3 docs/examples/guide.py r

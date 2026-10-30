@@ -18,6 +18,8 @@ on:
       - "bindings/java/**"
       - "src/**"
       - "include/**"
+      - "docs/site/src/content/docs/guides/java.md"
+      - "docs/examples/guide.py"
       - "CMakeLists.txt"
       - "tests/vectors/cap/**"
       - ".github/workflows/java.yml"
@@ -26,6 +28,8 @@ on:
       - "bindings/java/**"
       - "src/**"
       - "include/**"
+      - "docs/site/src/content/docs/guides/java.md"
+      - "docs/examples/guide.py"
       - "CMakeLists.txt"
       - "tests/vectors/cap/**"
       - ".github/workflows/java.yml"
@@ -60,6 +64,10 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.jdk }}
+      - name: the Java guide prints what its page shows
+        run: >
+          NQJAR="$PWD/build/noqtis.jar" NQLIB="$PWD/build/lib/libnoqtis.so"
+          python3 ../../docs/examples/guide.py java
       - run: sh build.sh test examples bundled
 
   others:

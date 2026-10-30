@@ -17,6 +17,8 @@ on:
       - "bindings/go/**"
       - "src/**"
       - "include/**"
+      - "docs/site/src/content/docs/guides/go.md"
+      - "docs/examples/guide.py"
       - "tests/vectors/cap/**"
       - ".github/workflows/go.yml"
   pull_request:
@@ -24,6 +26,8 @@ on:
       - "bindings/go/**"
       - "src/**"
       - "include/**"
+      - "docs/site/src/content/docs/guides/go.md"
+      - "docs/examples/guide.py"
       - "tests/vectors/cap/**"
       - ".github/workflows/go.yml"
   schedule:
@@ -75,6 +79,8 @@ jobs:
           go-version: stable
           cache: false
       - run: go test -count=1 -v ./...
+      - name: the Go guide prints what its page shows
+        run: python3 ../../docs/examples/guide.py go
       - name: cgo pointer checks
         run: GOEXPERIMENT=cgocheck2 go test -count=1 -run 'Golden|Seal|Key|KATs|Example' ./...
 

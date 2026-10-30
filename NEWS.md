@@ -220,4 +220,6 @@ mistake in the release process; use 0.1.1.)
   (`io.github.rootcoder007:noqtis`) carries it for six platforms. A
   published release also goes to crates.io, Fedora COPR and the openSUSE
   Build Service (`publish.yml`).
+- Every binding guide is run in CI and must print what its page shows
+  (`docs/examples/guide.py`).
 - Not yet audited: do not rely on it for anything that matters.
