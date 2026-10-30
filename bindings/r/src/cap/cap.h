@@ -26,6 +26,7 @@
 #define NQCINMAX 1024 /* inputs of one capsule */
 #define NQCKFMT "noqtis-keys-1" /* key statements, and their context */
 #define NQCKMAX 32 /* key statements in one check, and rotations followed */
+#define NQCDFMT "noqtis-idcard-1" /* identity cards, and their context */
 #define NQCNAMEMAX 255 /* bytes in one input's name */
 #define NQCMDEPTH 64  /* the deepest audit path (2^64 leaves) */
 
@@ -84,6 +85,13 @@ int nqckbody(nqcbuf *b, const char *an, const char *at, const char *pkb,
              int rotate, const char *nan, const char *npkb,
              const char *reason, const char *nsig, const char *sig);
 int nqctparse(const char *s, size_t n, int64_t *t);
+/* identity cards (idc.c): the canonical card, with sig NULL its signed
+ * part (every member but the signature; a field NULL is left out), and
+ * whether s (n bytes) is a bare ORCID iD with its check digit right */
+int nqcdbody(nqcbuf *b, const char *an, const char *at, const char *pkb,
+             const char *name, const char *orc, const char *email,
+             const char *url, const char *affil, const char *sig);
+int nqcorcid(const char *s, size_t n);
 
 /* ---- base64 (RFC 4648 section 4, padded, strict) ---- */
 

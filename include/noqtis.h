@@ -293,6 +293,54 @@ NQAPI int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen,
                   const uint8_t *nsk, size_t nsklen, const uint8_t *npk,
                   size_t npklen, int64_t at, const char *reason, char *out,
                   size_t cap, size_t *outlen);
+/* Identity cards (noqtis-idcard-1): a signing key's holder says who they
+ * are, in canonical JSON signed by the key itself under the context
+ * "noqtis-idcard-1", so that a card is never taken for a seal or a key
+ * statement, nor they for a card. The limits of its fields, in bytes: */
+#define NQCARDPK 2624   /* a public key (ML-DSA-87+Ed25519, the largest) */
+#define NQCARDEMAIL 254 /* an e-mail address */
+#define NQCARDURL 1024  /* a web page */
+#define NQCARDMAX ((size_t)256 << 10) /* a whole card nqcardvrfy reads */
+/* A card that verified: its key (the algorithm, the public key and the
+ * SHA-256 of it, as nqinsp's info.key writes it in hex), when it was made
+ * and the fields it holds, NUL-terminated ("" for a field it has not). */
+typedef struct {
+  nqsalg alg;
+  uint8_t pk[NQCARDPK];
+  size_t pklen;
+  uint8_t fp[32];
+  int64_t created; /* seconds since 1970, UTC */
+  char utc[21];    /* the same, as the card writes it */
+  char name[256];
+  char orcid[20];
+  char email[NQCARDEMAIL + 1];
+  char url[NQCARDURL + 1];
+  char affil[256];
+} nqcardf;
+/* An identity card for the key pair (sk, pk) of alg, made at created
+ * (seconds since 1970, UTC), to out (cap bytes; *outlen gets the size,
+ * also with NQEBUF). name is required: 1 to 255 bytes of UTF-8 text, no
+ * control character, no space at either end; affil likewise, or NULL.
+ * orcid is NULL or an ORCID iD (0000-0002-1825-0097, or its
+ * https://orcid.org/ address), its ISO 7064 MOD 11-2 check digit right;
+ * the card holds the bare iD. email is NULL or local@domain.tld, url NULL
+ * or an https:// address, neither with a space. NQEARG for a field out of
+ * these limits, or when sk and pk are not one pair (the signature is
+ * checked before the card is written); NQENOSUP for Ed25519 alone. */
+NQAPI int nqcard(nqsalg alg, const uint8_t *sk, size_t sklen,
+                 const uint8_t *pk, size_t pklen, const char *name,
+                 const char *orcid, const char *email, const char *url,
+                 const char *affil, int64_t created, char *out, size_t cap,
+                 size_t *outlen);
+/* Checks the card of n bytes: NQOK when it is a noqtis-idcard-1 card in
+ * canonical form whose fields are within nqcard's limits and whose
+ * signature verifies under the key it carries, and, when pk is not NULL,
+ * that key is pk (pklen bytes). *f then gets the card's fields; it is
+ * zeroed on any other result. NQEVRFY when the signature does not verify
+ * or the key is not pk, NQEDEC when it is not such a card, NQELIM over
+ * NQCARDMAX bytes. */
+NQAPI int nqcardvrfy(const char *card, size_t n, const uint8_t *pk,
+                     size_t pklen, nqcardf *f);
 /* A DSSE envelope (the in-toto and SLSA signing wrapper) of n payload
  * bytes of type (1 to 255 printable ASCII bytes, no quote or backslash),
  * signed by the key pair (sk, pk) of alg over PAE(type, payload), to out
