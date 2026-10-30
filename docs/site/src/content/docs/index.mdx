@@ -35,8 +35,9 @@ noqtis check -p me.pub results/           # exit 1: report.txt: size differs
     Checking finds any changed, missing or added file.
   </Card>
   <Card title="Post-quantum, standard" icon="approve-check">
-    ML-DSA (FIPS 204), SLH-DSA (FIPS 205), ML-KEM (FIPS 203) and HQC (experimental),
-    byte-identical to the NIST ACVP test vectors and Wycheproof.
+    ML-DSA (FIPS 204), SLH-DSA (FIPS 205) and ML-KEM (FIPS 203), byte-identical
+    to the NIST ACVP test vectors and passing Wycheproof; HQC (experimental)
+    matches its reference implementation's known-answer files.
   </Card>
   <Card title="Fail closed" icon="warning">
     Every parser rejects anything the format does not define; a check that

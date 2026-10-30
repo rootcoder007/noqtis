@@ -337,3 +337,25 @@ int main(void) {
 This is `docs/examples/sign.c`; it and the other programs in
 `docs/examples/` are compiled with `-Wall -Wextra -Wpedantic -Wconversion
 -Werror` and run in CI.
+
+## TLS 1.3 client
+
+Built only with the CMake option `NQTLS` (off by default: the client has
+not been reviewed yet); without it every `nqtl` function returns
+`NQENOSUP`. The library opens no connection: the caller connects a socket
+and passes two callbacks (`nqtlio`: `wr` sends all `n` bytes, `rd` reads 1
+to `cap` bytes, `*got` 0 at the end of the stream).
+
+| Function | Does | Returns |
+|---|---|---|
+| `nqtlnew` | a client for `host` (DNS name, sent as SNI, or an IP literal) trusting the certificates in `ca` (PEM bundle or one DER certificate, copied) | `NQOK`; `NQEDEC` no certificate in `ca`, `NQEARG` a host name it will not send, `NQEMEM` |
+| `nqtlct` | turns on Certificate Transparency before `nqtlhs`: a Chrome `log_list.json` (v3); SCTs from logs of two operators are then required | `NQOK`; `NQEDEC` a list that does not parse, `NQESTATE` after the handshake began |
+| `nqtlhs` | the handshake: X25519MLKEM768 and X25519 shares (P-256, P-384 on request), the server's path, name constraints, host name, a stapled OCSP response, CertificateVerify | `NQOK`; `NQEVRFY`, `NQEDEC`, `NQENOSUP`, `NQEIO`; every error is final |
+| `nqtlwr` | sends `n` bytes of application data | `NQOK`; as `nqtlhs` |
+| `nqtlrd` | reads 1 to `cap` bytes; `*got` 0 after the server's close_notify | `NQOK`; `NQEIO` for a stream cut short |
+| `nqtlend` | sends close_notify | `NQOK`; `NQEIO` |
+| `nqtlwhy` | a sentence on the first error, `""` when there is none | — |
+| `nqtlfree` | wipes and frees; `NULL` allowed | — |
+
+See [nqtlnew(3)](/noqtis/reference/man/nqtlnew-3/) for what is and is not
+checked.

@@ -374,10 +374,13 @@ NQAPI int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
 
 /* ---- TLS 1.3 client ------------------------------------------------- */
 
-/* A TLS 1.3 client (RFC 8446): X25519MLKEM768 and X25519 key shares,
- * the AES-GCM and ChaCha20-Poly1305 suites, and the server's
- * certificate path and host name checked against the caller's trust
- * anchors, so noqtis can fetch over HTTPS with no other library. The
+/* A TLS 1.3 client (RFC 8446): X25519MLKEM768 and X25519 key shares
+ * (P-256 and P-384 when the server asks for them), the AES-GCM and
+ * ChaCha20-Poly1305 suites, and the server's certificate path (with name
+ * constraints) and host name checked against the caller's trust
+ * anchors, a stapled OCSP response checked (must-staple honoured), and,
+ * with nqtlct, Certificate Transparency, so noqtis can fetch over HTTPS
+ * with no other library. The
  * library opens no connection: the caller connects a socket and passes
  * two callbacks that move bytes. No TLS 1.2, PSK, 0-RTT or client
  * certificates. Built without the CMake option NQTLS, every nqtl

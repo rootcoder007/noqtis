@@ -246,7 +246,7 @@ jobs:
         run: |
           d=noqtis-$V-sidechannel
           mkdir -p "$d" dist
-          m="$(grep -m1 'model name' /proc/cpuinfo | sed 's/.*: //'), $(gcc -dumpversion)"
+          m="$(grep -m1 'model name' /proc/cpuinfo | sed 's/.*: //'), gcc $(gcc -dumpversion)"
           rc=0
           taskset -c 1 ct-dd/ct/nqdd -n 20000 -s 1 -m "$m" -t all \
             -o "$d/dudect.json" | tee "$d/dudect.txt" || rc=$?

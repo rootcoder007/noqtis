@@ -46,8 +46,8 @@ not yet earned.
   has none.
 - **You need to encrypt files.** Use age, GPG or your platform's tools.
 - **Your readers will not install anything.** `sha256sum` and `gpg` are
-  everywhere; NOQTIS is one more binary (or a Python, JavaScript or R
-  package).
+  everywhere; NOQTIS is one more binary (or a package for Python,
+  JavaScript, R, Rust, Go or Java).
 - **Container images.** cosign and the registries' signing support are
   built for them; NOQTIS signs folders and files.
 - **You need validated cryptography** (FIPS 140-3). NOQTIS implements the
@@ -58,7 +58,8 @@ not yet earned.
 ## What NOQTIS has not yet earned
 
 - **An audit.** No independent firm has reviewed the code. An audit
-  application is in; until a report is published, treat NOQTIS as you
+  through OSTIF has been applied for and is open for
+  [funding](https://app.lfx.dev/crowdfunding/initiatives/noqtis-security-audit-of-a-post-quantum-signing-and-provenance-library-in-c11); until a report is published, treat NOQTIS as you
   would any new cryptographic code. See [security](/noqtis/security/) for
   what is tested and how.
 - **Years of use.** The format and library are new. The capsule format is

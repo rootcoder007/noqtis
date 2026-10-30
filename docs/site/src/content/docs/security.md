@@ -5,7 +5,9 @@ description: Threat model, what a check does and does not verify, constant-time 
 
 :::caution[Not yet audited]
 NOQTIS has not had an external security audit. Until an audit report is
-published, treat NOQTIS as unaudited code.
+published, treat NOQTIS as unaudited code. An independent audit through
+OSTIF has been applied for, and is open for
+[funding](https://app.lfx.dev/crowdfunding/initiatives/noqtis-security-audit-of-a-post-quantum-signing-and-provenance-library-in-c11).
 :::
 
 ## Reporting a vulnerability
@@ -152,7 +154,9 @@ classes or random in both:
 **Results**, on an Intel Core i5-10310U (Linux 7.2.11, GCC 16.2.1,
 `-O3` Release build, `taskset` to one core, other jobs running on the
 other cores), `nqdd -n 40000 -s 1`, measured for the tree of the commit
-that added `ct/`:
+that added `ct/`. Every release also measures its own tagged commit, on
+the release runner, and ships the results as
+`noqtis-<version>-sidechannel.tar.gz` (dudect and TVLA, text and JSON):
 
 | Operation | Classes | N | max \|t\| | |
 |---|---|---|---|---|

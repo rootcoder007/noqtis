@@ -36,7 +36,9 @@ coming-from pages ([sha256sum and GPG](/noqtis/from/sha256sum-gpg/),
 
 ## Is it audited?
 
-Not yet. See the [security page](/noqtis/security/).
+Not yet. An independent audit through OSTIF has been applied for and is
+open for [funding](https://app.lfx.dev/crowdfunding/initiatives/noqtis-security-audit-of-a-post-quantum-signing-and-provenance-library-in-c11). See the [security page](/noqtis/security/)
+for how NOQTIS is tested meanwhile.
 
 ## Which algorithm should I use?
 
@@ -48,7 +50,9 @@ signatures. See [keys](/noqtis/guides/keys/).
 
 No. Checking reads only the folder, the public key and, for a timestamp,
 the TSA's certificate (`--anchor`). Timestamps need a TSA once, when
-sealing (`noqtis seal --tsa <url>`), never when checking.
+sealing (`noqtis seal --tsa <url>`), never when checking. The network is
+used only when you ask for it: `noqtis check <url>` fetches a published
+capsule's files and checks them as it would a folder.
 
 ## Can I put the capsule in Git, a ZIP or a tarball?
 
@@ -84,10 +88,10 @@ fail.
 
 ## Can I use NOQTIS from Python, JavaScript, R, Rust, Go or Java?
 
-Yes: there are bindings for npm (WebAssembly), PyPI and CRAN, published
-with the first release and installable from the repository until then,
-and a Rust crate, a Go package and a Java binding (JDK 22 or later) in
-the repository. See the tutorials for [Python](/noqtis/guides/py/),
+Yes: npm (WebAssembly), PyPI, r-universe (and CRAN after its review),
+crates.io, a Go module and Maven Central (Java 22 or later, with the
+library inside the jar), published with the first release and
+installable from the repository until then. See the tutorials for [Python](/noqtis/guides/py/),
 [JavaScript](/noqtis/guides/js/), [R](/noqtis/guides/r/),
 [Rust](/noqtis/guides/rust/), [Go](/noqtis/guides/go/) and
 [Java](/noqtis/guides/java/). Anything that

@@ -3,16 +3,18 @@ title: Platforms
 description: Operating systems, CPUs and compilers NOQTIS builds and tests on, and its portability rules.
 ---
 
-A platform counts as supported only when the full test suite, including
-every ACVP vector, passes on it in CI.
+A platform counts as supported only when the full test suite passes on
+it in CI. Every vector runs in the release builds; the debug, sanitizer,
+emulated and mobile jobs sample the slowest ones (every eighth SLH-DSA
+vector, no large-data hash tests) to stay within a job's time.
 
 | OS | CPUs | Compilers | Notes |
 |---|---|---|---|
 | Linux (glibc) | x86-64, arm64 | GCC, Clang | Ubuntu, Fedora, Debian stable and testing, Arch, openSUSE Tumbleweed, Rocky 9 and 10, Amazon Linux 2023, Wolfi, Void, Gentoo and Nix, each with its own compiler |
-| Linux (musl) | x86-64, arm64 | GCC | Alpine; static binaries |
+| Linux (musl) | x86-64 (arm64: the Python wheels) | GCC | Alpine; static binaries |
 | Linux, 32-bit | i686, armv7 (QEMU) | GCC | catches `size_t` and shift assumptions |
 | Linux, big-endian | s390x (QEMU) | GCC | catches byte-order bugs |
-| macOS | arm64, x86-64 | Apple Clang | universal binaries for releases |
+| macOS | arm64, x86-64 | Apple Clang | a release archive for each |
 | Windows | x86-64, arm64 | MSVC, clang-cl, MinGW-w64 | `BCryptGenRandom`; wide-character paths |
 | FreeBSD, OpenBSD, NetBSD | x86-64 | Clang; GCC on NetBSD | `arc4random_buf` |
 | WebAssembly | wasm32 | emscripten, wasi-sdk | emscripten: the library's tests under Node, the npm package on Node 22, 24 and 26, Deno and Bun; wasi-sdk: the library's tests under wasmtime (no command-line tool) |

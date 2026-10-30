@@ -175,18 +175,18 @@ with nothing to compile for the user where a package manager allows it.
 | OS | CPUs | Compilers | Notes |
 |---|---|---|---|
 | Linux (glibc) | x86-64, arm64 | gcc, clang | Ubuntu and Fedora images; done: also Debian stable and testing, Arch, openSUSE Tumbleweed, Rocky 9 and 10, Amazon Linux 2023, Wolfi, Void, Gentoo and Nix, each with its own compiler, on every push |
-| Linux (musl) | x86-64, arm64 | gcc | Alpine; static binaries |
+| Linux (musl) | x86-64 (arm64: the Python wheels) | gcc | Alpine; static binaries |
 | Linux, 32-bit | i686, armv7 | gcc | catches size_t and shift assumptions |
 | Linux, big-endian | s390x (QEMU) | gcc | catches byte-order bugs |
-| macOS | arm64, x86-64 | Apple clang | universal binaries for releases |
+| macOS | arm64, x86-64 | Apple clang | a release archive for each |
 | Windows | x86-64, arm64 | MSVC, clang-cl, MinGW-w64 | BCryptGenRandom; no POSIX assumed |
 | FreeBSD, OpenBSD, NetBSD | x86-64 | clang; gcc on NetBSD | arc4random_buf |
 | WebAssembly | wasm32 | emscripten, wasi-sdk | the tests under Node and under wasmtime; the npm package on Node, Deno and Bun |
 | Android | x86-64 (emulator); arm64 built only | NDK clang | API 28 and later; the tests through adb; no CLI |
 | iOS | arm64 (simulator) | Apple clang | the tests through xcrun simctl spawn; no CLI |
 
-A platform counts as supported only when the full test suite, including
-every ACVP vector, passes on it in CI. Randomness on each platform comes
+A platform counts as supported only when the full test suite passes on it
+in CI (every vector in the release builds; slow jobs sample the slowest). Randomness on each platform comes
 from its OS source (getrandom, arc4random_buf, BCryptGenRandom, WebCrypto
 getRandomValues through the WASI or emscripten layer); there is no fallback.
 
@@ -273,8 +273,8 @@ ecosystem supports, before a release is published.
 
 Where noqtis is published, what each channel requires before it accepts
 the project, and when it can go there. "Day one" means the day the
-repository goes public with a signed v0.1.1 tag (0.1.0 reached npm alone,
-by mistake, and is not a release).
+signed v0.1.1 tag is pushed (0.1.0 reached npm alone, by mistake, and is
+not a release).
 
 | Channel | What it requires | When |
 |---|---|---|
@@ -307,12 +307,13 @@ around launch (see the launch checklist).
 
 ## Launch checklist
 
-The repository goes public, and v0.1.1 is announced, only when every item
-below is done. Each item says how it is checked.
+v0.1.1 is tagged and announced only when every item below is done. Each item says how it is checked.
 
 ### Product
 
-- [ ] Every module M0-M10 accepted (its "Must pass" row green in CI).
+- [x] Every module M0-M10 accepted (its "Must pass" row green in CI:
+      `ci.yml` vectors, ASan, valgrind; `ct.yml` ctgrind, dudect, TVLA;
+      `ossl.yml` cross-check and differential fuzz; `fuzz.yml`; `tcli`).
 - [x] `noqtis seal <dir>` and `noqtis check <dir>` work end to end on Linux,
       macOS and Windows, with a public timestamp from at least two RFC 3161
       authorities (`xseal.yml`: DigiCert, Sectigo and FreeTSA).
@@ -354,8 +355,9 @@ below is done. Each item says how it is checked.
       any length, trees to 6 bytes), the base64 decoder (to 32 characters)
       and the JSON reader (lexers to 4 bytes, the parser to 1), on every
       push (`proofs/cbmc/`, `cbmc.yml`).
-- [ ] dudect and simulated TVLA results for every secret operation are
-      published with the release, with what they do and do not show.
+- [x] dudect and simulated TVLA results for every secret operation are
+      published with the release, with what they do and do not show
+      (`noqtis-<version>-sidechannel.tar.gz`, its README.txt).
 - [x] OpenSSF Best Practices (passing) badge in the README; Scorecard runs
       on every push (`scorecard.yml`) and its alerts are worked through; no
       score is quoted anywhere.
@@ -366,8 +368,9 @@ below is done. Each item says how it is checked.
       (tested as `acvp-run`), and the site's Validation page says how an
       accredited lab would run the harnesses, what they cover, and that
       there is no CAVP or CMVP certificate.
-- [ ] The README states plainly that the code is not yet audited, and links
-      the audit application and its funding page.
+- [x] The README states plainly that the code is not yet audited, and links
+      the audit application and its funding page (OSTIF, on LFX
+      Crowdfunding).
 - [x] Threat model (what noqtis protects, against whom, and what it does
       not protect) on the site's security page
       (`docs/site/src/content/docs/security.md`).

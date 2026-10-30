@@ -81,9 +81,11 @@ nothing is written (exit 2). A seal that already has a timestamp keeps it
 unless `--force` is given, because the new one would only prove a later
 time.
 
-Only `http://` URLs: the token is signed by the TSA, so TLS adds no
-integrity, and noqtis links no TLS library. `https://` is refused with
-that said. Most public TSAs answer on `http://`, for example
+`http://` is enough: the token is signed by the TSA, so TLS adds no
+integrity. `https://` works only in a build with noqtis's own TLS 1.3
+client (the CMake option `NQTLS`, off by default until the client is
+reviewed); other builds refuse it, and say so. Most public TSAs answer on
+`http://`, for example
 `http://timestamp.digicert.com`, `http://timestamp.sectigo.com` and
 `http://freetsa.org/tsr`. There is no proxy support.
 
