@@ -38,7 +38,7 @@ static void tput(tbuf *b, const char *s, size_t n) {
   b->p[b->n] = 0;
 }
 
-static void tputs(tbuf *b, const char *s) {
+static void tstr(tbuf *b, const char *s) {
   tput(b, s, strlen(s));
 }
 
@@ -156,7 +156,7 @@ static int cread(const char *dir, cinfo *ci) {
   return NCOK;
 }
 
-static void cfree(cinfo *ci) {
+static void cdone(cinfo *ci) {
   nqrepfree(ci->files);
   free(ci->meta);
 }
@@ -193,32 +193,32 @@ static void statement(tbuf *b, const cinfo *ci) {
   char hx[65];
   const char *p;
   int first = 1;
-  tputs(b, "{\"_type\":\"https://in-toto.io/Statement/v1\",\"predicate\":"
+  tstr(b, "{\"_type\":\"https://in-toto.io/Statement/v1\",\"predicate\":"
         "{\"alg\":");
   tjstr(b, ci->alg);
-  tputs(b, ",\"capsule\":");
+  tstr(b, ",\"capsule\":");
   tjstr(b, ci->id);
-  tputs(b, ",\"created\":");
+  tstr(b, ",\"created\":");
   tjstr(b, ci->created);
-  tputs(b, ",\"format\":");
+  tstr(b, ",\"format\":");
   tjstr(b, ci->fmt);
-  tputs(b, ",\"key\":");
+  tstr(b, ",\"key\":");
   tjstr(b, ci->key);
   if (ci->meta != NULL) {
-    tputs(b, ",\"meta\":");
-    tputs(b, ci->meta);
+    tstr(b, ",\"meta\":");
+    tstr(b, ci->meta);
   }
-  tputs(b, "},\"predicateType\":\"" NCPT "\",\"subject\":[");
+  tstr(b, "},\"predicateType\":\"" NCPT "\",\"subject\":[");
   while (file(ci, &at, &sz, hx, &p)) {
-    tputs(b, first ? "{\"digest\":{\"sha256\":\"" : ",{\"digest\":"
+    tstr(b, first ? "{\"digest\":{\"sha256\":\"" : ",{\"digest\":"
           "{\"sha256\":\"");
-    tputs(b, hx);
-    tputs(b, "\"},\"name\":");
+    tstr(b, hx);
+    tstr(b, "\"},\"name\":");
     tjstr(b, p);
-    tputs(b, "}");
+    tstr(b, "}");
     first = 0;
   }
-  tputs(b, "]}");
+  tstr(b, "]}");
 }
 
 static void rocrate(tbuf *b, const cinfo *ci, const char *dir) {
@@ -228,38 +228,38 @@ static void rocrate(tbuf *b, const cinfo *ci, const char *dir) {
   const char *p, *nm = strrchr(dir, '/');
   int first = 1;
   nm = nm != NULL && nm[1] != '\0' ? nm + 1 : dir;
-  tputs(b, "{\"@context\":[\"https://w3id.org/ro/crate/1.1/context\","
+  tstr(b, "{\"@context\":[\"https://w3id.org/ro/crate/1.1/context\","
         "{\"sha256\":\"https://w3id.org/ro/terms/workflow-run#sha256\"}],"
         "\"@graph\":[{\"@id\":\"ro-crate-metadata.json\",\"@type\":"
         "\"CreativeWork\",\"about\":{\"@id\":\"./\"},\"conformsTo\":"
         "{\"@id\":\"https://w3id.org/ro/crate/1.1\"}},{\"@id\":\"./\","
         "\"@type\":\"Dataset\",\"name\":");
   tjstr(b, nm);
-  tputs(b, ",\"datePublished\":");
+  tstr(b, ",\"datePublished\":");
   tjstr(b, ci->created);
-  tputs(b, ",\"identifier\":\"noqtis-capsule:");
-  tputs(b, ci->id);
-  tputs(b, "\",\"hasPart\":[");
+  tstr(b, ",\"identifier\":\"noqtis-capsule:");
+  tstr(b, ci->id);
+  tstr(b, "\",\"hasPart\":[");
   while (file(ci, &at, &sz, hx, &p)) {
-    tputs(b, first ? "{\"@id\":\"" : ",{\"@id\":\"");
+    tstr(b, first ? "{\"@id\":\"" : ",{\"@id\":\"");
     turi(b, p);
-    tputs(b, "\"}");
+    tstr(b, "\"}");
     first = 0;
   }
-  tputs(b, first ? "{\"@id\":\"noqtis.json\"},{\"@id\":\"noqtis.sig\"}]}"
+  tstr(b, first ? "{\"@id\":\"noqtis.json\"},{\"@id\":\"noqtis.sig\"}]}"
                  : ",{\"@id\":\"noqtis.json\"},{\"@id\":\"noqtis.sig\"}]}");
   at = 0;
   while (file(ci, &at, &sz, hx, &p)) {
-    tputs(b, ",{\"@id\":\"");
+    tstr(b, ",{\"@id\":\"");
     turi(b, p);
-    tputs(b, "\",\"@type\":\"File\",\"contentSize\":\"");
+    tstr(b, "\",\"@type\":\"File\",\"contentSize\":\"");
     snprintf(num, sizeof num, "%llu", sz);
-    tputs(b, num);
-    tputs(b, "\",\"sha256\":\"");
-    tputs(b, hx);
-    tputs(b, "\"}");
+    tstr(b, num);
+    tstr(b, "\",\"sha256\":\"");
+    tstr(b, hx);
+    tstr(b, "\"}");
   }
-  tputs(b, ",{\"@id\":\"noqtis.json\",\"@type\":\"File\",\"name\":"
+  tstr(b, ",{\"@id\":\"noqtis.json\",\"@type\":\"File\",\"name\":"
         "\"noqtis manifest\",\"encodingFormat\":\"application/json\"},"
         "{\"@id\":\"noqtis.sig\",\"@type\":\"File\",\"name\":\"noqtis "
         "seal\",\"encodingFormat\":\"application/json\",\"description\":"
@@ -273,11 +273,11 @@ static void rocrate(tbuf *b, const cinfo *ci, const char *dir) {
 static void bpath(tbuf *b, const char *p) {
   for (; *p != '\0'; p++) {
     if (*p == '%')
-      tputs(b, "%25");
+      tstr(b, "%25");
     else if (*p == '\r')
-      tputs(b, "%0D");
+      tstr(b, "%0D");
     else if (*p == '\n')
-      tputs(b, "%0A");
+      tstr(b, "%0A");
     else
       tput(b, p, 1);
   }
@@ -289,10 +289,10 @@ static int bwrite(const char *bag, const char *rel, const char *s, size_t n) {
   size_t i, at;
   int rc;
   memset(&p, 0, sizeof p);
-  tputs(&p, bag);
-  tputs(&p, "/");
+  tstr(&p, bag);
+  tstr(&p, "/");
   at = p.n;
-  tputs(&p, rel);
+  tstr(&p, rel);
   if (p.bad) return NCUSE;
   for (i = at; i < p.n; i++) {
     if (p.p[i] != '/') continue;
@@ -309,7 +309,7 @@ static int bwrite(const char *bag, const char *rel, const char *s, size_t n) {
 }
 
 /* copies dir/rel to bag/data/rel, checking its SHA-256 as it goes */
-static int bcopy(const char *dir, const char *bag, const char *rel,
+static int bcp(const char *dir, const char *bag, const char *rel,
                  const char hx[65], uint8_t *buf, size_t cap) {
   tbuf s, d;
   FILE *in = NULL, *out = NULL;
@@ -320,13 +320,13 @@ static int bcopy(const char *dir, const char *bag, const char *rel,
   int ok = 1;
   memset(&s, 0, sizeof s);
   memset(&d, 0, sizeof d);
-  tputs(&s, dir);
-  tputs(&s, "/");
-  tputs(&s, rel);
-  tputs(&d, bag);
-  tputs(&d, "/data/");
+  tstr(&s, dir);
+  tstr(&s, "/");
+  tstr(&s, rel);
+  tstr(&d, bag);
+  tstr(&d, "/data/");
   at = d.n;
-  tputs(&d, rel);
+  tstr(&d, rel);
   if (s.bad || d.bad) ok = 0;
   for (i = at; ok && i < d.n; i++) {
     if (d.p[i] != '/') continue;
@@ -386,8 +386,8 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
     tbuf d;
     int ok;
     memset(&d, 0, sizeof d);
-    tputs(&d, bag);
-    tputs(&d, "/data");
+    tstr(&d, bag);
+    tstr(&d, "/data");
     ok = !d.bad && ncmkdir(d.p) == NCOK;
     free(d.p);
     if (!ok) {
@@ -401,11 +401,11 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
   buf = (uint8_t *)malloc(1 << 16);
   if (buf == NULL) return nclib("export", "memory", NQEMEM);
   while (file(ci, &at, &sz, hx, &p)) {
-    if (bcopy(dir, bag, p, hx, buf, 1 << 16) != NCOK) goto out;
-    tputs(&man, hx);
-    tputs(&man, "  data/");
+    if (bcp(dir, bag, p, hx, buf, 1 << 16) != NCOK) goto out;
+    tstr(&man, hx);
+    tstr(&man, "  data/");
     bpath(&man, p);
-    tputs(&man, "\n");
+    tstr(&man, "\n");
   }
   if (g != NULL)
     snprintf(day, sizeof day, "%04d-%02d-%02d", g->tm_year + 1900,
@@ -414,10 +414,10 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
     memcpy(day, "1970-01-01", 11);
   snprintf(line, sizeof line, "Bagging-Date: %s\nPayload-Oxum: %llu.%lu\n",
            day, ci->bytes, (unsigned long)ci->nfiles);
-  tputs(&info, line);
-  tputs(&info, "External-Identifier: noqtis-capsule:");
-  tputs(&info, ci->id);
-  tputs(&info, "\nExternal-Description: a noqtis capsule; noqtis.json and "
+  tstr(&info, line);
+  tstr(&info, "External-Identifier: noqtis-capsule:");
+  tstr(&info, ci->id);
+  tstr(&info, "\nExternal-Description: a noqtis capsule; noqtis.json and "
         "noqtis.sig are its manifest and seal\n");
   if (man.bad || info.bad) goto out;
   if (bwrite(bag, "bagit.txt", bt, sizeof bt - 1) != NCOK ||
@@ -432,9 +432,9 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
     uint8_t *b = NULL;
     size_t n = 0;
     memset(&s, 0, sizeof s);
-    tputs(&s, dir);
-    tputs(&s, "/");
-    tputs(&s, tags[i]);
+    tstr(&s, dir);
+    tstr(&s, "/");
+    tstr(&s, tags[i]);
     if (s.bad || ncrdx(s.p, 0, (size_t)512 << 20, &b, &n) != NCOK ||
         bwrite(bag, tags[i], (const char *)b, n) != NCOK) {
       free(s.p);
@@ -449,9 +449,9 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
     uint8_t *b = NULL, md[32];
     size_t n = 0;
     memset(&s, 0, sizeof s);
-    tputs(&s, bag);
-    tputs(&s, "/");
-    tputs(&s, tags[i]);
+    tstr(&s, bag);
+    tstr(&s, "/");
+    tstr(&s, tags[i]);
     if (s.bad || ncrdx(s.p, 0, (size_t)512 << 20, &b, &n) != NCOK ||
         nqhash(NQS256, b, n, md, 32) != NQOK) {
       free(s.p);
@@ -460,10 +460,10 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
     }
     nchexe(md, 32, hx);
     hx[64] = 0;
-    tputs(&tag, hx);
-    tputs(&tag, "  ");
-    tputs(&tag, tags[i]);
-    tputs(&tag, "\n");
+    tstr(&tag, hx);
+    tstr(&tag, "  ");
+    tstr(&tag, tags[i]);
+    tstr(&tag, "\n");
     free(s.p);
     ncfree(b, n, 0);
   }
@@ -541,12 +541,12 @@ int ncexp(int argc, char **argv) {
   }
   rc = cread(argv[0], &ci);
   if (rc != NCOK) {
-    cfree(&ci);
+    cdone(&ci);
     return rc;
   }
   if (strcmp(as, "bagit") == 0) {
     rc = bagit(argv[0], out, &ci);
-    cfree(&ci);
+    cdone(&ci);
     return rc;
   }
   memset(&b, 0, sizeof b);
@@ -554,7 +554,7 @@ int ncexp(int argc, char **argv) {
     rocrate(&b, &ci, argv[0]);
   else
     statement(&b, &ci);
-  cfree(&ci);
+  cdone(&ci);
   if (b.bad) {
     free(b.p);
     return nclib("export", "memory", NQEMEM);

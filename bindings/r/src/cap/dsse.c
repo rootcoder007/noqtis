@@ -54,7 +54,7 @@ int nqdsse(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
   nqssz sz;
   uint8_t *sg = NULL, h[32];
   char *b = NULL, kid[65];
-  size_t sn = 0, bn;
+  size_t sn = 0, bn = 0;
   int rc;
   if (outlen != NULL) *outlen = 0;
   if (sk == NULL || pk == NULL || type == NULL || outlen == NULL ||
