@@ -80,7 +80,7 @@
   },
   "scripts": {
     "build": "sh build.sh",
-    "test": "node --test test/api.test.js test/acvp.test.js test/cap.test.js test/cjs.test.cjs test/cli.test.js",
+    "test": "node --test test/api.test.js test/acvp.test.js test/cap.test.js test/cap2.test.js test/cjs.test.cjs test/cli.test.js",
     "types": "tsc -p test/tsconfig.json",
     "prepack": "test -f dist/noqtis.wasm && test -f dist/noqtis.js"
   },

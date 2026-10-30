@@ -34,9 +34,18 @@ export function readCapsule(dir) {
   return files;
 }
 
-/** capsule.check on a folder: { ok, code, checks }. */
+/**
+ * capsule.check on a folder: { ok, code, checks }. `opts.lineage` may name
+ * folders as well as give capsules as files; dir may be null with
+ * `opts.proof`.
+ */
 export function checkDir(dir, opts = {}) {
-  return capsule.check(readCapsule(dir), opts);
+  const o = { ...opts };
+  if (Array.isArray(o.lineage)) {
+    o.lineage = o.lineage.map((x) => (typeof x === 'string'
+      ? readCapsule(x) : x));
+  }
+  return capsule.check(dir === null ? null : readCapsule(dir), o);
 }
 
 /** capsule.seal on a folder: writes noqtis.json and noqtis.sig into it. */

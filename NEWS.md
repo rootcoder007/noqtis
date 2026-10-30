@@ -49,6 +49,9 @@ mistake in the release process; use 0.1.1.)
   - Python: `seal(format=2, inputs=)`, `capid`, `prove`, `files`,
     `check(only=, lineage=, keys=, proof=)`, `rotate`, `revoke` and
     `noqtis.dsse`;
+  - JavaScript: `capsule.seal({ format, inputs })`, `capsule.id`,
+    `capsule.prove`, `capsule.files`, `capsule.check({ only, lineage,
+    keys, proof })`, `capsule.rotate`, `capsule.revoke` and `dsse`;
 - `noqtis check <url>` checks a capsule where it is published, over
   http:// or, with the TLS client, https://: the seal and the manifest
   are fetched and checked first, and only then the listed files, each at

@@ -475,10 +475,8 @@ function rmtree(path) {
   }
 }
 
-// Writes files under a fresh folder, runs fn(dir), removes the folder.
-function withdir(files, fn) {
-  need();
-  const list = entries(files);
+// Writes the parsed files under a fresh folder and returns its path.
+function mkcap(list) {
   const dir = `/nq${++fsn}`;
   M.FS.mkdir(dir);
   try {
@@ -499,10 +497,28 @@ function withdir(files, fn) {
       }
       M.FS.writeFile(f, data);
     }
-    return fn(dir);
-  } finally {
+  } catch (e) {
     rmtree(dir);
+    throw e;
   }
+  return dir;
+}
+
+// Writes each capsule under a fresh folder, runs fn(dirs), removes them.
+function withdirs(caps, fn) {
+  need();
+  const lists = caps.map(entries);
+  const dirs = [];
+  try {
+    for (const l of lists) dirs.push(mkcap(l));
+    return fn(dirs);
+  } finally {
+    for (const d of dirs) rmtree(d);
+  }
+}
+
+function withdir(files, fn) {
+  return withdirs([files], (d) => fn(d[0]));
 }
 
 function report(h, rp) {
@@ -529,30 +545,143 @@ function report(h, rp) {
   return checks;
 }
 
+// An array of byte strings in WebAssembly memory: { p, l, n }, the
+// pointer and length arrays (0 when empty) and the count.
+function blist(h, xs, what, str) {
+  if (!Array.isArray(xs)) {
+    throw new TypeError(`noqtis: ${what} must be an array`);
+  }
+  const p = h.alloc(4 * xs.length);
+  const l = h.alloc(4 * xs.length);
+  xs.forEach((x, i) => {
+    let b;
+    if (str) {
+      if (typeof x !== 'string' || x.includes('\0')) {
+        throw new TypeError(`noqtis: ${what} must be strings`);
+      }
+      b = enc.encode(x);
+      const q = h.alloc(b.length + 1);
+      M.HEAPU8.set(b, q);
+      M.HEAPU8[q + b.length] = 0;
+      M.HEAPU32[(p >>> 2) + i] = q;
+    } else {
+      b = bytes(x, what);
+      M.HEAPU32[(p >>> 2) + i] = h.put(b);
+    }
+    M.HEAPU32[(l >>> 2) + i] = b.length;
+  });
+  const n = xs.length;
+  return { p: n ? p : 0, l: n ? l : 0, n };
+}
+
+// A call that sets *outlen also with NQEBUF: once for the size, then
+// again with that much room.
+function sized(h, fn, guess) {
+  const pn = h.alloc(4);
+  let cap = guess;
+  for (let k = 0; k < 2; k++) {
+    const po = h.alloc(cap);
+    const rc = fn(po, cap, pn);
+    const n = h.u32(pn);
+    if (rc === CODES.EBUF && n > cap && k === 0) {
+      cap = n;
+      continue;
+    }
+    check(rc);
+    return h.get(po, n);
+  }
+  throw new NoqtisError(CODES.EBUF);
+}
+
+function capsrc(x) {
+  if (x === null || x === undefined) return null;
+  return x;
+}
+
+function epoch(at) {
+  if (at === undefined) return BigInt(Math.floor(Date.now() / 1000));
+  if (at instanceof Date) return BigInt(Math.floor(at.getTime() / 1000));
+  if (!Number.isSafeInteger(at)) throw new NoqtisError(CODES.EARG, 'at');
+  return BigInt(at);
+}
+
+function kstmt(alg, secretKey, publicKey, nalg, nsk, npk, opts) {
+  const a = salg(alg);
+  const b = nalg === null ? a : salg(nalg);
+  const sk = key(secretKey, 'secretKey');
+  const pk = key(publicKey, 'publicKey');
+  const at = epoch(opts.at);
+  if (opts.reason !== undefined && typeof opts.reason !== 'string') {
+    throw new TypeError('noqtis: reason must be a string');
+  }
+  return run((h) => {
+    const ns = nsk === null ? null : key(nsk, 'newSecretKey');
+    const np = npk === null ? null : key(npk, 'newPublicKey');
+    const pns = ns ? h.put(ns) : 0;
+    const pnp = np ? h.put(np) : 0;
+    const psk = h.put(sk);
+    const ppk = h.put(pk);
+    const why = opts.reason === undefined ? 0 : h.str(opts.reason);
+    return sized(h, (po, cap, pn) => M._nqkstmt(a.id, psk, sk.length, ppk,
+      pk.length, b.id, pns, ns ? ns.length : 0, pnp, np ? np.length : 0, at,
+      why, po, cap, pn), 4 * (pk.length + (np ? np.length : 0)) + 16384);
+  });
+}
+
 export const capsule = Object.freeze({
   /**
    * Checks a capsule given as its files (a Map, an object or [path, bytes]
    * pairs, with '/' between folders), including noqtis.json and
    * noqtis.sig. Options: `trust` (the public key the seal must carry;
    * without it the seal's own key is accepted and the report says so),
-   * `anchors` (DER certificates of TSA trust anchors, at most 32).
+   * `anchors` (DER certificates of TSA trust anchors, at most 32),
+   * `only` (check just these paths; "partial" rows say what was left out),
+   * `lineage` (capsules, as files, among which a format 2 capsule's inputs
+   * are found by id and checked, to 64 levels), `keys` (key statements
+   * from capsule.rotate / capsule.revoke, at most 32; they need `trust`),
+   * `proof` (a proof from capsule.prove: checked instead of the files,
+   * which may then be null; given, the proven files are checked too).
    * Returns { ok, code, checks: [{ check, ok, detail }] }.
    */
   check(files, opts = {}) {
-    return withdir(files, (dir) => run((h) => {
+    const pf = opts.proof === undefined ? null : bytes(opts.proof, 'proof');
+    if (pf !== null && (opts.only !== undefined ||
+        opts.lineage !== undefined || opts.keys !== undefined)) {
+      throw new NoqtisError(CODES.EARG,
+        'only, lineage and keys do not apply to a proof');
+    }
+    if (opts.keys !== undefined && opts.trust === undefined) {
+      throw new NoqtisError(CODES.EARG, 'keys need trust');
+    }
+    const lin = opts.lineage === undefined ? [] : opts.lineage;
+    if (!Array.isArray(lin)) {
+      throw new TypeError('noqtis: lineage must be an array of capsules');
+    }
+    const f = capsrc(files);
+    if (f === null && pf === null) {
+      throw new TypeError('noqtis: files (or opts.proof) are needed');
+    }
+    const caps = f === null ? lin : [f, ...lin];
+    return withdirs(caps, (dirs) => run((h) => {
       const t = opts.trust === undefined ? null : key(opts.trust, 'trust');
-      const anc = opts.anchors === undefined ? [] : opts.anchors;
-      const pa = h.alloc(4 * anc.length);
-      const pl = h.alloc(4 * anc.length);
-      anc.forEach((c, i) => {
-        const b = key(c, 'anchor');
-        M.HEAPU32[(pa >>> 2) + i] = h.put(b);
-        M.HEAPU32[(pl >>> 2) + i] = b.length;
+      const anc = blist(h, opts.anchors === undefined ? [] : opts.anchors,
+        'anchors', false);
+      const only = blist(h, opts.only === undefined ? [] : opts.only,
+        'only', true);
+      const ld = blist(h, f === null ? dirs : dirs.slice(1), 'lineage', true);
+      const st = blist(h, opts.keys === undefined ? [] : opts.keys, 'keys',
+        false);
+      const o = h.alloc(48); // nqcopt: twelve 32-bit members
+      const w = [t ? h.put(t) : 0, t ? t.length : 0, anc.p, anc.l, anc.n,
+        only.p, only.n, ld.p, ld.n, st.p, st.l, st.n];
+      w.forEach((v, i) => {
+        M.HEAPU32[(o >>> 2) + i] = v;
       });
       const rp = h.alloc(4);
       M.HEAPU32[rp >>> 2] = 0;
-      const rc = M._nqchkt(h.str(dir), t ? h.put(t) : 0, t ? t.length : 0,
-        anc.length ? pa : 0, anc.length ? pl : 0, anc.length, rp);
+      const dir = f === null ? 0 : h.str(dirs[0]);
+      const rc = pf === null ? M._nqchkx(dir, o, rp)
+        : M._nqchkp(h.put(pf), pf.length, o, dir, rp);
       const checks = report(h, rp);
       if (rc !== CODES.OK && rc !== CODES.EVRFY) throw new NoqtisError(rc);
       return { ok: rc === CODES.OK, code: rc, checks };
@@ -563,7 +692,10 @@ export const capsule = Object.freeze({
    * Seals the files: returns { 'noqtis.json', 'noqtis.sig' } as bytes, to
    * store beside them. Options: `meta` (a JSON value or JSON text, kept in
    * the manifest), `time` (creation time in seconds since 1970; default
-   * the clock).
+   * the clock), `format` (1, the default, or 2: a Merkle tree over the
+   * files, for capsule.prove), `inputs` (format 2, the default with it:
+   * [{ name, id }], the capsules this one was made from, each id the
+   * 32 bytes capsule.id gives).
    */
   seal(files, alg, secretKey, publicKey, opts = {}) {
     const a = salg(alg);
@@ -573,6 +705,16 @@ export const capsule = Object.freeze({
     if (opts.meta !== undefined) {
       meta = typeof opts.meta === 'string' ? opts.meta
         : JSON.stringify(opts.meta);
+    }
+    const ins = opts.inputs;
+    const fmt = opts.format === undefined ? (ins === undefined ? 1 : 2)
+      : opts.format;
+    if (fmt !== 1 && fmt !== 2) throw new NoqtisError(CODES.EARG, 'format');
+    if (fmt === 1 && ins !== undefined) {
+      throw new NoqtisError(CODES.EARG, 'inputs need format 2');
+    }
+    if (ins !== undefined && !Array.isArray(ins)) {
+      throw new TypeError('noqtis: inputs must be an array');
     }
     return withdir(files, (dir) => run((h) => {
       const ev = h.str('SOURCE_DATE_EPOCH');
@@ -585,8 +727,27 @@ export const capsule = Object.freeze({
         M._unsetenv(ev);
       }
       try {
-        check(M._nqseal(h.str(dir), a.id, h.put(sk), sk.length, h.put(pk),
-          pk.length, meta === null ? 0 : h.str(meta), 0));
+        const pd = h.str(dir);
+        const psk = h.put(sk);
+        const ppk = h.put(pk);
+        const pm = meta === null ? 0 : h.str(meta);
+        if (fmt === 1) {
+          check(M._nqseal(pd, a.id, psk, sk.length, ppk, pk.length, pm, 0));
+        } else {
+          const list = ins === undefined ? [] : ins;
+          const pi = h.alloc(36 * list.length); // nqcin: id[32], name
+          list.forEach((x, i) => {
+            const id = key(x && x.id, 'inputs[].id');
+            if (id.length !== 32 || typeof x.name !== 'string' ||
+                x.name.includes('\0')) {
+              throw new NoqtisError(CODES.EARG, 'inputs: { name, id }');
+            }
+            M.HEAPU8.set(id, pi + 36 * i);
+            M.HEAPU32[(pi + 36 * i + 32) >>> 2] = h.str(x.name);
+          });
+          check(M._nqseal2(pd, a.id, psk, sk.length, ppk, pk.length, pm,
+            list.length ? pi : 0, list.length));
+        }
       } finally {
         M._unsetenv(ev);
       }
@@ -595,6 +756,130 @@ export const capsule = Object.freeze({
         'noqtis.sig': M.FS.readFile(`${dir}/noqtis.sig`),
       };
     }));
+  },
+
+  /**
+   * The capsule's id, 32 bytes: the SHA-256 of what its seal signs, as
+   * seal's `inputs` take it. Only noqtis.sig is read; nothing is checked.
+   */
+  id(files) {
+    return withdir(files, (dir) => run((h) => {
+      const pi = h.alloc(32);
+      check(M._nqcapid(h.str(dir), pi));
+      return h.get(pi, 32);
+    }));
+  },
+
+  /**
+   * A proof (noqtis-proof-1, JSON bytes) that the paths are files of the
+   * format 2 capsule: its seal, the manifest's head and each file's entry
+   * and Merkle audit path, and nothing of the other files. Check the
+   * capsule first; capsule.check(null, { proof }) checks the proof.
+   */
+  prove(files, paths) {
+    const ps = typeof paths === 'string' ? [paths] : paths;
+    return withdir(files, (dir) => run((h) => {
+      const l = blist(h, ps, 'paths', true);
+      if (l.n === 0) throw new NoqtisError(CODES.EARG, 'paths');
+      const pd = h.str(dir);
+      return sized(h, (po, cap, pn) => M._nqprove(pd, l.p, l.n, po, cap,
+        pn), 65536);
+    }));
+  },
+
+  /**
+   * The files the manifest lists, [{ path, size, sha256 }] in manifest
+   * order, read with nothing checked (only noqtis.json and noqtis.sig are
+   * needed).
+   */
+  files(files) {
+    return withdir(files, (dir) => run((h) => {
+      const rp = h.alloc(4);
+      M.HEAPU32[rp >>> 2] = 0;
+      const rc = M._nqfiles(h.str(dir), rp);
+      const rows = report(h, rp);
+      const bad = rows.find((r) => !r.ok);
+      if (rc !== CODES.OK || bad) {
+        throw new NoqtisError(rc === CODES.OK ? CODES.EDEC : rc,
+          bad ? bad.detail : undefined);
+      }
+      return rows.filter((r) => r.check === 'info.file').map((r) => {
+        const a = r.detail.indexOf(' ');
+        const b = r.detail.indexOf(' ', a + 1);
+        return {
+          path: r.detail.slice(b + 1),
+          size: Number(r.detail.slice(0, a)),
+          sha256: r.detail.slice(a + 1, b),
+        };
+      });
+    }));
+  },
+
+  /**
+   * A key statement (noqtis-keys-1, JSON bytes): the key pair of alg is
+   * replaced by the new pair of newAlg from `opts.at` (seconds since
+   * 1970 or a Date; default now), signed by both. `opts.reason`: up to
+   * 255 bytes of text. Both must be post-quantum (Ed25519 alone is
+   * refused). capsule.check takes it in `keys`.
+   */
+  rotate(alg, secretKey, publicKey, newAlg, newSecretKey, newPublicKey,
+    opts = {}) {
+    return kstmt(alg, secretKey, publicKey, newAlg, newSecretKey,
+      newPublicKey, opts);
+  },
+
+  /** A key statement that the key pair is revoked from `opts.at`. */
+  revoke(alg, secretKey, publicKey, opts = {}) {
+    return kstmt(alg, secretKey, publicKey, null, null, null, opts);
+  },
+});
+
+// ---- DSSE envelopes ------------------------------------------------------
+
+export const dsse = Object.freeze({
+  /**
+   * A DSSE envelope (canonical JSON bytes) of payload with payloadType
+   * `type` (1 to 255 printable ASCII bytes, no space, quote or
+   * backslash), signed by the key pair over the pre-authentication
+   * encoding; keyid is the hex SHA-256 of the public key.
+   */
+  sign(alg, secretKey, publicKey, type, payload) {
+    const a = salg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const pk = key(publicKey, 'publicKey');
+    if (typeof type !== 'string' || type.includes('\0')) {
+      throw new TypeError('noqtis: type must be a string');
+    }
+    const d = bytes(payload, 'payload');
+    return run((h) => {
+      const psk = h.put(sk);
+      const ppk = h.put(pk);
+      const pt = h.str(type);
+      const pd = h.put(d);
+      return sized(h, (po, cap, pn) => M._nqdsse(a.id, psk, sk.length, ppk,
+        pk.length, pt, pd, d.length, po, cap, pn), 2 * d.length + 65536);
+    });
+  },
+
+  /**
+   * { payload, payloadType } when one of the envelope's signatures (at
+   * most 16) verifies under publicKey; null when none does. Text that is
+   * not an envelope throws (NQEDEC).
+   */
+  verify(alg, publicKey, envelope) {
+    const a = salg(alg);
+    const pk = key(publicKey, 'publicKey');
+    const e = bytes(envelope, 'envelope');
+    return run((h) => {
+      const po = h.alloc(e.length);
+      const pn = h.alloc(4);
+      const pt = h.alloc(256);
+      const rc = M._nqdssevrfy(a.id, h.put(pk), pk.length, h.put(e),
+        e.length, po, e.length, pn, pt);
+      if (rc === CODES.EVRFY) return null;
+      check(rc);
+      return { payload: h.get(po, h.u32(pn)), payloadType: M.UTF8ToString(pt) };
+    });
   },
 });
 
@@ -729,6 +1014,6 @@ export function _heap() {
 }
 
 export default {
-  init, version, algs, random, hash, hmac, sign, kem, capsule, keyfile,
-  NoqtisError, codes, errmsg,
+  init, version, algs, random, hash, hmac, sign, kem, capsule, dsse,
+  keyfile, NoqtisError, codes, errmsg,
 };

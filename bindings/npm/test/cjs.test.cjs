@@ -25,4 +25,11 @@ test('require() entry', async () => {
   assert.throws(() => nq.sign.keygen('nope'),
     (err) => err instanceof nq.NoqtisError && err.code === nq.codes.ENOSUP);
   assert.equal(typeof nqnode.checkDir, 'function');
+  const env = nq.dsse.sign('ML-DSA-44', secretKey, publicKey, 'text/plain',
+    'cjs');
+  assert.equal(nq.dsse.verify('ML-DSA-44', publicKey, env).payloadType,
+    'text/plain');
+  for (const f of ['id', 'prove', 'files', 'rotate', 'revoke']) {
+    assert.equal(typeof nq.capsule[f], 'function');
+  }
 });

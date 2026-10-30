@@ -1,7 +1,8 @@
 # noqtis
 
-Post-quantum signatures (ML-DSA, SLH-DSA), key encapsulation (ML-KEM,
-HQC), SHA-2/SHA-3 hashes and sealed file capsules for JavaScript: the
+Post-quantum signatures (ML-DSA, SLH-DSA, hybrids with Ed25519), key
+encapsulation (ML-KEM, HQC), SHA-2/SHA-3 hashes, sealed file capsules and
+DSSE envelopes for JavaScript: the
 [noqtis](https://github.com/rootcoder007/noqtis) C11 library compiled to
 WebAssembly. One package for Node (22 and later), browsers, Deno and Bun;
 nothing to compile, no dependencies, no network access.
@@ -43,7 +44,7 @@ after `init()` is synchronous.
 |---|---|
 | `init({ wasm })` | a promise; `wasm` (optional) is noqtis.wasm as bytes, a `WebAssembly.Module` or a URL, for runtimes that cannot find it next to `dist/noqtis.js` |
 | `algs()` | every algorithm with its sizes in bytes: `{ name, kind: 'sign', publicKey, secretKey, signature }`, `{ name, kind: 'kem', publicKey, secretKey, ciphertext, sharedSecret }`, `{ name, kind: 'hash', digest }` |
-| `sign.keygen(alg, { seed })` | `{ publicKey, secretKey }`; `seed` is the standard's seed (xi, 32 bytes, for ML-DSA; SK.seed, SK.prf, PK.seed for SLH-DSA) |
+| `sign.keygen(alg, { seed })` | `{ publicKey, secretKey }`; `seed` is the standard's seed (xi, 32 bytes, for ML-DSA; SK.seed, SK.prf, PK.seed for SLH-DSA; the 32-byte private key for Ed25519; xi and the Ed25519 key, 64 bytes, for a hybrid) |
 | `sign.sign(alg, sk, msg, { ctx, deterministic, rnd, prehash })` | the signature (FIPS 204/205 encoding); `ctx` at most 255 bytes; `deterministic` uses all-zero per-signature randomness; `prehash` names a hash for HashML-DSA / HashSLH-DSA |
 | `sign.verify(alg, pk, msg, sig, { ctx, prehash })` | `true` or `false` (`false` also for a malformed signature) |
 | `kem.keygen(alg, { seed })` | `{ publicKey, secretKey }` |
@@ -52,8 +53,14 @@ after `init()` is synchronous.
 | `hash(alg, data, { length })` | the digest; `length` for SHAKE only |
 | `hmac(alg, key, data)` | HMAC with a SHA-2 or SHA-3 hash |
 | `random(n)` | `n` bytes from `crypto.getRandomValues` |
-| `capsule.seal(files, alg, sk, pk, { meta, time })` | `{ 'noqtis.json', 'noqtis.sig' }` |
-| `capsule.check(files, { trust, anchors })` | `{ ok, code, checks: [{ check, ok, detail }] }` |
+| `capsule.seal(files, alg, sk, pk, { meta, time, format, inputs })` | `{ 'noqtis.json', 'noqtis.sig' }`; `format: 2` adds a Merkle tree over the files; `inputs: [{ name, id }]` records the capsules it was made from |
+| `capsule.check(files, { trust, anchors, only, lineage, keys, proof })` | `{ ok, code, checks: [{ check, ok, detail }] }` |
+| `capsule.id(files)` | the capsule's id, 32 bytes (nothing checked) |
+| `capsule.prove(files, paths)` | a proof (JSON bytes) that `paths` are in the format 2 capsule |
+| `capsule.files(files)` | `[{ path, size, sha256 }]` as the manifest lists them (nothing checked) |
+| `capsule.rotate(alg, sk, pk, newAlg, newSk, newPk, { at, reason })`, `capsule.revoke(alg, sk, pk, { at, reason })` | a key statement (JSON bytes) for `check`'s `keys` |
+| `dsse.sign(alg, sk, pk, type, payload)` | a DSSE envelope (canonical JSON bytes) |
+| `dsse.verify(alg, pk, envelope)` | `{ payload, payloadType }`, or `null` when no signature verifies |
 | `keyfile.encode(alg, 'pub' \| 'sec', key)`, `keyfile.decode(text)` | the CLI's key file text, and back (`{ alg, kind, key }`) |
 | `NoqtisError`, `codes`, `errmsg(code)` | errors carry the library's `NQE*` code in `.code` and its message |
 | `version()` | the library version |
@@ -94,12 +101,49 @@ authorities, for seals that carry a timestamp token; the library itself
 makes no network requests, so it cannot obtain one: seal with the CLI's
 `noqtis seal --tsa <url>` to add one.
 
+### Format 2, proofs, lineage and key statements
+
+```js
+const out = capsule.seal(files, 'ML-DSA-65', sk, pk, { format: 2 });
+// ... files now holds noqtis.json and noqtis.sig too
+const proof = capsule.prove(files, ['data/a.csv']);
+capsule.check(null, { proof, trust: pk }).ok;   // the proof alone
+capsule.check(files, { proof, trust: pk }).ok;  // and the proven files
+```
+
+A proof holds the seal, the manifest's head and each proven file's entry
+and Merkle audit path, and nothing of the other files.
+`seal(..., { inputs: [{ name: 'raw', id: capsule.id(raw) }] })` records
+the capsules one was made from; `check(files, { lineage: [raw] })` finds
+each among those capsules by id and checks it, to 64 levels.
+`check(files, { only: ['data/a.csv'] })` checks just those files and says
+so in `partial` rows.
+
+`capsule.rotate` and `capsule.revoke` write key statements; pass them to
+`check` as `keys` with `trust`. A seal by a key the trusted key was
+rotated to then checks, and a seal by a key rotated away or revoked
+needs a verified timestamp from before that time. Ed25519 alone cannot
+make statements, or seals.
+
+## DSSE envelopes
+
+```js
+const env = dsse.sign('ML-DSA-65', sk, pk, 'application/vnd.in-toto+json',
+  statement);
+dsse.verify('ML-DSA-65', pk, env); // { payload, payloadType } or null
+```
+
+The envelope (the in-toto and SLSA signing wrapper) has one signature
+over the pre-authentication encoding; its keyid is the hex SHA-256 of
+the public key. Text that is not an envelope throws `EDEC`.
+
 On Node, `noqtis/node` reads a folder from disk and writes the seal back:
 
 ```js
 import { checkDir, sealDir } from 'noqtis/node';
 sealDir('out', 'ML-DSA-65', secretKey, publicKey);
 checkDir('out', { trust: publicKey });
+checkDir('model', { lineage: ['raw', 'clean'] }); // folders work here
 ```
 
 A link or a special file in the folder is refused, as the C library

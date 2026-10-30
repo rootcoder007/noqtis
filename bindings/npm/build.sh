@@ -23,7 +23,8 @@ fi
 fns='nqerr nqver nqwipe nqrand nqhlen nqhash nqhmac
 nqssize nqsname nqskg nqskgd nqsign nqsignd nqvrfy
 nqksize nqkname nqkkg nqkkgd nqenc nqencd nqdec
-nqseal nqchkt nqrepn nqrepi nqrepfree
+nqseal nqseal2 nqcapid nqchkt nqchkx nqchkp nqprove nqfiles
+nqkstmt nqdsse nqdssevrfy nqrepn nqrepi nqrepfree
 malloc free setenv unsetenv'
 inc=wasmBinary,locateFile,instantiateWasm,print,printErr
 exp=$(printf '%s\n' $fns | sed 's/^/_/' | paste -sd, -)

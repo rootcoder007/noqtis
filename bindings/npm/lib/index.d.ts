@@ -63,7 +63,7 @@ export interface SignOptions {
   ctx?: Data;
   /** All-zero per-signature randomness (the deterministic variant). */
   deterministic?: boolean;
-  /** The per-signature randomness itself (32 bytes ML-DSA, n SLH-DSA). */
+  /** Per-signature randomness: 32 bytes ML-DSA and hybrids, n SLH-DSA. */
   rnd?: Bytes;
   /** HashML-DSA / HashSLH-DSA with this hash; msg is hashed inside. */
   prehash?: HashAlg;
@@ -75,7 +75,11 @@ export interface VerifyOptions {
 }
 
 export const sign: {
-  /** seed: xi (32 bytes) for ML-DSA, SK.seed||SK.prf||PK.seed for SLH-DSA. */
+  /**
+   * seed: xi (32 bytes) for ML-DSA, SK.seed||SK.prf||PK.seed for SLH-DSA,
+   * the 32-byte private key for Ed25519, xi||the Ed25519 key (64 bytes)
+   * for a hybrid.
+   */
   keygen(alg: SignAlg, opts?: { seed?: Bytes }): KeyPair;
   sign(alg: SignAlg, secretKey: Bytes, msg: Data, opts?: SignOptions): Bytes;
   /** false when the signature does not verify or is malformed. */
@@ -111,12 +115,72 @@ export interface CheckResult {
   checks: CheckRow[];
 }
 
+export interface CheckOptions {
+  /** The public key the seal must carry; without it the seal's own. */
+  trust?: Bytes;
+  /** DER certificates of TSA trust anchors, at most 32. */
+  anchors?: Bytes[];
+  /** Check just these paths; "partial" rows say what was left out. */
+  only?: string[];
+  /** Capsules among which a format 2 capsule's inputs are found by id. */
+  lineage?: Files[];
+  /** Key statements from capsule.rotate / capsule.revoke; need trust. */
+  keys?: Data[];
+  /** A proof from capsule.prove, checked instead of (or with) the files. */
+  proof?: Data;
+}
+
+export interface SealOptions {
+  /** A JSON value, or JSON text, kept in the manifest. */
+  meta?: unknown;
+  /** Creation time in seconds since 1970; default the clock. */
+  time?: number;
+  /** 1 (the default) or 2: a Merkle tree over the files. */
+  format?: 1 | 2;
+  /** Format 2: the capsules this one was made from, by capsule.id. */
+  inputs?: { name: string; id: Bytes }[];
+}
+
+export interface KeyOptions {
+  /** When it takes effect: seconds since 1970 or a Date; default now. */
+  at?: number | Date;
+  /** Up to 255 bytes of text. */
+  reason?: string;
+}
+
+export interface FileEntry {
+  path: string;
+  size: number;
+  /** 64 hex digits. */
+  sha256: string;
+}
+
 export const capsule: {
-  check(files: Files, opts?: { trust?: Bytes; anchors?: Bytes[] }):
-    CheckResult;
+  /** files may be null when opts.proof is given. */
+  check(files: Files | null, opts?: CheckOptions): CheckResult;
   seal(files: Files, alg: SignAlg, secretKey: Bytes, publicKey: Bytes,
-    opts?: { meta?: unknown; time?: number }):
-    { 'noqtis.json': Bytes; 'noqtis.sig': Bytes };
+    opts?: SealOptions): { 'noqtis.json': Bytes; 'noqtis.sig': Bytes };
+  /** The capsule's id (32 bytes); nothing is checked. */
+  id(files: Files): Bytes;
+  /** A proof (JSON bytes) that paths are files of a format 2 capsule. */
+  prove(files: Files, paths: string | string[]): Bytes;
+  /** The files the manifest lists; nothing is checked. */
+  files(files: Files): FileEntry[];
+  /** A key statement (JSON bytes): the key pair is replaced by the new. */
+  rotate(alg: SignAlg, secretKey: Bytes, publicKey: Bytes, newAlg: SignAlg,
+    newSecretKey: Bytes, newPublicKey: Bytes, opts?: KeyOptions): Bytes;
+  /** A key statement (JSON bytes) that the key pair is revoked. */
+  revoke(alg: SignAlg, secretKey: Bytes, publicKey: Bytes,
+    opts?: KeyOptions): Bytes;
+};
+
+export const dsse: {
+  /** A DSSE envelope (canonical JSON bytes) signed by the key pair. */
+  sign(alg: SignAlg, secretKey: Bytes, publicKey: Bytes, type: string,
+    payload: Data): Bytes;
+  /** The payload and its type, or null when no signature verifies. */
+  verify(alg: SignAlg, publicKey: Bytes, envelope: Data):
+    { payload: Bytes; payloadType: string } | null;
 };
 
 export const keyfile: {
@@ -142,7 +206,7 @@ declare const _default: {
   init: typeof init; version: typeof version; algs: typeof algs;
   random: typeof random; hash: typeof hash; hmac: typeof hmac;
   sign: typeof sign; kem: typeof kem; capsule: typeof capsule;
-  keyfile: typeof keyfile; NoqtisError: typeof NoqtisError;
+  dsse: typeof dsse; keyfile: typeof keyfile; NoqtisError: typeof NoqtisError;
   codes: typeof codes; errmsg: typeof errmsg;
 };
 export default _default;

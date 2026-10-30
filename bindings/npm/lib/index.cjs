@@ -51,6 +51,15 @@ module.exports = {
   capsule: Object.freeze({
     check: fwd('capsule', 'check'),
     seal: fwd('capsule', 'seal'),
+    id: fwd('capsule', 'id'),
+    prove: fwd('capsule', 'prove'),
+    files: fwd('capsule', 'files'),
+    rotate: fwd('capsule', 'rotate'),
+    revoke: fwd('capsule', 'revoke'),
+  }),
+  dsse: Object.freeze({
+    sign: fwd('dsse', 'sign'),
+    verify: fwd('dsse', 'verify'),
   }),
   keyfile: Object.freeze({
     encode: fwd('keyfile', 'encode'),
