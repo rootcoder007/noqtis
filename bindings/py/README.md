@@ -1,4 +1,4 @@
-# noqtis for Python
+# noqtis for Python <img src="https://raw.githubusercontent.com/rootcoder007/noqtis/main/docs/logo/noqtis-hex-512.png" align="right" height="139" alt="NOQTIS hex logo" />
 
 Post-quantum signatures, key encapsulation, hashes and sealed file
 capsules, from the [noqtis](https://github.com/rootcoder007/noqtis) C

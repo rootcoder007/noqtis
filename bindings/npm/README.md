@@ -1,4 +1,4 @@
-# noqtis
+# noqtis <img src="https://raw.githubusercontent.com/rootcoder007/noqtis/main/docs/logo/noqtis-hex-512.png" align="right" height="139" alt="NOQTIS hex logo" />
 
 Post-quantum signatures (ML-DSA, SLH-DSA, hybrids with Ed25519), key
 encapsulation (ML-KEM, HQC), SHA-2/SHA-3 hashes, sealed file capsules and
