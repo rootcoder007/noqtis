@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The Go package (bindings/go): the vendored copy of the library is
+# current (tools/vendor.sh changes nothing), gofmt and go vet, and the
+# tests and examples on Linux, macOS and Windows (cgo with gcc, clang
+# and MinGW-w64 gcc). As in py.yml, the macOS and Windows jobs cost
+# runner minutes on a private repository, so there they run weekly and
+# on demand only. Nothing is published from here.
+# Every action is pinned by commit; the version is in the comment.
+name: go
+
+on:
+  push:
+    branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+    paths:
+      - "bindings/go/**"
+      - "src/**"
+      - "include/**"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/go.yml"
+  pull_request:
+    paths:
+      - "bindings/go/**"
+      - "src/**"
+      - "include/**"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/go.yml"
+  schedule:
+    - cron: "53 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: go-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+    working-directory: bindings/go
+
+env:
+  CGO_ENABLED: 1
+
+jobs:
+  lint:
+    name: vendor, gofmt and vet
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: false
+      - name: the vendored library is current
+        run: |
+          sh tools/vendor.sh
+          git add -A .
+          git diff --cached --exit-code --stat .
+      - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+
+  linux:
+    name: test linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: false
+      - run: go test -count=1 -v ./...
+      - name: cgo pointer checks
+        run: GOEXPERIMENT=cgocheck2 go test -count=1 -run 'Golden|Seal|Key|KATs|Example' ./...
+
+  others:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    name: test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: false
+      - run: go test -count=1 -v ./...

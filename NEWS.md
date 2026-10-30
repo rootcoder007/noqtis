@@ -111,6 +111,9 @@ mistake in the release process; use 0.1.1.)
   its build script (the `cc` crate, no bindgen): signatures, KEMs,
   hashes, capsules (format 1 and 2, proofs, lineage, inspect) and the
   CLI's key files; tested on Linux, macOS and Windows (`rust.yml`).
+- A Go package (`bindings/go`, cgo) with the library compiled in from a
+  vendored copy (`tools/vendor.sh`; CI checks it is current): the same
+  API as the Rust crate; tested on Linux, macOS and Windows (`go.yml`).
 - Hardened after a manual security review before release:
   - a seal's context must be `noqtis-capsule-1`, so a signature made for
     anything else (a plain `noqtis sign` of the same bytes) is never
