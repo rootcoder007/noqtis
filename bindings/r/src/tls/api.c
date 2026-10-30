@@ -74,7 +74,7 @@ void nqtlhook(nqtls *t, const nqtlhk *hk) {
   t->hk = *hk;
 }
 #else
-const nqtlhk nqtlhk0;
+const nqtlhk nqtlhk0 = {0}; /* MSVC C4132: a const object is initialised */
 #endif
 
 int nqtlw(nqtls *t, const uint8_t *b, size_t n) {
