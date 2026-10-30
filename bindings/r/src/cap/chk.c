@@ -1184,6 +1184,8 @@ static int kone(nqrep *r, const char *b, size_t n, kst *st) {
   int cn = 0, rot, rc, ok = 0;
   memset(st, 0, sizeof *st);
   memset(&body, 0, sizeof body);
+  memset(&sz, 0, sizeof sz); /* set below; zero for the early exits */
+  memset(&nsz, 0, sizeof nsz);
   why[0] = 0;
   rc = canon(b, n, &v, &cn);
   if (rc == NQEMEM) {

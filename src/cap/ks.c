@@ -116,6 +116,7 @@ int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
   char ts[21], *pkb = NULL, *npkb = NULL, *s1 = NULL, *s2 = NULL;
   const char *rs = reason != NULL ? reason : "";
   int rot = npk != NULL, rc;
+  memset(&nsz, 0, sizeof nsz); /* a revocation has no new key */
   if (outlen != NULL) *outlen = 0;
   if (sk == NULL || pk == NULL || outlen == NULL ||
       (out == NULL && cap != 0) || (rot && nsk == NULL) ||
