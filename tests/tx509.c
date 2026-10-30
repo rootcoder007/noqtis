@@ -74,8 +74,9 @@ static void tparse(void) {
       }
       NQTEQI(r, NQOK);
       ncert++;
-      /* nameConstraints is critical in nc_ca and not handled here */
-      NQTEQI(c.bad, strcmp(fx[i].name, "nc_ca") == 0);
+      /* nameConstraints (in nc_ca) is handled now: nothing is bad */
+      NQTEQI(c.bad, 0);
+      NQTEQI((c.ext & NQXHASNC) != 0, strcmp(fx[i].name, "nc_ca") == 0);
     }
   }
   NQTEQI(ncert, 29);
@@ -488,17 +489,135 @@ static void tchain(void) {
                   &leaf),
            NQOK);
     NQTEQI(chain(&leaf, &e, 1, NULL, 0, leaf.nb + 60, 0, &np), NQOK);
-    /* a CA with a critical nameConstraints is unusable here */
+    /* nc_ca's name constraints, as OpenSSL judged its leaves: inside,
+     * outside the permitted DNS name, in the excluded one, outside the
+     * permitted directory name */
     NQTEQI(nqcprs(BL("nc_ca")->p, BL("nc_ca")->n, &e), NQOK);
-    NQTEQI(nqcprs(BL("nc_leaf_good")->p, BL("nc_leaf_good")->n, &leaf),
-           NQOK);
-    NQTEQI(chain(&leaf, &e, 1, NULL, 0, leaf.nb + 60, NQXEKUTS, &np),
-           NQEVRFY);
+    {
+      static const char *const nl[] = {"nc_leaf_good", "nc_leaf_outside",
+                                       "nc_leaf_excluded", "nc_leaf_baddn"};
+      size_t q;
+      for (q = 0; q < 4; q++) {
+        NQTEQI(nqcprs(BL(nl[q])->p, BL(nl[q])->n, &leaf), NQOK);
+        NQTEQI(chain(&leaf, &e, 1, NULL, 0, leaf.nb + 60, NQXEKUTS, &np),
+               q == 0 ? NQOK : NQEVRFY);
+      }
+    }
     /* pol_ca issues the pol_* leaves */
     NQTEQI(nqcprs(BL("pol_ca")->p, BL("pol_ca")->n, &e), NQOK);
     NQTEQI(nqcprs(BL("pol_leaf_ok")->p, BL("pol_leaf_ok")->n, &leaf), NQOK);
     NQTEQI(chain(&leaf, &e, 1, NULL, 0, leaf.nb + 60, NQXEKUTS, &np), NQOK);
   }
+}
+
+/* ---- name constraints (vectors/der/nc.sh) ---- */
+
+static const char *const ncn[] = {
+    "nc_root",    "nc_dns",    "nc_ip",      "nc_dn",     "nc_uri",
+    "nc_si",      "l_dns_ok",  "l_dns_cn",   "l_dns_dot", "l_dns_out",
+    "l_dns_ex",   "l_dns_wild", "l_ip_ok",   "l_ip_out",  "l_ip_ex",
+    "l_ip_v6",    "l_dn_ok",   "l_dn_out",   "l_dn_san",  "l_dn_mail",
+    "l_dn_subj",  "l_dn_self", "l_si_ok",    "l_uri_has", "l_uri_none"};
+#define NNC (sizeof ncn / sizeof ncn[0])
+static tdbuf ncb[NNC];
+static nqcert ncc[NNC];
+
+static const nqcert *N(const char *name) {
+  size_t i;
+  for (i = 0; i < NNC; i++) {
+    if (strcmp(ncn[i], name) == 0) {
+      return &ncc[i];
+    }
+  }
+  return NULL;
+}
+
+static void tnc(void) {
+  /* each leaf, and whether its path holds */
+  static const struct {
+    const char *leaf;
+    int ok;
+  } cs[] = {
+      /* DNS: a name and names below it; with a leading dot below only;
+       * a label boundary; an excluded subtree, also through a wildcard
+       * that could stand for it; the common name never counts, and an
+       * address with no address constraint is free */
+      {"l_dns_ok", 1},   {"l_dns_cn", 1},   {"l_dns_dot", 0},
+      {"l_dns_out", 0},  {"l_dns_ex", 0},   {"l_dns_wild", 0},
+      /* addresses and masks, IPv4 and IPv6; a DNS name is free here */
+      {"l_ip_ok", 1},    {"l_ip_out", 0},   {"l_ip_ex", 0},
+      {"l_ip_v6", 0},
+      /* directory names: the subject and a subjectAltName dirName; mail
+       * on a host; with no subjectAltName, the subject's emailAddress;
+       * a self-issued leaf is checked */
+      {"l_dn_ok", 1},    {"l_dn_out", 0},   {"l_dn_san", 0},
+      {"l_dn_mail", 0},  {"l_dn_subj", 0},  {"l_dn_self", 0},
+      /* a URI constraint: fails closed on a URI, binds nothing else */
+      {"l_uri_has", 0},  {"l_uri_none", 1},
+  };
+  nqcert pool[5], c;
+  size_t i, np;
+  char path[128];
+  for (i = 0; i < NNC; i++) {
+    snprintf(path, sizeof path, "vectors/der/nc/%s.der", ncn[i]);
+    ncb[i] = tdread(path);
+    NQTCHK(ncb[i].p != NULL);
+    NQTEQI(nqcprs(ncb[i].p, ncb[i].n, &ncc[i]), NQOK);
+  }
+  NQTEQI(N("nc_dns")->ext & NQXHASNC, NQXHASNC);
+  NQTCHK(N("nc_dns")->ncp.n > 0 && N("nc_dns")->nce.n > 0);
+  NQTCHK(N("nc_dn")->ncp.n > 0 && N("nc_dn")->nce.n == 0);
+  NQTEQI(N("nc_root")->ext & NQXHASNC, 0);
+  pool[0] = *N("nc_dns");
+  pool[1] = *N("nc_ip");
+  pool[2] = *N("nc_dn");
+  pool[3] = *N("nc_uri");
+  for (i = 0; i < sizeof cs / sizeof cs[0]; i++) {
+    const nqcert *l = N(cs[i].leaf);
+    int r = chain(l, N("nc_root"), 1, pool, 4, l->nb + 60, 0, &np);
+    if (r != (cs[i].ok ? NQOK : NQEVRFY)) {
+      fprintf(stderr, "tnc: %s gave %d\n", cs[i].leaf, r);
+    }
+    NQTEQI(r, cs[i].ok ? NQOK : NQEVRFY);
+  }
+  /* below a self-issued intermediate whose subject is outside nc_dn's
+   * subtree: it is not checked itself (its issuer comes second in the
+   * pool, so that the oracle's record mode finds the real path) */
+  pool[4] = pool[2];
+  pool[3] = *N("nc_si");
+  NQTEQI(chain(N("l_si_ok"), N("nc_root"), 1, pool + 3, 2,
+               N("l_si_ok")->nb + 60, 0, &np),
+         NQOK);
+  NQTEQI(np, 4);
+  /* the same leaves with the constrained CA as the anchor: its
+   * constraints bind there too */
+  NQTEQI(chain(N("l_dns_ex"), N("nc_dns"), 1, NULL, 0,
+               N("l_dns_ex")->nb + 60, 0, &np),
+         NQEVRFY);
+  NQTEQI(chain(N("l_dns_ok"), N("nc_dns"), 1, NULL, 0,
+               N("l_dns_ok")->nb + 60, 0, &np),
+         NQOK);
+  /* without its constraints the CA passes every leaf */
+  c = *N("nc_dns");
+  c.ext &= ~(unsigned)NQXHASNC;
+  NQTEQI(chain(N("l_dns_ex"), &c, 1, NULL, 0, N("l_dns_ex")->nb + 60, 0,
+               &np),
+         NQOK);
+  /* a subtree with a maximum, or a minimum other than 0: refused */
+  {
+    tdbuf b = tdread("vectors/der/nc/nc_max.der");
+    NQTCHK(b.p != NULL);
+    NQTEQI(nqcprs(b.p, b.n, &c), NQEDEC);
+    tdfree(&b);
+    b = tdread("vectors/der/nc/nc_min.der");
+    NQTCHK(b.p != NULL);
+    NQTEQI(nqcprs(b.p, b.n, &c), NQEDEC);
+    tdfree(&b);
+  }
+  /* directory-name prefixes */
+  NQTEQI(nqxnpre(N("nc_root")->subject, N("nc_root")->subject), 1);
+  NQTEQI(nqxnpre(N("l_dn_ok")->subject, N("l_dn_out")->subject), 0);
+  NQTEQI(nqxnpre(N("l_dn_ok")->issuer, N("l_dn_ok")->subject), 0);
 }
 
 /* ---- OCSP and CRLs ---- */
@@ -867,6 +986,18 @@ static void tmut(void) {
     a.t = c->nb + 60;
     acc += mutate(c->raw.p, c->raw.n, certchk, &a, pairs[i][0]);
   }
+  /* a constrained intermediate and a leaf below one */
+  {
+    carg a;
+    a.iss = N("nc_root");
+    a.t = N("nc_dns")->nb + 60;
+    acc += mutate(N("nc_dns")->raw.p, N("nc_dns")->raw.n, certchk, &a,
+                  "nc_dns");
+    a.iss = N("nc_dn");
+    a.t = N("l_dn_ok")->nb + 60;
+    acc += mutate(N("l_dn_ok")->raw.p, N("l_dn_ok")->raw.n, certchk, &a,
+                  "l_dn_ok");
+  }
   for (i = 0; i < sizeof blpairs / sizeof blpairs[0]; i++) {
     carg a;
     nqcert c, iss;
@@ -927,6 +1058,7 @@ int main(void) {
   tocsp();
   tcrl();
   tanch();
+  tnc();
   tmut();
   printf("tx509: %lu signature checks\n", tdcalls);
 #ifdef NQDCLS

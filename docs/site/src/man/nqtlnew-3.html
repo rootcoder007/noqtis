@@ -91,7 +91,8 @@
     and, for certificates only, rsa_pkcs1; at most one HelloRetryRequest (with a
     fresh key share for the group it asks for); the server's certificate path to
     one of the anchors at the current time (names, signatures, validity,
-    basicConstraints, keyUsage, the serverAuth purpose), the host name
+    basicConstraints, keyUsage, the serverAuth purpose, name constraints on DNS
+    names, addresses, directory names and mail addresses), the host name
     (subjectAltName only; a wildcard only as the whole leftmost label), the
     CertificateVerify signature and the Finished MAC. A CertificateRequest is
     answered with an empty Certificate.</p>
@@ -150,10 +151,11 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
-<p class="Pp">Not done: revocation (no OCSP stapling, no CRL), name constraints
-    and policy constraints (a certificate that carries them as critical
-    extensions is refused), Certificate Transparency, finite-field groups (a
-    server with none of the offered groups fails), Ed25519 and ML-DSA server
-    keys, TLS 1.2, resumption, 0-RTT, client certificates.</p>
+<p class="Pp">Not done: revocation (no OCSP stapling, no CRL), policy
+    constraints (a certificate that carries them as a critical extension is
+    refused), name constraints on other name forms (a certificate with a name of
+    such a form below one is refused), Certificate Transparency, finite-field
+    groups (a server with none of the offered groups fails), Ed25519 and ML-DSA
+    server keys, TLS 1.2, resumption, 0-RTT, client certificates.</p>
 </section>
 </div>

@@ -101,6 +101,16 @@ mistake in the release process; use 0.1.1.)
   table select, checked under valgrind (`tests/tecdhct.c`) and against
   OpenSSL and the RFC 8448 trace; a server share that is compressed, off
   the curve or the wrong length is refused.
+- Name constraints (RFC 5280 4.2.1.10) are checked on every path:
+  before, a CA with the (always critical) nameConstraints extension
+  was unusable, so the TLS client and the timestamp checks failed on any
+  path through one. Permitted and excluded subtrees of DNS names (also
+  in the leading-dot form), IPv4 and IPv6 addresses with masks,
+  directory names and mail addresses bind every certificate below the
+  CA, the anchor's too, except a self-issued intermediate; they apply to
+  the subjectAltName and the subject, never the common name. A
+  constraint on another form fails a certificate only when it has a
+  name of that form. A subtree with a minimum or a maximum is refused.
 - Shell completions for bash, zsh and fish (`cli/completions/`, installed
   with the tool; a test checks they offer every command and option the
   manual pages list).

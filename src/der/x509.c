@@ -49,6 +49,7 @@ OID(oeku, 0x55, 0x1d, 0x25);
 OID(oski, 0x55, 0x1d, 0x0e);
 OID(oaki, 0x55, 0x1d, 0x23);
 OID(osan, 0x55, 0x1d, 0x11);
+OID(onc, 0x55, 0x1d, 0x1e);
 OID(oanyeku, 0x55, 0x1d, 0x25, 0x00);
 
 /* 2.16.840.1.101.3.4.3.17 .. 31: ML-DSA-44/65/87, then SLH-DSA in the
@@ -473,7 +474,8 @@ static int valeq(const nqdtlv *a, const nqdtlv *b) {
   }
 }
 
-int nqxneq(nqspan a, nqspan b) {
+/* a equal to b, or (pre) a prefix of b */
+static int nmcmp(nqspan a, nqspan b, int pre) {
   nqdtlv ta, tb, ra, rb, xa, xb;
   nqdcur ca, cb, sa, sb, aa, ab;
   int e;
@@ -488,8 +490,11 @@ int nqxneq(nqspan a, nqspan b) {
   nqddown(&ta, &ca);
   nqddown(&tb, &cb);
   for (;;) {
-    if (nqdend(&ca) || nqdend(&cb)) {
-      return nqdend(&ca) && nqdend(&cb);
+    if (nqdend(&ca)) {
+      return pre || nqdend(&cb);
+    }
+    if (nqdend(&cb)) {
+      return 0;
     }
     nqdnext(&ca, &ra);
     nqdnext(&cb, &rb);
@@ -518,6 +523,14 @@ int nqxneq(nqspan a, nqspan b) {
       }
     }
   }
+}
+
+int nqxneq(nqspan a, nqspan b) {
+  return nmcmp(a, b, 0);
+}
+
+int nqxnpre(nqspan a, nqspan b) {
+  return nmcmp(a, b, 1);
 }
 
 /* ---- extensions ---- */
@@ -734,6 +747,88 @@ static int extsan(nqspan v, nqcert *c) {
   return NQOK;
 }
 
+/* A GeneralName used as a subtree's base: the form its tag names
+ * (RFC 5280 4.2.1.6), and for the forms nqchain compares the value it
+ * needs: an iPAddress of an IPv4 or IPv6 address and mask (8 or 32
+ * octets), a directoryName of one Name. */
+static int gnbase(const nqdtlv *b) {
+  static const uint8_t con[9] = {1, 0, 0, 1, 1, 1, 0, 0, 0};
+  nqdtlv x;
+  int empty;
+  if (b->cls != NQDCTX || b->tag > 8 || b->con != con[b->tag]) {
+    return NQEDEC;
+  }
+  if (b->tag == 7 && b->v.n != 8 && b->v.n != 32) {
+    return NQEDEC;
+  }
+  if (b->tag == 4 && (nqdone(b->v.p, b->v.n, &x) != NQOK ||
+                      nqxname(&x, &empty) != NQOK)) {
+    return NQEDEC;
+  }
+  return NQOK;
+}
+
+/* GeneralSubtrees ::= SEQUENCE SIZE (1..MAX) OF GeneralSubtree, each
+ * SEQUENCE { base, minimum [0] DEFAULT 0, maximum [1] OPTIONAL }. The
+ * profile allows only minimum 0 (absent in DER) and no maximum. */
+static int subtr(const nqdtlv *t) {
+  nqdcur e, f;
+  nqdtlv s, b;
+  int r = NQEDEC;
+  if ((r = nqddown(t, &e)) != NQOK) {
+    return r;
+  }
+  if (nqdend(&e)) {
+    return NQEDEC;
+  }
+  while (!nqdend(&e)) {
+    if ((r = nqdget(&e, NQDUNI, 1, NQDSEQ, &s)) != NQOK ||
+        (r = nqddown(&s, &f)) != NQOK || (r = nqdnext(&f, &b)) != NQOK) {
+      return r == NQOK ? NQEDEC : r;
+    }
+    if (!nqdend(&f) || gnbase(&b) != NQOK) {
+      return NQEDEC;
+    }
+  }
+  return NQOK;
+}
+
+/* nameConstraints: [0] permittedSubtrees, [1] excludedSubtrees, not
+ * both absent; kept for nqchain */
+static int extnc(nqspan v, nqcert *c) {
+  nqdtlv t, x;
+  nqdcur e;
+  int r = NQEDEC, g0, g1;
+  if ((r = nqdone(v.p, v.n, &t)) != NQOK) {
+    return r;
+  }
+  if (t.cls != NQDUNI || t.tag != NQDSEQ || nqddown(&t, &e) != NQOK) {
+    return NQEDEC;
+  }
+  if ((r = nqdopt(&e, NQDCTX, 1, 0, &x, &g0)) != NQOK) {
+    return r;
+  }
+  if (g0) {
+    if ((r = subtr(&x)) != NQOK) {
+      return r;
+    }
+    c->ncp = x.v;
+  }
+  if ((r = nqdopt(&e, NQDCTX, 1, 1, &x, &g1)) != NQOK) {
+    return r;
+  }
+  if (g1) {
+    if ((r = subtr(&x)) != NQOK) {
+      return r;
+    }
+    c->nce = x.v;
+  }
+  if (!g0 && !g1) {
+    return NQEDEC; /* an empty sequence (4.2.1.10: MUST NOT) */
+  }
+  return nqddone(&e);
+}
+
 static int exts(const nqdtlv *t, nqcert *c) {
   nqspan seen[NQXMAXEXT];
   size_t ns = 0, i;
@@ -796,6 +891,9 @@ static int exts(const nqdtlv *t, nqcert *c) {
     } else if (nqxoideq(&oid, &osan)) {
       bit = NQXHASSAN;
       r = extsan(val.v, c);
+    } else if (nqxoideq(&oid, &onc)) {
+      bit = NQXHASNC;
+      r = extnc(val.v, c);
     } else if (nqxoideq(&oid, &oaki)) {
       bit = NQXHASAKI;
       r = extaki(val.v, c);

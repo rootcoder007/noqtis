@@ -20,6 +20,19 @@
   verified with `openssl ts -verify` / `openssl ocsp` when it was made.
   OpenSSL 3.5 cannot sign a timestamp with ML-DSA, so the ML-DSA
   certificates serve the path tests only.
+- `nc/`: one run of `nc.sh` (OpenSSL 3.5.9 on l14, 2026-10-30) with
+  throwaway P-256 keys, discarded after the run: a root, intermediates
+  carrying nameConstraints (DNS, IP, directory name and mail, URI, and
+  two with a maximum or a minimum that the profile forbids), a
+  self-issued intermediate, and leaves inside and outside them (the
+  table at the end of `nc.sh`). `openssl verify` agrees with
+  `tests/tx509.c` on every leaf but three, where noqtis is stricter on
+  purpose: `l_dns_wild` (`*.example.com`, whose one label could be the
+  excluded `bad.example.com`), `l_uri_has` (a URI below a URI
+  constraint: noqtis does not compare URIs and fails closed), and
+  `nc_max` / `nc_min`, which noqtis refuses to parse (RFC 5280
+  4.2.1.10: minimum 0, no maximum). `oracle.txt` was rebuilt with
+  `oracle.sh` after these were added.
 - `public/`: real RFC 3161 responses, requested on 2026-10-28 (19:41 UTC)
   for `data.txt` with `openssl ts -query -data data.txt -<hash> -cert`
   (`nonces.txt` holds each request's nonce; `r-ssl-nonce0.tsr` was asked

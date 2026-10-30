@@ -1,16 +1,19 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* The server's certificate for the TLS 1.3 client: trust anchors from a
  * PEM bundle, the path (src/der, nqchain: names, signatures, validity,
- * basicConstraints, keyUsage, serverAuth), the host name (RFC 6125
- * section 6: DNS names in subjectAltName only, never the subject's
- * common name; a wildcard only as the whole leftmost label, matching
- * one label, and never over fewer than two more), and the
+ * basicConstraints, keyUsage, serverAuth, name constraints), the host
+ * name (RFC 6125 section 6: DNS names in subjectAltName only, never the
+ * subject's common name; a wildcard only as the whole leftmost label,
+ * matching one label, and never over fewer than two more), and the
  * CertificateVerify signature (RFC 8446 section 4.4.3) through src/cls.
  *
- * Not checked: revocation (no OCSP stapling, no CRL fetch), name
- * constraints and certificate policies (a certificate carrying either as
- * a critical extension is refused by nqcprs, so a path through one
- * fails), Certificate Transparency. */
+ * Name constraints (RFC 5280 4.2.1.10) are checked by nqchain on the
+ * whole path: dNSName, iPAddress, directoryName and rfc822Name, on the
+ * subjectAltName and the subject, never on the common name.
+ *
+ * Not checked: revocation (no OCSP stapling, no CRL fetch), certificate
+ * policies (a certificate carrying them as a critical extension is
+ * unusable, so a path through one fails), Certificate Transparency. */
 #include <string.h>
 
 #include "cap/cap.h"
