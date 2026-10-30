@@ -210,6 +210,17 @@ typedef struct nqrep nqrep;
 NQAPI int nqseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
                  const uint8_t *pk, size_t pklen, const char *meta,
                  const char *tsa);
+/* Why nqseal or nqseal2 returned NQEARG for dir: *why gets the first
+ * thing in it that a capsule cannot hold, and path (cap bytes, always
+ * NUL-terminated when cap > 0; cut when too long) its path relative to
+ * dir. NQSWLINK: a symbolic link or reparse point; NQSWODD: not a regular
+ * file or folder (a device, a FIFO, a socket); NQSWNAME: a name noqtis
+ * refuses (see noqtis-capsule(5)); NQSWCASE: a path equal to another but
+ * for ASCII case; NQSWKEY: a file that starts like a noqtis secret key,
+ * which would ship with the capsule. *why is 0 when nothing in dir stops
+ * a seal: then the secret and public keys given were not one pair. */
+enum { NQSWLINK = 1, NQSWODD, NQSWNAME, NQSWCASE, NQSWKEY };
+NQAPI int nqsealwhy(const char *dir, int *why, char *path, size_t cap);
 /* An input of a capsule: the input capsule's id (nqcapid) and a short
  * name for it (1 to 255 bytes of UTF-8, no control character). */
 typedef struct {

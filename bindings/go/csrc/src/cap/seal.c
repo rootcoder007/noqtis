@@ -38,6 +38,55 @@ static int foldcmp(const void *ctx, size_t a, size_t b) {
   return nqcfold(l->e[a].path, l->e[a].len, l->e[b].path, l->e[b].len);
 }
 
+int nqsealwhy(const char *dir, int *why, char *path, size_t cap) {
+  nqclist l;
+  size_t *idx = NULL, i;
+  const char *p = NULL;
+  int rc, w = 0;
+  if (dir == NULL || why == NULL || (path == NULL && cap > 0)) return NQEARG;
+  *why = 0;
+  if (cap > 0) path[0] = 0;
+  memset(&l, 0, sizeof l);
+  rc = nqcwalk(dir, &l);
+  for (i = 0; rc == NQOK && w == 0 && i < l.n; i++) {
+    if (l.e[i].kind == NQCLNK) w = NQSWLINK;
+    else if (l.e[i].kind == NQCODD) w = NQSWODD;
+    else if (l.e[i].kind == NQCBAD) w = NQSWNAME;
+    if (w != 0) p = l.e[i].path;
+  }
+  if (rc == NQOK && w == 0 && l.n >= 2) {
+    idx = (size_t *)nqmal(l.n * sizeof(size_t));
+    if (idx == NULL) rc = NQEMEM;
+    for (i = 0; rc == NQOK && i < l.n; i++) idx[i] = i;
+    if (rc == NQOK) rc = nqcsort(idx, l.n, foldcmp, &l);
+    for (i = 1; rc == NQOK && w == 0 && i < l.n; i++) {
+      if (foldcmp(&l, idx[i - 1], idx[i]) == 0) {
+        w = NQSWCASE;
+        p = l.e[idx[i]].path;
+      }
+    }
+  }
+  for (i = 0; rc == NQOK && w == 0 && i < l.n; i++) {
+    int sec = 0;
+    rc = nqcsec(dir, l.e[i].path, &sec);
+    if (rc == NQOK && sec) {
+      w = NQSWKEY;
+      p = l.e[i].path;
+    }
+  }
+  if (rc == NQOK && w != 0) {
+    *why = w;
+    if (cap > 0) {
+      size_t n = strlen(p) < cap - 1 ? strlen(p) : cap - 1;
+      memcpy(path, p, n);
+      path[n] = 0;
+    }
+  }
+  if (idx != NULL) nqfree(idx, l.n * sizeof(size_t));
+  nqclfree(&l);
+  return rc;
+}
+
 /* every entry a regular file, no two equal but for ASCII case */
 static int sealable(const nqclist *l) {
   size_t *idx, i;
