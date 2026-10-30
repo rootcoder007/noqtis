@@ -35,6 +35,12 @@ against %{name}.
 %cmake_install
 
 %check
+# riscv64 builds on COPR run under QEMU: sample the slowest vectors, as
+# the emulated CI jobs do (every eighth SLH-DSA vector, no large-data
+# hash tests); every other architecture runs them all
+%ifarch riscv64
+export NQSLSUB=8 NQFAST=1
+%endif
 %ctest
 
 %files
