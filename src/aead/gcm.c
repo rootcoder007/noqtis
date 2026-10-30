@@ -73,7 +73,7 @@ int nqgcmk(nqgcm *g, const uint8_t *key, size_t len) {
 }
 
 /* the pre-counter block J0 (section 7.1, step 2) */
-static void j0(const nqgcm *g, const uint8_t *iv, size_t ivlen,
+static void pre(const nqgcm *g, const uint8_t *iv, size_t ivlen,
                uint8_t *j) {
   uint64_t y[2] = {0, 0};
   uint8_t l[16];
@@ -161,7 +161,7 @@ int nqgcme(const nqgcm *g, const uint8_t *iv, size_t ivlen,
   if (args(g, iv, ivlen, aad, alen, in, n, out) != NQOK || tag == NULL) {
     return NQEARG;
   }
-  j0(g, iv, ivlen, j);
+  pre(g, iv, ivlen, j);
   gctr(g, j, in, n, out);
   gtag(g, j, aad, alen, out, n, tag);
   nqwipe(j, sizeof j);
@@ -177,7 +177,7 @@ int nqgcmd(const nqgcm *g, const uint8_t *iv, size_t ivlen,
       taglen != NQAEADTAG) {
     return NQEARG;
   }
-  j0(g, iv, ivlen, j);
+  pre(g, iv, ivlen, j);
   gtag(g, j, aad, alen, in, n, t);
   ok = nqcteq(t, tag, 16);
   NQAEPUB(&ok, sizeof ok);

@@ -89,15 +89,15 @@ static void pb(wbuf *w, const uint8_t *p, size_t n) {
   w->n += n;
 }
 
-/* opens a vector with an lb-byte length; close it with pclose */
-static size_t popen(wbuf *w, int lb) {
+/* opens a vector with an lb-byte length; close it with vclose */
+static size_t vopen(wbuf *w, int lb) {
   size_t at = w->n;
   int i;
   for (i = 0; i < lb; i++) p8(w, 0);
   return at;
 }
 
-static void pclose(wbuf *w, size_t at, int lb) {
+static void vclose(wbuf *w, size_t at, int lb) {
   size_t n;
   int i;
   if (w->bad) return;
@@ -224,7 +224,7 @@ static int mkch(nqtls *t, const uint16_t *g, size_t ng) {
   w.n = 0;
   w.bad = 0;
   p8(&w, NQTLCH);
-  a = popen(&w, 3);
+  a = vopen(&w, 3);
   p16(&w, 0x0303);
   pb(&w, t->rnd, 32);
   p8(&w, 32);
@@ -233,17 +233,17 @@ static int mkch(nqtls *t, const uint16_t *g, size_t ng) {
   for (i = 0; i < sizeof suites / sizeof suites[0]; i++) p16(&w, suites[i]);
   p8(&w, 1);
   p8(&w, 0);
-  b = popen(&w, 2);
+  b = vopen(&w, 2);
   /* server_name (RFC 6066 section 3): a DNS name only */
   if (!t->ip) {
     p16(&w, 0);
-    c = popen(&w, 2);
-    d = popen(&w, 2);
+    c = vopen(&w, 2);
+    d = vopen(&w, 2);
     p8(&w, 0);
     p16(&w, (unsigned)hl);
     pb(&w, (const uint8_t *)t->host, hl);
-    pclose(&w, d, 2);
-    pclose(&w, c, 2);
+    vclose(&w, d, 2);
+    vclose(&w, c, 2);
   }
   /* supported_versions: TLS 1.3 only */
   p16(&w, 43);
@@ -257,8 +257,8 @@ static int mkch(nqtls *t, const uint16_t *g, size_t ng) {
   for (i = 0; i < sizeof groups / sizeof groups[0]; i++) p16(&w, groups[i]);
   /* key_share: the hybrid share is ML-KEM-768's key, then X25519's */
   p16(&w, 51);
-  c = popen(&w, 2);
-  d = popen(&w, 2);
+  c = vopen(&w, 2);
+  d = vopen(&w, 2);
   for (i = 0; i < ng; i++) {
     p16(&w, g[i]);
     if (g[i] == NQTLHYB) {
@@ -269,8 +269,8 @@ static int mkch(nqtls *t, const uint16_t *g, size_t ng) {
       pb(&w, t->xpk, 32);
     }
   }
-  pclose(&w, d, 2);
-  pclose(&w, c, 2);
+  vclose(&w, d, 2);
+  vclose(&w, c, 2);
   /* signature_algorithms */
   p16(&w, 13);
   p16(&w, 2 + 2 * (unsigned)(sizeof sigs / sizeof sigs[0]));
@@ -279,14 +279,14 @@ static int mkch(nqtls *t, const uint16_t *g, size_t ng) {
   /* the HelloRetryRequest's cookie, echoed */
   if (t->ckn > 0) {
     p16(&w, 44);
-    c = popen(&w, 2);
-    d = popen(&w, 2);
+    c = vopen(&w, 2);
+    d = vopen(&w, 2);
     pb(&w, t->ck, t->ckn);
-    pclose(&w, d, 2);
-    pclose(&w, c, 2);
+    vclose(&w, d, 2);
+    vclose(&w, c, 2);
   }
-  pclose(&w, b, 2);
-  pclose(&w, a, 3);
+  vclose(&w, b, 2);
+  vclose(&w, a, 3);
   if (w.bad) return NQELIM;
   t->chn = w.n;
   return NQOK;
