@@ -135,10 +135,15 @@ follows these records back.
 An RFC 3161 time-stamping authority, as
 .Ql http:// Ns Ar host Ns Oo : Ns Ar port Oc Ns Op / Ns Ar path ,
 up to 32 times.
-Only plain HTTP: the token is signed by the TSA, so TLS would add no
-integrity, and noqtis links no TLS library;
+Plain HTTP is enough: the token is signed by the TSA, so TLS adds no
+integrity.
 .Ql https://
-is refused with that said.
+works when noqtis was built with its own TLS 1.3 client (the CMake
+option
+.Dv NQTLS ) ,
+the server's certificate checked against the PEM bundle
+.Ev SSL_CERT_FILE
+names, else the system's; otherwise it is refused with that said.
 Most public TSAs answer on
 .Ql http:// .
 There is no proxy support.

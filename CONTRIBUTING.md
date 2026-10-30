@@ -29,6 +29,7 @@ Options (all `-D...` at configure time):
 | `NQTESTS=OFF` | on | skip the tests |
 | `NQMAN=OFF` | on | do not install the manual pages |
 | `NQWERROR=OFF` | on | do not treat warnings as errors |
+| `NQTLS=ON` | off | the TLS 1.3 client (`src/tls`) in the public API and `https://` in the tool; not yet reviewed |
 
 Warnings are errors: `-Wall -Wextra -Wpedantic -Wconversion -Wshadow
 -Wstrict-prototypes -Wcast-qual -Wvla`. A change that adds a warning on
@@ -52,6 +53,7 @@ parts:
 | `NQSLOW=1` | the opposite: every check on every set, every "s" sigGen vector |
 | `NQCLIALL=1` | `tcli` runs keygen/sign/verify for all twelve SLH-DSA sets |
 | `NQCLIWRAP="valgrind -q --error-exitcode=9 --leak-check=full"` | `tcli` runs every command under a wrapper |
+| `NQNET=1` | `tlnet` talks TLS to public HTTPS servers (`tests/tls/net.sh`); skipped otherwise |
 
 For a quick loop while you work, sample as the Debug CI jobs do:
 

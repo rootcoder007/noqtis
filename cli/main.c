@@ -11,6 +11,13 @@
 #include <shellapi.h>
 #endif
 
+/* the URLs --tsa takes */
+#ifdef NQTLSON
+#define NCTSAU "http:// or https://"
+#else
+#define NCTSAU "http:// only"
+#endif
+
 typedef struct {
   const char *name;
   int (*run)(int argc, char **argv);
@@ -70,7 +77,7 @@ static const nccmd cmds[] = {
    "            can show some of them without the rest (default 1)\n"
    "  --input   a sealed capsule this one was made from (up to 32): it\n"
    "            must check, and its id is recorded; implies --format 2\n"
-   "  --tsa     an RFC 3161 time-stamping authority (http:// only; the\n"
+   "  --tsa     an RFC 3161 time-stamping authority (" NCTSAU "; the\n"
    "            token is signed). The seal holds one timestamp: give\n"
    "            --tsa again for fallbacks, tried in order until one\n"
    "            answers with a token that checks. If none does, the\n"
@@ -106,7 +113,7 @@ static const nccmd cmds[] = {
   {"timestamp", ncts, "add a timestamp to a sealed capsule",
    "usage: noqtis timestamp --tsa <url>... [--anchor <der-file>]...\n"
    "                        [--force] <dir>\n"
-   "  Asks each RFC 3161 time-stamping authority in turn (http:// only)\n"
+   "  Asks each RFC 3161 time-stamping authority in turn (" NCTSAU ")\n"
    "  for a token over the seal's signature and stores the first that\n"
    "  checks in noqtis.sig; the manifest and the signature are unchanged.\n"
    "  --anchor  the TSA's root or issuing certificate (DER), to check the\n"

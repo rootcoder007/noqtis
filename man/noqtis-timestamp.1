@@ -54,8 +54,12 @@ proves.
 .Bl -tag -width Ds
 .It Fl -tsa Ar url
 A time-stamping authority,
-.Ql http://
-only: the token is signed by the TSA, so TLS adds no integrity.
+.Ql http:// ,
+or
+.Ql https://
+with the TLS client (see
+.Xr noqtis-seal 1 ) :
+the token is signed by the TSA, so TLS adds no integrity.
 At most 32.
 .It Fl -anchor Ar der-file
 The TSA's root or issuing certificate, DER-encoded: the token must then

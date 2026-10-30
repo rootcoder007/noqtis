@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* noqtis: the network, for seal --tsa only. One HTTP/1.1 POST of an RFC
- * 3161 request (application/timestamp-query, RFC 3161 section 3.4) over
- * plain TCP, and the reply read whole. http:// only: the token is signed,
- * so TLS would add no integrity, and the tool links no TLS library. The
- * other platform-specific file beside io.c. */
+/* noqtis: the network. One HTTP/1.1 POST of an RFC 3161 request
+ * (application/timestamp-query, RFC 3161 section 3.4) for seal --tsa,
+ * and a GET (ncget), each with the reply read whole. http:// always;
+ * https:// when noqtis is built with NQTLS, over the library's own TLS
+ * 1.3 client (nqtlnew) with the trust anchors of SSL_CERT_FILE or the
+ * system's PEM bundle, no other library. The other platform-specific
+ * file beside io.c. */
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
 /* NetBSD hides POSIX 2008 calls (symlink, dirfd) under that alone */
@@ -56,6 +58,8 @@ typedef size_t iolen;
 #define NCALL 120          /* seconds for a whole request, lookup included */
 #define NCHDR 16384        /* the most header bytes read */
 #define NCBODY (1u << 20)  /* the largest reply (noqtis.sig's own limit) */
+#define NCCAMAX ((size_t)16 << 20) /* the largest CA bundle read */
+#define NCHOPS 5           /* redirects ncget follows */
 
 static void say(char *err, size_t cap, const char *fmt, ...) {
   va_list ap;
@@ -82,21 +86,32 @@ typedef struct {
   char port[6];
   const char *path;
   int v6;
+  int tls;
+  size_t po;       /* where the path starts in the URL (its length if none) */
 } ncurl;
 
 static int parse(const char *url, ncurl *u, char *err, size_t cap) {
   const char *h, *e, *p;
   size_t n;
+  u->tls = 0;
   if (pre(url, "https://")) {
-    say(err, cap, "https:// is not supported (noqtis links no TLS "
-        "library); the token is signed, so give the TSA's http:// URL");
+#ifdef NQTLSON
+    u->tls = 1;
+#else
+    say(err, cap, "https:// is not supported (noqtis was built without "
+        "its TLS client, NQTLS); the token is signed, so give the TSA's "
+        "http:// URL");
     return NCUSE;
-  }
-  if (!pre(url, "http://")) {
+#endif
+  } else if (!pre(url, "http://")) {
+#ifdef NQTLSON
+    say(err, cap, "not an http:// URL nor an https:// one");
+#else
     say(err, cap, "not an http:// URL");
+#endif
     return NCUSE;
   }
-  h = url + 7;
+  h = url + (u->tls ? 8 : 7);
   u->v6 = 0;
   if (*h == '[') {
     e = strchr(h, ']');
@@ -122,7 +137,7 @@ static int parse(const char *url, ncurl *u, char *err, size_t cap) {
     say(err, cap, "a user name in the URL is not supported");
     return NCUSE;
   }
-  strcpy(u->port, "80");
+  strcpy(u->port, u->tls ? "443" : "80");
   if (*p == ':') {
     unsigned long v = 0;
     size_t k = 0;
@@ -139,6 +154,7 @@ static int parse(const char *url, ncurl *u, char *err, size_t cap) {
     return NCUSE;
   }
   u->path = *p == '/' ? p : "/";
+  u->po = (size_t)(p - url);
   for (e = u->path; *e != '\0'; e++) {
     if ((unsigned char)*e <= 0x20 || *e == 0x7f) {
       say(err, cap, "the path holds a space or a control character");
@@ -453,28 +469,95 @@ static int lookup(const char *host, const char *port,
   return to;
 }
 
-int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
-           size_t *outn, char *err, size_t cap) {
+/* ---- TLS (with NQTLS) ---- */
+
+#ifdef NQTLSON
+static int tlwr(void *user, const uint8_t *b, size_t n) {
+  return sendall(*(sockt *)user, (const char *)b, n) == 0 ? NQOK : NQEIO;
+}
+
+static int tlrd(void *user, uint8_t *b, size_t cap, size_t *got) {
+  sockt s = *(sockt *)user;
+  int r;
+  *got = 0;
+  if (await(s, 1) != 0) return NQEIO;
+  r = (int)recv(s, (char *)b, (iolen)(cap > 65536 ? 65536 : cap), 0);
+  if (r < 0) return NQEIO;
+  *got = (size_t)r;
+  return NQOK;
+}
+
+/* the trust anchors: SSL_CERT_FILE, else the first system bundle found */
+static int cafile(uint8_t **b, size_t *n, char *err, size_t cap) {
+  static const char *const sys[] = {
+      "/etc/ssl/certs/ca-certificates.crt", /* Debian, Ubuntu, Alpine */
+      "/etc/pki/tls/certs/ca-bundle.crt",   /* RHEL, older Fedora */
+      "/etc/ssl/certs/ca-bundle.crt",       /* Fedora */
+      "/etc/ssl/cert.pem",                  /* macOS, the BSDs, Alpine */
+      "/etc/ssl/ca-bundle.pem",             /* openSUSE */
+      "/usr/local/share/certs/ca-root-nss.crt", /* FreeBSD ports */
+  };
+  const char *e = getenv("SSL_CERT_FILE");
+  size_t i;
+  if (e != NULL && *e != '\0') {
+    if (ncrdx(e, 0, NCCAMAX, b, n) == NQOK) return NCOK;
+    say(err, cap, "cannot read SSL_CERT_FILE %s", e);
+    return NCUSE;
+  }
+  for (i = 0; i < sizeof sys / sizeof sys[0]; i++) {
+    if (ncrdx(sys[i], 0, NCCAMAX, b, n) == NQOK) return NCOK;
+  }
+#ifdef _WIN32
+  say(err, cap, "no trust anchors: the Windows certificate store is not "
+      "read yet; set SSL_CERT_FILE to a PEM bundle");
+#else
+  say(err, cap, "no system CA bundle found; set SSL_CERT_FILE to a PEM "
+      "bundle of trusted roots");
+#endif
+  return NCUSE;
+}
+
+/* 1 when the reply in b (n bytes) is complete by its own framing: the
+ * test for a TLS stream that ended without close_notify */
+static int whole(const char *b, size_t n) {
+  const char *he = strstr(b, "\r\n\r\n"), *v;
+  size_t hl, vl = 0;
+  if (he == NULL) return 0;
+  hl = (size_t)(he - b) + 4;
+  if ((v = hval(b, "transfer-encoding:", &vl)) != NULL && pre(v, "chunked")) {
+    return n - hl >= 5 && memcmp(b + n - 5, "0\r\n\r\n", 5) == 0 &&
+           (n - hl == 5 || b[n - 7] == '\r');
+  }
+  if ((v = hval(b, "content-length:", &vl)) != NULL) {
+    unsigned long cl = 0;
+    size_t i;
+    for (i = 0; i < vl && v[i] >= '0' && v[i] <= '9' && cl <= NCBODY * 64;
+         i++) {
+      cl = cl * 10 + (unsigned long)(v[i] - '0');
+    }
+    return i == vl && i > 0 && n - hl >= cl;
+  }
+  return 0;
+}
+#endif
+
+/* sends the request (head of hn bytes, then body) and reads the reply
+ * whole into *buf (malloc'd, NUL-terminated, at most max bytes) */
+static int xfer(const ncurl *u, const char *head, size_t hn,
+                const uint8_t *bd, size_t n, size_t max, char **buf,
+                size_t *got, char *err, size_t cap) {
   struct addrinfo hint, *res = NULL, *a;
-  char head[1024];
-  char *buf = NULL;
-  size_t got = 0, max = NCHDR + NCBODY, hl;
-  const char *v, *he;
-  size_t vl = 0;
   sockt s = NOSOCK;
-  int rc = NCUSE, k, code;
-  long bl;
+  int rc = NCUSE, k;
+#ifdef NQTLSON
+  nqtls *t = NULL;
+  uint8_t *ca = NULL;
+  size_t can = 0;
+  nqtlio io;
+#endif
 #ifdef _WIN32
   static int up = 0;
   WSADATA wd;
-#endif
-  ncurl u;
-  *out = NULL;
-  *outn = 0;
-  err[0] = '\0';
-  if (parse(url, &u, err, cap) != NCOK)
-    return NCUSE;
-#ifdef _WIN32
   if (!up) {
     if (WSAStartup(MAKEWORD(2, 2), &wd) != 0) {
       say(err, cap, "cannot start Winsock");
@@ -483,56 +566,87 @@ int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
     up = 1;
   }
 #endif
+  *buf = NULL;
+  *got = 0;
+#ifdef NQTLSON
+  if (u->tls && cafile(&ca, &can, err, cap) != NCOK) return NCUSE;
+#endif
   memset(&hint, 0, sizeof hint);
   hint.ai_family = AF_UNSPEC;
   hint.ai_socktype = SOCK_STREAM;
-  dline = time(NULL) + NCALL;
-  if (lookup(u.host, u.port, &hint, &res, &k)) {
-    say(err, cap, "cannot resolve %s (no answer in %d s)", u.host, NCWAIT);
-    return NCUSE;
+  if (lookup(u->host, u->port, &hint, &res, &k)) {
+    say(err, cap, "cannot resolve %s (no answer in %d s)", u->host, NCWAIT);
+    goto out;
   }
   if (k != 0 || res == NULL) {
-    say(err, cap, "cannot resolve %s (%s)", u.host, gai_strerror(k));
-    return NCUSE;
+    say(err, cap, "cannot resolve %s (%s)", u->host, gai_strerror(k));
+    goto out;
   }
-  for (a = res; a != NULL && s == NOSOCK; a = a->ai_next)
-    s = dial(a);
+  for (a = res; a != NULL && s == NOSOCK; a = a->ai_next) s = dial(a);
   freeaddrinfo(res);
   if (s == NOSOCK) {
     say(err, cap, "cannot connect to %s port %s (refused, unreachable or "
-        "no answer in %d s)", u.host, u.port, NCWAIT);
-    return NCUSE;
-  }
-  k = snprintf(head, sizeof head,
-               "POST %s HTTP/1.1\r\n"
-               "Host: %s%s%s%s%s\r\n"
-               "User-Agent: noqtis/%s\r\n"
-               "Content-Type: application/timestamp-query\r\n"
-               "Accept: application/timestamp-reply\r\n"
-               "Content-Length: %lu\r\n"
-               "Connection: close\r\n\r\n",
-               u.path, u.v6 ? "[" : "", u.host, u.v6 ? "]" : "",
-               strcmp(u.port, "80") != 0 ? ":" : "",
-               strcmp(u.port, "80") != 0 ? u.port : "", nqver(),
-               (unsigned long)n);
-  if (k < 0 || (size_t)k >= sizeof head) {
-    say(err, cap, "the URL is too long");
+        "no answer in %d s)", u->host, u->port, NCWAIT);
     goto out;
   }
-  if (sendall(s, head, (size_t)k) != 0 ||
-      sendall(s, (const char *)body, n) != 0) {
-    neterr(err, cap, "cannot send the request");
-    goto out;
-  }
-  buf = (char *)malloc(max + 1);
-  if (buf == NULL) {
+  *buf = (char *)malloc(max + 1);
+  if (*buf == NULL) {
     say(err, cap, "out of memory");
+    goto out;
+  }
+#ifdef NQTLSON
+  if (u->tls) {
+    io.wr = tlwr;
+    io.rd = tlrd;
+    io.user = &s;
+    k = nqtlnew(&t, u->host, ca, can, &io);
+    if (k != NQOK) {
+      say(err, cap, "TLS with %s: %s", u->host,
+          k == NQEDEC ? "the CA bundle holds no usable certificate"
+                      : nqerr(k));
+      goto out;
+    }
+    if ((k = nqtlhs(t)) != NQOK) {
+      say(err, cap, "TLS with %s: %s", u->host, nqtlwhy(t));
+      goto out;
+    }
+    if (nqtlwr(t, (const uint8_t *)head, hn) != NQOK ||
+        (n > 0 && nqtlwr(t, bd, n) != NQOK)) {
+      say(err, cap, "cannot send the request: %s", nqtlwhy(t));
+      goto out;
+    }
+    for (;;) {
+      size_t r = 0;
+      if (*got == max) {
+        say(err, cap, "the reply is over %lu bytes", (unsigned long)max);
+        goto out;
+      }
+      k = nqtlrd(t, (uint8_t *)*buf + *got, max - *got, &r);
+      if (k != NQOK) {
+        (*buf)[*got] = '\0';
+        /* a server that closes without close_notify after a reply
+         * complete by its own length is common; anything less is cut */
+        if (k == NQEIO && whole(*buf, *got)) break;
+        say(err, cap, "TLS with %s: %s", u->host, nqtlwhy(t));
+        goto out;
+      }
+      if (r == 0) break;
+      *got += r;
+    }
+    (*buf)[*got] = '\0';
+    (void)nqtlend(t);
+    rc = NCOK;
+    goto out;
+  }
+#endif
+  if (sendall(s, head, hn) != 0 || sendall(s, (const char *)bd, n) != 0) {
+    neterr(err, cap, "cannot send the request");
     goto out;
   }
   for (;;) {
     int r;
-    if (got == max) {
-      say(err, cap, "the reply is over %u bytes", (unsigned)max);
+    if (*got == max) {
+      say(err, cap, "the reply is over %lu bytes", (unsigned long)max);
       goto out;
     }
     if (await(s, 1) != 0) {
@@ -540,26 +654,134 @@ int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
           NCALL, NCWAIT);
       goto out;
     }
-    r = (int)recv(s, buf + got, (iolen)(max - got), 0);
+    r = (int)recv(s, *buf + *got, (iolen)(max - *got), 0);
     if (r < 0) {
       neterr(err, cap, "the connection failed while reading the reply");
       goto out;
     }
-    if (r == 0)
-      break;
-    got += (size_t)r;
+    if (r == 0) break;
+    *got += (size_t)r;
   }
-  buf[got] = '\0';
-  he = strstr(buf, "\r\n\r\n");
+  (*buf)[*got] = '\0';
+  rc = NCOK;
+out:
+#ifdef NQTLSON
+  nqtlfree(t);
+  if (ca != NULL) ncfree(ca, can, 0);
+#endif
+  if (s != NOSOCK) sclose(s);
+  if (rc != NCOK) {
+    free(*buf);
+    *buf = NULL;
+    *got = 0;
+  }
+  return rc;
+}
+
+/* the status line: HTTP/1.x and a three-digit code; *hl the header
+ * bytes with the blank line */
+static int status(const char *buf, int *code, size_t *hl, char *err,
+                  size_t cap) {
+  const char *he = strstr(buf, "\r\n\r\n");
   if (he == NULL || (size_t)(he - buf) > NCHDR ||
       (!pre(buf, "HTTP/1.1 ") && !pre(buf, "HTTP/1.0 ")) ||
       buf[9] < '1' || buf[9] > '5' || buf[10] < '0' || buf[10] > '9' ||
       buf[11] < '0' || buf[11] > '9') {
     say(err, cap, "the reply is not HTTP/1.x");
+    return NCUSE;
+  }
+  *hl = (size_t)(he - buf) + 4;
+  *code = (buf[9] - '0') * 100 + (buf[10] - '0') * 10 + (buf[11] - '0');
+  return NCOK;
+}
+
+/* the body after hl header bytes, decoded and copied to *out */
+static int body(char *buf, size_t got, size_t hl, size_t max,
+                uint8_t **out, size_t *outn, char *err, size_t cap) {
+  const char *v;
+  size_t vl = 0;
+  long bl = (long)(got - hl);
+  if ((v = hval(buf, "transfer-encoding:", &vl)) != NULL &&
+      pre(v, "chunked")) {
+    bl = unchunk((uint8_t *)buf + hl, got - hl);
+    if (bl < 0) {
+      say(err, cap, "the chunked reply is malformed or cut short");
+      return NCUSE;
+    }
+  } else if ((v = hval(buf, "content-length:", &vl)) != NULL) {
+    unsigned long cl = 0;
+    size_t i;
+    for (i = 0; i < vl && v[i] >= '0' && v[i] <= '9' && cl <= max; i++)
+      cl = cl * 10 + (unsigned long)(v[i] - '0');
+    if (i != vl || i == 0 || cl > got - hl) {
+      say(err, cap, "the reply is shorter than its Content-Length");
+      return NCUSE;
+    }
+    bl = (long)cl;
+  }
+  if (bl <= 0) {
+    say(err, cap, "the reply is empty");
+    return NCUSE;
+  }
+  *out = (uint8_t *)malloc((size_t)bl);
+  if (*out == NULL) {
+    say(err, cap, "out of memory");
+    return NCUSE;
+  }
+  memcpy(*out, buf + hl, (size_t)bl);
+  *outn = (size_t)bl;
+  return NCOK;
+}
+
+/* the request head for u: method, path, Host (with a port other than
+ * the scheme's) and the rest */
+static int mkhead(const ncurl *u, const char *meth, const char *rest,
+                  char *head, size_t hcap, size_t *hn, char *err,
+                  size_t cap) {
+  int dflt = strcmp(u->port, u->tls ? "443" : "80") == 0;
+  int k = snprintf(head, hcap,
+                   "%s %s HTTP/1.1\r\n"
+                   "Host: %s%s%s%s%s\r\n"
+                   "User-Agent: noqtis/%s\r\n"
+                   "%s"
+                   "Connection: close\r\n\r\n",
+                   meth, u->path, u->v6 ? "[" : "", u->host,
+                   u->v6 ? "]" : "", dflt ? "" : ":", dflt ? "" : u->port,
+                   nqver(), rest);
+  if (k < 0 || (size_t)k >= hcap) {
+    say(err, cap, "the URL is too long");
+    return NCUSE;
+  }
+  *hn = (size_t)k;
+  return NCOK;
+}
+
+int nchttp(const char *url, const uint8_t *body0, size_t n, uint8_t **out,
+           size_t *outn, char *err, size_t cap) {
+  char head[1024], rest[200];
+  char *buf = NULL;
+  size_t got = 0, hl = 0, hn = 0, vl = 0;
+  const char *v;
+  int rc = NCUSE, code = 0;
+  ncurl u;
+  *out = NULL;
+  *outn = 0;
+  err[0] = '\0';
+  if (parse(url, &u, err, cap) != NCOK) return NCUSE;
+  snprintf(rest, sizeof rest,
+           "Content-Type: application/timestamp-query\r\n"
+           "Accept: application/timestamp-reply\r\n"
+           "Content-Length: %lu\r\n",
+           (unsigned long)n);
+  if (mkhead(&u, "POST", rest, head, sizeof head, &hn, err, cap) != NCOK) {
+    return NCUSE;
+  }
+  dline = time(NULL) + NCALL;
+  if (xfer(&u, head, hn, body0, n, NCHDR + NCBODY, &buf, &got, err, cap) !=
+          NCOK ||
+      status(buf, &code, &hl, err, cap) != NCOK) {
     goto out;
   }
-  hl = (size_t)(he - buf) + 4;
-  code = (buf[9] - '0') * 100 + (buf[10] - '0') * 10 + (buf[11] - '0');
   if (code >= 300 && code < 400 &&
       (v = hval(buf, "location:", &vl)) != NULL) {
     say(err, cap, "HTTP %d: the TSA moved to %.*s; give that URL", code,
@@ -580,39 +802,120 @@ int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
         v == NULL ? "of no type" : v);
     goto out;
   }
-  bl = (long)(got - hl);
-  if ((v = hval(buf, "transfer-encoding:", &vl)) != NULL &&
-      pre(v, "chunked")) {
-    bl = unchunk((uint8_t *)buf + hl, got - hl);
-    if (bl < 0) {
-      say(err, cap, "the chunked reply is malformed or cut short");
-      goto out;
-    }
-  } else if ((v = hval(buf, "content-length:", &vl)) != NULL) {
-    unsigned long cl = 0;
-    size_t i;
-    for (i = 0; i < vl && v[i] >= '0' && v[i] <= '9' && cl <= NCBODY; i++)
-      cl = cl * 10 + (unsigned long)(v[i] - '0');
-    if (i != vl || i == 0 || cl > got - hl) {
-      say(err, cap, "the reply is shorter than its Content-Length");
-      goto out;
-    }
-    bl = (long)cl;
-  }
-  if (bl <= 0) {
-    say(err, cap, "the reply is empty");
-    goto out;
-  }
-  *out = (uint8_t *)malloc((size_t)bl);
-  if (*out == NULL) {
-    say(err, cap, "out of memory");
-    goto out;
-  }
-  memcpy(*out, buf + hl, (size_t)bl);
-  *outn = (size_t)bl;
-  rc = NCOK;
+  rc = body(buf, got, hl, NCBODY, out, outn, err, cap);
 out:
   free(buf);
-  sclose(s);
+  return rc;
+}
+
+/* the URL a Location of vl bytes at v names, from the URL cur (parsed
+ * in u): absolute, scheme-relative (//host/...), a path (/...), or a
+ * reference relative to cur's folder (RFC 3986 section 5.2, without
+ * dot segments) */
+static int redir(const char *cur, const ncurl *u, const char *v, size_t vl,
+                 char *nx, size_t cap) {
+  size_t pl = u->po, i, k = 0, sl = 0;
+  const char *sch = u->tls ? "https:" : "http:";
+  for (i = 0; i < vl && i < 10; i++) {
+    if (v[i] == ':') {
+      sl = i;
+      break;
+    }
+    if (v[i] == '/' || v[i] == '?' || v[i] == '#') break;
+  }
+  if (sl > 0) {
+    /* absolute */
+  } else if (vl >= 2 && v[0] == '/' && v[1] == '/') {
+    k = strlen(sch);
+    if (k >= cap) return NCUSE;
+    memcpy(nx, sch, k);
+  } else if (v[0] == '/') {
+    k = pl;
+    if (k >= cap) return NCUSE;
+    memcpy(nx, cur, k);
+  } else {
+    /* cur up to the last / of its path (before any query) */
+    size_t e = pl;
+    k = pl;
+    for (e = pl; cur[e] != '\0' && cur[e] != '?' && cur[e] != '#'; e++) {
+      if (cur[e] == '/') k = e + 1;
+    }
+    if (k == pl) {
+      if (k + 1 >= cap) return NCUSE;
+      memcpy(nx, cur, k);
+      nx[k++] = '/';
+    } else {
+      if (k >= cap) return NCUSE;
+      memcpy(nx, cur, k);
+    }
+  }
+  if (k + vl >= cap) return NCUSE;
+  memcpy(nx + k, v, vl);
+  nx[k + vl] = '\0';
+  return NCOK;
+}
+
+int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
+          char *err, size_t cap) {
+  char head[1024], cur[2048], nx[2048];
+  char *buf = NULL;
+  size_t got = 0, hl = 0, hn = 0, vl = 0;
+  const char *v;
+  int rc = NCUSE, code = 0, hop, was;
+  ncurl u;
+  *out = NULL;
+  *outn = 0;
+  err[0] = '\0';
+  if (strlen(url) >= sizeof cur) {
+    say(err, cap, "the URL is too long");
+    return NCUSE;
+  }
+  strcpy(cur, url);
+  dline = time(NULL) + NCALL;
+  for (hop = 0;; hop++) {
+    if (parse(cur, &u, err, cap) != NCOK ||
+        mkhead(&u, "GET", "Accept: */*\r\n", head, sizeof head, &hn, err,
+               cap) != NCOK ||
+        xfer(&u, head, hn, NULL, 0, NCHDR + max, &buf, &got, err, cap) !=
+            NCOK ||
+        status(buf, &code, &hl, err, cap) != NCOK) {
+      break;
+    }
+    if (code == 301 || code == 302 || code == 303 || code == 307 ||
+        code == 308) {
+      v = hval(buf, "location:", &vl);
+      if (v == NULL || vl == 0 || vl >= sizeof nx) {
+        say(err, cap, "HTTP %d without a usable Location", code);
+        break;
+      }
+      if (hop == NCHOPS) {
+        say(err, cap, "more than %d redirects", NCHOPS);
+        break;
+      }
+      was = u.tls;
+      if (redir(cur, &u, v, vl, nx, sizeof nx) != NCOK) {
+        say(err, cap, "the redirect's URL is too long");
+        break;
+      }
+      /* https stays https: a redirect may never drop TLS */
+      if (was && !pre(nx, "https://")) {
+        say(err, cap, "a redirect from https:// to %.100s refused", nx);
+        break;
+      }
+      strcpy(cur, nx);
+      free(buf);
+      buf = NULL;
+      continue;
+    }
+    if (code != 200) {
+      const char *e = strstr(buf, "\r\n");
+      say(err, cap, "HTTP %.*s", (int)(e - buf - 9 > 80 ? 80 : e - buf - 9),
+          buf + 9);
+      break;
+    }
+    rc = body(buf, got, hl, max, out, outn, err, cap);
+    break;
+  }
+  free(buf);
   return rc;
 }

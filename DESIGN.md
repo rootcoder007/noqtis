@@ -22,7 +22,10 @@ that package and carries none of its statistics.
    than assumed (valgrind memcheck with secrets marked undefined, dudect,
    simulated TVLA).
 
-Non-goals: TLS, a general X.509 issuing toolkit, key storage formats beyond
+Non-goals: a general TLS library (no server, no TLS 1.2, no resumption:
+the TLS 1.3 client in `src/tls` exists so the tool can fetch over HTTPS
+without another library, and stays behind the CMake option `NQTLS` until
+reviewed), a general X.509 issuing toolkit, key storage formats beyond
 what the capsule needs, an OpenSSL provider (OpenSSL 3.5 already has ML-DSA,
 SLH-DSA and ML-KEM).
 

@@ -5,12 +5,15 @@
 # PKI of tests/vectors/tls/pki. OpenSSL is only the peer here; noqtis
 # never links it. Run by ctest as
 #
-#   sh srv.sh path/to/tlcli
+#   sh srv.sh path/to/tlcli [path/to/tlget on|off]
 #
-# Each case starts a server, runs tlcli and checks the first line it
-# prints against a pattern. Exit 0 when every case passes.
+# Each case starts a server, runs tlcli (or tlget, the tool's HTTP
+# client) and checks the first line it prints against a pattern. Exit 0
+# when every case passes.
 set -u
 cli=$1
+get=${2:-}
+tlson=${3:-off}
 pki=$(cd "$(dirname "$0")/../vectors/tls/pki" && pwd)
 o=${OPENSSL:-openssl}
 tmp=$(mktemp -d)
@@ -21,7 +24,7 @@ trap 'rm -rf "$tmp"' EXIT
 
 # X25519MLKEM768 came in OpenSSL 3.5; ctest counts 77 as skipped
 v=$("$o" version 2>/dev/null | sed -n 's/^OpenSSL \([0-9]*\)\.\([0-9]*\).*/\1 \2/p')
-set -- "$cli" $v
+set -- x $v
 if [ $# -lt 3 ] || [ "$2" -lt 3 ] || { [ "$2" -eq 3 ] && [ "$3" -lt 5 ]; }; then
   echo "srv.sh: needs OpenSSL 3.5 or later as the peer; skipped"
   exit 77
@@ -90,6 +93,49 @@ serve $c -www -groups P-256 && check "no common group" "fail: *handshake_failure
 serve $c -www -tls1_2 && check "TLS 1.2 only" "fail: *" localhost $port $r
 head -c 300000 /dev/zero | tr '\0' 'x' > "$tmp/big.txt"
 serve $c -WWW && check "a 300 kB reply" "ok 1301 11ec 0 3000[0-9][0-9]" localhost $port $r /big.txt
+
+# the tool's client: GET over TLS, the system bundle overridden
+getc() {
+  name=$1
+  pat=$2
+  shift 2
+  n=$((n + 1))
+  out=$("$@" 2>&1 | head -1)
+  case $out in
+  $pat) echo "ok   $name: $out" ;;
+  *)
+    echo "FAIL $name: got '$out', wanted '$pat'"
+    fails=$((fails + 1))
+    ;;
+  esac
+}
+if [ -n "$get" ]; then
+  if [ "$tlson" = on ]; then
+    serve $c -WWW
+    getc "GET over TLS" "ok 300000 xxxx*" env SSL_CERT_FILE=$r "$get" \
+      "https://localhost:$port/big.txt"
+    getc "GET, wrong anchors" "fail: TLS with localhost: no valid path*" \
+      env SSL_CERT_FILE=$pki/other.pem "$get" "https://localhost:$port/big.txt"
+    getc "GET, no anchors file" "fail: cannot read SSL_CERT_FILE*" \
+      env SSL_CERT_FILE=$tmp/none "$get" "https://localhost:$port/big.txt"
+    kill $pid 2>/dev/null
+    wait $pid 2>/dev/null
+  else
+    getc "https without NQTLS" "fail: https:// is not supported*" \
+      "$get" "https://localhost:1/"
+  fi
+  # redirects, resolved without a server
+  getc "redirect, absolute" "http://b.example/x" "$get" -r \
+    http://a.example/p/q http://b.example/x
+  getc "redirect, path" "http://a.example:8443/x?y" "$get" -r \
+    http://a.example:8443/p/q /x?y
+  getc "redirect, relative" "http://a.example/p/r.php" "$get" -r \
+    http://a.example/p/q?z=1 r.php
+  getc "redirect, relative to the root" "http://a.example/r" "$get" -r \
+    http://a.example r
+  getc "redirect, scheme-relative" "http://c.example/z" "$get" -r \
+    http://a.example/ //c.example/z
+fi
 
 echo "srv.sh: $n cases, $fails failed"
 [ $fails -eq 0 ]

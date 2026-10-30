@@ -96,13 +96,20 @@ int nchexd(const char *in, size_t inlen, uint8_t *out, size_t outmax,
 
 /* ---- the network (net.c) ---- */
 
-/* POSTs body (an RFC 3161 request) to an http:// URL and returns the
- * reply's body in a new buffer (free it). NCUSE with a sentence in err
- * on any failure: the URL, the connection, the HTTP status or type. */
+/* POSTs body (an RFC 3161 request) to an http:// URL (or https://, with
+ * NQTLS) and returns the reply's body in a new buffer (free it). NCUSE
+ * with a sentence in err on any failure: the URL, the connection, TLS,
+ * the HTTP status or type. The trust anchors for https:// are the PEM
+ * bundle SSL_CERT_FILE names, else the system's. */
 int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
            size_t *outn, char *err, size_t cap);
-/* NCOK when url is one nchttp can send to (http://host[:port][/path]);
- * else NCUSE and why in err. No network. */
+/* GETs url and returns the body (at most max bytes) in a new buffer
+ * (free it), following at most 5 redirects, never one from https:// to
+ * anything else. Within 120 s in all. */
+int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
+          char *err, size_t cap);
+/* NCOK when url is one nchttp can send to (http://host[:port][/path],
+ * or https:// with NQTLS); else NCUSE and why in err. No network. */
 int ncurlok(const char *url, char *err, size_t cap);
 
 /* ---- algorithms and keys (key.c) ---- */

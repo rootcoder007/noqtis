@@ -814,9 +814,16 @@ static void tts(void) {
   wrs("qts/a.txt", "stamped\n");
   src(tok, sizeof tok, "vectors/cap/tsa/sample.tok");
   /* refused before anything is sealed */
+#ifndef NQTLSON
   want(2, "seal -k q.c --tsa https://tsa.example/ qts", NULL);
   ok(has("q.err", "https:// is not supported") &&
      has("q.err", "give the TSA's http:// URL"), "seal refuses https");
+#else
+  /* with the TLS client, https:// is a URL like any other */
+  want(2, "seal -k q.c --tsa https://127.0.0.1:1/ qts", NULL);
+  ok(has("q.err", "cannot connect") && !exists("qts/noqtis.sig"),
+     "seal tries https, and seals nothing without its timestamp");
+#endif
   want(2, "seal -k q.c --tsa ftp://tsa.example/ qts", NULL);
   ok(has("q.err", "not an http:// URL"), "seal refuses another scheme");
   want(2, "seal -k q.c --tsa http://tsa.example:99999/ qts", NULL);
@@ -832,8 +839,10 @@ static void tts(void) {
   ok(!exists("qts/noqtis.sig"), "nothing sealed after a refused --tsa");
   /* timestamp: a --tsa, and a capsule that reads, are needed first */
   want(2, "timestamp qts", NULL);
+#ifndef NQTLSON
   want(2, "timestamp --tsa https://tsa.example/ qts", NULL);
   ok(has("q.err", "https:// is not supported"), "timestamp refuses https");
+#endif
   want(2, "timestamp --tsa http://127.0.0.1:1/ qts", NULL);
   ok(has("q.err", "is not a sealed capsule"), "timestamp needs a seal");
   want(2, "timestamp --tsa http://127.0.0.1:1/ no-such-folder", NULL);

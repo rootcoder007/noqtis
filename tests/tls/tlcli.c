@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* A test client for tests/tls/srv.sh: connects to 127.0.0.1 (or ::1
- * with -6) on a port, runs the TLS 1.3 client for a host name with the
- * given anchors, sends an HTTP/1.0 GET and prints what it learned:
+/* A test client for tests/tls/srv.sh and net.sh: connects to 127.0.0.1
+ * (::1 with -6, the host itself with -n) on a port, runs the TLS 1.3
+ * client for a host name with the given anchors, sends an HTTP/1.0 GET
+ * and prints what it learned:
  *
- *   tlcli [-1] [-6] host port anchors.pem [path]
+ *   tlcli [-1] [-6] [-n] host port anchors.pem [path]
  *
  * -1 sends the X25519MLKEM768 share only (a server without it must
  * answer with a HelloRetryRequest). Prints "ok <suite> <group> <hrr>
@@ -11,6 +12,7 @@
  * POSIX only; uses the internal API (nqtlmk, hooks). */
 #define _POSIX_C_SOURCE 200809L
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,7 +44,7 @@ static int srd(void *u, uint8_t *b, size_t cap, size_t *got) {
 
 int main(int argc, char **argv) {
   static uint8_t buf[1 << 20];
-  int a = 1, one = 0, v6 = 0, s, rc;
+  int a = 1, one = 0, v6 = 0, byname = 0, s = -1, rc = -1;
   const char *path = "/";
   char req[512];
   char *ca = NULL;
@@ -53,10 +55,12 @@ int main(int argc, char **argv) {
   while (a < argc && argv[a][0] == '-') {
     if (strcmp(argv[a], "-1") == 0) one = 1;
     if (strcmp(argv[a], "-6") == 0) v6 = 1;
+    if (strcmp(argv[a], "-n") == 0) byname = 1;
     a++;
   }
   if (argc - a < 3) {
-    fprintf(stderr, "usage: tlcli [-1] [-6] host port anchors [path]\n");
+    fprintf(stderr,
+            "usage: tlcli [-1] [-6] [-n] host port anchors [path]\n");
     return 2;
   }
   if (argc - a > 3) path = argv[a + 3];
@@ -64,7 +68,20 @@ int main(int argc, char **argv) {
     fprintf(stderr, "cannot read %s\n", argv[a + 2]);
     return 2;
   }
-  if (v6) {
+  if (byname) {
+    struct addrinfo hint, *res = NULL, *ai;
+    memset(&hint, 0, sizeof hint);
+    hint.ai_family = AF_UNSPEC;
+    hint.ai_socktype = SOCK_STREAM;
+    if (getaddrinfo(argv[a], argv[a + 1], &hint, &res) == 0) {
+      for (ai = res; ai != NULL && rc != 0; ai = ai->ai_next) {
+        if (s >= 0) close(s);
+        s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+        rc = s < 0 ? -1 : connect(s, ai->ai_addr, ai->ai_addrlen);
+      }
+      freeaddrinfo(res);
+    }
+  } else if (v6) {
     struct sockaddr_in6 sa;
     memset(&sa, 0, sizeof sa);
     sa.sin6_family = AF_INET6;
