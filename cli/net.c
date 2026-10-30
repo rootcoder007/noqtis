@@ -4,8 +4,9 @@
  * and a GET (ncget), each with the reply read whole. http:// always;
  * https:// when noqtis is built with NQTLS, over the library's own TLS
  * 1.3 client (nqtlnew) with the trust anchors of SSL_CERT_FILE or the
- * system's PEM bundle, no other library. The other platform-specific
- * file beside io.c. */
+ * system's PEM bundle, no other library, and Certificate Transparency
+ * when NOQTIS_CT_LOGS names a log list (nqtlct). The other
+ * platform-specific file beside io.c. */
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
 /* NetBSD hides POSIX 2008 calls (symlink, dirfd) under that alone */
@@ -59,6 +60,7 @@ typedef size_t iolen;
 #define NCHDR 16384        /* the most header bytes read */
 #define NCBODY (1u << 20)  /* the largest reply (noqtis.sig's own limit) */
 #define NCCAMAX ((size_t)16 << 20) /* the largest CA bundle read */
+#define NCCTMAX ((size_t)4 << 20)  /* the largest CT log list read */
 #define NCHOPS 5           /* redirects ncget follows */
 
 static void say(char *err, size_t cap, const char *fmt, ...) {
@@ -530,6 +532,18 @@ static int cafile(uint8_t **b, size_t *n, char *err, size_t cap) {
   return NCUSE;
 }
 
+/* the Certificate Transparency log list NOQTIS_CT_LOGS names: *b NULL
+ * when it is not set (CT off) */
+static int ctfile(uint8_t **b, size_t *n, char *err, size_t cap) {
+  const char *e = getenv("NOQTIS_CT_LOGS");
+  *b = NULL;
+  *n = 0;
+  if (e == NULL || *e == '\0') return NCOK;
+  if (ncrdx(e, 0, NCCTMAX, b, n) == NQOK) return NCOK;
+  say(err, cap, "cannot read NOQTIS_CT_LOGS %s", e);
+  return NCUSE;
+}
+
 /* 1 when the reply in b (n bytes) is complete by its own framing: the
  * test for a TLS stream that ended without close_notify */
 static int whole(const char *b, size_t n) {
@@ -564,8 +578,8 @@ static int xfer(const ncurl *u, const char *head, size_t hn,
   int rc = NCUSE, k;
 #ifdef NQTLSON
   nqtls *t = NULL;
-  uint8_t *ca = NULL;
-  size_t can = 0;
+  uint8_t *ca = NULL, *ct = NULL;
+  size_t can = 0, ctn = 0;
   nqtlio io;
 #endif
 #ifdef _WIN32
@@ -583,6 +597,10 @@ static int xfer(const ncurl *u, const char *head, size_t hn,
   *got = 0;
 #ifdef NQTLSON
   if (u->tls && cafile(&ca, &can, err, cap) != NCOK) return NCUSE;
+  if (u->tls && ctfile(&ct, &ctn, err, cap) != NCOK) {
+    ncfree(ca, can, 0);
+    return NCUSE;
+  }
 #endif
   memset(&hint, 0, sizeof hint);
   hint.ai_family = AF_UNSPEC;
@@ -617,6 +635,11 @@ static int xfer(const ncurl *u, const char *head, size_t hn,
       say(err, cap, "TLS with %s: %s", u->host,
           k == NQEDEC ? "the CA bundle holds no usable certificate"
                       : nqerr(k));
+      goto out;
+    }
+    if (ct != NULL && (k = nqtlct(t, ct, ctn)) != NQOK) {
+      say(err, cap, "NOQTIS_CT_LOGS %s is not a log list noqtis can use "
+          "(%s)", getenv("NOQTIS_CT_LOGS"), nqerr(k));
       goto out;
     }
     if ((k = nqtlhs(t)) != NQOK) {
@@ -681,6 +704,7 @@ out:
 #ifdef NQTLSON
   nqtlfree(t);
   if (ca != NULL) ncfree(ca, can, 0);
+  if (ct != NULL) ncfree(ct, ctn, 0);
 #endif
   if (s != NOSOCK) sclose(s);
   if (rc != NCOK) {

@@ -154,6 +154,28 @@ if [ -n "$get" ]; then
       env SSL_CERT_FILE=$pki/other.pem "$get" "https://localhost:$port/big.txt"
     getc "GET, no anchors file" "fail: cannot read SSL_CERT_FILE*" \
       env SSL_CERT_FILE=$tmp/none "$get" "https://localhost:$port/big.txt"
+    getc "GET, CT on, no SCTs" "fail: TLS with localhost: *has no SCTs*" \
+      env SSL_CERT_FILE=$r NOQTIS_CT_LOGS=$pki/ct-logs.json "$get" \
+      "https://localhost:$port/big.txt"
+    kill $pid 2>/dev/null
+    wait $pid 2>/dev/null
+    # Certificate Transparency (NOQTIS_CT_LOGS): a leaf with SCTs from the
+    # test logs of two operators embedded
+    serve -cert $pki/sct.pem -key $pki/ec.key -cert_chain $pki/inter.pem -WWW
+    getc "GET, CT" "ok 300000 xxxx*" env SSL_CERT_FILE=$r \
+      NOQTIS_CT_LOGS=$pki/ct-logs.json "$get" "https://localhost:$port/big.txt"
+    getc "GET, CT, one operator listed" \
+      "fail: TLS with localhost: Certificate Transparency: *1 log operator*" \
+      env SSL_CERT_FILE=$r NOQTIS_CT_LOGS=$pki/ct-one.json "$get" \
+      "https://localhost:$port/big.txt"
+    getc "GET, CT, not a log list" "fail: NOQTIS_CT_LOGS * is not a log list*" \
+      env SSL_CERT_FILE=$r NOQTIS_CT_LOGS=$r "$get" \
+      "https://localhost:$port/big.txt"
+    getc "GET, CT, no list file" "fail: cannot read NOQTIS_CT_LOGS*" \
+      env SSL_CERT_FILE=$r NOQTIS_CT_LOGS=$tmp/none "$get" \
+      "https://localhost:$port/big.txt"
+    getc "GET, CT off" "ok 300000 xxxx*" env SSL_CERT_FILE=$r \
+      NOQTIS_CT_LOGS= "$get" "https://localhost:$port/big.txt"
     kill $pid 2>/dev/null
     wait $pid 2>/dev/null
   else

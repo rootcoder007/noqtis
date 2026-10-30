@@ -1,0 +1,17 @@
+{"version": "1.0", "log_list_timestamp": "2026-01-01T00:00:00Z",
+ "operators": [
+  {"name": "A", "email": ["a@a.invalid"], "logs": [
+        {"description": "noqtis test log ct1", "log_id": "t41EEsX1nwGfEC4U9BLT+WGgsZTGibpACU6WfOVQmQ8=",
+         "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQ0OwW8HcoE0JGy4hVFaGzG52C+EPoD3V0ccgDBH5LK1nsloMTVtT6WmqXBtThu2/oSdo0NpwowwArOwnU13UVg==",
+         "url": "https://ct1.invalid/", "mmd": 86400,
+         "state": {"usable": {"timestamp": "2025-06-01T00:00:00Z"}}},
+        {"description": "noqtis test log ct3", "log_id": "eZTS4ly7K/UojkJmXFE+VNhB8qro5ntmYPNm/PUBWkI=",
+         "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElKJjf7z9w1tJjm/xCbOqqqT39AoKutlsVUg6DhVJ5T/77pOzh25N5Wv91t5snwqYzhFmI0sV01KVhak7rs6S9Q==",
+         "url": "https://ct3.invalid/", "mmd": 86400,
+         "state": {"usable": {"timestamp": "2025-06-01T00:00:00Z"}}}]},
+  {"name": "B", "email": ["b@b.invalid"], "logs": [
+        {"description": "noqtis test log ct2", "log_id": "CEPyfO3mwu+lnWfTvEKU2jf83e5MiZHQ0ehoswuabIY=",
+         "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArPm+L6ImWm7fbnGjXMABQ9T3OtU5bjE7qIWAjpJLgSklQj5ZPht4KrN51lNyGduXoE7XwHQxsxaI6isSa1iKMQKeLdKFnnj+Pry+cG3Lfh+ZDliqmJfUPNBxGCFmfGRPdHSm/ItUTxDlBAx7LsAEo61+YsWO/Z71CVqR3rezyctPtLPPacLu8Kbmwb0BV9i2Rbg7ramVOnu/iUJzKWujJRTAoZLc6hNedRlIv5pBWhSxG7oYz+WzBEcavXEgKLpATY88RHAwzCXmvPEDWfjPYzjxAvE02UCn0RXcR+XRrruTe3dYvBf+LZl9LzNymSRqQiXVAKiPq6c31doNTlS9yQIDAQAB",
+         "url": "https://ct2.invalid/", "mmd": 86400,
+         "state": {"usable": {"timestamp": "2025-06-01T00:00:00Z"}}}]}
+ ]}

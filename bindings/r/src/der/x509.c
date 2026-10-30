@@ -29,6 +29,8 @@ const nqxoid nqxoidrsa = {rsab, sizeof rsab};
 
 /* 1.3.6.1.5.5.7.1.24: TLS Feature (RFC 7633) */
 OID(otlsf, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x01, 0x18);
+/* 1.3.6.1.4.1.11129.2.4.2: the SCT list (RFC 6962 3.3) */
+OID(osct, 0x2b, 0x06, 0x01, 0x04, 0x01, 0xd6, 0x79, 0x02, 0x04, 0x02);
 
 /* 1.2.840.113549.1.1.x */
 #define PKCS1(x) 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, x
@@ -714,6 +716,22 @@ static int exttlsf(nqspan v, nqcert *c) {
   return NQOK;
 }
 
+/* the SCT list: an OCTET STRING holding the TLS-encoded
+ * SignedCertificateTimestampList, kept for the TLS client to check
+ * (src/tls/ct.c) */
+static int extsct(nqspan v, nqcert *c) {
+  nqdtlv t;
+  int r = nqdone(v.p, v.n, &t);
+  if (r != NQOK) {
+    return r;
+  }
+  if (t.cls != NQDUNI || t.con || t.tag != NQDOCT || t.v.n == 0) {
+    return NQEDEC;
+  }
+  c->sct = t.v;
+  return NQOK;
+}
+
 static int extski(nqspan v, nqcert *c) {
   nqdtlv t;
   int r = nqdone(v.p, v.n, &t);
@@ -919,6 +937,8 @@ static int exts(const nqdtlv *t, nqcert *c) {
       }
     } else if (nqxoideq(&oid, &otlsf)) {
       r = exttlsf(val.v, c); /* handled, critical or not */
+    } else if (nqxoideq(&oid, &osct)) {
+      r = extsct(val.v, c);
     } else if (nqxoideq(&oid, &osan)) {
       bit = NQXHASSAN;
       r = extsan(val.v, c);

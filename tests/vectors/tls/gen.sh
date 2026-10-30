@@ -83,9 +83,10 @@ key() {
 }
 
 # mk CERT KEY SUBJECT EXT ISSUERCERT ISSUERKEY [NOTBEFORE NOTAFTER]
+# (a random serial, or $ser)
 mk() {
   $o req -new -key "$2" -subj "$3" -config $w/x.cnf -out $w/r.csr
-  $o x509 -req -in $w/r.csr -CA "$5" -CAkey "$6" -set_serial "0x$($o rand -hex 8)" \
+  $o x509 -req -in $w/r.csr -CA "$5" -CAkey "$6" -set_serial "0x${ser:-$($o rand -hex 8)}" \
     -extfile $w/x.cnf -extensions "$4" -sha256 \
     -not_before "${7:-$nb}" -not_after "${8:-$na}" -out "$1"
 }
@@ -155,4 +156,112 @@ osp ocsp-rev.der rsa.pem R inter.pem inter.key "-ndays 7000"
 osp ocsp-old.der rsa.pem V inter.pem inter.key "-nmin 1"
 osp ocsp-ms.der ms.pem V inter.pem inter.key "-ndays 7000"
 osp ocsp-oth.der rsa.pem V other.pem other.key "-ndays 7000"
+# Certificate Transparency (RFC 6962), for tests/ttlscrt.c and srv.sh:
+# three test logs (ct1 P-256 and ct3 P-256 of operator A, ct2 RSA of
+# operator B; their SubjectPublicKeyInfo in ct1.der ..), their log list
+# (ct-logs.json, the Chrome v3 form) and the same without ct2
+# (ct-one.json); sct.pem, a leaf with SCTs from ct1 and ct2 embedded
+# (precert entries over its TBSCertificate without the SCT extension);
+# and SignedCertificateTimestampLists over rsa.pem (x509 entries) as the
+# TLS extension carries them: sct-x.bin from ct1 and ct2, sct-a.bin from
+# ct1 and ct3 (one operator); sct-b.bin over sct.pem from ct2. SCT time
+# 2026-01-02T00:00:00Z.
+hx() { od -An -v -tx1 | tr -d ' \n'; }
+# bin HEX: the bytes
+bin() {
+  printf "$(printf '%s' "$1" | awk '{
+    h = "0123456789abcdef"
+    for (i = 1; i < length($0); i += 2) {
+      a = index(h, substr($0, i, 1))
+      b = index(h, substr($0, i + 1, 1))
+      printf "\\%03o", 16 * a + b - 17
+    }
+  }')"
+}
+ts=$(printf '%016x' 1767312000000)
+key $w/ct1.key ec
+key $w/ct2.key rsa
+key $w/ct3.key ec
+for k in ct1 ct2 ct3; do
+  $o pkey -in $w/$k.key -pubout -outform DER -out $k.der
+done
+# sct LOG SIGALG ENTRY: the SCT (hex) log LOG signs over ENTRY (hex:
+# entry_type and signed_entry); SIGALG 03 ECDSA, 01 RSA PKCS #1 v1.5
+sct() {
+  id=$($o dgst -sha256 -binary $1.der | hx)
+  bin "0000$ts${3}0000" > $w/tbs
+  $o pkeyutl -sign -rawin -digest sha256 -inkey $w/$1.key -in $w/tbs \
+    -out $w/sig
+  sg=$(hx < $w/sig)
+  printf '00%s%s000004%s%04x%s' "$id" "$ts" "$2" $((${#sg} / 2)) "$sg"
+}
+# lst SCT...: a SignedCertificateTimestampList (hex)
+lst() {
+  l=""
+  for x in "$@"; do l="$l$(printf '%04x' $((${#x} / 2)))$x"; done
+  printf '%04x%s' $((${#l} / 2)) "$l"
+}
+# x509 entries over rsa.pem
+c=$($o x509 -in rsa.pem -outform DER | hx)
+e=$(printf '0000%06x%s' $((${#c} / 2)) "$c")
+bin "$(lst "$(sct ct1 03 "$e")" "$(sct ct2 01 "$e")")" > sct-x.bin
+bin "$(lst "$(sct ct1 03 "$e")" "$(sct ct3 03 "$e")")" > sct-a.bin
+# the embedded ones: the leaf without the extension first, its TBS
+# signed as the precertificate's, then the leaf with it (same serial)
+ser=$($o rand -hex 8)
+mk $w/pre.pem ec.key "/CN=localhost" srv inter.pem inter.key
+c=$($o x509 -in $w/pre.pem -outform DER | hx)
+case $c in 3082????3082*) ;; *) echo "gen.sh: TBS too short" >&2; exit 1 ;; esac
+m=$(printf '%s' "$c" | cut -c13-16)
+tbs=$(printf '%s' "$c" | cut -c9-$((8 + (4 + 0x$m) * 2)))
+ikh=$($o x509 -in inter.pem -pubkey -noout | $o pkey -pubin -outform DER |
+  $o dgst -sha256 -binary | hx)
+e=$(printf '0001%s%06x%s' "$ikh" $((${#tbs} / 2)) "$tbs")
+l=$(lst "$(sct ct1 03 "$e")" "$(sct ct2 01 "$e")")
+n=$((${#l} / 2))
+if [ $n -lt 128 ]; then dl=$(printf '%02x' $n)
+elif [ $n -lt 256 ]; then dl=$(printf '81%02x' $n)
+else dl=$(printf '82%04x' $n); fi
+{
+  sed -n '/^\[ srv \]/,/^authorityKeyIdentifier/p' $w/x.cnf |
+    sed 's/^\[ srv \]/[ sct ]/'
+  echo "1.3.6.1.4.1.11129.2.4.2 = DER:04$dl$l"
+} >> $w/x.cnf
+mk sct.pem ec.key "/CN=localhost" sct inter.pem inter.key
+ser=
+# and over sct.pem, in the TLS extension, from ct2 alone: sct-b.bin
+c=$($o x509 -in sct.pem -outform DER | hx)
+e=$(printf '0000%06x%s' $((${#c} / 2)) "$c")
+bin "$(lst "$(sct ct2 01 "$e")")" > sct-b.bin
+# the log lists; log_id is the SHA-256 of the key
+# lg LOG: one log's entry
+lg() {
+  printf '        {"description": "noqtis test log %s", "log_id": "%s",\n' \
+    $1 "$($o dgst -sha256 -binary $1.der | $o base64 -A)"
+  printf '         "key": "%s",\n' "$($o base64 -A -in $1.der)"
+  printf '         "url": "https://%s.invalid/", "mmd": 86400,\n' $1
+  printf '         "state": {"usable": {"timestamp": "2025-06-01T00:00:00Z"}}}'
+}
+# ll FILE OPERATOR-A-LOGS OPERATOR-B-LOGS
+ll() {
+  {
+    printf '{"version": "1.0", "log_list_timestamp": "2026-01-01T00:00:00Z",\n'
+    printf ' "operators": [\n'
+    printf '  {"name": "A", "email": ["a@a.invalid"], "logs": [\n'
+    sep=""
+    for x in $2; do printf '%s' "$sep"; lg $x; sep=",
+"; done
+    printf ']}'
+    if [ -n "$3" ]; then
+      printf ',\n  {"name": "B", "email": ["b@b.invalid"], "logs": [\n'
+      sep=""
+      for x in $3; do printf '%s' "$sep"; lg $x; sep=",
+"; done
+      printf ']}'
+    fi
+    printf '\n ]}\n'
+  } > "$1"
+}
+ll ct-logs.json "ct1 ct3" "ct2"
+ll ct-one.json "ct1 ct3" ""
 rm -rf $w

@@ -117,6 +117,13 @@ mistake in the release process; use 0.1.1.)
   response that does not check (wrong signer, stale, about another
   certificate) with bad_certificate_status_response. No response is
   fine, unless the certificate is must-staple (TLS Feature, RFC 7633).
+- Certificate Transparency for the TLS client, opt-in: `nqtlct` gives it
+  a log list (Chrome's `log_list.json`, v3), and the tool reads one from
+  the file `NOQTIS_CT_LOGS` names. The server's certificate must then
+  carry SCTs, embedded or sent in TLS, that verify (ECDSA P-256 or RSA,
+  over the certificate or the precertificate) and come from logs of two
+  operators that were usable when they signed. Off without a list,
+  since a list goes stale.
 - Shell completions for bash, zsh and fish (`cli/completions/`, installed
   with the tool; a test checks they offer every command and option the
   manual pages list).

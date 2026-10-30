@@ -302,6 +302,12 @@ static int mkch(nqtls *t, const uint16_t *g, size_t ng) {
   p8(&w, 1);
   p16(&w, 0);
   p16(&w, 0);
+  /* signed_certificate_timestamp (RFC 6962 3.3.1), empty: only when
+   * the caller gave a log list to check SCTs against (ct.c) */
+  if (t->nlg > 0) {
+    p16(&w, 18);
+    p16(&w, 0);
+  }
   /* the HelloRetryRequest's cookie, echoed */
   if (t->ckn > 0) {
     p16(&w, 44);
@@ -632,21 +638,30 @@ static int oncr(nqtls *t, const uint8_t *m, size_t n) {
 static int entx(nqtls *t, cur *x, int leaf) {
   cur e, v;
   unsigned ty, u;
-  int sr = 0;
+  int sr = 0, sc = 0;
   while (x->n > 0) {
     if (!g16(x, &ty) || !gv(x, 2, &e)) BAD(50, "a malformed extension");
-    if (!has16(t->off.ext, t->off.next, ty) || ty != 5) {
+    if (!has16(t->off.ext, t->off.next, ty) || (ty != 5 && ty != 18)) {
       BAD(110, "a CertificateEntry extension that was not offered");
     }
-    if (!leaf) BAD(47, "an OCSP response for a certificate not the leaf");
-    if (sr) BAD(47, "an extension twice");
-    sr = 1;
-    /* CertificateStatus: ocsp (1), an OCSPResponse of 1 to 2^24-1 */
-    if (!g8(&e, &u) || u != 1 || !gv(&e, 3, &v) || v.n == 0 || e.n != 0) {
-      BAD(50, "a malformed status_request");
+    if (!leaf) BAD(47, "an OCSP response or SCT for a certificate not "
+                   "the leaf");
+    if (ty == 5) {
+      if (sr++) BAD(47, "an extension twice");
+      /* CertificateStatus: ocsp (1), an OCSPResponse of 1 to 2^24-1 */
+      if (!g8(&e, &u) || u != 1 || !gv(&e, 3, &v) || v.n == 0 ||
+          e.n != 0) {
+        BAD(50, "a malformed status_request");
+      }
+      t->ocsp.p = v.p;
+      t->ocsp.n = v.n;
+    } else {
+      if (sc++) BAD(47, "an extension twice");
+      /* a SignedCertificateTimestampList, read by ct.c */
+      if (e.n == 0) BAD(50, "a malformed signed_certificate_timestamp");
+      t->sctl.p = e.p;
+      t->sctl.n = e.n;
     }
-    t->ocsp.p = v.p;
-    t->ocsp.n = v.n;
   }
   return NQOK;
 }

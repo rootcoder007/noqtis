@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 29, 2026
+.Dd October 30, 2026
 .Dt NOQTIS-SEAL 1
 .Os
 .Sh NAME
@@ -143,7 +143,12 @@ option
 .Dv NQTLS ) ,
 the server's certificate checked against the PEM bundle
 .Ev SSL_CERT_FILE
-names, else the system's; otherwise it is refused with that said.
+names, else the system's, and its Certificate Transparency SCTs against
+the log list
+.Ev NOQTIS_CT_LOGS
+names, when set (see
+.Xr noqtis-check 1 ) ;
+otherwise it is refused with that said.
 Most public TSAs answer on
 .Ql http:// .
 There is no proxy support.

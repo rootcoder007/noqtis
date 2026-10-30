@@ -1,9 +1,10 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 29, 2026
+.Dd October 30, 2026
 .Dt NQTLNEW 3
 .Os
 .Sh NAME
 .Nm nqtlnew ,
+.Nm nqtlct ,
 .Nm nqtlhs ,
 .Nm nqtlwr ,
 .Nm nqtlrd ,
@@ -27,6 +28,8 @@ typedef struct {
 .Fa "nqtls **t" "const char *host"
 .Fa "const uint8_t *ca" "size_t calen" "const nqtlio *io"
 .Fc
+.Ft int
+.Fn nqtlct "nqtls *t" "const uint8_t *json" "size_t len"
 .Ft int
 .Fn nqtlhs "nqtls *t"
 .Ft int
@@ -113,6 +116,31 @@ does not check with bad_certificate_status_response.
 No response is fine, except when the certificate carries the TLS Feature
 extension with status_request (must-staple, RFC 7633).
 .Pp
+.Fn nqtlct ,
+called before
+.Fn nqtlhs ,
+turns on Certificate Transparency (RFC 6962).
+.Fa json
+is a log list of
+.Fa len
+bytes, copied, in the form of Chrome's
+.Pa log_list.json ,
+version 3: operators, each with logs, each with its log_id, key and
+state.
+The ClientHello then offers signed_certificate_timestamp, and the
+server's certificate must carry SCTs, embedded in it or sent in TLS,
+that come from logs of at least two operators.
+An SCT counts when its log is in the list and was qualified, usable or
+read-only (or retired, but after the SCT), the certificate's notAfter
+is in the log's temporal interval if it has one, the SCT is not from
+the future, and its signature (ECDSA P-256 or RSA, SHA-256) verifies
+over the certificate, or for an embedded SCT over the precertificate
+the log saw.
+Without
+.Fn nqtlct
+no SCT is looked at: a log list goes stale, so the caller keeps it
+current.
+.Pp
 .Fn nqtlwr
 sends application data;
 .Fn nqtlrd
@@ -144,15 +172,19 @@ or:
 .It Er NQEVRFY
 a certificate, signature or MAC that does not check out
 .It Er NQEDEC
-a message TLS 1.3 does not allow at that point, or a bundle with no
-certificate
+a message TLS 1.3 does not allow at that point, a bundle with no
+certificate, or a log list that does not parse, holds no log, or a
+log whose log_id is not the hash of its key
 .It Er NQENOSUP
 a server that speaks nothing the client offers, or a build without
 .Dv NQTLS
 .It Er NQEIO
 the transport failed, the server ended the connection, or sent an alert
 .It Er NQESTATE
-a call out of order (data before the handshake, after close_notify)
+a call out of order (data before the handshake, after close_notify;
+.Fn nqtlct
+after
+.Fn nqtlhs )
 .It Er NQEARG
 a bad argument, or a host name the client will not send
 .It Er NQELIM , NQEMEM
@@ -163,12 +195,15 @@ a message over its limit (256 KiB, ten certificates), or no memory
 .Sh STANDARDS
 RFC 8446 (TLS 1.3), RFC 8448 (its example traces, which the tests
 reproduce byte for byte), draft-ietf-tls-ecdhe-mlkem, RFC 5280,
-RFC 6125, RFC 6066 and RFC 6960 (OCSP stapling), RFC 7633 (must-staple).
+RFC 6125, RFC 6066 and RFC 6960 (OCSP stapling), RFC 7633 (must-staple),
+RFC 6962 (Certificate Transparency).
 .Sh CAVEATS
 Not done: CRLs and OCSP queries (only a stapled response is checked,
 and only for the server's own certificate), policy constraints (a
 certificate that carries them as a critical extension is refused), name
 constraints on other name forms (a certificate with a name of such a
-form below one is refused), Certificate Transparency, finite-field groups
-(a server with none of the offered groups fails), Ed25519 and
+form below one is refused), SCTs in an OCSP response, the rule of
+Chrome's policy on the number of SCTs by certificate lifetime,
+finite-field groups (a server with none of the offered groups fails),
+Ed25519 and
 ML-DSA server keys, TLS 1.2, resumption, 0-RTT, client certificates.

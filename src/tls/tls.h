@@ -123,6 +123,25 @@ typedef struct {
   const uint8_t *rnd;
 } nqtloff;
 
+/* one Certificate Transparency log of the caller's list (ct.c) */
+typedef struct {
+  uint8_t id[32];       /* log_id: the SHA-256 of the key */
+  size_t key, keyn;     /* its SubjectPublicKeyInfo: lk + key, keyn bytes */
+  size_t op;            /* its operator, by index in the list */
+  int st;               /* NQTLCT* */
+  int64_t stt;          /* since when */
+  int ti;               /* a temporal interval [tis, tie) for notAfter */
+  int64_t tis, tie;
+} nqtlog;
+
+/* log states (nqtlog.st); 0 for none or one not known */
+#define NQTLCTP 1   /* pending */
+#define NQTLCTQ 2   /* qualified */
+#define NQTLCTU 3   /* usable */
+#define NQTLCTR 4   /* readonly */
+#define NQTLCTX 5   /* retired */
+#define NQTLCTJ 6   /* rejected */
+
 struct nqtls {
   nqtlio io;
   char host[256];
@@ -178,6 +197,12 @@ struct nqtls {
   nqcert crt[NQTLCMAX];
   size_t ncrt;
   nqspan ocsp;          /* the leaf's stapled OCSPResponse, in cm */
+  nqspan sctl;          /* its signed_certificate_timestamp list, in cm */
+  /* Certificate Transparency: the caller's logs (nqtlct), none when off */
+  nqtlog *lg;
+  size_t nlg;
+  uint8_t *lk;          /* their keys */
+  size_t lkn;
   /* receiving: one record at a time */
   uint8_t rb[5 + NQTLCT];
   size_t rbn;           /* bytes of rb filled */
@@ -272,5 +297,13 @@ int nqtlip(const char *s, uint8_t *out);
  * transcript hash th with the leaf key */
 int nqtlcv(nqtls *t, uint16_t scheme, const uint8_t *th, const uint8_t *sig,
            size_t sn);
+
+/* ---- Certificate Transparency (ct.c) ---- */
+
+/* reads a log list (Chrome's log_list.json, v3) into t->lg */
+int nqtlctl(nqtls *t, const uint8_t *js, size_t n);
+/* checks the SCTs of leaf (embedded; issuer iss) and of the TLS
+ * extension at time now against t->lg: SCTs from two operators */
+int nqtlctv(nqtls *t, const nqcert *leaf, const nqcert *iss, int64_t now);
 
 #endif /* NQTLS_H */

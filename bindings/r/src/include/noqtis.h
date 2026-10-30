@@ -400,6 +400,15 @@ typedef struct {
  * send. */
 NQAPI int nqtlnew(nqtls **t, const char *host, const uint8_t *ca,
                   size_t calen, const nqtlio *io);
+/* Turns on Certificate Transparency for t, before nqtlhs: json (len
+ * bytes, copied) is a log list in the form of Chrome's log_list.json,
+ * version 3. The handshake then needs SCTs, embedded in the server's
+ * certificate or sent in TLS, that verify and come from logs of at
+ * least two operators, usable when they signed. Off by default: a log
+ * list goes stale, so keep it current. NQEDEC for a list that does not
+ * parse, holds no log or a log whose log_id is not its key's hash;
+ * NQESTATE once the handshake has begun. */
+NQAPI int nqtlct(nqtls *t, const uint8_t *json, size_t len);
 /* The handshake. NQEVRFY for a certificate, signature or MAC that does
  * not check out, NQEDEC for a message TLS 1.3 does not allow here,
  * NQENOSUP for a server that offers nothing noqtis speaks, NQEIO for

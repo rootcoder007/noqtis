@@ -142,6 +142,8 @@ typedef struct {
   nqxkey key;
   unsigned ext;    /* NQXHAS* */
   int stap;        /* TLS Feature lists status_request (must-staple) */
+  nqspan sct;      /* the SCT list extension's SignedCertificateTimestampList
+                    * (RFC 6962 3.3), TLS-encoded */
   int ca;          /* basicConstraints cA */
   int plen;        /* pathLenConstraint, -1 when absent */
   uint32_t ku;     /* NQXKU* */

@@ -50,6 +50,7 @@ OBJECTS = \
   slh/tree.o \
   tls/api.o \
   tls/crt.o \
+  tls/ct.o \
   tls/hs.o \
   tls/ks.o \
   tls/rec.o \

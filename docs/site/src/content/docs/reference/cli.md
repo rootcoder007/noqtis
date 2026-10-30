@@ -44,6 +44,13 @@ Long forms: `-a --alg`, `-o --out`, `-f --force`, `-k --key`, `-p --pub`,
 `--only` and `--lineage` have no short form and may be repeated (up to 32
 times each); `--format` and `--proof` are given once.
 
+## Environment
+
+| Variable | Used by | Does |
+|---|---|---|
+| `SSL_CERT_FILE` | `check <url>`, `seal --tsa`, `timestamp --tsa` (`https://`) | a PEM bundle of the roots to trust, in place of the system's |
+| `NOQTIS_CT_LOGS` | the same | a Certificate Transparency log list (Chrome's `log_list.json`, version 3); when set, the server's certificate needs valid SCTs from logs of two operators. Unset, nothing is checked; keep the list current |
+
 ## Exit status
 
 | Status | Meaning |

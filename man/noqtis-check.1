@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 29, 2026
+.Dd October 30, 2026
 .Dt NOQTIS-CHECK 1
 .Os
 .Sh NAME
@@ -290,6 +290,27 @@ One row per regular file present but not listed.
 .It Cm unsafe
 One row per link, reparse point, special file or refused name in the
 folder.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev SSL_CERT_FILE
+For an
+.Ql https://
+.Ar url :
+a PEM bundle of the roots to trust, in place of the system's.
+.It Ev NOQTIS_CT_LOGS
+For an
+.Ql https://
+.Ar url :
+a Certificate Transparency log list in the form of Chrome's
+.Pa log_list.json
+(version 3), such as
+.Lk https://www.gstatic.com/ct/log_list/v3/log_list.json .
+When it is set, the server's certificate must carry SCTs (embedded, or
+sent in TLS) that verify and come from logs of at least two operators,
+usable when they signed; otherwise the fetch fails and says why.
+Unset or empty, nothing is checked: a list goes stale, so keep it
+current.
 .El
 .Sh EXIT STATUS
 .Bl -tag -width 3n -compact

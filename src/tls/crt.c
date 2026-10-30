@@ -17,10 +17,12 @@
  * bad_certificate_status_response. No staple is fine, except for a leaf
  * whose TLS Feature extension (RFC 7633) lists status_request.
  *
+ * Certificate Transparency: only when the caller gave a log list
+ * (nqtlct); then the leaf's SCTs are checked by ct.c.
+ *
  * Not checked: CRLs (nothing is fetched), revocation of the
  * intermediates, certificate policies (a certificate carrying them as a
- * critical extension is unusable, so a path through one fails),
- * Certificate Transparency. */
+ * critical extension is unusable, so a path through one fails). */
 #include <string.h>
 
 #include "cap/cap.h"
@@ -302,6 +304,8 @@ int nqtlpath(nqtls *t, int64_t now) {
     return nqtlfail(t, NQEVRFY, 113, "the server's certificate requires a "
                     "stapled OCSP response (must-staple) and none came");
   }
+  /* Certificate Transparency, when the caller gave logs (ct.c) */
+  if (t->nlg > 0) return nqtlctv(t, leaf, path[1], now);
   return NQOK;
 }
 

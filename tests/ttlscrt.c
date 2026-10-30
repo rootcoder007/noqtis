@@ -7,7 +7,11 @@
  * subjectAltName), CertificateVerify signatures of every scheme with
  * one-bit changes and wrong schemes, host names nqtlmk refuses, and
  * stapled OCSP responses (good, revoked, stale, from a responder with no
- * authority, about another certificate; must-staple). */
+ * authority, about another certificate; must-staple), and Certificate
+ * Transparency: SCTs embedded and in the TLS extension from the test
+ * logs, changed ones, unknown logs, one operator, log states and
+ * intervals, SCTs from the future, log lists refused, and a public
+ * certificate (www.google.com) with an excerpt of Chrome's log list. */
 #include "tls/tls.h"
 #include "nqt.h"
 #include "tvec.h"
@@ -358,11 +362,239 @@ static void staples(void) {
         "does not check");
 }
 
+/* ---- Certificate Transparency ---- */
+
+/* a file of vectors/tls/, whole; free with nqfree(b, *n + 1) */
+static char *rd(const char *f, size_t *n) {
+  char path[128], *b = NULL;
+  snprintf(path, sizeof path, "vectors/tls/%s", f);
+  *n = 0;
+  if (nqreadf(path, 1u << 20, &b, n) != NQOK) {
+    fprintf(stderr, "cannot read %s\n", path);
+    NQTCHK(0);
+    return NULL;
+  }
+  return b;
+}
+
+/* js with the last "from" replaced by "to" (malloc'd) */
+static char *sub(const char *js, const char *from, const char *to,
+                 size_t *n) {
+  const char *at = NULL, *p;
+  char *o;
+  size_t fl = strlen(from), tl = strlen(to), jl = strlen(js);
+  for (p = strstr(js, from); p != NULL; p = strstr(p + 1, from)) at = p;
+  NQTCHK(at != NULL);
+  if (at == NULL || (o = (char *)malloc(jl - fl + tl + 1)) == NULL) {
+    return NULL;
+  }
+  memcpy(o, js, (size_t)(at - js));
+  memcpy(o + (at - js), to, tl);
+  memcpy(o + (at - js) + tl, at + fl, jl - (size_t)(at - js) - fl + 1);
+  *n = jl - fl + tl;
+  return o;
+}
+
+/* the path of leaf under inter for host at now, with the log list js (jn
+ * bytes) and the TLS extension's SCT list in file tls (or none); flip
+ * changes the last byte of the TLS list (1) or of the embedded one (2) */
+static void ct1(const char *name, const char *host, const char *anc,
+                const char *leaf, const char *inter, const char *js,
+                size_t jn, const char *tls, int flip, int64_t now, int want,
+                const char *why) {
+  nqtls *s, *t = setup(host, anc, leaf, inter, NULL, &s);
+  char *x = NULL;
+  size_t xn = 0;
+  int rc;
+  if (t == NULL) return;
+  NQTEQI(nqtlctl(t, (const uint8_t *)js, jn), NQOK);
+  if (tls != NULL && (x = rd(tls, &xn)) != NULL) {
+    if (flip == 1) x[xn - 1] ^= 1;
+    t->sctl.p = (const uint8_t *)x;
+    t->sctl.n = xn;
+  }
+  /* a changed leaf fails the path: then only the SCTs are checked */
+  if (flip == 2 && t->crt[0].sct.n > 0) {
+    /* the bytes are s's copy of the bundle */
+    s->ab[(size_t)(t->crt[0].sct.p - s->ab) + t->crt[0].sct.n - 1] ^= 1;
+    rc = nqtlctv(t, &t->crt[0], &t->crt[1], now);
+  } else {
+    rc = nqtlpath(t, now);
+  }
+  if (rc != want || (why != NULL && strstr(t->why, why) == NULL)) {
+    fprintf(stderr, "%s: %s (%s)\n", name, nqerr(rc), t->why);
+  }
+  NQTEQI(rc, want);
+  if (why != NULL) NQTCHK(strstr(t->why, why) != NULL);
+  if (x != NULL) nqfree(x, xn + 1);
+  nqtlfree(t);
+  nqtlfree(s);
+}
+
+/* the state of the test logs' list, and that of ct2 changed */
+#define USE "{\"usable\": {\"timestamp\": \"2025-06-01T00:00:00Z\"}}"
+
+static void ctst(const char *js, const char *to, int want,
+                 const char *why) {
+  size_t n = 0;
+  char *v = sub(js, USE, to, &n);
+  if (v == NULL) return;
+  ct1(to, "localhost", "root.pem", "sct.pem", "inter.pem", v, n, NULL, 0,
+      NOW, want, why);
+  free(v);
+}
+
+/* SCT time 2026-01-02 */
+#define SCTT ((int64_t)1767312000)
+
+static void cts(void) {
+  size_t ln = 0, on = 0, gn = 0, n;
+  char *l = rd("pki/ct-logs.json", &ln), *one = rd("pki/ct-one.json", &on),
+       *g = rd("ct/logs.json", &gn);
+  nqtls *t = NULL, *s = NULL;
+  nqtloff o;
+  if (l == NULL || one == NULL || g == NULL) goto out;
+  /* SCTs embedded, from ct1 (A) and ct2 (B) */
+  ct1("embedded", "localhost", "root.pem", "sct.pem", "inter.pem", l, ln,
+      NULL, 0, NOW, NQOK, NULL);
+  ct1("embedded, list without B", "localhost", "root.pem", "sct.pem",
+      "inter.pem", one, on, NULL, 0, NOW, NQEVRFY,
+      "1 log operator, 2 are needed (1 valid, 1 from logs not listed");
+  ct1("embedded, changed", "localhost", "root.pem", "sct.pem", "inter.pem",
+      l, ln, NULL, 2, NOW, NQEVRFY, "(1 valid, 0 from logs not listed, 1 bad");
+  /* in the TLS extension, over rsa.pem */
+  ct1("TLS extension", "localhost", "root.pem", "rsa.pem", "inter.pem", l,
+      ln, "pki/sct-x.bin", 0, NOW, NQOK, NULL);
+  ct1("TLS extension, one operator", "localhost", "root.pem", "rsa.pem",
+      "inter.pem", l, ln, "pki/sct-a.bin", 0, NOW, NQEVRFY,
+      "1 log operator, 2 are needed (2 valid");
+  ct1("TLS extension, changed", "localhost", "root.pem", "rsa.pem",
+      "inter.pem", l, ln, "pki/sct-x.bin", 1, NOW, NQEVRFY, "1 bad");
+  ct1("TLS extension, another certificate", "localhost", "root.pem",
+      "ec.pem", "inter.pem", l, ln, "pki/sct-x.bin", 0, NOW, NQEVRFY,
+      "from 0 log operators");
+  /* both places together; a log counted once */
+  ct1("embedded and TLS, ct2 twice", "localhost", "root.pem", "sct.pem",
+      "inter.pem", l, ln, "pki/sct-b.bin", 0, NOW, NQOK, NULL);
+  ct1("embedded and TLS, B not listed", "localhost", "root.pem", "sct.pem",
+      "inter.pem", one, on, "pki/sct-b.bin", 0, NOW, NQEVRFY,
+      "(1 valid, 2 from logs not listed");
+  ct1("none", "localhost", "root.pem", "rsa.pem", "inter.pem", l, ln, NULL,
+      0, NOW, NQEVRFY, "has no SCTs");
+  /* the SCTs are from after the time of the check */
+  ct1("from the future", "localhost", "root.pem", "sct.pem", "inter.pem", l,
+      ln, NULL, 0, SCTT - 3600, NQEVRFY, "2 from logs not usable then");
+  ct1("a minute ahead", "localhost", "root.pem", "sct.pem", "inter.pem", l,
+      ln, NULL, 0, SCTT - 60, NQOK, NULL);
+  /* the state of ct2 */
+  ctst(l, "{\"qualified\": {\"timestamp\": \"2025-06-01T00:00:00Z\"}}", NQOK,
+       NULL);
+  ctst(l, "{\"readonly\": {\"timestamp\": \"2025-06-01T00:00:00Z\"}}", NQOK,
+       NULL);
+  ctst(l, "{\"retired\": {\"timestamp\": \"2026-02-01T00:00:00Z\"}}", NQOK,
+       NULL);
+  ctst(l, "{\"retired\": {\"timestamp\": \"2025-12-01T00:00:00Z\"}}",
+       NQEVRFY, "1 from logs not usable then");
+  ctst(l, "{\"pending\": {\"timestamp\": \"2025-06-01T00:00:00Z\"}}",
+       NQEVRFY, "1 from logs not usable then");
+  ctst(l, "{\"rejected\": {\"timestamp\": \"2025-06-01T00:00:00Z\"}}",
+       NQEVRFY, "1 from logs not usable then");
+  ctst(l, "{}", NQEVRFY, "1 from logs not usable then");
+  /* the leaf's notAfter, 2046-01-01, in the interval or not */
+  ctst(l, USE ", \"temporal_interval\": {\"start_inclusive\": "
+       "\"2045-07-01T00:00:00Z\", \"end_exclusive\": \"2046-01-01T00:00:01Z\"}",
+       NQOK, NULL);
+  ctst(l, USE ", \"temporal_interval\": {\"start_inclusive\": "
+       "\"2045-07-01T00:00:00Z\", \"end_exclusive\": \"2046-01-01T00:00:00Z\"}",
+       NQEVRFY, "1 from logs not usable then");
+  /* a public certificate, www.google.com as served on 2026-10-30 (vectors
+   * SOURCES.md), with an excerpt of Chrome's log list of that day */
+  ct1("www.google.com", "www.google.com", "../ct/r4.pem", "../ct/www.pem",
+      "../ct/we2.pem", g, gn, NULL, 0, (int64_t)1793318400, NQOK, NULL);
+  ct1("www.google.com, test logs", "www.google.com", "../ct/r4.pem",
+      "../ct/www.pem", "../ct/we2.pem", l, ln, NULL, 0, (int64_t)1793318400,
+      NQEVRFY, "2 from logs not listed");
+  /* lists that are refused */
+  NQTEQI(nqtlmk(&t, "localhost", NULL, 0, &io), NQOK);
+  if (t == NULL) goto out;
+  NQTEQI(nqtlctl(t, (const uint8_t *)"{}", 2), NQEDEC);
+  NQTEQI(nqtlctl(t, (const uint8_t *)"[", 1), NQEDEC);
+  {
+    static const char e[] = "{\"operators\": [{\"logs\": []}]}";
+    NQTEQI(nqtlctl(t, (const uint8_t *)e, strlen(e)), NQEDEC);
+  }
+  {
+    /* the last log's key swapped for the first's: its log_id is then
+     * not its key's hash */
+    const char *k = "\"key\": \"", *a = strstr(l, k), *b = a, *p;
+    char *from = NULL, *to = NULL, *v = NULL;
+    for (p = a; p != NULL; p = strstr(p + 1, k)) b = p;
+    if (a != NULL && b != a) {
+      a += strlen(k);
+      b += strlen(k);
+      from = (char *)malloc((size_t)(strchr(b, '"') - b) + 1);
+      to = (char *)malloc((size_t)(strchr(a, '"') - a) + 1);
+    }
+    NQTCHK(from != NULL && to != NULL);
+    if (from != NULL && to != NULL) {
+      memcpy(from, b, (size_t)(strchr(b, '"') - b));
+      from[strchr(b, '"') - b] = 0;
+      memcpy(to, a, (size_t)(strchr(a, '"') - a));
+      to[strchr(a, '"') - a] = 0;
+      v = sub(l, from, to, &n);
+      if (v != NULL) NQTEQI(nqtlctl(t, (const uint8_t *)v, n), NQEDEC);
+      NQTEQI(t->nlg, 0);
+    }
+    free(from);
+    free(to);
+    free(v);
+  }
+  NQTEQI(nqtlctl(t, (const uint8_t *)l, ln), NQOK);
+  NQTEQI(t->nlg, 3);
+  NQTEQI(nqtlctl(t, (const uint8_t *)g, gn), NQOK);
+  NQTEQI(t->nlg, 15);
+  /* the ClientHello offers signed_certificate_timestamp only with logs;
+   * nqtlhand fails at the end of the null stream, the hello sent */
+  (void)nqtlhand(t);
+  NQTEQI(nqtlscan(t->ch, t->chn, &o), NQOK);
+  {
+    size_t i;
+    int sr = 0, sc = 0;
+    for (i = 0; i < o.next; i++) {
+      sr += o.ext[i] == 5;
+      sc += o.ext[i] == 18;
+    }
+    NQTEQI(sr, 1);
+    NQTEQI(sc, 1);
+  }
+  NQTEQI(nqtlctl(t, (const uint8_t *)l, ln), NQESTATE);
+  NQTEQI(nqtlmk(&s, "localhost", NULL, 0, &io), NQOK);
+  if (s != NULL) {
+    size_t i;
+    int sr = 0, sc = 0;
+    (void)nqtlhand(s);
+    NQTEQI(nqtlscan(s->ch, s->chn, &o), NQOK);
+    for (i = 0; i < o.next; i++) {
+      sr += o.ext[i] == 5;
+      sc += o.ext[i] == 18;
+    }
+    NQTEQI(sr, 1);
+    NQTEQI(sc, 0);
+  }
+out:
+  nqtlfree(t);
+  nqtlfree(s);
+  if (l != NULL) nqfree(l, ln + 1);
+  if (one != NULL) nqfree(one, on + 1);
+  if (g != NULL) nqfree(g, gn + 1);
+}
+
 int main(void) {
   paths();
   names();
   cvs();
   bundles();
   staples();
+  cts();
   return nqtdone("ttlscrt");
 }
