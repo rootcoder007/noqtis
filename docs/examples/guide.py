@@ -111,10 +111,11 @@ def main():
         # each block is a fragment of main; give each its own scope
         body = "".join("\tfunc() {\n" + c + "\t}()\n" for c in code[1:])
         (tmp / "main.go").write_text(
-            "package main\n\nimport (\n\t\"fmt\"\n\t\"os\"\n"
-            "\t\"path/filepath\"\n\n"
+            "package main\n\nimport (\n\t\"bytes\"\n\t\"errors\"\n"
+            "\t\"fmt\"\n\t\"os\"\n\t\"path/filepath\"\n\t\"time\"\n\n"
             "\t\"github.com/rootcoder007/noqtis/bindings/go\"\n)\n\n"
-            "var _ = fmt.Sprint\nvar _ = os.Exit\nvar _ = filepath.Join\n\n"
+            "var _ = bytes.Equal\nvar _ = errors.Is\nvar _ = fmt.Sprint\n"
+            "var _ = os.Exit\nvar _ = filepath.Join\nvar _ = time.Now\n\n"
             "func main() {\n" + body + "}\n")
         (tmp / "go.mod").write_text(
             "module nqguide\n\ngo 1.22\n\n"

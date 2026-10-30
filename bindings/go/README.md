@@ -135,6 +135,20 @@ for _, row := range r.Failed() {
   `info.*` rows, `Report.Get("info.alg")`); `Files(dir)` adds one
   `info.file` row per listed file.
 
+## Identity cards
+
+```go
+f := noqtis.CardFields{Name: "Ada Lovelace", ORCID: "0000-0002-1825-0097"}
+card, err := noqtis.MakeCard("ML-DSA-65", sk, pk, f, time.Time{})
+c, err := noqtis.VerifyCard(card, pk) // *Card, or nil when it does not verify
+```
+
+A card (noqtis-idcard-1, JSON) binds the key to its holder's name and,
+when given, ORCID iD (check digit verified), e-mail address, `https://`
+page and affiliation, signed by the key under its own context, so it is
+never a seal or a key statement. It is self-signed: compare `KeySHA256`
+with the one its holder published, or pass the key.
+
 ## Key files
 
 `ReadKey`, `WriteKey`, `EncodeKey` and `DecodeKey` read and write the

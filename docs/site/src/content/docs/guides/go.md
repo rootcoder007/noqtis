@@ -102,6 +102,50 @@ an error. Every error is an `*noqtis.Error` with the library's code
 (`Code`) and message (`Msg`, from `nqerr`); `errors.Is(err,
 noqtis.ErrVerify)` and its siblings match by code.
 
+## Identity cards
+
+An identity card ties your signing key to who you are, signed by the
+key itself; `noqtis check --card` reads it too. `Example_card`:
+
+```go
+pk, sk, err := noqtis.SignKeyGen("ML-DSA-65", nil)
+if err != nil {
+	panic(err)
+}
+f := noqtis.CardFields{Name: "Ada Lovelace",
+	ORCID: "https://orcid.org/0000-0002-1825-0097",
+	URL:   "https://example.org/ada"}
+card, err := noqtis.MakeCard("ML-DSA-65", sk, pk, f, time.Time{})
+if err != nil {
+	panic(err)
+}
+c, _ := noqtis.VerifyCard(card, pk) // nil unless it verifies and is pk's
+fmt.Println("name:", c.Name)
+fmt.Println("orcid:", c.ORCID)
+
+// a changed card does not verify; a wrong check digit is refused
+bad := bytes.Replace(card, []byte("Ada"), []byte("Eve"), 1)
+c, _ = noqtis.VerifyCard(bad, nil)
+fmt.Println("changed:", c == nil)
+f.ORCID = "0000-0002-1825-0098"
+_, err = noqtis.MakeCard("ML-DSA-65", sk, pk, f, time.Time{})
+fmt.Println("refused:", errors.Is(err, noqtis.ErrArg))
+```
+
+```text
+name: Ada Lovelace
+orcid: 0000-0002-1825-0097
+changed: true
+refused: true
+```
+
+The card holds the bare ORCID iD. It is self-signed: it shows that the
+holder of the key wrote it, not that the name is true, so give the key's
+SHA-256 (`KeySHA256`) where people already know you, or let readers pin
+your public key. `VerifyCard` returns `nil, nil` for a card that does
+not verify or is for another key, and `ErrDecode` for input that is not
+a card.
+
 ## Notes
 
 - `KEMKeyGen`, `Encap` and `Decap` do key encapsulation; `Hash`,
