@@ -64,6 +64,14 @@ basicConstraints = critical,CA:false
 keyUsage = critical,digitalSignature
 extendedKeyUsage = serverAuth
 subjectAltName = critical,DNS:localhost
+[ ms ]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature
+extendedKeyUsage = serverAuth
+subjectAltName = DNS:localhost,IP:127.0.0.1,IP:::1
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid
+tlsfeature = status_request
 EOF
 
 key() {
@@ -125,4 +133,26 @@ cv 48
 $o pkeyutl -sign -rawin -digest sha384 -inkey ec384.key -in $w/m -out cv-ec384.sig
 $o pkeyutl -sign -rawin -digest sha384 -inkey rsa.key -in $w/m \
   -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:digest -out cv-rsa384.sig
+# a must-staple leaf (TLS Feature status_request, RFC 7633)
+mk ms.pem ec.key "/CN=localhost" ms inter.pem inter.key
+# OCSP responses to staple (tests/ttlscrt.c, srv.sh), from the
+# intermediate unless said: rsa.pem good, revoked, and stale (a minute
+# to live, so past its nextUpdate from then on), ms.pem good, and
+# rsa.pem good but signed by the untrusted root (no authority to answer)
+# osp OUT CERT V|R SIGNER KEY VALIDITY
+osp() {
+  s=$($o x509 -in "$2" -noout -serial | sed 's/serial=//')
+  if [ "$3" = R ]; then
+    printf 'R\t460101000000Z\t260601000000Z\t%s\tunknown\t/CN=localhost\n' "$s"
+  else
+    printf 'V\t460101000000Z\t\t%s\tunknown\t/CN=localhost\n' "$s"
+  fi > $w/idx
+  $o ocsp -index $w/idx -rsigner "$4" -rkey "$5" -CA inter.pem \
+    -issuer inter.pem -cert "$2" -no_nonce -respout "$1" $6
+}
+osp ocsp-good.der rsa.pem V inter.pem inter.key "-ndays 7000"
+osp ocsp-rev.der rsa.pem R inter.pem inter.key "-ndays 7000"
+osp ocsp-old.der rsa.pem V inter.pem inter.key "-nmin 1"
+osp ocsp-ms.der ms.pem V inter.pem inter.key "-ndays 7000"
+osp ocsp-oth.der rsa.pem V other.pem other.key "-ndays 7000"
 rm -rf $w

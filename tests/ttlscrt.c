@@ -5,7 +5,9 @@
  * intermediate, no serverAuth, no digitalSignature), host names and
  * addresses (wildcards, case, no common-name fallback, a critical
  * subjectAltName), CertificateVerify signatures of every scheme with
- * one-bit changes and wrong schemes, and host names nqtlmk refuses. */
+ * one-bit changes and wrong schemes, host names nqtlmk refuses, and
+ * stapled OCSP responses (good, revoked, stale, from a responder with no
+ * authority, about another certificate; must-staple). */
 #include "tls/tls.h"
 #include "nqt.h"
 #include "tvec.h"
@@ -306,10 +308,61 @@ static void bundles(void) {
   free(c);
 }
 
+/* ---- stapled OCSP responses ---- */
+
+/* the path of leaf (under inter.pem) with the staple in file resp, or
+ * the bytes junk, or none */
+static void stap1(const char *name, const char *leaf, const char *resp,
+                  const char *junk, int want, const char *why) {
+  nqtls *s, *t = setup("localhost", "root.pem", leaf, "inter.pem", NULL, &s);
+  char path[128], *r = NULL;
+  size_t rn = 0;
+  int rc;
+  if (t == NULL) return;
+  if (resp != NULL) {
+    snprintf(path, sizeof path, PKI "%s", resp);
+    NQTEQI(nqreadf(path, 1u << 16, &r, &rn), NQOK);
+    if (r == NULL) return;
+    t->ocsp.p = (const uint8_t *)r;
+    t->ocsp.n = rn;
+  } else if (junk != NULL) {
+    t->ocsp.p = (const uint8_t *)junk;
+    t->ocsp.n = strlen(junk);
+  }
+  rc = nqtlpath(t, NOW);
+  if (rc != want || (why != NULL && strstr(t->why, why) == NULL)) {
+    fprintf(stderr, "%s: %s (%s)\n", name, nqerr(rc), t->why);
+  }
+  NQTEQI(rc, want);
+  if (why != NULL) NQTCHK(strstr(t->why, why) != NULL);
+  if (r != NULL) nqfree(r, rn + 1);
+  nqtlfree(t);
+  nqtlfree(s);
+}
+
+static void staples(void) {
+  stap1("good", "rsa.pem", "ocsp-good.der", NULL, NQOK, NULL);
+  stap1("revoked", "rsa.pem", "ocsp-rev.der", NULL, NQEVRFY, "is revoked");
+  stap1("stale", "rsa.pem", "ocsp-old.der", NULL, NQEVRFY,
+        "does not check");
+  stap1("no authority", "rsa.pem", "ocsp-oth.der", NULL, NQEVRFY,
+        "does not check");
+  stap1("another certificate", "ec.pem", "ocsp-good.der", NULL, NQEVRFY,
+        "does not check");
+  stap1("not DER", "rsa.pem", NULL, "\x30\x03\x0a\x01", NQEVRFY,
+        "does not check");
+  stap1("none", "rsa.pem", NULL, NULL, NQOK, NULL);
+  stap1("must-staple, none", "ms.pem", NULL, NULL, NQEVRFY, "must-staple");
+  stap1("must-staple, good", "ms.pem", "ocsp-ms.der", NULL, NQOK, NULL);
+  stap1("must-staple, another's", "ms.pem", "ocsp-rev.der", NULL, NQEVRFY,
+        "does not check");
+}
+
 int main(void) {
   paths();
   names();
   cvs();
   bundles();
+  staples();
   return nqtdone("ttlscrt");
 }

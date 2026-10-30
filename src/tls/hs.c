@@ -295,6 +295,13 @@ static int mkch(nqtls *t, const uint16_t *g, size_t ng) {
   p16(&w, 2 + 2 * (unsigned)(sizeof sigs / sizeof sigs[0]));
   p16(&w, 2 * (unsigned)(sizeof sigs / sizeof sigs[0]));
   for (i = 0; i < sizeof sigs / sizeof sigs[0]; i++) p16(&w, sigs[i]);
+  /* status_request (RFC 6066 section 8): OCSP, no responder list, no
+   * request extensions; the answer comes with the leaf (4.4.2.1) */
+  p16(&w, 5);
+  p16(&w, 5);
+  p8(&w, 1);
+  p16(&w, 0);
+  p16(&w, 0);
   /* the HelloRetryRequest's cookie, echoed */
   if (t->ckn > 0) {
     p16(&w, 44);
@@ -620,8 +627,33 @@ static int oncr(nqtls *t, const uint8_t *m, size_t n) {
   return NQOK;
 }
 
+/* a CertificateEntry's extensions: only what was offered, only on the
+ * leaf (the first entry), each once */
+static int entx(nqtls *t, cur *x, int leaf) {
+  cur e, v;
+  unsigned ty, u;
+  int sr = 0;
+  while (x->n > 0) {
+    if (!g16(x, &ty) || !gv(x, 2, &e)) BAD(50, "a malformed extension");
+    if (!has16(t->off.ext, t->off.next, ty) || ty != 5) {
+      BAD(110, "a CertificateEntry extension that was not offered");
+    }
+    if (!leaf) BAD(47, "an OCSP response for a certificate not the leaf");
+    if (sr) BAD(47, "an extension twice");
+    sr = 1;
+    /* CertificateStatus: ocsp (1), an OCSPResponse of 1 to 2^24-1 */
+    if (!g8(&e, &u) || u != 1 || !gv(&e, 3, &v) || v.n == 0 || e.n != 0) {
+      BAD(50, "a malformed status_request");
+    }
+    t->ocsp.p = v.p;
+    t->ocsp.n = v.n;
+  }
+  return NQOK;
+}
+
 static int oncert(nqtls *t, const uint8_t *m, size_t n) {
   cur c, ctx, l, d, x;
+  size_t k = 0;
   int rc;
   if (t->cm != NULL) BAD(10, "a second Certificate");
   t->cm = (uint8_t *)nqmal(n);
@@ -640,10 +672,7 @@ static int oncert(nqtls *t, const uint8_t *m, size_t n) {
     if (!gv(&l, 3, &d) || d.n == 0 || !gv(&l, 2, &x)) {
       BAD(50, "a malformed CertificateEntry");
     }
-    /* status_request and signed_certificate_timestamp were not offered */
-    if (x.n != 0) {
-      BAD(110, "a CertificateEntry extension that was not offered");
-    }
+    if ((rc = entx(t, &x, k++ == 0)) != NQOK) return rc;
     if (t->ncrt == NQTLCMAX) {
       return nqtlfail(t, NQELIM, 42, "the server sent more than 10 "
                       "certificates");

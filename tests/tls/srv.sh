@@ -119,6 +119,14 @@ serve $c -www -groups P-256 && check "HelloRetryRequest to P-256" "ok 1301 0017 
 serve $e -www -groups P-384 -ciphersuites TLS_AES_256_GCM_SHA384 && check "HelloRetryRequest to P-384" "ok 1302 0018 1 *" localhost $port $r
 serve $c -www -groups ffdhe2048 && check "no common group" "fail: *handshake_failure*" localhost $port $r
 serve $c -www -tls1_2 && check "TLS 1.2 only" "fail: *" localhost $port $r
+# stapled OCSP responses (RFC 8446 4.4.2.1) and must-staple (RFC 7633)
+serve $c -www -status_file $pki/ocsp-good.der && check "OCSP staple, good" "ok 1301 *" localhost $port $r
+serve $c -www -status_file $pki/ocsp-rev.der && check "OCSP staple, revoked" "fail: *is revoked*" localhost $port $r
+serve $c -www -status_file $pki/ocsp-old.der && check "OCSP staple, stale" "fail: *OCSP response does not check*" localhost $port $r
+serve $c -www -status_file $pki/ocsp-oth.der && check "OCSP staple, wrong responder" "fail: *OCSP response does not check*" localhost $port $r
+m="-cert $pki/ms.pem -key $pki/ec.key -cert_chain $pki/inter.pem"
+serve $m -www && check "must-staple, no staple" "fail: *must-staple*" localhost $port $r
+serve $m -www -status_file $pki/ocsp-ms.der && check "must-staple, stapled" "ok 1301 *" localhost $port $r
 head -c 300000 /dev/zero | tr '\0' 'x' > "$tmp/big.txt"
 serve $c -WWW $hg && check "a 300 kB reply" "ok 1301 $hy 0 3000[0-9][0-9]" localhost $port $r /big.txt
 

@@ -5,8 +5,9 @@
  * What it does: one full handshake with an (EC)DHE key share
  * (X25519MLKEM768, draft-ietf-tls-ecdhe-mlkem, first; X25519 as well;
  * P-256 and P-384 offered in supported_groups, with a share only when a
- * HelloRetryRequest asks for one), at most one HelloRetryRequest, the server's certificate path checked
- * against caller-supplied anchors (src/der) and its CertificateVerify
+ * HelloRetryRequest asks for one), at most one HelloRetryRequest, the
+ * server's certificate path checked against caller-supplied anchors
+ * (src/der), a stapled OCSP response, and its CertificateVerify
  * (src/cls), the three AEAD cipher suites, application data both ways,
  * KeyUpdate, close_notify. What it never does: TLS 1.2 or earlier,
  * PSK, resumption, 0-RTT, client certificates (a CertificateRequest is
@@ -176,6 +177,7 @@ struct nqtls {
   size_t cmn;
   nqcert crt[NQTLCMAX];
   size_t ncrt;
+  nqspan ocsp;          /* the leaf's stapled OCSPResponse, in cm */
   /* receiving: one record at a time */
   uint8_t rb[5 + NQTLCT];
   size_t rbn;           /* bytes of rb filled */

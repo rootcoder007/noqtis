@@ -104,6 +104,15 @@ name
 CertificateVerify signature and the Finished MAC.
 A CertificateRequest is answered with an empty Certificate.
 .Pp
+The ClientHello asks for OCSP stapling (status_request, RFC 6066).
+An OCSP response the server staples to its certificate (RFC 8446
+section 4.4.2.1) must be about that certificate, signed by its issuer or
+by a responder the issuer named, and current; a revoked certificate
+ends the handshake with the alert certificate_revoked, a response that
+does not check with bad_certificate_status_response.
+No response is fine, except when the certificate carries the TLS Feature
+extension with status_request (must-staple, RFC 7633).
+.Pp
 .Fn nqtlwr
 sends application data;
 .Fn nqtlrd
@@ -154,9 +163,10 @@ a message over its limit (256 KiB, ten certificates), or no memory
 .Sh STANDARDS
 RFC 8446 (TLS 1.3), RFC 8448 (its example traces, which the tests
 reproduce byte for byte), draft-ietf-tls-ecdhe-mlkem, RFC 5280,
-RFC 6125.
+RFC 6125, RFC 6066 and RFC 6960 (OCSP stapling), RFC 7633 (must-staple).
 .Sh CAVEATS
-Not done: revocation (no OCSP stapling, no CRL), policy constraints (a
+Not done: CRLs and OCSP queries (only a stapled response is checked,
+and only for the server's own certificate), policy constraints (a
 certificate that carries them as a critical extension is refused), name
 constraints on other name forms (a certificate with a name of such a
 form below one is refused), Certificate Transparency, finite-field groups

@@ -111,6 +111,12 @@ mistake in the release process; use 0.1.1.)
   the subjectAltName and the subject, never the common name. A
   constraint on another form fails a certificate only when it has a
   name of that form. A subtree with a minimum or a maximum is refused.
+- The TLS client asks for a stapled OCSP response (RFC 8446 4.4.2.1,
+  RFC 6066 status_request) and checks one it gets with the OCSP code of
+  `src/der`: a revoked certificate fails with certificate_revoked, a
+  response that does not check (wrong signer, stale, about another
+  certificate) with bad_certificate_status_response. No response is
+  fine, unless the certificate is must-staple (TLS Feature, RFC 7633).
 - Shell completions for bash, zsh and fish (`cli/completions/`, installed
   with the tool; a test checks they offer every command and option the
   manual pages list).

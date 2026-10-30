@@ -27,6 +27,9 @@ const nqxoid nqxoidsha512 = {s512b, sizeof s512b};
 const nqxoid nqxoidsha1 = {s1b, sizeof s1b};
 const nqxoid nqxoidrsa = {rsab, sizeof rsab};
 
+/* 1.3.6.1.5.5.7.1.24: TLS Feature (RFC 7633) */
+OID(otlsf, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x01, 0x18);
+
 /* 1.2.840.113549.1.1.x */
 #define PKCS1(x) 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, x
 OID(orsa256, PKCS1(0x0b));
@@ -685,6 +688,32 @@ static int exteku(nqspan v, nqcert *c) {
   return NQOK;
 }
 
+/* TLS Feature: SEQUENCE OF INTEGER, TLS extension numbers; only
+ * status_request (5) is acted on: the TLS client then needs a stapled
+ * OCSP response (must-staple) */
+static int exttlsf(nqspan v, nqcert *c) {
+  nqdtlv t, x;
+  nqdcur e;
+  int64_t n;
+  int r = nqdone(v.p, v.n, &t);
+  if (r != NQOK) {
+    return r;
+  }
+  if (t.cls != NQDUNI || t.tag != NQDSEQ || nqddown(&t, &e) != NQOK) {
+    return NQEDEC;
+  }
+  while (!nqdend(&e)) {
+    if (nqdget(&e, NQDUNI, 0, NQDINT, &x) != NQOK ||
+        nqdi64(&x, &n) != NQOK || n < 0 || n > 65535) {
+      return NQEDEC;
+    }
+    if (n == 5) {
+      c->stap = 1;
+    }
+  }
+  return NQOK;
+}
+
 static int extski(nqspan v, nqcert *c) {
   nqdtlv t;
   int r = nqdone(v.p, v.n, &t);
@@ -888,6 +917,8 @@ static int exts(const nqdtlv *t, nqcert *c) {
       if (crit) {
         return NQEDEC; /* MUST be non-critical */
       }
+    } else if (nqxoideq(&oid, &otlsf)) {
+      r = exttlsf(val.v, c); /* handled, critical or not */
     } else if (nqxoideq(&oid, &osan)) {
       bit = NQXHASSAN;
       r = extsan(val.v, c);
