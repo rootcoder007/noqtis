@@ -14,11 +14,16 @@ SLOW = [] if FULL else [n for n in SIGS if n.endswith("s")]
 
 
 def seedlen(alg):
-    return 32 if alg.startswith("ML-DSA") else sign.rndlen(alg) * 3
+    # xi || the Ed25519 key for a hybrid; the private key for Ed25519
+    if alg.endswith("+Ed25519"):
+        return 64
+    if alg.startswith("ML-DSA") or alg == "Ed25519":
+        return 32
+    return sign.rndlen(alg) * 3
 
 
 def test_table():
-    assert len(SIGS) == 15
+    assert len(SIGS) == 19
     a = {x.name: x for x in noqtis.algs()}
     assert (a["ML-DSA-44"].pk, a["ML-DSA-44"].sk, a["ML-DSA-44"].sig) == \
         (1312, 2560, 2420)

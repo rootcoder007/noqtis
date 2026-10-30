@@ -1,7 +1,7 @@
 test_that("nqalgs lists every algorithm with the standards' sizes", {
   a <- nqalgs()
   expect_s3_class(a, "data.frame")
-  expect_equal(sum(a$type == "sig"), 15L)
+  expect_equal(sum(a$type == "sig"), 19L)
   expect_equal(sum(a$type == "kem"), 6L)
   r <- a[a$name == "ML-DSA-44", ]
   expect_equal(c(r$pk, r$sk, r$sig), c(1312L, 2560L, 2420L))

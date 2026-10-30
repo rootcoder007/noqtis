@@ -211,14 +211,18 @@ static void rdseal(nqrep *r, const char *dir, seal *s) {
   rc = fl == strlen(NQCSFMT) && memcmp(f, NQCSFMT, fl) == 0;
   add(r, "seal.format", rc, "\"", f, "\"");
   if (!rc) return;
-  rc = nqsfind(s->an, &s->alg) == NQOK && nqssize(s->alg, &s->sz) == NQOK;
-  add(r, "seal.alg", rc, s->an, rc ? NULL : ": not known", NULL);
-  if (!rc) return;
-  /* a seal is post-quantum: Ed25519 alone is not (a hybrid is) */
-  rc = s->alg != NQED25519;
-  add(r, "seal.alg", rc, s->an,
-      rc ? NULL : ": not post-quantum (use ML-DSA, SLH-DSA or a hybrid)",
-      NULL);
+  /* one row: known, and post-quantum (Ed25519 alone is not; a hybrid
+   * is) */
+  {
+    int known =
+        nqsfind(s->an, &s->alg) == NQOK && nqssize(s->alg, &s->sz) == NQOK;
+    rc = known && s->alg != NQED25519;
+    add(r, "seal.alg", rc, s->an,
+        rc ? NULL
+           : (known ? ": not post-quantum (use ML-DSA, SLH-DSA or a hybrid)"
+                    : ": not known"),
+        NULL);
+  }
   if (!rc) return;
   /* only "noqtis-capsule-1": a signature made for anything else (a plain
    * `noqtis sign`, another protocol's context) is never a seal */

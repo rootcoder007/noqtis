@@ -29,7 +29,7 @@ const KEMS = algs().filter((a) => a.kind === 'kem');
 
 test('algs and version', () => {
   assert.equal(version(), '0.1.1');
-  assert.equal(SIGS.length, 15);
+  assert.equal(SIGS.length, 19);
   assert.equal(KEMS.length, 6);
   assert.equal(algs().filter((a) => a.kind === 'hash').length, 12);
   const md = SIGS.find((a) => a.name === 'ML-DSA-65');
@@ -49,6 +49,10 @@ for (const a of SIGS) {
     const msg = new TextEncoder().encode(`message for ${a.name}`);
     const ctx = 'noqtis-js';
     const slow = /^SLH-DSA-.*s$/.test(a.name);
+    // Ed25519 has no randomness: every signature is deterministic
+    const ed = a.name === 'Ed25519';
+    // Ed25519 and the hybrids pre-hash with SHA-512 only
+    const edph = a.name.endsWith('Ed25519');
     const { publicKey: pk, secretKey: sk } = sign.keygen(a.name);
     assert.equal(pk.length, a.publicKey);
     assert.equal(sk.length, a.secretKey);
@@ -73,12 +77,13 @@ for (const a of SIGS) {
     // The SLH-DSA "s" sets sign slowly, so they make fewer signatures.
     const d1 = sign.sign(a.name, sk, msg, { ctx, deterministic: true });
     assert.equal(sign.verify(a.name, pk, msg, d1, { ctx }), true);
-    assert.notEqual(hex(sig), hex(d1));
+    if (ed) assert.equal(hex(sig), hex(d1));
+    else assert.notEqual(hex(sig), hex(d1));
     if (!slow) {
       const d2 = sign.sign(a.name, sk, msg, { ctx, deterministic: true });
       assert.equal(hex(d1), hex(d2));
       const h2 = sign.sign(a.name, sk, msg, { ctx });
-      assert.notEqual(hex(sig), hex(h2));
+      if (!ed) assert.notEqual(hex(sig), hex(h2));
       // string messages are UTF-8
       const s2 = sign.sign(a.name, sk, 'héllo');
       assert.equal(sign.verify(a.name, pk,
@@ -89,10 +94,20 @@ for (const a of SIGS) {
     assert.equal(sign.verify(a.name, pk, msg, ph, { prehash: 'sha512' }),
       true);
     assert.equal(sign.verify(a.name, pk, msg, ph), false);
-    assert.equal(sign.verify(a.name, pk, msg, ph, { prehash: 'sha256' }),
-      false);
+    if (edph) {
+      throwsCode(() => sign.verify(a.name, pk, msg, ph,
+        { prehash: 'sha256' }), codes.ENOSUP);
+      throwsCode(() => sign.sign(a.name, sk, msg, { prehash: 'sha256' }),
+        codes.ENOSUP);
+    } else {
+      assert.equal(sign.verify(a.name, pk, msg, ph, { prehash: 'sha256' }),
+        false);
+    }
     // seeded keys are reproducible
-    const n = a.name.startsWith('ML-DSA') ? 32 : (a.publicKey / 2) * 3;
+    // xi for ML-DSA, xi || the Ed25519 key for a hybrid, the private key
+    // for Ed25519, SK.seed || SK.prf || PK.seed for SLH-DSA
+    const n = edph && !ed ? 64
+      : (a.name.startsWith('ML-DSA') || ed ? 32 : (a.publicKey / 2) * 3);
     const seed = new Uint8Array(n).map((_, i) => i);
     const k1 = sign.keygen(a.name, { seed });
     const k2 = sign.keygen(a.name, { seed });

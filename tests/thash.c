@@ -235,7 +235,7 @@ static int aft(const vset *s, const nqjs *t, const nqjs *e, uint64_t tg,
   return ok;
 }
 
-static int hmac(const vset *s, const nqjs *t, const nqjs *e, uint64_t tg,
+static int vhmac(const vset *s, const nqjs *t, const nqjs *e, uint64_t tg,
                 uint64_t tc) {
   uint64_t kb, mb, tb;
   size_t kn, mn;
@@ -464,7 +464,7 @@ static void runset(const vset *s) {
       }
       k.run[ty]++;
       if (s->kind == KHM) {
-        r = ty == TAFT ? hmac(s, t, e, tg, tc) : 0;
+        r = ty == TAFT ? vhmac(s, t, e, tg, tc) : 0;
       } else if (ty == TAFT || ty == TVOT) {
         r = s->kind == KSHK || ty == TAFT ? aft(s, t, e, tg, tc) : 0;
       } else if (ty == TMCT) {
