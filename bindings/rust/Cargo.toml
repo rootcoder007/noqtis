@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+[package]
+name = "noqtis"
+version = "0.1.1"
+edition = "2021"
+rust-version = "1.73"
+description = "Post-quantum signatures (ML-DSA, SLH-DSA), KEMs (ML-KEM, HQC), hashes and sealed file capsules: the noqtis C library, compiled in"
+license = "Apache-2.0 WITH LLVM-exception"
+authors = ["Vansh Singh Ruhela"]
+repository = "https://github.com/rootcoder007/noqtis"
+homepage = "https://github.com/rootcoder007/noqtis/tree/main/bindings/rust"
+readme = "README.md"
+keywords = ["post-quantum", "ml-dsa", "ml-kem", "slh-dsa", "signature"]
+categories = ["cryptography", "api-bindings"]
+links = "noqtis"
+build = "build.rs"
+# vendor/ is a copy of ../../src and ../../include made by tools/vendor.sh
+# (and ignored by git), so the packaged crate builds on its own
+include = [
+  "Cargo.toml",
+  "build.rs",
+  "README.md",
+  "LICENSE",
+  "NOTICE",
+  "src/**/*.rs",
+  "tests/**/*.rs",
+  "examples/**/*.rs",
+  "vendor/**/*.c",
+  "vendor/**/*.h",
+]
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.2"

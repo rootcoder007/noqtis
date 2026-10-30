@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The Rust crate (bindings/rust): rustfmt and clippy, the tests (known
+# answers, round trips, the golden capsule) on Linux, macOS and Windows,
+# and `cargo package`, which builds the packaged crate from its vendored
+# copy of the library alone. As in py.yml, the macOS and Windows jobs
+# cost runner minutes on a private repository, so there they run weekly
+# and on demand only. Nothing is published from here.
+# Every action is pinned by commit; the version is in the comment.
+name: rust
+
+on:
+  push:
+    branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+    paths:
+      - "bindings/rust/**"
+      - "src/**"
+      - "include/**"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    paths:
+      - "bindings/rust/**"
+      - "src/**"
+      - "include/**"
+      - "tests/vectors/cap/**"
+      - ".github/workflows/rust.yml"
+  schedule:
+    - cron: "47 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+    working-directory: bindings/rust
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  lint:
+    name: rustfmt and clippy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          rustup toolchain install stable --profile minimal -c rustfmt,clippy
+          rustup default stable
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+
+  linux:
+    name: test linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - run: cargo test
+      - run: cargo run --example sign && cargo run --example seal
+
+  others:
+    if: >
+      github.event_name != 'push' && github.event_name != 'pull_request' ||
+      !github.event.repository.private
+    name: test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - run: cargo test
+      - run: cargo run --example sign && cargo run --example seal
+
+  package:
+    name: cargo package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: vendor the library, then package and build the crate alone
+        run: |
+          sh tools/vendor.sh
+          cargo package --allow-dirty
+          cargo package --allow-dirty -l > list.txt
+          grep -q '^vendor/include/noqtis.h$' list.txt
+          grep -q '^vendor/src/core/core.c$' list.txt
+          grep -q '^LICENSE$' list.txt
+      - name: test the packaged crate outside the repository
+        run: |
+          d="$RUNNER_TEMP/crate"
+          mkdir -p "$d"
+          tar -xzf target/package/noqtis-*.crate -C "$d"
+          cd "$d"/noqtis-*
+          cargo test

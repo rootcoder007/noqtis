@@ -75,6 +75,7 @@ export default defineConfig({
             { label: "Python", slug: "guides/py" },
             { label: "JavaScript", slug: "guides/js" },
             { label: "R", slug: "guides/r" },
+            { label: "Rust", slug: "guides/rust" },
           ],
         },
         {

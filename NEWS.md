@@ -107,6 +107,10 @@ mistake in the release process; use 0.1.1.)
   carries the report (`noqtis-<ver>-abi.txt`).
 - Releases carry the side-channel results (`noqtis-<ver>-sidechannel.tar.gz`:
   dudect and simulated TVLA on the release build).
+- A Rust crate (`bindings/rust`, `noqtis`) with the library compiled in by
+  its build script (the `cc` crate, no bindgen): signatures, KEMs,
+  hashes, capsules (format 1 and 2, proofs, lineage, inspect) and the
+  CLI's key files; tested on Linux, macOS and Windows (`rust.yml`).
 - Hardened after a manual security review before release:
   - a seal's context must be `noqtis-capsule-1`, so a signature made for
     anything else (a plain `noqtis sign` of the same bytes) is never

@@ -1,0 +1,7 @@
+# made by tools/vendor.sh from ../../src, ../../include, ../../LICENSE,
+# ../../NOTICE, for `cargo package`
+/vendor/
+/LICENSE
+/NOTICE
+/target/
+Cargo.lock
