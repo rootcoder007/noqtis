@@ -1,11 +1,11 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp"><code class="Nm">nqtlnew</code>, <code class="Nm">nqtlhs</code>,
-    <code class="Nm">nqtlwr</code>, <code class="Nm">nqtlrd</code>,
-    <code class="Nm">nqtlend</code>, <code class="Nm">nqtlwhy</code>,
-    <code class="Nm">nqtlfree</code> &#x2014; <span class="Nd">a TLS 1.3 client
-    over the caller's transport</span></p>
+<p class="Pp"><code class="Nm">nqtlnew</code>, <code class="Nm">nqtlct</code>,
+    <code class="Nm">nqtlhs</code>, <code class="Nm">nqtlwr</code>,
+    <code class="Nm">nqtlrd</code>, <code class="Nm">nqtlend</code>,
+    <code class="Nm">nqtlwhy</code>, <code class="Nm">nqtlfree</code> &#x2014;
+    <span class="Nd">a TLS 1.3 client over the caller's transport</span></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
@@ -29,6 +29,12 @@
   <var class="Fa">const char *host</var>, <var class="Fa">const uint8_t
   *ca</var>, <var class="Fa">size_t calen</var>, <var class="Fa">const nqtlio
   *io</var>);
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqtlct</code>(<var class="Fa" style="white-space: nowrap;">nqtls
+    *t</var>, <var class="Fa" style="white-space: nowrap;">const uint8_t
+    *json</var>, <var class="Fa" style="white-space: nowrap;">size_t
+  len</var>);</p>
 <p class="Pp"><var class="Ft">int</var>
   <br/>
   <code class="Fn">nqtlhs</code>(<var class="Fa" style="white-space: nowrap;">nqtls
@@ -96,6 +102,29 @@
     (subjectAltName only; a wildcard only as the whole leftmost label), the
     CertificateVerify signature and the Finished MAC. A CertificateRequest is
     answered with an empty Certificate.</p>
+<p class="Pp">The ClientHello asks for OCSP stapling (status_request, RFC 6066).
+    An OCSP response the server staples to its certificate (RFC 8446 section
+    4.4.2.1) must be about that certificate, signed by its issuer or by a
+    responder the issuer named, and current; a revoked certificate ends the
+    handshake with the alert certificate_revoked, a response that does not check
+    with bad_certificate_status_response. No response is fine, except when the
+    certificate carries the TLS Feature extension with status_request
+    (must-staple, RFC 7633).</p>
+<p class="Pp" id="nqtlct"><a class="permalink" href="#nqtlct"><code class="Fn">nqtlct</code></a>(),
+    called before <code class="Fn">nqtlhs</code>(), turns on Certificate
+    Transparency (RFC 6962). <var class="Fa">json</var> is a log list of
+    <var class="Fa">len</var> bytes, copied, in the form of Chrome's
+    <span class="Pa">log_list.json</span>, version 3: operators, each with logs,
+    each with its log_id, key and state. The ClientHello then offers
+    signed_certificate_timestamp, and the server's certificate must carry SCTs,
+    embedded in it or sent in TLS, that come from logs of at least two
+    operators. An SCT counts when its log is in the list and was qualified,
+    usable or read-only (or retired, but after the SCT), the certificate's
+    notAfter is in the log's temporal interval if it has one, the SCT is not
+    from the future, and its signature (ECDSA P-256 or RSA, SHA-256) verifies
+    over the certificate, or for an embedded SCT over the precertificate the log
+    saw. Without <code class="Fn">nqtlct</code>() no SCT is looked at: a log
+    list goes stale, so the caller keeps it current.</p>
 <p class="Pp" id="nqtlwr"><a class="permalink" href="#nqtlwr"><code class="Fn">nqtlwr</code></a>()
     sends application data;
     <a class="permalink" href="#nqtlrd"><code class="Fn" id="nqtlrd">nqtlrd</code></a>()
@@ -122,8 +151,9 @@
   <dt><code class="Er">NQEVRFY</code></dt>
   <dd>a certificate, signature or MAC that does not check out</dd>
   <dt><code class="Er">NQEDEC</code></dt>
-  <dd>a message TLS 1.3 does not allow at that point, or a bundle with no
-      certificate</dd>
+  <dd>a message TLS 1.3 does not allow at that point, a bundle with no
+      certificate, or a log list that does not parse, holds no log, or a log
+      whose log_id is not the hash of its key</dd>
   <dt><code class="Er">NQENOSUP</code></dt>
   <dd>a server that speaks nothing the client offers, or a build without
       <code class="Dv">NQTLS</code></dd>
@@ -131,7 +161,9 @@
   <dd>the transport failed, the server ended the connection, or sent an
     alert</dd>
   <dt><code class="Er">NQESTATE</code></dt>
-  <dd>a call out of order (data before the handshake, after close_notify)</dd>
+  <dd>a call out of order (data before the handshake, after close_notify;
+      <code class="Fn">nqtlct</code>() after
+    <code class="Fn">nqtlhs</code>())</dd>
   <dt><code class="Er">NQEARG</code></dt>
   <dd>a bad argument, or a host name the client will not send</dd>
   <dt><code class="Er">NQELIM</code>, <code class="Er">NQEMEM</code></dt>
@@ -146,16 +178,19 @@
 <section class="Sh">
 <h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
 <p class="Pp">RFC 8446 (TLS 1.3), RFC 8448 (its example traces, which the tests
-    reproduce byte for byte), draft-ietf-tls-ecdhe-mlkem, RFC 5280, RFC
-  6125.</p>
+    reproduce byte for byte), draft-ietf-tls-ecdhe-mlkem, RFC 5280, RFC 6125,
+    RFC 6066 and RFC 6960 (OCSP stapling), RFC 7633 (must-staple), RFC 6962
+    (Certificate Transparency).</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
-<p class="Pp">Not done: revocation (no OCSP stapling, no CRL), policy
-    constraints (a certificate that carries them as a critical extension is
-    refused), name constraints on other name forms (a certificate with a name of
-    such a form below one is refused), Certificate Transparency, finite-field
-    groups (a server with none of the offered groups fails), Ed25519 and ML-DSA
-    server keys, TLS 1.2, resumption, 0-RTT, client certificates.</p>
+<p class="Pp">Not done: CRLs and OCSP queries (only a stapled response is
+    checked, and only for the server's own certificate), policy constraints (a
+    certificate that carries them as a critical extension is refused), name
+    constraints on other name forms (a certificate with a name of such a form
+    below one is refused), SCTs in an OCSP response, the rule of Chrome's policy
+    on the number of SCTs by certificate lifetime, finite-field groups (a server
+    with none of the offered groups fails), Ed25519 and ML-DSA server keys, TLS
+    1.2, resumption, 0-RTT, client certificates.</p>
 </section>
 </div>

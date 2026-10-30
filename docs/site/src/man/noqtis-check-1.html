@@ -261,6 +261,24 @@ or
 </section>
 </section>
 <section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt id="SSL_CERT_FILE"><a class="permalink" href="#SSL_CERT_FILE"><code class="Ev">SSL_CERT_FILE</code></a></dt>
+  <dd>For an &#x2018;<code class="Li">https://</code>&#x2019;
+      <var class="Ar">url</var>: a PEM bundle of the roots to trust, in place of
+      the system's.</dd>
+  <dt id="NOQTIS_CT_LOGS"><a class="permalink" href="#NOQTIS_CT_LOGS"><code class="Ev">NOQTIS_CT_LOGS</code></a></dt>
+  <dd>For an &#x2018;<code class="Li">https://</code>&#x2019;
+      <var class="Ar">url</var>: a Certificate Transparency log list in the form
+      of Chrome's <span class="Pa">log_list.json</span> (version 3), such as
+      <a class="Lk" href="https://www.gstatic.com/ct/log_list/v3/log_list.json">https://www.gstatic.com/ct/log_list/v3/log_list.json</a>.
+      When it is set, the server's certificate must carry SCTs (embedded, or
+      sent in TLS) that verify and come from logs of at least two operators,
+      usable when they signed; otherwise the fetch fails and says why. Unset or
+      empty, nothing is checked: a list goes stale, so keep it current.</dd>
+</dl>
+</section>
+<section class="Sh">
 <h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
   STATUS</a></h1>
 <dl class="Bl-tag Bl-compact">

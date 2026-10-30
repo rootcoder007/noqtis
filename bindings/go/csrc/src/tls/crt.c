@@ -11,9 +11,18 @@
  * whole path: dNSName, iPAddress, directoryName and rfc822Name, on the
  * subjectAltName and the subject, never on the common name.
  *
- * Not checked: revocation (no OCSP stapling, no CRL fetch), certificate
- * policies (a certificate carrying them as a critical extension is
- * unusable, so a path through one fails), Certificate Transparency. */
+ * Revocation: an OCSP response the server staples to its leaf (RFC 8446
+ * 4.4.2.1, RFC 6066 status_request) is checked with nqocsp: revoked is
+ * certificate_revoked, one that does not check is
+ * bad_certificate_status_response. No staple is fine, except for a leaf
+ * whose TLS Feature extension (RFC 7633) lists status_request.
+ *
+ * Certificate Transparency: only when the caller gave a log list
+ * (nqtlct); then the leaf's SCTs are checked by ct.c.
+ *
+ * Not checked: CRLs (nothing is fetched), revocation of the
+ * intermediates, certificate policies (a certificate carrying them as a
+ * critical extension is unusable, so a path through one fails). */
 #include <string.h>
 
 #include "cap/cap.h"
@@ -275,6 +284,28 @@ int nqtlpath(nqtls *t, int64_t now) {
     return nqtlfail(t, NQEVRFY, 42, "the server's certificate is not for "
                     "this host name");
   }
+  /* the stapled OCSP response, about the leaf, from its issuer path[1] */
+  if (t->ocsp.n > 0) {
+    int st = -1;
+    rc = nqocsp(t->ocsp.p, t->ocsp.n, path, np, 0, now, k.ops, &st);
+    if (st == NQXREVOKED) {
+      return nqtlfail(t, NQEVRFY, 44, "the server's certificate is revoked "
+                      "(its stapled OCSP response says so)");
+    }
+    if (st == NQXUNKNOWN) {
+      return nqtlfail(t, NQEVRFY, 113, "the server's stapled OCSP response "
+                      "does not know its certificate");
+    }
+    if (rc != NQOK) {
+      return nqtlfail(t, NQEVRFY, 113, "the server's stapled OCSP response "
+                      "does not check (signer, time or certificate)");
+    }
+  } else if (leaf->stap) {
+    return nqtlfail(t, NQEVRFY, 113, "the server's certificate requires a "
+                    "stapled OCSP response (must-staple) and none came");
+  }
+  /* Certificate Transparency, when the caller gave logs (ct.c) */
+  if (t->nlg > 0) return nqtlctv(t, leaf, path[1], now);
   return NQOK;
 }
 

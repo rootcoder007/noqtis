@@ -143,6 +143,11 @@ int nqtlnew(nqtls **t, const char *host, const uint8_t *ca, size_t calen,
   return nqtlmk(t, host, ca, calen, io);
 }
 
+int nqtlct(nqtls *t, const uint8_t *json, size_t len) {
+  if (!ON) return NQENOSUP;
+  return nqtlctl(t, json, len);
+}
+
 int nqtlhs(nqtls *t) {
   if (!ON) return NQENOSUP;
   if (t == NULL) return NQEARG;
@@ -183,5 +188,7 @@ void nqtlfree(nqtls *t) {
   if (t->kdk != NULL) nqfree(t->kdk, NQHYBSK);
   if (t->hm != NULL) nqfree(t->hm, t->hmcap);
   if (t->cm != NULL) nqfree(t->cm, t->cmn);
+  if (t->lg != NULL) nqfree(t->lg, t->nlg * sizeof *t->lg);
+  if (t->lk != NULL) nqfree(t->lk, t->lkn);
   nqfree(t, sizeof *t);
 }

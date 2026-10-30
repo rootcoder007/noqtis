@@ -128,8 +128,11 @@ and the summary line ends in &#x2018;<code class="Li">and a
       works when noqtis was built with its own TLS 1.3 client (the CMake option
       <code class="Dv">NQTLS</code>), the server's certificate checked against
       the PEM bundle <code class="Ev">SSL_CERT_FILE</code> names, else the
-      system's; otherwise it is refused with that said. Most public TSAs answer
-      on &#x2018;<code class="Li">http://</code>&#x2019;. There is no proxy
+      system's, and its Certificate Transparency SCTs against the log list
+      <code class="Ev">NOQTIS_CT_LOGS</code> names, when set (see
+      <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>);
+      otherwise it is refused with that said. Most public TSAs answer on
+      &#x2018;<code class="Li">http://</code>&#x2019;. There is no proxy
       support. Each connection, read and write waits at most 30 seconds.</dd>
   <dt id="anchor"><a class="permalink" href="#anchor"><code class="Fl">--anchor</code></a>
     <var class="Ar">der-file</var></dt>
