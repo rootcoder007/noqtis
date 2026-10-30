@@ -684,6 +684,103 @@ static SEXP Cdssevrfy(SEXP alg, SEXP pk, SEXP env) {
   return out;
 }
 
+typedef struct {
+  int alg;
+  SEXP sk, pk;
+  const char *f[5]; /* name, orcid, email, url, affil */
+  int64_t at;
+} cdarg;
+
+static int cdcall(void *v, char *out, size_t cap, size_t *outlen) {
+  cdarg *a = (cdarg *)v;
+  return nqcard((nqsalg)a->alg, rp(a->sk), rn(a->sk), rp(a->pk), rn(a->pk),
+                a->f[0], a->f[1], a->f[2], a->f[3], a->f[4], a->at, out,
+                cap, outlen);
+}
+
+/* each field NULL or one string (checked in R); at in seconds since 1970 */
+static SEXP Ccard(SEXP alg, SEXP sk, SEXP pk, SEXP name, SEXP orcid,
+                  SEXP email, SEXP url, SEXP affil, SEXP at) {
+  SEXP fs[5];
+  cdarg a;
+  double t;
+  int i;
+  fs[0] = name;
+  fs[1] = orcid;
+  fs[2] = email;
+  fs[3] = url;
+  fs[4] = affil;
+  a.alg = ival(alg, "alg");
+  chkraw(sk, "sk", 0);
+  chkraw(pk, "pk", 0);
+  a.sk = sk;
+  a.pk = pk;
+  for (i = 0; i < 5; i++) {
+    a.f[i] = NULL;
+    if (fs[i] == R_NilValue && i > 0) continue;
+    if (TYPEOF(fs[i]) != STRSXP || XLENGTH(fs[i]) != 1 ||
+        STRING_ELT(fs[i], 0) == NA_STRING)
+      Rf_error("a card's fields must be NULL or one string");
+    a.f[i] = Rf_translateCharUTF8(STRING_ELT(fs[i], 0));
+  }
+  if (TYPEOF(at) != REALSXP || XLENGTH(at) != 1 || !R_FINITE(REAL(at)[0]))
+    Rf_error("'at' must be one time");
+  t = REAL(at)[0];
+  if (t < 0 || t > 253402300799.0) Rf_error("'at' must be 1970 to 9999");
+  a.at = (int64_t)t;
+  return grow(cdcall, &a, 4 * rn(pk) + 65536, "nqcard");
+}
+
+static SEXP utf8(const char *s) {
+  return Rf_ScalarString(Rf_mkCharCE(s, CE_UTF8));
+}
+
+/* list(rc, fields): NQOK with the card's fields, or NQEVRFY or NQEDEC
+ * (fields NULL then); any other code is an error */
+static SEXP Ccardvrfy(SEXP card, SEXP pk) {
+  static const char *const nm[] = {"name", "orcid", "email", "url",
+                                   "affil", "created", "alg", "pk",
+                                   "key_sha256"};
+  nqcardf *f;
+  int rc, i;
+  char hx[65];
+  SEXP out, fl, names, k;
+  chkraw(card, "card", 0);
+  chkraw(pk, "pk", 1);
+  f = (nqcardf *)R_alloc(1, sizeof *f);
+  rc = nqcardvrfy((const char *)rp(card), rn(card), rp(pk), rn(pk), f);
+  if (rc != NQOK && rc != NQEVRFY && rc != NQEDEC) fail(rc, "nqcardvrfy");
+  out = PROTECT(Rf_allocVector(VECSXP, 2));
+  SET_VECTOR_ELT(out, 0, Rf_ScalarInteger(rc));
+  if (rc == NQOK) {
+    static const char d[] = "0123456789abcdef";
+    for (i = 0; i < 32; i++) {
+      hx[2 * i] = d[f->fp[i] >> 4];
+      hx[2 * i + 1] = d[f->fp[i] & 15];
+    }
+    hx[64] = 0;
+    fl = PROTECT(Rf_allocVector(VECSXP, 9));
+    names = PROTECT(Rf_allocVector(STRSXP, 9));
+    for (i = 0; i < 9; i++) SET_STRING_ELT(names, i, Rf_mkChar(nm[i]));
+    SET_VECTOR_ELT(fl, 0, utf8(f->name));
+    SET_VECTOR_ELT(fl, 1, utf8(f->orcid));
+    SET_VECTOR_ELT(fl, 2, utf8(f->email));
+    SET_VECTOR_ELT(fl, 3, utf8(f->url));
+    SET_VECTOR_ELT(fl, 4, utf8(f->affil));
+    SET_VECTOR_ELT(fl, 5, utf8(f->utc));
+    SET_VECTOR_ELT(fl, 6, utf8(nqsname(f->alg)));
+    k = rawn(f->pklen);
+    SET_VECTOR_ELT(fl, 7, k);
+    memcpy(RAW(k), f->pk, f->pklen);
+    SET_VECTOR_ELT(fl, 8, utf8(hx));
+    Rf_setAttrib(fl, R_NamesSymbol, names);
+    SET_VECTOR_ELT(out, 1, fl);
+    UNPROTECT(2);
+  }
+  UNPROTECT(1);
+  return out;
+}
+
 static SEXP Cerr(SEXP rc) {
   return Rf_mkString(nqerr(ival(rc, "rc")));
 }
@@ -701,6 +798,7 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cdec, 3),  CDEF(Cseal, 5), CDEF(Cchk, 7),  CDEF(Cerr, 1),
   CDEF(Cseal2, 7), CDEF(Ccapid, 1), CDEF(Cprove, 2), CDEF(Cfiles, 1),
   CDEF(Ckstmt, 8), CDEF(Cdsse, 5), CDEF(Cdssevrfy, 3),
+  CDEF(Ccard, 9), CDEF(Ccardvrfy, 2),
   {NULL, NULL, 0}
 };
 

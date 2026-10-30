@@ -1,6 +1,12 @@
 # noqtis 0.1.2
 
-* Built with libnoqtis 0.1.2; no change to the R API.
+* Built with libnoqtis 0.1.2.
+* Identity cards: `nqidcard()` makes a `noqtis-idcard-1` card (a signing
+  key with its holder's name and, when given, ORCID iD with its check
+  digit verified, e-mail address, `https://` page and affiliation,
+  signed by the key) and `nqidcheck()` checks one, from a raw vector or
+  a file, giving its fields and the key's SHA-256, or `NULL` when it does
+  not verify or is for another key than `pk`.
 
 # noqtis 0.1.1
 

@@ -81,6 +81,48 @@ interesting lines print:
   encodings, so they can be saved with `writeBin()` and checked by any
   conforming implementation.
 
+## An identity card for your key
+
+An identity card ties your signing key to your name and ORCID iD, signed
+by the key itself; publish it with the key, and `noqtis check --card`
+names you as the sealer of your capsules.
+
+```r
+library(noqtis)
+k <- nqkeygen("ML-DSA-65")
+card <- nqidcard(k$sk, k$pk, "ML-DSA-65", "Ada Lovelace",
+                 orcid = "https://orcid.org/0000-0002-1825-0097")
+writeBin(card, file.path(tempdir(), "ada.card"))
+
+v <- nqidcheck(file.path(tempdir(), "ada.card"), k$pk)
+v$name
+v$orcid
+identical(v$key_sha256, nqhash(k$pk, "sha256", hex = TRUE))
+
+bad <- charToRaw(sub("Ada", "Eve", rawToChar(card)))
+is.null(nqidcheck(bad))
+inherits(try(nqidcard(k$sk, k$pk, "ML-DSA-65", "Ada Lovelace",
+                      orcid = "0000-0002-1825-0098"), silent = TRUE),
+         "try-error")
+```
+
+```text
+> v$name
+[1] "Ada Lovelace"
+> v$orcid
+[1] "0000-0002-1825-0097"
+> identical(v$key_sha256, nqhash(k$pk, "sha256", hex = TRUE))
+[1] TRUE
+> is.null(nqidcheck(bad))
+[1] TRUE
+[1] TRUE
+```
+
+The card holds the bare ORCID iD, whose check digit must be right. A
+changed card does not verify (`NULL`), and an iD with a wrong check
+digit is refused. The card is self-signed, so give `v$key_sha256` where
+people already know you, or let them pin your public key.
+
 ## In a reproducible workflow
 
 Seal the output folder as the last step of the analysis script, and
