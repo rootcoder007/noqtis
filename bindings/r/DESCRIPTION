@@ -1,20 +1,22 @@
 Package: noqtis
 Type: Package
-Title: Post-Quantum Signatures, Key Encapsulation and Signed File Records
+Title: Post-Quantum Signing, Key Encapsulation and Sealed Folders
 Version: 0.1.2
 Authors@R: c(
     person(c("Vansh", "Singh"), "Ruhela", email = "vsruhela@proton.me",
            role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0009-0004-1750-3592", GitHub = "rootcoder007")))
-Description: Bindings to 'noqtis', a self-contained C11 library for
-    post-quantum cryptography: the 'ML-DSA' (FIPS 204) and 'SLH-DSA'
-    (FIPS 205) signature schemes, the 'ML-KEM' (FIPS 203) and 'HQC' key
-    encapsulation mechanisms, the 'SHA-2' (FIPS 180-4) and 'SHA-3'
-    (FIPS 202) hash families and 'HMAC'. It also seals a folder into a
-    capsule, a signed record of the exact files it holds, and checks a
-    capsule again, so that an analysis can be traced to the data it used.
-    The library is bundled; randomness comes from the operating system's
-    secure generator, never from R's random number generator.
+Description: A post-quantum cryptography toolkit for R, built on the
+    dependency-free 'NOQTIS' C library. Generate key pairs, then sign and
+    verify with lattice-based 'ML-DSA', hash-based 'SLH-DSA', 'Ed25519' or
+    hybrid 'ML-DSA'+'Ed25519' signatures that need both halves to verify;
+    establish shared secrets with 'ML-KEM' or 'HQC' key encapsulation; and
+    hash with 'SHA-2', 'SHA-3' or 'SHAKE', with 'HMAC'. A whole directory
+    can be sealed under one signature and later verified offline; a
+    Merkle proof shows chosen files to someone without revealing the
+    others, and signed statements rotate or revoke a sealing key. Results
+    can be wrapped in 'DSSE' envelopes. Keys and nonces come from the
+    operating system's random generator, not from R's.
 License: Apache License (== 2.0) | file LICENSE
 Copyright: see file inst/COPYRIGHTS
 URL: https://github.com/rootcoder007/noqtis
