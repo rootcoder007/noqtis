@@ -89,6 +89,13 @@ if(NQSHARED)
   set_target_properties(noqtis PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR})
+  # OpenBSD's linker finds only libfoo.so.<major>.<minor>: two numbers,
+  # and no libfoo.so.<major> link
+  if(CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
+    set_target_properties(noqtis PROPERTIES
+      VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+      SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR})
+  endif()
   # ELF: symbol versions from src/noqtis.map (macOS and Windows have none)
   include(CheckLinkerFlag)
   set(NQMAP ${PROJECT_SOURCE_DIR}/src/noqtis.map)
