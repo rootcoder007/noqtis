@@ -48,6 +48,22 @@ pub struct Copt {
     pub nstmt: usize,
 }
 
+/// nqcardf: a card that verified
+#[repr(C)]
+pub struct Cardf {
+    pub alg: c_int,
+    pub pk: [u8; 2624],
+    pub pklen: usize,
+    pub fp: [u8; 32],
+    pub created: i64,
+    pub utc: [c_char; 21],
+    pub name: [c_char; 256],
+    pub orcid: [c_char; 20],
+    pub email: [c_char; 255],
+    pub url: [c_char; 1025],
+    pub affil: [c_char; 256],
+}
+
 #[repr(C)]
 pub struct Rep {
     _p: [u8; 0],
@@ -214,4 +230,27 @@ extern "C" {
         detail: *mut *const c_char,
     ) -> c_int;
     pub fn nqrepfree(r: *mut Rep);
+    pub fn nqcard(
+        alg: c_int,
+        sk: *const u8,
+        sklen: usize,
+        pk: *const u8,
+        pklen: usize,
+        name: *const c_char,
+        orcid: *const c_char,
+        email: *const c_char,
+        url: *const c_char,
+        affil: *const c_char,
+        created: i64,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqcardvrfy(
+        card: *const c_char,
+        n: usize,
+        pk: *const u8,
+        pklen: usize,
+        f: *mut Cardf,
+    ) -> c_int;
 }

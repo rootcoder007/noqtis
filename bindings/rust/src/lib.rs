@@ -23,6 +23,7 @@ use std::sync::OnceLock;
 mod ffi;
 
 pub mod cap;
+pub mod card;
 pub mod kem;
 pub mod keyfile;
 pub mod sign;

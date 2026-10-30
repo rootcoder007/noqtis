@@ -73,7 +73,9 @@ jobs:
       - run: cargo test
       - name: the Rust guide prints what its page shows
         run: python3 ../../docs/examples/guide.py rust
-      - run: cargo run --example sign && cargo run --example seal
+      - run: |
+          cargo run --example sign && cargo run --example seal
+          cargo run --example card
 
   others:
     if: >
@@ -90,7 +92,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install stable --profile minimal && rustup default stable
       - run: cargo test
-      - run: cargo run --example sign && cargo run --example seal
+      - run: |
+          cargo run --example sign && cargo run --example seal
+          cargo run --example card
 
   package:
     name: cargo package

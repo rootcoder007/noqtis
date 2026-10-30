@@ -146,6 +146,25 @@ FAIL file report.txt: size differs
   `info.*` rows, `Report::get("info.alg")`); `files(dir)` adds one
   `info.file` row per listed file.
 
+## Identity cards
+
+```rust
+use noqtis::card;
+
+let f = card::Fields {
+    orcid: Some("0000-0002-1825-0097"),
+    ..card::Fields::new("Ada Lovelace")
+};
+let c = card::make("ML-DSA-65", &sk, &pk, &f, None)?;
+let v = card::verify(&c, Some(&pk))?; // Some(Card) or None
+```
+
+A card (noqtis-idcard-1, JSON) binds the key to its holder's name and,
+when given, ORCID iD (check digit verified), e-mail address, `https://`
+page and affiliation, signed by the key under its own context, so it is
+never a seal or a key statement. It is self-signed: compare
+`key_sha256` with the one its holder published, or pass the key.
+
 ## Key files
 
 `noqtis::keyfile` reads and writes the text key files `noqtis keygen`
