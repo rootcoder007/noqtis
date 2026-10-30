@@ -88,12 +88,14 @@ bytes, copied.
 .Fn nqtlhs
 runs the handshake: one ClientHello offering the groups
 X25519MLKEM768 (the ML-KEM-768 hybrid of draft-ietf-tls-ecdhe-mlkem)
-and X25519 with a key share for each, the suites
+and X25519 with a key share for each, then secp256r1 and secp384r1
+(P-256 and P-384) without one, the suites
 TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384 and
 TLS_CHACHA20_POLY1305_SHA256, and the signature schemes
 ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384,
 rsa_pss_rsae_sha256/384/512 and, for certificates only, rsa_pkcs1;
-at most one HelloRetryRequest; the server's certificate path to one of
+at most one HelloRetryRequest (with a fresh key share for the group it
+asks for); the server's certificate path to one of
 the anchors at the current time (names, signatures, validity,
 basicConstraints, keyUsage, the serverAuth purpose), the host name
 (subjectAltName only; a wildcard only as the whole leftmost label), the
@@ -154,6 +156,6 @@ RFC 6125.
 .Sh CAVEATS
 Not done: revocation (no OCSP stapling, no CRL), name constraints and
 policy constraints (a certificate that carries them as critical
-extensions is refused), Certificate Transparency, P-256 and P-384 key
-exchange (a server with neither offered group fails), Ed25519 and
+extensions is refused), Certificate Transparency, finite-field groups
+(a server with none of the offered groups fails), Ed25519 and
 ML-DSA server keys, TLS 1.2, resumption, 0-RTT, client certificates.

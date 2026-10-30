@@ -5,7 +5,8 @@
  * it writes must equal the trace byte for byte: its Finished, its
  * application data and its close_notify (section 3), and both
  * ClientHellos and its Finished after a HelloRetryRequest (section 5,
- * whose P-256 secret is given, since noqtis has no P-256 key exchange).
+ * whose P-256 secret is given by a hook; the trace's P-256 keys and
+ * that secret are checked against nqecpub and nqecdh on their own).
  * The trace's server key is 1024-bit RSA and its certificate
  * self-signed, so the path check and the CertificateVerify signature
  * are skipped by hooks here; tests/tls/srv.sh tests both against a real
@@ -13,6 +14,7 @@
  * every seventh byte of the encrypted flight must fail, and the
  * ClientHello reader, the host-name and address matching and the
  * address parser are tested on their own. */
+#include "cls/cls.h"
 #include "tls/tls.h"
 #include "nqt.h"
 #include "tvec.h"
@@ -299,6 +301,24 @@ static void trace5(void) {
   NQTEQI(blob(a, b, "{server}  extract secret \"handshake\":", 1, "IKM", ss,
               32),
          32);
+  /* the trace's P-256 exchange: the client's key pair, and its secret
+   * with the server's share */
+  {
+    uint8_t sk[32], pk[65], spk[65], o[65];
+    NQTEQI(blob(a, b, "{client}  create an ephemeral P-256", 1,
+                "private key", sk, 32),
+           32);
+    NQTEQI(blob(a, b, "{client}  create an ephemeral P-256", 1,
+                "public key", pk, 65),
+           65);
+    NQTEQI(blob(a, b, "{server}  create an ephemeral P-256", 1,
+                "public key", spk, 65),
+           65);
+    NQTEQI(nqecpub(NQP256, sk, o), NQOK);
+    NQTEQM(o, pk, 65);
+    NQTEQI(nqecdh(NQP256, sk, spk, 65, o), NQOK);
+    NQTEQM(o, ss, 32);
+  }
   srvn = 0;
   for (k = 1; k <= 3; k++) {
     n = blob(a, b, "{server}  send handshake record:", (int)k,

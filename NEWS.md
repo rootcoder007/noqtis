@@ -93,6 +93,14 @@ mistake in the release process; use 0.1.1.)
   2025-08-22, which NIST selected in March 2025 but has not yet published
   as a final standard, so its encoding may still change. ML-KEM is the
   KEM to use for anything that must last.
+- The TLS client also offers P-256 and P-384 (secp256r1, secp384r1) in
+  supported_groups, after X25519MLKEM768 and X25519, and answers a
+  HelloRetryRequest for either with a fresh key share, so a server that
+  speaks only those groups now connects. The ECDH behind it
+  (`src/cls/ec.c`) is new: a fixed 4-bit window with a constant-time
+  table select, checked under valgrind (`tests/tecdhct.c`) and against
+  OpenSSL and the RFC 8448 trace; a server share that is compressed, off
+  the curve or the wrong length is refused.
 - Shell completions for bash, zsh and fish (`cli/completions/`, installed
   with the tool; a test checks they offer every command and option the
   manual pages list).

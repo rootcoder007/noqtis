@@ -3,8 +3,9 @@
  * noqtis.h) wrap the context below.
  *
  * What it does: one full handshake with an (EC)DHE key share
- * (X25519MLKEM768, draft-ietf-tls-ecdhe-mlkem, first; X25519 as well),
- * at most one HelloRetryRequest, the server's certificate path checked
+ * (X25519MLKEM768, draft-ietf-tls-ecdhe-mlkem, first; X25519 as well;
+ * P-256 and P-384 offered in supported_groups, with a share only when a
+ * HelloRetryRequest asks for one), at most one HelloRetryRequest, the server's certificate path checked
  * against caller-supplied anchors (src/der) and its CertificateVerify
  * (src/cls), the three AEAD cipher suites, application data both ways,
  * KeyUpdate, close_notify. What it never does: TLS 1.2 or earlier,
@@ -45,6 +46,8 @@
 
 /* named groups */
 #define NQTLX25519 0x001d
+#define NQTLP256 0x0017 /* secp256r1 */
+#define NQTLP384 0x0018 /* secp384r1 */
 #define NQTLHYB 0x11ec /* X25519MLKEM768 */
 
 /* cipher suites */
@@ -153,6 +156,7 @@ struct nqtls {
   size_t hl;
   uint16_t grp;         /* the group the server chose */
   uint8_t xsk[32], xpk[32];
+  uint8_t esk[48], epk[97]; /* a P-256 or P-384 share, after a retry */
   uint8_t *kdk;         /* the X25519MLKEM768 secret (nqmal'd) */
   uint8_t kek[NQTLHEK]; /* and its share */
   nqfctx th;            /* the transcript hash */

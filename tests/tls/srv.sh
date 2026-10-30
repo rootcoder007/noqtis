@@ -115,7 +115,9 @@ serve -cert $pki/cn.pem -key $pki/ec.key -cert_chain $pki/inter.pem -www && chec
 serve -cert $pki/crit.pem -key $pki/ec.key -cert_chain $pki/inter.pem -www && check "critical subjectAltName" "ok 1301 *" localhost $port $r
 serve $c -www -verify 1 && check "CertificateRequest" "ok 1301 *" localhost $port $r
 serve $c -www -max_send_frag 512 && check "small records" "ok 1301 *" localhost $port $r
-serve $c -www -groups P-256 && check "no common group" "fail: *handshake_failure*" localhost $port $r
+serve $c -www -groups P-256 && check "HelloRetryRequest to P-256" "ok 1301 0017 1 *" localhost $port $r
+serve $e -www -groups P-384 -ciphersuites TLS_AES_256_GCM_SHA384 && check "HelloRetryRequest to P-384" "ok 1302 0018 1 *" localhost $port $r
+serve $c -www -groups ffdhe2048 && check "no common group" "fail: *handshake_failure*" localhost $port $r
 serve $c -www -tls1_2 && check "TLS 1.2 only" "fail: *" localhost $port $r
 head -c 300000 /dev/zero | tr '\0' 'x' > "$tmp/big.txt"
 serve $c -WWW $hg && check "a 300 kB reply" "ok 1301 $hy 0 3000[0-9][0-9]" localhost $port $r /big.txt

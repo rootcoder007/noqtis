@@ -11,6 +11,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "cls/cls.h"
 #include "core/int.h"
 #include "tls/tls.h"
 #include "xdh/xdh.h"
@@ -115,7 +116,9 @@ static void vclose(wbuf *w, size_t at, int lb) {
 /* ---- what this client offers ---- */
 
 static const uint16_t suites[] = {NQTLA128, NQTLA256, NQTLC20};
-static const uint16_t groups[] = {NQTLHYB, NQTLX25519};
+/* key shares go out for the first two; a HelloRetryRequest may ask for
+ * the others */
+static const uint16_t groups[] = {NQTLHYB, NQTLX25519, NQTLP256, NQTLP384};
 /* CertificateVerify can use the first five; the RSA PKCS #1 v1.5
  * schemes are listed for the certificates only (section 4.2.3) */
 static const uint16_t sigs[] = {0x0403, 0x0503, 0x0804, 0x0805, 0x0806,
@@ -196,9 +199,21 @@ static void thnow(const nqtls *t, uint8_t *out) {
 
 /* ---- the ClientHello ---- */
 
-/* fresh key shares for the groups to send */
-static int keys(nqtls *t, int hyb) {
-  int rc;
+/* the curve of an ECDHE group, 0 for the others */
+static int ecg(unsigned g) {
+  return g == NQTLP256 ? NQP256 : g == NQTLP384 ? NQP384 : 0;
+}
+
+/* the share's size for an ECDHE group: 04 x y */
+static size_t ecn(unsigned g) {
+  return g == NQTLP256 ? 65 : 97;
+}
+
+/* fresh key shares for the groups to send, the first being g: the
+ * hybrid (with X25519), X25519, or one ECDHE group */
+static int keys(nqtls *t, unsigned g) {
+  int rc, hyb = g == NQTLHYB;
+  if (ecg(g) != 0) return nqeckg(ecg(g), t->esk, t->epk);
   if (NQTLHK(t)->xsk != NULL) {
     memcpy(t->xsk, NQTLHK(t)->xsk, 32);
   } else if ((rc = nqrand(t->xsk, 32)) != NQOK) {
@@ -265,6 +280,9 @@ static int mkch(nqtls *t, const uint16_t *g, size_t ng) {
     if (g[i] == NQTLHYB) {
       p16(&w, NQTLHEK);
       pb(&w, t->kek, sizeof t->kek);
+    } else if (ecg(g[i]) != 0) {
+      p16(&w, (unsigned)ecn(g[i]));
+      pb(&w, t->epk, ecn(g[i]));
     } else {
       p16(&w, 32);
       pb(&w, t->xpk, 32);
@@ -323,7 +341,7 @@ static int sendch(nqtls *t, int k) {
       for (i = 0; i < t->off.nks && ng < 2; i++) g[ng++] = t->off.ks[i];
     }
     if ((k == 1 || t->hrrg != 0) &&
-        (rc = keys(t, g[0] == NQTLHYB)) != NQOK) {
+        (rc = keys(t, g[0])) != NQOK) {
       return nqtlfail(t, rc, -1, rc == NQERNG ? "the random source failed"
                                                : "out of memory");
     }
@@ -362,6 +380,14 @@ static int kex(nqtls *t, unsigned g, cur *ks, uint8_t *ss, size_t *sn) {
       BAD(47, "the server's X25519 share is of small order");
     }
     *sn = 32;
+    return NQOK;
+  }
+  if (ecg(g) != 0) {
+    /* NQEDEC: compressed, off the curve, or a product at infinity */
+    if (ks->n != ecn(g) || nqecdh(ecg(g), t->esk, ks->p, ks->n, ss) != NQOK) {
+      BAD(47, "the server's ECDHE share is not a valid point");
+    }
+    *sn = ecn(g) / 2;
     return NQOK;
   }
   if (g == NQTLHYB) {
@@ -484,6 +510,7 @@ static int onsh(nqtls *t, const uint8_t *m, size_t n, int *retry) {
     size_t sn = 0;
     int rc = kex(t, grp, &ks, ss, &sn);
     nqwipe(t->xsk, sizeof t->xsk);
+    nqwipe(t->esk, sizeof t->esk);
     if (t->kdk != NULL) nqwipe(t->kdk, NQHYBSK);
     if (rc != NQOK) {
       nqwipe(ss, sizeof ss);

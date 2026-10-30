@@ -97,7 +97,7 @@ time too.
 - **ctgrind** (valgrind memcheck with secrets marked undefined): each
   secret-handling module has a test (`tests/tmldsact.c`,
   `tests/tslhct.c`, `tests/tmlkemct.c`, `tests/thqcct.c`,
-  `tests/tdrbgct.c`, `tests/tclsct.c`). Built with `-DNQCTGRIND` and run
+  `tests/tdrbgct.c`, `tests/tclsct.c`, `tests/tecdhct.c`). Built with `-DNQCTGRIND` and run
   under valgrind, memcheck reports any branch or address that depends on a
   secret. The places a standard publishes a value are declassified
   explicitly in the source, and only there. Built normally, the same files

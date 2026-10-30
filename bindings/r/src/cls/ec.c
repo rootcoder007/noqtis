@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* ECDSA verification over P-256 and P-384 (FIPS 186-5, SEC 1 4.1.4).
- * Field and scalar arithmetic in the Montgomery domain; points in
+/* ECDSA verification and ECDH over P-256 and P-384 (FIPS 186-5, SEC 1
+ * 4.1.4, SP 800-56A 5.7.1.2). Field and scalar arithmetic in the
+ * Montgomery domain; points in
  * projective coordinates with the complete addition formulas of Renes,
  * Costello and Batina (2016, algorithm 4, a = -3), which are also
  * correct for doubling and for the point at infinity (0 : 1 : 0), so no
  * case needs special handling. u1 G + u2 Q by a joint double-and-add
- * that adds a table entry (possibly infinity) at every bit. */
+ * that adds a table entry (possibly infinity) at every bit. For ECDH,
+ * k P with a fixed 4-bit window: four doublings and one addition of a
+ * table entry per nibble, the entry read by a select over all sixteen,
+ * so neither the time nor the memory addresses depend on k. */
 #include <string.h>
 
 #include "cls/cls.h"
@@ -194,11 +198,11 @@ int nqecpk(nqck *k, int id, const uint8_t *p, size_t len) {
   return NQOK;
 }
 
-/* r = the entry of tb at idx (0..3), reading all four. */
-static void tsel(pt *r, const pt *tb, uint32_t idx) {
+/* r = the entry of tb at idx (0..n-1), reading all n. */
+static void tsel(pt *r, const pt *tb, size_t n, uint32_t idx) {
   size_t j, i;
   memset(r, 0, sizeof *r);
-  for (j = 0; j < 4; j++) {
+  for (j = 0; j < n; j++) {
     uint32_t m = ~nqctmask(idx ^ (uint32_t)j);
     for (i = 0; i < NQEL; i++) {
       r->x[i] |= m & tb[j].x[i];
@@ -268,7 +272,7 @@ int nqecvh(const nqck *k, const uint8_t *dig, size_t dlen,
     uint32_t idx = ((u1[i / 32] >> (i % 32)) & 1u) |
                    (((u2[i / 32] >> (i % 32)) & 1u) << 1);
     padd(&c, &a, &a, &a);
-    tsel(&s1, tb, idx);
+    tsel(&s1, tb, 4, idx);
     padd(&c, &a, &a, &s1);
   }
   if (nqcz(a.z, nl)) return NQEVRFY;
@@ -297,4 +301,122 @@ int nqecv(const nqck *k, nqhalg h, const uint8_t *msg, size_t mlen,
   if (dl == 0) return NQENOSUP;
   if (nqhash(h, msg, mlen, d, dl) != NQOK) return NQEARG;
   return nqecvh(k, d, dl, sig, slen, raw);
+}
+
+/* ---- ECDH ---- */
+
+uint32_t nqecsm(int id, const uint8_t *k, const uint8_t *p, uint8_t *x,
+                uint8_t *y) {
+  crv c;
+  pt tb[16], a, s1;
+  uint32_t t[NQEL], zi[NQEL], d[NQEL], f;
+  size_t nb, nl, i;
+  if (cset(&c, id) != NQOK) return 0;
+  nb = c.nb;
+  nl = nb / 4;
+  /* tb[i] = i P, tb[0] infinity */
+  memset(&tb[0], 0, sizeof tb[0]);
+  memcpy(tb[0].y, c.one, sizeof c.one);
+  if (p == NULL) {
+    tb[1] = c.g;
+  } else {
+    memset(&tb[1], 0, sizeof tb[1]);
+    nqcld(t, nl, p + 1, nb);
+    nqcto(tb[1].x, t, &c.p);
+    nqcld(t, nl, p + 1 + nb, nb);
+    nqcto(tb[1].y, t, &c.p);
+    memcpy(tb[1].z, c.one, sizeof c.one);
+  }
+  for (i = 2; i < 16; i++) padd(&c, &tb[i], &tb[i - 1], &tb[1]);
+  a = tb[0];
+  for (i = 0; i < 2 * nb; i++) {
+    uint32_t w = (uint32_t)(k[i / 2] >> (i % 2 == 0 ? 4 : 0)) & 15u;
+    padd(&c, &a, &a, &a);
+    padd(&c, &a, &a, &a);
+    padd(&c, &a, &a, &a);
+    padd(&c, &a, &a, &a);
+    tsel(&s1, tb, 16, w);
+    padd(&c, &a, &a, &s1);
+  }
+  /* affine: Z^-1 = Z^(p - 2), the exponent public */
+  memset(t, 0, sizeof t);
+  t[0] = 2;
+  nqcsb(d, c.p.m, t, nl);
+  nqcpw(zi, a.z, d, nl, &c.p);
+  f = 1u ^ nqcz(a.z, nl);
+  nqcmm(t, a.x, zi, &c.p);
+  nqcfr(t, t, &c.p);
+  nqcst(x, nb, t, nl);
+  if (y != NULL) {
+    nqcmm(t, a.y, zi, &c.p);
+    nqcfr(t, t, &c.p);
+    nqcst(y, nb, t, nl);
+  }
+  nqwipe(tb, sizeof tb);
+  nqwipe(&a, sizeof a);
+  nqwipe(&s1, sizeof s1);
+  nqwipe(t, sizeof t);
+  nqwipe(zi, sizeof zi);
+  return f;
+}
+
+/* 1 when the nb-byte k is in [1, n - 1] */
+static int skok(const crv *c, const uint8_t *k) {
+  uint32_t v[NQEL];
+  size_t nl = c->nb / 4;
+  int ok;
+  nqcld(v, nl, k, c->nb);
+  ok = (int)(nqclt(v, c->q.m, nl) & (1u ^ nqcz(v, nl)));
+  nqwipe(v, sizeof v);
+  return ok;
+}
+
+int nqecpub(int id, const uint8_t *sk, uint8_t *pk) {
+  crv c;
+  int rc;
+  if (sk == NULL || pk == NULL) return NQEARG;
+  if ((rc = cset(&c, id)) != NQOK) return rc;
+  if (!skok(&c, sk)) return NQEARG;
+  pk[0] = 0x04;
+  /* k G is never infinity for k in [1, n - 1] */
+  (void)nqecsm(id, sk, NULL, pk + 1, pk + 1 + c.nb);
+  return NQOK;
+}
+
+int nqeckg(int id, uint8_t *sk, uint8_t *pk) {
+  crv c;
+  int rc, i;
+  if (sk == NULL || pk == NULL) return NQEARG;
+  if ((rc = cset(&c, id)) != NQOK) return rc;
+  /* rejection sampling: a draw is out of range with probability about
+   * 2^-32 (P-256) or 2^-190 (P-384) */
+  for (i = 0; i < 64; i++) {
+    if ((rc = nqrand(sk, c.nb)) != NQOK) {
+      nqwipe(sk, c.nb);
+      return rc;
+    }
+    if (skok(&c, sk)) return nqecpub(id, sk, pk);
+  }
+  nqwipe(sk, c.nb);
+  return NQERNG;
+}
+
+int nqecdh(int id, const uint8_t *sk, const uint8_t *peer, size_t plen,
+           uint8_t *z) {
+  crv c;
+  nqck k;
+  int rc;
+  if (sk == NULL || peer == NULL || z == NULL) return NQEARG;
+  if ((rc = cset(&c, id)) != NQOK) return rc;
+  if (!skok(&c, sk)) return NQEARG;
+  /* uncompressed only (RFC 8446 4.2.8.2), and on the curve */
+  if (plen != 1 + 2 * c.nb || peer[0] != 0x04 ||
+      nqecpk(&k, id, peer, plen) != NQOK) {
+    return NQEDEC;
+  }
+  if (!nqecsm(id, sk, peer, z, NULL)) {
+    nqwipe(z, c.nb);
+    return NQEDEC;
+  }
+  return NQOK;
 }
