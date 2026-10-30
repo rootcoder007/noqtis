@@ -3,7 +3,7 @@
 # Builds the Java binding with no build tool and no downloads: the shared
 # library (CMake, -DNQSHARED=ON) and noqtis.jar (javac and jar, JDK 22 or
 # later), all under build/ (or $NQJB). Then, with "test", runs the tests;
-# with "examples", the two examples. The library is passed to Java as
+# with "examples", the three examples. The library is passed to Java as
 # -Dnoqtis.library, so nothing is installed. With "bundled", the jar also
 # carries the library (native/<os>-<arch>/, as the Maven Central jar does)
 # and the tests run with no library given, so they use that copy.
@@ -64,6 +64,7 @@ for w in "$@"; do
       examples/*.java
     run -cp "$b/noqtis.jar$sep$b/eclasses" SignExample
     run -cp "$b/noqtis.jar$sep$b/eclasses" SealExample
+    run -cp "$b/noqtis.jar$sep$b/eclasses" CardExample
     ;;
   bundled)
     case $(uname -s) in

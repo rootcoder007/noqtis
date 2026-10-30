@@ -411,6 +411,68 @@ public final class Tests {
     eq(fails(() -> KeyFile.read(d.resolve("nope"), null)), NoqtisException.Code.IO, "missing");
   }
 
+  static void card() throws Exception {
+    Sign.KeyPair k = Sign.keygen("ML-DSA-44");
+    java.time.Instant t0 = java.time.Instant.ofEpochSecond(1767225600L);
+    IdCard.Fields f =
+        IdCard.Fields.of("Ada Lovelace")
+            .withOrcid("https://orcid.org/0000-0002-1694-233x")
+            .withEmail("ada@example.org")
+            .withUrl("https://example.org/ada")
+            .withAffil("AES");
+    byte[] c = IdCard.make("ML-DSA-44", k.sk(), k.pk(), f, t0);
+    String t = new String(c, StandardCharsets.UTF_8);
+    ok(t.contains("\"format\":\"noqtis-idcard-1\""), "format");
+    ok(t.contains("\"orcid\":\"0000-0002-1694-233X\""), "bare iD");
+    IdCard.Card v = IdCard.verify(c, null);
+    eq(v.name(), "Ada Lovelace", "name");
+    eq(v.orcid(), "0000-0002-1694-233X", "orcid");
+    eq(v.email(), "ada@example.org", "email");
+    eq(v.url(), "https://example.org/ada", "url");
+    eq(v.affil(), "AES", "affil");
+    eq(v.created(), "2026-01-01T00:00:00Z", "created");
+    eq(v.alg(), "ML-DSA-44", "alg");
+    ok(Arrays.equals(v.pk(), k.pk()), "pk");
+    eq(v.keySha256(), sha256(k.pk()), "key SHA-256");
+    ok(IdCard.verify(c, k.pk()) != null, "pinned");
+    IdCard.Card m = IdCard.verify(IdCard.make("ML-DSA-44", k.sk(), k.pk(), IdCard.Fields.of("Ad\u00e9le"), null), null);
+    eq(m.name(), "Ad\u00e9le", "non-ASCII");
+    ok(m.orcid() == null && m.affil() == null, "only the name");
+    // each bad field, a key that is not the pair, Ed25519
+    IdCard.Fields a = IdCard.Fields.of("A");
+    for (IdCard.Fields x :
+        List.of(
+            a.withOrcid("0000-0002-1825-0098"),
+            a.withEmail("ada"),
+            a.withUrl("http://example.org"),
+            a.withAffil(""),
+            IdCard.Fields.of(" A"),
+            IdCard.Fields.of("A\nB"),
+            IdCard.Fields.of("A\u009bB"),
+            IdCard.Fields.of("x".repeat(256)),
+            IdCard.Fields.of("A\0B"))) {
+      eq(fails(() -> IdCard.make("ML-DSA-44", k.sk(), k.pk(), x, t0)), NoqtisException.Code.ARG, x.toString());
+    }
+    ok(IdCard.make("ML-DSA-44", k.sk(), k.pk(), IdCard.Fields.of("x".repeat(255)), t0).length > 0, "255 bytes");
+    Sign.KeyPair k2 = Sign.keygen("ML-DSA-44");
+    eq(fails(() -> IdCard.make("ML-DSA-44", k2.sk(), k.pk(), a, t0)), NoqtisException.Code.ARG, "not a pair");
+    Sign.KeyPair ed = Sign.keygen("Ed25519");
+    eq(fails(() -> IdCard.make("Ed25519", ed.sk(), ed.pk(), a, t0)), NoqtisException.Code.UNSUPPORTED, "Ed25519");
+    // changed cards, another key, other formats
+    ok(IdCard.verify(b(t.replace("Ada Lovelace", "Ada Lovelacf")), null) == null, "changed");
+    ok(IdCard.verify(c, k2.pk()) == null, "another key");
+    eq(fails(() -> IdCard.verify(b(" " + t), null)), NoqtisException.Code.DECODE, "not canonical");
+    eq(fails(() -> IdCard.verify(b("{}"), null)), NoqtisException.Code.DECODE, "not a card");
+    eq(fails(() -> IdCard.verify(b("[".repeat(256 * 1024 + 1)), null)), NoqtisException.Code.LIMIT, "too large");
+    Path d = mk("noqtis-java-card");
+    Files.writeString(d.resolve("a.txt"), "a\n");
+    Capsule.seal(d, "ML-DSA-44", k.sk(), k.pk(), null);
+    byte[] s = Files.readAllBytes(d.resolve("noqtis.sig"));
+    eq(fails(() -> IdCard.verify(s, null)), NoqtisException.Code.DECODE, "a seal");
+    Files.write(d.resolve("noqtis.sig"), c);
+    ok(!Capsule.check(d, Capsule.Opts.none().withTrust(k.pk())).ok(), "a card as a seal");
+  }
+
   interface T {
     void run() throws Exception;
   }
@@ -428,6 +490,7 @@ public final class Tests {
     ts.put("sealAndCheck", Tests::sealAndCheck);
     ts.put("seal2", Tests::seal2);
     ts.put("keyFiles", Tests::keyFiles);
+    ts.put("card", Tests::card);
     int bad = 0;
     for (var e : ts.entrySet()) {
       long t0 = System.nanoTime();

@@ -164,6 +164,8 @@ final class Native {
   static final MethodHandle NQREPN = fn("nqrepn", Z, P);
   static final MethodHandle NQREPI = fn("nqrepi", I, P, Z, P, P, P);
   static final MethodHandle NQREPFREE = fn("nqrepfree", null, P);
+  static final MethodHandle NQCARD = fn("nqcard", I, I, P, Z, P, Z, P, P, P, P, P, Z, P, Z, P);
+  static final MethodHandle NQCARDVRFY = fn("nqcardvrfy", I, P, Z, P, Z, P);
 
   /** A C string the library returned, or "" for NULL. */
   static String str(MemorySegment p) {

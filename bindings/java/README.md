@@ -23,7 +23,7 @@ sh bindings/java/build.sh test examples
 
 builds the shared library with CMake (`-DNQSHARED=ON`) and
 `build/noqtis.jar` with `javac` and `jar` alone (no Maven or Gradle,
-nothing downloaded), then runs the tests and the two examples below. It
+nothing downloaded), then runs the tests and the examples in examples/. It
 needs CMake, a C compiler and a JDK 22 or later.
 
 Run your program with the jar on the class path, the library where Java
@@ -173,6 +173,21 @@ FAIL file report.txt: size differs
 - `inspect(dir)` says what a capsule says without checking anything (the
   `info.*` rows, `report.get("info.alg")`); `files(dir)` adds one
   `info.file` row per listed file.
+
+## Identity cards
+
+```java
+byte[] card = IdCard.make("ML-DSA-65", p.sk(), p.pk(),
+    IdCard.Fields.of("Ada Lovelace").withOrcid("0000-0002-1825-0097"), null);
+IdCard.Card c = IdCard.verify(card, p.pk());   // null when it does not verify
+```
+
+A card (noqtis-idcard-1, JSON) binds the key to its holder's name and,
+when given, ORCID iD (check digit verified), e-mail address, `https://`
+page and affiliation, signed by the key under its own context, so it is
+never a seal or a key statement. It is self-signed: compare
+`keySha256()` with the one its holder published, or pass the key
+(`examples/CardExample.java`).
 
 ## Key files
 

@@ -18,7 +18,7 @@ sh bindings/java/build.sh test examples
 
 This builds the shared library with CMake and `bindings/java/build/noqtis.jar`
 with `javac` and `jar` alone (no Maven or Gradle, nothing downloaded),
-then runs the tests and the two examples on this page. Run a program
+then runs the tests and the three examples on this page. Run a program
 with the jar on the class path, the library where Java finds it, and
 native access enabled:
 
@@ -117,6 +117,57 @@ other message: false
 `verify` returns `false` for a bad signature; only a bad argument
 throws. Every error is a `NoqtisException` with the library's code
 (`code()`, `kind()`) and message (`nqerr()`).
+
+## Identity cards
+
+An identity card ties your signing key to who you are, signed by the
+key itself; `noqtis check --card` reads it too.
+`examples/CardExample.java`:
+
+```java
+import io.github.rootcoder007.noqtis.IdCard;
+import io.github.rootcoder007.noqtis.NoqtisException;
+import io.github.rootcoder007.noqtis.Sign;
+import java.nio.charset.StandardCharsets;
+
+public class CardExample {
+  public static void main(String[] args) {
+    Sign.KeyPair k = Sign.keygen("ML-DSA-65");
+    IdCard.Fields f =
+        IdCard.Fields.of("Ada Lovelace")
+            .withOrcid("https://orcid.org/0000-0002-1825-0097")
+            .withUrl("https://example.org/ada");
+    byte[] card = IdCard.make("ML-DSA-65", k.sk(), k.pk(), f, null);
+
+    IdCard.Card c = IdCard.verify(card, k.pk()); // null unless it verifies and is k's
+    System.out.println("name: " + c.name());
+    System.out.println("orcid: " + c.orcid());
+
+    // a changed card does not verify; a wrong check digit is refused
+    String t = new String(card, StandardCharsets.UTF_8).replace("Ada", "Eve");
+    System.out.println("changed: " + IdCard.verify(t.getBytes(StandardCharsets.UTF_8), null));
+    try {
+      IdCard.make("ML-DSA-65", k.sk(), k.pk(), f.withOrcid("0000-0002-1825-0098"), null);
+    } catch (NoqtisException e) {
+      System.out.println("refused: " + e.kind());
+    }
+  }
+}
+```
+
+```text
+name: Ada Lovelace
+orcid: 0000-0002-1825-0097
+changed: null
+refused: ARG
+```
+
+The card holds the bare ORCID iD. It is self-signed: it shows that the
+holder of the key wrote it, not that the name is true, so give the key's
+SHA-256 (`keySha256()`) where people already know you, or let readers
+pin your public key. `IdCard.verify` returns `null` for a card that
+does not verify or is for another key, and throws `DECODE` for input
+that is not a card.
 
 ## Notes
 
