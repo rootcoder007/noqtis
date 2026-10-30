@@ -20,6 +20,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <direct.h>
 #include <fcntl.h>
 #include <io.h>
 #include <sys/stat.h>
@@ -102,6 +103,32 @@ static int rmpath(const char *path) {
   return r;
 #else
   return unlink(path);
+#endif
+}
+
+int ncmkdir(const char *path) {
+#ifdef _WIN32
+  wchar_t *p = wide(path);
+  int r = p != NULL && _wmkdir(p) == 0;
+  free(p);
+  return r ? NCOK : NCUSE;
+#else
+  return mkdir(path, 0700) == 0 ? NCOK : NCUSE;
+#endif
+}
+
+int ncrmfile(const char *path) {
+  return rmpath(path);
+}
+
+int ncrmdir(const char *path) {
+#ifdef _WIN32
+  wchar_t *p = wide(path);
+  int r = p != NULL ? _wrmdir(p) : -1;
+  free(p);
+  return r;
+#else
+  return rmdir(path);
 #endif
 }
 

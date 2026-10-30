@@ -29,6 +29,12 @@ mistake in the release process; use 0.1.1.)
   (`nqcapid`), and `check --lineage` finds and checks them, to 64 levels
   (`nqchkx`). Format 1 is unchanged and stays the default; the spec has
   the new sections 11.1 to 11.6, with a worked example.
+- `noqtis check <url>` checks a capsule where it is published, over
+  http:// or, with the TLS client, https://: the seal and the manifest
+  are fetched and checked first, and only then the listed files, each at
+  most its listed size, into a temporary folder that is checked as any
+  other and emptied after; `--only` fetches only those files, and a
+  `--proof` may be a URL too. `nqfiles` lists a capsule's files for it.
 - Cross-checked against OpenSSL 3.5 or later (`tests/ossl/`, workflow
   `ossl.yml`): the same ML-DSA, SLH-DSA and ML-KEM keys, signatures,
   ciphertexts and secrets from the same seeds, the same digests and

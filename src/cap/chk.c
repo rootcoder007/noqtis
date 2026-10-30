@@ -747,7 +747,10 @@ typedef struct {
   char cr[64];      /* created */
   const char *meta; /* the canonical meta object in the manifest, or NULL */
   size_t metan;
+  int list; /* nqfiles: one info.file row per entry */
 } insp;
+
+static void u64s(uint64_t v, char out[24]);
 
 /* scans the manifest; with l (the folder), checks each entry as read; with
  * in, collects what nqinsp reports */
@@ -985,6 +988,14 @@ static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
       if (in != NULL) {
         if (in->bytes > UINT64_MAX - e->size) in->big = 1;
         in->bytes += e->size;
+        if (in->list && e->rawn <= nqclim.path &&
+            nqcnorm(e->raw, e->rawn, e->norm, sizeof e->norm, &e->nn) ==
+                NQOK &&
+            e->nn == e->rawn && memcmp(e->norm, e->raw, e->nn) == 0) {
+          char num[24];
+          u64s(e->size, num);
+          add(r, "info.file", 1, num, " ", e->norm);
+        }
       }
       t = prev;
       prev = e;
@@ -1406,7 +1417,7 @@ static void u64s(uint64_t v, char out[24]) {
   out[j] = 0;
 }
 
-int nqinsp(const char *dir, nqrep **rep) {
+static int insp0(const char *dir, nqrep **rep, int list) {
   nqrep *r;
   seal s;
   insp in;
@@ -1420,6 +1431,7 @@ int nqinsp(const char *dir, nqrep **rep) {
   memset(r, 0, sizeof *r);
   memset(&s, 0, sizeof s);
   memset(&in, 0, sizeof in);
+  in.list = list;
   /* the same strict readers as nqchk: the seal, then the manifest in its
    * canonical layout; no digest, signature, timestamp or file is checked */
   rdseal(r, dir, &s);
@@ -1475,6 +1487,14 @@ int nqinsp(const char *dir, nqrep **rep) {
   }
   *rep = r;
   return r->bad ? NQEDEC : NQOK;
+}
+
+int nqinsp(const char *dir, nqrep **rep) {
+  return insp0(dir, rep, 0);
+}
+
+int nqfiles(const char *dir, nqrep **rep) {
+  return insp0(dir, rep, 1);
 }
 
 /* ---- proofs (noqtis-proof-1): single files of a format 2 capsule ----

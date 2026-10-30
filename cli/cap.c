@@ -523,9 +523,10 @@ int ncchk(int argc, char **argv) {
   nqrep *r = NULL;
   ncanc an;
   nqcopt co;
+  ncrem *rm = NULL;
   uint8_t *pb = NULL;
   size_t n = 0, i, j, w = 5, nf = 0, pn = 0;
-  const char *kn = NULL, *kalg = NULL;
+  const char *kn = NULL, *kalg = NULL, *dir = NULL;
 
   an.k = 0;
   if (ncargs("check", argc, argv, o, sizeof o / sizeof o[0], &np,
@@ -546,11 +547,13 @@ int ncchk(int argc, char **argv) {
           "--lineage apply to a capsule folder");
     return NCUSE;
   }
-  if (np == 1 && !ncisdir(argv[0])) {
+  if (np == 1 && !ncisurl(argv[0]) && !ncisdir(argv[0])) {
     ncmsg("check", "%s: not a folder (give the folder that holds "
-          "noqtis.json and noqtis.sig)", argv[0]);
+          "noqtis.json and noqtis.sig, or its http:// or https:// URL)",
+          argv[0]);
     return NCUSE;
   }
+  if (np == 1) dir = argv[0];
   for (i = 0; i < (size_t)nl; i++) {
     if (!ncisdir(lin[i])) {
       ncmsg("check", "%s: not a folder (--lineage takes a folder of "
@@ -559,7 +562,13 @@ int ncchk(int argc, char **argv) {
     }
   }
   lab = pf != NULL ? pf : argv[0];
-  if (pf != NULL && ncrdx(pf, 0, NCRDMAX, &pb, &pn) != NCOK) {
+  if (pf != NULL && ncisurl(pf)) {
+    char err[300];
+    if (ncget(pf, NCRDMAX, &pb, &pn, err, sizeof err) != NCOK) {
+      ncmsg("check", "%s: %s", ncesc(pf), err);
+      return NCUSE;
+    }
+  } else if (pf != NULL && ncrdx(pf, 0, NCRDMAX, &pb, &pn) != NCOK) {
     ncmsg("check", "%s: cannot read the proof", pf);
     return NCUSE;
   }
@@ -595,10 +604,20 @@ int ncchk(int argc, char **argv) {
   co.nonly = (size_t)no;
   co.lin = lin;
   co.nlin = (size_t)nl;
+  if (dir != NULL && ncisurl(dir)) {
+    if (ncremget(dir, &co, &rm) != NCOK) {
+      nckfree(&pk);
+      ancfree(&an);
+      ncfree(pb, pn, 0);
+      return NCUSE;
+    }
+    dir = ncremdir(rm);
+  }
   if (pf != NULL)
-    rc = nqchkp((const char *)pb, pn, &co, np == 1 ? argv[0] : NULL, &r);
+    rc = nqchkp((const char *)pb, pn, &co, dir, &r);
   else
-    rc = nqchkx(argv[0], &co, &r);
+    rc = nqchkx(dir, &co, &r);
+  ncremfree(rm);
   kn = pp != NULL ? pk.a.name : NULL;
   nckfree(&pk);
   ancfree(&an);

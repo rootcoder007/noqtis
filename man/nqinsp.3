@@ -3,7 +3,8 @@
 .Dt NQINSP 3
 .Os
 .Sh NAME
-.Nm nqinsp
+.Nm nqinsp ,
+.Nm nqfiles
 .Nd read what a capsule says, without checking it
 .Sh LIBRARY
 libnoqtis, \-lnoqtis
@@ -11,6 +12,8 @@ libnoqtis, \-lnoqtis
 .In noqtis.h
 .Ft int
 .Fn nqinsp "const char *dir" "nqrep **rep"
+.Ft int
+.Fn nqfiles "const char *dir" "nqrep **rep"
 .Sh DESCRIPTION
 .Fn nqinsp
 reads the seal
@@ -56,7 +59,22 @@ Before them come the rows of the strict readers
 .Pq Ql seal.* , Ql manifest.* , Ql path ,
 as in
 .Xr nqchk 3 .
+.Pp
+.Fn nqfiles
+is
+.Fn nqinsp
+with one
+.Ql info.file
+row per listed file among the reader's rows, in manifest order: the
+file's size in bytes, in decimal, a space, and its path (normal form,
+.Ql /
+between folders).
+Only paths the checker's rules accept are listed, so a caller may fetch
+each one into a folder of its own, as
+.Ql noqtis check Ar url
+does, and then check that folder.
 .Sh RETURN VALUES
+Both return
 .Dv NQOK
 when the seal and the manifest parse;
 .Dv NQEDEC

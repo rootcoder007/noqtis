@@ -1,8 +1,9 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp"><code class="Nm">nqinsp</code> &#x2014; <span class="Nd">read what
-    a capsule says, without checking it</span></p>
+<p class="Pp"><code class="Nm">nqinsp</code>, <code class="Nm">nqfiles</code>
+    &#x2014; <span class="Nd">read what a capsule says, without checking
+    it</span></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
@@ -15,6 +16,11 @@
 <p class="Pp"><var class="Ft">int</var>
   <br/>
   <code class="Fn">nqinsp</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *dir</var>, <var class="Fa" style="white-space: nowrap;">nqrep
+    **rep</var>);</p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqfiles</code>(<var class="Fa" style="white-space: nowrap;">const
     char *dir</var>, <var class="Fa" style="white-space: nowrap;">nqrep
     **rep</var>);</p>
 </section>
@@ -57,15 +63,26 @@
     (&#x2018;<code class="Li">seal.*, &#x2018;<code class="Li">manifest.*,
     &#x2018;<code class="Li">path</code>&#x2019;</code>&#x2019;</code>&#x2019;),
     as in <a class="Xr" href="/noqtis/reference/man/nqchk-3/">nqchk(3)</a>.</p>
+<p class="Pp" id="nqfiles"><a class="permalink" href="#nqfiles"><code class="Fn">nqfiles</code></a>()
+    is <code class="Fn">nqinsp</code>() with one
+    &#x2018;<code class="Li">info.file</code>&#x2019; row per listed file among
+    the reader's rows, in manifest order: the file's size in bytes, in decimal,
+    a space, and its path (normal form,
+    &#x2018;<code class="Li">/</code>&#x2019; between folders). Only paths the
+    checker's rules accept are listed, so a caller may fetch each one into a
+    folder of its own, as &#x2018;<code class="Li">noqtis check
+    <var class="Ar">url</var></code>&#x2019; does, and then check that
+  folder.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
   VALUES</a></h1>
-<p class="Pp"><code class="Dv">NQOK</code> when the seal and the manifest parse;
-    <code class="Dv">NQEDEC</code> when one does not (<var class="Fa">*rep</var>
-    holds the failing rows); <code class="Dv">NQEARG</code> for a NULL argument
-    and <code class="Dv">NQEMEM</code> when memory runs out (no report). Free
-    the report with <code class="Fn">nqrepfree</code>().</p>
+<p class="Pp">Both return <code class="Dv">NQOK</code> when the seal and the
+    manifest parse; <code class="Dv">NQEDEC</code> when one does not
+    (<var class="Fa">*rep</var> holds the failing rows);
+    <code class="Dv">NQEARG</code> for a NULL argument and
+    <code class="Dv">NQEMEM</code> when memory runs out (no report). Free the
+    report with <code class="Fn">nqrepfree</code>().</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

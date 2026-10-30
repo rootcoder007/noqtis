@@ -19,6 +19,8 @@
  *   type <path>   the same, as text/html
  *   http <code>   answers with that status and no body (a Location for 3xx)
  *   junk          answers with bytes that are not HTTP
+ *   www <dir>     answers a GET of /<path> with <dir>/<path> (404 when it
+ *                 is missing, or the path has a ".." segment)
  */
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
@@ -58,6 +60,7 @@ typedef size_t iolen;
 
 static const char *mode, *arg;
 static int nserved;
+static char line1[2048]; /* the request line */
 
 /* the file p in a new buffer, NUL-terminated (it may be a command) */
 static unsigned char *slurp(const char *p, size_t *n) {
@@ -110,11 +113,22 @@ static int request(sockt s) {
     got += (size_t)k;
     b[got] = '\0';
     if (hl == 0 && (e = strstr(b, "\r\n\r\n")) != NULL) {
+      char *le = strstr(b, "\r\n");
+      size_t ln = (size_t)(le - b);
+      if (ln >= sizeof line1)
+        return -1;
+      memcpy(line1, b, ln);
+      line1[ln] = '\0';
       hl = (size_t)(e - b) + 4;
       c = strstr(b, "Content-Length: ");
-      if (c == NULL || c > e)
-        return -1;
-      cl = (size_t)strtoul(c + 16, NULL, 10);
+      /* a GET has no body */
+      if (c == NULL || c > e) {
+        if (strncmp(b, "GET ", 4) != 0)
+          return -1;
+        cl = 0;
+      } else {
+        cl = (size_t)strtoul(c + 16, NULL, 10);
+      }
     }
     if (hl != 0 && got >= hl + cl)
       break;
@@ -154,12 +168,55 @@ static void reply(sockt s, const unsigned char *b, size_t n, int chunked,
   put(s, b, n);
 }
 
+static int hexv(int c) {
+  return c >= '0' && c <= '9'   ? c - '0'
+         : c >= 'A' && c <= 'F' ? c - 'A' + 10
+         : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                                : -1;
+}
+
+/* the file a GET of line1 names under dir, in p; 0 when refused */
+static int wwwpath(char *p, size_t cap) {
+  const char *u = line1 + 4, *e = strchr(u, ' ');
+  size_t k = strlen(arg), i;
+  if (strncmp(line1, "GET /", 5) != 0 || e == NULL || k + 2 >= cap)
+    return 0;
+  memcpy(p, arg, k);
+  for (i = 0; u + i < e; i++) {
+    int c = (unsigned char)u[i];
+    if (c == '%') {
+      int ok2 = (size_t)(e - u) > i + 2;
+      int h = ok2 ? hexv(u[i + 1]) : -1, l = ok2 ? hexv(u[i + 2]) : -1;
+      if (h < 0 || l < 0)
+        return 0;
+      c = h * 16 + l;
+      i += 2;
+    }
+    if (c == 0 || k + 2 >= cap)
+      return 0;
+    p[k++] = (char)c;
+  }
+  p[k] = '\0';
+  return strstr(p + strlen(arg), "/../") == NULL &&
+         strcmp(p + k - (k >= 3 ? 3 : k), "/..") != 0;
+}
+
 static void serve(sockt s) {
   unsigned char *b = NULL;
   size_t n = 0;
   nserved++;
   if (request(s) != 0)
     return;
+  if (strcmp(mode, "www") == 0) {
+    char p[2200];
+    if (wwwpath(p, sizeof p) && (b = slurp(p, &n)) != NULL)
+      reply(s, b, n, 0, 0, "application/octet-stream");
+    else
+      puts2(s, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n"
+               "Connection: close\r\n\r\n");
+    free(b);
+    return;
+  }
   if (strcmp(mode, "ossl") == 0 || strcmp(mode, "osslc") == 0) {
     size_t cn = 0;
     unsigned char *cmd = slurp(arg, &cn);
@@ -220,13 +277,26 @@ static unsigned short listen1(sockt *out) {
   return ntohs(a.sin_port);
 }
 
+/* FD_SET: on 32-bit musl the macro converts the descriptor to unsigned,
+ * which -Wsign-conversion refuses; the conversion is of a valid socket */
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+static void fdadd(sockt s, fd_set *f) {
+  FD_SET(s, f);
+}
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
 /* accepts and serves until stop; 0 when nothing is pending in 100 ms */
 static int once(void) {
   fd_set f;
   struct timeval tv;
   sockt c;
   FD_ZERO(&f);
-  FD_SET(lsn, &f);
+  fdadd(lsn, &f);
   tv.tv_sec = 0;
   tv.tv_usec = 100000;
   if (select((int)lsn + 1, &f, NULL, NULL, &tv) <= 0)

@@ -218,6 +218,7 @@ int nqchkt(const char *dir, const uint8_t *trust, size_t trustlen,
            const uint8_t *const *anc, const size_t *anclen,
            size_t nanc, nqrep **rep);
 int nqinsp(const char *dir, nqrep **rep);
+int nqfiles(const char *dir, nqrep **rep);
 
 typedef struct { uint8_t id[32]; const char *name; } nqcin;
 int nqseal2(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
@@ -260,6 +261,7 @@ int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
 | `nqchkp` | checks a proof: the seal, its signature over the head and each audit path; with `dir`, the proven files there | as `nqchk` |
 | `nqrepn` | number of rows (0 for `NULL`) | — |
 | `nqinsp` | reads `dir`'s seal and manifest with `nqchk`'s strict readers and checks nothing; on success the report ends with `info.*` rows (format, alg, key fingerprint, created, files, bytes, timestamp, meta) | `NQOK`; `NQEDEC` one does not parse (report set); `NQEARG`, `NQEMEM` (no report) |
+| `nqfiles` | `nqinsp` with one `info.file` row per listed file (`<size> <path>`), paths the checker's rules accept; for fetching a published capsule | as `nqinsp` |
 | `nqrepi` | row `i`: check name, 1/0, detail; strings live until `nqrepfree` | `NQOK`, `NQEARG` |
 | `nqrepfree` | frees and wipes the report; `NULL` allowed | — |
 | `nqtsreq` | the RFC 3161 `TimeStampReq` for the seal in `dir`: SHA-256 of its signature, the nonce (≤ 32 bytes, or `NULL`), certReq; at most 128 bytes | `NQOK`; `NQEARG`, `NQEBUF`, `NQEDEC` (not a canonical seal), `NQEIO` |

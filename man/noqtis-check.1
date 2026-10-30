@@ -12,13 +12,13 @@
 .Op Fl -anchor Ar der-file ...
 .Op Fl -only Ar path ...
 .Op Fl -lineage Ar input-dir ...
-.Ar dir
+.Ar dir | url
 .Nm noqtis check
 .Op Fl p Ar key.pub
 .Op Fl j | Fl -json
 .Op Fl -anchor Ar der-file ...
-.Fl -proof Ar file
-.Op Ar dir
+.Fl -proof Ar file | url
+.Op Ar dir | url
 .Sh DESCRIPTION
 .Nm noqtis check
 checks the capsule
@@ -80,6 +80,33 @@ Without
 a seal that carries a timestamp fails its
 .Ql timestamp
 row: a timestamp that cannot be checked is never passed silently.
+.Pp
+Given a
+.Ar url
+.Pq Ql http:// , or Ql https:// No when noqtis was built with its TLS client
+in place of a folder, the capsule served there is checked: the URL of the
+folder that holds
+.Pa noqtis.sig
+and
+.Pa noqtis.json
+on the server, without a query or fragment.
+Both are fetched into a new temporary folder and checked first, against
+.Fl p
+and the anchors when given; only when the seal, its signature and the
+manifest check are the listed files fetched (with
+.Fl -only ,
+only those), each by its path under the URL, percent-encoded, and at most
+its listed size, a file over 1 GiB or past the 10000th not at all.
+The folder is then checked as any other, so a file the server lacks or
+changed fails its row, and everything written to it is removed after.
+The report names the URL.
+Redirects are followed, at most five, never from
+.Ql https://
+to
+.Ql http:// .
+A
+.Fl -proof
+may also be a URL.
 .Pp
 After the table, for each failed check, a line on standard error says
 what to do:
@@ -283,6 +310,11 @@ $ noqtis check -p me.pub --anchor digicert.der results
 ok    timestamp           RFC 3161 token over the signature verifies under a TSA anchor; genTime 2026-10-29T09:34:03Z
 \&...
 results: OK (23 checks passed)
+.Ed
+.Pp
+A capsule published on a web server, without downloading it by hand:
+.Bd -literal -offset indent
+$ noqtis check -p me.pub https://example.org/data/results/
 .Ed
 .Pp
 Only one file of a format 2 capsule, and its inputs:

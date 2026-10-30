@@ -291,6 +291,12 @@ NQAPI int nqchkp(const char *proof, size_t n, const nqcopt *o,
  * NQEDEC when one does not parse (*rep holds the failing rows); NQEARG and
  * NQEMEM return no report. Free it with nqrepfree. */
 NQAPI int nqinsp(const char *dir, nqrep **rep);
+/* nqinsp, and before the info rows one "info.file" row per listed file,
+ * in manifest order: its size in bytes, a space, then its path (normal
+ * form, '/' separated). The paths pass the checker's path rules; nothing
+ * is checked against a folder or the signature, so a caller fetching
+ * the files (noqtis check <url>) checks the capsule after. */
+NQAPI int nqfiles(const char *dir, nqrep **rep);
 NQAPI size_t nqrepn(const nqrep *r);
 NQAPI int nqrepi(const nqrep *r, size_t i, const char **check, int *ok,
                  const char **detail);

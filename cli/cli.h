@@ -71,6 +71,11 @@ FILE *ncopen(const char *path, int force, int sec);
 /* Writes len bytes to a new file (see ncopen); removes it on failure. */
 int ncwr(const char *path, const uint8_t *b, size_t len, int force,
          int sec);
+/* Makes the folder path (owner-only on POSIX). NCOK or NCUSE. */
+int ncmkdir(const char *path);
+/* Removes the file path, or the empty folder path; 0 on success. */
+int ncrmfile(const char *path);
+int ncrmdir(const char *path);
 /* Prints why path could not be created; returns NCUSE. */
 int ncwfail(const char *cmd, const char *path, int force);
 /* 1 when path names an existing file. */
@@ -111,6 +116,21 @@ int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
 /* NCOK when url is one nchttp can send to (http://host[:port][/path],
  * or https:// with NQTLS); else NCUSE and why in err. No network. */
 int ncurlok(const char *url, char *err, size_t cap);
+
+/* ---- remote capsules (rem.c) ---- */
+
+typedef struct ncrem ncrem;
+/* 1 when s is an http:// or https:// URL */
+int ncisurl(const char *s);
+/* Fetches the capsule served at url (its folder) into a new temporary
+ * folder: the seal and the manifest, then, when those check under co's
+ * key and anchors, the listed files (co's only, when set), each at most
+ * its listed size. Problems fetching are printed, and the check of the
+ * folder reports what is missing. NCOK with *out set, or NCUSE. */
+int ncremget(const char *url, const nqcopt *co, ncrem **out);
+const char *ncremdir(const ncrem *m);
+/* Removes everything ncremget wrote, then frees m. */
+void ncremfree(ncrem *m);
 
 /* ---- algorithms and keys (key.c) ---- */
 

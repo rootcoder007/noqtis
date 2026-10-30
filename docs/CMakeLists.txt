@@ -18,6 +18,7 @@ set(NQMANAKA
   "nqhash:nqhini,nqhupd,nqhfin,nqhlen,nqhmac"
   "nqrep:nqrepn,nqrepi,nqrepfree"
   "nqtsput:nqtsreq"
+  "nqinsp:nqfiles"
   "nqprove:nqchkp"
   "nqseal2:nqcapid"
   "nqerr:nqver"

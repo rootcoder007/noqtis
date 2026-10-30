@@ -1133,6 +1133,37 @@ static void pristine(void) {
   want(0, "seal -k q.c qref", NULL);
 }
 
+/* check <url>: the capsule served by tsad's www mode from this folder */
+static void tremote(void) {
+#define URL " http://127.0.0.1:@PORT@/qref"
+  pristine();
+  wantts(0, "www", ".", "check -p q.c.pub" URL);
+  ok(has("q.out", "/qref: OK (") && has("q.tsd", "served 5 requests"),
+     "check <url>: the seal, the manifest and three files fetched");
+  wantts(1, "www", ".", "check -p q.c2.pub" URL);
+  ok(has("q.err", "no file was fetched") &&
+     has("q.tsd", "served 2 requests"),
+     "check <url>: another key, so no file is fetched");
+  want(0, "seal --format 2 -k q.c qref", NULL);
+  wantts(0, "www", ".", "check -p q.c.pub --only sub/c.txt" URL "/");
+  ok(has("q.out", "partial") && has("q.tsd", "served 3 requests"),
+     "check --only <url>: one file fetched");
+  wrs("qref/b.txt", "second!\n");
+  wantts(1, "www", ".", "check -p q.c.pub" URL);
+  ok(has("q.out", "FAIL  file"), "check <url>: a changed file");
+  want(0, "seal --format 2 -k q.c qref", NULL);
+  want(0, "prove -p q.c.pub -o q.pf qref a.txt", NULL);
+  wantts(0, "www", ".",
+         "check -p q.c.pub --proof http://127.0.0.1:@PORT@/q.pf");
+  ok(has("q.out", "q.pf: OK ("), "check --proof <url>");
+  remove("q.pf");
+  wantts(1, "www", ".", "check -p q.c.pub http://127.0.0.1:@PORT@/none");
+  ok(has("q.err", "HTTP 404"), "check <url>: nothing there");
+  want(2, "check -p q.c.pub http://127.0.0.1:1/qref?x=1", NULL);
+  ok(has("q.err", "without a query"), "check <url>: a query refused");
+#undef URL
+}
+
 static void trefuse(void) {
   char tok[1200], oth[1200], ctx[1400];
   int j;
@@ -1575,6 +1606,7 @@ int main(int argc, char **argv) {
   treview();
   if (tsad != NULL) {
     tts();
+    tremote();
     trefuse();
     tbl();
   }

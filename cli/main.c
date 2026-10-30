@@ -86,12 +86,15 @@ static const nccmd cmds[] = {
    "            the token at seal time too (up to 32)\n"},
   {"check", ncchk, "check a sealed capsule folder",
    "usage: noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
-   "                    [--only <path>]... [--lineage <dir>]... <dir>\n"
+   "                    [--only <path>]... [--lineage <dir>]... <dir|url>\n"
    "       noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
-   "                    --proof <file> [<dir>]\n"
+   "                    --proof <file|url> [<dir|url>]\n"
    "  Prints every check and its result; exit 0 only if all pass. Without\n"
    "  -p the key inside the seal is trusted, and the report says so.\n"
    "  For each failed check, stderr says what to do.\n"
+   "  <url>  the http:// (or https://, with TLS) URL of a capsule's\n"
+   "         folder: the seal and the manifest are fetched and checked\n"
+   "         first, then the listed files (only --only's, when given)\n"
    "  --only     check only this file (up to 32): a partial check, which\n"
    "             the report says; the others are neither read nor needed\n"
    "  --lineage  the folder of an input capsule (up to 32): each input of\n"
