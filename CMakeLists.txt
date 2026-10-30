@@ -171,6 +171,22 @@ if(NQTESTS)
   endif()
   # the ACVP harnesses, each run on the vector sets in tests/vectors/acvp
   add_subdirectory(acvp)
+  # the TLS client against OpenSSL's s_server on the loopback
+  # (tests/tls/srv.sh): OpenSSL is the peer only, never linked; skipped
+  # (77) without OpenSSL 3.5 or later
+  if(NOT WIN32 AND NOT EMSCRIPTEN AND NOT CMAKE_SYSTEM_NAME STREQUAL "WASI")
+    add_executable(tlcli tests/tls/tlcli.c)
+    target_link_libraries(tlcli PRIVATE nqint)
+    target_include_directories(tlcli PRIVATE ${PROJECT_SOURCE_DIR}/src)
+    target_compile_options(tlcli PRIVATE ${NQWARN})
+    find_program(NQOSSLBIN openssl)
+    if(NQOSSLBIN)
+      add_test(NAME tlsrv COMMAND sh ${PROJECT_SOURCE_DIR}/tests/tls/srv.sh
+               $<TARGET_FILE:tlcli>)
+      set_tests_properties(tlsrv PROPERTIES SKIP_RETURN_CODE 77
+                           ENVIRONMENT OPENSSL=${NQOSSLBIN})
+    endif()
+  endif()
   # tcli runs the tool as a child process, which emscripten cannot do
   if(NQCLI AND NOT EMSCRIPTEN)
     add_subdirectory(tests/cli)
