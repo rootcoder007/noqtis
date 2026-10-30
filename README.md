@@ -59,7 +59,7 @@ In short:
 
 | Platform | From source | Packages |
 |---|---|---|
-| Linux, macOS, Windows, FreeBSD | build from source (below) | release archives with `install.sh` / `install.ps1`, Homebrew tap; RPMs and debs from the openSUSE Build Service and Fedora COPR |
+| Linux, macOS, Windows, FreeBSD | build from source (below) | release archives with `install.sh` / `install.ps1`, Homebrew (`brew install rootcoder007/noqtis/noqtis`); RPMs and debs from the openSUSE Build Service and Fedora COPR |
 | Containers | `docker build -t noqtis .` | `ghcr.io/rootcoder007/noqtis` |
 | Nix | `nix build` (`flake.nix`) | Nixpkgs after its review |
 | Arch, Alpine, Fedora, Debian, Wolfi | recipes in `packaging/` (`packaging/pkgtest.sh` builds one) | AUR first; the distributions after their review |
