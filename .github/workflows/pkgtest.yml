@@ -142,7 +142,12 @@ jobs:
           cat Manifest
           mkdir -p /etc/portage/package.accept_keywords && echo 'dev-libs/noqtis ~amd64' > /etc/portage/package.accept_keywords/noqtis
           export FEATURES='-ipc-sandbox -network-sandbox -pid-sandbox -sandbox -usersandbox'
-          FEATURES=test USE=test emerge --getbinpkg --usepkg -q dev-libs/noqtis
+          # tests for noqtis only, not for every dependency it pulls in
+          mkdir -p /etc/portage/env /etc/portage/package.env
+          echo 'FEATURES="test"' > /etc/portage/env/test.conf
+          echo 'dev-libs/noqtis test.conf' > /etc/portage/package.env/noqtis
+          echo 'dev-libs/noqtis test' >> /etc/portage/package.use
+          emerge --getbinpkg --usepkg -q dev-libs/noqtis
           noqtis --version
           emerge --getbinpkg -q dev-util/pkgcheck || emerge -q dev-util/pkgcheck
           cd /var/db/repos/guru && pkgcheck scan --exit error dev-libs/noqtis

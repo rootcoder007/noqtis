@@ -909,15 +909,18 @@ static void tts(void) {
     printf("tcli: no working openssl; the live TSA checks are skipped\n");
     return;
   }
-  /* LibreSSL (macOS's /usr/bin/openssl) ignores signer_digest and signs
-   * the reply with SHA-1, which noqtis refuses: check that it does, then
-   * skip the checks that need a SHA-256 reply */
+  /* LibreSSL (macOS's /usr/bin/openssl) and OpenSSL 1.0 (CentOS 7)
+   * ignore signer_digest and sign the reply with SHA-1, which noqtis
+   * refuses: check that it does, then skip the checks that need a
+   * SHA-256 reply */
   if (system("openssl version >q.over 2>&1") == 0 &&
-      has("q.over", "LibreSSL")) {
+      (has("q.over", "LibreSSL") || has("q.over", "OpenSSL 1.0") ||
+       has("q.over", "OpenSSL 0."))) {
     wantts(2, "ossl", "q.a.rcmd",
            "seal -k q.c --tsa http://127.0.0.1:@PORT@/tsr qts");
     ok(has("q.err", "SHA-1"), "a SHA-1 signed reply is refused as such");
-    printf("tcli: openssl is LibreSSL; the live TSA checks are skipped\n");
+    printf("tcli: openssl signs replies with SHA-1; the live TSA checks "
+           "are skipped\n");
     return;
   }
   wantts(0, "ossl", "q.a.rcmd",
