@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # Weekly pull requests for the pinned GitHub Actions, the ClusterFuzzLite
-# base image and the site's npm packages. The library itself has no
+# base image, the site's npm packages and the hash-locked Python tools
+# pkgs.yml installs (.github/pkgs). The library itself has no
 # dependencies.
 version: 2
 updates:
@@ -22,4 +23,11 @@ updates:
       interval: weekly
     groups:
       site:
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directory: /.github/pkgs
+    schedule:
+      interval: weekly
+    groups:
+      pkgs:
         patterns: ["*"]
