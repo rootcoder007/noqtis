@@ -104,8 +104,10 @@ jobs:
           cmake --build /tmp/b --parallel
           ctest --test-dir /tmp/b --output-on-failure -j 4 | tee /tmp/ct.txt
           ! grep -q 'live TSA checks are skipped' /tmp/b/Testing/Temporary/LastTest.log
-          nm -D /tmp/b/libnoqtis* 2>/dev/null | grep -w syscall || nm /tmp/b/noqtis | grep -w syscall
-          /tmp/b/noqtis --version
+          # the fallback is what got built: rand.o calls syscall, not getrandom
+          nm /tmp/b/libnoqtis.a | grep -w "U syscall"
+          ! nm /tmp/b/libnoqtis.a | grep -w "U getrandom"
+          /tmp/b/bin/noqtis --version
           SH
           docker run --rm -v "$PWD:/src" -v "$PWD/og.sh:/og.sh:ro" quay.io/pypa/manylinux2014_x86_64 sh /og.sh
 
