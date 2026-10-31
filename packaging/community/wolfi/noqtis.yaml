@@ -71,6 +71,10 @@ subpackages:
       - uses: split/manpages
 
 test:
+  environment:
+    contents:
+      packages:
+        - busybox
   pipeline:
     - runs: |
         noqtis --version

@@ -58,7 +58,7 @@ jobs:
         run: |
           cat > void.sh <<'SH'
           set -eu
-          xbps-install -Syu xbps >/dev/null; xbps-install -Syu >/dev/null; xbps-install -y git bash >/dev/null
+          xbps-install -Syu xbps >/dev/null; xbps-install -Syu >/dev/null; xbps-install -y git bash base-chroot >/dev/null
           # as void-packages' own CI does: build in this container (ethereal), no user namespace
           cd /root && git clone -q --depth 1 https://github.com/void-linux/void-packages.git
           cp -r /src/packaging/community/void/srcpkgs/noqtis void-packages/srcpkgs/
@@ -134,7 +134,7 @@ jobs:
         shell: bash
         run: |
           case "$RUNNER_OS" in
-            Linux)   printf 'c_compiler: [gcc]\nc_compiler_version: ["14"]\nc_stdlib: [sysroot]\nc_stdlib_version: ["2.17"]\n' > cf.yaml ;;
+            Linux)   printf 'c_compiler: [gcc]\nc_compiler_version: ["14"]\nc_stdlib: [sysroot]\nc_stdlib_version: ["2.28"]\n' > cf.yaml ;;
             macOS)   printf 'c_compiler: [clang]\nc_compiler_version: ["19"]\nc_stdlib: [macosx_deployment_target]\nc_stdlib_version: ["11.0"]\n' > cf.yaml ;;
             Windows) printf 'c_compiler: [vs2022]\nc_stdlib: [vs]\nc_stdlib_version: ["2022"]\n' > cf.yaml ;;
           esac
