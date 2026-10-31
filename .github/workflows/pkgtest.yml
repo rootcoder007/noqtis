@@ -144,7 +144,9 @@ jobs:
           mkdir -p /var/db/repos/guru/dev-libs/noqtis /var/db/repos/guru/metadata /var/db/repos/guru/profiles
           printf 'masters = gentoo\nthin-manifests = true\n' > /var/db/repos/guru/metadata/layout.conf
           echo guru > /var/db/repos/guru/profiles/repo_name
-          printf '[guru]\nlocation = /var/db/repos/guru\n' > /etc/portage/repos.conf
+          # add guru next to gentoo; a repos.conf file with guru alone hides gentoo from pkgcheck
+          mkdir -p /etc/portage/repos.conf
+          printf '[guru]\nlocation = /var/db/repos/guru\n' > /etc/portage/repos.conf/guru.conf
           cp packaging/community/guru/dev-libs/noqtis/* /var/db/repos/guru/dev-libs/noqtis/
           cd /var/db/repos/guru/dev-libs/noqtis
           ebuild noqtis-0.1.2.ebuild manifest
@@ -157,7 +159,9 @@ jobs:
           echo 'dev-libs/noqtis test.conf' > /etc/portage/package.env/noqtis
           mkdir -p /etc/portage/package.use
           echo 'dev-libs/noqtis test' > /etc/portage/package.use/noqtis
-          emerge --getbinpkg --usepkg -q dev-libs/noqtis
+          emerge --getbinpkg --usepkg -q --onlydeps --with-test-deps dev-libs/noqtis
+          emerge --quiet-build=n dev-libs/noqtis 2>&1 | tee /tmp/em.txt
+          grep -E '^100% tests passed' /tmp/em.txt
           noqtis --version
           emerge --getbinpkg -q dev-util/pkgcheck || emerge -q dev-util/pkgcheck
           cd /var/db/repos/guru && pkgcheck scan --exit error dev-libs/noqtis
