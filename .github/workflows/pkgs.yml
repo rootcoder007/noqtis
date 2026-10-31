@@ -25,7 +25,8 @@ jobs:
   alpine:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    container: alpine:edge
+    # alpine:edge
+    container: alpine@sha256:020dfcbaaf4cc1078bf2d9c7ba31a8466e334061dcd2f248001d68f79e52c000
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -45,7 +46,8 @@ jobs:
   aur:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    container: archlinux:base-devel
+    # archlinux:base-devel
+    container: archlinux@sha256:624bdc7fc6615155d67bc34cf7146c0c9fd0e3c92943977da63a630e4ca49c30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,7 +72,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     container:
-      image: ghcr.io/void-linux/void-glibc-full
+      # ghcr.io/void-linux/void-glibc-full:latest
+      image: ghcr.io/void-linux/void-glibc-full@sha256:9eb02d7ed63f77b785f5b597099292767fab23bbb824aa987f93ac583d8aa44f
       options: --privileged
       volumes:
         - /dev:/dev
@@ -118,7 +121,7 @@ jobs:
           yum install -q -y epel-release && yum install -q -y openssl11
           mkdir -p /tmp/o && ln -s /usr/bin/openssl11 /tmp/o/openssl && export PATH=/tmp/o:$PATH
           openssl version
-          pip install -q cmake ninja
+          pip install -q --require-hashes -r /src/.github/pkgs/cmake.txt
           cmake -S /src -B /tmp/b -G Ninja -DCMAKE_BUILD_TYPE=Release -DNQOSSL=OFF
           cmake --build /tmp/b --parallel
           ctest --test-dir /tmp/b --output-on-failure -j 4 | tee /tmp/ct.txt
@@ -128,7 +131,7 @@ jobs:
           ! nm /tmp/b/libnoqtis.a | grep -w "U getrandom"
           /tmp/b/bin/noqtis --version
           SH
-          docker run --rm -v "$PWD:/src" -v "$PWD/og.sh:/og.sh:ro" quay.io/pypa/manylinux2014_x86_64 sh /og.sh
+          docker run --rm -v "$PWD:/src" -v "$PWD/og.sh:/og.sh:ro" quay.io/pypa/manylinux2014_x86_64@sha256:5f0bcf92ed65391c7df442763168887d97ae734f2fbb17012eb6bed4a8aef98f sh /og.sh
 
   wolfi:
     runs-on: ubuntu-24.04
@@ -140,12 +143,12 @@ jobs:
       - name: melange build (with the recipe's tests)
         run: |
           mkdir w && cp packaging/community/wolfi/noqtis.yaml w/ && sed -i '/uses: test\/pkgconf/d; /uses: test\/tw\/ldd-check/d' w/noqtis.yaml
-          docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange:latest keygen
-          docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange:latest build noqtis.yaml \
+          docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange@sha256:c6eea71bf274b94d84c04238861d7abea55b61b50da921b88c194c112123593b keygen
+          docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange@sha256:c6eea71bf274b94d84c04238861d7abea55b61b50da921b88c194c112123593b build noqtis.yaml \
             --arch x86_64 --signing-key melange.rsa --runner bubblewrap \
             --repository-append https://packages.wolfi.dev/os \
             --keyring-append https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
-          docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange:latest test noqtis.yaml \
+          docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange@sha256:c6eea71bf274b94d84c04238861d7abea55b61b50da921b88c194c112123593b test noqtis.yaml \
             --arch x86_64 --runner bubblewrap \
             --repository-append /w/packages --keyring-append /w/melange.rsa.pub \
             --repository-append https://packages.wolfi.dev/os \
@@ -155,7 +158,8 @@ jobs:
   gentoo:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    container: gentoo/stage3:latest
+    # gentoo/stage3:latest, as in ci.yml
+    container: gentoo/stage3@sha256:1ca7647d1ce968d02c2858ee4201e2173675fd3fc0754a8acd583d9288b75478
     steps:
       - name: portage tree
         run: FEATURES='-ipc-sandbox -network-sandbox -pid-sandbox -sandbox -usersandbox' emerge-webrsync -q
@@ -259,7 +263,7 @@ jobs:
       - name: conan create (static and shared, with test_package)
         shell: bash
         run: |
-          pip install -q "conan>=2.1"
+          pip install -q --require-hashes -r .github/pkgs/conan.txt
           conan profile detect
           conan create packaging/community/conan/recipes/noqtis/all --version 0.1.2 --build=missing
           conan create packaging/community/conan/recipes/noqtis/all --version 0.1.2 --build=missing -o "noqtis/*:shared=True"
@@ -275,9 +279,8 @@ jobs:
         shell: pwsh
         run: |
           $m = "packaging/community/winget/manifests/r/rootcoder007/noqtis/0.1.2"
-          Invoke-WebRequest https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle -OutFile wg.msixbundle -ErrorAction SilentlyContinue
           if (Get-Command winget -ErrorAction SilentlyContinue) { winget validate --manifest $m } else { Write-Host "winget not on this runner; checking against the schemas instead" }
-          pip install -q check-jsonschema
+          pip install -q --require-hashes -r .github/pkgs/jsonschema.txt
           check-jsonschema --schemafile https://aka.ms/winget-manifest.version.1.10.0.schema.json "$m/rootcoder007.noqtis.yaml"
           check-jsonschema --schemafile https://aka.ms/winget-manifest.installer.1.10.0.schema.json "$m/rootcoder007.noqtis.installer.yaml"
           check-jsonschema --schemafile https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json "$m/rootcoder007.noqtis.locale.en-US.yaml"
@@ -299,7 +302,10 @@ jobs:
       - name: scoop install from the manifest
         shell: pwsh
         run: |
-          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          # the Scoop installer at a fixed commit, checked before it runs
+          Invoke-WebRequest https://raw.githubusercontent.com/ScoopInstaller/Install/1e2f334083d609986d8c8bc9e31ae8e87c39fab4/install.ps1 -OutFile scoop-install.ps1
+          if ((Get-FileHash scoop-install.ps1 -Algorithm SHA256).Hash -ne "94F983B190438311E006B957DB7C8422709E0BA62A6C2AC04E278164108F2512") { throw "Scoop installer hash mismatch" }
+          & ./scoop-install.ps1 -RunAsAdmin
           $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
           scoop install (Resolve-Path packaging/community/scoop/bucket/noqtis.json).Path
           noqtis --version
