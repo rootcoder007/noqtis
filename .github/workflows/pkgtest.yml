@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 90
     container: alpine:edge
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: abuild, check, install, use
         run: |
           apk add -q alpine-sdk sudo pkgconf cmake samurai
@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 90
     container: archlinux:base-devel
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: makepkg, check, install, use, .SRCINFO
         run: |
           pacman -Syu --noconfirm --needed cmake pkgconf git
@@ -44,7 +44,7 @@ jobs:
           noqtis --version
           sh tests/consumer/run.sh /usr /tmp/use
           cat /b/.SRCINFO
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aur-srcinfo
           path: /b/.SRCINFO
@@ -65,7 +65,7 @@ jobs:
           sed -i 's|repo-default|repo-ci|g' /etc/xbps.d/*-repository-*.conf
           xbps-install -Syu xbps && xbps-install -yu && xbps-install -y sudo bash curl git
           useradd -G xbuilder -M builder
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: xbps-src pkg noqtis (with checks)
         run: |
           git clone -q --depth 1 https://github.com/void-linux/void-packages.git /vp
@@ -80,27 +80,33 @@ jobs:
           ls -l hostdir/binpkgs/
 
   oldglibc:
-    # glibc 2.17 (CentOS 7, manylinux2014, the conda-forge sysroot): no <sys/random.h>
+    # glibc 2.17 (CentOS 7, manylinux2014, the conda-forge sysroot): no <sys/random.h>.
+    # docker run, not container:, since the runner's node cannot start on glibc 2.17
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    container: quay.io/pypa/manylinux2014_x86_64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: build this tree and run the whole suite
         run: |
+          cat > og.sh <<'SH'
+          set -eu
           ldd --version | head -1
           test ! -e /usr/include/sys/random.h
-          pipx install cmake ninja >/dev/null 2>&1 || python3.12 -m pip install -q cmake ninja
-          cmake -S . -B b -G Ninja -DCMAKE_BUILD_TYPE=Release -DNQOSSL=OFF
-          cmake --build b --parallel
-          ctest --test-dir b --output-on-failure -j 4
-          ./b/noqtis --version
+          export PATH=/opt/python/cp312-cp312/bin:$PATH
+          pip install -q cmake ninja
+          cmake -S /src -B /tmp/b -G Ninja -DCMAKE_BUILD_TYPE=Release -DNQOSSL=OFF
+          cmake --build /tmp/b --parallel
+          ctest --test-dir /tmp/b --output-on-failure -j 4
+          nm -D /tmp/b/libnoqtis* 2>/dev/null | grep -w syscall || nm /tmp/b/noqtis | grep -w syscall
+          /tmp/b/noqtis --version
+          SH
+          docker run --rm -v "$PWD:/src" -v "$PWD/og.sh:/og.sh:ro" quay.io/pypa/manylinux2014_x86_64 sh /og.sh
 
   wolfi:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: melange build (with the recipe's tests)
         run: |
           mkdir w && cp packaging/community/wolfi/noqtis.yaml w/ && sed -i '/uses: test\/pkgconf/d; /uses: test\/tw\/ldd-check/d' w/noqtis.yaml
@@ -123,7 +129,7 @@ jobs:
     steps:
       - name: portage tree
         run: FEATURES='-ipc-sandbox -network-sandbox -pid-sandbox -sandbox -usersandbox' emerge-webrsync -q
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Manifest, pkgcheck, build with tests, install
         run: |
           mkdir -p /var/db/repos/guru/dev-libs/noqtis /var/db/repos/guru/metadata /var/db/repos/guru/profiles
@@ -140,7 +146,7 @@ jobs:
           noqtis --version
           emerge --getbinpkg -q dev-util/pkgcheck || emerge -q dev-util/pkgcheck
           cd /var/db/repos/guru && pkgcheck scan --exit error dev-libs/noqtis
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: guru-manifest
           path: /var/db/repos/guru/dev-libs/noqtis/Manifest
@@ -153,7 +159,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: the C toolchain conda-forge pins on this system
         shell: bash
         run: |
@@ -163,7 +169,7 @@ jobs:
             Windows) printf 'c_compiler: [vs2022]\nc_stdlib: [vs]\nc_stdlib_version: ["2022"]\n' > cf.yaml ;;
           esac
           cat cf.yaml
-      - uses: prefix-dev/rattler-build-action@v0.2.34
+      - uses: prefix-dev/rattler-build-action@1ca5f45832f419a46d1326ccc5861d7e14d67c44 # v0.2.39
         with:
           recipe-path: packaging/community/conda-forge/recipes/noqtis/recipe.yaml
           build-args: -c conda-forge -m cf.yaml
@@ -177,7 +183,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: vcpkg install noqtis[tool] from the port
         shell: bash
         run: |
@@ -195,8 +201,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: conan create (static and shared, with test_package)
@@ -211,7 +217,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: validate the manifests and run the installer the way winget does
         shell: pwsh
         run: |
@@ -234,7 +240,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: scoop install from the manifest
         shell: pwsh
         run: |
