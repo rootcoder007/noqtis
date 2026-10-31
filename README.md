@@ -1,11 +1,11 @@
 # NOQTIS <img src="docs/logo/noqtis-hex.svg" align="right" height="139" alt="NOQTIS hex logo" />
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16049/badge)](https://www.bestpractices.dev/projects/16049)
-[![Release](https://img.shields.io/github/v/release/rootcoder007/noqtis?label=release)](https://github.com/rootcoder007/noqtis/releases/latest)
-[![PyPI](https://img.shields.io/pypi/v/noqtis?label=PyPI)](https://pypi.org/project/noqtis/)
-[![npm](https://img.shields.io/npm/v/noqtis?label=npm)](https://www.npmjs.com/package/noqtis)
-[![crates.io](https://img.shields.io/crates/v/noqtis?label=crates.io)](https://crates.io/crates/noqtis)
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.rootcoder007/noqtis?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.rootcoder007/noqtis)
+[![Release](https://img.shields.io/github/v/release/rootcoder007/noqtis?label=release&color=2ea44f)](https://github.com/rootcoder007/noqtis/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/noqtis?label=PyPI&color=3775a9)](https://pypi.org/project/noqtis/)
+[![npm](https://img.shields.io/npm/v/noqtis?label=npm&color=cb3837)](https://www.npmjs.com/package/noqtis)
+[![crates.io](https://img.shields.io/crates/v/noqtis?label=crates.io&color=dea584)](https://crates.io/crates/noqtis)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.rootcoder007/noqtis?label=Maven%20Central&color=c71a36)](https://central.sonatype.com/artifact/io.github.rootcoder007/noqtis)
 [![Go Reference](https://pkg.go.dev/badge/github.com/rootcoder007/noqtis/bindings/go.svg)](https://pkg.go.dev/github.com/rootcoder007/noqtis/bindings/go)
 [![r-universe](https://rootcoder007.r-universe.dev/badges/noqtis)](https://rootcoder007.r-universe.dev/noqtis)
 [![COPR](https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/package/noqtis/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/)

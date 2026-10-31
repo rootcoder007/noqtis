@@ -110,7 +110,12 @@ const { where = false } = Astro.props;
       box.append(bar, el("div", { class: "pi-row" }, pre, cp));
       const lk = LINKS[sel];
       host.append(box, el("p", { class: "pi-note" }, (leaf.note || "") + (lk ? " " : ""), ...(lk ? [el("a", { href: lk[1] }, "On " + lk[0] + " \u2197")] : [])));
-      requestAnimationFrame(() => { if (act) { ind.style.setProperty("--w", act.offsetWidth + "px"); ind.style.setProperty("--x", act.offsetLeft + "px"); } });
+      const place = () => { if (act && act.isConnected) { ind.style.setProperty("--w", act.offsetWidth + "px"); ind.style.setProperty("--x", act.offsetLeft + "px"); } };
+      requestAnimationFrame(place);
+      /* the tabs change width when the page zooms, resizes or its fonts load:
+         the highlight is measured again each time, so it stays under its tab */
+      if (window.ResizeObserver) { if (root.nqro) root.nqro.disconnect(); root.nqro = new ResizeObserver(place); root.nqro.observe(bar); }
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(place);
     }
     drawInst();
     fetch("https://api.github.com/repos/rootcoder007/noqtis/releases/latest").then((r) => r.ok ? r.json() : null).then((j) => {
