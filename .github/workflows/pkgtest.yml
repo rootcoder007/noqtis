@@ -93,10 +93,15 @@ jobs:
           ldd --version | head -1
           test ! -e /usr/include/sys/random.h
           export PATH=/opt/python/cp312-cp312/bin:$PATH
+          # OpenSSL 1.0's ts signs with SHA-1; give tcli a 1.1 openssl so no TSA check skips
+          yum install -q -y epel-release && yum install -q -y openssl11
+          mkdir -p /tmp/o && ln -s /usr/bin/openssl11 /tmp/o/openssl && export PATH=/tmp/o:$PATH
+          openssl version
           pip install -q cmake ninja
           cmake -S /src -B /tmp/b -G Ninja -DCMAKE_BUILD_TYPE=Release -DNQOSSL=OFF
           cmake --build /tmp/b --parallel
-          ctest --test-dir /tmp/b --output-on-failure -j 4
+          ctest --test-dir /tmp/b --output-on-failure -j 4 | tee /tmp/ct.txt
+          ! grep -q 'live TSA checks are skipped' /tmp/b/Testing/Temporary/LastTest.log
           nm -D /tmp/b/libnoqtis* 2>/dev/null | grep -w syscall || nm /tmp/b/noqtis | grep -w syscall
           /tmp/b/noqtis --version
           SH
@@ -146,7 +151,8 @@ jobs:
           mkdir -p /etc/portage/env /etc/portage/package.env
           echo 'FEATURES="test"' > /etc/portage/env/test.conf
           echo 'dev-libs/noqtis test.conf' > /etc/portage/package.env/noqtis
-          echo 'dev-libs/noqtis test' >> /etc/portage/package.use
+          mkdir -p /etc/portage/package.use
+          echo 'dev-libs/noqtis test' > /etc/portage/package.use/noqtis
           emerge --getbinpkg --usepkg -q dev-libs/noqtis
           noqtis --version
           emerge --getbinpkg -q dev-util/pkgcheck || emerge -q dev-util/pkgcheck
