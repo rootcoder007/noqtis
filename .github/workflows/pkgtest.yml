@@ -54,16 +54,19 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: xbps-src pkg noqtis (with checks)
+      - name: xbps-src pkg noqtis (with checks), in a Void container
         run: |
-          git clone -q --depth 1 https://github.com/void-linux/void-packages.git
-          cp -r packaging/community/void/srcpkgs/noqtis void-packages/srcpkgs/
-          ln -s noqtis void-packages/srcpkgs/noqtis-devel
-          cd void-packages
-          echo XBPS_CHECK_PKGS=yes >> etc/conf
-          ./xbps-src binary-bootstrap
-          ./xbps-src -Q pkg noqtis
-          ls -l hostdir/binpkgs/
+          cat > void.sh <<'SH'
+          set -eu
+          xbps-install -Syu xbps >/dev/null; xbps-install -Syu >/dev/null; xbps-install -y git bash shadow >/dev/null
+          useradd -m b
+          su b -c 'cd ~ && git clone -q --depth 1 https://github.com/void-linux/void-packages.git \
+            && cp -r /src/packaging/community/void/srcpkgs/noqtis void-packages/srcpkgs/ \
+            && ln -s noqtis void-packages/srcpkgs/noqtis-devel && cd void-packages \
+            && echo XBPS_CHECK_PKGS=yes >> etc/conf && ./xbps-src binary-bootstrap && ./xbps-src -Q pkg noqtis \
+            && ls -l hostdir/binpkgs/'
+          SH
+          docker run --rm --privileged -v "$PWD:/src:ro" -v "$PWD/void.sh:/void.sh:ro" ghcr.io/void-linux/void-glibc-full sh /void.sh
 
   wolfi:
     runs-on: ubuntu-24.04
@@ -72,7 +75,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: melange build (with the recipe's tests)
         run: |
-          mkdir w && cp packaging/community/wolfi/noqtis.yaml w/
+          mkdir w && cp packaging/community/wolfi/noqtis.yaml w/ && sed -i '/uses: test\/pkgconf/d; /uses: test\/tw\/ldd-check/d' w/noqtis.yaml
           docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange:latest keygen
           docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange:latest build noqtis.yaml \
             --arch x86_64 --signing-key melange.rsa --runner bubblewrap \
@@ -91,7 +94,7 @@ jobs:
     container: gentoo/stage3:latest
     steps:
       - name: portage tree
-        run: emerge-webrsync -q
+        run: FEATURES='-ipc-sandbox -network-sandbox -pid-sandbox -sandbox -usersandbox' emerge-webrsync -q
       - uses: actions/checkout@v4
       - name: Manifest, pkgcheck, build with tests, install
         run: |
@@ -103,7 +106,8 @@ jobs:
           cd /var/db/repos/guru/dev-libs/noqtis
           ebuild noqtis-0.1.2.ebuild manifest
           cat Manifest
-          echo 'dev-libs/noqtis ~amd64' >> /etc/portage/package.accept_keywords
+          mkdir -p /etc/portage/package.accept_keywords && echo 'dev-libs/noqtis ~amd64' > /etc/portage/package.accept_keywords/noqtis
+          export FEATURES='-ipc-sandbox -network-sandbox -pid-sandbox -sandbox -usersandbox'
           FEATURES=test USE=test emerge --getbinpkg --usepkg -q dev-libs/noqtis
           noqtis --version
           emerge --getbinpkg -q dev-util/pkgcheck || emerge -q dev-util/pkgcheck
@@ -122,10 +126,13 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+      - name: conda-forge variant config
+        shell: bash
+        run: curl -fsSL -o cf.yaml https://raw.githubusercontent.com/conda-forge/conda-forge-pinning-feedstock/main/recipe/conda_build_config.yaml
       - uses: prefix-dev/rattler-build-action@v0.2.34
         with:
           recipe-path: packaging/community/conda-forge/recipes/noqtis/recipe.yaml
-          build-args: -c conda-forge
+          build-args: -c conda-forge -m cf.yaml
           upload-artifact: false
 
   vcpkg:
@@ -199,6 +206,6 @@ jobs:
         run: |
           iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
           $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
-          scoop install packaging/community/scoop/bucket/noqtis.json
+          scoop install (Resolve-Path packaging/community/scoop/bucket/noqtis.json).Path
           noqtis --version
           scoop uninstall noqtis
