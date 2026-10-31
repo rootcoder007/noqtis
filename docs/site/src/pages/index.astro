@@ -1,0 +1,450 @@
+---
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// The home page, after pi.dev's landing page (its markup, CSS and story controller were
+// read with REA): a parchment grid, a boxed nav, an italic serif display, the install
+// switcher, and one sticky terminal that replays the active section's session. Every
+// session line is real noqtis output, recorded by scripts/demos.sh into src/data/demos.json.
+import "@fontsource-variable/newsreader/wght.css";
+import "@fontsource-variable/newsreader/wght-italic.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
+import Switch from "../components/Switch.astro";
+import logo from "../assets/noqtis-hex.svg";
+import demos from "../data/demos.json";
+const b = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOQTIS: post-quantum seals for the files your results came from</title>
+<meta name="description" content="NOQTIS seals a folder with a post-quantum signature, so anyone can check later that nothing changed. One C11 library and a command-line tool, no dependencies.">
+<link rel="icon" href={`${b}favicon.svg`} type="image/svg+xml">
+<style is:global>
+
+  /* Layout and tokens after pi.dev's landing page (captured with REA): parchment
+     grid ground, boxed sticky nav, italic serif display, mono UI, terminal figures. */
+  :root {
+    --ground: #e9e5e1; --grid: #8b847d1c; --panel: #f4f2f0; --panel-soft: #eef1f3;
+    --line: #8b847d59; --line-strong: #5c575240; --text: #252f3df5; --copy: #384251dc;
+    --muted: #5c5752c4; --accent: #12706b; --accent-soft: #12706b17; --accent2: #a21a77;
+    --ctl: #252f3d08; --ctl-hover: #252f3d10; --shadow: #5c57521f; --term: #eef1f3; --term-text: #2b3442;
+    --ok: #2e7d4f; --fail: #b3412a;
+    --serif: "Newsreader Variable", "Newsreader", "Iowan Old Style", Palatino, Georgia, serif;
+    --mono: "Commit Mono", "JetBrains Mono Variable", "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --ground: #0d1116; --grid: #ffffff0b; --panel: #161b22e6; --panel-soft: #1a2029;
+    --line: #8b847d40; --line-strong: #c9c4bf33; --text: #e9e7e4f5; --copy: #d4d2cfd6;
+    --muted: #b7b1aac4; --accent: #4fd1c5; --accent-soft: #4fd1c51c; --accent2: #f06bc8;
+    --ctl: #ffffff04; --ctl-hover: #ffffff09; --shadow: #00000059; --term: #11161d; --term-text: #d8dde4;
+    --ok: #5db87a; --fail: #e8704f; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --ground: #0d1116; --grid: #ffffff0b; --panel: #161b22e6; --panel-soft: #1a2029;
+    --line: #8b847d40; --line-strong: #c9c4bf33; --text: #e9e7e4f5; --copy: #d4d2cfd6;
+    --muted: #b7b1aac4; --accent: #4fd1c5; --accent-soft: #4fd1c51c; --accent2: #f06bc8;
+    --ctl: #ffffff04; --ctl-hover: #ffffff09; --shadow: #00000059; --term: #11161d; --term-text: #d8dde4;
+    --ok: #5db87a; --fail: #e8704f; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; color: var(--text); font: 400 1.125rem/1.6 var(--serif);
+    background-color: var(--ground);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 14px 14px; }
+  a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--accent); }
+  code { font: .82em var(--mono); background: var(--ctl); border: 1px solid var(--line); padding: .05em .35em; border-radius: 2px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+
+  /* announcement + nav */
+  .announce { text-align: center; font-style: italic; font-size: 1.05rem; padding: .35rem 16px; background: var(--panel-soft); border-bottom: 1px solid var(--line); }
+  .nav { position: sticky; top: .6rem; z-index: 10; margin: .6rem auto 0; max-width: 1120px; padding: 0 16px; }
+  .nav-in { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 64px; padding: 0 1.1rem;
+    background: linear-gradient(var(--panel), var(--panel-soft)); border: 1px solid var(--line-strong); box-shadow: 0 2px 18px var(--shadow); }
+  .nav-logo { display: flex; align-items: center; gap: .55rem; text-decoration: none; font: 700 .9rem var(--mono); letter-spacing: .14em; }
+  .nav-logo img { width: 26px; height: 30px; }
+  .nav-links { display: flex; gap: 1.6rem; }
+  .nav-links a { font: .74rem var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-end { justify-self: end; display: flex; gap: .4rem; align-items: center; }
+  .icon-btn { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; border-radius: 0; }
+  .icon-btn:hover, .icon-btn:focus-visible { color: var(--text); border-color: var(--line); outline: none; }
+
+  /* hero */
+  .hero { text-align: center; padding: 4.5rem 0 3.5rem; }
+  .hero-logo { width: 92px; height: auto; display: block; margin: 0 auto 1.8rem; }
+  .hero-logo-stage { position: relative; width: 92px; height: 106px; margin: 0 auto 1.8rem; }
+  .hero-logo-stage .hero-logo { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; transition: opacity 220ms ease; }
+  .hero-logo-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 420ms ease; }
+  .hero-logo-stage.playing .hero-logo { opacity: 0; }
+  .hero-logo-stage:not(.playing) canvas { opacity: 0; }
+  .hero h1 { font: italic 400 clamp(2.2rem, 5vw, 3.3rem)/1.12 var(--serif); letter-spacing: -.012em; margin: 0 0 1.3rem; text-wrap: balance; }
+  .hero h1 em { color: var(--accent); }
+  .hero p.sub { font-size: 1.28rem; line-height: 1.5; color: var(--copy); margin: 0 auto 2.2rem; max-width: 38rem; }
+  .hero .pi { max-width: 760px; margin: 0 auto; }
+
+  /* bracket buttons */
+  .bb { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: .52rem .8rem; border: 1px solid var(--line); border-radius: 0;
+    background: var(--ctl); color: var(--muted); font: .72rem var(--mono); letter-spacing: .12em; text-transform: uppercase; text-decoration: none; cursor: pointer;
+    transition: border-color 140ms ease, color 140ms ease, background 140ms ease; flex: 0 0 auto; }
+  .bb::before { content: "["; margin-right: .7ch; color: var(--accent); display: inline-block; transition: transform 220ms cubic-bezier(.22,1,.36,1); }
+  .bb::after { content: "]"; margin-left: .7ch; color: var(--accent); display: inline-block; transition: transform 220ms cubic-bezier(.22,1,.36,1); }
+  .bb:hover, .bb:focus-visible { border-color: var(--accent); background: var(--ctl-hover); color: var(--text); outline: none; }
+  .bb:hover::before, .bb:focus-visible::before { transform: translateX(-4px); }
+  .bb:hover::after, .bb:focus-visible::after { transform: translateX(4px); }
+
+  /* story: one sticky terminal (pi.dev's landing-stage) that follows the active section */
+  .story-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: 3.2rem; align-items: start; padding: 2rem 0 3rem; }
+  .stage { position: sticky; top: 6.2rem; min-height: calc(100vh - 7rem); display: flex; align-items: flex-start; }
+  .fig { width: 100%; margin: 0; background: var(--term); border: 1px solid var(--line-strong); box-shadow: 0 4px 40px var(--shadow); }
+  .fig-bar { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-bottom: 1px solid var(--line); border-left: 3px solid var(--accent);
+    font: .66rem var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; }
+  .fig-bar .dot { flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .fig-bar .dot.live { background: var(--accent); }
+  .frame { position: relative; aspect-ratio: 920 / 650; overflow: hidden; }
+  .term { position: absolute; inset: 0; margin: 0; padding: .9rem 1rem; overflow: hidden; font-family: var(--mono); font-size: var(--tfs, 11px); line-height: 1.5;
+    color: var(--term-text); white-space: pre; transition: opacity 180ms ease; }
+  .frame.is-swapping .term { opacity: 0; }
+  .term .c { color: var(--text); font-weight: 700; }
+  .term .ok { color: var(--ok); } .term .fail { color: var(--fail); font-weight: 700; } .term .dim { color: var(--muted); }
+  .term .cur { display: inline-block; width: .55em; height: 1.05em; vertical-align: -2px; background: var(--term-text); animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .fig-cap { padding: .68rem .9rem .72rem; border-top: 1px solid var(--line); font: .72rem/1.35 var(--mono); color: var(--muted); background: var(--panel);
+    opacity: 0; transform: translateY(-6px); transition: opacity 220ms cubic-bezier(.22,1,.36,1), transform 220ms cubic-bezier(.22,1,.36,1); }
+  .fig-cap.is-visible { opacity: 1; transform: none; }
+  .copy { padding-bottom: 40vh; }
+  .section { padding: 2.4rem 0 3.2rem; }
+  .section .slot { display: none; }
+  .section-title { font: italic 400 clamp(1.9rem, 3.4vw, 2.6rem)/1.12 var(--serif); letter-spacing: -.01em; margin: 0 0 1.1rem; text-wrap: balance; transition: color 220ms ease; }
+  .section p { color: var(--copy); margin: 0 0 1.05rem; max-width: 34rem; transition: color 220ms ease; }
+  .section .act { display: flex; gap: .8rem; flex-wrap: wrap; align-items: center; margin-top: 1.4rem; transition: opacity 220ms ease; }
+  .copy.synced .section:not(.is-active) .section-title { color: var(--muted); }
+  .copy.synced .section:not(.is-active) p { color: color-mix(in srgb, var(--copy) 55%, transparent); }
+  .copy.synced .section:not(.is-active) .act, .copy.synced .section:not(.is-active) .cmdbox { opacity: .6; }
+  .cmdbox { margin: 1.2rem 0; padding: 1rem 1.1rem; background: var(--panel); border: 1px solid var(--line-strong); box-shadow: 0 4px 30px var(--shadow); font: .8rem/1.7 var(--mono); white-space: pre; overflow-x: auto; transition: opacity 220ms ease; }
+  .cmdbox .p { color: var(--muted); }
+  @media (max-width: 1023px) {
+    .story-grid { grid-template-columns: 1fr; gap: 0; } .stage { display: none; } .copy { padding-bottom: 0; }
+    .section .slot { display: block; margin-bottom: 1.4rem; } .section .slot .fig-cap { opacity: 1; transform: none; }
+  }
+
+  /* callout: what NOQTIS does not do */
+  .callout { text-align: center; padding: 5rem 0 3rem; }
+  .callout h2 { font: italic 400 clamp(2rem, 4vw, 2.8rem)/1.1 var(--serif); margin: 0 0 1rem; }
+  .callout > p { color: var(--copy); max-width: 40rem; margin: 0 auto 1.6rem; }
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.6rem 2rem; margin-top: 3.2rem; text-align: center; }
+  .card svg { width: 30px; height: 30px; color: var(--muted); }
+  .card h3 { font: italic 400 1.45rem/1.2 var(--serif); margin: .6rem 0 .45rem; }
+  .card h3 s { color: var(--muted); }
+  .card p { font-size: 1rem; color: var(--copy); margin: 0 auto; max-width: 18rem; }
+
+  /* get involved */
+  .involve { text-align: center; padding: 3.5rem 0 4rem; }
+  .involve h2 { font: italic 400 clamp(2rem, 4vw, 2.6rem)/1.1 var(--serif); margin: 0 0 2.4rem; }
+  .boxes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.6rem; align-items: start; }
+  .box { background: var(--panel); border: 1px solid var(--line-strong); padding: 2.2rem 1.4rem; }
+  .box:nth-child(2) { margin-top: 2.4rem; }
+  .box h3 { font: italic 400 1.4rem var(--serif); margin: 0 0 .5rem; }
+  .box p { margin: 0; font-size: .98rem; color: var(--copy); }
+  .box { position: relative; transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
+  .box a.main::after { content: ""; position: absolute; inset: 0; }
+  .box a:not(.main) { position: relative; z-index: 1; }
+  .box:hover, .box:focus-within { border-color: var(--accent); box-shadow: 0 4px 30px var(--shadow); transform: translateY(-2px); }
+  .box:hover h3 { color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { .box { transition: none; } .box:hover { transform: none; } }
+
+  footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; padding: 3rem 0 2.4rem; font: .72rem/1.9 var(--mono); color: var(--muted); }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 860px) {
+    .nav-links { display: none; } .nav-in { grid-template-columns: 1fr auto; }
+    .cards, .boxes { grid-template-columns: 1fr; } .box:nth-child(2) { margin-top: 0; }
+    .pi-tab { flex: 0 0 auto; padding: .72rem .8rem; } .pi-row { flex-direction: column; align-items: stretch; padding: .9rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pi-ind, .bb::before, .bb::after { transition: none; } .term .cur { animation: none; } }
+</style>
+</head>
+<body>
+
+<p class="announce" id="announce">NOQTIS is out: post-quantum seals for the files your results came from. <a href="https://github.com/rootcoder007/noqtis/releases/latest">See the latest release</a>.</p>
+
+<nav class="nav" aria-label="Main">
+  <div class="nav-in">
+    <a class="nav-logo" href="#top"><img src={logo.src} alt="">NOQTIS</a>
+    <div class="nav-links">
+      <a href={`${b}start/install/`}>Documentation</a>
+      <a href={`${b}guides/seal/`}>Guides</a>
+      <a href={`${b}spec/capsule/`}>Spec</a>
+      <a href="https://github.com/rootcoder007/noqtis/blob/main/NEWS.md">Changelog</a>
+      <a href={`${b}security/`}>Security</a>
+    </div>
+    <div class="nav-end">
+      <a class="icon-btn" href="https://github.com/rootcoder007/noqtis" aria-label="NOQTIS on GitHub"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
+      <button class="icon-btn" id="theme" type="button" aria-label="Switch light or dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap" id="top">
+  <header class="hero">
+    <div class="hero-logo-stage"><canvas id="logocv" width="320" height="368" aria-hidden="true"></canvas><img class="hero-logo" id="logoimg" src={logo.src} alt="NOQTIS"></div>
+    <h1>Your results will be questioned.<br>Let the files <em>answer</em>.</h1>
+    <p class="sub">NOQTIS seals a folder with a post-quantum signature, so anyone can check later that nothing changed. One C11 library and a command-line tool, no dependencies.</p>
+    <Switch where />
+  </header>
+
+  <div class="story-grid">
+    <div class="stage">
+      <figure class="fig" id="stagefig"></figure>
+    </div>
+    <div class="copy">
+      <section class="section" data-demo="seal" data-title="noqtis - seal a results folder" data-cap="A key pair, one seal, one check: every file's size and two digests are signed in canonical JSON.">
+        <div class="slot"></div>
+      <h2 class="section-title">Why NOQTIS?</h2>
+      <p>A result is only as good as the files it came from. NOQTIS writes <code>noqtis.json</code> (each file's size, SHA-256 and SHA3-256, in canonical JSON) and <code>noqtis.sig</code>, a signature over those exact bytes.</p>
+      <p>Anyone with your public key checks the folder offline, years later, without trusting you, a server or a log. Nothing is uploaded and nothing is published unless you publish it.</p>
+      <p>The library is plain C11 with no third-party code: the same seal checks the same way from the command line, Python, R, JavaScript, Rust, Go and Java.</p>
+      <div class="act"><a class="bb" href={`${b}start/quick/`}>Your first capsule</a></div>
+      </section>
+      <section class="section" data-demo="tamper" data-title="noqtis - one changed byte" data-cap="One appended line, and the check names the file, says why, and exits 1.">
+        <div class="slot"></div>
+      <h2 class="section-title">Fail closed, and say why</h2>
+      <p>Every parser rejects anything the format does not define, and a check that cannot be made is a failed check, never a silent pass. A changed, missing or added file fails the folder.</p>
+      <p>Each failed row comes with the reason and what to do next, in plain words and as <code>--json</code> for CI. Exit status: 0 checked, 1 failed, 2 could not run.</p>
+      <div class="act"><a class="bb" href={`${b}guides/others/`}>Check someone else's capsule</a></div>
+      </section>
+      <section class="section" data-demo="algs" data-title="noqtis - the algorithms" data-cap="ML-DSA, SLH-DSA and ML-KEM byte-identical to NIST's ACVP vectors; HQC matches its reference known-answer files.">
+        <div class="slot"></div>
+      <h2 class="section-title">Post-quantum, and standard</h2>
+      <p>RSA and elliptic-curve signatures will not outlast the records they protect. NOQTIS signs with <strong>ML-DSA</strong> (FIPS 204) and <strong>SLH-DSA</strong> (FIPS 205), alone or as an ML-DSA+Ed25519 hybrid that needs both halves to verify, and encapsulates keys with <strong>ML-KEM</strong> (FIPS 203).</p>
+      <p>Every scheme is checked against the NIST ACVP vectors and Wycheproof. No branch or memory index depends on a secret; ML-DSA signing and ML-KEM decapsulation are also masked.</p>
+      <div class="act"><a class="bb" href={`${b}validation/`}>How it is validated</a></div>
+      </section>
+      <section class="section" data-demo="prove" data-title="noqtis - prove one file" data-cap="The proof carries report.txt's entry and its Merkle path. notes.txt is not in it at all.">
+        <div class="slot"></div>
+      <h2 class="section-title">Show one file, keep the rest</h2>
+      <p>A sealed folder is a Merkle tree. <code>noqtis prove</code> writes a proof for the files you choose; whoever checks it learns those files are in the sealed folder, and nothing about the others: not their names, not their digests.</p>
+      <p>Share a report with a reviewer and keep the participant data private, with the same signature behind both.</p>
+      <div class="act"><a class="bb" href={`${b}spec/capsule/`}>The capsule format</a></div>
+      </section>
+      <section class="section" data-demo="idcard" data-title="noqtis - say who sealed it" data-cap="An identity card signed by the seal's own key: check --card names the sealer, with their ORCID iD.">
+        <div class="slot"></div>
+      <h2 class="section-title">Say who sealed it</h2>
+      <p>A key is a string of bytes; people want a name. <code>noqtis idcard</code> writes a small card, signed by your seal key, that gives your name and, if you want, your ORCID iD, affiliation, e-mail and web page.</p>
+      <p><code>noqtis check --card</code> then says who sealed the folder, and fails if the card belongs to a different key. The card proves the key's holder wrote it, not that the name is true: publish its fingerprint where people already know you, such as your ORCID record or your institution's page.</p>
+      <div class="act"><a class="bb" href={`${b}reference/man/noqtis-idcard-1/`}>noqtis idcard</a></div>
+      </section>
+      <section class="section" data-demo="rotate" data-title="noqtis - rotate a seal key" data-cap="A statement signed by both keys moves trust from the old key to the new one from a given time.">
+        <div class="slot"></div>
+      <h2 class="section-title">Keys change hands</h2>
+      <p>Laptops get replaced and keys leak. <code>noqtis rotate</code> and <code>noqtis revoke</code> write signed statements, and <code>check --keys</code> follows them from the key you already trust.</p>
+      <p>Seals made with a replaced key still pass when a verified RFC 3161 timestamp shows they are older than the change; seals made after it do not.</p>
+      <div class="act"><a class="bb" href={`${b}guides/keys/`}>Keys and key files</a></div>
+      </section>
+      <section class="section" data-demo="export" data-title="noqtis - export for other tools" data-cap="RO-Crate metadata for research repositories; in-toto, DSSE and BagIt from the same capsule.">
+        <div class="slot"></div>
+      <h2 class="section-title">Fits what you already use</h2>
+      <p>Export a checked capsule as an in-toto statement, a DSSE envelope, RO-Crate metadata or a BagIt bag. Add it to CI with one action, or call it from your language:</p>
+      <div class="cmdbox"><span class="p">$</span> pip install noqtis
+<span class="p">$</span> npm install noqtis
+<span class="p">$</span> cargo add noqtis</div>
+      <div class="act"><a class="bb" href={`${b}guides/ci/`}>Use in CI</a></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="callout">
+    <h2>What NOQTIS does not do</h2>
+    <p>NOQTIS keeps its job precise: seal the files and check them. Everything else stays with you, by design.</p>
+    <a class="bb" href={`${b}explain/compare/`}>How it compares</a>
+    <div class="cards">
+      <div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.3 3 14.7 0 18M12 3c-3 3.3-3 14.7 0 18"/></svg><h3>No network</h3><p>Sealing and checking run offline. Checking a capsule by its URL is something you ask for.</p></div>
+      <div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="M8 9h8M8 13h8M8 17h5"/></svg><h3>No public log</h3><p>Nothing about your seal goes anywhere. Add an RFC 3161 timestamp when you want one.</p></div>
+      <div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="12" r="3.5"/><path d="M11.5 12H21M17 12v3.5M20 12v2.5"/></svg><h3>No key server</h3><p>You hand out your public key where people already know you, and they compare its SHA-256.</p></div>
+      <div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/><path d="M15 15l5 5M20 15l-5 5"/></svg><h3>No dependencies</h3><p>Plain C11, no third-party code, an SBOM with nothing else in it.</p></div>
+      <div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12c3-5 15-5 18 0-3 5-15 5-18 0Z"/><circle cx="12" cy="12" r="2.5"/><path d="M4 4l16 16"/></svg><h3>No telemetry</h3><p>It never phones home. There is nothing to opt out of.</p></div>
+      <div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6l8-3Z"/><path d="M12 8v5M12 16v.5"/></svg><h3><s>Audited</s> Not yet audited</h3><p>An independent audit has been applied for. Until a report is published, read the <a href={`${b}security/`}>security page</a>.</p></div>
+    </div>
+  </section>
+
+  <section class="involve">
+    <h2>Get involved with NOQTIS</h2>
+    <div class="boxes">
+      <div class="box"><h3>Issues</h3><p><a class="main" href="https://github.com/rootcoder007/noqtis/issues">GitHub</a> for bugs and features.</p></div>
+      <div class="box"><h3>Security</h3><p>Report a vulnerability <a class="main" href="https://github.com/rootcoder007/noqtis/security/advisories/new">privately</a>.</p></div>
+      <div class="box"><h3>Documentation</h3><p>Read the <a class="main" href={`${b}start/install/`}>documentation</a> or browse the <a href="https://github.com/rootcoder007/noqtis">source on GitHub</a>.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <div>Vansh Singh Ruhela (rootcoder007)<br>Apache-2.0 WITH LLVM-exception<br><a href="https://github.com/rootcoder007/noqtis/blob/main/SECURITY.md">Release signing key</a></div>
+    <div><a href="https://github.com/rootcoder007/noqtis">GitHub</a> · <a href={`${b}start/install/`}>Docs</a> · <a href={`${b}demo/`}>Check in your browser</a></div>
+  </footer>
+</main>
+
+<script type="application/json" id="nqdemos" set:html={JSON.stringify(demos)}></script>
+<script is:inline>
+
+const $ = (s, r = document) => r.querySelector(s);
+function el(tag, attrs = {}, ...kids) { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) k === "on" ? e.addEventListener("click", v) : e.setAttribute(k, v); e.append(...kids); return e; }
+
+/* theme: system by default; the button flips and remembers */
+const root = document.documentElement;
+try { const t = localStorage.getItem("nqtheme"); if (t) root.dataset.theme = t; } catch {}
+$("#theme").addEventListener("click", () => {
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("nqtheme", root.dataset.theme); } catch {}
+});
+
+/* story terminal (pi.dev's demo controller): one sticky terminal shows the session of the
+   active section: the last one whose title midline has crossed 70% of the terminal frame */
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const narrow = matchMedia("(max-width: 1023px)");
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+function paint(line) {
+  const f = document.createDocumentFragment();
+  if (line.startsWith("$ ")) { f.append(el("span", { class: "dim" }, "$ "), el("span", { class: "c" }, line.slice(2))); return f; }
+  const m = line.match(/^(ok|FAIL)(\s+.*)$/);
+  if (m) { f.append(el("span", { class: m[1] === "ok" ? "ok" : "fail" }, m[1]), m[2]); return f; }
+  if (/: OK \(/.test(line)) { f.append(el("span", { class: "ok" }, line)); return f; }
+  if (/FAILED|^noqtis \w+: /.test(line)) { f.append(el("span", { class: "fail" }, line)); return f; }
+  f.append(line); return f;
+}
+function makeFig() {
+  const dot = el("span", { class: "dot" }), title = el("span", {}, "");
+  const term = el("pre", { class: "term", "aria-label": "Recorded terminal session" });
+  const frame = el("div", { class: "frame" }, term);
+  const cap = el("figcaption", { class: "fig-cap" });
+  return { bar: el("div", { class: "fig-bar" }, title, dot), title, dot, frame, term, cap };
+}
+/* the widest line fits the frame: font size from the frame width and the line length */
+function fit(f, lines) {
+  const cols = Math.max(40, ...lines.map((l) => l.length + 2));
+  const w = f.frame.clientWidth - 32, h = f.frame.clientHeight - 28;
+  const byW = w / (cols * 0.6), byH = h / (Math.min(lines.length, 34) * 1.5);
+  f.term.style.setProperty("--tfs", Math.max(6.5, Math.min(13, byW, Math.max(byH, 8))).toFixed(2) + "px");
+}
+async function play(f, lines, token) {
+  f.term.replaceChildren(); f.dot.classList.add("live");
+  const cur = el("span", { class: "cur" });
+  for (const line of lines) {
+    if (token.stop) return;
+    const row = el("div"); f.term.append(row);
+    if (line.startsWith("$ ") && !reduce) {
+      row.append(el("span", { class: "dim" }, "$ "));
+      const c = el("span", { class: "c" }); row.append(c, cur);
+      for (const ch of line.slice(2)) { if (token.stop) return; c.textContent += ch; await wait(22); }
+      await wait(360); cur.remove();
+    } else { row.append(paint(line)); if (!reduce) await wait(28); }
+    f.term.scrollTop = f.term.scrollHeight;
+  }
+  if (token.stop) return;
+  f.term.append(el("div", {}, el("span", { class: "dim" }, "$ "), cur));
+  f.term.scrollTop = f.term.scrollHeight; f.dot.classList.remove("live");
+}
+Promise.resolve(JSON.parse(document.getElementById("nqdemos").textContent)).then((D) => {
+  const sections = [...document.querySelectorAll(".section")];
+  const linesOf = (s) => (D[s.dataset.demo] || []).flatMap((l) => l.split("\n"));
+  const stage = makeFig(); $("#stagefig").append(stage.bar, stage.frame, stage.cap);
+  const copy = $(".copy"); copy.classList.add("synced");
+  let current = null, token = { stop: true };
+  function show(sec) {
+    if (sec === current) return;
+    current = sec; token.stop = true; const t = token = { stop: false };
+    for (const s of sections) s.classList.toggle("is-active", s === sec);
+    stage.cap.classList.remove("is-visible");
+    stage.frame.classList.add("is-swapping");
+    setTimeout(() => {
+      if (t.stop) return;
+      stage.title.textContent = sec.dataset.title; stage.cap.textContent = sec.dataset.cap;
+      const lines = linesOf(sec); fit(stage, lines);
+      stage.frame.classList.remove("is-swapping"); stage.cap.classList.add("is-visible");
+      play(stage, lines, t);
+    }, current ? 220 : 0);
+  }
+  function active() {
+    const fr = stage.frame.getBoundingClientRect();
+    const line = fr.top + fr.height * 0.7;
+    let act = null, firstVisible = null;
+    for (const s of sections) {
+      const r = s.getBoundingClientRect();
+      if (r.bottom > 0 && r.top < innerHeight && !firstVisible) firstVisible = s;
+      const t = $(".section-title", s).getBoundingClientRect();
+      if (t.top + t.height * 0.5 <= line) { act = s; continue; }
+      if (act) break;
+    }
+    return act || firstVisible || sections[0];
+  }
+  let raf = 0;
+  const update = () => { raf = 0; if (!narrow.matches) show(active()); };
+  addEventListener("scroll", () => { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
+  addEventListener("resize", () => { if (current && !narrow.matches) fit(stage, linesOf(current)); update(); });
+  /* narrow screens: one terminal inside each section, played when it scrolls in */
+  for (const s of sections) {
+    const f = makeFig(); f.title.textContent = s.dataset.title; f.cap.textContent = s.dataset.cap;
+    $(".slot", s).append(el("figure", { class: "fig" }, f.bar, f.frame, f.cap));
+    let ran = false;
+    new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting && narrow.matches && !ran) { ran = true; const l = linesOf(s); fit(f, l); play(f, l, { stop: false }); } }, { threshold: 0.18 }).observe(f.frame);
+  }
+  update();
+});
+
+/* hero logo intro (after pi.dev's 18 fps bevelled-block intro): the hexagon's six facets
+   drop in one at a time, lock, flash, and hand over to the real logo */
+(function () {
+  const cv = $("#logocv"), stage = cv && cv.parentElement;
+  if (!cv || !cv.getContext || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const g = cv.getContext("2d"), W = cv.width, H = cv.height, cx = W / 2, cy = H / 2, R = 150;
+  const FPS = 30, STEP = 1000 / FPS, GRID = 14;
+  const cols = ["#00d8cf", "#2fb3e0", "#6a7ff0", "#a85ae6", "#d93fc2", "#ff2fae"];
+  const corner = (k) => [cx + R * Math.cos((Math.PI / 3) * k - Math.PI / 2), cy + R * Math.sin((Math.PI / 3) * k - Math.PI / 2)];
+  const facets = [0, 1, 2, 3, 4, 5].map((k) => [[cx, cy], corner(k), corner(k + 1)]);
+  const order = [3, 2, 4, 1, 5, 0];            /* bottom first, like a stack settling */
+  const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(f > 0 ? v + (255 - v) * f : v * (1 + f))); return `rgb(${c})`; };
+  function tri(pts, dy, color, alpha) {
+    const p = pts.map(([x, y]) => [x, y + dy]);
+    g.globalAlpha = alpha;
+    g.beginPath(); g.moveTo(...p[0]); g.lineTo(...p[1]); g.lineTo(...p[2]); g.closePath();
+    g.fillStyle = color; g.fill();
+    /* bevel: light on edges that face up, dark on edges that face down */
+    for (let i = 0; i < 3; i++) {
+      const a = p[i], b = p[(i + 1) % 3], ny = (b[0] - a[0]);
+      g.beginPath(); g.moveTo(...a); g.lineTo(...b);
+      g.strokeStyle = ny > 0 ? "rgba(255,255,255,.55)" : "rgba(0,0,0,.45)"; g.lineWidth = ny > 0 ? 5 : 6; g.stroke();
+    }
+    const m = [(p[0][0] + p[1][0] + p[2][0]) / 3, (p[0][1] + p[1][1] + p[2][1]) / 3];
+    g.beginPath(); p.forEach(([x, y], i) => { const q = [m[0] + (x - m[0]) * 0.72, m[1] + (y - m[1]) * 0.72]; i ? g.lineTo(...q) : g.moveTo(...q); }); g.closePath();
+    g.fillStyle = shade(color, 0.12); g.fill();
+    g.globalAlpha = 1;
+  }
+  const drop = 8, hold = 1;                    /* frames per facet fall, frames held after lock */
+  const total = order.length * (drop + hold) + 10;
+  let frame = 0, last = 0;
+  stage.classList.add("playing");
+  function draw(t) {
+    if (t - last < STEP) { requestAnimationFrame(draw); return; }
+    last = t; frame++;
+    g.clearRect(0, 0, W, H);
+    order.forEach((k, i) => {
+      const start = i * (drop + hold), f = frame - start;
+      if (f < 0) return;
+      const fall = Math.max(0, drop - f) / drop;
+      const dy = -Math.round((fall * fall * (H + R)) / GRID) * GRID;   /* stepped, gravity-like */
+      tri(facets[k], dy, cols[k], 1);
+    });
+    const end = order.length * (drop + hold);
+    if (frame > end && frame < end + 7 && (frame - end) % 3 < 1) {   /* lock flash */
+      g.globalAlpha = 0.55; g.fillStyle = "#ffffff";
+      g.beginPath(); for (let k = 0; k < 6; k++) { const c = corner(k); k ? g.lineTo(...c) : g.moveTo(...c); } g.closePath(); g.fill(); g.globalAlpha = 1;
+    }
+    if (frame >= total) { stage.classList.remove("playing"); return; }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

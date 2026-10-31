@@ -3,11 +3,17 @@ title: Install
 description: Install the NOQTIS library and command-line tool from source, a package manager, a container or a language package.
 ---
 
+import Switch from "../../../components/Switch.astro";
+
 NOQTIS is one C11 library (`libnoqtis`, header `noqtis.h`) and one
 command-line tool (`noqtis`). Every channel below gives you both, or a
 language binding built on the library.
 
-## From source (works today)
+## Pick your install
+
+<Switch />
+
+## From source
 
 You need a C11 compiler (GCC, Clang, MSVC, MinGW-w64) and CMake.
 
@@ -71,17 +77,17 @@ push.
 | npm (Node, Deno, Bun, browsers) | `npm install noqtis` | available (WebAssembly, nothing to compile) |
 | PyPI | `pip install noqtis` | available (wheels for every OS and CPU) |
 | r-universe (R) | `install.packages("noqtis", repos = c("https://rootcoder007.r-universe.dev", "https://cloud.r-project.org"))` | available (built from each release, binaries for Windows, macOS and Linux) |
-| CRAN (R) | `install.packages("noqtis")` | after CRAN's review of the first release |
+| CRAN (R) | `install.packages("noqtis")` | not yet: not submitted to CRAN; use r-universe |
 | Maven Central (Java 22+) | `io.github.rootcoder007:noqtis` | available (the jar carries the library for Linux, macOS and Windows, x86-64 and arm64) |
 | crates.io (Rust) | `cargo add noqtis` | available |
-| openSUSE Build Service | RPMs and debs for openSUSE, Fedora, Debian, Ubuntu | available (project `home:rootcoder007/noqtis`) |
-| Fedora COPR | `dnf copr enable rootcoder007/noqtis` | available (Fedora and EPEL) |
+| openSUSE Build Service | apt and dnf repositories for Debian 12 and 13, Ubuntu 24.04 and 26.04, Fedora 43 and 44 (the picker above has the commands) | available (project `home:rootcoder007`, package `noqtis`) |
+| Fedora COPR | `dnf copr enable rootcoder007/noqtis`, then `dnf install noqtis` | available (Fedora 43 to 45 and rawhide, EPEL 9 and 10; x86-64, arm64, riscv64) |
 | Go | `go get github.com/rootcoder007/noqtis/bindings/go@latest` | available (cgo; the module proxy has each release) |
-| Scoop, winget, Chocolatey | `scoop install noqtis`, `winget install noqtis` | after the first release, once each accepts it (winget and Chocolatey are moderated) |
-| Arch User Repository | `yay -S noqtis` | after the first release, once the package is uploaded |
-| Nixpkgs, conda-forge | `nix-env -iA nixpkgs.noqtis`, `conda install -c conda-forge noqtis` | first weeks after the first release (their review) |
-| vcpkg, Conan, Alpine, Wolfi | `vcpkg install noqtis`, ... | first weeks after the first release (their review) |
-| Debian, Ubuntu, Fedora, EPEL, homebrew-core | `apt install noqtis`, `dnf install noqtis` | months after the first release (sponsorship and review) |
+| Scoop, winget, Chocolatey | `scoop install noqtis`, `winget install noqtis` | not yet: not submitted (winget and Chocolatey are moderated) |
+| Arch User Repository | `yay -S noqtis` | not yet: the `PKGBUILD` is in `packaging/arch`, not uploaded |
+| Nixpkgs, conda-forge | `nix-env -iA nixpkgs.noqtis`, `conda install -c conda-forge noqtis` | not yet: not submitted (each reviews new packages); `nix build` works from the source tree |
+| vcpkg, Conan, Alpine, Wolfi | `vcpkg install noqtis`, ... | not yet: not submitted (each reviews new packages) |
+| Debian, Ubuntu, Fedora, EPEL, homebrew-core (their own archives) | `apt install noqtis`, `dnf install noqtis` with no extra repository | not yet: these need a sponsor and a review; until then use the OBS and COPR repositories |
 
 ## Release archives
 

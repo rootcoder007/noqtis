@@ -1,0 +1,126 @@
+---
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// The install switcher (after pi.dev's): one tab per way to get NOQTIS, its command,
+// a copy button and a link to where it is published. Every command is run in a clean
+// container before it changes (scripts/tabs.sh). The Maven version is the latest
+// release, read from GitHub when the page opens.
+interface Props { where?: boolean }
+const { where = false } = Astro.props;
+---
+
+<div class="nqsw not-content"><div class="nqsw-root"></div>
+{where && (
+  <nav class="where" aria-label="Where NOQTIS is published"><span class="where-lab">Published on</span><a href="https://github.com/rootcoder007/noqtis/releases/latest">GitHub Releases</a><a href="https://github.com/rootcoder007/homebrew-noqtis">Homebrew</a><a href="https://github.com/rootcoder007/noqtis/pkgs/container/noqtis">GHCR</a><a href="https://pypi.org/project/noqtis/">PyPI</a><a href="https://www.npmjs.com/package/noqtis">npm</a><a href="https://crates.io/crates/noqtis">crates.io</a><a href="https://central.sonatype.com/artifact/io.github.rootcoder007/noqtis">Maven Central</a><a href="https://pkg.go.dev/github.com/rootcoder007/noqtis/bindings/go">pkg.go.dev</a><a href="https://rootcoder007.r-universe.dev/noqtis">r-universe</a><a href="https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/">Fedora COPR</a><a href="https://build.opensuse.org/package/show/home:rootcoder007/noqtis">openSUSE OBS</a></nav>
+)}
+</div>
+
+<style is:global>
+  .nqsw { --nq-panel: var(--panel, var(--sl-color-gray-6)); --nq-line: var(--line, var(--sl-color-gray-5)); --nq-line-strong: var(--line-strong, var(--sl-color-gray-5));
+    --nq-text: var(--text, var(--sl-color-white)); --nq-muted: var(--muted, var(--sl-color-gray-3)); --nq-ctl: var(--ctl, transparent); --nq-ctl-hover: var(--ctl-hover, var(--sl-color-gray-6));
+    --nq-accent: var(--accent, var(--sl-color-accent)); --nq-accent-soft: var(--accent-soft, var(--sl-color-accent-low)); --nq-shadow: var(--shadow, transparent);
+    --nq-mono: "JetBrains Mono Variable", "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace; margin: 1rem 0 1.5rem; }
+  .nqsw .pi-cmd { background: none; border: 0; padding: 0; }
+  /* install switcher (pi.dev) */
+  .pi { background: var(--nq-panel); border: 1px solid var(--nq-line-strong); border-radius: 4px; box-shadow: 0 4px 40px 0 var(--nq-shadow); overflow: hidden; text-align: left; }
+  .pi-tabs { position: relative; display: flex; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--nq-line); background: var(--nq-ctl); }
+  .pi-tabs::-webkit-scrollbar { display: none; }
+  .pi-ind { position: absolute; top: 0; bottom: 0; left: 0; width: var(--w, 0px); transform: translateX(var(--x, 0px)); background: var(--nq-accent-soft); pointer-events: none; transition: transform 220ms ease, width 220ms ease; }
+  .pi-ind::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--nq-accent); }
+  .pi-tab { position: relative; z-index: 1; flex: 1 1 auto; border: 0; border-right: 1px solid var(--nq-line); padding: .6rem .38rem; background: transparent; color: var(--nq-muted);
+    font: 700 .6rem var(--nq-mono); letter-spacing: .05em; text-transform: uppercase; cursor: pointer; transition: color 140ms ease; }
+  .pi-tab:last-of-type { border-right: 0; }
+  .pi-tab:hover, .pi-tab[aria-selected="true"] { color: var(--nq-text); }
+  .pi-tab:focus-visible { outline: 2px solid var(--nq-accent); outline-offset: -2px; }
+  .pi-row { display: flex; align-items: center; gap: 1rem; padding: 1.5rem; }
+  .pi-cmd { flex: 1 1 auto; min-width: 0; margin: 0; overflow-x: auto; scrollbar-width: none; font: .86rem/1.6 var(--nq-mono); white-space: pre; }
+  .pi-cmd::-webkit-scrollbar { display: none; }
+  .pi-cmd .ln::before { content: "$ "; color: var(--nq-muted); }
+  .pi-cmd.ps .ln::before { content: "PS> "; }
+  .pi-cmd.code .ln::before { content: ""; }
+  .pi-note { margin: .7rem 0 0; font-size: .95rem; color: var(--nq-muted); text-align: center; }
+
+  .pi-note a { color: var(--nq-accent); }
+  .where { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem .5rem; max-width: 760px; margin: 1.3rem auto 0; font: .66rem var(--nq-mono); letter-spacing: .08em; text-transform: uppercase; }
+  .where-lab { color: var(--nq-muted); padding: .32rem .2rem; }
+  .where a { padding: .3rem .55rem; border: 1px solid var(--nq-line); background: var(--nq-ctl); color: var(--nq-muted); text-decoration: none; transition: border-color 140ms ease, color 140ms ease; }
+  .where a:hover, .where a:focus-visible { border-color: var(--nq-accent); color: var(--nq-text); outline: none; }
+  /* bracket buttons */
+  .nqsw .bb { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: .52rem .8rem; border: 1px solid var(--nq-line); border-radius: 0;
+    background: var(--nq-ctl); color: var(--nq-muted); font: .72rem var(--nq-mono); letter-spacing: .12em; text-transform: uppercase; text-decoration: none; cursor: pointer;
+    transition: border-color 140ms ease, color 140ms ease, background 140ms ease; flex: 0 0 auto; }
+  .nqsw .bb::before { content: "["; margin-right: .7ch; color: var(--nq-accent); display: inline-block; transition: transform 220ms cubic-bezier(.22,1,.36,1); }
+  .nqsw .bb::after { content: "]"; margin-left: .7ch; color: var(--nq-accent); display: inline-block; transition: transform 220ms cubic-bezier(.22,1,.36,1); }
+  .nqsw .bb:hover, .bb:focus-visible { border-color: var(--nq-accent); background: var(--nq-ctl-hover); color: var(--nq-text); outline: none; }
+  .nqsw .bb:hover::before, .bb:focus-visible::before { transform: translateX(-4px); }
+  .nqsw .bb:hover::after, .bb:focus-visible::after { transform: translateX(4px); }
+
+  .nqsw .pi-tab { font-family: var(--nq-mono); font-size: .6rem; font-weight: 700; line-height: 1.2; letter-spacing: .05em; }
+  .nqsw .pi-cmd { font-family: var(--nq-mono); font-size: .84rem; line-height: 1.6; }
+  .nqsw .bb { font-family: var(--nq-mono); font-size: .72rem; }
+  .nqsw .where { font-family: var(--nq-mono); font-size: .64rem; }
+  .sl-container .nqsw .pi-tab { padding: .6rem .3rem; font-size: .56rem; letter-spacing: .03em; }
+  .sl-container .nqsw .pi-row { padding: 1.1rem; }
+  .sl-container .nqsw .pi-cmd { font-size: .78rem; }
+</style>
+
+<script is:inline>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) k === "on" ? e.addEventListener("click", v) : e.setAttribute(k, v); e.append(...kids); return e; };
+  for (const root of document.querySelectorAll(".nqsw-root")) {
+    /* install switcher */
+    const O = "https://download.opensuse.org/repositories/home:/rootcoder007", GH = "https://github.com/rootcoder007/noqtis", REL = GH + "/releases/latest/download";
+    let ver = "VERSION";
+    const L = {
+      sh: { cmd: `curl -fsSL ${REL}/install.sh | sh`, note: "Checks the release's signature before it installs anything, into ~/.local, no sudo." },
+      ps: { cmd: `irm ${REL}/install.ps1 | iex`, note: "Checks the release's signature; no administrator rights." },
+      brew: { cmd: "brew install rootcoder007/noqtis/noqtis", note: "The tool, the library, the header and the manual pages." },
+      apt: { cmd: `sudo install -d -m 0755 /etc/apt/keyrings\ncurl -fsSL ${O}/Debian_13/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/noqtis.gpg\necho "deb [signed-by=/etc/apt/keyrings/noqtis.gpg] ${O}/Debian_13/ /" | sudo tee /etc/apt/sources.list.d/noqtis.list\nsudo apt update && sudo apt install noqtis`, note: "Debian 13 shown; Debian 12 and Ubuntu 24.04 and 26.04 on the Install page." },
+      dnf: { cmd: "sudo dnf copr enable rootcoder007/noqtis\nsudo dnf install noqtis", note: "Fedora 43 to 45 and rawhide, EPEL 9 and 10." },
+      oci: { cmd: 'docker run --rm -v "$PWD:/w" -w /w ghcr.io/rootcoder007/noqtis noqtis check results', note: "Wolfi image; Podman takes the same command." },
+      src: { cmd: `git clone ${GH}.git\ncd noqtis\ncmake -S . -B build && cmake --build build\ncmake --install build --prefix ~/.local`, note: "Needs a C11 compiler and CMake." },
+      c: { cmd: "sudo apt install libnoqtis-dev      # or: dnf install noqtis-devel, brew install rootcoder007/noqtis/noqtis\n#include <noqtis.h>                  // in prog.c, like <stdio.h>\ncc prog.c $(pkg-config --cflags --libs noqtis)", note: "The header, the static and shared library, noqtis.pc and a CMake package (find_package(noqtis))." },
+      pip: { cmd: "pip install noqtis", note: "Wheels for every OS and CPU; nothing to compile." },
+      npm: { cmd: "npm install noqtis", note: "WebAssembly: Node 22+, Deno, Bun and browsers." },
+      pnpm: { cmd: "pnpm add noqtis", note: "The same WebAssembly package from npm." },
+      bun: { cmd: "bun add noqtis", note: "The same WebAssembly package from npm; runs in Bun." },
+      deno: { cmd: "deno add npm:noqtis", note: "The npm package, imported in Deno as npm:noqtis." },
+      r: { cmd: 'install.packages("noqtis", repos = c("https://rootcoder007.r-universe.dev", "https://cloud.r-project.org"))', note: "Binaries for Windows, macOS and Linux." },
+      cargo: { cmd: "cargo add noqtis", note: "Builds the C library with the crate." },
+      go: { cmd: "go get github.com/rootcoder007/noqtis/bindings/go@latest", note: "Uses cgo: needs a C compiler." },
+      maven: () => ({ cmd: `<dependency>\n  <groupId>io.github.rootcoder007</groupId>\n  <artifactId>noqtis</artifactId>\n  <version>${ver}</version>\n</dependency>`, note: "Java 22 or later." }),
+    };
+    const LINKS = {"sh": ["GitHub Releases", "https://github.com/rootcoder007/noqtis/releases/latest"], "ps": ["GitHub Releases", "https://github.com/rootcoder007/noqtis/releases/latest"], "brew": ["Homebrew tap", "https://github.com/rootcoder007/homebrew-noqtis"], "apt": ["openSUSE Build Service", "https://build.opensuse.org/package/show/home:rootcoder007/noqtis"], "dnf": ["Fedora COPR", "https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/"], "oci": ["GitHub Container Registry", "https://github.com/rootcoder007/noqtis/pkgs/container/noqtis"], "src": ["GitHub", "https://github.com/rootcoder007/noqtis"], "c": ["Install page", "https://rootcoder007.github.io/noqtis/start/install/"], "pip": ["PyPI", "https://pypi.org/project/noqtis/"], "npm": ["npm", "https://www.npmjs.com/package/noqtis"], "pnpm": ["npm", "https://www.npmjs.com/package/noqtis"], "bun": ["npm", "https://www.npmjs.com/package/noqtis"], "deno": ["npm", "https://www.npmjs.com/package/noqtis"], "r": ["r-universe", "https://rootcoder007.r-universe.dev/noqtis"], "cargo": ["crates.io", "https://crates.io/crates/noqtis"], "go": ["pkg.go.dev", "https://pkg.go.dev/github.com/rootcoder007/noqtis/bindings/go"], "maven": ["Maven Central", "https://central.sonatype.com/artifact/io.github.rootcoder007/noqtis"]};
+    const get = (k) => typeof L[k] === "function" ? L[k]() : L[k];
+    const tabs = [["curl", "sh"], ["PowerShell", "ps"], ["Homebrew", "brew"], ["apt", "apt"], ["dnf", "dnf"], ["Docker", "oci"], ["git", "src"], ["C", "c"], ["pip", "pip"], ["npm", "npm"], ["pnpm", "pnpm"], ["Bun", "bun"], ["Deno", "deno"], ["R", "r"], ["cargo", "cargo"], ["Go", "go"], ["Maven", "maven"]];
+    const plat = navigator.userAgentData?.platform || navigator.platform || "";
+    let sel = /Win/i.test(plat) ? "ps" : /Mac/i.test(plat) ? "brew" : "sh";
+    function drawInst() {
+      const host = root; host.replaceChildren();
+      const box = el("div", { class: "pi" }), bar = el("div", { class: "pi-tabs", role: "tablist", "aria-label": "Install method" });
+      const ind = el("span", { class: "pi-ind", "aria-hidden": "true" }); bar.append(ind);
+      let act;
+      for (const [n, k] of tabs) { const b = el("button", { type: "button", class: "pi-tab", role: "tab", "aria-selected": String(k === sel), on: () => { sel = k; drawInst(); } }, n); if (k === sel) act = b; bar.append(b); }
+      const leaf = get(sel);
+      const pre = el("pre", { class: "pi-cmd" + (sel === "ps" ? " ps" : "") + (sel === "maven" || sel === "r" ? " code" : "") });
+      const lines = sel === "maven" ? [leaf.cmd] : leaf.cmd.split("\n");
+      lines.forEach((l, i) => { pre.append(el("span", { class: "ln" }, l)); if (i < lines.length - 1) pre.append("\n"); });
+      const cp = el("button", { type: "button", class: "bb" }, "Copy");
+      cp.addEventListener("click", async () => { try { await navigator.clipboard.writeText(leaf.cmd); cp.textContent = "Copied"; setTimeout(() => (cp.textContent = "Copy"), 1400); } catch { cp.textContent = "Select it"; } });
+      box.append(bar, el("div", { class: "pi-row" }, pre, cp));
+      const lk = LINKS[sel];
+      host.append(box, el("p", { class: "pi-note" }, (leaf.note || "") + (lk ? " " : ""), ...(lk ? [el("a", { href: lk[1] }, "On " + lk[0] + " \u2197")] : [])));
+      requestAnimationFrame(() => { if (act) { ind.style.setProperty("--w", act.offsetWidth + "px"); ind.style.setProperty("--x", act.offsetLeft + "px"); } });
+    }
+    drawInst();
+    fetch("https://api.github.com/repos/rootcoder007/noqtis/releases/latest").then((r) => r.ok ? r.json() : null).then((j) => {
+      const t = j && j.tag_name ? j.tag_name.replace(/^v/, "") : "";
+      if (/^\d+\.\d+\.\d+$/.test(t)) {
+        ver = t; drawInst();
+        const a = $("#announce"); if (a) a.replaceChildren(`NOQTIS ${t} is out. `, el("a", { href: j.html_url }, "Read what changed"), ".");
+      }
+    }).catch(() => {});
+    
+  }
+})();
+</script>
