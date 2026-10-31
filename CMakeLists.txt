@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 cmake_minimum_required(VERSION 3.20)
-project(noqtis VERSION 0.1.2 LANGUAGES C)
+project(noqtis VERSION 0.1.3 LANGUAGES C)
 
 # C11 unless the builder asks for a later standard (-DCMAKE_C_STANDARD=23:
 # then nqwipe uses memset_explicit where the C library has it)

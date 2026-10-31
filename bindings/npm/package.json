@@ -1,6 +1,6 @@
 {
   "name": "noqtis",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Post-quantum signatures (ML-DSA, SLH-DSA), KEMs (ML-KEM, HQC), hashes and sealed file capsules: the noqtis C library as WebAssembly",
   "keywords": [
     "post-quantum",

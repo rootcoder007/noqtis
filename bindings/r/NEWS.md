@@ -1,3 +1,7 @@
+# noqtis 0.1.3
+
+* Built with libnoqtis 0.1.3, which builds on glibc older than 2.25; no change to the R API.
+
 # noqtis 0.1.2
 
 * Built with libnoqtis 0.1.2.

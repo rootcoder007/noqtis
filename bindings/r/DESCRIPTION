@@ -1,7 +1,7 @@
 Package: noqtis
 Type: Package
 Title: Post-Quantum Signing, Key Encapsulation and Sealed Folders
-Version: 0.1.2
+Version: 0.1.3
 Authors@R: c(
     person(c("Vansh", "Singh"), "Ruhela", email = "vsruhela@proton.me",
            role = c("aut", "cre", "cph"),

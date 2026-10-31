@@ -79,7 +79,7 @@ public final class Tests {
   }
 
   static void table() {
-    eq(Noqtis.version(), "0.1.2", "version");
+    eq(Noqtis.version(), "0.1.3", "version");
     long s = Noqtis.algs().stream().filter(a -> a.kind().equals("sign")).count();
     long k = Noqtis.algs().stream().filter(a -> a.kind().equals("kem")).count();
     ok(s == 19 && k == 6, s + " and " + k + " algorithms");

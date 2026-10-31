@@ -1,3 +1,8 @@
+# noqtis 0.1.3
+
+- NOQTIS builds on glibc older than 2.25 (CentOS and RHEL 7, the manylinux2014 and conda-forge build roots). These have the getrandom system call, which Linux has had since 3.17, but no `<sys/random.h>`; `nqrand` now calls it with `syscall(SYS_getrandom)` there. Nothing falls back to a weaker source; a failure is still `NQERNG`. The whole test suite passes on glibc 2.17.
+- The live timestamp tests treat OpenSSL 1.0 like LibreSSL: both sign timestamp replies with SHA-1, which noqtis refuses, so the tests check that refusal and run the SHA-256 checks only where openssl can make such a reply.
+
 # noqtis 0.1.2
 
 - Identity cards (`noqtis-idcard-1`): `noqtis idcard -k <key> --name ... [--orcid] [--email] [--url] [--affil]` writes a card that binds a post-quantum signing key to its holder's name and identifiers, signed by the key itself under its own context, so a card is never taken for a seal or a key statement, nor they for a card. An ORCID iD must carry its ISO 7064 MOD 11-2 check digit; its orcid.org address is stored as the bare iD. Every field has a byte limit and is refused with a control character or invalid UTF-8. `noqtis idcard --verify <card> [-p <key.pub>]` checks a card and prints who it names and the SHA-256 of its key. The library has `nqcard` and `nqcardvrfy` (`nqcard(3)`); the format is in `noqtis-capsule(5)` and the spec's section 13.
