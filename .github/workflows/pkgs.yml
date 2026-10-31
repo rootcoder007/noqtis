@@ -1,0 +1,306 @@
+# pkgs.yml -- builds every recipe in packaging/community (the files sent to
+# conda-forge, vcpkg, Conan, nixpkgs, AUR, Alpine, Void, Wolfi, Gentoo GURU,
+# winget and Scoop) on the system it is for, from the release tarball the
+# recipe names, with the noqtis tests; and builds this tree on glibc 2.17.
+name: pkgs
+
+on:
+  push:
+    branches: [main]
+    paths: ["packaging/community/**", ".github/workflows/pkgs.yml"]
+  pull_request:
+    paths: ["packaging/community/**", ".github/workflows/pkgs.yml"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: pkgs-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  alpine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container: alpine:edge
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: abuild, check, install, use
+        run: |
+          apk add -q alpine-sdk sudo pkgconf cmake samurai
+          adduser -D b && addgroup b abuild && echo "b ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/b
+          mkdir -p /home/b/aports/testing && cp -r packaging/community/alpine/testing/noqtis /home/b/aports/testing/
+          chown -R b /home/b
+          su b -c "abuild-keygen -a -i -n; cd ~/aports/testing/noqtis && abuild verify && REPODEST=/home/b/packages abuild -r"
+          ls /home/b/packages/testing/x86_64/
+          apk add --allow-untrusted /home/b/packages/testing/x86_64/noqtis-0.1.2-r0.apk /home/b/packages/testing/x86_64/noqtis-dev-0.1.2-r0.apk
+          noqtis --version
+          sh tests/consumer/run.sh /usr /tmp/use
+
+  aur:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container: archlinux:base-devel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: makepkg, check, install, use, .SRCINFO
+        run: |
+          pacman -Syu --noconfirm --needed cmake pkgconf git
+          useradd -m b && mkdir /b && cp packaging/community/aur/PKGBUILD /b/ && chown -R b /b
+          su b -c "cd /b && makepkg --noconfirm && makepkg --printsrcinfo > .SRCINFO"
+          cp /b/.SRCINFO "$GITHUB_WORKSPACE/SRCINFO"
+          pacman -U --noconfirm /b/noqtis-0.1.2-*.pkg.tar.*
+          noqtis --version
+          sh tests/consumer/run.sh /usr /tmp/use
+          cat /b/.SRCINFO
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aur-srcinfo
+          path: SRCINFO
+
+  void:
+    # as void-packages' own CI (.github/workflows/build.yaml, common/travis/)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    container:
+      image: ghcr.io/void-linux/void-glibc-full
+      options: --privileged
+      volumes:
+        - /dev:/dev
+    steps:
+      - name: prepare container
+        run: |
+          mkdir -p /etc/xbps.d && cp /usr/share/xbps.d/*-repository-*.conf /etc/xbps.d/
+          sed -i 's|repo-default|repo-ci|g' /etc/xbps.d/*-repository-*.conf
+          xbps-install -Syu xbps && xbps-install -yu && xbps-install -y sudo bash curl git
+          useradd -G xbuilder -M builder
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: xbps-src pkg noqtis (with checks)
+        run: |
+          git clone -q --depth 1 https://github.com/void-linux/void-packages.git /vp
+          cp -r packaging/community/void/srcpkgs/noqtis /vp/srcpkgs/
+          ln -s noqtis /vp/srcpkgs/noqtis-devel
+          chown -R builder:builder /vp
+          cd /vp
+          printf 'XBPS_BUILD_ENVIRONMENT=void-packages-ci\nXBPS_CHROOT_CMD=uchroot\n' >> etc/conf
+          sudo -Eu builder ./xbps-src binary-bootstrap
+          sudo -Eu builder ./xbps-src -j"$(nproc)" -s -Q pkg noqtis
+          xbps-query --repository=hostdir/binpkgs -f noqtis
+          xbps-query --repository=hostdir/binpkgs -f noqtis-devel
+          ls -l hostdir/binpkgs/
+
+  oldglibc:
+    # glibc 2.17 (CentOS 7, manylinux2014, the conda-forge sysroot): no <sys/random.h>.
+    # docker run, not container:, since the runner's node cannot start on glibc 2.17
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: build this tree and run the whole suite
+        run: |
+          cat > og.sh <<'SH'
+          set -eu
+          ldd --version | head -1
+          test ! -e /usr/include/sys/random.h
+          export PATH=/opt/python/cp312-cp312/bin:$PATH
+          # OpenSSL 1.0's ts signs with SHA-1; give tcli a 1.1 openssl so no TSA check skips
+          yum install -q -y epel-release && yum install -q -y openssl11
+          mkdir -p /tmp/o && ln -s /usr/bin/openssl11 /tmp/o/openssl && export PATH=/tmp/o:$PATH
+          openssl version
+          pip install -q cmake ninja
+          cmake -S /src -B /tmp/b -G Ninja -DCMAKE_BUILD_TYPE=Release -DNQOSSL=OFF
+          cmake --build /tmp/b --parallel
+          ctest --test-dir /tmp/b --output-on-failure -j 4 | tee /tmp/ct.txt
+          ! grep -q 'live TSA checks are skipped' /tmp/b/Testing/Temporary/LastTest.log
+          # the fallback is what got built: rand.o calls syscall, not getrandom
+          nm /tmp/b/libnoqtis.a | grep -w "U syscall"
+          ! nm /tmp/b/libnoqtis.a | grep -w "U getrandom"
+          /tmp/b/bin/noqtis --version
+          SH
+          docker run --rm -v "$PWD:/src" -v "$PWD/og.sh:/og.sh:ro" quay.io/pypa/manylinux2014_x86_64 sh /og.sh
+
+  wolfi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: melange build (with the recipe's tests)
+        run: |
+          mkdir w && cp packaging/community/wolfi/noqtis.yaml w/ && sed -i '/uses: test\/pkgconf/d; /uses: test\/tw\/ldd-check/d' w/noqtis.yaml
+          docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange:latest keygen
+          docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange:latest build noqtis.yaml \
+            --arch x86_64 --signing-key melange.rsa --runner bubblewrap \
+            --repository-append https://packages.wolfi.dev/os \
+            --keyring-append https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+          docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange:latest test noqtis.yaml \
+            --arch x86_64 --runner bubblewrap \
+            --repository-append /w/packages --keyring-append /w/melange.rsa.pub \
+            --repository-append https://packages.wolfi.dev/os \
+            --keyring-append https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+          ls -lR w/packages
+
+  gentoo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container: gentoo/stage3:latest
+    steps:
+      - name: portage tree
+        run: FEATURES='-ipc-sandbox -network-sandbox -pid-sandbox -sandbox -usersandbox' emerge-webrsync -q
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Manifest, pkgcheck, build with tests, install
+        run: |
+          mkdir -p /var/db/repos/guru/dev-libs/noqtis /var/db/repos/guru/metadata /var/db/repos/guru/profiles
+          printf 'masters = gentoo\nthin-manifests = true\n' > /var/db/repos/guru/metadata/layout.conf
+          echo guru > /var/db/repos/guru/profiles/repo_name
+          # add guru next to gentoo; a repos.conf file with guru alone hides gentoo from pkgcheck
+          mkdir -p /etc/portage/repos.conf
+          # pkgcore reads only /etc/portage/repos.conf once it exists: define gentoo there too
+          [ -e /etc/portage/repos.conf/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
+          printf '[guru]\nlocation = /var/db/repos/guru\n' > /etc/portage/repos.conf/guru.conf
+          cp packaging/community/guru/dev-libs/noqtis/* /var/db/repos/guru/dev-libs/noqtis/
+          cd /var/db/repos/guru/dev-libs/noqtis
+          ebuild noqtis-0.1.2.ebuild manifest
+          cat Manifest
+          mkdir -p /etc/portage/package.accept_keywords && echo 'dev-libs/noqtis ~amd64' > /etc/portage/package.accept_keywords/noqtis
+          export FEATURES='-ipc-sandbox -network-sandbox -pid-sandbox -sandbox -usersandbox'
+          # tests for noqtis only, not for every dependency it pulls in
+          mkdir -p /etc/portage/env /etc/portage/package.env
+          echo 'FEATURES="test"' > /etc/portage/env/test.conf
+          echo 'dev-libs/noqtis test.conf' > /etc/portage/package.env/noqtis
+          mkdir -p /etc/portage/package.use
+          echo 'dev-libs/noqtis test' > /etc/portage/package.use/noqtis
+          emerge --getbinpkg --usepkg -q --onlydeps --with-test-deps dev-libs/noqtis
+          emerge --quiet-build=n dev-libs/noqtis 2>&1 | tee /tmp/em.txt
+          grep -E '^100% tests passed' /tmp/em.txt
+          noqtis --version
+          emerge --getbinpkg -q dev-util/pkgcheck || emerge -q dev-util/pkgcheck
+          cat /etc/portage/repos.conf/*.conf
+          cd /var/db/repos/guru && pkgcheck scan --exit error dev-libs/noqtis
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: guru-manifest
+          path: /var/db/repos/guru/dev-libs/noqtis/Manifest
+
+  conda:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: the C toolchain conda-forge pins on this system
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Linux)   printf 'c_compiler: [gcc]\nc_compiler_version: ["14"]\nc_stdlib: [sysroot]\nc_stdlib_version: ["2.28"]\n' > cf.yaml ;;
+            macOS)   printf 'c_compiler: [clang]\nc_compiler_version: ["19"]\nc_stdlib: [macosx_deployment_target]\nc_stdlib_version: ["11.0"]\n' > cf.yaml ;;
+            Windows) printf 'c_compiler: [vs2022]\nc_stdlib: [vs]\nc_stdlib_version: ["2022"]\n' > cf.yaml ;;
+          esac
+          cat cf.yaml
+      - uses: prefix-dev/rattler-build-action@1ca5f45832f419a46d1326ccc5861d7e14d67c44 # v0.2.39
+        with:
+          recipe-path: packaging/community/conda-forge/recipes/noqtis/recipe.yaml
+          build-args: -c conda-forge -m cf.yaml
+          upload-artifact: false
+
+  vcpkg:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: vcpkg install noqtis[tool] from the port
+        shell: bash
+        run: |
+          git clone -q --depth 1 https://github.com/microsoft/vcpkg.git v
+          if [ "$RUNNER_OS" = Windows ]; then ./v/bootstrap-vcpkg.bat -disableMetrics; V=./v/vcpkg.exe; else ./v/bootstrap-vcpkg.sh -disableMetrics; V=./v/vcpkg; fi
+          $V install "noqtis[tool]" --overlay-ports=packaging/community/vcpkg/ports
+          ls v/installed/*/include v/installed/*/lib
+          ls v/installed/*/tools/noqtis
+
+  conan:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: conan create (static and shared, with test_package)
+        shell: bash
+        run: |
+          pip install -q "conan>=2.1"
+          conan profile detect
+          conan create packaging/community/conan/recipes/noqtis/all --version 0.1.2 --build=missing
+          conan create packaging/community/conan/recipes/noqtis/all --version 0.1.2 --build=missing -o "noqtis/*:shared=True"
+
+  winget:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: validate the manifests and run the installer the way winget does
+        shell: pwsh
+        run: |
+          $m = "packaging/community/winget/manifests/r/rootcoder007/noqtis/0.1.2"
+          Invoke-WebRequest https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle -OutFile wg.msixbundle -ErrorAction SilentlyContinue
+          if (Get-Command winget -ErrorAction SilentlyContinue) { winget validate --manifest $m } else { Write-Host "winget not on this runner; checking against the schemas instead" }
+          pip install -q check-jsonschema
+          check-jsonschema --schemafile https://aka.ms/winget-manifest.version.1.10.0.schema.json "$m/rootcoder007.noqtis.yaml"
+          check-jsonschema --schemafile https://aka.ms/winget-manifest.installer.1.10.0.schema.json "$m/rootcoder007.noqtis.installer.yaml"
+          check-jsonschema --schemafile https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json "$m/rootcoder007.noqtis.locale.en-US.yaml"
+          $inst = Get-Content "$m/rootcoder007.noqtis.installer.yaml" -Raw
+          $url = ([regex]'InstallerUrl: (\S+x86_64\.zip)').Match($inst).Groups[1].Value
+          $sha = ([regex]'(?s)x86_64\.zip\s+InstallerSha256: (\S+)').Match($inst).Groups[1].Value
+          Invoke-WebRequest $url -OutFile n.zip
+          if ((Get-FileHash n.zip -Algorithm SHA256).Hash -ne $sha) { throw "InstallerSha256 does not match" }
+          Expand-Archive n.zip -DestinationPath n
+          & ./n/noqtis-0.1.2-windows-x86_64/bin/noqtis.exe --version
+
+  scoop:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: scoop install from the manifest
+        shell: pwsh
+        run: |
+          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
+          scoop install (Resolve-Path packaging/community/scoop/bucket/noqtis.json).Path
+          noqtis --version
+          scoop uninstall noqtis

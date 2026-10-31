@@ -1,0 +1,38 @@
+{
+    "version": "0.1.2",
+    "description": "Post-quantum signing, KEMs and sealed input records in C11",
+    "homepage": "https://github.com/rootcoder007/noqtis",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "suggest": {
+        "vcredist": "extras/vcredist2022"
+    },
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/rootcoder007/noqtis/releases/download/v0.1.2/noqtis-0.1.2-windows-x86_64.zip",
+            "hash": "3b1a1c1ccf2f5cba91990713a175bb45484765d7fc85db9b97d10f80d2053a14",
+            "extract_dir": "noqtis-0.1.2-windows-x86_64"
+        },
+        "arm64": {
+            "url": "https://github.com/rootcoder007/noqtis/releases/download/v0.1.2/noqtis-0.1.2-windows-arm64.zip",
+            "hash": "5cb0e612a9395d01204ec89089818192ee6159dc028e1efc7808865e4447f1d4",
+            "extract_dir": "noqtis-0.1.2-windows-arm64"
+        }
+    },
+    "bin": "bin\\noqtis.exe",
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/rootcoder007/noqtis/releases/download/v$version/noqtis-$version-windows-x86_64.zip",
+                "extract_dir": "noqtis-$version-windows-x86_64"
+            },
+            "arm64": {
+                "url": "https://github.com/rootcoder007/noqtis/releases/download/v$version/noqtis-$version-windows-arm64.zip",
+                "extract_dir": "noqtis-$version-windows-arm64"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/SHA256SUMS"
+        }
+    }
+}
