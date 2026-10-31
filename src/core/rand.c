@@ -16,7 +16,20 @@
 #include <unistd.h> /* getentropy: crypto.getRandomValues / WASI random_get */
 #elif defined(__linux__)
 #include <errno.h>
+/* glibc < 2.25 (RHEL/CentOS 7, the manylinux2014 and conda-forge sysroots)
+ * and old Android have the getrandom system call (Linux 3.17) but no
+ * <sys/random.h>: call it directly there */
+#if defined(__has_include)
+#if __has_include(<sys/random.h>)
+#define NQHAVE_SYSRANDOM 1
+#endif
+#endif
+#if defined(NQHAVE_SYSRANDOM)
 #include <sys/random.h>
+#else
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
 #elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__)
 #include <stdlib.h> /* arc4random_buf */
@@ -53,7 +66,11 @@ int nqrand(uint8_t *buf, size_t len) {
 #elif defined(__linux__)
   while (len > 0) {
     /* at most 32 MiB per call; blocks until the pool is seeded */
+#if defined(NQHAVE_SYSRANDOM)
     ssize_t n = getrandom(buf, len, 0);
+#else
+    ssize_t n = (ssize_t)syscall(SYS_getrandom, buf, len, 0);
+#endif
     if (n < 0) {
       if (errno == EINTR) {
         continue;
