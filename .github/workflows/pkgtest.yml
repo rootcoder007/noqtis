@@ -23,9 +23,9 @@ jobs:
           adduser -D b && addgroup b abuild && echo "b ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/b
           mkdir -p /home/b/aports/testing && cp -r packaging/community/alpine/testing/noqtis /home/b/aports/testing/
           chown -R b /home/b
-          su b -c "abuild-keygen -a -i -n; cd ~/aports/testing/noqtis && abuild verify && abuild -r"
-          find / -xdev -path "*/packages/*" -name "noqtis*-0.1.2-r0.apk"
-          apk add --allow-untrusted $(find / -xdev -path "*/packages/*" \( -name "noqtis-0.1.2-r0.apk" -o -name "noqtis-dev-0.1.2-r0.apk" \))
+          su b -c "abuild-keygen -a -i -n; cd ~/aports/testing/noqtis && abuild verify && REPODEST=/home/b/packages abuild -r"
+          ls /home/b/packages/testing/x86_64/
+          apk add --allow-untrusted /home/b/packages/testing/x86_64/noqtis-0.1.2-r0.apk /home/b/packages/testing/x86_64/noqtis-dev-0.1.2-r0.apk
           noqtis --version
           sh tests/consumer/run.sh /usr /tmp/use
 
@@ -40,6 +40,7 @@ jobs:
           pacman -Syu --noconfirm --needed cmake pkgconf git
           useradd -m b && mkdir /b && cp packaging/community/aur/PKGBUILD /b/ && chown -R b /b
           su b -c "cd /b && makepkg --noconfirm && makepkg --printsrcinfo > .SRCINFO"
+          cp /b/.SRCINFO "$GITHUB_WORKSPACE/SRCINFO"
           pacman -U --noconfirm /b/noqtis-0.1.2-*.pkg.tar.*
           noqtis --version
           sh tests/consumer/run.sh /usr /tmp/use
@@ -47,7 +48,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aur-srcinfo
-          path: /b/.SRCINFO
+          path: SRCINFO
 
   void:
     # as void-packages' own CI (.github/workflows/build.yaml, common/travis/)
@@ -76,7 +77,8 @@ jobs:
           printf 'XBPS_BUILD_ENVIRONMENT=void-packages-ci\nXBPS_CHROOT_CMD=uchroot\n' >> etc/conf
           sudo -Eu builder ./xbps-src binary-bootstrap
           sudo -Eu builder ./xbps-src -j"$(nproc)" -s -Q pkg noqtis
-          sudo -Eu builder ./xbps-src show-files noqtis
+          xbps-query --repository=hostdir/binpkgs -f noqtis
+          xbps-query --repository=hostdir/binpkgs -f noqtis-devel
           ls -l hostdir/binpkgs/
 
   oldglibc:
