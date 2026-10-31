@@ -1,0 +1,85 @@
+package:
+  name: noqtis
+  version: "0.1.2"
+  epoch: 0
+  description: Post-quantum signing, KEMs and sealed input records in C11
+  copyright:
+    - license: Apache-2.0 WITH LLVM-exception
+
+environment:
+  contents:
+    packages:
+      - build-base
+      - busybox
+      - ca-certificates-bundle
+      - cmake
+      - samurai
+
+pipeline:
+  - uses: git-checkout
+    with:
+      repository: https://github.com/rootcoder007/noqtis
+      tag: v${{package.version}}
+      expected-commit: 383a20ec194e49b14fc7ac613871cd23b7c45133
+
+  - uses: cmake/configure
+    with:
+      opts: -DNQSHARED=ON -DNQWERROR=OFF
+
+  - uses: cmake/build
+
+  - runs: ctest --test-dir output --output-on-failure
+
+  - uses: cmake/install
+
+  - uses: strip
+
+subpackages:
+  - name: noqtis-dev
+    description: Header, pkg-config file and CMake package for noqtis
+    pipeline:
+      - uses: split/dev
+    dependencies:
+      runtime:
+        - noqtis
+    test:
+      environment:
+        contents:
+          packages:
+            - build-base
+            - pkgconf
+      pipeline:
+        - uses: test/pkgconf
+        - runs: |
+            cat > use.c <<'EOF'
+            #include <noqtis.h>
+            #include <stdio.h>
+            int main(void) {
+              unsigned char d[32];
+              if (nqhash(NQS256, (const unsigned char *)"abc", 3, d, 32))
+                return 1;
+              printf("noqtis %s %02x%02x\n", nqver(), d[0], d[1]);
+              return !(d[0] == 0xba && d[1] == 0x78);
+            }
+            EOF
+            cc -std=c11 use.c $(pkg-config --cflags --libs noqtis) -o use
+            ./use
+
+  - name: noqtis-doc
+    description: Manual pages for noqtis
+    pipeline:
+      - uses: split/manpages
+
+test:
+  pipeline:
+    - runs: |
+        noqtis --version
+        noqtis version
+        noqtis help
+    - uses: test/tw/ldd-check
+
+update:
+  enabled: true
+  github:
+    identifier: rootcoder007/noqtis
+    strip-prefix: v

@@ -1,0 +1,35 @@
+# Contributor: Vansh Singh Ruhela <vsruhela@proton.me>
+# Maintainer: Vansh Singh Ruhela <vsruhela@proton.me>
+pkgname=noqtis
+pkgver=0.1.2
+pkgrel=0
+pkgdesc="Post-quantum signing, KEMs and sealed input records in C11"
+url="https://github.com/rootcoder007/noqtis"
+arch="all"
+license="Apache-2.0 WITH LLVM-exception"
+makedepends="cmake samurai"
+subpackages="$pkgname-dev $pkgname-doc"
+source="https://github.com/rootcoder007/noqtis/releases/download/v$pkgver/noqtis-$pkgver.tar.gz"
+
+build() {
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=None \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DNQSHARED=ON \
+		-DNQWERROR=OFF
+	cmake --build build
+}
+
+check() {
+	ctest --test-dir build --output-on-failure
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+	install -Dm644 LICENSE NOTICE -t "$pkgdir"/usr/share/licenses/$pkgname
+}
+
+sha512sums="
+aa06f5da2d7cd551963c5d23b9ceb1c2ce1539d974fc3862acbe6653960d430bd902d853ef7dbbe7d065c5d67cf098f01664d4ab87598e4f7b748eb17b1ae607  noqtis-0.1.2.tar.gz
+"

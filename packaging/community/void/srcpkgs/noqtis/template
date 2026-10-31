@@ -1,0 +1,33 @@
+# Template file for 'noqtis'
+pkgname=noqtis
+version=0.1.2
+revision=1
+build_style=cmake
+configure_args="-DNQSHARED=ON -DNQWERROR=OFF"
+short_desc="Post-quantum signing, KEMs and sealed input records in C11"
+maintainer="Vansh Singh Ruhela <vsruhela@proton.me>"
+license="Apache-2.0 WITH LLVM-exception"
+homepage="https://github.com/rootcoder007/noqtis"
+distfiles="https://github.com/rootcoder007/noqtis/releases/download/v${version}/noqtis-${version}.tar.gz"
+checksum=ef40d31d57bf467aa58ad98dea73c58e1edda6ddd863d34856bf0c5185f91bb7
+
+do_check() {
+	ctest --test-dir build --output-on-failure
+}
+
+post_install() {
+	vlicense LICENSE
+	vlicense NOTICE
+}
+
+noqtis-devel_package() {
+	depends="${sourcepkg}>=${version}_${revision}"
+	short_desc+=" - development files"
+	pkg_install() {
+		vmove usr/include
+		vmove usr/lib/pkgconfig
+		vmove usr/lib/cmake
+		vmove "usr/lib/*.so"
+		vmove usr/share/man/man3
+	}
+}

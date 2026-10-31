@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="person">
+		<email>vsruhela@proton.me</email>
+		<name>Vansh Singh Ruhela</name>
+	</maintainer>
+	<upstream>
+		<remote-id type="github">rootcoder007/noqtis</remote-id>
+		<bugs-to>https://github.com/rootcoder007/noqtis/issues</bugs-to>
+	</upstream>
+</pkgmetadata>
