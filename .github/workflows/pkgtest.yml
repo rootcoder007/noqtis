@@ -58,13 +58,17 @@ jobs:
         run: |
           cat > void.sh <<'SH'
           set -eu
-          xbps-install -Syu xbps >/dev/null; xbps-install -Syu >/dev/null; xbps-install -y git bash shadow >/dev/null
-          useradd -m b
-          su b -c 'cd ~ && git clone -q --depth 1 https://github.com/void-linux/void-packages.git \
-            && cp -r /src/packaging/community/void/srcpkgs/noqtis void-packages/srcpkgs/ \
-            && ln -s noqtis void-packages/srcpkgs/noqtis-devel && cd void-packages \
-            && echo XBPS_CHECK_PKGS=yes >> etc/conf && ./xbps-src binary-bootstrap && ./xbps-src -Q pkg noqtis \
-            && ls -l hostdir/binpkgs/'
+          xbps-install -Syu xbps >/dev/null; xbps-install -Syu >/dev/null; xbps-install -y git bash >/dev/null
+          # as void-packages' own CI does: build in this container (ethereal), no user namespace
+          cd /root && git clone -q --depth 1 https://github.com/void-linux/void-packages.git
+          cp -r /src/packaging/community/void/srcpkgs/noqtis void-packages/srcpkgs/
+          ln -s noqtis void-packages/srcpkgs/noqtis-devel
+          cd void-packages
+          printf 'XBPS_CHROOT_CMD=ethereal\nXBPS_ALLOW_CHROOT_BREAKOUT=yes\nXBPS_CHECK_PKGS=yes\n' >> etc/conf
+          ln -s / masterdir
+          ./xbps-src binary-bootstrap
+          ./xbps-src -Q pkg noqtis
+          ls -l hostdir/binpkgs/
           SH
           docker run --rm --privileged -v "$PWD:/src:ro" -v "$PWD/void.sh:/void.sh:ro" ghcr.io/void-linux/void-glibc-full sh /void.sh
 
@@ -126,9 +130,15 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - name: conda-forge variant config
+      - name: the C toolchain conda-forge pins on this system
         shell: bash
-        run: curl -fsSL -o cf.yaml https://raw.githubusercontent.com/conda-forge/conda-forge-pinning-feedstock/main/recipe/conda_build_config.yaml
+        run: |
+          case "$RUNNER_OS" in
+            Linux)   printf 'c_compiler: [gcc]\nc_compiler_version: ["14"]\nc_stdlib: [sysroot]\nc_stdlib_version: ["2.17"]\n' > cf.yaml ;;
+            macOS)   printf 'c_compiler: [clang]\nc_compiler_version: ["19"]\nc_stdlib: [macosx_deployment_target]\nc_stdlib_version: ["11.0"]\n' > cf.yaml ;;
+            Windows) printf 'c_compiler: [vs2022]\nc_stdlib: [vs]\nc_stdlib_version: ["2022"]\n' > cf.yaml ;;
+          esac
+          cat cf.yaml
       - uses: prefix-dev/rattler-build-action@v0.2.34
         with:
           recipe-path: packaging/community/conda-forge/recipes/noqtis/recipe.yaml
