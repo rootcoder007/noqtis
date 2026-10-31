@@ -146,6 +146,8 @@ jobs:
           echo guru > /var/db/repos/guru/profiles/repo_name
           # add guru next to gentoo; a repos.conf file with guru alone hides gentoo from pkgcheck
           mkdir -p /etc/portage/repos.conf
+          # pkgcore reads only /etc/portage/repos.conf once it exists: define gentoo there too
+          [ -e /etc/portage/repos.conf/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
           printf '[guru]\nlocation = /var/db/repos/guru\n' > /etc/portage/repos.conf/guru.conf
           cp packaging/community/guru/dev-libs/noqtis/* /var/db/repos/guru/dev-libs/noqtis/
           cd /var/db/repos/guru/dev-libs/noqtis
@@ -164,6 +166,7 @@ jobs:
           grep -E '^100% tests passed' /tmp/em.txt
           noqtis --version
           emerge --getbinpkg -q dev-util/pkgcheck || emerge -q dev-util/pkgcheck
+          cat /etc/portage/repos.conf/*.conf
           cd /var/db/repos/guru && pkgcheck scan --exit error dev-libs/noqtis
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
