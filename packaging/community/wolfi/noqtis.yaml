@@ -46,6 +46,7 @@ subpackages:
       environment:
         contents:
           packages:
+            - busybox
             - build-base
             - pkgconf
       pipeline:

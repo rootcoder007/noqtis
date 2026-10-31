@@ -24,8 +24,8 @@ jobs:
           mkdir -p /home/b/aports/testing && cp -r packaging/community/alpine/testing/noqtis /home/b/aports/testing/
           chown -R b /home/b
           su b -c "abuild-keygen -a -i -n; cd ~/aports/testing/noqtis && abuild verify && abuild -r"
-          find /home/b/packages -name "*.apk"
-          apk add --allow-untrusted $(find /home/b/packages -name "noqtis-0.1.2-r0.apk" -o -name "noqtis-dev-0.1.2-r0.apk")
+          find / -xdev -path "*/packages/*" -name "noqtis*-0.1.2-r0.apk"
+          apk add --allow-untrusted $(find / -xdev -path "*/packages/*" \( -name "noqtis-0.1.2-r0.apk" -o -name "noqtis-dev-0.1.2-r0.apk" \))
           noqtis --version
           sh tests/consumer/run.sh /usr /tmp/use
 
@@ -50,27 +50,51 @@ jobs:
           path: /b/.SRCINFO
 
   void:
+    # as void-packages' own CI (.github/workflows/build.yaml, common/travis/)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    container:
+      image: ghcr.io/void-linux/void-glibc-full
+      options: --privileged
+      volumes:
+        - /dev:/dev
+    steps:
+      - name: prepare container
+        run: |
+          mkdir -p /etc/xbps.d && cp /usr/share/xbps.d/*-repository-*.conf /etc/xbps.d/
+          sed -i 's|repo-default|repo-ci|g' /etc/xbps.d/*-repository-*.conf
+          xbps-install -Syu xbps && xbps-install -yu && xbps-install -y sudo bash curl git
+          useradd -G xbuilder -M builder
+      - uses: actions/checkout@v4
+      - name: xbps-src pkg noqtis (with checks)
+        run: |
+          git clone -q --depth 1 https://github.com/void-linux/void-packages.git /vp
+          cp -r packaging/community/void/srcpkgs/noqtis /vp/srcpkgs/
+          ln -s noqtis /vp/srcpkgs/noqtis-devel
+          chown -R builder:builder /vp
+          cd /vp
+          printf 'XBPS_BUILD_ENVIRONMENT=void-packages-ci\nXBPS_CHROOT_CMD=uchroot\n' >> etc/conf
+          sudo -Eu builder ./xbps-src binary-bootstrap
+          sudo -Eu builder ./xbps-src -j"$(nproc)" -s -Q pkg noqtis
+          sudo -Eu builder ./xbps-src show-files noqtis
+          ls -l hostdir/binpkgs/
+
+  oldglibc:
+    # glibc 2.17 (CentOS 7, manylinux2014, the conda-forge sysroot): no <sys/random.h>
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: quay.io/pypa/manylinux2014_x86_64
     steps:
       - uses: actions/checkout@v4
-      - name: xbps-src pkg noqtis (with checks), in a Void container
+      - name: build this tree and run the whole suite
         run: |
-          cat > void.sh <<'SH'
-          set -eu
-          xbps-install -Syu xbps >/dev/null; xbps-install -Syu >/dev/null; xbps-install -y git bash base-chroot >/dev/null
-          # as void-packages' own CI does: build in this container (ethereal), no user namespace
-          cd /root && git clone -q --depth 1 https://github.com/void-linux/void-packages.git
-          cp -r /src/packaging/community/void/srcpkgs/noqtis void-packages/srcpkgs/
-          ln -s noqtis void-packages/srcpkgs/noqtis-devel
-          cd void-packages
-          printf 'XBPS_CHROOT_CMD=ethereal\nXBPS_ALLOW_CHROOT_BREAKOUT=yes\nXBPS_CHECK_PKGS=yes\n' >> etc/conf
-          ln -s / masterdir
-          ./xbps-src binary-bootstrap
-          ./xbps-src -Q pkg noqtis
-          ls -l hostdir/binpkgs/
-          SH
-          docker run --rm --privileged -v "$PWD:/src:ro" -v "$PWD/void.sh:/void.sh:ro" ghcr.io/void-linux/void-glibc-full sh /void.sh
+          ldd --version | head -1
+          test ! -e /usr/include/sys/random.h
+          pipx install cmake ninja >/dev/null 2>&1 || python3.12 -m pip install -q cmake ninja
+          cmake -S . -B b -G Ninja -DCMAKE_BUILD_TYPE=Release -DNQOSSL=OFF
+          cmake --build b --parallel
+          ctest --test-dir b --output-on-failure -j 4
+          ./b/noqtis --version
 
   wolfi:
     runs-on: ubuntu-24.04

@@ -42,7 +42,11 @@ tests:
       include:
         - noqtis.h
       lib:
-        - noqtis
+        - if: unix
+          then: noqtis
+      files:
+        - if: win
+          then: Library/bin/noqtis-0.dll
       bin:
         - noqtis
   - script:
