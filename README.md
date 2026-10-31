@@ -8,7 +8,7 @@
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.rootcoder007/noqtis?label=Maven%20Central&color=c71a36)](https://central.sonatype.com/artifact/io.github.rootcoder007/noqtis)
 [![Go Reference](https://pkg.go.dev/badge/github.com/rootcoder007/noqtis/bindings/go.svg)](https://pkg.go.dev/github.com/rootcoder007/noqtis/bindings/go)
 [![r-universe](https://rootcoder007.r-universe.dev/badges/noqtis)](https://rootcoder007.r-universe.dev/noqtis)
-[![COPR](https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/package/noqtis/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/)
+[![COPR](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcopr.fedorainfracloud.org%2Fapi_3%2Fpackage%2F%3Fownername%3Drootcoder007%26projectname%3Dnoqtis%26packagename%3Dnoqtis%26with_latest_succeeded_build%3Dtrue&query=%24.builds.latest_succeeded.source_package.version&label=COPR&prefix=v&color=294172)](https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/)
 [![OBS](https://build.opensuse.org/projects/home:rootcoder007/packages/noqtis/badge.svg?type=default)](https://build.opensuse.org/package/show/home:rootcoder007/noqtis)
 
 **Seal the exact files behind a result with a post-quantum signature, so
