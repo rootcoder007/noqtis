@@ -88,12 +88,28 @@ jobs:
         run: |
           mkdir -p /etc/xbps.d
           cp /usr/share/xbps.d/*-repository-*.conf /etc/xbps.d/
-          # void-packages' CI mirror; Void's default mirror when it is down
-          sed -i 's|repo-default|repo-ci|g' /etc/xbps.d/*-repository-*.conf
-          if ! xbps-install -S; then
-            sed -i 's|repo-ci|repo-default|g' /etc/xbps.d/*-repository-*.conf
-            xbps-install -S
+          # void-packages' CI mirror first, then Void's other mirrors: the
+          # first one that serves the repository index is used here and by
+          # xbps-src (XBPS_MIRROR); on 2026-11-01 repo-ci, repo-default and
+          # the Tier 1 mirrors all refused connections for hours
+          mirror=""
+          for m in https://repo-ci.voidlinux.org https://repo-default.voidlinux.org \
+                   https://repo-fastly.voidlinux.org https://mirrors.dotsrc.org/voidlinux \
+                   https://ftp.lysator.liu.se/pub/voidlinux https://mirror.clarkson.edu/voidlinux \
+                   https://mirror.aarnet.edu.au/pub/voidlinux; do
+            sed -i "s|^repository=http.*/current|repository=$m/current|" /etc/xbps.d/*-repository-*.conf
+            if xbps-install -S; then
+              mirror="$m"
+              break
+            fi
+            echo "$m: unreachable"
+          done
+          if [ -z "$mirror" ]; then
+            echo "::error::no Void mirror serves the repository index"
+            exit 1
           fi
+          echo "Void mirror: $mirror"
+          echo "XBPS_MIRROR=$mirror/current" >> "$GITHUB_ENV"
           xbps-install -yu xbps
           xbps-install -yu
           xbps-install -y sudo bash curl git
@@ -108,7 +124,7 @@ jobs:
           ln -s noqtis /vp/srcpkgs/noqtis-devel
           chown -R builder:builder /vp
           cd /vp
-          printf 'XBPS_BUILD_ENVIRONMENT=void-packages-ci\nXBPS_CHROOT_CMD=uchroot\n' >> etc/conf
+          printf 'XBPS_BUILD_ENVIRONMENT=void-packages-ci\nXBPS_CHROOT_CMD=uchroot\nXBPS_MIRROR=%s\n' "$XBPS_MIRROR" >> etc/conf
           sudo -Eu builder ./xbps-src binary-bootstrap
           sudo -Eu builder ./xbps-src -j"$(nproc)" -s -Q pkg noqtis
           xbps-query --repository=hostdir/binpkgs -f noqtis
