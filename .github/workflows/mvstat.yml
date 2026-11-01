@@ -1,0 +1,33 @@
+# mvstat.yml -- what the Maven Central Portal says about one deployment
+# (its state and any errors), for a release whose maven job passed but
+# whose version does not show on repo1.maven.org. Started by hand.
+name: mvstat
+
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: "deployment id, from the maven job's log"
+        required: true
+
+permissions: {}
+
+jobs:
+  status:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: ask the Central Portal
+        env:
+          U: ${{ secrets.NQ_MAVEN_USER }}
+          P: ${{ secrets.NQ_MAVEN_PASS }}
+          ID: ${{ inputs.id }}
+        run: |
+          case "$ID" in
+            *[!0-9a-f-]*|"") echo "::error::not a deployment id: $ID"; exit 1 ;;
+          esac
+          auth="Authorization: Bearer $(printf '%s:%s' "$U" "$P" | base64 -w0)"
+          unset U P
+          curl -fsS -X POST -H "$auth" -o status.json \
+            "https://central.sonatype.com/api/v1/publisher/status?id=$ID"
+          python3 -m json.tool status.json
