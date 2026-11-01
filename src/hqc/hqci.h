@@ -47,6 +47,16 @@ const nqhqp *nqhqpar(nqkalg alg);
 #define NQHQDCL(ptr, len) ((void)(ptr), (void)(len))
 #endif
 
+/* kem.c, for the masked decapsulation: the public h of ek's seed, the
+ * secret y of seed_dk, and H(ek) */
+void nqhqpubh(const nqhqp *p, uint64_t *h, const uint8_t *seed);
+void nqhqsecy(const nqhqp *p, uint64_t *y, const uint8_t *seed);
+void nqhqhek(const nqhqp *p, uint8_t hek[32], const uint8_t *ek);
+/* mdec.c: the masked decapsulation of a checked sk and ct; NQOK, or the
+ * random source's error */
+int nqhqmdec(const nqhqp *p, const uint8_t *sk, const uint8_t *ct,
+             uint8_t *ss);
+
 /* o = a * b mod (x^n - 1); o may be a or b. Constant time. */
 void nqhqmul(const nqhqp *p, uint64_t *o, const uint64_t *a,
              const uint64_t *b);

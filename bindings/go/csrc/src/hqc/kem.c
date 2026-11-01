@@ -210,6 +210,11 @@ static void fws(const nqhqp *p, nqkctx *x, uint64_t *v, size_t w) {
 }
 
 /* SampleVect: the public h from seed_ek */
+static void pubh(const nqhqp *p, uint64_t *h, const uint8_t *seed);
+void nqhqpubh(const nqhqp *p, uint64_t *h, const uint8_t *seed) {
+  pubh(p, h, seed);
+}
+
 static void pubh(const nqhqp *p, uint64_t *h, const uint8_t *seed) {
   uint8_t buf[NQHQNB];
   nqkctx x;
@@ -226,6 +231,14 @@ static void secy(const nqhqp *p, uint64_t *y, const uint8_t *seed) {
   xini(&x, seed, 32);
   fwu(p, &x, y, p->w);
   nqwipe(&x, sizeof x);
+}
+
+void nqhqsecy(const nqhqp *p, uint64_t *y, const uint8_t *seed) {
+  secy(p, y, seed);
+}
+
+void nqhqhek(const nqhqp *p, uint8_t hek[32], const uint8_t *ek) {
+  hsh(hek, 256, 1, ek, p->pk, NULL, 0, NULL, 0);
 }
 
 /* ---- HQC-PKE ---- */
@@ -426,18 +439,39 @@ int nqhqenc(nqkalg alg, const uint8_t *pk, size_t pklen,
   return r;
 }
 
+/* the checks both decapsulations share */
+static int dchk(const nqhqp *p, const uint8_t *sk, size_t sklen,
+                const uint8_t *ct, size_t ctlen, uint8_t *ss,
+                size_t sslen) {
+  if (p == NULL || sk == NULL || ct == NULL || ss == NULL) return NQEARG;
+  if (sklen != p->sk || ctlen != p->ct) return NQEDEC;
+  if (sslen < NQHQSS) return NQEBUF;
+  if (!ekok(p, sk) || !dkok(p, sk)) return NQEDEC;
+  return NQOK;
+}
+
+/* HQC.Decaps, first-order masked (mdec.c) */
 int nqhqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
             const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen) {
+  const nqhqp *p = nqhqpar(alg);
+  int rc = dchk(p, sk, sklen, ct, ctlen, ss, sslen);
+  if (rc != NQOK) return rc;
+  rc = nqhqmdec(p, sk, ct, ss);
+  if (rc != NQOK) nqwipe(ss, NQHQSS);
+  return rc == NQOK ? NQOK : NQERNG;
+}
+
+/* HQC.Decaps, constant time but not masked */
+int nqhqdecp(nqkalg alg, const uint8_t *sk, size_t sklen,
+             const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen) {
   const nqhqp *p = nqhqpar(alg);
   uint8_t m[NQHQK], hek[32], kt[64], kb[32], ct2[NQHQCTM];
   const uint8_t *salt;
   uint64_t keep;
   uint8_t k8;
   size_t i;
-  if (p == NULL || sk == NULL || ct == NULL || ss == NULL) return NQEARG;
-  if (sklen != p->sk || ctlen != p->ct) return NQEDEC;
-  if (sslen < NQHQSS) return NQEBUF;
-  if (!ekok(p, sk) || !dkok(p, sk)) return NQEDEC;
+  int rc = dchk(p, sk, sklen, ct, ctlen, ss, sslen);
+  if (rc != NQOK) return rc;
   salt = ct + p->nb + p->vb;
   pkedec(p, m, sk + p->pk, ct);
   hsh(hek, 256, 1, sk, p->pk, NULL, 0, NULL, 0);          /* H(ek) */

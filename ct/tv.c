@@ -57,6 +57,7 @@
 #include "mldsa/mldsa.h"
 #include "mlkem/mlkem.h"
 #include "slh/in.h"
+#include "hqc/hqc.h"
 #include "st.h"
 #include "md1.h"
 
@@ -305,6 +306,31 @@ static void rslh(const tv *t, int cls) {
   nqwipe(&c, sizeof c);
 }
 
+/* HQC: a fixed key and a valid ciphertext for it; the other class
+ * decapsulates the same ciphertext under random keys */
+static uint8_t hct[NQHQCT1];
+
+static void phqc(const tv *t) {
+  uint8_t ss[NQHQSS];
+  (void)t;
+  nqhqkg(NQHQC128, ob, NQHQPK1, fk, NQHQSK1);
+  nqhqenc(NQHQC128, ob, NQHQPK1, hct, sizeof hct, ss, sizeof ss);
+}
+
+static void rhqc(const tv *t, int cls) {
+  const uint8_t *sk = fk;
+  uint8_t ss[NQHQSS];
+  if (cls) {
+    nqhqkg(NQHQC128, ob, NQHQPK1, kb, NQHQSK1);
+    sk = kb;
+  }
+  nqlkzm = t->zm;
+  R.on = 1;
+  nqhqdec(NQHQC128, sk, NQHQSK1, hct, sizeof hct, ss, sizeof ss);
+  R.on = 0;
+  nqlkzm = 0;
+}
+
 static const tv tvs[] = {
     {"mlkem512", "ML-KEM-512 masked decaps, one key vs random keys", 2, 0,
      0, 1, pkem, rkem},
@@ -326,8 +352,12 @@ static const tv tvs[] = {
      NQSLH128F, 0, 0, 8, pslh, rslh},
     {"slhshake", "SLH-DSA-SHAKE-128 masked PRF, one key vs random keys",
      NQSLHK128F, 0, 0, 1, pslh, rslh},
+    {"hqc128", "HQC-128 masked decaps, one key vs random keys", 0, 0, 0, 16,
+     phqc, rhqc},
     {"mlkem768z", "control: ML-KEM-768 decaps, masks zero", 3, 1, 0, 4,
      pkem, rkem},
+    {"hqc128z", "control: HQC-128 decaps, masks zero", 0, 1, 0, 32, phqc,
+     rhqc},
     {"slhsha2z", "control: SLH-DSA-SHA2-128 PRF, masks zero", NQSLH128F, 1,
      0, 8, pslh, rslh},
     {"slhshakez", "control: SLH-DSA-SHAKE-128 PRF, masks zero", NQSLHK128F,

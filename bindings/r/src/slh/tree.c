@@ -85,12 +85,37 @@ static void wsks(const nqslc *c, const uint8_t *a, uint32_t kp,
   nqslprfn(c, s, c->p->len, out);
 }
 
-/* wots_pkGen (algorithm 6). */
-static void wpk(const nqslc *c, const uint8_t *a, uint32_t kp,
-                uint8_t *out) {
+/* How many key pairs' WOTS+ secrets are drawn at once: 16 x 35 chains
+ * (n = 16) fill nine 64-lane PRF batches to 97 %, where one key pair
+ * alone (35 chains) would fill one to 55 %. */
+#define NQSLWG 16
+
+/* The WOTS+ secrets of key pairs kp .. kp + nk - 1, chain-major per key
+ * pair, in batches of NQMSBL addresses. */
+static void wskg(const nqslc *c, const uint8_t *a, uint32_t kp,
+                 unsigned nk, uint8_t *out) {
+  uint8_t s[NQMSBL * 32];
+  const unsigned len = c->p->len, n = c->p->n, tot = nk * len;
+  unsigned at, j;
+  for (at = 0; at < tot; at += NQMSBL) {
+    const unsigned m = tot - at < NQMSBL ? tot - at : NQMSBL;
+    for (j = 0; j < m; j++) {
+      uint8_t *q = s + 32 * (size_t)j;
+      memcpy(q, a, 32);
+      nqsatype(q, NQSLWPR);
+      nqsakp(q, kp + (at + j) / len);
+      nqsaw2(q, (at + j) % len);
+    }
+    nqslprfn(c, s, m, out + (size_t)at * n);
+  }
+}
+
+/* wots_pkGen (algorithm 6), from the key pair's secrets sec. */
+static void wpks(const nqslc *c, const uint8_t *a, uint32_t kp,
+                 const uint8_t *sec, uint8_t *out) {
   uint8_t tops[NQSLLMX * NQSLNMX], h[32];
   unsigned i, n = c->p->n;
-  wsks(c, a, kp, tops);
+  memcpy(tops, sec, (size_t)c->p->len * n);
   for (i = 0; i < c->p->len; i++) {
     uint8_t *x = tops + (size_t)i * n;
     wha(a, kp, i, h);
@@ -172,6 +197,7 @@ void nqsltrh(const nqslc *c, int fors, const uint8_t *a, uint32_t base,
              unsigned ht, uint32_t leaf, uint8_t *root, uint8_t *auth) {
   uint8_t stk[(NQSLHMX + 1) * NQSLNMX], buf[2 * NQSLNMX], na[32];
   uint8_t sec[NQMSBL * NQSLNMX];
+  uint8_t wsec[NQSLWG * NQSLLMX * NQSLNMX];
   unsigned sh[NQSLHMX + 1], sp = 0, z, n = c->p->n;
   uint32_t i, nl = (uint32_t)1 << ht;
   if (n == 0 || n > NQSLNMX) return; /* table rows have n <= NQSLNMX */
@@ -186,7 +212,12 @@ void nqsltrh(const nqslc *c, int fors, const uint8_t *a, uint32_t base,
       }
       flf(c, a, g, sec + (size_t)(i % NQMSBL) * n, node);
     } else {
-      wpk(c, a, g, node);
+      /* the WOTS+ secrets come for NQSLWG key pairs at a time */
+      if (i % NQSLWG == 0) {
+        wskg(c, a, g, nl - i < NQSLWG ? nl - i : NQSLWG, wsec);
+      }
+      wpks(c, a, g,
+           wsec + (size_t)(i % NQSLWG) * c->p->len * n, node);
     }
     z = 0;
     for (;;) {
@@ -209,6 +240,7 @@ void nqsltrh(const nqslc *c, int fors, const uint8_t *a, uint32_t base,
   nqwipe(stk, sizeof stk);
   nqwipe(buf, sizeof buf);
   nqwipe(sec, sizeof sec);
+  nqwipe(wsec, sizeof wsec);
 }
 
 /* The root from a node at height 0, index g, and its authentication path

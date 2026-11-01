@@ -83,7 +83,9 @@ void nqslprfn(const nqslc *c, const uint8_t *a, unsigned cnt,
     for (j = 0; j < m; j++) {
       prfblk(c, a + 32 * (size_t)(i + j), b0 + 64 * j, b1 + 64 * j);
     }
-    nqms2b(c->m2.h, b0, b1, m, o0, o1, c->g);
+    /* words 0 to 4 are ADRSc's first 20 bytes, public: 5 rounds in the
+     * clear */
+    nqms2b(c->m2.h, b0, b1, m, 5, o0, o1, c->g);
     for (j = 0; j < m; j++) {
       uint8_t *d = out + (size_t)n * (i + j);
       for (k = 0; k < n; k += 4) {

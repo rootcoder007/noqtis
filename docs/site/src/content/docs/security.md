@@ -107,9 +107,13 @@ time too.
   `ctgrind`) on gcc and clang Release builds, the way users build the
   library, after checking that valgrind does catch a deliberately
   secret-dependent branch.
-- **Masked against unmasked**: the masked and unmasked ML-DSA signers and
-  ML-KEM decapsulation are run on the same inputs and must give the same
-  bytes, including on tampered ciphertexts.
+- **Masked against unmasked**: the masked and unmasked ML-DSA signers,
+  ML-KEM and HQC decapsulations are run on the same inputs and must give
+  the same bytes, including on tampered ciphertexts (for HQC also on
+  random bytes and on whole Reed-Muller blocks inverted, up to past the
+  Reed-Solomon capacity: `tests/thqc.c`); the masked SLH-DSA signatures
+  are byte-identical to the unmasked code's for all twelve sets, and the
+  masked Ed25519 signer gives RFC 8032's signatures through `nqsignd`.
 - **dudect** (`ct/dd.c`): timing, measured. See below.
 - **Simulated TVLA** (`ct/tv.c`): first-order leakage of the masked code,
   simulated. See below.
@@ -219,8 +223,10 @@ there the noise is larger and a pass is weaker evidence still.
 ### Simulated power: TVLA
 
 **Method.** The library built with `-DNQTVLA` (a test build only)
-compiles hooks in the masked ML-KEM decapsulation (`src/mlkem/mdec.c`)
-and ML-DSA signer (`src/mldsa/msk.c`): every share word passed through
+compiles hooks in the masked ML-KEM decapsulation (`src/mlkem/mdec.c`),
+ML-DSA signer (`src/mldsa/msk.c`), HQC decapsulation
+(`src/hqc/mdec.c`), Ed25519 signer (`src/ed/ed.c`) and SLH-DSA PRF
+(`src/msk/msk.c`): every share word passed through
 the gadgets' opaque copies, every 64-bit lane of the masked Keccak, the
 share polynomials after each linear step, the stored key as it is loaded
 and split, and the unmasked output. In every other build the hooks are
@@ -256,7 +262,15 @@ same code with every mask forced to zero and must be flagged.
 | ML-DSA-65 sign, key test | 1,250 | 939,728 | 5.60, 0: pass | 4 | leaks (8,399) | no points |
 | ML-DSA-87 sign, key test | 1,250 | 1,271,728 | 5.20, 0: pass | 0 | leaks (11,680) | no points |
 | ML-DSA-44 sign, nonce test | 2,500 | 672,528 | 5.14, 0: pass | 104,959 | none | leaks (z is public) |
+| HQC-128 decaps | 2,000 | 6,008,081 | 5.44, 0: pass | 745,969 | leaks (288) | leaks |
+| Ed25519 sign | 10,000 | 49,376 | 4.71, 0: pass | 0 | leaks (20) | no points |
+| SLH-DSA-SHA2-128 PRF, 64 lanes | 500 | 379,024 | 4.86, 0: pass | 1 | leaks (13) | |
+| SLH-DSA-SHAKE-128 PRF | 4,000 | 4,200 | 3.64, 0: pass | 0 | leaks (10) | |
 | control: ML-KEM-768, masks zero | 2,500 | 155,184 | 87,511 points: flagged | | | |
+| control: HQC-128, masks zero | 1,000 | 6,008,081 | 2,237,509 points: flagged | | | |
+| control: Ed25519, masks zero | 10,000 | 49,376 | 13,208 points: flagged | | | |
+| control: SLH-DSA-SHA2-128 PRF, masks zero | 500 | 379,024 | 2,784 points: flagged | | | |
+| control: SLH-DSA-SHAKE-128 PRF, masks zero | 4,000 | 4,200 | 26 points: flagged | | | |
 | control: ML-DSA-44 key test, masks zero | 1,250 | 672,528 | 47 points: flagged | | | |
 | control: ML-DSA-44 nonce test, masks zero | 1,250 | 672,528 | 366,321 points: flagged | | | |
 
@@ -292,9 +306,13 @@ secret to the resolution of these traces. It is a model, not a power
 measurement: it does not see what a CPU does with the values (registers
 the compiler reuses, a value and its complement on one bus, glitches,
 the transitions inside a gadget), nor any leakage of the order of two or
-more. It does not cover the unmasked signer and decapsulation
-(`nqmdspl`, `nqmkdecp`), SLH-DSA, HQC or key generation, which are not
-masked. No physical power or electromagnetic traces have been taken.
+more. It does not cover the unmasked signer and decapsulations
+(`nqmdspl`, `nqmkdecp`, `nqhqdecp`), SLH-DSA beyond its PRF (the chain
+and tree values PRF outputs are used unmasked, each with its own
+address), or key generation of ML-DSA, ML-KEM and HQC, which is not
+masked. Masking costs time: HQC decapsulation about 20 times (HQC-128
+22 ms instead of 1.1 ms), SLH-DSA signing about 2.5 times for the SHAKE
+sets and about 6 times for the SHA-2 sets. No physical power or electromagnetic traces have been taken.
 
 ## Test vectors
 

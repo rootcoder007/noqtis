@@ -440,8 +440,9 @@ GCC 16.2.1 Release, one core; the security page has every target.
 | ML-KEM keygen | 20,000; 127.0: fails, its time depends on the public rho | not masked |
 | ML-DSA sign, masked (44/65/87) | 2,500; 2.07 / 1.38 / 1.80 | 2,500 / 1,250 / 1,250; 5.57 / 5.60 / 5.20, no point; nonce test (44) 5.14 |
 | ML-DSA sign, unmasked | 20,000; 1.99 / 1.83 / 4.55 (87: 1.41 at 64,000 when repeated) | not masked |
-| SLH-DSA sign (SHA2-128f, SHAKE-128f) | 1,250 / 625; 5.72 / 4.83: fail (3.59 at 4,000 and 2.24 at 2,000 when repeated) | not masked |
-| HQC decaps (128/192/256; key and validity tests) | 10,000 / 5,000 / 2,500; 2.73 at most | not masked |
+| SLH-DSA sign (SHA2-128f, SHAKE-128f) | 1,250 / 625; 5.72 / 4.83: fail (3.59 at 4,000 and 2.24 at 2,000 when repeated) | its PRF masked (SHA2, 64 calls bitsliced / SHAKE): 500 / 4,000; 4.86 / 3.64, no point |
+| HQC decaps, masked (128; one key vs random keys) | 10,000 / 5,000 / 2,500; 2.73 at most (unmasked, 0.1.3) | 2,000 traces of 6,008,081 samples; 5.44, no point |
+| Ed25519 sign, masked (scalar shares, randomised ladders, hedged nonce) | not run | 10,000; 4.71, no point |
 
 dudect runs on one machine with one compiler: a pass is not a proof for
 another CPU, compiler or flags, and says nothing about power. The TVLA is
@@ -450,6 +451,9 @@ finds the stored key leaking as it is loaded and split (expected: keys
 are stored unmasked; the split's sign also leaks), the transition model
 failing (shares are handled one after the other, without the
 reference's assembly), and no leak of a masked value in the value model.
+For SLH-DSA only PRF, the one function keyed with SK.seed, is masked; the
+WOTS+ and FORS values it outputs are used unmasked, each meeting only its
+own address.
 
 ## Security reporting
 

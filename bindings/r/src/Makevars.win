@@ -41,6 +41,7 @@ OBJECTS = \
   hash/sha3.o \
   hqc/code.o \
   hqc/kem.o \
+  hqc/mdec.o \
   hqc/mul.o \
   mldsa/msk.o \
   mldsa/poly.o \

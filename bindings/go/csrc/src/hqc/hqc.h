@@ -54,8 +54,11 @@ int nqhqencd(nqkalg alg, const uint8_t *pk, size_t pklen,
 int nqhqenc(nqkalg alg, const uint8_t *pk, size_t pklen,
             uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 
-/* Decapsulation with implicit rejection. */
+/* Decapsulation with implicit rejection, first-order masked (the
+ * default); nqhqdecp is the same, constant time but not masked. */
 int nqhqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
             const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
+int nqhqdecp(nqkalg alg, const uint8_t *sk, size_t sklen,
+             const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 
 #endif /* NQHQC_H */

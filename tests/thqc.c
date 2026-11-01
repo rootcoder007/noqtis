@@ -2,7 +2,8 @@
 /* HQC tests: the official known answers of the reference implementation
  * v5.0.0 (300 vectors, through the digests in vectors/hqc), round trips,
  * implicit rejection to the exact J value, the decoder at its capacity,
- * the polynomial product against a direct one, and the API's errors.
+ * the polynomial product against a direct one, the masked decapsulation
+ * against the unmasked one, and the API's errors.
  *
  * NQHQKAT=n runs only the first n known answers of each set (for slow
  * runs under valgrind); the default is all of them. */
@@ -467,7 +468,43 @@ static void tmul(void) {
   }
 }
 
+/* the masked decapsulation (nqhqdec) against the unmasked one (nqhqdecp)
+ * on valid ciphertexts, single flipped bits, random bytes, and whole
+ * Reed-Muller blocks inverted, from one error to past the Reed-Solomon
+ * capacity: the same shared secret every time. NQFAST=1 runs fewer. */
+static void tmask(void) {
+  const int per = getenv("NQFAST") != NULL ? 10 : 40;
+  int i, k;
+  for (i = 0; i < 3; i++) {
+    const nqhqp *p = nqhqpar(algs[i]);
+    uint8_t s1[32], s2[32], ss[32];
+    NQTEQI(nqhqkg(algs[i], pk, p->pk, sk, p->sk), NQOK);
+    for (k = 0; k < per; k++) {
+      const int kind = k % 5;
+      size_t j, t;
+      NQTEQI(nqhqenc(algs[i], pk, p->pk, ct, p->ct, ss, 32), NQOK);
+      if (kind == 1) ct[(size_t)k * 7919u % p->ct] ^= (uint8_t)(1u << (k % 8));
+      if (kind == 2) NQTEQI(nqrand(ct, p->ct), NQOK);
+      if (kind == 3) {
+        for (j = 0; j < 40; j++) ct[p->nb + (j * 131 + (size_t)k) % p->vb] ^= 0x5a;
+      }
+      if (kind == 4) {
+        const size_t nb = 1 + (size_t)(k / 5) % (p->dl + 3), bl = p->n2 / 8;
+        for (j = 0; j < nb; j++) {
+          const size_t at = p->nb + ((j * 7 + (size_t)k) % p->n1) * bl;
+          for (t = 0; t < bl; t++) ct[at + t] ^= 0xff;
+        }
+      }
+      NQTEQI(nqhqdecp(algs[i], sk, p->sk, ct, p->ct, s1, 32), NQOK);
+      NQTEQI(nqhqdec(algs[i], sk, p->sk, ct, p->ct, s2, 32), NQOK);
+      NQTEQM(s2, s1, 32);
+      if (kind == 0) NQTEQM(s2, ss, 32);
+    }
+  }
+}
+
 int main(void) {
+  tmask();
   tsize();
   tmul();
   tcode();

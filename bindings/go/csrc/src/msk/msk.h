@@ -18,7 +18,8 @@
  * planes, and an addition is a ripple carry of masked ANDs shared by the
  * 64 lanes, which is what makes masking every SLH-DSA PRF affordable.
  *
- * The masks come from ChaCha20 (RFC 8439) keyed from nqrand: they must
+ * The masks come from ChaCha12 (RFC 8439's block function, 12 rounds) keyed
+ * from nqrand: they must
  * be unpredictable, and they are drawn by the hundred per hash, so the
  * generator is the fast cipher rather than a SHAKE. In the TVLA
  * control (NQLKZM) every mask is zero. Opaque volatile copies keep the
@@ -44,6 +45,14 @@ uint64_t nqmr64(nqmrg *g);
 /* Random bytes for a share (zero in the TVLA control). */
 void nqmrb(nqmrg *g, uint8_t *out, size_t n);
 
+/* A Keccak sponge on shares: rate in bytes, dom the padding byte (0x06
+ * for SHA-3, 0x1f for SHAKE); share 1 of the input is in1's first in1len
+ * bytes and zero after them (a masked prefix, a public rest); otherwise
+ * as nqmshk. */
+void nqmkec(uint8_t *out0, uint8_t *out1, size_t outlen,
+            const uint8_t *in0, const uint8_t *in1, size_t inlen,
+            size_t in1len, size_t rate, uint8_t dom, nqmrg *g);
+
 /* SHAKE256 of in0 ^ in1 (in1 NULL: share 1 all zero, a public input)
  * into out0 ^ out1. */
 void nqmshk(uint8_t *out0, uint8_t *out1, size_t outlen,
@@ -59,8 +68,11 @@ void nqms2(const uint32_t h[8], const uint8_t b0[64], const uint8_t b1[64],
  * block is b0 + 64 l (and b1 + 64 l), its result o0 + 8 l, o1 + 8 l.
  * Its working state (about 15 KB) is on the stack. */
 #define NQMSBL 64
+/* pre (at most 16): how many leading message words are public in every
+ * lane (share 1 zero there); those rounds run in the clear. */
 void nqms2b(const uint32_t h[8], const uint8_t *b0, const uint8_t *b1,
-            unsigned cnt, uint32_t *o0, uint32_t *o1, nqmrg *g);
+            unsigned cnt, unsigned pre, uint32_t *o0, uint32_t *o1,
+            nqmrg *g);
 
 /* For the tests: z0 ^ z1 = (x0 ^ x1) + (y0 ^ y1) mod 2^32. */
 void nqmsadd(uint32_t z[2], const uint32_t x[2], const uint32_t y[2],

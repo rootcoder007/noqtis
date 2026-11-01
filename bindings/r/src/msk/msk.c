@@ -14,7 +14,8 @@
    b = (b << 12) | (b >> 20), a += b, d ^= a, d = (d << 8) | (d >> 24), \
    c += d, b ^= c, b = (b << 7) | (b >> 25))
 
-/* the ChaCha20 block function (RFC 8439 2.3), nonce zero */
+/* the ChaCha block function (RFC 8439 2.3) with 12 rounds, as Rust's
+ * StdRng uses: the masks need only be unpredictable; nonce zero */
 static void refill(nqmrg *g) {
   uint32_t x[16], s[16];
   int i;
@@ -26,7 +27,7 @@ static void refill(nqmrg *g) {
   s[12] = g->ctr++;
   s[13] = s[14] = s[15] = 0;
   memcpy(x, s, sizeof x);
-  for (i = 0; i < 10; i++) {
+  for (i = 0; i < 6; i++) {
     QR(x[0], x[4], x[8], x[12]);
     QR(x[1], x[5], x[9], x[13]);
     QR(x[2], x[6], x[10], x[14]);
@@ -167,35 +168,38 @@ static void kfm(uint64_t s0[25], uint64_t s1[25], nqmrg *g) {
   nqwipe(t, sizeof t);
 }
 
-void nqmshk(uint8_t *out0, uint8_t *out1, size_t outlen,
+void nqmkec(uint8_t *out0, uint8_t *out1, size_t outlen,
             const uint8_t *in0, const uint8_t *in1, size_t inlen,
-            nqmrg *g) {
-  enum { RATE = 136 };
+            size_t in1len, size_t rate, uint8_t dom, nqmrg *g) {
   uint64_t s0[25], s1[25];
   size_t off = 0, pos, i;
-  memset(s0, 0, sizeof s0);
-  memset(s1, 0, sizeof s1);
+  /* the zero state as random shares, so that no lane, not even one of
+   * only public input, is ever held in one share alone */
+  for (i = 0; i < 25; i++) {
+    s0[i] = nqmr64(g);
+    s1[i] = s0[i];
+  }
   for (;;) {
-    const size_t take = inlen - off < RATE ? inlen - off : RATE;
+    const size_t take = inlen - off < rate ? inlen - off : rate;
     for (i = 0; i < take; i++) {
       s0[i / 8] ^= (uint64_t)in0[off + i] << (8 * (i % 8));
     }
     if (in1 != NULL) {
-      for (i = 0; i < take; i++) {
+      for (i = 0; i < take && off + i < in1len; i++) {
         s1[i / 8] ^= (uint64_t)in1[off + i] << (8 * (i % 8));
       }
     }
     off += take;
-    if (take < RATE) {
-      s0[take / 8] ^= (uint64_t)0x1f << (8 * (take % 8));
-      s0[(RATE - 1) / 8] ^= (uint64_t)0x80 << (8 * ((RATE - 1) % 8));
+    if (take < rate) {
+      s0[take / 8] ^= (uint64_t)dom << (8 * (take % 8));
+      s0[(rate - 1) / 8] ^= (uint64_t)0x80 << (8 * ((rate - 1) % 8));
       kfm(s0, s1, g);
       break;
     }
     kfm(s0, s1, g);
   }
   for (pos = 0;;) {
-    const size_t take = outlen - pos < RATE ? outlen - pos : RATE;
+    const size_t take = outlen - pos < rate ? outlen - pos : rate;
     for (i = 0; i < take; i++) {
       out0[pos + i] = (uint8_t)(s0[i / 8] >> (8 * (i % 8)));
     }
@@ -208,6 +212,12 @@ void nqmshk(uint8_t *out0, uint8_t *out1, size_t outlen,
   }
   nqwipe(s0, sizeof s0);
   nqwipe(s1, sizeof s1);
+}
+
+void nqmshk(uint8_t *out0, uint8_t *out1, size_t outlen,
+            const uint8_t *in0, const uint8_t *in1, size_t inlen,
+            nqmrg *g) {
+  nqmkec(out0, out1, outlen, in0, in1, inlen, inlen, 136, 0x1f, g);
 }
 
 /* ---- 32-bit share-pair gadgets ---- */
@@ -418,6 +428,29 @@ static void badd(bsw z, bsw x, bsw y, nqmrg *g) {
   nqwipe(s, sizeof s);
 }
 
+/* z = x + k for a constant k, the same in every lane: the generate term
+ * x & k is linear in the shares, so only the carry needs an AND */
+static void baddk(bsw z, bsw x, uint32_t k, nqmrg *g) {
+  bsw s;
+  const uint64_t r0 = nqmr64(g);
+  uint64_t c0, c1, t[2] = {r0, 0}, u[2] = {0, r0};
+  int i;
+  for (i = 0; i < 32; i++) {
+    const uint64_t kb = ((k >> i) & 1u) ? ~(uint64_t)0 : 0;
+    const uint64_t p0 = op64(x[0][i] ^ kb), p1 = x[1][i];
+    c0 = op64(t[0] ^ u[0]);
+    s[0][i] = op64(p0 ^ c0);
+    c1 = op64(t[1] ^ u[1]);
+    s[1][i] = op64(p1 ^ c1);
+    if (i == 31) break;
+    t[0] = op64(x[0][i] & kb);
+    t[1] = op64(x[1][i] & kb);
+    bandc(u, c0, c1, p0, p1, g);
+  }
+  memcpy(z, s, sizeof s);
+  nqwipe(s, sizeof s);
+}
+
 static void bxor(bsw z, bsw x, bsw y) {
   int i, k;
   for (k = 0; k < 2; k++) {
@@ -466,8 +499,13 @@ typedef struct {
   bsw w[16], st[8], t1, t2, u, v, k;
 } b2st;
 
+static uint32_t ror(uint32_t x, unsigned n) {
+  return (x >> n) | (x << (32 - n));
+}
+
 void nqms2b(const uint32_t h[8], const uint8_t *b0, const uint8_t *b1,
-            unsigned cnt, uint32_t *o0, uint32_t *o1, nqmrg *g) {
+            unsigned cnt, unsigned pre, uint32_t *o0, uint32_t *o1,
+            nqmrg *g) {
   b2st mm, *m = &mm; /* about 15 KB of stack */
   unsigned i, l, b, k;
   memset(m, 0, sizeof *m);
@@ -483,7 +521,39 @@ void nqms2b(const uint32_t h[8], const uint8_t *b0, const uint8_t *b1,
     }
   }
   for (i = 0; i < 8; i++) bpub(m->st[i], h[i]);
-  for (i = 0; i < 64; i++) {
+  if (pre > 0) {
+    /* the first pre rounds read only words of share 0 that are public
+     * (share 1 is zero there): each lane's state after them, in the
+     * clear, is public too */
+    for (b = 0; b < 32; b++) {
+      for (i = 0; i < 8; i++) m->st[i][0][b] = 0;
+    }
+    for (l = 0; l < cnt; l++) {
+      uint32_t v[8], t1, t2;
+      for (i = 0; i < 8; i++) v[i] = h[i];
+      for (i = 0; i < pre; i++) {
+        const uint32_t w = nqld32b(b0 + 64 * (size_t)l + 4 * i);
+        t1 = v[7] + (ror(v[4], 6) ^ ror(v[4], 11) ^ ror(v[4], 25)) +
+             ((v[4] & v[5]) ^ (~v[4] & v[6])) + k2[i] + w;
+        t2 = (ror(v[0], 2) ^ ror(v[0], 13) ^ ror(v[0], 22)) +
+             ((v[0] & v[1]) ^ (v[0] & v[2]) ^ (v[1] & v[2]));
+        v[7] = v[6];
+        v[6] = v[5];
+        v[5] = v[4];
+        v[4] = v[3] + t1;
+        v[3] = v[2];
+        v[2] = v[1];
+        v[1] = v[0];
+        v[0] = t1 + t2;
+      }
+      for (i = 0; i < 8; i++) {
+        for (b = 0; b < 32; b++) {
+          m->st[i][0][b] |= (uint64_t)((v[i] >> b) & 1u) << l;
+        }
+      }
+    }
+  }
+  for (i = pre; i < 64; i++) {
     bsw *s = m->st;
     bsw *wi = &m->w[i & 15];
     if (i >= 16) {
@@ -501,8 +571,7 @@ void nqms2b(const uint32_t h[8], const uint8_t *b0, const uint8_t *b1,
     bandw(m->v, m->v, s[6], g);
     bxor(m->u, m->u, m->v);
     badd(m->t1, m->t1, m->u, g);
-    bpub(m->k, k2[i]);
-    badd(m->t1, m->t1, m->k, g);
+    baddk(m->t1, m->t1, k2[i], g);
     badd(m->t1, m->t1, *wi, g);
     bsig(m->t2, s[0], 2, 13, 22, 0);
     bxor(m->u, s[1], s[2]);
@@ -514,10 +583,7 @@ void nqms2b(const uint32_t h[8], const uint8_t *b0, const uint8_t *b1,
     badd(s[4], s[4], m->t1, g);
     badd(s[0], m->t1, m->t2, g);
   }
-  for (i = 0; i < 8; i++) {
-    bpub(m->k, h[i]);
-    badd(m->st[i], m->st[i], m->k, g);
-  }
+  for (i = 0; i < 8; i++) baddk(m->st[i], m->st[i], h[i], g);
   /* back to one word per lane, share by share */
   for (l = 0; l < cnt; l++) {
     for (i = 0; i < 8; i++) {
