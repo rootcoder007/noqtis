@@ -13,10 +13,10 @@ Description: A post-quantum cryptography toolkit for R, built on the
     establish shared secrets with 'ML-KEM' or 'HQC' key encapsulation; and
     hash with 'SHA-2', 'SHA-3' or 'SHAKE', with 'HMAC'. A whole directory
     can be sealed under one signature and later verified offline; a
-    Merkle proof shows chosen files to someone without revealing the
+    'Merkle' proof shows chosen files to someone without revealing the
     others, and signed statements rotate or revoke a sealing key. Results
-    can be wrapped in 'DSSE' envelopes. Keys and nonces come from the
-    operating system's random generator, not from R's.
+    can be wrapped in 'DSSE' envelopes. Keys and 'nonces' come from the
+    operating system's random generator, not from the one in R.
 License: Apache License (== 2.0) | file LICENSE
 Copyright: see file inst/COPYRIGHTS
 URL: https://github.com/rootcoder007/noqtis

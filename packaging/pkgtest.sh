@@ -3,7 +3,7 @@
 # Builds one of the packaging/ recipes from a local source tarball, installs
 # the package it makes and runs the consumer program against the installed
 # package (pkg-config and find_package). Run from the source root:
-#   packaging/pkgtest.sh arch|alpine|rpm|debian|gentoo|void
+#   packaging/pkgtest.sh arch|alpine|rpm|rpmel|debian|gentoo|void
 #                                                as root, in that distro
 #   packaging/pkgtest.sh brew                    where brew is (not root)
 #   packaging/pkgtest.sh wolfi                   on a host with docker or
@@ -52,7 +52,8 @@ alpine)
   apk info -L noqtis noqtis-dev
   consumer /usr
   ;;
-rpm)
+rpm | rpmel)
+  # rpm on Fedora, rpmel on Rocky Linux (the EPEL builds COPR makes)
   dnf -y install rpm-build gcc cmake make pkgconf-pkg-config
   mkdir -p "$w/rpm/SOURCES"
   cp "$tar" "$w/rpm/SOURCES/noqtis-$v.tar.gz"

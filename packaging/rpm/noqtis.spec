@@ -67,7 +67,12 @@ export NQSLSUB=8 NQFAST=1
 
 %changelog
 * Sun Nov 01 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.1.4-1
-- The Windows command carries its own C runtime; no change on Fedora
+- Ed25519, SLH-DSA PRF and HQC decapsulation masked against power analysis
+- Every signature is checked before it is returned (new error NQEFLT)
+- noqtis selftest and nqselftest(): known-answer tests for every family
+- noqtis ers: RFC 4998 evidence records keep a seal's time provable
+- Progress bar for long seal, check and SLH-DSA signing on a terminal
+- Freestanding algorithms-only build (-DNQFREE=ON, -DNQFREESSP=ON)
 
 * Sat Oct 31 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.1.3-1
 - Builds on glibc older than 2.25 (getrandom by system call)

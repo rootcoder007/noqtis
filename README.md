@@ -14,7 +14,7 @@
 **Seal the exact files behind a result with a post-quantum signature, so
 anyone can check later, offline, that nothing changed.**
 
-**N**otary **O**f **Q**uantum-safe **T**raceable **I**nputs and **S**eals.
+**N**otary **o**f **Q**uantum-Safe **T**raceable **I**nputs and **S**eals.
 
 ![NOQTIS in 30 seconds: make a key, seal a folder, check it, change one file, the check fails](docs/demo.svg)
 

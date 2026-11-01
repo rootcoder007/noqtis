@@ -1,6 +1,6 @@
 # noqtis: design
 
-**N**otary **O**f **Q**uantum-safe **T**raceable **I**nputs and **S**eals.
+**N**otary **o**f **Q**uantum-Safe **T**raceable **I**nputs and **S**eals.
 
 noqtis is a standalone library and command-line tool written in C11. It signs and
 timestamps a record of the exact files an analysis used (a capsule), with

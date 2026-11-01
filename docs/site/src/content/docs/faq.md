@@ -8,7 +8,7 @@ description: Common questions about NOQTIS, capsules and post-quantum signatures
 Making results traceable: a paper's figures, a dataset release, a build
 output or a model can be sealed together with the exact inputs, so that
 anyone can check later, offline, that they have the very same files and
-who sealed them. The name stands for **N**otary **O**f **Q**uantum-safe
+who sealed them. The name stands for **N**otary **o**f **Q**uantum-Safe
 **T**raceable **I**nputs and **S**eals.
 
 ## Why post-quantum now?

@@ -10,8 +10,8 @@ abstract: >-
   result) with a post-quantum signature, so that anyone can check later,
   offline, that every file is unchanged, that nothing was added or
   removed, and which key sealed it. It implements ML-DSA (FIPS 204),
-  SLH-DSA (FIPS 205), ML-KEM (FIPS 203), HQC, SHA-2 and SHA-3, tested
-  against the NIST ACVP and Wycheproof test vectors.
+  SLH-DSA (FIPS 205), Ed25519 (RFC 8032), ML-KEM (FIPS 203), HQC, SHA-2
+  and SHA-3, tested against the NIST ACVP and Wycheproof test vectors.
 authors:
   - family-names: "Ruhela"
     given-names: "Vansh Singh"

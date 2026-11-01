@@ -599,7 +599,7 @@ jobs:
   package:
     # each packaging/ recipe built from this tree's tarball, the package
     # installed, the consumer built against it
-    name: package ${{ matrix.kind }}
+    name: package ${{ matrix.kind }}${{ matrix.name && format(' {0}', matrix.name) || '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     container: ${{ matrix.image }}
@@ -618,6 +618,14 @@ jobs:
           # fedora:latest
           - kind: rpm
             image: fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+          # rockylinux/rockylinux:9 and :10, as in the distro job: the
+          # spec as COPR builds it for EPEL 9 and 10
+          - kind: rpmel
+            name: el9
+            image: rockylinux/rockylinux@sha256:8101994123cf3d0a8fee517bee7f39e555c7d92bd2d9eb3303cc988a0eeed00f
+          - kind: rpmel
+            name: el10
+            image: rockylinux/rockylinux@sha256:827d37bc128288ccf160ee318bb3cb92d591164cb217e92f8bc61e3982ae1834
           # debian:stable
           - kind: debian
             image: debian@sha256:708ae3c7fd034a0f178557c500e617165589c61732022589fff3c401f92edbd3
