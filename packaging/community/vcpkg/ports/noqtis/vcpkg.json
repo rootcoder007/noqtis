@@ -1,6 +1,6 @@
 {
   "name": "noqtis",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Post-quantum signing, KEMs and sealed input records in C11",
   "homepage": "https://github.com/rootcoder007/noqtis",
   "license": "Apache-2.0 WITH LLVM-exception",

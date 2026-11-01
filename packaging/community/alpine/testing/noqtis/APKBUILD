@@ -1,7 +1,7 @@
 # Contributor: Vansh Singh Ruhela <vsruhela@proton.me>
 # Maintainer: Vansh Singh Ruhela <vsruhela@proton.me>
 pkgname=noqtis
-pkgver=0.1.3
+pkgver=0.1.4
 pkgrel=0
 pkgdesc="Post-quantum signing, KEMs and sealed input records in C11"
 url="https://github.com/rootcoder007/noqtis"
@@ -34,5 +34,5 @@ package() {
 }
 
 sha512sums="
-c9539d8dc0245662e69f8a6f06534bd6bd8eae4fce548e2cd23bd096d0f339e2383dc2c45080fef00fd360865c15244dac5b1d70d15320894dc040b58d0f5864  noqtis-0.1.3.tar.gz
+627ba87d32b967ea05846e3b3b08ba119346e515f103b2b599a0fffb461ebdc84496f464bb790684fa052d08a2b9a07670e998a497224ad7ff1de8609a99e621  noqtis-0.1.4.tar.gz
 "

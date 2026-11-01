@@ -1,6 +1,6 @@
 # Maintainer: Vansh Singh Ruhela <vsruhela@proton.me>
 pkgname=noqtis
-pkgver=0.1.3
+pkgver=0.1.4
 pkgrel=1
 pkgdesc='Post-quantum signing, KEMs and sealed input records in C11'
 arch=('x86_64' 'aarch64' 'i686' 'armv7h')
@@ -9,7 +9,7 @@ license=('Apache-2.0 WITH LLVM-exception')
 depends=('glibc')
 makedepends=('cmake')
 source=("https://github.com/rootcoder007/noqtis/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha256sums=('d0497737068c59eb53d9498273a6852e6f2855827509d4f04932013a77021891')
+sha256sums=('5947768511c94b369d76e416c09de6af5eabc013c04020a2e198c1e9701064b2')
 
 build() {
   cmake -S "$pkgname-$pkgver" -B build -DCMAKE_BUILD_TYPE=None \
