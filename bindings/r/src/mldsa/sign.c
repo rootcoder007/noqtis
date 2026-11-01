@@ -439,6 +439,10 @@ static int sgmu(const nqmdp *p, const uint8_t *sk, const uint8_t *mu,
      * that does not, and it is not returned */
     uint8_t pk[NQMDPKMAX];
     rc = pkof(p, sk, pk);
+    /* what the check works on is public once the signature is out */
+    NQMDPUB(pk, p->pk);
+    NQMDPUB(mu, 64);
+    NQMDPUB(sig, p->sig);
     if (rc == NQOK && vmu(p, pk, mu, sig) != NQOK) rc = NQEFLT;
   }
   nqwipe(r, sizeof r);

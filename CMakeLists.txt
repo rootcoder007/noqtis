@@ -29,7 +29,7 @@ option(NQTLS "Enable the TLS 1.3 client (not yet reviewed)" OFF)
 # The algorithms alone, for firmware, bootloaders and kernels: no files,
 # no network, no operating system random source (nqsetrng) and no
 # default allocator (nqsetal); the library then needs only memcpy,
-# memmove, memset and memcmp of the C library. Implies no CLI, no tests
+# memmove, memset and strcmp of the C library. Implies no CLI, no tests
 # and no TLS.
 option(NQFREE "Build the freestanding, algorithms-only library" OFF)
 if(NQFREE)
@@ -81,6 +81,12 @@ if(NQTLS)
 endif()
 if(NQFREE)
   add_compile_definitions(NQFREE)
+  # no libc hardening the target may not have: compilers that turn on
+  # stack protection or _FORTIFY_SOURCE by default (Ubuntu, Debian) would
+  # make the library call __stack_chk_fail and __memcpy_chk
+  if(NOT MSVC)
+    add_compile_options(-fno-stack-protector -U_FORTIFY_SOURCE)
+  endif()
 endif()
 
 if(NQSAN AND NOT MSVC)

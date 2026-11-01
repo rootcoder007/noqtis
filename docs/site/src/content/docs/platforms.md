@@ -56,7 +56,10 @@ ML-DSA, SLH-DSA, ML-KEM, HQC, Ed25519, the masking gadgets and the
 one-call API, without the command, files, capsules, JSON or TLS, and
 with no default allocator. The library then needs only `memcpy`,
 `memmove`, `memset` and `strcmp` from outside, which CI checks with `nm`
-for GCC and Clang. Randomness comes from the caller: `nqsetrng(fn, user)`
+for GCC and Clang. It is compiled with `-fno-stack-protector` and
+`-U_FORTIFY_SOURCE`, since a compiler that turns those on by default
+(Ubuntu's, Debian's) would otherwise make it call `__stack_chk_fail` and
+`__memcpy_chk`, which a target with no C library does not have. Randomness comes from the caller: `nqsetrng(fn, user)`
 names the function `nqrand` takes its bytes from (a hardware random
 number generator, or a DRBG seeded from one); until it is set, `nqrand`
 fails with `NQERNG`. `tests/free/tfree.c` runs the self-test, a

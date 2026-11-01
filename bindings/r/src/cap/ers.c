@@ -223,6 +223,42 @@ static int root(const ats *a, const uint8_t *h, size_t hl, uint8_t *out) {
   return NQOK;
 }
 
+/* the DER header of tag and n content bytes to p, at most 6 bytes; a
+ * length of 2^32 or more is never written (records are at most
+ * NQCERSMAX), so 4 length bytes are enough. No loop: GCC 14 vectorises
+ * one into a store it then warns overflows the buffer. */
+static size_t hdr(uint8_t *p, uint8_t tag, size_t n) {
+  p[0] = tag;
+  if (n < 0x80) {
+    p[1] = (uint8_t)n;
+    return 2;
+  }
+  if (n < 0x100) {
+    p[1] = 0x81;
+    p[2] = (uint8_t)n;
+    return 3;
+  }
+  if (n < 0x10000) {
+    p[1] = 0x82;
+    p[2] = (uint8_t)(n >> 8);
+    p[3] = (uint8_t)n;
+    return 4;
+  }
+  if (n < 0x1000000) {
+    p[1] = 0x83;
+    p[2] = (uint8_t)(n >> 16);
+    p[3] = (uint8_t)(n >> 8);
+    p[4] = (uint8_t)n;
+    return 5;
+  }
+  p[1] = 0x84;
+  p[2] = (uint8_t)(n >> 24);
+  p[3] = (uint8_t)(n >> 16);
+  p[4] = (uint8_t)(n >> 8);
+  p[5] = (uint8_t)n;
+  return 6;
+}
+
 /* The leaves a's imprint may stand on; *k of them, at most 4. */
 static int leaves(const ers *e, size_t i, const uint8_t *sb, size_t sn,
                   uint8_t lv[4][64], size_t *k) {
@@ -244,22 +280,9 @@ static int leaves(const ers *e, size_t i, const uint8_t *sb, size_t sn,
     const uint8_t *p0 = e->ch[0].p;
     const nqspan *l = &e->ch[a->chain - 1];
     size_t pn = (size_t)(l->p + l->n - p0), j, m;
-    uint8_t hb[8];
+    uint8_t hb[6];
     nqhctx x;
-    hb[0] = 0x30;
-    if (pn < 0x80) {
-      hb[1] = (uint8_t)pn;
-      m = 2;
-    } else {
-      size_t q = pn, nb = 0;
-      while (q != 0) {
-        nb++;
-        q >>= 8;
-      }
-      hb[1] = (uint8_t)(0x80 | nb);
-      for (j = 0; j < nb; j++) hb[2 + j] = (uint8_t)(pn >> (8 * (nb - 1 - j)));
-      m = 2 + nb;
-    }
+    m = hdr(hb, 0x30, pn);
     rc = nqhini(&x, a->alg);
     if (rc == NQOK) rc = nqhupd(&x, hb, m);
     if (rc == NQOK) rc = nqhupd(&x, p0, pn);
@@ -495,23 +518,6 @@ int nqersreq(const char *dir, nqhalg h, const uint8_t *nonce,
     rc = nqtsmk(w.h, w.dig, nonce, noncelen, req, reqlen, outlen);
   wfree(&w);
   return rc;
-}
-
-/* the DER header of tag and n content bytes to p (6 bytes are enough) */
-static size_t hdr(uint8_t *p, uint8_t tag, size_t n) {
-  size_t k = 0, nb = 0, q = n, j;
-  p[k++] = tag;
-  if (n < 0x80) {
-    p[k++] = (uint8_t)n;
-    return k;
-  }
-  while (q != 0) {
-    nb++;
-    q >>= 8;
-  }
-  p[k++] = (uint8_t)(0x80 | nb);
-  for (j = 0; j < nb; j++) p[k++] = (uint8_t)(n >> (8 * (nb - 1 - j)));
-  return k;
 }
 
 static void put(uint8_t *o, size_t *n, const void *p, size_t k) {

@@ -143,7 +143,9 @@ static int sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
      * signing gives one that does not, and it is not returned */
     uint8_t f2[NQSLNMX];
     int ok;
+    NQSLDECL(sig, p->sig);
     nqslffs(&c, sig + n, dg, a, f2);
+    NQSLDECL(f2, n);
     ok = nqslhvf(&c, f2, sig + n + (size_t)p->k * (p->a + 1) * n, tree,
                  leaf, pk + n);
     nqwipe(f2, sizeof f2);
