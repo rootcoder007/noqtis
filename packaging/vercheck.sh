@@ -81,5 +81,12 @@ if [ "$top" != "$v-1" ]; then
   bad=1
 fi
 
+# the Gentoo ebuild carries the version in its file name (PV), not inside
+eb=$(ls packaging/gentoo/*.ebuild 2>/dev/null)
+if [ "$eb" != "packaging/gentoo/noqtis-$v.ebuild" ]; then
+  echo "vercheck: the Gentoo ebuild is $eb, not packaging/gentoo/noqtis-$v.ebuild" >&2
+  bad=1
+fi
+
 [ "$bad" = 0 ] || exit 1
 echo "vercheck: $v everywhere"
