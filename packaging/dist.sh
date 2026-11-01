@@ -10,7 +10,8 @@
 #   linux-x86_64-shared linux-arm64-shared
 #                                shared library, noqtis linked against it
 #   macos-arm64 macos-x86_64     static library
-#   windows-x86_64 windows-arm64 static library, MSVC (.zip)
+#   windows-x86_64 windows-arm64 static library, MSVC (.zip); the command
+#                                carries its own C runtime (/MT)
 #
 # The archive noqtis-<version>-<target>.tar.gz (.zip on Windows) holds one
 # top directory with bin/noqtis, lib/ (library, noqtis.pc, the CMake
@@ -130,6 +131,22 @@ done
 exe=$st/bin/noqtis
 [ "$os" = windows ] && exe=$exe.exe
 [ -f "$exe" ] || { echo "dist.sh: no $exe" >&2; exit 1; }
+if [ "$os" = windows ]; then
+  # the library stays on the DLL C runtime (/MD), which is what programs
+  # that link it use; the command is built again with the C runtime linked
+  # in (/MT), so it runs on a Windows without the Visual C++ runtime
+  bt=$w/bt
+  rm -rf "$bt"
+  cmake -S "$src" -B "$bt" "$@" -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded >&2
+  cmake --build "$bt" --config Release --target nqcli --parallel "$j" >&2
+  mt=$(find "$bt/bin" -name noqtis.exe | head -n 1)
+  [ -n "$mt" ] || { echo "dist.sh: no noqtis.exe in $bt/bin" >&2; exit 1; }
+  cp "$mt" "$exe"
+  if grep -aqiE "vcruntime[0-9]*[.]dll|msvcp[0-9]*[.]dll|api-ms-win-crt" "$exe"; then
+    echo "dist.sh: $exe needs the Visual C++ runtime" >&2
+    exit 1
+  fi
+fi
 if [ "$native" = 1 ]; then
   "$exe" version >&2
 fi

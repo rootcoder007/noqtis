@@ -258,13 +258,22 @@ jobs:
         run: |
           set -- -DCMAKE_BUILD_TYPE=Release -DNQSHARED=ON -DNQTESTS=OFF \
             -DNQCLI=OFF -DNQMAN=OFF -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
-          if [ -n "$A" ]; then set -- "$@" -A "$A"; fi
+          # on Windows the DLL carries its own C runtime (/MT), so the jar
+          # loads on a machine without the Visual C++ runtime; memory never
+          # crosses it, since the library frees what it allocates
+          if [ -n "$A" ]; then
+            set -- "$@" -A "$A" -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          fi
           cmake -S . -B b "$@"
           cmake --build b --config Release -j4
           mkdir -p "out/native/$PL"
           for s in "b/$F" "b/Release/$F"; do
             if [ -f "$s" ]; then cp -L "$s" "out/native/$PL/$F"; fi
           done
+          if [ -n "$A" ] && grep -aqiE "vcruntime[0-9]*[.]dll|msvcp[0-9]*[.]dll|api-ms-win-crt" "out/native/$PL/$F"; then
+            echo "$F needs the Visual C++ runtime" >&2
+            exit 1
+          fi
           ls -l "out/native/$PL/$F"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
