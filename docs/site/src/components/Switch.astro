@@ -76,7 +76,7 @@ const { where = false } = Astro.props;
       ps: { cmd: `irm ${REL}/install.ps1 | iex`, note: "Checks the release's signature; no administrator rights." },
       brew: { cmd: "brew install rootcoder007/noqtis/noqtis", note: "The tool, the library, the header and the manual pages." },
       apt: { cmd: `sudo install -d -m 0755 /etc/apt/keyrings\ncurl -fsSL ${O}/Debian_13/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/noqtis.gpg\necho "deb [signed-by=/etc/apt/keyrings/noqtis.gpg] ${O}/Debian_13/ /" | sudo tee /etc/apt/sources.list.d/noqtis.list\nsudo apt update && sudo apt install noqtis`, note: "Debian 13 shown; Debian 12 and Ubuntu 24.04 and 26.04 on the Install page." },
-      dnf: { cmd: "sudo dnf copr enable rootcoder007/noqtis\nsudo dnf install noqtis", note: "Fedora 43 to 45 and rawhide, EPEL 9 and 10." },
+      dnf: { cmd: "sudo dnf copr enable rootcoder007/noqtis\nsudo dnf install noqtis          # the tool and the library\nsudo dnf install noqtis-devel    # the header, for building against it", note: "Fedora 43 to 45 and rawhide, EPEL 9 and 10." },
       oci: { cmd: 'docker run --rm -v "$PWD:/w" -w /w ghcr.io/rootcoder007/noqtis noqtis check results', note: "Wolfi image; Podman takes the same command." },
       src: { cmd: `git clone ${GH}.git\ncd noqtis\ncmake -S . -B build && cmake --build build\ncmake --install build --prefix ~/.local`, note: "Needs a C11 compiler and CMake." },
       c: { cmd: "sudo apt install libnoqtis-dev      # or: dnf install noqtis-devel, brew install rootcoder007/noqtis/noqtis\n#include <noqtis.h>                  // in prog.c, like <stdio.h>\ncc prog.c $(pkg-config --cflags --libs noqtis)", note: "The header, the static and shared library, noqtis.pc and a CMake package (find_package(noqtis))." },
