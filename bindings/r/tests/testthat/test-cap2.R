@@ -5,7 +5,6 @@ T0 <- 1700000000
 
 mkcap <- function() {
   d <- tempfile("nqc2")
-  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   dir.create(file.path(d, "sub"), recursive = TRUE)
   for (i in 0:2) writeLines(sprintf("a,b\n%d,2", i),
     file.path(d, sprintf("f%d.csv", i)))
@@ -18,6 +17,7 @@ rows <- function(r, n) r[r$check == n, , drop = FALSE]
 test_that("format 2 seals, checks, ids and lists", {
   k <- nqkeygen("ML-DSA-44")
   d <- mkcap()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 2)
   expect_match(paste(readLines(file.path(d, "noqtis.sig"), warn = FALSE),
     collapse = ""), "noqtis-seal-2", fixed = TRUE)
@@ -36,6 +36,7 @@ test_that("format 2 seals, checks, ids and lists", {
   expect_error(nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 1, inputs = d),
     "format 2")
   e <- mkcap()
+  on.exit(unlink(e, recursive = TRUE), add = TRUE)
   expect_error(nqcapid(e), "noqtis")
   expect_error(nqfiles(e), "noqtis")
 })
@@ -43,6 +44,7 @@ test_that("format 2 seals, checks, ids and lists", {
 test_that("proofs", {
   k <- nqkeygen("ML-DSA-65")
   d <- mkcap()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   nqseal(d, k$sk, k$pk, "ML-DSA-65", format = 2)
   p <- nqprove(d, c("f1.csv", "sub/y.bin"))
   t <- rawToChar(p)
@@ -67,6 +69,7 @@ test_that("proofs", {
   expect_error(nqprove(d, character()), "paths")
   expect_error(nqcheck(d, k$pk, proof = p, only = "f1.csv"), "proof")
   e <- mkcap()
+  on.exit(unlink(e, recursive = TRUE), add = TRUE)
   nqseal(e, k$sk, k$pk, "ML-DSA-65")
   expect_error(nqprove(e, "f0.csv"), "noqtis")
 })
@@ -75,6 +78,7 @@ test_that("partial checks", {
   k <- nqkeygen("ML-DSA-44")
   for (fmt in 1:2) {
     d <- mkcap()
+    on.exit(unlink(d, recursive = TRUE), add = TRUE)
     nqseal(d, k$sk, k$pk, "ML-DSA-44", format = fmt)
     writeLines("changed", file.path(d, "f0.csv"))
     unlink(file.path(d, "sub", "y.bin"))
@@ -90,12 +94,15 @@ test_that("partial checks", {
 test_that("lineage", {
   k <- nqkeygen("ML-DSA-44")
   a <- mkcap()
+  on.exit(unlink(a, recursive = TRUE), add = TRUE)
   nqseal(a, k$sk, k$pk, "ML-DSA-44")
   b <- mkcap()
+  on.exit(unlink(b, recursive = TRUE), add = TRUE)
   nqseal(b, k$sk, k$pk, "ML-DSA-44", inputs = c(raw = a))
   expect_match(paste(readLines(file.path(b, "noqtis.json"), warn = FALSE),
     collapse = ""), "\"name\":\"raw\"", fixed = TRUE)
   c2 <- mkcap()
+  on.exit(unlink(c2, recursive = TRUE), add = TRUE)
   nqseal(c2, k$sk, k$pk, "ML-DSA-44", inputs = b)
   r <- nqcheck(c2, k$pk, lineage = c(a, b))
   expect_true(attr(r, "ok"))
@@ -114,6 +121,7 @@ test_that("key statements", {
     at = T0, reason = "yearly")
   expect_match(rawToChar(st), "noqtis-keys-1", fixed = TRUE)
   d <- mkcap()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   nqseal(d, k2$sk, k2$pk, "ML-DSA-65")
   expect_false(attr(nqcheck(d, k1$pk), "ok"))
   r <- nqcheck(d, k1$pk, keys = list(st))
@@ -126,6 +134,7 @@ test_that("key statements", {
   rv <- nqrevoke(k1$sk, k1$pk, "ML-DSA-44",
     at = as.POSIXct(T0, origin = "1970-01-01", tz = "UTC"))
   e <- mkcap()
+  on.exit(unlink(e, recursive = TRUE), add = TRUE)
   nqseal(e, k1$sk, k1$pk, "ML-DSA-44")
   expect_true(attr(nqcheck(e, k1$pk), "ok"))
   r <- nqcheck(e, k1$pk, keys = rv)
@@ -177,6 +186,7 @@ test_that("Ed25519 and the hybrids sign; a hybrid seals, Ed25519 does not", {
   expect_identical(nqkeygen("ML-DSA-65+Ed25519", seed = as.raw(0:63))$pk,
     k$pk)
   d <- mkcap()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   nqseal(d, k$sk, k$pk, "ML-DSA-65+Ed25519", format = 2)
   expect_true(attr(nqcheck(d, k$pk), "ok"))
   e <- nqkeygen("Ed25519")

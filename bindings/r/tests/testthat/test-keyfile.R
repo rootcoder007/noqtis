@@ -3,7 +3,6 @@
 fx <- function(f) test_path("fixtures", "keys", f)
 td <- function() {
   d <- tempfile("nqkey")
-  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   dir.create(d)
   d
 }
@@ -19,6 +18,7 @@ test_that("a key file the CLI made reads back as the seed's key pair", {
 test_that("nqwritekey writes the CLI's bytes, and reads them back", {
   k <- nqkeygen("ML-DSA-44", seed = as.raw(0:31))
   d <- td()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   nqwritekey(file.path(d, "k"), k$sk, "ml-dsa-44", "sec")
   nqwritekey(file.path(d, "k.pub"), k$pk, "ML-DSA-44", "pub")
   rd <- function(f) readBin(f, "raw", file.size(f))
@@ -49,9 +49,9 @@ test_that("CRLF line ends are read; anything else is refused", {
   t <- readBin(fx("k44.pub"), "raw", file.size(fx("k44.pub")))
   txt <- rawToChar(t)
   d <- td()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   w <- function(x) {
     f <- tempfile(tmpdir = d)
-    on.exit(unlink(f, recursive = TRUE), add = TRUE)
     writeBin(charToRaw(x), f)
     f
   }
