@@ -14,6 +14,17 @@
 #include "ed/ed.h"
 #include "hash/h.h"
 
+/* Constant-time checking (tests/tedct.c, built with -DNQCTGRIND): what the
+ * check after signing works on is public once the signature is out (the
+ * public key, R, S and k = H(R || A || M)), so it is marked defined and
+ * the verification's public branches are not reported. A no-op otherwise. */
+#ifdef NQCTGRIND
+#include <valgrind/memcheck.h>
+#define NQEDDECL(p, n) ((void)VALGRIND_MAKE_MEM_DEFINED((p), (n)))
+#else
+#define NQEDDECL(p, n) ((void)0)
+#endif
+
 typedef int64_t gf[16];
 
 static const gf g0 = {0};
@@ -584,6 +595,9 @@ int nqedsignz(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
        * while signing gives a signature that fails it, not returned */
       ge q2, p2;
       uint8_t t[32];
+      NQEDDECL(pk, 32);
+      NQEDDECL(out, 64);
+      NQEDDECL(k, sizeof k);
       if (unneg(q2, pk) != 0) {
         rc = NQEFLT;
       } else {
