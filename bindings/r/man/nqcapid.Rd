@@ -37,7 +37,7 @@ capsule's other files. \code{nqcheck(proof = )} checks it, alone or against
 the files.
 }
 \examples{
-d <- file.path(tempdir(), "proved")
+d <- tempfile("proved")
 dir.create(d)
 writeLines("one", file.path(d, "a.txt"))
 writeLines("two", file.path(d, "b.txt"))

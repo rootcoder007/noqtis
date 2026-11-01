@@ -98,7 +98,7 @@ to a seal by other tools, and \code{nqcheck()} verifies it when \code{anchors} i
 given.
 }
 \examples{
-d <- file.path(tempdir(), "capsule")
+d <- tempfile("capsule")
 dir.create(d)
 writeLines("hello", file.path(d, "a.txt"))
 k <- nqkeygen("ML-DSA-44")

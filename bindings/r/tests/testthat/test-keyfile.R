@@ -3,6 +3,7 @@
 fx <- function(f) test_path("fixtures", "keys", f)
 td <- function() {
   d <- tempfile("nqkey")
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   dir.create(d)
   d
 }
@@ -50,6 +51,7 @@ test_that("CRLF line ends are read; anything else is refused", {
   d <- td()
   w <- function(x) {
     f <- tempfile(tmpdir = d)
+    on.exit(unlink(f, recursive = TRUE), add = TRUE)
     writeBin(charToRaw(x), f)
     f
   }
@@ -91,6 +93,7 @@ test_that("non-canonical padding is refused", {
 test_that("nqwritekey refuses a key that is not the algorithm's size", {
   k <- nqkeygen("ML-DSA-44")
   f <- tempfile()
+  on.exit(unlink(f, recursive = TRUE), add = TRUE)
   expect_error(nqwritekey(f, k$pk, "ML-DSA-44", "sec"), "key is")
   expect_error(nqwritekey(f, k$pk, "ML-DSA-99", "pub"), "unknown")
   expect_error(nqwritekey(f, "x", "ML-DSA-44", "pub"), "raw vector")

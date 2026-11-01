@@ -50,7 +50,7 @@ test_that("empty input, raw output and SHAKE lengths", {
 
 test_that("a file hashes as its bytes, across chunk boundaries", {
   f <- tempfile()
-  on.exit(unlink(f))
+  on.exit(unlink(f, recursive = TRUE), add = TRUE)
   b <- as.raw(rep_len(0:255, 1048576L * 2L + 77L))
   writeBin(b, f)
   for (a in c("sha256", "sha3-256", "shake256")) {

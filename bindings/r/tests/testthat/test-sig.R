@@ -59,7 +59,9 @@ test_that("keys from a seed and deterministic signatures repeat", {
 
 test_that("the golden key is the one the capsule records", {
   k <- gkey()
-  s <- sealpk(file.path(golden(), "noqtis.sig"))
+  g <- golden()
+  on.exit(unlink(g, recursive = TRUE), add = TRUE)
+  s <- sealpk(file.path(g, "noqtis.sig"))
   expect_identical(b64e(k$pk), s)
 })
 

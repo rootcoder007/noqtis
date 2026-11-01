@@ -1,5 +1,6 @@
 test_that("the golden capsule checks", {
   d <- golden()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   r <- nqcheck(d)
   expect_s3_class(r, "data.frame")
   expect_named(r, c("check", "ok", "detail"))
@@ -16,20 +17,24 @@ test_that("the golden capsule checks", {
 
 test_that("a tampered copy fails", {
   d <- golden()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   writeLines("hellO", file.path(d, "a.txt"))
   r <- nqcheck(d)
   expect_false(attr(r, "ok"))
   expect_true(any(!r$ok & grepl("a.txt", r$detail)))
   # an added file
   d <- golden()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   writeLines("new", file.path(d, "data", "new.txt"))
   expect_false(attr(nqcheck(d), "ok"))
   # a removed file
   d <- golden()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   unlink(file.path(d, "data", "b.csv"))
   expect_false(attr(nqcheck(d), "ok"))
   # a changed manifest
   d <- golden()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   f <- file.path(d, "noqtis.json")
   s <- readChar(f, file.size(f), useBytes = TRUE)
   writeChar(sub("golden", "Golden", s, fixed = TRUE), f, eos = NULL,
@@ -37,6 +42,7 @@ test_that("a tampered copy fails", {
   expect_false(attr(nqcheck(d), "ok"))
   # a changed signature
   d <- golden()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   f <- file.path(d, "noqtis.sig")
   s <- readChar(f, file.size(f), useBytes = TRUE)
   i <- regexpr('"signature":"', s, fixed = TRUE) + 13L + 100L
@@ -45,6 +51,7 @@ test_that("a tampered copy fails", {
   expect_false(attr(nqcheck(d), "ok"))
   # no seal at all
   d <- tempfile()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   dir.create(d)
   expect_false(isTRUE(tryCatch(attr(nqcheck(d), "ok"),
     error = function(e) FALSE)))
@@ -52,7 +59,9 @@ test_that("a tampered copy fails", {
 
 test_that("sealing the golden files again gives the golden manifest", {
   g <- golden()
+  on.exit(unlink(g, recursive = TRUE), add = TRUE)
   d <- tempfile("nqseal")
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   dir.create(d)
   for (f in c("a.txt", "empty", "data")) {
     file.copy(file.path(g, f), d, recursive = TRUE)
@@ -62,7 +71,7 @@ test_that("sealing the golden files again gives the golden manifest", {
   old <- Sys.getenv("SOURCE_DATE_EPOCH", NA)
   Sys.setenv(SOURCE_DATE_EPOCH = "1793210645")
   on.exit(if (is.na(old)) Sys.unsetenv("SOURCE_DATE_EPOCH") else
-    Sys.setenv(SOURCE_DATE_EPOCH = old))
+    Sys.setenv(SOURCE_DATE_EPOCH = old), add = TRUE)
   p <- nqseal(d, k$sk, k$pk, "ML-DSA-44",
     meta = '{"project":"golden","n":1.50,"tags":["a","b"]}')
   expect_true(all(file.exists(p)))
@@ -74,6 +83,7 @@ test_that("sealing the golden files again gives the golden manifest", {
 
 test_that("seal and check round trip, and bad arguments", {
   d <- tempfile("nqrt")
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   dir.create(file.path(d, "sub"), recursive = TRUE)
   writeBin(as.raw(0:255), file.path(d, "sub", "x.bin"))
   writeLines("y", file.path(d, "y.txt"))
@@ -98,6 +108,7 @@ test_that("RFC 3161 timestamps verify under their anchor only", {
   root <- rd(file.path(fx, "root.der"))
   oth <- rd(file.path(fx, "other.der"))
   d <- golden()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   k <- gkey()
   # anchors given, but no timestamp in the seal
   r <- nqcheck(d, k$pk, anchors = list(root))

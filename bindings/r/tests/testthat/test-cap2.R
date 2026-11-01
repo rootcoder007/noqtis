@@ -5,6 +5,7 @@ T0 <- 1700000000
 
 mkcap <- function() {
   d <- tempfile("nqc2")
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   dir.create(file.path(d, "sub"), recursive = TRUE)
   for (i in 0:2) writeLines(sprintf("a,b\n%d,2", i),
     file.path(d, sprintf("f%d.csv", i)))
@@ -52,6 +53,7 @@ test_that("proofs", {
   expect_equal(nrow(rows(r, "proof.entry")), 2L)
   expect_true(attr(nqcheck(d, k$pk, proof = p), "ok"))
   pf <- tempfile(fileext = ".json")
+  on.exit(unlink(pf, recursive = TRUE), add = TRUE)
   writeBin(p, pf)
   expect_true(attr(nqcheck(NULL, proof = pf), "ok"))
   writeLines("x", file.path(d, "f1.csv"))
@@ -118,6 +120,7 @@ test_that("key statements", {
   expect_true(attr(r, "ok"))
   expect_gt(nrow(rows(r, "keys")), 0L)
   f <- tempfile(fileext = ".json")
+  on.exit(unlink(f, recursive = TRUE), add = TRUE)
   writeBin(st, f)
   expect_true(attr(nqcheck(d, k1$pk, keys = f), "ok"))
   rv <- nqrevoke(k1$sk, k1$pk, "ML-DSA-44",

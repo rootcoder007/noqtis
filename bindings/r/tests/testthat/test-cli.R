@@ -4,6 +4,7 @@
 test_that("signatures cross between the CLI and R", {
   skip_if(cli() == "", "the noqtis CLI is not available")
   d <- tempfile("nqcli")
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   dir.create(d)
   key <- file.path(d, "k")
   msg <- file.path(d, "m.txt")
@@ -40,12 +41,14 @@ test_that("signatures cross between the CLI and R", {
 test_that("capsules cross between the CLI and R", {
   skip_if(cli() == "", "the noqtis CLI is not available")
   d <- golden()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
   expect_equal(runcli("check", d)$rc, 0L)
   writeLines("hellO", file.path(d, "a.txt"))
   expect_equal(runcli("check", d)$rc, 1L)
   # R seals, the CLI checks with R's public key
   k <- nqkeygen("ML-DSA-44")
   pub <- tempfile(fileext = ".pub")
+  on.exit(unlink(pub, recursive = TRUE), add = TRUE)
   wpub(pub, "ML-DSA-44", k$pk)
   nqseal(d, k$sk, k$pk, "ML-DSA-44")
   expect_equal(runcli("check", "-p", pub, d)$rc, 0L)

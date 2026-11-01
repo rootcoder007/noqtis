@@ -58,7 +58,7 @@
 #'   only when every check passed.
 #'
 #' @examples
-#' d <- file.path(tempdir(), "capsule")
+#' d <- tempfile("capsule")
 #' dir.create(d)
 #' writeLines("hello", file.path(d, "a.txt"))
 #' k <- nqkeygen("ML-DSA-44")
@@ -186,7 +186,7 @@ nqcheck <- function(dir, pk = NULL, anchors = NULL, only = NULL,
 #'   in manifest order. `nqprove()`: the proof, a raw vector.
 #'
 #' @examples
-#' d <- file.path(tempdir(), "proved")
+#' d <- tempfile("proved")
 #' dir.create(d)
 #' writeLines("one", file.path(d, "a.txt"))
 #' writeLines("two", file.path(d, "b.txt"))
