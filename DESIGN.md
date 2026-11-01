@@ -24,8 +24,8 @@ that package and carries none of its statistics.
 
 Non-goals: a general TLS library (no server, no TLS 1.2, no resumption:
 the TLS 1.3 client in `src/tls` exists so the tool can fetch over HTTPS
-without another library, and stays behind the CMake option `NQTLS` until
-reviewed), a general X.509 issuing toolkit, key storage formats beyond
+without another library, for `noqtis check <url>`, and stays behind the
+CMake option `NQTLS`, off by default, until reviewed), a general X.509 issuing toolkit, key storage formats beyond
 what the capsule needs, an OpenSSL provider (OpenSSL 3.5 already has ML-DSA,
 SLH-DSA and ML-KEM).
 
@@ -35,9 +35,9 @@ SLH-DSA and ML-KEM).
   Platform code (randomness, file I/O) sits in `src/platform/` behind
   `#if` blocks for Linux, macOS, the BSDs and Windows.
 - Builds with GCC and Clang on Linux and macOS, and with MSVC on Windows.
-- CMake is the primary build (`cmake -S . -B build && cmake --build build`);
-  a plain `Makefile` builds the library and tests on POSIX for auditors who
-  do not want CMake.
+- CMake is the only build (`cmake -S . -B build && cmake --build build`),
+  3.20 or later; the R, Rust and Go bindings build the vendored sources
+  with their own tools.
 - Warnings are errors in CI: `-Wall -Wextra -Wpedantic -Wconversion
   -Wshadow -Wstrict-prototypes -Wcast-qual -Wvla`.
 - No VLAs, no recursion in parsers (explicit depth limits instead), no
@@ -95,13 +95,15 @@ vectors and against OpenSSL.
 | M3e | `ed` | Ed25519, Ed25519ctx, Ed25519ph (RFC 8032), strict verification (prime-order keys, S < L, canonical encodings); hybrid ML-DSA + Ed25519 in `api/sig.c` | RFC 8032 vectors, Wycheproof Ed25519, OpenSSL 3.5 cross-check and differential fuzz, ctgrind |
 | M7 | `cls` | verification only: RSA PKCS#1 v1.5 and PSS (2048-4096), ECDSA P-256 and P-384 | Wycheproof RSA and ECDSA, OpenSSL 3.5 differential fuzz |
 | M8 | `der` | strict DER reader (length, tag and depth limits), X.509 path checks, OCSP, CRL, RFC 3161 timestamp tokens | the rmoriebricklayer 1.0.3 x509/timestamp fixtures, libFuzzer corpus, positional-parse tests |
-| M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify; format 2: Merkle tree over the entries (RFC 9162), seal over the head, partial checks, proofs of single files, inputs and lineage | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer; `tcap2` (tree against RFC 9162 by construction, every proof field tampered), an independent recomputation of the spec's example, `fproof` |
-| M10 | `cli` | `noqtis keygen / sign / verify / enc / dec / hash / seal / timestamp / check / prove / inspect / algs / version` | golden-output tests, exit codes, fuzzed arguments |
+| M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify; format 2: Merkle tree over the entries (RFC 9162), seal over the head, partial checks, proofs of single files, inputs and lineage; key statements (rotation, revocation), identity cards (`noqtis-idcard-1`), exports (in-toto, DSSE, RO-Crate, BagIt) | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer; `tcap2` (tree against RFC 9162 by construction, every proof field tampered), an independent recomputation of the spec's example, `fproof` |
+| M10 | `cli` | `noqtis keygen / sign / verify / enc / dec / hash / seal / timestamp / check / prove / export / rotate / revoke / idcard / inspect / algs / version` | golden-output tests, exit codes, fuzzed arguments |
 | M11 | `port` | platform layer for files and paths (Windows wide-char), symbol visibility, shared-library versioning, `noqtis.pc` and CMake package config | the full suite passes on every platform in the CI matrix |
-| M12 | `bind` | WebAssembly build and the npm, PyPI and CRAN packages first, then the other bindings | each binding's own tests on every platform it supports |
+| M12 | `bind` | WebAssembly (npm), Python, R, Rust, Go and Java bindings (done); .NET, Swift, Android and Ruby next | each binding's own tests on every platform it supports |
+| M13 | `tls` | TLS 1.3 client (RFC 8446) with X25519MLKEM768 and X25519 key shares (`xdh`), AES-GCM and ChaCha20-Poly1305 (`aead`), certificate path, OCSP and CT checks; behind `NQTLS` | `taead`, `tecdh`, `thyb`, `thkdf` and `tests/tls` (a local test server through the `NQTEST` hooks); not yet reviewed |
 
 Dependencies: M1 needs M0; M2-M7 need M0-M1; M8 needs M1 and M7; M9 needs
-M1-M5 and M8; M10 needs everything; M11 runs alongside from now on; M12 needs M9.
+M1-M5 and M8; M10 needs everything; M11 runs alongside; M12 needs M9;
+M13 needs M1, M3e, M5, M7 and M8.
 
 ## Capsule format, version 1
 
@@ -209,7 +211,9 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 - Semantic versioning. The shared library carries an ABI version
   (`libnoqtis.so.0`, `noqtis-0.dll`, `libnoqtis.0.dylib`); the public API
   never exposes a struct whose layout may change (sizes are fixed or
-  opaque). Done (VERSION 0.1.1, SOVERSION 0).
+  opaque). Done (the version is `project(... VERSION)` in CMakeLists.txt,
+  SOVERSION 0; `packaging/vercheck.sh` checks every other place that
+  names it).
 - `pkg-config` file (`noqtis.pc`) and a CMake package config
   (`find_package(noqtis)`) are installed with the library. Done; CI builds
   `tests/consumer` against each install both ways.
@@ -233,25 +237,25 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
 
 ### Packages
 
-| Ecosystem | Package | Form |
-|---|---|---|
-| Homebrew (macOS, Linux) | `noqtis` | taps `rootcoder007/homebrew-noqtis` and `rootcoder007/homebrew-morie` first, homebrew-core later; formula in `packaging/brew`, tested in CI |
-| curl / shell | `install.sh`, `install.ps1` | verified binary download (above) |
-| npm (Node, Deno, Bun, browsers) | `noqtis` | WebAssembly build, works everywhere with nothing to compile; optional native addon (Node-API, prebuilt per platform) for speed |
-| PyPI | `noqtis` | wheels for every OS/CPU above (cibuildwheel), no compiler needed |
-| CRAN (R) | `noqtis` | the C sources vendored in an R package; no network in tests, under 5 MB (test vectors stay in this repo) |
-| crates.io (Rust) | `noqtis-sys`, `noqtis` | raw bindings plus a safe wrapper |
-| Go | `github.com/rootcoder007/noqtis/bindings/go` | cgo binding; its own tag `bindings/go/vX.Y.Z` with each release |
-| Java / Kotlin | Maven Central `noqtis` | Panama (JDK 22+) with a JNI fallback; per-platform natives in the jar |
-| .NET | NuGet `Noqtis` | P/Invoke with runtime-specific natives |
-| Swift / iOS / macOS apps | Swift Package | XCFramework |
-| Android | Maven `noqtis-android` | AAR with NDK builds |
-| Ruby | gem `noqtis` | FFI |
-| C/C++ package managers | vcpkg, Conan, conda-forge, xmake | source recipes |
-| Linux distributions | Debian/Ubuntu, Fedora/EPEL, Arch (AUR), Alpine, Nix, Gentoo | distro packages; recipes for Debian, Fedora, Arch, Alpine, Wolfi and Gentoo in `packaging/` and `flake.nix` for Nix, built and tested in CI; a Gentoo ebuild (an overlay) too |
-| Windows | winget, Scoop, Chocolatey | the release archives |
-| Containers | `ghcr.io/rootcoder007/noqtis` | distroless image with the CLI; the Wolfi `Dockerfile` carries the library now, the CLI later |
-| CI | GitHub Action `rootcoder007/noqtis@v0` (`action.yml` in this repository) | seal and check capsules in workflows; tested by `.github/workflows/action.yml` on Linux, macOS and Windows |
+| Ecosystem | Package | Form | Status |
+|---|---|---|---|
+| Homebrew (macOS, Linux) | `noqtis` | formula in `packaging/brew`, tested in CI | taps `rootcoder007/homebrew-noqtis` and `homebrew-morie`, updated by each release; homebrew-core later |
+| curl / shell | `install.sh`, `install.ps1` | verified binary download (above) | live |
+| npm (Node, Deno, Bun, browsers) | `noqtis` | WebAssembly build, nothing to compile | live (trusted publishing); no native addon |
+| PyPI | `noqtis` | wheels for every OS/CPU above (cibuildwheel), no compiler needed | live |
+| R | `noqtis` | the C sources vendored (`tools/vendor.sh`); no network in tests, under 5 MB | r-universe; CRAN not yet submitted |
+| crates.io (Rust) | `noqtis` | one crate with the C sources vendored and a safe API | live |
+| Go | `github.com/rootcoder007/noqtis/bindings/go` | cgo binding with the C sources vendored; its own tag `bindings/go/vX.Y.Z`, on the release commit, pushed with each release tag | live (Go module proxy) |
+| Java / Kotlin | Maven Central `io.github.rootcoder007:noqtis` | Panama (JDK 22+); the jar carries the library for six platforms | live |
+| .NET | NuGet `Noqtis` | P/Invoke with runtime-specific natives | not yet |
+| Swift / iOS / macOS apps | Swift Package | XCFramework | not yet |
+| Android | Maven `noqtis-android` | AAR with NDK builds | not yet (the library's tests already run on the emulator) |
+| Ruby | gem `noqtis` | FFI | not yet |
+| C/C++ package managers | vcpkg, Conan, conda-forge | source recipes in `packaging/community`, built by `pkgs.yml` | conda-forge pull request open; vcpkg and Conan ready, not submitted |
+| Linux distributions | Fedora/EPEL, openSUSE, Debian/Ubuntu, Arch (AUR), Alpine, Nix, Gentoo, Void, Wolfi | recipes in `packaging/` and `flake.nix`, built and tested in CI; community recipes in `packaging/community` | Fedora COPR and openSUSE OBS live, updated by each release; nixpkgs pull request open; AUR, Alpine and Gentoo GURU to be submitted by hand; Void and Wolfi ready, not submitted |
+| Windows | Scoop, winget, Chocolatey | the release archives; `noqtis.exe` carries its C runtime | Scoop bucket `rootcoder007/scoop-noqtis` live; winget pull request open; Chocolatey not yet |
+| Containers | `ghcr.io/rootcoder007/noqtis` | Wolfi image (`Dockerfile`) with the CLI, the shared library, the header and the pkg-config and CMake files | live |
+| CI | GitHub Action `rootcoder007/noqtis@v0` (`action.yml` in this repository) | seal and check capsules in workflows; tested by `.github/workflows/action.yml` on Linux, macOS and Windows | live |
 
 Every binding has its own tests that run the capsule round trip and a
 sample of the ACVP vectors through the binding, on every platform the
@@ -259,55 +263,24 @@ ecosystem supports, before a release is published.
 
 ### Order
 
-1. Library and CLI on every platform in CI (M11). Library done; the CLI
-   is next.
+1. Library and CLI on every platform in CI (M11). Done.
 2. Release archives, signatures, `install.sh`/`install.ps1`, Homebrew tap.
-3. npm (WebAssembly) and PyPI wheels.
-4. CRAN.
+   Done.
+3. npm (WebAssembly) and PyPI wheels. Done.
+4. R (r-universe done; CRAN to submit).
 5. vcpkg, conda-forge, AUR, Nix, winget, Scoop, the container image and the
-   GitHub Action.
-6. homebrew-core and the distribution packages.
-7. The other language bindings.
-
-## Release channels
-
-Where noqtis is published, what each channel requires before it accepts
-the project, and when it can go there. "Day one" means the day the
-signed v0.1.1 tag is pushed (0.1.0 reached npm alone, by mistake, and is
-not a release).
-
-| Channel | What it requires | When |
-|---|---|---|
-| npm, PyPI, crates.io, NuGet, Maven Central, RubyGems, Go modules | published by us | day one |
-| CRAN | CRAN's submission review (policy, `R CMD check --as-cran`, no network in tests, under 5 MB) | after its review, days |
-| Homebrew taps `rootcoder007/homebrew-noqtis` and `homebrew-morie` | ours | day one |
-| Scoop bucket, GHCR and Docker Hub images (Wolfi), GitHub Action Marketplace | ours | day one |
-| winget, Chocolatey | a pull request or package submission; moderated, routine | day one to days |
-| Arch User Repository | an upload by any user | day one |
-| Nixpkgs | a pull request reviewed by maintainers | first week |
-| conda-forge | a pull request to staged-recipes | first week |
-| vcpkg, Conan Center | a pull request; build and licence checked | first weeks |
-| Wolfi (`wolfi-dev/os`) | a melange recipe pull request | first weeks |
-| Alpine (aports `testing`, then `community`) | a merge request with a named maintainer | first weeks |
-| MacPorts, FreeBSD ports, OpenBSD ports, pkgsrc | a port reviewed by a committer | weeks |
-| homebrew-core | a stable tagged release, a source build on macOS (arm64, x86-64) and Linux, a real `test do` block, and notability (about 75 stars, or 30 forks or watchers; stricter for self-submissions) | weeks after launch |
-| Fedora and EPEL | a package review, and a sponsor until we are packagers | 1-2 months |
-| Debian, then Ubuntu (which syncs from Debian) | an intent-to-package bug, a Debian Developer sponsor and FTP-master review | 1-3 months |
-| Arch official repositories, Gentoo main tree | adoption by a trusted user or developer | once widely used |
-| OSS-Fuzz | Google's acceptance of important or widely used projects | after adoption |
-
-Every recipe lives in `packaging/` and is built and tested in CI before it
-is submitted, so each channel gets a recipe that already passes its own
-checks. The homebrew-core formula is the tap's formula, so moving it is a
-pull request, not a rewrite.
-
-Funding and credibility, not distribution: OSTIF (audit), Sovereign Tech
-Agency, NLnet NGI Zero, OpenSSF Alpha-Omega and the R Consortium; apply
-around launch (see the launch checklist).
+   GitHub Action. The image, the Action and Scoop are done; conda-forge,
+   nixpkgs and winget are open pull requests; the others are ready.
+6. homebrew-core and the distribution packages: COPR and OBS are done;
+   homebrew-core, Fedora, Debian and the others wait on their reviews and
+   on adoption.
+7. The other language bindings: Rust, Go and Java are done; .NET, Swift,
+   Android and Ruby are next.
 
 ## Launch checklist
 
-v0.1.1 is tagged and announced only when every item below is done. Each item says how it is checked.
+noqtis is announced only when every item below is done; releases from
+0.1.1 on came first. Each item says how it is checked.
 
 ### Product
 
@@ -329,17 +302,18 @@ v0.1.1 is tagged and announced only when every item below is done. Each item say
 
 ### Install
 
-- [ ] Signed, reproducible release archives for every platform in the CI
+- [x] Signed, reproducible release archives for every platform in the CI
       matrix, with SHA-256 sums, Sigstore and SSH signatures, an SPDX SBOM
-      and SLSA provenance; a second CI build of the tag is byte-identical.
+      and SLSA provenance; a second CI build of the tag is byte-identical
+      (`release.yml`, jobs repro, sums, sign and provenance).
 - [x] `curl -fsSL .../install.sh | sh` and `install.ps1` verify before they
       install, tested on a clean machine of each OS (`install.yml`; the
       SSH signature by default, a missing or foreign one refused).
 - [x] Homebrew tap, the Wolfi container image, and the Arch, Alpine, Fedora,
       Debian and Wolfi (melange) recipes build and pass their tests (`ci.yml`
       jobs package, melange, brew, brewmac, docker).
-- [ ] npm (WebAssembly) and PyPI wheels install and pass the capsule round
-      trip with nothing to compile.
+- [x] npm (WebAssembly) and PyPI wheels install and pass the capsule round
+      trip with nothing to compile (`npm.yml`, `py.yml`).
 - [x] The GitHub Action seals and checks a capsule in a sample workflow
       (`action.yml`).
 
@@ -382,8 +356,8 @@ v0.1.1 is tagged and announced only when every item below is done. Each item say
       and the guarantees in plain words.
 - [x] `docs/`: the capsule format specification (versioned, `spec/capsule`),
       the C API reference generated from noqtis.h, a tutorial per binding
-      (`guides/c`, `js`, `py`, `r`), and a "why post-quantum provenance now"
-      explainer (`explain/why`).
+      (`guides/c`, `js`, `py`, `r`, `rust`, `go`, `java`), and a "why
+      post-quantum provenance now" explainer (`explain/why`).
 - [x] A browser demo page: drop a folder, it is checked in WebAssembly with
       nothing uploaded.
 - [x] CONTRIBUTING.md (build, tests, commit style, short-name rule,
@@ -408,8 +382,7 @@ v0.1.1 is tagged and announced only when every item below is done. Each item say
 
 ## Documentation
 
-Written once the command-line tool (M10) exists, and kept in the repository
-so it is reviewed and tested like the code.
+Kept in the repository, so it is reviewed and tested like the code.
 
 - **API reference:** one mdoc man page per public function and one for the
   tool: `noqtis(3)`, `nqsign(3)`, `nqvrfy(3)`, `nqseal(3)`, ..., `noqtis(1)`.
@@ -422,8 +395,8 @@ so it is reviewed and tested like the code.
   fails unless the major version changes. Each release publishes the
   report.
 - **Site:** Astro Starlight, built in CI and published on GitHub Pages
-  (`rootcoder007.github.io/noqtis` once the repository is public; a custom
-  domain can be attached later). It carries getting started per platform,
+  (`rootcoder007.github.io/noqtis`; a custom domain can be attached
+  later). It is dark unless the reader picks light. It carries getting started per platform,
   guides (sealing, checking someone else's capsule, keys, timestamps, CI),
   the versioned capsule format specification, the API reference rendered
   from the man pages, the binding references, the security page (threat
@@ -495,13 +468,20 @@ prints each command's options.
 |---|---|
 | `noqtis keygen -a <alg> -o <key> [--seed <hex\|file>] [--force]` | a key pair: secret key in `<key>`, public key in `<key>.pub`; `<alg>` is any name `noqtis algs` lists (case does not matter); `--seed` gives the standard's seed (hex, or a file of raw bytes) for deterministic keys |
 | `noqtis sign -k <key> [-o <sig>] [-c <ctx>] [-d] [--ph <hash>] <file>` | the raw signature (FIPS 204/205 encoding) in `<sig>`, default `<file>.sig`; `-c` context string (at most 255 bytes), `-d` deterministic (all-zero per-signature randomness), `--ph` HashML-DSA / HashSLH-DSA with that hash; `<file>` may be `-` (stdin) with `-o` |
-| `noqtis verify -p <key.pub> -s <sig> [-c <ctx>] [--ph <hash>] [-q] <file>` | prints `<file>: OK (<alg>)` |
+| `noqtis verify -p <key.pub> -s <sig> [-c <ctx>] [--ph <hash>] [-q] <file>` | prints `<file>: OK (<alg>)`; `verify -p <key.pub> --dsse [-o <payload>] <env>` checks a DSSE envelope from `export --as dsse` |
 | `noqtis enc -p <key.pub> -o <ct> (<ss> \| --stdout)` | KEM encapsulation: ciphertext to `<ct>`, shared secret to `<ss>` |
 | `noqtis dec -k <key> (-o <ss> \| --stdout) <ct>` | KEM decapsulation; a tampered ciphertext gives an unrelated secret and exit 0 (implicit rejection, as FIPS 203 and HQC require) |
 | `noqtis hash [-a <hash>] [-c\|--check] [<file>...]` | `<hex>  <file>` lines in `sha256sum`'s format (names with `\` or a line break are escaped the same way); `--check` reads such lines and prints `<file>: OK` or `FAILED`; hashes `sha224 sha256 sha384 sha512 sha512-224 sha512-256 sha3-224 sha3-256 sha3-384 sha3-512 shake128 shake256` (default `sha256`; SHAKE prints 32 or 64 bytes) |
-| `noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>] [--tsa <url>]... [--anchor <der-file>]... <dir>` | `nqseal`: writes `noqtis.json` and `noqtis.sig`; the public key defaults to `<key>.pub` and must pair with `<key>`; `--tsa` then asks an RFC 3161 TSA for a timestamp (`nqtsreq`, an HTTP/1.1 POST over plain TCP in `cli/net.c`, http:// only, `nqtsput`); the seal holds one token, so a repeated `--tsa` is a fallback tried in order, and when none gives a token that checks the seal is removed (exit 2); `--anchor` (up to 32 DER certificates) checks the TSA at seal time |
-| `noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]... <dir>` | `nqchkt`: one row per check (`ok`/`FAIL`, check, detail), then a summary, then on stderr what to do about each failed check; `--json` prints `{"capsule","ok","result","checks":[{"check","ok","detail"[,"fix"]}]}` on one line; without `-p` the seal's own key is accepted and the `key` row says so; `--anchor` gives up to 32 DER TSA anchors, and the seal must then carry a timestamp that verifies under one |
-| `noqtis algs` | every algorithm with its public key, secret key, signature or ciphertext, and shared secret sizes in bytes |
+| `noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>] [--format 1\|2] [--input [<name>=]<dir>]... [--tsa <url>]... [--anchor <der-file>]... <dir>` | `nqseal`: writes `noqtis.json` and `noqtis.sig`; the public key defaults to `<key>.pub` and must pair with `<key>`; `--format 2` makes the Merkle tree `prove` needs, and `--input` (up to 32 sealed capsules, which must check) records what this one was made from; `--tsa` then asks an RFC 3161 TSA for a timestamp (`nqtsreq`, an HTTP/1.1 POST over plain TCP in `cli/net.c`, http:// only, `nqtsput`); the seal holds one token, so a repeated `--tsa` is a fallback tried in order, and when none gives a token that checks the seal is removed (exit 2); `--anchor` (up to 32 DER certificates) checks the TSA at seal time |
+| `noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]... [--only <path>]... [--lineage <dir>]... [--keys <file>]... [--card <file>] <dir\|url>` | `nqchkt`: one row per check (`ok`/`FAIL`, check, detail), then a summary, then on stderr what to do about each failed check; `--json` prints `{"capsule","ok","result","checks":[{"check","ok","detail"[,"fix"]}]}` on one line; without `-p` the seal's own key is accepted and the `key` row says so; `--anchor` gives up to 32 DER TSA anchors, and the seal must then carry a timestamp that verifies under one; `--only` checks some files (a partial check, which the report says); `--lineage` checks the recorded inputs; `--keys` takes rotation and revocation statements; `--card` names the sealer; a `<url>` (http://, or https:// with `NQTLS`) is fetched seal and manifest first; `check --proof <file\|url>` checks a proof from `prove` |
+| `noqtis timestamp --tsa <url>... [--anchor <der-file>]... [--force] <dir>` | adds an RFC 3161 token over a sealed capsule's signature; the manifest and signature are unchanged |
+| `noqtis prove [-p <key.pub>] [-o <file>] [-f] <dir> <path>...` | a proof (JSON) that the named files are in a format 2 capsule, naming no other file |
+| `noqtis export --as intoto\|dsse\|rocrate\|bagit [-k <key>] [-p <key.pub>] [-o <file\|dir>] [-f] <dir>` | the checked capsule as an in-toto Statement v1, a DSSE envelope signed with `-k`, RO-Crate 1.1 metadata, or a BagIt 1.0 bag |
+| `noqtis rotate -k <key> -n <new> [--at <time>] [--reason <text>] [-o <file>]` | a key statement, signed by both keys, that `<key>` was replaced by `<new>` from `<time>` |
+| `noqtis revoke -k <key> [--at <time>] [--reason <text>] [-o <file>]` | a key statement, signed by `<key>`, that it is revoked from `<time>` |
+| `noqtis idcard -k <key> --name <name> [--orcid <id>] [--email <addr>] [--url <url>] [--affil <text>] [-o <file>]` | an identity card binding the key to its holder, signed by the key; `idcard --verify <card> [-p <key.pub>]` checks one |
+| `noqtis inspect [--json] <dir>` | what a capsule says (format, algorithm, key fingerprint, created, meta, files, timestamp); nothing is checked |
+| `noqtis algs` | every algorithm (ML-DSA, SLH-DSA, Ed25519 and the ML-DSA + Ed25519 hybrids; ML-KEM, HQC) with its public key, secret key, signature or ciphertext, and shared secret sizes in bytes |
 | `noqtis version` | `noqtis <nqver()>` |
 
 Exit status, for every command: **0** success (signature valid, every

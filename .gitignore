@@ -8,3 +8,5 @@
 /fuzz/corpus-*/
 .clangd
 compile_flags.txt
+# release channel planning, kept local
+/chan.md
