@@ -354,6 +354,14 @@
   <dt>[<code class="Er">NQERNG</code>]</dt>
   <dd><code class="Fn">nqskg</code>() or <code class="Fn">nqsign</code>(): the
       operating system's random source failed.</dd>
+  <dt>[<code class="Er">NQEFLT</code>]</dt>
+  <dd><code class="Fn">nqsign</code>() or <code class="Fn">nqsignd</code>(): the
+      signature just made does not verify under the public key held in the
+      secret key, which happens only when the computation was disturbed (a
+      glitch, a flipped memory bit) or the secret key is damaged. The signature
+      is not released: a faulty signature can give away the key (Bindel et al.
+      for ML-DSA, Castelnovi et al. for SLH-DSA, Romailler and Pelissier for
+      Ed25519).</dd>
   <dt>[<code class="Er">NQENOSUP</code>]</dt>
   <dd><code class="Fn">nqsfind</code>(): no algorithm has that name.</dd>
 </dl>

@@ -108,6 +108,11 @@ Without anchors the reply is checked but the TSA is not trusted: whether to
       does not verify, or no path to an anchor.</dd>
   <dt>[<code class="Er">NQELIM</code>]</dt>
   <dd>More than 32 anchors, or a seal with the token over 1 MiB.</dd>
+  <dt>[<code class="Er">NQESTATE</code>]</dt>
+  <dd><code class="Fn">nqtsput</code>(): the capsule has an evidence record
+      (<span class="Pa">noqtis.ers</span>,
+      <a class="Xr" href="/noqtis/reference/man/nqersput-3/">nqersput(3)</a>)
+      over its seal, which a new timestamp would change.</dd>
   <dt>[<code class="Er">NQEIO</code>]</dt>
   <dd><span class="Pa">noqtis.sig</span> cannot be read or written.</dd>
   <dt>[<code class="Er">NQEMEM</code>]</dt>

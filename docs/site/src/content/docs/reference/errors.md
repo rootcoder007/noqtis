@@ -139,7 +139,9 @@ in Python a subclass of `noqtis.NoqtisError` per code (`VerifyError`,
 | `NQEIO` | -7 | file could not be read or written | Permissions, a full disk, a missing folder. |
 | `NQENOSUP` | -8 | algorithm or option not supported | For example a pre-hash for Ed25519, or a feature built out. |
 | `NQELIM` | -9 | input exceeds a size or depth limit | The limits are in [`noqtis-capsule(5)`](/noqtis/reference/man/noqtis-capsule-5/). |
-| `NQESTATE` | -10 | context used out of order | A context (for example the DRBG, or a TLS connection) used before it is ready or after it is closed. |
+| `NQESTATE` | -10 | context used out of order | A context (for example the DRBG, or a TLS connection) used before it is ready or after it is closed; or `nqseal` or `nqtsput` on a folder whose evidence record (`noqtis.ers`) covers the seal. |
+| `NQEFLT` | -11 | the signature failed the check after signing (a fault) | A signature failed verification right after it was made, so it was not returned: the computation was disturbed (a voltage or clock glitch, a flipped memory bit) or the secret key is damaged. Check the key file against its backup and the hardware; never retry in a loop on a machine that faults. |
+| `NQEKAT` | -12 | a self-test known answer did not match | `nqselftest` (or `noqtis selftest`) got an answer that differs from the stored one: the build is broken (a miscompilation, an unsupported compiler flag) or the hardware is. Do not use that build. |
 
 On the command line a library error is exit status `2`, except where
 something is being checked: `NQEVRFY`, and `NQEDEC` for a signature or

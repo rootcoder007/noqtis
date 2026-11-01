@@ -1,0 +1,91 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">nqsetprog</code> &#x2014; <span class="Nd">report
+    the progress of long calls</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">libnoqtis, -lnoqtis</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">noqtis.h</a>&gt;</code></p>
+<p class="Pp"><var class="Vt">typedef void (*nqprogfn)(int stage, uint64_t done,
+    uint64_t total, void *user);</var></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqsetprog</code>(<var class="Fa" style="white-space: nowrap;">nqprogfn
+    fn</var>, <var class="Fa" style="white-space: nowrap;">void
+  *user</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="permalink" href="#nqsetprog"><code class="Fn" id="nqsetprog">nqsetprog</code></a>()
+    sets a function the library calls as its long calls go, so that a caller can
+    show how far they are: <var class="Fa">fn</var> is called from the thread
+    doing the work with <var class="Fa">user</var>, the stage, and
+    <var class="Fa">done</var> going from 0 to <var class="Fa">total</var>; once
+    when the stage begins (<var class="Fa">done</var>
+    <span class="No">0</span>), as it goes, and once more when it ends
+    (<var class="Fa">done</var> <span class="No">equal to</span>
+    <var class="Fa">total</var>). The stages:</p>
+<dl class="Bl-tag">
+  <dt id="NQPHASH"><a class="permalink" href="#NQPHASH"><code class="Dv">NQPHASH</code></a></dt>
+  <dd>The bytes of the folder's files that
+      <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a>,
+      <a class="permalink" href="#nqseal2"><code class="Fn" id="nqseal2">nqseal2</code></a>()
+      and <a class="Xr" href="/noqtis/reference/man/nqchkx-3/">nqchkx(3)</a>
+      (and so
+      <a class="permalink" href="#nqchk"><code class="Fn" id="nqchk">nqchk</code></a>(),
+      <a class="permalink" href="#nqchkt"><code class="Fn" id="nqchkt">nqchkt</code></a>())
+      hash; <var class="Fa">total</var> is the size of the files in the folder's
+      listing (0 for a partial check, which hashes only the files named).</dd>
+  <dt id="NQPSIGN"><a class="permalink" href="#NQPSIGN"><code class="Dv">NQPSIGN</code></a></dt>
+  <dd>An SLH-DSA signature's trees, the slow part of signing: the FORS tree,
+      then each of the <var class="Va">d</var> hypertree layers, so
+      <var class="Fa">total</var> is <var class="Va">d</var> + 1 (8 or 9 for the
+      &#x2018;<code class="Li">s</code>&#x2019; sets, 18 or 23 for the
+      &#x2018;<code class="Li">f</code>&#x2019; sets).</dd>
+</dl>
+<p class="Pp">Only counts the caller could know are reported, nothing that
+    depends on a secret. The function must not call back into the library. The
+    setting is global and not synchronised, as
+    <span class="Xr">nqsetrng(3)</span>: set
+    it once, before any thread uses the library. A <code class="Dv">NULL</code>
+    <var class="Fa">fn</var> stops the calls.</p>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>
+    uses it to draw a progress bar on standard error when that is a
+  terminal.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><code class="Fn">nqsetprog</code>() returns
+    <code class="Dv">NQOK</code>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>static void show(int stage, uint64_t done, uint64_t total, void *u) {
+  (void)u;
+  fprintf(stderr, &quot;\r%s %3u%%&quot;, stage == NQPHASH ? &quot;hashing&quot; : &quot;signing&quot;,
+          total ? (unsigned)(done * 100 / total) : 0);
+  if (done == total) fputc('\n', stderr);
+}
+...
+nqsetprog(show, NULL);</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqchkx-3/">nqchkx(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqrand-3/">nqrand(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqseal-3/">nqseal(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqsign-3/">nqsign(3)</a></p>
+</section>
+</div>

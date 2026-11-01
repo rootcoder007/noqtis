@@ -43,6 +43,8 @@ offline (`man nqsign`).
 | `NQENOSUP` | −8 | algorithm or option not supported |
 | `NQELIM` | −9 | input exceeds a size or depth limit |
 | `NQESTATE` | −10 | context used out of order |
+| `NQEFLT` | −11 | the signature failed the check after signing (a fault) |
+| `NQEKAT` | −12 | a self-test known answer did not match |
 
 ```c
 const char *nqerr(int err);   /* the text above; "unknown error" otherwise */
@@ -74,6 +76,35 @@ Fills `buf` from the operating system's CSPRNG (getrandom,
 arc4random_buf, BCryptGenRandom, getentropy under WebAssembly); no
 fallback. `NQEARG` for `NULL` with `len > 0`, `NQERNG` when the source
 fails. [nqrand(3)](/noqtis/reference/man/nqrand-3/)
+
+```c
+typedef int (*nqrngfn)(uint8_t *buf, size_t len, void *user);
+int nqsetrng(nqrngfn fn, void *user);
+```
+Makes `nqrand` take its bytes from `fn` (0 when it filled the buffer);
+`NULL` gives the operating system's source back. Global, not
+synchronised: set it before any thread uses the library. In the
+freestanding build (`-DNQFREE=ON`) `nqrand` fails with `NQERNG` until a
+source is set. [nqrand(3)](/noqtis/reference/man/nqrand-3/)
+
+```c
+int nqselftest(void);
+```
+The known-answer self-test: fixed inputs through every family (hashes,
+HMAC, ML-KEM, ML-DSA, SLH-DSA key generation, HQC-128, Ed25519 and a
+hybrid), every output hashed and compared with stored answers, in about
+a tenth of a second. `NQOK`, or `NQEKAT` when one differs.
+[nqselftest(3)](/noqtis/reference/man/nqselftest-3/)
+
+```c
+typedef void (*nqprogfn)(int stage, uint64_t done, uint64_t total, void *user);
+int nqsetprog(nqprogfn fn, void *user);
+```
+Progress of the long calls: `NQPHASH`, the bytes of a folder's files that
+`nqseal` and `nqchkx` hash; `NQPSIGN`, an SLH-DSA signature's d + 1
+trees. `fn` gets `done` from 0 to `total`, and once more at `total` when
+the stage ends. Only counts a caller could know.
+[nqsetprog(3)](/noqtis/reference/man/nqsetprog-3/)
 
 ```c
 typedef void *(*nqmalfn)(size_t size, void *user);
@@ -153,8 +184,8 @@ int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
 | `nqsfind` | the `nqsalg` of an exact name; `NQENOSUP` if none, `NQEARG` for `NULL` |
 | `nqskg` | key pair from `nqrand` |
 | `nqskgd` | key pair from the standard's seed: xi (32 bytes) for ML-DSA, SK.seed ‖ SK.prf ‖ PK.seed (3n bytes) for SLH-DSA |
-| `nqsign` | hedged signature; `*outlen` gets its length |
-| `nqsignd` | signature with the caller's `rnd` (32 bytes ML-DSA, n bytes SLH-DSA); all zero is the deterministic variant |
+| `nqsign` | hedged signature (ML-DSA, SLH-DSA, and Ed25519 with a randomised nonce hash); `*outlen` gets its length |
+| `nqsignd` | signature with the caller's `rnd` (32 bytes ML-DSA, n bytes SLH-DSA, none for Ed25519); all zero is the deterministic variant, and Ed25519 here is RFC 8032's deterministic signature |
 | `nqvrfy` | `NQOK` only for a valid signature, else `NQEVRFY` (or another error) |
 
 `ctx` is the FIPS 204/205 context (at most 255 bytes, `NULL`/0 for none).
@@ -164,7 +195,12 @@ HashSLH-DSA (the function hashes `msg`).
 Errors: `NQEARG` (unknown alg, `NULL` pointer with a length, context over
 255, bad `ph`, seed or `rnd` of the wrong length), `NQEBUF` (output too
 small), `NQEDEC` (an input key or signature of the wrong length or
-encoding), `NQEVRFY`, `NQERNG`.
+encoding), `NQEVRFY`, `NQERNG`, and `NQEFLT` from `nqsign` and `nqsignd`:
+every signature is verified under the public key in the secret key
+before it is returned, and one that fails (a fault while signing, or a
+damaged key) is zeroed instead. Ed25519, SLH-DSA's PRF and ML-DSA
+signing are masked against power analysis (see
+[Security](/noqtis/security/)).
 [nqsign(3)](/noqtis/reference/man/nqsign-3/)
 
 ## Key encapsulation
@@ -296,10 +332,15 @@ int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
 | `nqrepi` | row `i`: check name, 1/0, detail; strings live until `nqrepfree` | `NQOK`, `NQEARG` |
 | `nqrepfree` | frees and wipes the report; `NULL` allowed | — |
 | `nqtsreq` | the RFC 3161 `TimeStampReq` for the seal in `dir`: SHA-256 of its signature, the nonce (≤ 32 bytes, or `NULL`), certReq; at most 128 bytes | `NQOK`; `NQEARG`, `NQEBUF`, `NQEDEC` (not a canonical seal), `NQEIO` |
-| `nqtsput` | checks a TSA's reply (granted, imprint, nonce, the token's signature; with up to 32 DER anchors, a path to one) and stores the token as the seal's `timestamp`; `*gt` genTime, `*why` what failed | `NQOK`; `NQEVRFY` (the reply does not check; nothing written), `NQEARG`, `NQEDEC`, `NQELIM`, `NQEIO`, `NQEMEM` |
+| `nqtsput` | checks a TSA's reply (granted, imprint, nonce, the token's signature; with up to 32 DER anchors, a path to one) and stores the token as the seal's `timestamp`; `*gt` genTime, `*why` what failed | `NQOK`; `NQEVRFY` (the reply does not check; nothing written), `NQESTATE` (an evidence record is there), `NQEARG`, `NQEDEC`, `NQELIM`, `NQEIO`, `NQEMEM` |
+| `nqersreq` | the `TimeStampReq` for the next archive timestamp of `dir`'s RFC 4998 evidence record (`noqtis.ers`), with hash `h` (`NQS256`, `NQS384`, `NQS512`; 0 the record's own): over the seal file for a new record, the last timestamp for a renewal, the seal and the chains so far for a new hash | `NQOK`; `NQEVRFY`, `NQEDEC` (the record there), `NQENOSUP`, `NQEARG`, `NQEBUF`, `NQEIO` |
+| `nqersput` | checks the record there and the TSA's reply (as `nqtsput`, and genTime not before the record's last), then writes the record with the new archive timestamp; `*how` 0 new, 1 timestamp renewal, 2 hash-tree renewal | `NQOK`; `NQEVRFY` (nothing written), `NQEDEC`, `NQENOSUP`, `NQEARG`, `NQELIM`, `NQEIO`, `NQEMEM` |
 
 Without anchors (`nqchk`), a seal that carries a timestamp fails its
-`timestamp` row. Check names are listed in
+`timestamp` row, and so does an evidence record its `ers` row; with
+anchors, `nqchkt` and `nqchkx` check both. While a record is there,
+`nqseal` and `nqtsput` return `NQESTATE`, since either would change the
+seal it proves. Check names are listed in
 [nqrep(3)](/noqtis/reference/man/nqrep-3/); the format is the
 [capsule specification](/noqtis/spec/capsule/).
 [nqseal(3)](/noqtis/reference/man/nqseal-3/),
@@ -312,7 +353,8 @@ Without anchors (`nqchk`), a seal that carries a timestamp fails its
 [nqkstmt(3)](/noqtis/reference/man/nqkstmt-3/),
 [nqcard(3)](/noqtis/reference/man/nqcard-3/),
 [nqdsse(3)](/noqtis/reference/man/nqdsse-3/),
-[nqtsput(3)](/noqtis/reference/man/nqtsput-3/)
+[nqtsput(3)](/noqtis/reference/man/nqtsput-3/),
+[nqersput(3)](/noqtis/reference/man/nqersput-3/)
 
 The library makes no network request: send the bytes from `nqtsreq` to
 the TSA (HTTP POST, `application/timestamp-query`) and pass its reply to

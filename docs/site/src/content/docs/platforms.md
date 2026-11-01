@@ -48,6 +48,20 @@ There is no fallback: if the source fails, the call fails with `NQERNG`.
 - File paths at the API are UTF-8 on every OS; Windows converts them to
   UTF-16 and opens files with the wide functions.
 
+## Freestanding build
+
+`cmake -DNQFREE=ON` builds the algorithms alone, for firmware, kernels
+and other places with no operating system: the hashes, the DRBG,
+ML-DSA, SLH-DSA, ML-KEM, HQC, Ed25519, the masking gadgets and the
+one-call API, without the command, files, capsules, JSON or TLS, and
+with no default allocator. The library then needs only `memcpy`,
+`memmove`, `memset` and `strcmp` from outside, which CI checks with `nm`
+for GCC and Clang. Randomness comes from the caller: `nqsetrng(fn, user)`
+names the function `nqrand` takes its bytes from (a hardware random
+number generator, or a DRBG seeded from one); until it is set, `nqrand`
+fails with `NQERNG`. `tests/free/tfree.c` runs the self-test, a
+signature and a KEM round trip on such a build.
+
 ## Library form
 
 - Static and shared builds from the same sources. A shared build exports

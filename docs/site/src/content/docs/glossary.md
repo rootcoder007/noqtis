@@ -67,6 +67,21 @@ Dead Simple Signing Envelope: a JSON wrapper that signs a
 payload together with its type. `noqtis export --as dsse` wraps an
 [in-toto](#in-toto) statement of a capsule in one.
 
+### Evidence record
+
+An RFC 4998 structure (`noqtis.ers`, from `noqtis ers`) that keeps a
+seal provably in existence after its [RFC 3161 timestamp](#rfc-3161-timestamp)
+would no longer be trusted: a chain of timestamps, each over the one
+before, renewed before the last [TSA](#tsa) certificate expires, and a
+new chain over the seal and the record when a hash weakens.
+
+### Fault attack
+
+Disturbing a device while it signs (a voltage or clock glitch, a laser,
+a flipped memory bit) so that a wrong signature comes out, from which
+the key can be worked out. NOQTIS verifies every signature before it is
+released, so a faulty one never is (`NQEFLT`).
+
 ### Fingerprint
 
 The SHA-256 of a public key, in hex. `noqtis inspect`
@@ -97,6 +112,11 @@ A signed file from `noqtis rotate` (this key was
 replaced by that one) or `noqtis revoke` (this key must no longer be
 trusted), from a given time. `noqtis check --keys` follows them.
 
+### Known-answer test
+
+Fixed inputs run through an algorithm and the outputs compared with
+answers computed before; `noqtis selftest` runs one for every family.
+
 ### KEM
 
 Key-encapsulation mechanism: a way to agree on a shared secret
@@ -113,6 +133,14 @@ The capsules a capsule was made from, recorded by
 `noqtis.json`: the list of every file in the capsule with
 its size, SHA-256 and SHA3-256, the time it was sealed (`created`, as
 the sealer's clock said) and optional `meta`.
+
+### Masking
+
+Splitting a secret into random shares and computing on the shares, so
+that power or electromagnetic traces of one run say nothing about the
+secret. NOQTIS masks ML-DSA and Ed25519 signing, SLH-DSA's secret-keyed
+hash and ML-KEM and HQC decapsulation, and tests them with a simulated
+power analysis (TVLA).
 
 ### Merkle tree
 

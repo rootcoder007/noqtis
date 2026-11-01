@@ -85,18 +85,18 @@ vectors and against OpenSSL.
 
 | # | Module | Contents | Must pass |
 |---|---|---|---|
-| M0 | `core` | error codes, `nqwipe`, constant-time helpers, `nqrand`, allocator hook, strict JSON reader, hex | unit tests, ASan/UBSan, valgrind clean |
+| M0 | `core` | error codes, `nqwipe`, constant-time helpers, `nqrand` and the caller's random source (`nqsetrng`), allocator hook, progress hook (`nqsetprog`), strict JSON reader, hex; `api/self.c`: the known-answer self-test (`nqselftest`) | unit tests, ASan/UBSan, valgrind clean |
 | M1 | `hash` | SHA-224/256/384/512, SHA-512/224, SHA-512/256, SHA3-224/256/384/512, SHAKE128/256 (incremental), HMAC | NIST CAVP/ACVP SHA vectors, Wycheproof HMAC, OpenSSL 3.5 differential fuzz |
 | M2 | `drbg` | HMAC_DRBG (SP 800-90A) with SHA-256 and SHA-512 | CAVP DRBG vectors, reseed and prediction-resistance cases |
 | M3 | `mldsa` | ML-DSA-44/65/87: keygen, sign (pure, with context, HashML-DSA pre-hash), verify; first-order masked signing | ACVP keyGen/sigGen/sigVer, Wycheproof ML-DSA, OpenSSL 3.5 cross-check, ctgrind, dudect, TVLA |
-| M4 | `slh` | SLH-DSA, all 12 parameter sets, pure and HashSLH-DSA | ACVP keyGen/sigGen/sigVer, OpenSSL 3.5 cross-check, ctgrind |
+| M4 | `slh` | SLH-DSA, all 12 parameter sets, pure and HashSLH-DSA; PRF masked (masked SHAKE256, bitsliced masked SHA-256; shared gadgets in `msk`) | ACVP keyGen/sigGen/sigVer, OpenSSL 3.5 cross-check, ctgrind, TVLA |
 | M5 | `mlkem` | ML-KEM-512/768/1024: keygen, encaps, decaps; first-order masked decaps; input checks of FIPS 203 section 7 | ACVP keyGen/encapDecap, Wycheproof ML-KEM, OpenSSL 3.5 cross-check, ctgrind, dudect, TVLA |
-| M6 | `hqc` | HQC-128/192/256 (v5.0.0, 2025-08-22) | the reference KAT files (digests), ctgrind, dudect |
-| M3e | `ed` | Ed25519, Ed25519ctx, Ed25519ph (RFC 8032), strict verification (prime-order keys, S < L, canonical encodings); hybrid ML-DSA + Ed25519 in `api/sig.c` | RFC 8032 vectors, Wycheproof Ed25519, OpenSSL 3.5 cross-check and differential fuzz, ctgrind |
+| M6 | `hqc` | HQC-128/192/256 (v5.0.0, 2025-08-22); first-order masked decapsulation (`mdec.c`) | the reference KAT files (digests), masked against unmasked on every ciphertext class, ctgrind, dudect, TVLA |
+| M3e | `ed` | Ed25519, Ed25519ctx, Ed25519ph (RFC 8032), strict verification (prime-order keys, S < L, canonical encodings); masked signing with a hedged nonce (`nqsignd`: RFC 8032's deterministic one); hybrid ML-DSA + Ed25519 in `api/sig.c` | RFC 8032 vectors, Wycheproof Ed25519, OpenSSL 3.5 cross-check and differential fuzz, ctgrind |
 | M7 | `cls` | verification only: RSA PKCS#1 v1.5 and PSS (2048-4096), ECDSA P-256 and P-384 | Wycheproof RSA and ECDSA, OpenSSL 3.5 differential fuzz |
 | M8 | `der` | strict DER reader (length, tag and depth limits), X.509 path checks, OCSP, CRL, RFC 3161 timestamp tokens | the rmoriebricklayer 1.0.3 x509/timestamp fixtures, libFuzzer corpus, positional-parse tests |
-| M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify; format 2: Merkle tree over the entries (RFC 9162), seal over the head, partial checks, proofs of single files, inputs and lineage; key statements (rotation, revocation), identity cards (`noqtis-idcard-1`), exports (in-toto, DSSE, RO-Crate, BagIt) | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer; `tcap2` (tree against RFC 9162 by construction, every proof field tampered), an independent recomputation of the spec's example, `fproof` |
-| M10 | `cli` | `noqtis keygen / sign / verify / enc / dec / hash / seal / timestamp / check / prove / export / rotate / revoke / idcard / inspect / algs / version` | golden-output tests, exit codes, fuzzed arguments |
+| M9 | `cap` | manifest of files (path, size, SHA-256, SHA3-256), canonical JSON, seal (sign + optional timestamp), verify; format 2: Merkle tree over the entries (RFC 9162), seal over the head, partial checks, proofs of single files, inputs and lineage; key statements (rotation, revocation), identity cards (`noqtis-idcard-1`), exports (in-toto, DSSE, RO-Crate, BagIt); RFC 4998 evidence records over the seal (`ers.c`: timestamp and hash-tree renewal, reduced hash trees read) | round-trip, tamper tests (every byte), path-containment tests, cross-verification with rmoriebricklayer; `tcap2` (tree against RFC 9162 by construction, every proof field tampered), an independent recomputation of the spec's example, `fproof`; evidence records against two local OpenSSL TSAs (`tcli`), `fers` |
+| M10 | `cli` | `noqtis keygen / sign / verify / enc / dec / hash / seal / timestamp / ers / check / prove / export / rotate / revoke / idcard / inspect / selftest / algs / version`; a progress bar on a terminal (`prog.c`) | golden-output tests, exit codes, fuzzed arguments |
 | M11 | `port` | platform layer for files and paths (Windows wide-char), symbol visibility, shared-library versioning, `noqtis.pc` and CMake package config | the full suite passes on every platform in the CI matrix |
 | M12 | `bind` | WebAssembly (npm), Python, R, Rust, Go and Java bindings (done); .NET, Swift, Android and Ruby next | each binding's own tests on every platform it supports |
 | M13 | `tls` | TLS 1.3 client (RFC 8446) with X25519MLKEM768 and X25519 key shares (`xdh`), AES-GCM and ChaCha20-Poly1305 (`aead`), certificate path, OCSP and CT checks; behind `NQTLS` | `taead`, `tecdh`, `thyb`, `thkdf` and `tests/tls` (a local test server through the `NQTEST` hooks); not yet reviewed |
@@ -219,6 +219,11 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
   `tests/consumer` against each install both ways.
 - `nqver()` and `NQVMAJ`/`NQVMIN`/`NQVPAT` give the version at run time and
   compile time. Done.
+- A freestanding build (`-DNQFREE=ON`) of the algorithms and the one-call
+  API alone, for firmware and kernels: no files, capsules, JSON, TLS or
+  default allocator; the library needs only `memcpy`, `memmove`, `memset`
+  and `strcmp`, and randomness comes from the caller (`nqsetrng`). Done;
+  CI checks the undefined symbols with `nm` and runs `tests/free/tfree.c`.
 
 ### Releases
 
@@ -484,6 +489,8 @@ prints each command's options.
 | `noqtis rotate -k <key> -n <new> [--at <time>] [--reason <text>] [-o <file>]` | a key statement, signed by both keys, that `<key>` was replaced by `<new>` from `<time>` |
 | `noqtis revoke -k <key> [--at <time>] [--reason <text>] [-o <file>]` | a key statement, signed by `<key>`, that it is revoked from `<time>` |
 | `noqtis idcard -k <key> --name <name> [--orcid <id>] [--email <addr>] [--url <url>] [--affil <text>] [-o <file>]` | an identity card binding the key to its holder, signed by the key; `idcard --verify <card> [-p <key.pub>]` checks one |
+| `noqtis ers --tsa <url>... [--anchor <der-file>]... [--hash sha256\|sha384\|sha512] <dir>` | `nqersreq`/`nqersput`: starts or renews the RFC 4998 evidence record `noqtis.ers` over the seal file (timestamp renewal, or hash-tree renewal with another `--hash`), the record there checked first; `check --anchor` checks it (`ers` row); `seal` and `timestamp` then refuse the folder |
+| `noqtis selftest` | `nqselftest`: the known-answer self-test, exit 1 on a mismatch |
 | `noqtis inspect [--json] <dir>` | what a capsule says (format, algorithm, key fingerprint, created, meta, files, timestamp); nothing is checked |
 | `noqtis algs` | every algorithm (ML-DSA, SLH-DSA, Ed25519 and the ML-DSA + Ed25519 hybrids; ML-KEM, HQC) with its public key, secret key, signature or ciphertext, and shared secret sizes in bytes |
 | `noqtis version` | `noqtis <nqver()>` |

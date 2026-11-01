@@ -23,6 +23,7 @@ sec idcard; r idcard -k me --name "Josiah Carberry" --orcid https://orcid.org/00
 r idcard --verify me.card; r check --card me.card results
 sec rotate; r keygen -a ML-DSA-65 -o new; r rotate -k me -n new --at 2025-12-01T00:00:00Z --reason "laptop replaced" -o rot.json
 sh_ "rm study/noqtis.json study/noqtis.sig"; r seal --format 2 -k new study; r check -p me.pub --keys rot.json study
+sec selftest; r selftest
 sec export; r export --as rocrate -p new.pub study
 python3 - "$txt" "$out" <<'PY'
 import json, sys

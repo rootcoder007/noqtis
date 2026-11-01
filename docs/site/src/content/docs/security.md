@@ -376,3 +376,23 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
 - Fail closed everywhere: verification returns `NQOK` only for a valid
   signature, and unknown fields, non-canonical JSON or an uncheckable
   timestamp are failures.
+- No faulty signature is released. A signature made while the
+  computation was disturbed (a voltage or clock glitch, a flipped memory
+  bit) can give the key away (Bindel et al. 2016 for ML-DSA, Castelnovi
+  et al. 2018 for SLH-DSA, Romailler and Pelissier 2017 for Ed25519), so
+  `nqsign` verifies every signature, and each half of a hybrid, under
+  the public key held in the secret key before returning it; one that
+  fails is zeroed and the call returns `NQEFLT`. ML-DSA checks from the
+  message representative it already has and SLH-DSA from the digest, so
+  this costs one verification.
+- A known-answer self-test, `nqselftest()` (`noqtis selftest`, and in
+  every binding): fixed inputs through every family, all outputs hashed
+  and compared with stored answers, in about a tenth of a second, as a
+  FIPS 140-3 module tests itself before use. A mismatch (`NQEKAT`) means
+  the build or the machine is broken.
+- Time that lasts: an RFC 3161 timestamp proves when a seal existed only
+  while its TSA's certificate and hash hold. An RFC 4998 evidence record
+  (`noqtis ers`) is renewed before either fails, by a timestamp over the
+  last one or a new hash chain over the seal and the record, and
+  `noqtis check --anchor` checks every link and every TSA certificate at
+  its own time.

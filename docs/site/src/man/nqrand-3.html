@@ -1,8 +1,9 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp"><code class="Nm">nqrand</code> &#x2014; <span class="Nd">random
-    bytes from the operating system</span></p>
+<p class="Pp"><code class="Nm">nqrand</code>, <code class="Nm">nqsetrng</code>
+    &#x2014; <span class="Nd">random bytes from the operating system or the
+    caller's source</span></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
@@ -17,6 +18,13 @@
   <code class="Fn">nqrand</code>(<var class="Fa" style="white-space: nowrap;">uint8_t
     *buf</var>, <var class="Fa" style="white-space: nowrap;">size_t
   len</var>);</p>
+<p class="Pp"><var class="Vt">typedef int (*nqrngfn)(uint8_t *buf, size_t len,
+    void *user);</var></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">nqsetrng</code>(<var class="Fa" style="white-space: nowrap;">nqrngfn
+    fn</var>, <var class="Fa" style="white-space: nowrap;">void
+  *user</var>);</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -41,6 +49,23 @@
     <a class="Xr" href="/noqtis/reference/man/noqtis-3/">noqtis(3)</a> that
     needs randomness (key generation, hedged signing, encapsulation, mask
     shares) takes it from here.</p>
+<p class="Pp" id="nqsetrng"><a class="permalink" href="#nqsetrng"><code class="Fn">nqsetrng</code></a>()
+    makes <code class="Fn">nqrand</code>() take its bytes from
+    <var class="Fa">fn</var> instead, called with <var class="Fa">user</var>;
+    <var class="Fa">fn</var> returns 0 when it filled <var class="Fa">buf</var>
+    and anything else when it failed, and <code class="Fn">nqrand</code>() then
+    fails with <code class="Er">NQERNG</code>. A <code class="Dv">NULL</code>
+    <var class="Fa">fn</var> gives the operating system's source back. The
+    setting is global and not synchronised: set it once, before any thread uses
+    the library. The source must be a cryptographically secure one (a hardware
+    random number generator, a DRBG seeded from one); the library does not test
+    it.</p>
+<p class="Pp" id="nqrand~2">In the freestanding build
+    (<code class="Fl">-DNQFREE=ON</code>), for firmware and kernels without an
+    operating system's source,
+    <a class="permalink" href="#nqrand~2"><code class="Fn">nqrand</code></a>()
+    fails with <code class="Er">NQERNG</code> until
+    <code class="Fn">nqsetrng</code>() has given it one.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
@@ -53,8 +78,11 @@
   <dd><var class="Fa">buf</var> is <code class="Dv">NULL</code> and
       <var class="Fa">len</var> is not 0.</dd>
   <dt>[<code class="Er">NQERNG</code>]</dt>
-  <dd>The operating system's source failed.</dd>
+  <dd>The operating system's source failed, or the caller's source did, or (in
+      the freestanding build) no source was set.</dd>
 </dl>
+<p class="Pp"><code class="Fn">nqsetrng</code>() returns
+    <code class="Dv">NQOK</code>.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>

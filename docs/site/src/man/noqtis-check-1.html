@@ -226,6 +226,13 @@ or
   <dt id="timestamp"><a class="permalink" href="#timestamp"><code class="Cm">timestamp</code></a></dt>
   <dd>Present only when the seal has a timestamp or
       <code class="Fl">--anchor</code> was given.</dd>
+  <dt id="ers"><a class="permalink" href="#ers"><code class="Cm">ers</code></a></dt>
+  <dd>Present only when the capsule has an evidence record
+      (<span class="Pa">noqtis.ers</span>,
+      <a class="Xr" href="/noqtis/reference/man/noqtis-ers-1/">noqtis-ers(1)</a>):
+      it passes when the record verifies under an
+      <code class="Fl">--anchor</code> certificate, its first archive timestamp
+      over this seal and its last TSA certificate valid now.</dd>
   <dt id="folder"><a class="permalink" href="#folder"><code class="Cm">folder</code></a></dt>
   <dd>The folder could be listed within the limits.</dd>
   <dt id="file"><a class="permalink" href="#file"><code class="Cm">file</code></a></dt>

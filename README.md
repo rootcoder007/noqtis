@@ -60,6 +60,25 @@ It does **not** prove that a result is correct, when it was sealed
 [what a check proves](https://rootcoder007.github.io/noqtis/guides/others/)
 and the [threat model](https://rootcoder007.github.io/noqtis/security/).
 
+## Built to last
+
+- **Evidence that outlives its certificates**: `noqtis ers` keeps an RFC 4998
+  evidence record beside the seal, renewed before a time-stamping
+  authority's certificate expires or a hash weakens, so when a folder was
+  sealed stays provable for decades.
+- **Masked against power analysis**: ML-DSA signing, ML-KEM and HQC
+  decapsulation, SLH-DSA's secret-keyed hash and Ed25519 signing work on
+  random shares of the key, checked by a simulated power analysis (TVLA)
+  in CI.
+- **No faulty signature leaves the library**: each one is verified under
+  the public key before it is returned, since a signature made in a
+  glitched computation can give the key away.
+- **A self-test**: `noqtis selftest` (and `nqselftest()` in every binding)
+  runs known answers for every algorithm family in about a tenth of a
+  second.
+- **Embedded**: `-DNQFREE=ON` builds the algorithms alone, for firmware and
+  kernels: no operating system, no allocator, randomness from the caller.
+
 ## Install
 
 Every channel, with its status, is on the
@@ -89,7 +108,9 @@ ctest --test-dir build --output-on-failure
 cmake --install build --prefix ~/.local
 ```
 
-`-DNQTESTS=OFF` skips the tests. The install gives the `noqtis` tool,
+`-DNQTESTS=OFF` skips the tests; `-DNQFREE=ON` builds the freestanding,
+algorithms-only library (it needs only `memcpy`, `memmove`, `memset` and
+`strcmp`; give it a random source with `nqsetrng`). The install gives the `noqtis` tool,
 `libnoqtis`, `noqtis.h`, `noqtis.pc`, a CMake package and the manual pages
 (`-DNQMAN=OFF` skips them), so other projects build against it with
 `pkg-config --cflags --libs noqtis` or

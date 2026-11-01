@@ -25,6 +25,8 @@ noqtis help [<command>]
 | `idcard -k <key> --name <name> [--orcid <id>] [--email <addr>] [--url <url>] [--affil <text>] [-o <file>]`, or `idcard --verify <card> [-p <key.pub>]` | an identity card: the key with its holder's name and identifiers, signed by the key (ORCID check digit verified); `--verify` checks one and prints who it names and the key's SHA-256; for `check --card` | [noqtis-idcard(1)](/noqtis/reference/man/noqtis-idcard-1/) |
 | `prove [-p <key.pub>] [-o <file>] [-f] <dir> <path>...` | a proof that these files are in a format 2 capsule, naming no other file | [noqtis-prove(1)](/noqtis/reference/man/noqtis-prove-1/) |
 | `timestamp --tsa <url>... [--anchor <der-file>]... [--force] <dir>` | adds an RFC 3161 timestamp to a capsule sealed before; the manifest and signature are unchanged, nothing is written if no TSA's token checks, and an existing timestamp is kept unless `--force` | [noqtis-timestamp(1)](/noqtis/reference/man/noqtis-timestamp-1/) |
+| `ers --tsa <url>... [--anchor <der-file>]... [--hash sha256\|sha384\|sha512] <dir>` | starts or renews the capsule's RFC 4998 evidence record (`noqtis.ers`), which keeps its time provable after a TSA certificate expires or a hash weakens: a timestamp over the last one, or with another `--hash` a new chain over the seal and the record so far; `check --anchor` checks it | [noqtis-ers(1)](/noqtis/reference/man/noqtis-ers-1/) |
+| `selftest` | runs the library's known-answer self-test (every family, about a tenth of a second); exit 1 when an answer differs | [noqtis-selftest(1)](/noqtis/reference/man/noqtis-selftest-1/) |
 | `inspect [-j\|--json] <dir>` | what a capsule says (format, algorithm, key fingerprint, created, files, size, timestamp, meta) without checking anything | [noqtis-inspect(1)](/noqtis/reference/man/noqtis-inspect-1/) |
 | `algs` | every algorithm and its sizes | [noqtis-algs(1)](/noqtis/reference/man/noqtis-algs-1/) |
 | `version` | `noqtis <version>` (also `--version`, `-V`) | [noqtis-version(1)](/noqtis/reference/man/noqtis-version-1/) |
@@ -43,14 +45,16 @@ Long forms: `-a --alg`, `-o --out`, `-f --force`, `-k --key`, `-p --pub`,
 `-s --sig`, `-c --ctx` (sign, verify) or `--check` (hash), `-d --det`,
 `-q --quiet`, `-m --meta`, `-j --json`. `--tsa`, `--anchor`, `--input`,
 `--only` and `--lineage` have no short form and may be repeated (up to 32
-times each); `--format` and `--proof` are given once.
+times each); `--format`, `--proof` and `--hash` are given once.
 
 ## Environment
 
 | Variable | Used by | Does |
 |---|---|---|
 | `SSL_CERT_FILE` | `check <url>`, `seal --tsa`, `timestamp --tsa` (`https://`) | a PEM bundle of the roots to trust, in place of the system's |
-| `NOQTIS_CT_LOGS` | the same | a Certificate Transparency log list (Chrome's `log_list.json`, version 3); when set, the server's certificate needs valid SCTs from logs of two operators. Unset, nothing is checked; keep the list current |
+| `NOQTIS_PROGRESS` | `seal`, `check`, signing with SLH-DSA | a progress bar on standard error when it is a terminal and the work takes over a third of a second, cleared when it ends; `0` turns it off, `1` draws it to a stderr that is not a terminal |
+| `SOURCE_DATE_EPOCH` | `seal` | the manifest's `created` time, for reproducible capsules |
+| `NOQTIS_CT_LOGS` | `check <url>`, `seal --tsa`, `timestamp --tsa` | a Certificate Transparency log list (Chrome's `log_list.json`, version 3); when set, the server's certificate needs valid SCTs from logs of two operators. Unset, nothing is checked; keep the list current |
 
 ## Exit status
 

@@ -217,7 +217,7 @@ try { if (localStorage.getItem("nqtheme") === "light") document.documentElement.
         <div class="slot"></div>
       <h2 class="section-title">Post-quantum, and standard</h2>
       <p>RSA and elliptic-curve signatures will not outlast the records they protect. NOQTIS signs with <strong>ML-DSA</strong> (FIPS 204) and <strong>SLH-DSA</strong> (FIPS 205), alone or as an ML-DSA+Ed25519 hybrid that needs both halves to verify, and encapsulates keys with <strong>ML-KEM</strong> (FIPS 203).</p>
-      <p>Every scheme is checked against the NIST ACVP vectors and Wycheproof. No branch or memory index depends on a secret; ML-DSA signing and ML-KEM decapsulation are also masked.</p>
+      <p>Every scheme is checked against the NIST ACVP vectors and Wycheproof. No branch or memory index depends on a secret; ML-DSA and Ed25519 signing, SLH-DSA's secret-keyed hash, and ML-KEM and HQC decapsulation are also masked against power analysis.</p>
       <div class="act"><a class="bb" href={`${b}validation/`}>How it is validated</a></div>
       </section>
       <section class="section" data-demo="prove" data-title="noqtis - prove one file" data-cap="The proof carries report.txt's entry and its Merkle path. notes.txt is not in it at all.">
@@ -240,6 +240,13 @@ try { if (localStorage.getItem("nqtheme") === "light") document.documentElement.
       <p>Laptops get replaced and keys leak. <code>noqtis rotate</code> and <code>noqtis revoke</code> write signed statements, and <code>check --keys</code> follows them from the key you already trust.</p>
       <p>Seals made with a replaced key still pass when a verified RFC 3161 timestamp shows they are older than the change; seals made after it do not.</p>
       <div class="act"><a class="bb" href={`${b}guides/keys/`}>Keys and key files</a></div>
+      </section>
+      <section class="section" data-demo="selftest" data-title="noqtis - the self-test" data-cap="Known answers for every algorithm family, checked in about a tenth of a second.">
+        <div class="slot"></div>
+      <h2 class="section-title">Built to last</h2>
+      <p>A timestamp shows when a folder was sealed only while the time-stamping authority's certificate holds. <code>noqtis ers</code> keeps an RFC 4998 evidence record beside the seal and renews it, so that time stays provable for decades.</p>
+      <p>Every signature is checked before it leaves the library, so a glitched one never gives a key away. <code>noqtis selftest</code> runs known answers for every algorithm, and the algorithms alone build for firmware with no operating system.</p>
+      <div class="act"><a class="bb" href={`${b}reference/man/noqtis-ers-1/`}>noqtis ers</a></div>
       </section>
       <section class="section" data-demo="export" data-title="noqtis - export for other tools" data-cap="RO-Crate metadata for research repositories; in-toto, DSSE and BagIt from the same capsule.">
         <div class="slot"></div>

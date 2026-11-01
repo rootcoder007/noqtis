@@ -41,9 +41,13 @@ notes.txt: OK (ML-DSA-65)
 ## Deterministic signatures
 
 By default signing is *hedged*: fresh randomness goes into each signature,
-so signing twice gives two different (both valid) signatures. `-d` uses the
-standard's deterministic variant (all-zero randomness), so the same key,
-file and options give the same bytes, which helps reproducible builds:
+so signing twice gives two different (both valid) signatures. For Ed25519
+(alone or in a hybrid) the randomness goes into the nonce's hash, which
+power analysis would otherwise attack; the signatures still verify as any
+RFC 8032 ones. `-d` uses the standard's deterministic variant (all-zero
+randomness for ML-DSA and SLH-DSA, RFC 8032's own nonce for Ed25519), so
+the same key, file and options give the same bytes, which helps
+reproducible builds:
 
 ```sh
 $ noqtis sign -k me -d -o a.sig notes.txt
@@ -53,6 +57,12 @@ same
 ```
 
 Prefer hedged signing unless you need identical bytes.
+
+Either way, every signature is checked under the public key before
+`noqtis sign` writes it: one made in a disturbed computation (a glitch,
+a flipped memory bit) or with a damaged key would fail, and can give the
+key away, so it is refused (`the signature failed the check after
+signing`, exit 2) and nothing is written.
 
 ## Pre-hash (HashML-DSA, HashSLH-DSA)
 

@@ -96,6 +96,11 @@
   <dt id="timestamp"><a class="permalink" href="#timestamp"><code class="Cm">timestamp</code></a></dt>
   <dd>Add an RFC 3161 timestamp to a folder sealed before. See
       <a class="Xr" href="/noqtis/reference/man/noqtis-timestamp-1/">noqtis-timestamp(1)</a>.</dd>
+  <dt id="ers"><a class="permalink" href="#ers"><code class="Cm">ers</code></a></dt>
+  <dd>Start or renew a sealed folder's RFC 4998 evidence record, which keeps its
+      timestamp provable after the TSA's certificate expires or its hash
+      weakens. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-ers-1/">noqtis-ers(1)</a>.</dd>
   <dt id="inspect"><a class="permalink" href="#inspect"><code class="Cm">inspect</code></a></dt>
   <dd>Show what a sealed folder says (format, algorithm, key fingerprint,
       created, files, size, timestamp, meta) without checking it. See
@@ -103,6 +108,9 @@
   <dt id="algs"><a class="permalink" href="#algs"><code class="Cm">algs</code></a></dt>
   <dd>List every algorithm and its sizes. See
       <a class="Xr" href="/noqtis/reference/man/noqtis-algs-1/">noqtis-algs(1)</a>.</dd>
+  <dt id="selftest"><a class="permalink" href="#selftest"><code class="Cm">selftest</code></a></dt>
+  <dd>Run the known-answer self-test. See
+      <a class="Xr" href="/noqtis/reference/man/noqtis-selftest-1/">noqtis-selftest(1)</a>.</dd>
   <dt id="version"><a class="permalink" href="#version"><code class="Cm">version</code></a></dt>
   <dd>Print the version. See
       <a class="Xr" href="/noqtis/reference/man/noqtis-version-1/">noqtis-version(1)</a>.</dd>
@@ -185,6 +193,24 @@
 </section>
 </section>
 <section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt id="NOQTIS_PROGRESS"><a class="permalink" href="#NOQTIS_PROGRESS"><code class="Ev">NOQTIS_PROGRESS</code></a></dt>
+  <dd><a class="permalink" href="#seal~2"><code class="Cm" id="seal~2">seal</code></a>,
+      <code class="Cm">check</code> and signing with SLH-DSA draw a progress bar
+      on standard error when it is a terminal and the work takes more than a
+      third of a second; the bar is cleared when the work ends.
+      &#x2018;<code class="Li">0</code>&#x2019; turns it off;
+      &#x2018;<code class="Li">1</code>&#x2019; draws it to a standard error
+      that is not a terminal too.</dd>
+  <dt id="SOURCE_DATE_EPOCH"><a class="permalink" href="#SOURCE_DATE_EPOCH"><code class="Ev">SOURCE_DATE_EPOCH</code></a></dt>
+  <dd>The time <code class="Cm">seal</code> writes as the manifest's
+      &#x2018;<code class="Li">created</code>&#x2019;, for reproducible capsules
+      (see
+      <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>).</dd>
+</dl>
+</section>
+<section class="Sh">
 <h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
   STATUS</a></h1>
 <p class="Pp">For every command:</p>
@@ -228,6 +254,7 @@ results: FAILED (1 of 22 checks failed)
     <a class="Xr" href="/noqtis/reference/man/noqtis-check-1/">noqtis-check(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-dec-1/">noqtis-dec(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-enc-1/">noqtis-enc(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-ers-1/">noqtis-ers(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-export-1/">noqtis-export(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-hash-1/">noqtis-hash(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-idcard-1/">noqtis-idcard(1)</a>,
@@ -237,6 +264,7 @@ results: FAILED (1 of 22 checks failed)
     <a class="Xr" href="/noqtis/reference/man/noqtis-revoke-1/">noqtis-revoke(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-rotate-1/">noqtis-rotate(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-seal-1/">noqtis-seal(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-selftest-1/">noqtis-selftest(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-sign-1/">noqtis-sign(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-timestamp-1/">noqtis-timestamp(1)</a>,
     <a class="Xr" href="/noqtis/reference/man/noqtis-verify-1/">noqtis-verify(1)</a>,
