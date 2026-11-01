@@ -1013,7 +1013,7 @@ static void dg(const char *alg, const unsigned char *b, size_t n,
                unsigned char *out, size_t ol) {
   char c[200];
   unsigned char *r;
-  size_t k;
+  size_t k = 0;
   wr("q.dgi", b, n);
   sn(c, sizeof c, "openssl dgst -%s -binary q.dgi >q.dgo 2>q.ossl", alg);
   r = system(c) == 0 ? rd("q.dgo", &k) : NULL;
@@ -1111,7 +1111,7 @@ static void ters(void) {
       rt[8000];
   unsigned char *b, *t, h[32], x[32], y[32], r[32], hd[32], ha[32];
   const unsigned char *c, *s;
-  size_t n, tn, an, cn, ln1, ln2, rn, sl, qn;
+  size_t n = 0, tn = 0, an = 0, cn = 0, ln1 = 0, ln2 = 0, rn = 0, sl = 0, qn = 0;
   rmdirs("qers");
   mkd("qers");
   wrs("qers/a.txt", "kept for decades\n");
