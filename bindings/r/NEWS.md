@@ -1,6 +1,11 @@
 # noqtis 0.1.4
 
-* Built with libnoqtis 0.1.4; no change to the R API.
+* Built with libnoqtis 0.1.4: Ed25519 signing, SLH-DSA's PRF and HQC
+  decapsulation are masked against power analysis; every signature is
+  checked under the public key before `nqsign()` returns it, and one that
+  fails (a fault while signing) is an error, never returned.
+* `nqselftest()` runs the library's known-answer self-test (every
+  family, about a tenth of a second).
 
 # noqtis 0.1.3
 

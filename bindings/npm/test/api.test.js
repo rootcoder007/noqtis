@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import * as nc from 'node:crypto';
 
 import nq, {
-  init, algs, version, random, hash, hmac, sign, kem, keyfile, codes,
+  init, algs, version, selftest, random, hash, hmac, sign, kem, keyfile, codes,
   errmsg, NoqtisError, _heap,
 } from '../lib/index.js';
 
@@ -29,6 +29,8 @@ const KEMS = algs().filter((a) => a.kind === 'kem');
 
 test('algs and version', () => {
   assert.equal(version(), '0.1.4');
+  assert.equal(selftest(), undefined);
+  assert.equal(nq.selftest, selftest);
   assert.equal(SIGS.length, 19);
   assert.equal(KEMS.length, 6);
   assert.equal(algs().filter((a) => a.kind === 'hash').length, 12);

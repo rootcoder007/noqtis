@@ -101,6 +101,11 @@ func sz(b []byte) C.size_t { return C.size_t(len(b)) }
 // Version is the library's version, "0.1.4".
 func Version() string { return C.GoString(C.nqver()) }
 
+// SelfTest runs the library's known-answer self-test (every family,
+// about a tenth of a second); the error is ErrSelfTest when an answer
+// differs.
+func SelfTest() error { return rc(C.nqselftest()) }
+
 // Alg is one algorithm and its sizes in bytes: Sig is 0 for a KEM, CT
 // and SS are 0 for a signature algorithm.
 type Alg struct {

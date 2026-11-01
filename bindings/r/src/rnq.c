@@ -60,6 +60,12 @@ static const char *rpath(SEXP x) {
 
 static SEXP Cver(void) { return Rf_mkString(nqver()); }
 
+static SEXP Cself(void) {
+  int rc = nqselftest();
+  if (rc != NQOK) fail(rc, "self-test");
+  return Rf_ScalarLogical(1);
+}
+
 /* list(kind, id, name, pk, sk, sig, ct, ss) over every algorithm */
 static SEXP Calgs(void) {
   int ns = 0, nk = 0, i, j;
@@ -792,7 +798,7 @@ static SEXP Cerr(SEXP rc) {
 #define CDEF(f, n) {#f, (DL_FUNC)(void (*)(void))&f, n}
 
 static const R_CallMethodDef calls[] = {
-  CDEF(Cver, 0),  CDEF(Calgs, 0), CDEF(Crand, 1), CDEF(Chash, 3),
+  CDEF(Cver, 0),  CDEF(Cself, 0), CDEF(Calgs, 0), CDEF(Crand, 1), CDEF(Chash, 3),
   CDEF(Chini, 1), CDEF(Chupd, 2), CDEF(Chfin, 2), CDEF(Chmac, 3),
   CDEF(Ckg, 3),   CDEF(Csign, 6), CDEF(Cvrfy, 6), CDEF(Cenc, 3),
   CDEF(Cdec, 3),  CDEF(Cseal, 5), CDEF(Cchk, 7),  CDEF(Cerr, 1),

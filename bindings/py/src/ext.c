@@ -87,6 +87,17 @@ static PyObject *pver(PyObject *self, PyObject *noarg) {
   return PyUnicode_FromString(nqver());
 }
 
+static PyObject *pself(PyObject *self, PyObject *noarg) {
+  int rc;
+  (void)self;
+  (void)noarg;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqselftest();
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  Py_RETURN_NONE;
+}
+
 /* [(id, name, pk, sk, sig)] */
 static PyObject *psalgs(PyObject *self, PyObject *noarg) {
   PyObject *l = PyList_New(0), *t;
@@ -791,6 +802,7 @@ static PyObject *pfiles(PyObject *self, PyObject *args) {
 static PyMethodDef meths[] = {
   {"setup", psetup, METH_O, "register the error classes"},
   {"version", pver, METH_NOARGS, "nqver()"},
+  {"selftest", pself, METH_NOARGS, "nqselftest()"},
   {"salgs", psalgs, METH_NOARGS, "signature algorithms"},
   {"kalgs", pkalgs, METH_NOARGS, "KEM algorithms"},
   {"skg", pskg, METH_VARARGS, "nqskg / nqskgd"},

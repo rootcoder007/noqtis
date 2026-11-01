@@ -576,3 +576,8 @@ fn key_files() {
     );
     fs::remove_dir_all(&d).unwrap();
 }
+
+#[test]
+fn selftest_passes() {
+    noqtis::selftest().unwrap();
+}

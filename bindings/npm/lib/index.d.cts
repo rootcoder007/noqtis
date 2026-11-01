@@ -34,6 +34,8 @@ export interface InitOptions {
 /** Loads the WebAssembly module; call (and await) once before anything else. */
 export function init(opts?: InitOptions): Promise<void>;
 export function version(): string;
+/** The known-answer self-test; throws (code EKAT) when an answer differs. */
+export function selftest(): void;
 /** n bytes from crypto.getRandomValues, through the library's nqrand. */
 export function random(n: number): Bytes;
 

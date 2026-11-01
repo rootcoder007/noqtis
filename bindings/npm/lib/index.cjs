@@ -33,6 +33,7 @@ class NoqtisError extends Error {}
 module.exports = {
   init,
   version: (...a) => need().version(...a),
+  selftest: (...a) => need().selftest(...a),
   algs: (...a) => need().algs(...a),
   random: (...a) => need().random(...a),
   hash: (...a) => need().hash(...a),

@@ -73,8 +73,15 @@ __all__ = [
     "revoke",
     "rotate",
     "seal",
+    "selftest",
     "sign",
 ]
+
+
+def selftest() -> None:
+    """Runs the library's known-answer self-test (every family, about a
+    tenth of a second); raises SelfTestError when an answer differs."""
+    _c.selftest()
 
 
 def algs(kind: Optional[str] = None) -> List[Alg]:

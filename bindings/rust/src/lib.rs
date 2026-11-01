@@ -165,6 +165,14 @@ pub fn version() -> String {
     cstr(unsafe { ffi::nqver() })
 }
 
+/// Runs the library's known-answer self-test (every family, about a
+/// tenth of a second): `Err` with [`Code::SelfTest`] when an answer
+/// differs.
+pub fn selftest() -> Result<()> {
+    // SAFETY: no arguments; it uses its own buffers
+    rc(unsafe { ffi::nqselftest() })
+}
+
 /// Signature or KEM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {

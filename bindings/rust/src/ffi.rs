@@ -72,6 +72,7 @@ pub struct Rep {
 extern "C" {
     pub fn nqerr(err: c_int) -> *const c_char;
     pub fn nqver() -> *const c_char;
+    pub fn nqselftest() -> c_int;
     pub fn nqrand(buf: *mut u8, len: usize) -> c_int;
 
     pub fn nqhlen(alg: c_int) -> usize;

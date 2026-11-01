@@ -537,3 +537,9 @@ func TestKeyFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSelfTest(t *testing.T) {
+	if err := SelfTest(); err != nil {
+		t.Fatal(err)
+	}
+}

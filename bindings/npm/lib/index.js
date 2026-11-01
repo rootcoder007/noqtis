@@ -248,6 +248,16 @@ export function version() {
   return M.UTF8ToString(M._nqver());
 }
 
+/**
+ * Runs the library's known-answer self-test (every family, about a tenth
+ * of a second); throws a NoqtisError with code EKAT when an answer
+ * differs.
+ */
+export function selftest() {
+  need();
+  check(M._nqselftest(), 'self-test');
+}
+
 /** n bytes from crypto.getRandomValues, through the library's nqrand. */
 export function random(n) {
   if (!Number.isInteger(n) || n < 0) throw new RangeError('noqtis: bad length');
@@ -1099,6 +1109,6 @@ export function _heap() {
 }
 
 export default {
-  init, version, algs, random, hash, hmac, sign, kem, capsule, dsse,
+  init, version, selftest, algs, random, hash, hmac, sign, kem, capsule, dsse,
   idcard, keyfile, NoqtisError, codes, errmsg,
 };

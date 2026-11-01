@@ -39,3 +39,17 @@
 #' nqver()
 #' @export
 nqver <- function() .Call(Cver)
+
+#' Known-answer self-test of the bundled noqtis library
+#'
+#' Runs fixed inputs through every algorithm family (hashes, HMAC, ML-KEM,
+#' ML-DSA, SLH-DSA, HQC, Ed25519 and a hybrid) and compares the outputs
+#' with stored answers, the power-on self-test of a FIPS 140-3 module. It
+#' takes about a tenth of a second.
+#'
+#' @return `TRUE`, invisibly; an error when an answer differs.
+#'
+#' @examples
+#' nqselftest()
+#' @export
+nqselftest <- function() invisible(.Call(Cself))

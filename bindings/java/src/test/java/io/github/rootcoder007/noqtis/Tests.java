@@ -80,6 +80,8 @@ public final class Tests {
 
   static void table() {
     eq(Noqtis.version(), "0.1.4", "version");
+    Noqtis.selfTest();
+    ok(true, "the self-test passes");
     long s = Noqtis.algs().stream().filter(a -> a.kind().equals("sign")).count();
     long k = Noqtis.algs().stream().filter(a -> a.kind().equals("kem")).count();
     ok(s == 19 && k == 6, s + " and " + k + " algorithms");

@@ -78,6 +78,22 @@ public final class Noqtis {
   }
 
   /**
+   * Runs the library's known-answer self-test (every family, about a
+   * tenth of a second).
+   *
+   * @throws NoqtisException with {@code SELFTEST} when an answer differs
+   */
+  public static void selfTest() {
+    int rc;
+    try {
+      rc = (int) Native.NQSELF.invoke();
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+    Native.rc(rc);
+  }
+
+  /**
    * Every algorithm with its sizes, the signature algorithms first.
    *
    * @return the table, unmodifiable

@@ -135,6 +135,7 @@ final class Native {
 
   static final MethodHandle NQERR = fn("nqerr", P, I);
   static final MethodHandle NQVER = fn("nqver", P);
+  static final MethodHandle NQSELF = fn("nqselftest", I);
   static final MethodHandle NQRAND = fn("nqrand", I, P, Z);
   static final MethodHandle NQHLEN = fn("nqhlen", Z, I);
   static final MethodHandle NQHASH = fn("nqhash", I, I, P, Z, P, Z);

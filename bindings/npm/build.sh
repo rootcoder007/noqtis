@@ -20,7 +20,7 @@ if [ "$ver" != "$want" ] && [ -z "${NQEMANY:-}" ]; then
   exit 2
 fi
 
-fns='nqerr nqver nqwipe nqrand nqhlen nqhash nqhmac
+fns='nqerr nqver nqselftest nqwipe nqrand nqhlen nqhash nqhmac
 nqssize nqsname nqskg nqskgd nqsign nqsignd nqvrfy
 nqksize nqkname nqkkg nqkkgd nqenc nqencd nqdec
 nqseal nqseal2 nqcapid nqchkt nqchkx nqchkp nqprove nqfiles

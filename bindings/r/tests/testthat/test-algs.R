@@ -42,3 +42,8 @@ test_that("unknown algorithm names are errors", {
   # case is ignored
   expect_equal(nqkeygen("ml-dsa-44", seed = as.raw(0:31))$alg, "ML-DSA-44")
 })
+
+test_that("nqselftest passes", {
+  expect_true(nqselftest())
+  expect_invisible(nqselftest())
+})
