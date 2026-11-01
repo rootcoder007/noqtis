@@ -66,6 +66,7 @@ after `init()` is synchronous.
 | `keyfile.encode(alg, 'pub' \| 'sec', key)`, `keyfile.decode(text)` | the CLI's key file text, and back (`{ alg, kind, key }`) |
 | `NoqtisError`, `codes`, `errmsg(code)` | errors carry the library's `NQE*` code in `.code` and its message |
 | `version()` | the library version |
+| `selftest()` | runs the library's known-answer self-test; throws (code `EKAT`) when an answer differs |
 
 Algorithm names are the standards' (`ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87`,
 `SLH-DSA-SHA2-128s` ... `SLH-DSA-SHAKE-256f`, the hybrids
