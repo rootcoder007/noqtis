@@ -6,6 +6,8 @@
   fails (a fault while signing) is an error, never returned.
 * `nqselftest()` runs the library's known-answer self-test (every
   family, about a tenth of a second).
+* Builds on R 4.1 for Windows (Rtools40), whose headers hid two Windows
+  Vista functions the package uses.
 * The title is the full name, as in the citation: Notary of Quantum-Safe
   Traceable Inputs and Seals (also in `citation("noqtis")` and
   `?noqtis`).

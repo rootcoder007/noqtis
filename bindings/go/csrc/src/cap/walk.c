@@ -9,6 +9,13 @@
 #define _DARWIN_C_SOURCE /* O_NOFOLLOW is hidden under plain POSIX */
 #endif
 #endif
+#if defined(_WIN32) && (!defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0600)
+/* GetFinalPathNameByHandleW and WC_ERR_INVALID_CHARS need Windows Vista
+ * or later; older MinGW headers (R 4.1's Rtools40) default to Windows XP
+ * and hide them. */
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#endif
 
 #include <stdio.h>
 #include <string.h>
