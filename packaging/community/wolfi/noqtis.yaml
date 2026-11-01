@@ -1,6 +1,6 @@
 package:
   name: noqtis
-  version: "0.1.2"
+  version: "0.1.3"
   epoch: 0
   description: Post-quantum signing, KEMs and sealed input records in C11
   copyright:
@@ -20,7 +20,7 @@ pipeline:
     with:
       repository: https://github.com/rootcoder007/noqtis
       tag: v${{package.version}}
-      expected-commit: 383a20ec194e49b14fc7ac613871cd23b7c45133
+      expected-commit: 582da210f41a1900f42e6cf2b0dbb5e5c639b693
 
   - uses: cmake/configure
     with:

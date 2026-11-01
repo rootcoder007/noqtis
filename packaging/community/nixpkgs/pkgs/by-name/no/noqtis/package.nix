@@ -9,13 +9,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "noqtis";
-  version = "0.1.2";
+  version = "0.1.3";
 
   src = fetchFromGitHub {
     owner = "rootcoder007";
     repo = "noqtis";
     tag = "v${finalAttrs.version}";
-    hash = "NQHASH";
+    hash = "sha256-9FmT+llPATTc7M8ilUxMfWtwUhniwLOOl3XNv9EE9yw=";
   };
 
   nativeBuildInputs = [ cmake ];

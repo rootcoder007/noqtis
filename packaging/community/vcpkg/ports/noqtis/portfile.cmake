@@ -2,7 +2,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO rootcoder007/noqtis
     REF "v${VERSION}"
-    SHA512 b770d9ea4b3ffc2472fe3a2bc30547cc91dc237387fc3db5ff1f849ad713cb3c9151c418c68b53901bdbcecbf847fe1edde7008aee760ac4b7cdf83bd67f3a1a
+    SHA512 4dd2a3ad2a7aad96affbdd196781ad87ca326deb3ff20829ac2817f1bbb32221769edc57592284116d114c04ddcd329633fc50525ba3ca8eab6a0e854a90adeb
     HEAD_REF main
 )
 
