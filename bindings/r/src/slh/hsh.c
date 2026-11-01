@@ -11,6 +11,7 @@
  * SHA-256 at n = 16 and SHA-512 above. */
 #include <string.h>
 
+#include "core/lk.h"
 #include "slh/in.h"
 
 /* ADRSc: layer (1 byte) || tree (low 8 bytes) || type (1 byte) || the
@@ -22,13 +23,25 @@ static void adrc(const uint8_t *a, uint8_t *c) {
   memcpy(c + 10, a + 20, 12);
 }
 
-void nqslini(nqslc *c, const nqslp *p, const uint8_t *pks,
-             const uint8_t *sks) {
+int nqslini(nqslc *c, const nqslp *p, const uint8_t *pks,
+            const uint8_t *sks) {
   uint8_t blk[128];
+  unsigned i;
+  int rc = NQOK;
   memset(c, 0, sizeof *c);
   c->p = p;
+  c->g = &c->gs;
   memcpy(c->pks, pks, p->n);
-  if (sks != NULL) memcpy(c->sks, sks, p->n);
+  if (sks != NULL) {
+    NQLKST(1);
+    rc = nqmrini(c->g);
+    nqmrb(c->g, c->s0, p->n);
+    for (i = 0; i < p->n; i++) {
+      NQLK(sks[i], NQLKUN);
+      c->s1[i] = (uint8_t)(sks[i] ^ c->s0[i]);
+    }
+    NQLKST(2);
+  }
   if (p->sha2) {
     memset(blk, 0, sizeof blk);
     memcpy(blk, pks, p->n);
@@ -39,27 +52,86 @@ void nqslini(nqslc *c, const nqslp *p, const uint8_t *pks,
       nqs5upd(&c->m5, blk, 128);
     }
   }
+  return rc;
+}
+
+/* the block after PK.seed's for PRF: ADRSc || SK.seed (in shares),
+ * padded; 64 + 22 + n bytes in all, n at most 32, so one block */
+static void prfblk(const nqslc *c, const uint8_t *a, uint8_t *b0,
+                   uint8_t *b1) {
+  unsigned n = c->p->n;
+  memset(b0, 0, 64);
+  memset(b1, 0, 64);
+  adrc(a, b0);
+  memcpy(b0 + 22, c->s0, n);
+  memcpy(b1 + 22, c->s1, n);
+  b0[22 + n] = 0x80;
+  nqst64b(b0 + 56, (uint64_t)(64 + 22 + n) * 8);
+}
+
+void nqslprfn(const nqslc *c, const uint8_t *a, unsigned cnt,
+              uint8_t *out) {
+  unsigned n = c->p->n, i, j, k;
+  if (!c->p->sha2) {
+    for (i = 0; i < cnt; i++) nqslprf(c, a + 32 * (size_t)i, out + n * i);
+    return;
+  }
+  for (i = 0; i < cnt; i += NQMSBL) {
+    uint8_t b0[NQMSBL * 64], b1[NQMSBL * 64];
+    uint32_t o0[NQMSBL * 8], o1[NQMSBL * 8];
+    const unsigned m = cnt - i < NQMSBL ? cnt - i : NQMSBL;
+    for (j = 0; j < m; j++) {
+      prfblk(c, a + 32 * (size_t)(i + j), b0 + 64 * j, b1 + 64 * j);
+    }
+    nqms2b(c->m2.h, b0, b1, m, o0, o1, c->g);
+    for (j = 0; j < m; j++) {
+      uint8_t *d = out + (size_t)n * (i + j);
+      for (k = 0; k < n; k += 4) {
+        uint8_t w[4];
+        nqst32b(w, o0[8 * j + k / 4] ^ o1[8 * j + k / 4]);
+        memcpy(d + k, w, n - k < 4 ? n - k : 4);
+      }
+    }
+    nqwipe(b0, sizeof b0);
+    nqwipe(b1, sizeof b1);
+    nqwipe(o0, sizeof o0);
+    nqwipe(o1, sizeof o1);
+  }
 }
 
 void nqslprf(const nqslc *c, const uint8_t *a, uint8_t *out) {
-  unsigned n = c->p->n;
+  unsigned n = c->p->n, i;
   if (c->p->sha2) {
-    nqs2ctx s = c->m2;
-    uint8_t ac[22], h[32];
-    adrc(a, ac);
-    nqs2upd(&s, ac, sizeof ac);
-    nqs2upd(&s, c->sks, n);
-    nqs2fin(&s, h);
-    memcpy(out, h, n);
-    nqwipe(h, sizeof h);
+    /* one compression after PK.seed's block: ADRSc || SK.seed, padded
+     * (64 + 22 + n bytes in all, n at most 32: it fits one block) */
+    uint8_t b0[64], b1[64];
+    uint32_t o0[8], o1[8];
+    prfblk(c, a, b0, b1);
+    nqms2(c->m2.h, b0, b1, o0, o1, c->g);
+    for (i = 0; i < n; i += 4) {
+      uint8_t w[4];
+      nqst32b(w, o0[i / 4] ^ o1[i / 4]);
+      memcpy(out + i, w, n - i < 4 ? n - i : 4);
+    }
+    nqwipe(b0, sizeof b0);
+    nqwipe(b1, sizeof b1);
+    nqwipe(o0, sizeof o0);
+    nqwipe(o1, sizeof o1);
   } else {
-    nqkctx k;
-    nqshkini(&k, 256);
-    nqkabs(&k, c->pks, n);
-    nqkabs(&k, a, 32);
-    nqkabs(&k, c->sks, n);
-    nqksqz(&k, out, n);
-    nqwipe(&k, sizeof k);
+    /* SHAKE256(PK.seed || ADRS || SK.seed), SK.seed in shares */
+    uint8_t i0[2 * NQSLNMX + 32], i1[2 * NQSLNMX + 32];
+    uint8_t q0[NQSLNMX], q1[NQSLNMX];
+    memset(i1, 0, sizeof i1);
+    memcpy(i0, c->pks, n);
+    memcpy(i0 + n, a, 32);
+    memcpy(i0 + n + 32, c->s0, n);
+    memcpy(i1 + n + 32, c->s1, n);
+    nqmshk(q0, q1, n, i0, i1, 2 * (size_t)n + 32, c->g);
+    for (i = 0; i < n; i++) out[i] = (uint8_t)(q0[i] ^ q1[i]);
+    nqwipe(i0, sizeof i0);
+    nqwipe(i1, sizeof i1);
+    nqwipe(q0, sizeof q0);
+    nqwipe(q1, sizeof q1);
   }
 }
 

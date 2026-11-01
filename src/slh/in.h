@@ -11,6 +11,7 @@
 
 #include "core/int.h"
 #include "hash/h.h"
+#include "msk/msk.h"
 #include "slh/slh.h"
 
 /* Constant-time checking (tests/tslhct.c, built with -DNQCTGRIND): values
@@ -44,13 +45,26 @@ enum {
 
 /* The keys one operation works with. For SHA-2 it also keeps the hash
  * states after the padded PK.seed block that starts every F, H, T and PRF
- * call (section 11.2): SHA-256 always, SHA-512 when n > 16. */
+ * call (section 11.2): SHA-256 always, SHA-512 when n > 16.
+ *
+ * SK.seed is held only as two shares (s0 ^ s1), split afresh for every
+ * key generation and signature, and PRF, the one function keyed with it,
+ * is first-order masked (msk.h): masked SHAKE256, or a masked SHA-256
+ * compression over the block after PK.seed's. PRF's output, a WOTS+ or
+ * FORS secret of one address, is used unmasked from there on: each such
+ * value meets only its own fixed address, never a secret reused with
+ * changing known inputs, which is what a differential power analysis of
+ * SLH-DSA needs (Kannwischer, Genet, Butin, Krämer and Buchmann, SAC
+ * 2018). */
 typedef struct {
   const nqslp *p;
   uint8_t pks[NQSLNMX];  /* PK.seed */
-  uint8_t sks[NQSLNMX];  /* SK.seed; zero in a verifier */
+  uint8_t s0[NQSLNMX];   /* SK.seed = s0 ^ s1; zero in a verifier */
+  uint8_t s1[NQSLNMX];
   nqs2ctx m2;
   nqs5ctx m5;
+  nqmrg gs;              /* the masks */
+  nqmrg *g;              /* &gs, so that a const nqslc still draws */
 } nqslc;
 
 /* ---- addresses: 32 bytes, big-endian words, FIPS 205 layout ---- */
@@ -77,11 +91,16 @@ static inline void nqsaw3(uint8_t *a, uint32_t v) { nqst32b(a + 28, v); }
 
 /* ---- hash functions (hsh.c) ---- */
 
-/* Fills c for p; sks NULL leaves SK.seed zero (verification). */
-void nqslini(nqslc *c, const nqslp *p, const uint8_t *pks,
-             const uint8_t *sks);
+/* Fills c for p; sks NULL leaves SK.seed zero (verification). NQOK, or
+ * the random source's error (sks given: the masks). */
+int nqslini(nqslc *c, const nqslp *p, const uint8_t *pks,
+            const uint8_t *sks);
 /* PRF(PK.seed, SK.seed, ADRS): n bytes. */
 void nqslprf(const nqslc *c, const uint8_t *a, uint8_t *out);
+/* PRF for cnt addresses (a + 32 i) at once, into out + n i: the SHA-2
+ * sets compute up to 64 of them in one bitsliced masked compression. */
+void nqslprfn(const nqslc *c, const uint8_t *a, unsigned cnt,
+              uint8_t *out);
 /* F, H or T_l over nb n-byte blocks; out may overlap in. */
 void nqslth(const nqslc *c, const uint8_t *a, const uint8_t *in,
             unsigned nb, uint8_t *out);

@@ -52,17 +52,6 @@ static void chn(const nqslc *c, uint8_t *x, uint32_t i, uint32_t s,
   }
 }
 
-/* The WOTS+ secret of chain i of key pair kp under a (layer, tree). */
-static void wsk(const nqslc *c, const uint8_t *a, uint32_t kp, uint32_t i,
-                uint8_t *out) {
-  uint8_t s[32];
-  memcpy(s, a, 32);
-  nqsatype(s, NQSLWPR);
-  nqsakp(s, kp);
-  nqsaw2(s, i);
-  nqslprf(c, s, out);
-}
-
 /* The address of chain i of key pair kp, type WOTS_HASH. */
 static void wha(const uint8_t *a, uint32_t kp, uint32_t i, uint8_t *h) {
   memcpy(h, a, 32);
@@ -81,14 +70,29 @@ static void wcmp(const nqslc *c, const uint8_t *a, uint32_t kp,
   nqslth(c, q, tops, c->p->len, out);
 }
 
+/* The WOTS+ secrets of every chain of key pair kp, in one batch. */
+static void wsks(const nqslc *c, const uint8_t *a, uint32_t kp,
+                 uint8_t *out) {
+  uint8_t s[NQSLLMX * 32];
+  unsigned i;
+  for (i = 0; i < c->p->len; i++) {
+    uint8_t *q = s + 32 * (size_t)i;
+    memcpy(q, a, 32);
+    nqsatype(q, NQSLWPR);
+    nqsakp(q, kp);
+    nqsaw2(q, i);
+  }
+  nqslprfn(c, s, c->p->len, out);
+}
+
 /* wots_pkGen (algorithm 6). */
 static void wpk(const nqslc *c, const uint8_t *a, uint32_t kp,
                 uint8_t *out) {
   uint8_t tops[NQSLLMX * NQSLNMX], h[32];
   unsigned i, n = c->p->n;
+  wsks(c, a, kp, tops);
   for (i = 0; i < c->p->len; i++) {
     uint8_t *x = tops + (size_t)i * n;
-    wsk(c, a, kp, i, x);
     wha(a, kp, i, h);
     chn(c, x, 0, 15, h);
   }
@@ -103,9 +107,9 @@ static void wsg(const nqslc *c, const uint8_t *a, uint32_t kp,
   uint8_t h[32];
   unsigned i, n = c->p->n;
   wdig(c->p, msg, dig);
+  wsks(c, a, kp, sig);
   for (i = 0; i < c->p->len; i++) {
     uint8_t *x = sig + (size_t)i * n;
-    wsk(c, a, kp, i, x);
     wha(a, kp, i, h);
     chn(c, x, 0, dig[i], h);
   }
@@ -135,16 +139,29 @@ static void nda(const uint8_t *a, int fors, uint8_t *na) {
   if (fors) nqsakp(na, kp);
 }
 
-/* A FORS leaf: F of the FORS secret at index g (algorithms 14, 15). */
+/* The FORS secrets at indices g .. g + cnt - 1, in one batch. */
+static void fsks(const nqslc *c, const uint8_t *a, uint32_t g,
+                 unsigned cnt, uint8_t *out) {
+  uint8_t s[NQMSBL * 32];
+  uint32_t kp = nqsagkp(a);
+  unsigned i;
+  for (i = 0; i < cnt; i++) {
+    uint8_t *q = s + 32 * (size_t)i;
+    memcpy(q, a, 32);
+    nqsatype(q, NQSLFPR);
+    nqsakp(q, kp);
+    nqsaw3(q, g + i);
+  }
+  nqslprfn(c, s, cnt, out);
+}
+
+/* A FORS leaf: F of the FORS secret sec at index g (algorithms 14, 15). */
 static void flf(const nqslc *c, const uint8_t *a, uint32_t g,
-                uint8_t *out) {
+                const uint8_t *sec, uint8_t *out) {
   uint8_t s[32];
   uint32_t kp = nqsagkp(a);
   memcpy(s, a, 32);
-  nqsatype(s, NQSLFPR);
-  nqsakp(s, kp);
-  nqsaw3(s, g);
-  nqslprf(c, s, out);
+  memcpy(out, sec, c->p->n);
   nqsatype(s, NQSLFT);
   nqsakp(s, kp);
   nqsaw3(s, g);
@@ -154,15 +171,20 @@ static void flf(const nqslc *c, const uint8_t *a, uint32_t g,
 void nqsltrh(const nqslc *c, int fors, const uint8_t *a, uint32_t base,
              unsigned ht, uint32_t leaf, uint8_t *root, uint8_t *auth) {
   uint8_t stk[(NQSLHMX + 1) * NQSLNMX], buf[2 * NQSLNMX], na[32];
+  uint8_t sec[NQMSBL * NQSLNMX];
   unsigned sh[NQSLHMX + 1], sp = 0, z, n = c->p->n;
-  uint32_t i;
+  uint32_t i, nl = (uint32_t)1 << ht;
   if (n == 0 || n > NQSLNMX) return; /* table rows have n <= NQSLNMX */
   nda(a, fors, na);
-  for (i = 0; i < ((uint32_t)1 << ht); i++) {
+  for (i = 0; i < nl; i++) {
     uint32_t g = base + i;
     uint8_t *node = buf + n;
     if (fors) {
-      flf(c, a, g, node);
+      /* the FORS secrets come in batches of NQMSBL */
+      if (i % NQMSBL == 0) {
+        fsks(c, a, g, nl - i < NQMSBL ? nl - i : NQMSBL, sec);
+      }
+      flf(c, a, g, sec + (size_t)(i % NQMSBL) * n, node);
     } else {
       wpk(c, a, g, node);
     }
@@ -186,6 +208,7 @@ void nqsltrh(const nqslc *c, int fors, const uint8_t *a, uint32_t base,
   memcpy(root, stk, n);
   nqwipe(stk, sizeof stk);
   nqwipe(buf, sizeof buf);
+  nqwipe(sec, sizeof sec);
 }
 
 /* The root from a node at height 0, index g, and its authentication path

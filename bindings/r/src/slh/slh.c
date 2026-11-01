@@ -54,7 +54,12 @@ int nqslkgd(nqsalg alg, const uint8_t *seed, size_t seedlen,
   if (pklen < p->pk || sklen < p->sk) return NQEBUF;
   if (pklen > p->pk || sklen > p->sk) return NQEARG;
   /* algorithm 18: the root of the top XMSS tree */
-  nqslini(&c, p, seed + 2 * n, seed);
+  if (nqslini(&c, p, seed + 2 * n, seed) != NQOK) {
+    nqwipe(&c, sizeof c);
+    memset(pk, 0, p->pk);
+    memset(sk, 0, p->sk);
+    return NQERNG;
+  }
   memset(a, 0, sizeof a);
   nqsalay(a, p->d - 1);
   nqsltrh(&c, 0, a, 0, p->hp, 0, root, NULL);
@@ -97,10 +102,11 @@ static void dsplit(const nqslp *p, const uint8_t *dg, uint64_t *tree,
   *leaf = l & (((uint32_t)1 << p->hp) - 1u);
 }
 
-/* sk is checked; rnd is opt_rand (n bytes); sig holds p->sig bytes. */
-static void sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
-                size_t prelen, const uint8_t *msg, size_t msglen,
-                const uint8_t *rnd, uint8_t *sig) {
+/* sk is checked; rnd is opt_rand (n bytes); sig holds p->sig bytes.
+ * NQOK, or NQERNG when the masks cannot be drawn (sig untouched). */
+static int sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
+               size_t prelen, const uint8_t *msg, size_t msglen,
+               const uint8_t *rnd, uint8_t *sig) {
   nqslc c;
   uint8_t pk[2 * NQSLNMX], dg[NQSLMMX], a[32], fpk[NQSLNMX], r[NQSLNMX];
   uint64_t tree;
@@ -109,7 +115,10 @@ static void sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
   /* PK.seed || PK.root are the public key, published anyway */
   memcpy(pk, sk + 2 * n, 2 * (size_t)n);
   NQSLDECL(pk, 2 * (size_t)n);
-  nqslini(&c, p, pk, sk);
+  if (nqslini(&c, p, pk, sk) != NQOK) {
+    nqwipe(&c, sizeof c);
+    return NQERNG;
+  }
   /* R, the signature's first field, goes to sig only once msg has been
    * read for the last time (by H_msg), so sig may overlap msg */
   nqslpm(p, sk + n, rnd, pre, prelen, msg, msglen, r);
@@ -129,6 +138,7 @@ static void sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
   nqwipe(&c, sizeof c);
   nqwipe(dg, sizeof dg);
   nqwipe(fpk, sizeof fpk);
+  return NQOK;
 }
 
 /* 1 when sig (p->sig bytes) verifies; pk checked. */
@@ -140,7 +150,7 @@ static int vfy(const nqslp *p, const uint8_t *pk, const uint8_t *pre,
   uint64_t tree;
   uint32_t leaf;
   unsigned n = p->n;
-  nqslini(&c, p, pk, NULL);
+  (void)nqslini(&c, p, pk, NULL); /* no masks: cannot fail */
   nqslhm(p, sig, pk, pre, prelen, msg, msglen, dg);
   dsplit(p, dg, &tree, &leaf);
   memset(a, 0, sizeof a);
@@ -179,8 +189,9 @@ int nqslsigi(nqsalg alg, const uint8_t *sk, size_t sklen,
   int rc = sgchk(p, sk, sklen, msg, msglen, sig, siglen);
   if (rc != NQOK) return rc;
   if (addrnd == NULL ? rndlen != 0 : rndlen != p->n) return NQEARG;
-  sgn(p, sk, NULL, 0, msg, msglen,
-      addrnd != NULL ? addrnd : sk + 2 * p->n, sig);
+  rc = sgn(p, sk, NULL, 0, msg, msglen,
+           addrnd != NULL ? addrnd : sk + 2 * p->n, sig);
+  if (rc != NQOK) return rc;
   if (outlen != NULL) *outlen = p->sig;
   return NQOK;
 }
@@ -271,8 +282,9 @@ static int ext(nqsalg alg, const uint8_t *sk, size_t sklen,
       nqcmov(r, sk + 2 * p->n, p->n, (uint8_t)(1u + nqctmask(z)));
     }
   }
-  sgn(p, sk, pre, prelen, use ? msg : NULL, use ? msglen : 0, r, sig);
+  rc = sgn(p, sk, pre, prelen, use ? msg : NULL, use ? msglen : 0, r, sig);
   nqwipe(r, sizeof r);
+  if (rc != NQOK) return rc;
   if (outlen != NULL) *outlen = p->sig;
   return NQOK;
 }

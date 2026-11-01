@@ -56,6 +56,7 @@
 #include "mldsa/md.h"
 #include "mldsa/mldsa.h"
 #include "mlkem/mlkem.h"
+#include "slh/in.h"
 #include "st.h"
 #include "md1.h"
 
@@ -274,6 +275,36 @@ static void rued(const tv *t, int cls) {
   nqlkzm = 0;
 }
 
+/* SLH-DSA's PRF, the one function keyed with SK.seed: a fixed SK.seed
+ * against random ones, fresh random addresses in every trace (a batch
+ * of 64 for SHA-2, one for SHAKE), PK.seed fixed */
+static uint8_t spk[NQSLNMX];
+
+static void pslh(const tv *t) {
+  xrfill(&G, fk, NQSLNMX);
+  xrfill(&G, spk, NQSLNMX);
+  (void)t;
+}
+
+static void rslh(const tv *t, int cls) {
+  const nqslp *p = nqslpar((nqsalg)t->a);
+  uint8_t a[64 * 32], out[64 * NQSLNMX];
+  const uint8_t *sk = fk;
+  nqslc c;
+  if (cls) {
+    xrfill(&G, kb, NQSLNMX);
+    sk = kb;
+  }
+  xrfill(&G, a, sizeof a);
+  nqlkzm = t->zm;
+  R.on = 1;
+  (void)nqslini(&c, p, spk, sk);
+  nqslprfn(&c, a, p->sha2 ? 64 : 1, out);
+  R.on = 0;
+  nqlkzm = 0;
+  nqwipe(&c, sizeof c);
+}
+
 static const tv tvs[] = {
     {"mlkem512", "ML-KEM-512 masked decaps, one key vs random keys", 2, 0,
      0, 1, pkem, rkem},
@@ -291,8 +322,16 @@ static const tv tvs[] = {
      NQMLDSA44, 0, 1, 4, pdsa, rdsa},
     {"ed25519", "Ed25519 masked signing, one key vs random keys", 0, 0, 0,
      4, ped, rued},
+    {"slhsha2", "SLH-DSA-SHA2-128 masked PRF, 64 lanes, one key vs random",
+     NQSLH128F, 0, 0, 8, pslh, rslh},
+    {"slhshake", "SLH-DSA-SHAKE-128 masked PRF, one key vs random keys",
+     NQSLHK128F, 0, 0, 1, pslh, rslh},
     {"mlkem768z", "control: ML-KEM-768 decaps, masks zero", 3, 1, 0, 4,
      pkem, rkem},
+    {"slhsha2z", "control: SLH-DSA-SHA2-128 PRF, masks zero", NQSLH128F, 1,
+     0, 8, pslh, rslh},
+    {"slhshakez", "control: SLH-DSA-SHAKE-128 PRF, masks zero", NQSLHK128F,
+     1, 0, 1, pslh, rslh},
     {"ed25519z", "control: Ed25519 signing, masks zero", 0, 1, 0, 4, ped,
      rued},
     {"mldsa44z", "control: ML-DSA-44 signing, key test, masks zero",

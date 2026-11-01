@@ -47,6 +47,7 @@ OBJECTS = \
   mldsa/sign.o \
   mlkem/kem.o \
   mlkem/mdec.o \
+  msk/msk.o \
   slh/hsh.o \
   slh/slh.o \
   slh/tree.o \
