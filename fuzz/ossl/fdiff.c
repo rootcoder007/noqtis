@@ -238,7 +238,8 @@ static void fed(rd *r) {
   k = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, sk, 32);
   NEED(k != NULL && EVP_PKEY_get_raw_public_key(k, ob, &ol) == 1 &&
        memcmp(ob, pk, 32) == 0);
-  NEED(nqsign(NQED25519, sk, 32, m, mn, ctx, cn, ph, s1, 64, &sl) == NQOK);
+  NEED(nqsignd(NQED25519, sk, 32, m, mn, ctx, cn, ph, NULL, 0, s1, 64,
+               &sl) == NQOK);
   p[n++] = OSSL_PARAM_construct_utf8_string(
       OSSL_SIGNATURE_PARAM_INSTANCE, (char *)(uintptr_t)inst[v], 0);
   if (cn > 0)
