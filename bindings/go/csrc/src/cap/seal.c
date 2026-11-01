@@ -267,6 +267,9 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
   if (ver != 1 && ver != 2) return NQEARG;
   if (nin > 0 && (ver != 2 || in == NULL)) return NQEARG;
   if (nin > NQCINMAX) return NQELIM;
+  /* an evidence record covers the seal there: a new one would replace
+   * the data object the record proves */
+  if (nqchas(dir, NQCERS)) return NQESTATE;
   for (i = 0; i < nin; i++) {
     if (in[i].name == NULL || !nqcinok(in[i].name, strlen(in[i].name))) {
       return NQEARG;

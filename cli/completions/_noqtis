@@ -121,6 +121,12 @@ _noqtis_cmd() {
         '*--anchor[trusted root certificate]:der-file:_files' \
         '--force[replace an existing timestamp]' \
         ':dir:_files -/' ;;
+    ers)
+      _arguments \
+        '*--tsa[RFC 3161 timestamp authority]:url:_urls' \
+        '*--anchor[trusted root certificate]:der-file:_files' \
+        '--hash[the new timestamp'"'"'s hash]:hash:(sha256 sha384 sha512)' \
+        ':dir:_files -/' ;;
   esac
 }
 
@@ -134,6 +140,6 @@ _arguments -C \
     rotate\:"say a seal key was replaced" revoke\:"say a seal key is revoked"
     idcard\:"make or check an identity card"
     export\:"a capsule as in-toto, DSSE, RO-Crate or BagIt"
-    inspect\:"show what a seal says" selftest\:"run the known-answer self-test" timestamp\:"add public timestamps"
+    inspect\:"show what a seal says" selftest\:"run the known-answer self-test" timestamp\:"add public timestamps" ers\:"start or renew an evidence record"
     algs\:"list the algorithms" version\:"print the version"))' \
   '*::arg:_noqtis_cmd'

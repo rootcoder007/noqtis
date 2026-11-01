@@ -174,6 +174,25 @@ static const nccmd cmds[] = {
    "            token now too (up to 32)\n"
    "  --force   replace a timestamp the seal already has\n"
    "  If no TSA gives a token that checks, nothing is written (exit 2).\n"},
+  {"ers", ncers, "start or renew a capsule's evidence record (RFC 4998)",
+   "usage: noqtis ers --tsa <url>... [--anchor <der-file>]...\n"
+   "                  [--hash sha256|sha384|sha512] <dir>\n"
+   "  Keeps a sealed capsule provable for decades: noqtis.ers holds\n"
+   "  archive timestamps over the seal (noqtis.sig), from the TSAs given\n"
+   "  (" NCTSAU "), the first that checks. The first run starts the\n"
+   "  record; run it again before the last TSA certificate expires (it\n"
+   "  adds a timestamp over the last one), or with another --hash when\n"
+   "  the record's hash weakens (a new chain over the seal and the record\n"
+   "  so far). The record there is checked before it is extended.\n"
+   "  `noqtis check --anchor` checks it. While it is there, `noqtis seal`\n"
+   "  and `noqtis timestamp` refuse the folder.\n"
+   "  --anchor  a TSA's root or issuing certificate (DER), for the record\n"
+   "            there and the new timestamp (up to 32)\n"
+   "  --hash    the new timestamp's hash (default: the record's, or\n"
+   "            SHA-256 for a new record)\n"
+   "  Exit 0 when the record is written, 1 when the record there does not\n"
+   "  check, 2 when no TSA gave a timestamp that checks or on a usage\n"
+   "  error.\n"},
   {"inspect", ncinsp, "show what a capsule says (nothing checked)",
    "usage: noqtis inspect [--json] <dir>\n"
    "  Prints the seal's format, algorithm and key fingerprint (SHA-256 of\n"

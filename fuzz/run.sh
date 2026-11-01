@@ -19,7 +19,7 @@ secs=$3
 shift 3
 
 case $t in
-  fder | fx509 | focsp | ftsp | fcls) dict=der.dict ;;
+  fder | fx509 | focsp | ftsp | fcls | fers) dict=der.dict ;;
   fjson | fcap | fproof | fcard) dict=json.dict ;;
   fkey) dict=key.dict ;;
   *) dict= ;;

@@ -15,7 +15,8 @@
 #
 # Seed corpora (fuzz/corpus/<target>/) come from the test fixtures:
 # fder, fx509, focsp, ftsp from tests/vectors/der/local (certificates,
-# OCSP responses, CRLs, tokens); fcap from tests/vectors/cap (the sample
+# OCSP responses, CRLs, tokens); fers from records around the sample
+# token (fuzz/corpus/fers); fcap from tests/vectors/cap (the sample
 # seal and manifest, and the seal with the sample token); fjson from
 # those and from small ACVP files; fcls from the RSA and EC roots' keys;
 # fkey from key files the tool writes; fsig from the first test of each

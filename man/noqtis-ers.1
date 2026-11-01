@@ -1,0 +1,130 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 1, 2026
+.Dt NOQTIS-ERS 1
+.Os
+.Sh NAME
+.Nm noqtis-ers
+.Nd start or renew a capsule's RFC 4998 evidence record
+.Sh SYNOPSIS
+.Nm noqtis ers
+.Fl -tsa Ar url ...
+.Op Fl -anchor Ar der-file ...
+.Op Fl -hash Ar sha256 | sha384 | sha512
+.Ar dir
+.Sh DESCRIPTION
+A timestamp proves when a seal existed only as long as the TSA's
+certificate and its hash can be trusted, a few years.
+An evidence record (RFC 4998) keeps that proof for decades:
+.Nm noqtis ers
+writes
+.Pa noqtis.ers
+beside the seal of the capsule
+.Ar dir
+(sealed before with
+.Xr noqtis-seal 1 ) ,
+an EvidenceRecord whose data object is the seal file
+.Pa noqtis.sig ,
+byte for byte, and adds one archive timestamp to it each time it runs.
+.Pp
+The first run starts the record with a timestamp over the hash of the
+seal file.
+Each later run renews it, after the record there has been checked:
+.Bl -bullet
+.It
+timestamp renewal, the default: a timestamp over the record's last one,
+in the same chain.
+Run it before the last TSA certificate expires.
+.It
+hash-tree renewal, with a
+.Fl -hash
+other than the record's: a new chain whose first timestamp covers the
+seal and every chain before, with the new hash.
+Run it before the record's hash weakens.
+.El
+.Pp
+The request, the nonce and the checks on the reply are those of
+.Xr noqtis-timestamp 1 ,
+over the hash the next archive timestamp covers; the reply must also
+not be dated before the record's last timestamp.
+.Fl -tsa
+may be given more than once: the TSAs are tried in order until one
+gives a timestamp that checks.
+.Pp
+.Xr noqtis-check 1
+checks the record under its
+.Fl -anchor
+certificates: the first timestamp must be over this seal, each next one
+over the one before (or, opening a chain, over the seal and the chains
+before it), and each TSA certificate valid at its own timestamp's time
+and at the next one's; the last must be valid now.
+While a record is there,
+.Xr noqtis-seal 1
+and
+.Xr noqtis-timestamp 1
+refuse the folder, since either would change the seal it proves.
+.Bl -tag -width Ds
+.It Fl -tsa Ar url
+A time-stamping authority, as for
+.Xr noqtis-timestamp 1 .
+At most 32.
+.It Fl -anchor Ar der-file
+A TSA's root or issuing certificate, DER-encoded: the record there and
+the new timestamp must verify under the anchors.
+Without one, each token is checked alone and the TSA is not trusted.
+At most 32.
+.It Fl -hash Ar name
+The new timestamp's hash:
+.Cm sha256 ,
+.Cm sha384
+or
+.Cm sha512 .
+The default is the record's last one, or SHA-256 for a new record.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa dir/noqtis.ers
+The evidence record, DER.
+Keep it with
+.Pa noqtis.sig
+and
+.Pa noqtis.json :
+the three prove the folder as it was sealed.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+the record was written
+.It 1
+the record there does not check (it is not extended)
+.It 2
+a usage error, a folder that is not a sealed capsule, or no TSA gave a
+timestamp that checks (nothing written)
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis ers --tsa http://timestamp.digicert.com results
+started an evidence record for results: archive timestamp from ...
+$ noqtis ers --tsa http://timestamp.digicert.com --anchor digicert.der \e
+    results
+renewed the evidence record's timestamp for results: ...
+$ noqtis ers --tsa http://timestamp.digicert.com --anchor digicert.der \e
+    --hash sha512 results
+renewed the evidence record with a new hash chain for results: ...
+$ noqtis check -p me.pub --anchor digicert.der results
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-seal 1 ,
+.Xr noqtis-timestamp 1 ,
+.Xr nqersput 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%R RFC 4998
+.%T Evidence Record Syntax (ERS)
+.Re
+.Rs
+.%R RFC 3161
+.%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.Re

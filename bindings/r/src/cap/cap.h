@@ -16,6 +16,7 @@
 
 #define NQCMAN "noqtis.json"
 #define NQCSIG "noqtis.sig"
+#define NQCERS "noqtis.ers" /* an RFC 4998 evidence record (ers.c) */
 #define NQCFMT "noqtis-capsule-1"
 #define NQCSFMT "noqtis-seal-1"
 #define NQCCTX "noqtis-capsule-1"
@@ -32,6 +33,7 @@
 
 #define NQCMANMAX ((size_t)512 << 20) /* noqtis.json */
 #define NQCSIGMAX ((size_t)1 << 20)  /* noqtis.sig */
+#define NQCERSMAX ((size_t)1 << 20)  /* noqtis.ers */
 #define NQCMETAMAX ((size_t)1 << 20) /* the meta text given to nqseal */
 #define NQCPATHMAX 4096              /* bytes in one relative path */
 #define NQCDEPTH 64                  /* directory levels below the top */
@@ -173,6 +175,23 @@ int nqcread(const char *dir, const char *name, size_t max, char **buf,
             size_t *n);
 /* Writes n bytes to dir/name, replacing it. */
 int nqcwrite(const char *dir, const char *name, const char *buf, size_t n);
+/* 1 when dir/name opens for reading (never through a link), else 0. */
+int nqchas(const char *dir, const char *name);
+
+/* ---- RFC 3161 requests and RFC 4998 evidence records (ts.c, ers.c) */
+
+/* A TimeStampReq (version 1, the imprint dig of hash h, the nonce when
+ * not NULL, certReq TRUE) to req (reqlen bytes, 128 are enough); h is
+ * NQS256, NQS384 or NQS512. */
+int nqtsmk(nqhalg h, const uint8_t *dig, const uint8_t *nonce,
+           size_t noncelen, uint8_t *req, size_t reqlen, size_t *outlen);
+/* The "ers" row of a check: *present is 0 when dir has no noqtis.ers
+ * (no row then); otherwise NQOK when the record verifies under the
+ * anchors now, NQEVRFY when it does not, and msg (cap bytes) says what
+ * was found. NQEMEM alone is an error of the check itself. */
+int nqcersck(const char *dir, const uint8_t *const *anc,
+             const size_t *anclen, size_t nanc, int *present, char *msg,
+             size_t cap);
 
 /* ---- the Merkle tree of format 2 (src/cap/mk.c, RFC 6962) ---- */
 

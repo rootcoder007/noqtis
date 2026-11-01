@@ -172,6 +172,10 @@ The folder or a file could not be read, or a file could not be written.
 .It Bq Er NQEMEM
 The allocation hook returned
 .Dv NULL .
+.It Bq Er NQESTATE
+The folder has an evidence record
+.Pq Pa noqtis.ers , Xr nqersput 3
+over its present seal, which a new seal would replace.
 .It Bq Er NQENOSUP
 .Fa tsa
 is not

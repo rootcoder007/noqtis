@@ -194,5 +194,6 @@ int ncidrd(const char *path, nqcardf *f, char *why, size_t cap);
 void ncidwho(const nqcardf *f, char *out, size_t cap);
 int ncinsp(int argc, char **argv);
 int ncts(int argc, char **argv);
+int ncers(int argc, char **argv);
 
 #endif /* NQCLI_H */

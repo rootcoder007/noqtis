@@ -777,6 +777,7 @@ static void addts(const char *dir, const char *tok) {
 }
 
 static int haveossl;
+static int tsaok; /* tts reached the live TSA checks */
 
 /* a throwaway CA and TSA (EC P-256), named n: q.<n>r.der (the root,
  * DER), q.<n>t.pem, q.<n>t.key and q.<n>.rcmd, the reply command tsad
@@ -925,6 +926,7 @@ static void tts(void) {
            "are skipped\n");
     return;
   }
+  tsaok = 1;
   wantts(0, "ossl", "q.a.rcmd",
          "seal -k q.c --tsa http://127.0.0.1:@DEAD@/ "
          "--tsa http://127.0.0.1:@PORT@/tsr qts");
@@ -1001,6 +1003,294 @@ static void tts(void) {
   want(0, "inspect qts", NULL);
   ok(has("q.out", "timestamp  none"), "still no timestamp");
   want(0, "check -p q.c.pub qts", NULL);
+}
+
+/* ---- RFC 4998 evidence records (noqtis ers, check --anchor) ---- */
+
+/* hash alg ("sha256", "sha512") of n bytes into out (ol bytes), by
+ * openssl dgst */
+static void dg(const char *alg, const unsigned char *b, size_t n,
+               unsigned char *out, size_t ol) {
+  char c[200];
+  unsigned char *r;
+  size_t k;
+  wr("q.dgi", b, n);
+  sn(c, sizeof c, "openssl dgst -%s -binary q.dgi >q.dgo 2>q.ossl", alg);
+  r = system(c) == 0 ? rd("q.dgo", &k) : NULL;
+  if (r == NULL || k != ol) {
+    fprintf(stderr, "tcli: openssl dgst -%s failed\n", alg);
+    exit(2);
+  }
+  memcpy(out, r, ol);
+  free(r);
+}
+
+/* a token (ContentInfo) from the TSA of reply command rcmd over the
+ * SHA-256 digest d; new buffer of *tn bytes */
+static unsigned char *tokover(const char *rcmd, const unsigned char *d,
+                              size_t *tn) {
+  char h[65], c[400];
+  unsigned char *cmd, *t;
+  size_t k;
+  hex(d, 32, h);
+  sn(c, sizeof c, "openssl ts -query -digest %s -sha256 -cert -out q.tsq "
+     ">q.ossl 2>&1", h);
+  cmd = rd(rcmd, &k);
+  if (cmd == NULL || system(c) != 0) exit(2);
+  sn(c, sizeof c, "%s >q.ossl 2>&1", (char *)cmd);
+  free(cmd);
+  if (system(c) != 0 ||
+      system("openssl ts -reply -in q.tsr -token_out -out q.tok "
+             ">q.ossl 2>&1") != 0 ||
+      (t = rd("q.tok", tn)) == NULL) {
+    fprintf(stderr, "tcli: openssl ts could not make a token\n");
+    exit(2);
+  }
+  return t;
+}
+
+/* a DER element of tag over n content bytes c, appended at o + *on */
+static void del(unsigned char *o, size_t *on, unsigned tag,
+                const unsigned char *c, size_t n) {
+  o[(*on)++] = (unsigned char)tag;
+  if (n < 0x80) {
+    o[(*on)++] = (unsigned char)n;
+  } else if (n < 0x100) {
+    o[(*on)++] = 0x81;
+    o[(*on)++] = (unsigned char)n;
+  } else {
+    o[(*on)++] = 0x82;
+    o[(*on)++] = (unsigned char)(n >> 8);
+    o[(*on)++] = (unsigned char)n;
+  }
+  memcpy(o + *on, c, n);
+  *on += n;
+}
+
+/* the contents of the DER element at p: *cl bytes at the return value */
+static const unsigned char *dcon(const unsigned char *p, size_t *cl) {
+  size_t k, i, n = 0;
+  if (p[1] < 0x80) {
+    *cl = p[1];
+    return p + 2;
+  }
+  k = p[1] & 0x7f;
+  for (i = 0; i < k; i++) n = n << 8 | p[2 + i];
+  *cl = n;
+  return p + 2 + k;
+}
+
+/* the record EvidenceRecord { 1, {SHA-256}, seq } with seq's contents */
+static void mkers(const char *path, const unsigned char *seq, size_t sn0) {
+  static const unsigned char aid[] = {0x30, 0x0d, 0x06, 0x09, 0x60, 0x86,
+                                      0x48, 0x01, 0x65, 0x03, 0x04, 0x02,
+                                      0x01, 0x05, 0x00};
+  static unsigned char body[40000], o[40000];
+  size_t bn = 0, on = 0;
+  body[bn++] = 0x02;
+  body[bn++] = 0x01;
+  body[bn++] = 0x01;
+  del(body, &bn, 0x30, aid, sizeof aid);
+  del(body, &bn, 0x30, seq, sn0);
+  del(o, &on, 0x30, body, bn);
+  wr(path, o, on);
+}
+
+/* the SHA-256 of the sorted concatenation of a and b (32 bytes each) */
+static void hpair(const unsigned char *a, const unsigned char *b,
+                  unsigned char *out) {
+  unsigned char cat[64];
+  int lo = memcmp(a, b, 32) < 0;
+  memcpy(cat, lo ? a : b, 32);
+  memcpy(cat + 32, lo ? b : a, 32);
+  dg("sha256", cat, 64, out, 32);
+}
+
+static void ters(void) {
+  static unsigned char at[20000], ch[20000], sq[20000], l1[200], l2[200],
+      rt[8000];
+  unsigned char *b, *t, h[32], x[32], y[32], r[32], hd[32], ha[32];
+  const unsigned char *c, *s;
+  size_t n, tn, an, cn, ln1, ln2, rn, sl, qn;
+  rmdirs("qers");
+  mkd("qers");
+  wrs("qers/a.txt", "kept for decades\n");
+  want(0, "seal -k q.c qers", NULL);
+  /* usage */
+  want(2, "ers qers", NULL);
+  want(2, "ers --tsa http://127.0.0.1:1/ --hash md5 qers", NULL);
+  ok(has("q.err", "give sha256, sha384 or sha512"), "ers --hash names three");
+  want(2, "ers --tsa http://127.0.0.1:1/ no-such-folder", NULL);
+  want(0, "help ers", NULL);
+  want(2, "ers --tsa http://127.0.0.1:1/ qers", NULL);
+  ok(has("q.err", "qers is unchanged") && !exists("qers/noqtis.ers"),
+     "ers: no TSA answered, nothing written");
+  /* a new record */
+  wantts(0, "ossl", "q.a.rcmd", "ers --tsa http://127.0.0.1:@PORT@/tsr qers");
+  ok(has("q.out", "started an evidence record for qers: archive timestamp "
+     "from http://127.0.0.1:") && exists("qers/noqtis.ers"),
+     "ers starts a record");
+  ok(has("q.err", "no --anchor given"), "ers says the TSA was not checked");
+  want(1, "check -p q.c.pub qers", NULL);
+  ok(has("q.out", "evidence record not checked: no TSA trust anchors"),
+     "check passes no record without anchors");
+  want(0, "check -p q.c.pub --anchor q.ar.der qers", NULL);
+  ok(has("q.out", "evidence record verifies under a TSA anchor: the seal "
+     "existed at 20") && has("q.out", "1 archive timestamps in 1 chains"),
+     "check --anchor passes the record");
+  want(1, "check -p q.c.pub --anchor q.br.der qers", NULL);
+  /* the seal it proves stays as it is */
+  want(2, "seal -k q.c qers", NULL);
+  ok(has("q.err", "has an evidence record (noqtis.ers)") &&
+     exists("qers/noqtis.ers"), "seal refuses a folder with a record");
+  wantts(2, "ossl", "q.a.rcmd",
+         "timestamp --tsa http://127.0.0.1:@PORT@/ qers");
+  ok(has("q.err", "evidence record (noqtis.ers)"),
+     "timestamp refuses a folder with a record");
+  want(0, "check -p q.c.pub --anchor q.ar.der qers", NULL);
+  /* timestamp renewal */
+  wantts(0, "ossl", "q.a.rcmd",
+         "ers --tsa http://127.0.0.1:@PORT@/ --anchor q.ar.der qers");
+  ok(has("q.out", "renewed the evidence record's timestamp for qers") &&
+     has("q.out", "verified under a TSA anchor"), "ers renews a timestamp");
+  want(0, "check -p q.c.pub --anchor q.ar.der qers", NULL);
+  ok(has("q.out", "2 archive timestamps in 1 chains"), "two timestamps");
+  /* hash-tree renewal, from a TSA the given anchor does not trust */
+  wantts(2, "osslc", "q.b.rcmd",
+         "ers --tsa http://127.0.0.1:@PORT@/ --anchor q.ar.der "
+         "--hash sha512 qers");
+  ok(has("q.err", "does not verify under the TSA anchors") &&
+     has("q.err", "qers is unchanged"), "ers refuses an untrusted TSA");
+  wantts(0, "osslc", "q.b.rcmd",
+         "ers --tsa http://127.0.0.1:@PORT@/ --anchor q.ar.der "
+         "--anchor q.br.der --hash sha512 qers");
+  ok(has("q.out", "renewed the evidence record with a new hash chain"),
+     "ers --hash starts a new chain");
+  want(0, "check -p q.c.pub --anchor q.ar.der --anchor q.br.der qers", NULL);
+  ok(has("q.out", "3 archive timestamps in 2 chains"), "two chains");
+  want(1, "check -p q.c.pub --anchor q.ar.der qers", NULL);
+  ok(has("q.out", "under the TSA anchors"), "each chain's TSA is checked");
+  /* the record's hash is now SHA-512 */
+  wantts(0, "ossl", "q.b.rcmd",
+         "ers --tsa http://127.0.0.1:@PORT@/ --anchor q.ar.der "
+         "--anchor q.br.der qers");
+  ok(has("q.out", "renewed the evidence record's timestamp"),
+     "a renewal keeps the record's hash");
+  want(0, "check -p q.c.pub --anchor q.ar.der --anchor q.br.der qers", NULL);
+  ok(has("q.out", "4 archive timestamps in 2 chains"), "four timestamps");
+  /* a damaged record checks and extends as nothing */
+  b = rd("qers/noqtis.ers", &n);
+  if (b == NULL) exit(2);
+  wr("q.ers.bak", b, n);
+  b[n - 3] ^= 0x01;
+  wr("qers/noqtis.ers", b, n);
+  want(1, "check -p q.c.pub --anchor q.ar.der --anchor q.br.der qers", NULL);
+  ok(has("q.out", "RFC 4998 evidence record: "), "check fails a damaged one");
+  want(1, "ers --tsa http://127.0.0.1:1/ qers", NULL);
+  ok(has("q.err", "does not verify"), "ers does not extend a damaged one");
+  wr("qers/noqtis.ers", b, n - 1);
+  want(1, "check -p q.c.pub --anchor q.ar.der --anchor q.br.der qers", NULL);
+  ok(has("q.out", "not a DER EvidenceRecord"), "a cut record");
+  free(b);
+  /* another capsule's record */
+  rmdirs("qers2");
+  mkd("qers2");
+  wrs("qers2/a.txt", "another\n");
+  want(0, "seal -k q.c qers2", NULL);
+  b = rd("q.ers.bak", &n);
+  wr("qers2/noqtis.ers", b, n);
+  free(b);
+  want(1, "check -p q.c.pub --anchor q.ar.der --anchor q.br.der qers2",
+       NULL);
+  ok(has("q.out", "the first archive timestamp is not over this seal"),
+     "a record over another seal fails");
+  rmdirs("qers2");
+  /* a record made elsewhere: a reduced hash tree of two lists */
+  rmdirs("qers3");
+  mkd("qers3");
+  wrs("qers3/a.txt", "a tree\n");
+  want(0, "seal -k q.c qers3", NULL);
+  b = rd("qers3/noqtis.sig", &n);
+  dg("sha256", b, n, h, 32);
+  free(b);
+  memset(x, 0x5a, 32);
+  memset(y, 0xa5, 32);
+  hpair(h, x, r);
+  hpair(r, y, r);
+  t = tokover("q.a.rcmd", r, &tn);
+  ln1 = ln2 = 0;
+  del(l1, &ln1, 0x04, h, 32);
+  del(l1, &ln1, 0x04, x, 32);
+  del(l2, &ln2, 0x04, y, 32);
+  rn = 0;
+  del(rt, &rn, 0x30, l1, ln1);
+  del(rt, &rn, 0x30, l2, ln2);
+  an = 0;
+  del(at, &an, 0xa2, rt, rn);
+  memcpy(at + an, t, tn);
+  an += tn;
+  cn = 0;
+  del(ch, &cn, 0x30, at, an);  /* the archive timestamp */
+  qn = 0;
+  del(sq, &qn, 0x30, ch, cn);  /* its chain */
+  mkers("qers3/noqtis.ers", sq, qn);
+  want(0, "check -p q.c.pub --anchor q.ar.der qers3", NULL);
+  ok(has("q.out", "evidence record verifies"),
+     "a record with a reduced hash tree");
+  /* the same tree without this seal's hash in its first list */
+  ln1 = 0;
+  del(l1, &ln1, 0x04, y, 32);
+  del(l1, &ln1, 0x04, x, 32);
+  rn = 0;
+  del(rt, &rn, 0x30, l1, ln1);
+  del(rt, &rn, 0x30, l2, ln2);
+  an = 0;
+  del(at, &an, 0xa2, rt, rn);
+  memcpy(at + an, t, tn);
+  an += tn;
+  cn = 0;
+  del(ch, &cn, 0x30, at, an);
+  qn = 0;
+  del(sq, &qn, 0x30, ch, cn);
+  mkers("qers3/noqtis.ers", sq, qn);
+  want(1, "check -p q.c.pub --anchor q.ar.der qers3", NULL);
+  ok(has("q.out", "not over this seal"), "a tree that leaves the seal out");
+  free(t);
+  /* a hash-tree renewal made elsewhere: H(h(d) + ha), in that order, with
+   * ha over the chains without the SEQUENCE header */
+  remove("qers3/noqtis.ers");
+  wantts(0, "ossl", "q.a.rcmd",
+         "ers --tsa http://127.0.0.1:@PORT@/ --anchor q.ar.der qers3");
+  b = rd("qers3/noqtis.ers", &n);
+  if (b == NULL) exit(2);
+  /* EvidenceRecord { version, digestAlgorithms, seq }: seq is last */
+  c = dcon(b, &cn);
+  s = c + 3;
+  s = dcon(s, &sl) + sl;           /* past digestAlgorithms */
+  c = dcon(s, &sl);                /* seq's contents: the chains */
+  {
+    unsigned char *sg = rd("qers3/noqtis.sig", &rn), cat[64];
+    dg("sha256", sg, rn, hd, 32);
+    free(sg);
+    dg("sha256", c, sl, ha, 32);
+    memcpy(cat, hd, 32);
+    memcpy(cat + 32, ha, 32);
+    dg("sha256", cat, 64, r, 32);
+  }
+  t = tokover("q.a.rcmd", r, &tn);
+  an = 0;
+  del(at, &an, 0x30, t, tn);       /* the archive timestamp */
+  cn = 0;
+  del(ch, &cn, 0x30, at, an);      /* the new chain */
+  memcpy(sq, c, sl);
+  memcpy(sq + sl, ch, cn);
+  mkers("qers3/noqtis.ers", sq, sl + cn);
+  free(b);
+  free(t);
+  want(0, "check -p q.c.pub --anchor q.ar.der qers3", NULL);
+  ok(has("q.out", "2 archive timestamps in 2 chains"),
+     "a hash-tree renewal as other implementations read RFC 4998");
+  rmdirs("qers3");
 }
 
 /* ---- rmoriebricklayer interop: its fixtures, checked by noqtis ----
@@ -1443,6 +1733,10 @@ static void trefuse(void) {
   }
   addts("qref", tok);
   ref1("timestamp", "a token over another signature", 1, CHK);
+  /* an evidence record that is not one */
+  pristine();
+  wr("qref/noqtis.ers", "\x30\x03\x02\x01\x01", 5);
+  ref1("ers", "a damaged evidence record", 1, CHK);
   rmdirs("qgold");
   mkd("qgold");
   mkd("qgold/data");
@@ -1867,6 +2161,8 @@ int main(int argc, char **argv) {
   tidc();
   if (tsad != NULL) {
     tts();
+    if (tsaok)
+      ters();
     tremote();
     texport();
     trefuse();

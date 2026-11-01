@@ -158,6 +158,11 @@ reads, an imprint or nonce that differs, a signature or certificate that
 does not verify, or no path to an anchor.
 .It Bq Er NQELIM
 More than 32 anchors, or a seal with the token over 1 MiB.
+.It Bq Er NQESTATE
+.Fn nqtsput :
+the capsule has an evidence record
+.Pq Pa noqtis.ers , Xr nqersput 3
+over its seal, which a new timestamp would change.
 .It Bq Er NQEIO
 .Pa noqtis.sig
 cannot be read or written.

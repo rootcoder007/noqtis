@@ -190,7 +190,8 @@ static int child(wctx *w, const char *nm, size_t nl, int isdir, int kind,
   if ((nl == 1 && nm[0] == '.') || (nl == 2 && nm[0] == '.' && nm[1] == '.'))
     return NQOK;
   if (w->rl == 0 && ((nl == strlen(NQCMAN) && memcmp(nm, NQCMAN, nl) == 0) ||
-                     (nl == strlen(NQCSIG) && memcmp(nm, NQCSIG, nl) == 0))) {
+                     (nl == strlen(NQCSIG) && memcmp(nm, NQCSIG, nl) == 0) ||
+                     (nl == strlen(NQCERS) && memcmp(nm, NQCERS, nl) == 0))) {
     return NQOK;
   }
   if (w->rl + 1 + nl > nqclim.path) {
@@ -741,6 +742,15 @@ int nqcread(const char *dir, const char *name, size_t max, char **buf,
  * (.<name>.<pid>.<k>.tmp, created new) that is then renamed over name:
  * a reader sees the old file or the new one, never half of one, and an
  * existing name is replaced rather than written through. */
+int nqchas(const char *dir, const char *name) {
+  FILE *f;
+  if (dir == NULL || name == NULL) return 0;
+  f = openin(dir, name);
+  if (f == NULL) return 0;
+  fclose(f);
+  return 1;
+}
+
 int nqcwrite(const char *dir, const char *name, const char *buf, size_t n) {
   size_t fl = 0, tl = 0;
   char *full, *tmp = NULL, tn[96];

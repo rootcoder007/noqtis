@@ -372,6 +372,11 @@ int ncseal(int argc, char **argv) {
     disarm();
     if (rc == NQEARG)
       sealwhy(argv[0], kp, pp);
+    else if (rc == NQESTATE)
+      ncmsg("seal", "%s has an evidence record (noqtis.ers) over its "
+            "present seal, which a new seal would replace: move "
+            "noqtis.ers, noqtis.sig and noqtis.json out together (they "
+            "prove the folder as it was), then seal", argv[0]);
     else
       nclib("seal", argv[0], rc);
     goto done;
@@ -537,6 +542,22 @@ static const ncfix fixes[] = {
    "or seal again with --tsa <url>"},
   {"timestamp", NULL, "the timestamp in noqtis.sig is damaged: restore "
    "noqtis.sig from the sealed copy, or seal again with --tsa <url>"},
+  {"ers", "no TSA trust anchors", "give with --anchor <der-file> the "
+   "certificate of each TSA that made a timestamp in noqtis.ers, to check "
+   "the evidence record"},
+  {"ers", "under the TSA anchors", "a timestamp in noqtis.ers is not from "
+   "a TSA under the anchors given: give --anchor for every TSA the record "
+   "used"},
+  {"ers", "valid now", "the last TSA certificate of noqtis.ers has expired "
+   "or is not valid yet: a record must be renewed (noqtis ers) while its "
+   "last certificate is valid, so it no longer proves the seal's time"},
+  {"ers", "renewed after", "noqtis.ers was renewed after a TSA certificate "
+   "had expired, so the chain is broken there"},
+  {"ers", "not over this seal", "noqtis.ers is not over this seal: it "
+   "belongs to another seal (the folder was sealed again, or the record "
+   "was copied from another capsule); restore the seal it was made for"},
+  {"ers", NULL, "noqtis.ers is damaged or not an RFC 4998 evidence record "
+   "noqtis reads: restore it from the sealed copy"},
   {"folder", NULL, "the folder cannot be listed: check its permissions, "
    "and that it is within the limits in noqtis-capsule(5)"},
   {"path", "differ only in case", "two files differ only in case, which "
@@ -1214,4 +1235,113 @@ int ncts(int argc, char **argv) {
          "replaced)" : "");
   fflush(stdout);
   return NCOK;
+}
+
+/* noqtis ers: start or renew the capsule's RFC 4998 evidence record */
+int ncers(int argc, char **argv) {
+  static const char *const how[3] = {
+      "started an evidence record", "renewed the evidence record's timestamp",
+      "renewed the evidence record with a new hash chain"};
+  const char *tsa[NCMAXV], *anc[NCMAXV], *hv = NULL;
+  int help = 0, np, nt = 0, na = 0, rc, i, hw = 0;
+  ncopt o[] = {
+    {'\0', "tsa", NCMANY, tsa, &nt},
+    {'\0', "anchor", NCMANY, anc, &na},
+    {'\0', "hash", 1, &hv, NULL}
+  };
+  nqhalg h = (nqhalg)0;
+  nqrep *r = NULL;
+  ncanc an;
+
+  an.k = 0;
+  if (ncargs("ers", argc, argv, o, sizeof o / sizeof o[0], &np, &help) !=
+      NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "ers");
+    return NCOK;
+  }
+  if (np != 1 || nt == 0) {
+    ncuse(stderr, "ers");
+    return NCUSE;
+  }
+  if (hv != NULL) {
+    if (strcmp(hv, "sha256") == 0)
+      h = NQS256;
+    else if (strcmp(hv, "sha384") == 0)
+      h = NQS384;
+    else if (strcmp(hv, "sha512") == 0)
+      h = NQS512;
+    else {
+      ncmsg("ers", "--hash %s: give sha256, sha384 or sha512", hv);
+      return NCUSE;
+    }
+  }
+  for (i = 0; i < nt; i++) {
+    char err[300];
+    if (ncurlok(tsa[i], err, sizeof err) != NCOK) {
+      ncmsg("ers", "--tsa %s: %s", tsa[i], err);
+      return NCUSE;
+    }
+  }
+  if (!ncisdir(argv[0])) {
+    ncmsg("ers", "%s: not a folder (give a folder `noqtis seal` sealed)",
+          argv[0]);
+    return NCUSE;
+  }
+  rc = nqinsp(argv[0], &r);
+  nqrepfree(r);
+  if (rc != NQOK) {
+    ncmsg("ers", "%s is not a sealed capsule that reads (%s): seal it "
+          "with `noqtis seal`, or see `noqtis inspect %s`", argv[0],
+          nqerr(rc), argv[0]);
+    return NCUSE;
+  }
+  if (ancrd("ers", anc, na, &an) != NCOK)
+    return NCUSE;
+  for (i = 0; i < nt; i++) {
+    uint8_t nonce[8], req[160], *rsp = NULL;
+    size_t qn = 0, rn = 0;
+    char err[300], ts[80];
+    const char *why = NULL;
+    int64_t gt = 0;
+    if (nqrand(nonce, sizeof nonce) != NQOK) {
+      ancfree(&an);
+      return nclib("ers", "random nonce", NQERNG);
+    }
+    nonce[0] = (uint8_t)((nonce[0] & 0x7f) | 0x40);
+    rc = nqersreq(argv[0], h, nonce, sizeof nonce, req, sizeof req, &qn,
+                  &why);
+    if (rc != NQOK) {
+      ncmsg("ers", "%s: %s", argv[0], why != NULL ? why : nqerr(rc));
+      ancfree(&an);
+      return rc == NQEVRFY ? NCBAD : NCUSE;
+    }
+    if (nchttp(tsa[i], req, qn, &rsp, &rn, err, sizeof err) != NCOK) {
+      ncmsg("ers", "%s: %s", tsa[i], err);
+      continue;
+    }
+    rc = nqersput(argv[0], h, rsp, rn, nonce, sizeof nonce,
+                  (const uint8_t *const *)an.b, an.n, an.k, &gt, &hw, &why);
+    free(rsp);
+    if (rc != NQOK) {
+      ncmsg("ers", "%s: refused its reply: %s", tsa[i],
+            why != NULL ? why : nqerr(rc));
+      continue;
+    }
+    utc(gt, ts);
+    printf("%s for %s: archive timestamp from %s, genTime %s%s\n",
+           how[hw], ncesc(argv[0]), ncesc(tsa[i]), ts,
+           an.k != 0 ? ", verified under a TSA anchor" : "");
+    if (an.k == 0)
+      ncmsg("ers", "note: no --anchor given, so the TSA itself was not "
+            "checked; check with `noqtis check --anchor <der-file>`");
+    ancfree(&an);
+    fflush(stdout);
+    return NCOK;
+  }
+  ancfree(&an);
+  ncmsg("ers", "no --tsa gave an archive timestamp; %s is unchanged: try "
+        "again, or give another --tsa", argv[0]);
+  return NCUSE;
 }

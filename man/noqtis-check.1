@@ -257,6 +257,13 @@ The signature verifies over the exact bytes of
 Present only when the seal has a timestamp or
 .Fl -anchor
 was given.
+.It Cm ers
+Present only when the capsule has an evidence record
+.Pq Pa noqtis.ers , Xr noqtis-ers 1 :
+it passes when the record verifies under an
+.Fl -anchor
+certificate, its first archive timestamp over this seal and its last
+TSA certificate valid now.
 .It Cm folder
 The folder could be listed within the limits.
 .It Cm file

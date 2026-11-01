@@ -93,6 +93,12 @@ See
 Add an RFC 3161 timestamp to a folder sealed before.
 See
 .Xr noqtis-timestamp 1 .
+.It Cm ers
+Start or renew a sealed folder's RFC 4998 evidence record, which keeps
+its timestamp provable after the TSA's certificate expires or its hash
+weakens.
+See
+.Xr noqtis-ers 1 .
 .It Cm inspect
 Show what a sealed folder says (format, algorithm, key fingerprint,
 created, files, size, timestamp, meta) without checking it.
@@ -225,6 +231,7 @@ results: FAILED (1 of 22 checks failed)
 .Xr noqtis-check 1 ,
 .Xr noqtis-dec 1 ,
 .Xr noqtis-enc 1 ,
+.Xr noqtis-ers 1 ,
 .Xr noqtis-export 1 ,
 .Xr noqtis-hash 1 ,
 .Xr noqtis-idcard 1 ,

@@ -439,6 +439,31 @@ NQAPI int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
                   const uint8_t *nonce, size_t noncelen,
                   const uint8_t *const *anc, const size_t *anclen,
                   size_t nanc, int64_t *gt, const char **why);
+/* RFC 4998 evidence records: noqtis.ers beside the seal, whose data
+ * object is noqtis.sig byte for byte, kept provable for as long as its
+ * archive timestamps are renewed: before the last TSA certificate
+ * expires (timestamp renewal, h the record's hash) or its hash weakens
+ * (hash-tree renewal, a new h). As with nqtsreq, the library makes no
+ * network request. nqersreq writes the TimeStampReq for the next
+ * archive timestamp with hash h (NQS256, NQS384 or NQS512; 0 for the
+ * record's last one, or SHA-256 for a first) to req (128 bytes are
+ * enough). nqersput checks the reply as nqtsput does, and with it the
+ * record already there (each token under the nanc anchors, at most 32,
+ * on paths valid at its genTime and the next one's, the last now; with
+ * no anchors, each token alone), and writes the record with the new
+ * archive timestamp: *how (when not NULL) is 0 for a new record, 1 for
+ * a timestamp renewal and 2 for a hash-tree renewal, *gt its genTime.
+ * NQEVRFY when the reply or the record there does not check; nothing
+ * is written then. While a record is there, nqtsput and nqseal refuse
+ * (NQESTATE): either would change the seal it proves. nqchkt and nqchkx
+ * check the record under their TSA anchors ("ers" row). */
+NQAPI int nqersreq(const char *dir, nqhalg h, const uint8_t *nonce,
+                   size_t noncelen, uint8_t *req, size_t reqlen,
+                   size_t *outlen, const char **why);
+NQAPI int nqersput(const char *dir, nqhalg h, const uint8_t *rsp,
+                   size_t rsplen, const uint8_t *nonce, size_t noncelen,
+                   const uint8_t *const *anc, const size_t *anclen,
+                   size_t nanc, int64_t *gt, int *how, const char **why);
 
 /* ---- TLS 1.3 client ------------------------------------------------- */
 

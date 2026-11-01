@@ -1242,6 +1242,39 @@ static void tput(const key *k, const uint8_t *tok, size_t tn,
   NQTEQI(nqtsreq(d, NULL, 0, q, 10, &qn), NQEBUF);
   NQTEQI(nqtsreq(d, nonce, 33, q, sizeof q, &qn), NQEARG);
   NQTEQI(nqtsreq(NULL, NULL, 0, q, sizeof q, &qn), NQEARG);
+  /* RFC 4998: the first archive timestamp is over the seal file */
+  {
+    uint8_t eh[64];
+    char *sf = NULL;
+    size_t sfn = 0;
+    int how = -1;
+    NQTEQI(rd(d, NQCSIG, &sf, &sfn), NQOK);
+    NQTEQI(nqersreq(d, (nqhalg)0, NULL, 0, q, sizeof q, &qn, &why), NQOK);
+    NQTEQI(qn, 2 + 3 + 2 + 15 + 2 + 32 + 3);
+    NQTEQI(nqhash(NQS256, (const uint8_t *)sf, sfn, eh, 32), NQOK);
+    NQTCHK(memcmp(q + 2 + 3 + 2 + 15 + 2, eh, 32) == 0);
+    NQTEQI(nqersreq(d, NQS512, NULL, 0, q, sizeof q, &qn, &why), NQOK);
+    NQTEQI(qn, 2 + 3 + 2 + 15 + 2 + 64 + 3);
+    NQTEQI(nqhash(NQS512, (const uint8_t *)sf, sfn, eh, 64), NQOK);
+    NQTCHK(memcmp(q + 2 + 3 + 2 + 15 + 2, eh, 64) == 0);
+    nqfree(sf, sfn + 1);
+    NQTEQI(nqersreq(d, NQS3256, NULL, 0, q, sizeof q, &qn, &why),
+           NQENOSUP);
+    NQTEQI(nqersreq(d, (nqhalg)0, NULL, 0, q, 10, &qn, &why), NQEBUF);
+    NQTEQI(nqersreq(d, (nqhalg)0, nonce, 33, q, sizeof q, &qn, &why),
+           NQEARG);
+    NQTEQI(nqersreq(NULL, (nqhalg)0, NULL, 0, q, sizeof q, &qn, &why),
+           NQEARG);
+    NQTEQI(nqersput(NULL, (nqhalg)0, tok, tn, NULL, 0, NULL, NULL, 0, &gt,
+                    &how, &why), NQEARG);
+    NQTEQI(nqersput(d, (nqhalg)0, tok, 0, NULL, 0, NULL, NULL, 0, &gt,
+                    &how, &why), NQEARG);
+    /* the golden token is over the signature, not the seal file */
+    NQTEQI(nqersput(d, (nqhalg)0, tok, tn, NULL, 0, NULL, NULL, 0, &gt,
+                    &how, &why), NQEVRFY);
+    NQTCHK(why != NULL && strstr(why, "imprint") != NULL);
+    NQTCHK(!nqchas(d, NQCERS));
+  }
   /* the golden token has no nonce: asking for one refuses it */
   NQTEQI(nqtsput(d, tok, tn, nonce, sizeof nonce, NULL, NULL, 0, &gt, &why),
          NQEVRFY);

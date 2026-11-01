@@ -311,8 +311,10 @@ typedef struct {
 
 /* the token's imprint must be its hash of the signature; with anchors,
  * the token must verify under one of them (nqtsvrf); without, a token is
- * never accepted (fail closed) */
-static void chkts(nqrep *r, const seal *s, const ancs *an, int64_t *gtv) {
+ * never accepted (fail closed); anchors with no timestamp in the seal
+ * fail only when there is no evidence record for them (ers) */
+static void chkts(nqrep *r, const seal *s, const ancs *an, int ers,
+                  int64_t *gtv) {
   uint8_t *tok = NULL;
   size_t cap = s->tsn / 4 * 3, n = 0, dl = 0, i;
   nqts *ts = NULL;
@@ -322,7 +324,7 @@ static void chkts(nqrep *r, const seal *s, const ancs *an, int64_t *gtv) {
   int rc;
   *gtv = -1; /* no verified genTime */
   if (s->tsb == NULL) {
-    if (an->k != 0) {
+    if (an->k != 0 && !ers) {
       add(r, "timestamp", 0,
           "no timestamp in the seal, but TSA anchors were given", NULL,
           NULL);
@@ -1640,7 +1642,16 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
       add(r, "signature", 0, s.an, " signature not checked: no head",
           NULL);
     }
-    chkts(r, &s, &an, &gtv);
+    chkts(r, &s, &an, nqchas(dir, NQCERS), &gtv);
+    {
+      char em[300];
+      int pres = 0;
+      rc = nqcersck(dir, an.p, an.n, an.k, &pres, em, sizeof em);
+      if (rc == NQEMEM)
+        r->err = rc;
+      else if (pres)
+        add(r, "ers", rc == NQOK, em, NULL, NULL);
+    }
     /* a key rotated away or revoked seals only before then, which only
      * a verified timestamp shows (the manifest's created is the
      * sealer's own word) */
@@ -2215,7 +2226,7 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
   }
   {
     int64_t gtv;
-    chkts(r, &s, &an, &gtv);
+    chkts(r, &s, &an, 0, &gtv);
   }
   if (r->err != NQOK) goto out;
   if (dir != NULL) {

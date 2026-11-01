@@ -1,0 +1,156 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 1, 2026
+.Dt NQERSPUT 3
+.Os
+.Sh NAME
+.Nm nqersreq ,
+.Nm nqersput
+.Nd RFC 4998 evidence records for a sealed capsule
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqersreq
+.Fa "const char *dir"
+.Fa "nqhalg h"
+.Fa "const uint8_t *nonce"
+.Fa "size_t noncelen"
+.Fa "uint8_t *req"
+.Fa "size_t reqlen"
+.Fa "size_t *outlen"
+.Fa "const char **why"
+.Fc
+.Ft int
+.Fo nqersput
+.Fa "const char *dir"
+.Fa "nqhalg h"
+.Fa "const uint8_t *rsp"
+.Fa "size_t rsplen"
+.Fa "const uint8_t *nonce"
+.Fa "size_t noncelen"
+.Fa "const uint8_t *const *anc"
+.Fa "const size_t *anclen"
+.Fa "size_t nanc"
+.Fa "int64_t *gt"
+.Fa "int *how"
+.Fa "const char **why"
+.Fc
+.Sh DESCRIPTION
+An evidence record
+.Pq Pa noqtis.ers ,
+beside the seal of the capsule in
+.Fa dir ,
+is an RFC 4998 EvidenceRecord whose one data object is the seal file
+.Pa noqtis.sig ,
+byte for byte.
+It keeps the seal provably in existence at the time of its first archive
+timestamp for as long as its timestamps are renewed.
+As with
+.Xr nqtsput 3 ,
+the library makes no network request: the caller sends the request to a
+TSA and passes back its reply.
+.Pp
+.Fn nqersreq
+writes to
+.Fa req
+.Pq Fa reqlen No bytes; 128 are enough
+the RFC 3161 TimeStampReq for the next archive timestamp, with hash
+.Fa h
+.Pq Dv NQS256 , NQS384 No or Dv NQS512 ;
+0 takes the record's last hash, or SHA-256 for a new record), the nonce
+when not
+.Dv NULL
+(at most 32 bytes) and certReq TRUE;
+.Pf * Fa outlen
+gets its size.
+The next timestamp covers: without a record, the hash of the seal file;
+with
+.Fa h
+the record's last hash, the last timestamp (timestamp renewal); with
+another, the hash of the seal file and of the record's
+ArchiveTimeStampSequence, in binary ascending order (hash-tree renewal,
+a new chain).
+.Pp
+.Fn nqersput
+checks the record already there, as
+.Xr nqchkt 3
+does under the
+.Fa nanc
+anchors
+.Fa anc
+(DER certificates of
+.Fa anclen
+bytes, at most 32), or each token alone without anchors; then the reply
+.Fa rsp ,
+a TimeStampResp or a bare token: granted, its imprint the hash
+.Fn nqersreq
+asked for, its nonce the given one, its genTime not before the record's
+last, and its signature valid (under an anchor when given).
+It then writes the record with the new archive timestamp.
+.Pf * Fa how
+(when not
+.Dv NULL )
+gets 0 for a new record, 1 for a timestamp renewal and 2 for a hash-tree
+renewal;
+.Pf * Fa gt
+the new timestamp's genTime, in seconds since 1970.
+.Pp
+While a record is there,
+.Xr nqtsput 3
+and
+.Xr nqseal 3
+return
+.Er NQESTATE :
+either would change the seal the record proves.
+.Xr nqchkt 3
+and
+.Fn nqchkx
+check the record in an
+.Dq ers
+row.
+.Pp
+noqtis writes archive timestamps that hold only their token, and reads
+also the digestAlgorithm, attributes, reducedHashtree and cryptoInfos
+fields; a record of encrypted data (encryptionInfo) is
+.Er NQENOSUP .
+.Sh RETURN VALUES
+.Bl -tag -width NQENOSUP
+.It Dv NQOK
+The request, or the record, was written.
+.It Bq Er NQEARG
+A required pointer is
+.Dv NULL ,
+a nonce is longer than 32 bytes, or an anchor is not a certificate.
+.It Bq Er NQEBUF
+.Fa reqlen
+is too small.
+.It Bq Er NQEVRFY
+The reply does not check, or the record there does not; nothing is
+written.
+.It Bq Er NQEDEC
+The record there is not a DER EvidenceRecord in the form noqtis reads.
+.It Bq Er NQENOSUP
+.Fa h
+is not one of the three hashes, or the record there uses another or is
+of encrypted data.
+.It Bq Er NQEIO
+The seal, the record, or the new record could not be read or written.
+.El
+.Pp
+.Pf * Fa why
+(when not
+.Dv NULL )
+gets a sentence on what failed, or
+.Dv NULL .
+.Sh SEE ALSO
+.Xr noqtis-ers 1 ,
+.Xr noqtis 3 ,
+.Xr nqchkt 3 ,
+.Xr nqtsput 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%R RFC 4998
+.%T Evidence Record Syntax (ERS)
+.Re

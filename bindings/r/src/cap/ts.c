@@ -105,35 +105,36 @@ static size_t dlen(uint8_t *p, size_t n) {
   return 2;
 }
 
-/* SHA-256, with NULL parameters as RFC 5754 says senders should */
-static const uint8_t sha256id[] = {0x30, 0x0d, 0x06, 0x09, 0x60, 0x86,
-                                   0x48, 0x01, 0x65, 0x03, 0x04, 0x02,
-                                   0x01, 0x05, 0x00};
+/* SHA-256, SHA-384 and SHA-512, with NULL parameters as RFC 5754 says
+ * senders should */
+static const uint8_t shaid[3][15] = {
+    {0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04,
+     0x02, 0x01, 0x05, 0x00},
+    {0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04,
+     0x02, 0x02, 0x05, 0x00},
+    {0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04,
+     0x02, 0x03, 0x05, 0x00}};
 
-int nqtsreq(const char *dir, const uint8_t *nonce, size_t noncelen,
-            uint8_t *req, size_t reqlen, size_t *outlen) {
-  uint8_t d[32], b[128];
-  size_t n = 0, body, i = 0;
-  const char *why;
-  rseal s;
-  int rc;
+int nqtsmk(nqhalg h, const uint8_t *dig, const uint8_t *nonce,
+           size_t noncelen, uint8_t *req, size_t reqlen, size_t *outlen) {
+  uint8_t b[160];
+  size_t n = 0, body, i = 0, dl = nqhlen(h);
+  const uint8_t *id;
   if (outlen != NULL) *outlen = 0;
-  if (dir == NULL || req == NULL || outlen == NULL ||
+  if (dig == NULL || req == NULL || outlen == NULL ||
       (nonce == NULL && noncelen != 0) || noncelen > 32) {
     return NQEARG;
   }
+  if (h != NQS256 && h != NQS384 && h != NQS512) return NQENOSUP;
+  id = shaid[h == NQS256 ? 0 : h == NQS384 ? 1 : 2];
   /* a nonce is an INTEGER: no redundant leading zero, and positive */
   while (noncelen > 1 && nonce[0] == 0) {
     nonce++;
     noncelen--;
   }
-  rc = rdseal(dir, &s, &why);
-  if (rc == NQOK) rc = nqhash(NQS256, s.sig, s.sign, d, 32);
-  rsfree(&s);
-  if (rc != NQOK) return rc;
   /* TimeStampReq ::= SEQUENCE { version 1, messageImprint, nonce,
    * certReq TRUE } */
-  body = 3 + 2 + sizeof sha256id + 2 + 32 + 3;
+  body = 3 + 2 + sizeof shaid[0] + 2 + dl + 3;
   if (nonce != NULL) body += 2 + noncelen + (nonce[0] & 0x80 ? 1 : 0);
   b[n++] = 0x30;
   n += dlen(b + n, body);
@@ -141,13 +142,13 @@ int nqtsreq(const char *dir, const uint8_t *nonce, size_t noncelen,
   b[n++] = 0x01;
   b[n++] = 0x01;
   b[n++] = 0x30;
-  b[n++] = (uint8_t)(sizeof sha256id + 2 + 32);
-  memcpy(b + n, sha256id, sizeof sha256id);
-  n += sizeof sha256id;
+  b[n++] = (uint8_t)(sizeof shaid[0] + 2 + dl);
+  memcpy(b + n, id, sizeof shaid[0]);
+  n += sizeof shaid[0];
   b[n++] = 0x04;
-  b[n++] = 32;
-  memcpy(b + n, d, 32);
-  n += 32;
+  b[n++] = (uint8_t)dl;
+  memcpy(b + n, dig, dl);
+  n += dl;
   if (nonce != NULL) {
     b[n++] = 0x02;
     b[n++] = (uint8_t)(noncelen + (nonce[0] & 0x80 ? 1 : 0));
@@ -161,6 +162,24 @@ int nqtsreq(const char *dir, const uint8_t *nonce, size_t noncelen,
   memcpy(req, b, n);
   *outlen = n;
   return NQOK;
+}
+
+int nqtsreq(const char *dir, const uint8_t *nonce, size_t noncelen,
+            uint8_t *req, size_t reqlen, size_t *outlen) {
+  uint8_t d[32];
+  const char *why;
+  rseal s;
+  int rc;
+  if (outlen != NULL) *outlen = 0;
+  if (dir == NULL || req == NULL || outlen == NULL ||
+      (nonce == NULL && noncelen != 0) || noncelen > 32) {
+    return NQEARG;
+  }
+  rc = rdseal(dir, &s, &why);
+  if (rc == NQOK) rc = nqhash(NQS256, s.sig, s.sign, d, 32);
+  rsfree(&s);
+  if (rc != NQOK) return rc;
+  return nqtsmk(NQS256, d, nonce, noncelen, req, reqlen, outlen);
 }
 
 /* strips leading zero octets of an INTEGER's contents */
@@ -253,6 +272,13 @@ int nqtsput(const char *dir, const uint8_t *rsp, size_t rsplen,
   if (nanc != 0) c = (nqcert *)nqmal(nanc * sizeof(nqcert));
   if (ts == NULL || (nanc != 0 && c == NULL)) {
     rc = NQEMEM;
+    goto out;
+  }
+  if (nqchas(dir, NQCERS)) {
+    *why = "the capsule has an evidence record (noqtis.ers) over this "
+           "seal, which a new timestamp would change: renew the record "
+           "(noqtis ers) instead";
+    rc = NQESTATE;
     goto out;
   }
   rc = rdseal(dir, &s, why);
