@@ -10,7 +10,7 @@ const { where = false } = Astro.props;
 
 <div class="nqsw not-content"><div class="nqsw-root"></div>
 {where && (
-  <nav class="where" aria-label="Where NOQTIS is published"><span class="where-lab">Published on</span><a href="https://github.com/rootcoder007/noqtis/releases/latest">GitHub Releases</a><a href="https://github.com/rootcoder007/homebrew-noqtis">Homebrew</a><a href="https://github.com/rootcoder007/noqtis/pkgs/container/noqtis">GHCR</a><a href="https://pypi.org/project/noqtis/">PyPI</a><a href="https://www.npmjs.com/package/noqtis">npm</a><a href="https://crates.io/crates/noqtis">crates.io</a><a href="https://central.sonatype.com/artifact/io.github.rootcoder007/noqtis">Maven Central</a><a href="https://pkg.go.dev/github.com/rootcoder007/noqtis/bindings/go">pkg.go.dev</a><a href="https://rootcoder007.r-universe.dev/noqtis">r-universe</a><a href="https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/">Fedora COPR</a><a href="https://build.opensuse.org/package/show/home:rootcoder007/noqtis">openSUSE OBS</a></nav>
+  <nav class="where" aria-label="Where NOQTIS is published"><span class="where-lab">Published on</span><a href="https://github.com/rootcoder007/noqtis/releases/latest">GitHub Releases</a><a href="https://github.com/rootcoder007/homebrew-noqtis">Homebrew</a><a href="https://github.com/rootcoder007/scoop-noqtis">Scoop</a><a href="https://github.com/rootcoder007/noqtis/pkgs/container/noqtis">GHCR</a><a href="https://pypi.org/project/noqtis/">PyPI</a><a href="https://www.npmjs.com/package/noqtis">npm</a><a href="https://crates.io/crates/noqtis">crates.io</a><a href="https://central.sonatype.com/artifact/io.github.rootcoder007/noqtis">Maven Central</a><a href="https://pkg.go.dev/github.com/rootcoder007/noqtis/bindings/go">pkg.go.dev</a><a href="https://rootcoder007.r-universe.dev/noqtis">r-universe</a><a href="https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/">Fedora COPR</a><a href="https://build.opensuse.org/package/show/home:rootcoder007/noqtis">openSUSE OBS</a></nav>
 )}
 </div>
 
@@ -22,9 +22,9 @@ const { where = false } = Astro.props;
   .nqsw .pi-cmd { background: none; border: 0; padding: 0; }
   /* install switcher (pi.dev) */
   .pi { background: var(--nq-panel); border: 1px solid var(--nq-line-strong); border-radius: 4px; box-shadow: 0 4px 40px 0 var(--nq-shadow); overflow: hidden; text-align: left; }
-  .pi-tabs { position: relative; display: flex; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--nq-line); background: var(--nq-ctl); }
+  .pi-tabs { position: relative; display: flex; flex-wrap: wrap; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--nq-line); background: var(--nq-ctl); }
   .pi-tabs::-webkit-scrollbar { display: none; }
-  .pi-ind { position: absolute; top: 0; bottom: 0; left: 0; width: var(--w, 0px); transform: translateX(var(--x, 0px)); background: var(--nq-accent-soft); pointer-events: none; transition: transform 220ms ease, width 220ms ease; }
+  .pi-ind { position: absolute; top: 0; left: 0; width: var(--w, 0px); height: var(--h, 100%); transform: translate(var(--x, 0px), var(--y, 0px)); background: var(--nq-accent-soft); pointer-events: none; transition: transform 220ms ease, width 220ms ease; }
   .pi-ind::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--nq-accent); }
   .pi-tab { position: relative; z-index: 1; flex: 1 1 auto; border: 0; border-right: 1px solid var(--nq-line); padding: .6rem .38rem; background: transparent; color: var(--nq-muted);
     font: 700 .6rem var(--nq-mono); letter-spacing: .05em; text-transform: uppercase; cursor: pointer; transition: color 140ms ease; }
@@ -32,7 +32,7 @@ const { where = false } = Astro.props;
   .pi-tab:hover, .pi-tab[aria-selected="true"] { color: var(--nq-text); }
   .pi-tab:focus-visible { outline: 2px solid var(--nq-accent); outline-offset: -2px; }
   .pi-row { display: flex; align-items: center; gap: 1rem; padding: 1.5rem; }
-  .pi-cmd { flex: 1 1 auto; min-width: 0; margin: 0; overflow-x: auto; scrollbar-width: none; font: .86rem/1.6 var(--nq-mono); white-space: pre; }
+  .pi-cmd { flex: 1 1 auto; min-width: 0; margin: 0; overflow-x: auto; scrollbar-width: none; font: .86rem/1.6 var(--nq-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
   .pi-cmd::-webkit-scrollbar { display: none; }
   .pi-cmd .ln::before { content: "$ "; color: var(--nq-muted); }
   .pi-cmd.ps .ln::before { content: "PS> "; }
@@ -74,6 +74,7 @@ const { where = false } = Astro.props;
     const L = {
       sh: { cmd: `curl -fsSL ${REL}/install.sh | sh`, note: "Checks the release's signature before it installs anything, into ~/.local, no sudo." },
       ps: { cmd: `irm ${REL}/install.ps1 | iex`, note: "Checks the release's signature; no administrator rights." },
+      scoop: { cmd: "scoop bucket add noqtis https://github.com/rootcoder007/scoop-noqtis\nscoop install noqtis/noqtis", note: "Windows x64 and arm64; scoop update noqtis follows new releases." },
       brew: { cmd: "brew install rootcoder007/noqtis/noqtis", note: "The tool, the library, the header and the manual pages." },
       apt: { cmd: `sudo install -d -m 0755 /etc/apt/keyrings\ncurl -fsSL ${O}/Debian_13/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/noqtis.gpg\necho "deb [signed-by=/etc/apt/keyrings/noqtis.gpg] ${O}/Debian_13/ /" | sudo tee /etc/apt/sources.list.d/noqtis.list\nsudo apt update && sudo apt install noqtis`, note: "Debian 13 shown; Debian 12 and Ubuntu 24.04 and 26.04 on the Install page." },
       dnf: { cmd: "sudo dnf copr enable rootcoder007/noqtis\nsudo dnf install noqtis          # the tool and the library\nsudo dnf install noqtis-devel    # the header, for building against it", note: "Fedora 43 to 45 and rawhide, EPEL 9 and 10." },
@@ -90,9 +91,9 @@ const { where = false } = Astro.props;
       go: { cmd: "go get github.com/rootcoder007/noqtis/bindings/go@latest", note: "Uses cgo: needs a C compiler." },
       maven: () => ({ cmd: `<dependency>\n  <groupId>io.github.rootcoder007</groupId>\n  <artifactId>noqtis</artifactId>\n  <version>${ver}</version>\n</dependency>`, note: "Java 22 or later." }),
     };
-    const LINKS = {"sh": ["GitHub Releases", "https://github.com/rootcoder007/noqtis/releases/latest"], "ps": ["GitHub Releases", "https://github.com/rootcoder007/noqtis/releases/latest"], "brew": ["Homebrew tap", "https://github.com/rootcoder007/homebrew-noqtis"], "apt": ["openSUSE Build Service", "https://build.opensuse.org/package/show/home:rootcoder007/noqtis"], "dnf": ["Fedora COPR", "https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/"], "oci": ["GitHub Container Registry", "https://github.com/rootcoder007/noqtis/pkgs/container/noqtis"], "src": ["GitHub", "https://github.com/rootcoder007/noqtis"], "c": ["Install page", "https://rootcoder007.github.io/noqtis/start/install/"], "pip": ["PyPI", "https://pypi.org/project/noqtis/"], "npm": ["npm", "https://www.npmjs.com/package/noqtis"], "pnpm": ["npm", "https://www.npmjs.com/package/noqtis"], "bun": ["npm", "https://www.npmjs.com/package/noqtis"], "deno": ["npm", "https://www.npmjs.com/package/noqtis"], "r": ["r-universe", "https://rootcoder007.r-universe.dev/noqtis"], "cargo": ["crates.io", "https://crates.io/crates/noqtis"], "go": ["pkg.go.dev", "https://pkg.go.dev/github.com/rootcoder007/noqtis/bindings/go"], "maven": ["Maven Central", "https://central.sonatype.com/artifact/io.github.rootcoder007/noqtis"]};
+    const LINKS = {"sh": ["GitHub Releases", "https://github.com/rootcoder007/noqtis/releases/latest"], "ps": ["GitHub Releases", "https://github.com/rootcoder007/noqtis/releases/latest"], "scoop": ["Scoop bucket", "https://github.com/rootcoder007/scoop-noqtis"], "brew": ["Homebrew tap", "https://github.com/rootcoder007/homebrew-noqtis"], "apt": ["openSUSE Build Service", "https://build.opensuse.org/package/show/home:rootcoder007/noqtis"], "dnf": ["Fedora COPR", "https://copr.fedorainfracloud.org/coprs/rootcoder007/noqtis/"], "oci": ["GitHub Container Registry", "https://github.com/rootcoder007/noqtis/pkgs/container/noqtis"], "src": ["GitHub", "https://github.com/rootcoder007/noqtis"], "c": ["Install page", "https://rootcoder007.github.io/noqtis/start/install/"], "pip": ["PyPI", "https://pypi.org/project/noqtis/"], "npm": ["npm", "https://www.npmjs.com/package/noqtis"], "pnpm": ["npm", "https://www.npmjs.com/package/noqtis"], "bun": ["npm", "https://www.npmjs.com/package/noqtis"], "deno": ["npm", "https://www.npmjs.com/package/noqtis"], "r": ["r-universe", "https://rootcoder007.r-universe.dev/noqtis"], "cargo": ["crates.io", "https://crates.io/crates/noqtis"], "go": ["pkg.go.dev", "https://pkg.go.dev/github.com/rootcoder007/noqtis/bindings/go"], "maven": ["Maven Central", "https://central.sonatype.com/artifact/io.github.rootcoder007/noqtis"]};
     const get = (k) => typeof L[k] === "function" ? L[k]() : L[k];
-    const tabs = [["curl", "sh"], ["PowerShell", "ps"], ["Homebrew", "brew"], ["apt", "apt"], ["dnf", "dnf"], ["Docker", "oci"], ["git", "src"], ["C", "c"], ["pip", "pip"], ["npm", "npm"], ["pnpm", "pnpm"], ["Bun", "bun"], ["Deno", "deno"], ["R", "r"], ["cargo", "cargo"], ["Go", "go"], ["Maven", "maven"]];
+    const tabs = [["curl", "sh"], ["PowerShell", "ps"], ["Scoop", "scoop"], ["Homebrew", "brew"], ["apt", "apt"], ["dnf", "dnf"], ["Docker", "oci"], ["git", "src"], ["C", "c"], ["pip", "pip"], ["npm", "npm"], ["pnpm", "pnpm"], ["Bun", "bun"], ["Deno", "deno"], ["R", "r"], ["cargo", "cargo"], ["Go", "go"], ["Maven", "maven"]];
     const plat = navigator.userAgentData?.platform || navigator.platform || "";
     let sel = /Win/i.test(plat) ? "ps" : /Mac/i.test(plat) ? "brew" : "sh";
     function drawInst() {
@@ -110,7 +111,7 @@ const { where = false } = Astro.props;
       box.append(bar, el("div", { class: "pi-row" }, pre, cp));
       const lk = LINKS[sel];
       host.append(box, el("p", { class: "pi-note" }, (leaf.note || "") + (lk ? " " : ""), ...(lk ? [el("a", { href: lk[1] }, "On " + lk[0] + " \u2197")] : [])));
-      const place = () => { if (act && act.isConnected) { ind.style.setProperty("--w", act.offsetWidth + "px"); ind.style.setProperty("--x", act.offsetLeft + "px"); } };
+      const place = () => { if (act && act.isConnected) { ind.style.setProperty("--w", act.offsetWidth + "px"); ind.style.setProperty("--x", act.offsetLeft + "px"); ind.style.setProperty("--y", act.offsetTop + "px"); ind.style.setProperty("--h", act.offsetHeight + "px"); } };
       requestAnimationFrame(place);
       /* the tabs change width when the page zooms, resizes or its fonts load:
          the highlight is measured again each time, so it stays under its tab */

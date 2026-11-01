@@ -83,9 +83,10 @@ push.
 | openSUSE Build Service | apt and dnf repositories for Debian 12 and 13, Ubuntu 24.04 and 26.04, Fedora 43 and 44 (the picker above has the commands) | available (project `home:rootcoder007`, package `noqtis`) |
 | Fedora COPR | `dnf copr enable rootcoder007/noqtis`, then `dnf install noqtis` (the tool and the library) and `dnf install noqtis-devel` (the header, for building against it) | available (Fedora 43 to 45 and rawhide, EPEL 9 and 10; x86-64, arm64, riscv64) |
 | Go | `go get github.com/rootcoder007/noqtis/bindings/go@latest` | available (cgo; the module proxy has each release) |
-| Scoop, winget, Chocolatey | `scoop install noqtis`, `winget install noqtis` | not yet: not submitted (winget and Chocolatey are moderated) |
+| Scoop (Windows) | `scoop bucket add noqtis https://github.com/rootcoder007/scoop-noqtis`, then `scoop install noqtis/noqtis` | available (the project's own bucket; x64 and arm64) |
+| winget, Chocolatey | `winget install rootcoder007.noqtis` | not yet: winget is in review ([winget-pkgs#467864](https://github.com/microsoft/winget-pkgs/pull/467864)); Chocolatey not submitted |
 | Arch User Repository | `yay -S noqtis` | not yet: the `PKGBUILD` is in `packaging/arch`, not uploaded |
-| Nixpkgs, conda-forge | `nix-env -iA nixpkgs.noqtis`, `conda install -c conda-forge noqtis` | not yet: not submitted (each reviews new packages); `nix build` works from the source tree |
+| Nixpkgs, conda-forge | `nix-env -iA nixpkgs.noqtis`, `conda install -c conda-forge noqtis` | not yet: in review ([nixpkgs#581383](https://github.com/NixOS/nixpkgs/pull/581383), [staged-recipes#35447](https://github.com/conda-forge/staged-recipes/pull/35447)); `nix build` works from the source tree |
 | vcpkg, Conan, Alpine, Wolfi | `vcpkg install noqtis`, ... | not yet: not submitted (each reviews new packages) |
 | Debian, Ubuntu, Fedora, EPEL, homebrew-core (their own archives) | `apt install noqtis`, `dnf install noqtis` with no extra repository | not yet: these need a sponsor and a review; until then use the OBS and COPR repositories |
 
