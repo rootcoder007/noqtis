@@ -7,14 +7,48 @@
 nqselftest()
 }
 \value{
-\code{TRUE}, invisibly; an error when an answer differs.
+\code{TRUE}, invisibly, when every answer matches.
 }
 \description{
-Runs fixed inputs through every algorithm family (hashes, HMAC, ML-KEM,
-ML-DSA, SLH-DSA, HQC, Ed25519 and a hybrid) and compares the outputs
-with stored answers, the power-on self-test of a FIPS 140-3 module. It
-takes about a tenth of a second.
+Runs fixed inputs through every algorithm family and compares the
+outputs with stored answers, the power-on self-test a FIPS 140-3
+cryptographic module runs before it is used.
 }
+\details{
+Seven tests run through the library's public interface: SHA-2, SHA-3
+and SHAKE on a fixed message; HMAC-SHA-256 and HMAC-SHA-512; key
+generation, encapsulation and decapsulation for ML-KEM-512, 768 and
+1024; key generation and deterministic signing and verification for
+ML-DSA-44, 65 and 87; SLH-DSA key generation; HQC-128 key generation,
+encapsulation and decapsulation; and Ed25519 and ML-DSA-44+Ed25519
+signing and verification. Every output and return code of a test is
+hashed with SHA-256 and compared with the stored hash, which was made
+where the library's test suite checks the same functions against the
+NIST test vectors. The whole run takes about a tenth of a second.
+
+A mismatch means the compiled library does not compute what it should:
+a miscompilation, an unsupported compiler option, or faulty hardware.
+Do not use the package on that machine until the cause is found.
+}
+\section{Errors}{
+
+\code{"noqtis: self-test: a self-test known answer did not match"} when one
+does not.
+}
+
 \examples{
 nqselftest()
+system.time(nqselftest())
 }
+\references{
+National Institute of Standards and Technology (2019). \emph{Security
+Requirements for Cryptographic Modules}, FIPS 140-3.
+\doi{10.6028/NIST.FIPS.140-3}
+}
+\seealso{
+Other library functions:
+\code{\link[=nqalgs]{nqalgs()}},
+\code{\link[=nqrand]{nqrand()}},
+\code{\link[=nqver]{nqver()}}
+}
+\concept{library functions}

@@ -14,9 +14,28 @@ A raw vector of length \code{n}.
 }
 \description{
 Bytes from the operating system's cryptographically secure generator,
-the same source key generation uses (see the Randomness section of
-\link{noqtis-package}). Independent of \code{\link[=set.seed]{set.seed()}}.
+the same source key generation, hedged signing and encapsulation use
+(\code{getrandom()} on Linux, \code{arc4random_buf()} on macOS and the BSDs,
+\code{BCryptGenRandom()} on Windows), read through the library's \code{nqrand()}.
+Independent of \code{\link[=set.seed]{set.seed()}} and of R's own generator; suitable for
+keys, nonces and salts.
 }
+\section{Errors}{
+
+\code{n} not one non-negative whole number, or
+\code{"noqtis: ...: the operating system's random source failed"}.
+}
+
 \examples{
 nqrand(16)
+set.seed(1); a <- nqrand(8)
+set.seed(1); b <- nqrand(8)
+identical(a, b)
 }
+\seealso{
+Other library functions:
+\code{\link[=nqalgs]{nqalgs()}},
+\code{\link[=nqselftest]{nqselftest()}},
+\code{\link[=nqver]{nqver()}}
+}
+\concept{library functions}

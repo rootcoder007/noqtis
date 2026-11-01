@@ -31,11 +31,21 @@ files a capsule's manifest holds. Neither checks anything: use
 }
 \details{
 \code{nqprove()} writes a proof (\code{noqtis-proof-1}, JSON) that some files are
-in a format 2 capsule: the seal, the manifest's head and, per file, its
-entry and Merkle audit path (RFC 9162). The proof holds nothing of the
-capsule's other files. \code{nqcheck(proof = )} checks it, alone or against
-the files.
+in a format 2 capsule: the seal, the manifest's head (the Merkle root
+and the number of files) and, per file, its entry and Merkle audit path
+(RFC 9162). The proof holds nothing of the capsule's other files, not
+even their names or digests. \code{nqcheck(proof = )} checks it, alone or
+against the files.
+
+The id is the same for any copy of the capsule, wherever it is kept,
+and changes when the folder is sealed again.
 }
+\section{Errors}{
+
+A folder with no seal or manifest that reads; for \code{nqprove()}, a
+format 1 capsule or a path the manifest does not list.
+}
+
 \examples{
 d <- tempfile("proved")
 dir.create(d)
@@ -45,7 +55,19 @@ k <- nqkeygen("ML-DSA-44")
 nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 2)
 nqfiles(d)
 p <- nqprove(d, "a.txt")
+grepl("b.txt", rawToChar(p), fixed = TRUE)
 attr(nqcheck(NULL, k$pk, proof = p), "ok")
 nqcapid(d)
 unlink(d, recursive = TRUE)
 }
+\references{
+Laurie, B., Messeri, E. and Stradling, R. (2021). \emph{Certificate
+Transparency Version 2.0}, RFC 9162. \doi{10.17487/RFC9162}
+}
+\seealso{
+Other capsule functions:
+\code{\link[=nqidcard]{nqidcard()}},
+\code{\link[=nqrotate]{nqrotate()}},
+\code{\link[=nqseal]{nqseal()}}
+}
+\concept{capsule functions}

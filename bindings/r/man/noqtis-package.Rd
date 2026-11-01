@@ -6,17 +6,38 @@
 \alias{noqtis-package}
 \title{noqtis: post-quantum signatures, key encapsulation and file capsules}
 \description{
-R interface to the noqtis C library: ML-DSA (FIPS 204), SLH-DSA
-(FIPS 205), ML-KEM (FIPS 203), HQC, the SHA-2 and SHA-3 families
-(FIPS 180-4, FIPS 202) and HMAC, and capsules, signed records of the
-exact files in a folder.
+R interface to the noqtis C library, which the package bundles and
+compiles (C11, no dependencies): the post-quantum signature schemes
+ML-DSA (FIPS 204) and SLH-DSA (FIPS 205), Ed25519 (RFC 8032) and the
+hybrids ML-DSA+Ed25519; the key encapsulation mechanisms ML-KEM
+(FIPS 203) and HQC; the SHA-2 (FIPS 180-4) and SHA-3 and SHAKE
+(FIPS 202) hash functions and HMAC (RFC 2104); and capsules, signed
+records of the exact files in a folder.
 }
 \details{
 Keys, signatures, ciphertexts and shared secrets are raw vectors in the
-encodings the standards define. Algorithms are named as in
-\code{\link[=nqalgs]{nqalgs()}}, for example \code{"ML-DSA-65"}, \code{"SLH-DSA-SHAKE-128f"} or
-\code{"ML-KEM-768"}.
+encodings the standards define, so they interoperate with other
+implementations of the same standards. Algorithms are named as
+\code{\link[=nqalgs]{nqalgs()}} lists them, for example \code{"ML-DSA-65"},
+\code{"SLH-DSA-SHAKE-128f"}, \code{"ML-DSA-65+Ed25519"} or \code{"ML-KEM-768"}; case
+is ignored.
 }
+\section{Functions}{
+
+\describe{
+\item{Library}{\code{\link[=nqver]{nqver()}}, \code{\link[=nqselftest]{nqselftest()}}, \code{\link[=nqalgs]{nqalgs()}}, \code{\link[=nqrand]{nqrand()}}.}
+\item{Keys}{\code{\link[=nqkeygen]{nqkeygen()}}; the command-line tool's key files with
+\code{\link[=nqreadkey]{nqreadkey()}} and \code{\link[=nqwritekey]{nqwritekey()}}.}
+\item{Signatures}{\code{\link[=nqsign]{nqsign()}}, \code{\link[=nqverify]{nqverify()}}; DSSE envelopes with
+\code{\link[=nqdsse]{nqdsse()}} and \code{\link[=nqdsseverify]{nqdsseverify()}}.}
+\item{Key encapsulation}{\code{\link[=nqencap]{nqencap()}}, \code{\link[=nqdecap]{nqdecap()}}.}
+\item{Hashes}{\code{\link[=nqhash]{nqhash()}}, \code{\link[=nqhmac]{nqhmac()}}.}
+\item{Capsules}{\code{\link[=nqseal]{nqseal()}}, \code{\link[=nqcheck]{nqcheck()}}, \code{\link[=nqcapid]{nqcapid()}}, \code{\link[=nqfiles]{nqfiles()}},
+\code{\link[=nqprove]{nqprove()}}; key statements with \code{\link[=nqrotate]{nqrotate()}} and \code{\link[=nqrevoke]{nqrevoke()}};
+identity cards with \code{\link[=nqidcard]{nqidcard()}} and \code{\link[=nqidcheck]{nqidcheck()}}.}
+}
+}
+
 \section{Randomness}{
 
 Key generation, hedged signing and encapsulation draw their randomness
@@ -29,14 +50,56 @@ explicit \code{seed} (key generation, encapsulation) or \code{det = TRUE}
 (signing), which exist for test vectors.
 }
 
+\section{Protections inside the library}{
+
+No branch and no memory index depends on a secret. ML-DSA and Ed25519
+signing, the secret-keyed hash of SLH-DSA, and ML-KEM and HQC
+decapsulation are also masked: the secret is split into random shares
+that change on every call, against power analysis. Every signature is
+verified under the public key before it is returned, so a signature
+made while the computation was disturbed (a fault, which can give the
+key away) is never released; \code{\link[=nqsign]{nqsign()}} signals an error instead.
+\code{\link[=nqselftest]{nqselftest()}} runs the library's known-answer tests.
+}
+
 \section{Secrets in R}{
 
 The library wipes every secret buffer of its own before it returns.
 Secret keys and shared secrets returned to R are ordinary raw vectors:
 R may copy them and does not wipe memory it frees, so keep them out of
-saved workspaces and logs.
+saved workspaces and logs, and write secret keys with \code{\link[=nqwritekey]{nqwritekey()}},
+which makes the file readable by its owner only.
 }
 
+\section{Errors}{
+
+Invalid arguments (a wrong type, an unknown algorithm, a key or seed of
+the wrong length) are errors with a message that names the argument.
+Failures of the library are errors of the form
+\code{"noqtis: <call>: <reason>"}. A signature or check that does not
+verify is not an error: \code{\link[=nqverify]{nqverify()}} returns \code{FALSE}, \code{\link[=nqcheck]{nqcheck()}}
+reports failed rows.
+}
+
+\references{
+National Institute of Standards and Technology (2024).
+\emph{Module-Lattice-Based Key-Encapsulation Mechanism Standard}, FIPS 203.
+\doi{10.6028/NIST.FIPS.203}
+
+National Institute of Standards and Technology (2024).
+\emph{Module-Lattice-Based Digital Signature Standard}, FIPS 204.
+\doi{10.6028/NIST.FIPS.204}
+
+National Institute of Standards and Technology (2024).
+\emph{Stateless Hash-Based Digital Signature Standard}, FIPS 205.
+\doi{10.6028/NIST.FIPS.205}
+
+Josefsson, S. and Liusvaara, I. (2017). \emph{Edwards-Curve Digital
+Signature Algorithm (EdDSA)}, RFC 8032. \doi{10.17487/RFC8032}
+
+Aguilar Melchor, C. et al. (2025). \emph{Hamming Quasi-Cyclic (HQC)},
+specification version 5.0.0 of 2025-08-22.
+}
 \seealso{
 Useful links:
 \itemize{
@@ -46,8 +109,12 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Vansh Singh Ruhela \email{vsruhela@proton.me} (\href{https://orcid.org/0009-0004-1750-3592}{ORCID}) (rootcoder007) [copyright holder]
+\strong{Maintainer}: Vansh Singh Ruhela \email{vsruhela@proton.me} (\href{https://orcid.org/0009-0004-1750-3592}{ORCID}) (GitHub: rootcoder007) [copyright holder]
 
+Authors:
+\itemize{
+  \item Vansh Singh Ruhela \email{vsruhela@proton.me} (\href{https://orcid.org/0009-0004-1750-3592}{ORCID}) (GitHub: rootcoder007) [copyright holder]
+}
 
 }
 \keyword{internal}

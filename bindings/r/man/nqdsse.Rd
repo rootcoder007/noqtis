@@ -31,15 +31,43 @@ envelope's signatures verifies under \code{pk}, \code{NULL} when none does; an
 error when \code{env} is not an envelope.
 }
 \description{
-\code{nqdsse()} wraps a payload in a DSSE envelope (the in-toto and SLSA
-signing wrapper), signed with any signature algorithm of \code{\link[=nqalgs]{nqalgs()}}
-over the envelope's pre-authentication encoding, as canonical JSON with
-\code{payload}, \code{payloadType} and one signature whose \code{keyid} is the hex
-SHA-256 of \code{pk}. \code{nqdsseverify()} checks one.
+\code{nqdsse()} wraps a payload in a DSSE envelope (Dead Simple Signing
+Envelope, the signing wrapper of in-toto and SLSA), signed with any
+signature algorithm of \code{\link[=nqalgs]{nqalgs()}}; \code{nqdsseverify()} checks one.
 }
+\details{
+The signature covers the envelope's pre-authentication encoding
+(\code{"DSSEv1"}, the payload type and the payload, each with its length),
+so neither the type nor the payload can be changed or confused. The
+envelope is canonical JSON with \code{payload} (base64), \code{payloadType} and
+one signature whose \code{keyid} is the hex SHA-256 of \code{pk}. The signature
+is checked under \code{pk} before the envelope is returned.
+}
+\section{Errors}{
+
+An unknown algorithm, keys that are not a pair, a \code{type} out of its
+limits, or for \code{nqdsseverify()} input that is not a DSSE envelope.
+}
+
 \examples{
 k <- nqkeygen("ML-DSA-65")
 e <- nqdsse(k$sk, k$pk, '{"a":1}', "application/json", "ML-DSA-65")
+cat(rawToChar(e))
 v <- nqdsseverify(k$pk, e, "ML-DSA-65")
+v$type
 rawToChar(v$payload)
+# another key does not verify it
+other <- nqkeygen("ML-DSA-65")
+is.null(nqdsseverify(other$pk, e, "ML-DSA-65"))
 }
+\references{
+Secure Systems Lab. \emph{DSSE: Dead Simple Signing Envelope}, protocol
+version 1. \url{https://github.com/secure-systems-lab/dsse}
+}
+\seealso{
+\code{\link[=nqsign]{nqsign()}} for bare signatures.
+
+Other signature functions:
+\code{\link[=nqsign]{nqsign()}}
+}
+\concept{signature functions}

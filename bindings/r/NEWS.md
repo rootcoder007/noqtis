@@ -6,6 +6,9 @@
   fails (a fault while signing) is an error, never returned.
 * `nqselftest()` runs the library's known-answer self-test (every
   family, about a tenth of a second).
+* The manual is complete: every page says how the function behaves, the
+  errors it signals and the standards it implements (with their DOIs),
+  links its related functions, and has examples of every option.
 
 # noqtis 0.1.3
 

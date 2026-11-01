@@ -17,6 +17,26 @@ Lists every signature and key encapsulation algorithm the bundled
 library provides, with the sizes in bytes of its keys, signatures,
 ciphertexts and shared secrets.
 }
-\examples{
-nqalgs()
+\details{
+The signature algorithms are ML-DSA-44, 65 and 87 (FIPS 204, security
+categories 2, 3 and 5); the twelve SLH-DSA parameter sets (FIPS 205),
+\verb{SLH-DSA-SHA2-} and \verb{SLH-DSA-SHAKE-} followed by \code{128}, \code{192} or \code{256}
+(the security category: 1, 3 or 5) and \code{s} (small signatures, slow
+signing) or \code{f} (fast signing, larger signatures); Ed25519 (RFC 8032,
+not post-quantum); and the hybrids ML-DSA-44+Ed25519,
+ML-DSA-65+Ed25519 and ML-DSA-87+Ed25519, whose signature verifies only
+when both halves do. The key encapsulation mechanisms are ML-KEM-512,
+768 and 1024 (FIPS 203) and HQC-128, 192 and 256.
 }
+\examples{
+a <- nqalgs()
+a[a$type == "sig", c("name", "pk", "sk", "sig")]
+a[a$type == "kem", c("name", "pk", "sk", "ct", "ss")]
+}
+\seealso{
+Other library functions:
+\code{\link[=nqrand]{nqrand()}},
+\code{\link[=nqselftest]{nqselftest()}},
+\code{\link[=nqver]{nqver()}}
+}
+\concept{library functions}

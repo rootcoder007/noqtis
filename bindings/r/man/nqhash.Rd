@@ -30,21 +30,53 @@ The digest, a raw vector, or a string when \code{hex = TRUE}.
 }
 \description{
 \code{nqhash()} computes a SHA-2 (FIPS 180-4), SHA-3 or SHAKE (FIPS 202)
-digest of a raw vector, a string or a file; \code{nqhmac()} computes an HMAC.
+digest of a raw vector, a string or a file; \code{nqhmac()} computes an
+HMAC (RFC 2104) with a SHA-2 or SHA-3 hash.
 }
 \details{
 Hash names: \code{"sha224"}, \code{"sha256"}, \code{"sha384"}, \code{"sha512"},
 \code{"sha512-224"}, \code{"sha512-256"}, \code{"sha3-224"}, \code{"sha3-256"},
 \code{"sha3-384"}, \code{"sha3-512"}, \code{"shake128"}, \code{"shake256"} (case is
-ignored).
+ignored). The output is 28, 32, 48, 64, 28, 32, 28, 32, 48 and 64
+bytes for the fixed-length hashes; SHAKE128 and SHAKE256 are
+extendable-output functions that give \code{len} bytes (by default 32 and
+64).
+
+A file is read in chunks of 1 MiB, so files larger than memory hash
+without being loaded whole. A string is hashed as its UTF-8 bytes,
+with no terminating newline. The HMAC key may have any length.
 }
+\section{Errors}{
+
+An unknown hash name, \code{len} with a fixed-length hash, \code{file = TRUE}
+with a path that is not an existing file, or SHAKE for \code{nqhmac()}.
+}
+
 \examples{
 nqhash("abc", hex = TRUE)
 nqhash(charToRaw("abc"), "sha3-256")
 nqhash("abc", "shake128", len = 16)
+nqhash("abc", "sha512-256", hex = TRUE)
 f <- tempfile()
 writeBin(charToRaw("abc"), f)
-nqhash(f, file = TRUE, hex = TRUE)
+identical(nqhash(f, file = TRUE), nqhash("abc"))
 unlink(f)
 nqhmac("key", "The quick brown fox jumps over the lazy dog", hex = TRUE)
+nqhmac(as.raw(1:64), "data", "sha3-256", hex = TRUE)
 }
+\references{
+National Institute of Standards and Technology (2015). \emph{Secure Hash
+Standard (SHS)}, FIPS 180-4. \doi{10.6028/NIST.FIPS.180-4}
+
+National Institute of Standards and Technology (2015). \emph{SHA-3
+Standard: Permutation-Based Hash and Extendable-Output Functions},
+FIPS 202. \doi{10.6028/NIST.FIPS.202}
+
+Krawczyk, H., Bellare, M. and Canetti, R. (1997). \emph{HMAC: Keyed-Hashing
+for Message Authentication}, RFC 2104. \doi{10.17487/RFC2104}
+}
+\seealso{
+\code{\link[=nqsign]{nqsign()}} can sign a hash (\code{ph}); \code{\link[=nqfiles]{nqfiles()}} lists the
+SHA-256 of every file of a capsule.
+}
+\concept{hash functions}

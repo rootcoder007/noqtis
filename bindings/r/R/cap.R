@@ -6,14 +6,27 @@
 #' manifest) into the folder. `nqcheck()` checks a folder against its seal
 #' and reports every check.
 #'
-#' The creation time in the manifest is the `SOURCE_DATE_EPOCH`
-#' environment variable when set, else the clock. Sealing refuses a folder
-#' that holds a symbolic link or a special file. Capsules are the same
-#' files the `noqtis` command-line tool writes and checks.
+#' The manifest is canonical JSON (RFC 8785): its bytes, and so its
+#' signature, depend only on the files. The creation time in the manifest
+#' is the `SOURCE_DATE_EPOCH` environment variable when set, else the
+#' clock. Sealing refuses a folder that holds a symbolic link, a special
+#' file, a refused name (a control character, a backslash or a colon, or
+#' invalid UTF-8), two paths that differ only in case, or a file that
+#' starts like a noqtis secret key. Capsules are the same files the
+#' `noqtis` command-line tool writes and checks.
 #'
-#' The library makes no network requests: an RFC 3161 timestamp is added
-#' to a seal by other tools, and `nqcheck()` verifies it when `anchors` is
-#' given.
+#' `nqcheck()` fails closed: anything it cannot check is a failed row,
+#' never a silent pass. A file changed, added, removed or renamed, a
+#' manifest or seal that is not canonical, a signature that does not
+#' verify, or a key other than `pk` each fail their row; the attribute
+#' `"ok"` is `TRUE` only when every row passed. Without `pk`, the key in
+#' the seal is accepted and the `key` row says so: that shows the folder
+#' is as someone sealed it, not who.
+#'
+#' The library makes no network requests: an RFC 3161 timestamp, or an
+#' RFC 4998 evidence record, is added to a seal by the command-line tool
+#' (`noqtis timestamp`, `noqtis ers`), and `nqcheck()` verifies them when
+#' `anchors` is given.
 #'
 #' @param dir Path of the folder.
 #' @param sk Secret key, a raw vector (as from [nqkeygen()]).
@@ -22,12 +35,13 @@
 #'   in the seal (the `key` row then says so), otherwise the seal must be
 #'   made with this key.
 #' @param alg Signature algorithm name, one of the `"sig"` rows of
-#'   [nqalgs()].
+#'   [nqalgs()]; Ed25519 alone is refused, as it is not post-quantum.
 #' @param meta `NULL`, or one string of JSON text (an object) stored in
 #'   the manifest under `"meta"`.
 #' @param anchors `NULL`, or a list of up to 32 raw vectors, DER encoded
 #'   certificates of trusted timestamp authorities; the seal must then
-#'   carry an RFC 3161 timestamp token that verifies under one of them.
+#'   carry an RFC 3161 timestamp token that verifies under one of them,
+#'   and an evidence record, when the folder has one, must verify too.
 #' @param format `1` (the default) or `2`. Format 2 adds a Merkle tree over
 #'   the files to the manifest and signs its head, so that [nqprove()] can
 #'   show some files without the others.
@@ -57,18 +71,48 @@
 #'   `check`, `ok` (logical) and `detail`; its attribute `"ok"` is `TRUE`
 #'   only when every check passed.
 #'
+#' @section Errors:
+#' `nqseal()`: keys that are not a pair, a folder that holds something a
+#' capsule cannot (the reasons above), `meta` that is not a JSON object,
+#' `inputs` with format 1, a folder whose evidence record covers the
+#' seal (sealing again would replace what it proves), or a folder over
+#' the limits (2,000,000 files, paths over 4096 bytes, 64 levels).
+#' `nqcheck()` reports problems with the capsule as failed rows; only
+#' invalid arguments are errors.
+#'
+#' @references
+#' Rundgren, A., Jordan, B. and Erdtman, S. (2020). *JSON Canonicalization
+#' Scheme (JCS)*, RFC 8785. \doi{10.17487/RFC8785}
+#'
+#' Laurie, B., Messeri, E. and Stradling, R. (2021). *Certificate
+#' Transparency Version 2.0*, RFC 9162 (the Merkle tree of format 2).
+#' \doi{10.17487/RFC9162}
+#'
+#' @family capsule functions
+#' @seealso [nqprove()] and [nqfiles()] for format 2 capsules;
+#'   [nqrotate()] for key changes; [nqidcard()] to say who sealed it.
+#'
 #' @examples
 #' d <- tempfile("capsule")
 #' dir.create(d)
 #' writeLines("hello", file.path(d, "a.txt"))
+#' dir.create(file.path(d, "data"))
+#' writeLines("1,2", file.path(d, "data", "b.csv"))
 #' k <- nqkeygen("ML-DSA-44")
 #' nqseal(d, k$sk, k$pk, "ML-DSA-44", meta = '{"project":"demo"}')
 #' r <- nqcheck(d, k$pk)
 #' r
 #' attr(r, "ok")
+#' # a changed file fails its row, and the whole check
 #' writeLines("hellO", file.path(d, "a.txt"))
-#' attr(nqcheck(d, k$pk), "ok")
-#' attr(nqcheck(d, k$pk, only = "b.txt"), "ok")
+#' r <- nqcheck(d, k$pk)
+#' r[!r$ok, ]
+#' attr(r, "ok")
+#' # a partial check reads only the files named
+#' attr(nqcheck(d, k$pk, only = "data/b.csv"), "ok")
+#' # another key is refused
+#' other <- nqkeygen("ML-DSA-44")
+#' attr(nqcheck(d, other$pk), "ok")
 #' unlink(d, recursive = TRUE)
 #' @export
 nqseal <- function(dir, sk, pk, alg, meta = NULL,
@@ -172,10 +216,14 @@ nqcheck <- function(dir, pk = NULL, anchors = NULL, only = NULL,
 #' [nqcheck()] for that.
 #'
 #' `nqprove()` writes a proof (`noqtis-proof-1`, JSON) that some files are
-#' in a format 2 capsule: the seal, the manifest's head and, per file, its
-#' entry and Merkle audit path (RFC 9162). The proof holds nothing of the
-#' capsule's other files. `nqcheck(proof = )` checks it, alone or against
-#' the files.
+#' in a format 2 capsule: the seal, the manifest's head (the Merkle root
+#' and the number of files) and, per file, its entry and Merkle audit path
+#' (RFC 9162). The proof holds nothing of the capsule's other files, not
+#' even their names or digests. `nqcheck(proof = )` checks it, alone or
+#' against the files.
+#'
+#' The id is the same for any copy of the capsule, wherever it is kept,
+#' and changes when the folder is sealed again.
 #'
 #' @param dir Path of the capsule folder.
 #' @param paths The files to prove, as the manifest lists them (`/`
@@ -184,6 +232,16 @@ nqcheck <- function(dir, pk = NULL, anchors = NULL, only = NULL,
 #' @return `nqcapid()`: a raw vector of 32 bytes. `nqfiles()`: a data
 #'   frame with the columns `path`, `size` and `sha256` (64 hex digits),
 #'   in manifest order. `nqprove()`: the proof, a raw vector.
+#'
+#' @section Errors:
+#' A folder with no seal or manifest that reads; for `nqprove()`, a
+#' format 1 capsule or a path the manifest does not list.
+#'
+#' @references
+#' Laurie, B., Messeri, E. and Stradling, R. (2021). *Certificate
+#' Transparency Version 2.0*, RFC 9162. \doi{10.17487/RFC9162}
+#'
+#' @family capsule functions
 #'
 #' @examples
 #' d <- tempfile("proved")
@@ -194,6 +252,7 @@ nqcheck <- function(dir, pk = NULL, anchors = NULL, only = NULL,
 #' nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 2)
 #' nqfiles(d)
 #' p <- nqprove(d, "a.txt")
+#' grepl("b.txt", rawToChar(p), fixed = TRUE)
 #' attr(nqcheck(NULL, k$pk, proof = p), "ok")
 #' nqcapid(d)
 #' unlink(d, recursive = TRUE)
@@ -234,8 +293,15 @@ nqprove <- function(dir, paths) {
 #' key is replaced by a new one from a given time (`nqrotate()`, signed by
 #' both keys) or revoked from then (`nqrevoke()`, signed by the key).
 #' [nqcheck()] follows statements from a trusted key with its `keys`
-#' argument. Both algorithms must be post-quantum: Ed25519 alone is
-#' refused.
+#' argument.
+#'
+#' A rotation moves trust from the old key to the new one: a checker who
+#' trusts the old key then accepts seals by the new one. A seal made with
+#' a key that was rotated away or revoked still passes when a verified
+#' RFC 3161 timestamp shows it was made before that time; without one it
+#' fails, since the seal's own creation time is only the sealer's word.
+#' Both signatures of a rotation are checked before it is returned. Both
+#' algorithms must be post-quantum: Ed25519 alone is refused.
 #'
 #' @param sk,pk The key pair the statement is about.
 #' @param alg Its signature algorithm.
@@ -247,12 +313,21 @@ nqprove <- function(dir, paths) {
 #'
 #' @return The statement, a raw vector (write it with [writeBin()]).
 #'
+#' @section Errors:
+#' An unknown algorithm, Ed25519 alone, keys that are not pairs, or a
+#' `reason` over 255 bytes.
+#'
+#' @family capsule functions
+#'
 #' @examples
 #' old <- nqkeygen("ML-DSA-44")
 #' new <- nqkeygen("ML-DSA-65")
 #' s <- nqrotate(old$sk, old$pk, "ML-DSA-44", new$sk, new$pk, "ML-DSA-65",
 #'   reason = "yearly")
 #' cat(rawToChar(s))
+#' r <- nqrevoke(old$sk, old$pk, "ML-DSA-44",
+#'   at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost")
+#' substr(rawToChar(r), 1, 60)
 #' @export
 nqrotate <- function(sk, pk, alg, nsk, npk, nalg, at = Sys.time(),
                      reason = NULL) {

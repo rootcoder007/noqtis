@@ -33,12 +33,48 @@ key (ML-KEM, FIPS 203, or HQC); \code{nqdecap()} recovers the shared secret
 from the ciphertext with the secret key.
 }
 \details{
+The holder of the public key sends nothing; whoever wants to share a
+secret with them calls \code{nqencap()}, sends \code{ct}, and keeps \code{ss}. The
+key holder's \code{nqdecap()} gives the same \code{ss}. The shared secret (32
+bytes for ML-KEM, 64 for HQC) is meant as key material for a key
+derivation or a symmetric cipher, not as text.
+
 Decapsulation uses implicit rejection, as FIPS 203 and HQC require: a
-changed ciphertext gives an unrelated pseudorandom secret, not an error.
-Only a key or ciphertext of the wrong length is an error.
+changed ciphertext gives an unrelated pseudorandom secret, not an error,
+so an attacker learns nothing from which ciphertexts are accepted.
+Only a key or ciphertext of the wrong length is an error. ML-KEM and
+HQC decapsulation are masked against power analysis.
 }
+\section{Errors}{
+
+An unknown algorithm, a key, ciphertext or seed of the wrong length;
+for ML-KEM, a public key that fails the input check of FIPS 203
+(section 7.2).
+}
+
 \examples{
 k <- nqkeygen("ML-KEM-768")
 e <- nqencap(k$pk, "ML-KEM-768")
 identical(nqdecap(k$sk, e$ct, "ML-KEM-768"), e$ss)
+# a changed ciphertext gives another secret, not an error
+bad <- e$ct
+bad[1] <- xor(bad[1], as.raw(1))
+identical(nqdecap(k$sk, bad, "ML-KEM-768"), e$ss)
+# HQC, a code-based KEM
+h <- nqkeygen("HQC-128")
+eh <- nqencap(h$pk, "HQC-128")
+identical(nqdecap(h$sk, eh$ct, "HQC-128"), eh$ss)
 }
+\references{
+National Institute of Standards and Technology (2024).
+\emph{Module-Lattice-Based Key-Encapsulation Mechanism Standard}, FIPS 203.
+\doi{10.6028/NIST.FIPS.203}
+
+Aguilar Melchor, C. et al. (2025). \emph{Hamming Quasi-Cyclic (HQC)},
+specification version 5.0.0 of 2025-08-22.
+}
+\seealso{
+\code{\link[=nqkeygen]{nqkeygen()}} makes the key pairs; \code{\link[=nqhash]{nqhash()}} can derive keys
+from the shared secret.
+}
+\concept{key encapsulation functions}

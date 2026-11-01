@@ -36,7 +36,7 @@ in the seal (the \code{key} row then says so), otherwise the seal must be
 made with this key.}
 
 \item{alg}{Signature algorithm name, one of the \code{"sig"} rows of
-\code{\link[=nqalgs]{nqalgs()}}.}
+\code{\link[=nqalgs]{nqalgs()}}; Ed25519 alone is refused, as it is not post-quantum.}
 
 \item{meta}{\code{NULL}, or one string of JSON text (an object) stored in
 the manifest under \code{"meta"}.}
@@ -52,7 +52,8 @@ folder's last component. Check the inputs first.}
 
 \item{anchors}{\code{NULL}, or a list of up to 32 raw vectors, DER encoded
 certificates of trusted timestamp authorities; the seal must then
-carry an RFC 3161 timestamp token that verifies under one of them.}
+carry an RFC 3161 timestamp token that verifies under one of them,
+and an evidence record, when the folder has one, must verify too.}
 
 \item{only}{\code{NULL}, or the paths (as the manifest lists them, \code{/}
 between folders) of the files to check; the others are not read, and
@@ -88,26 +89,77 @@ manifest) into the folder. \code{nqcheck()} checks a folder against its seal
 and reports every check.
 }
 \details{
-The creation time in the manifest is the \code{SOURCE_DATE_EPOCH}
-environment variable when set, else the clock. Sealing refuses a folder
-that holds a symbolic link or a special file. Capsules are the same
-files the \code{noqtis} command-line tool writes and checks.
+The manifest is canonical JSON (RFC 8785): its bytes, and so its
+signature, depend only on the files. The creation time in the manifest
+is the \code{SOURCE_DATE_EPOCH} environment variable when set, else the
+clock. Sealing refuses a folder that holds a symbolic link, a special
+file, a refused name (a control character, a backslash or a colon, or
+invalid UTF-8), two paths that differ only in case, or a file that
+starts like a noqtis secret key. Capsules are the same files the
+\code{noqtis} command-line tool writes and checks.
 
-The library makes no network requests: an RFC 3161 timestamp is added
-to a seal by other tools, and \code{nqcheck()} verifies it when \code{anchors} is
-given.
+\code{nqcheck()} fails closed: anything it cannot check is a failed row,
+never a silent pass. A file changed, added, removed or renamed, a
+manifest or seal that is not canonical, a signature that does not
+verify, or a key other than \code{pk} each fail their row; the attribute
+\code{"ok"} is \code{TRUE} only when every row passed. Without \code{pk}, the key in
+the seal is accepted and the \code{key} row says so: that shows the folder
+is as someone sealed it, not who.
+
+The library makes no network requests: an RFC 3161 timestamp, or an
+RFC 4998 evidence record, is added to a seal by the command-line tool
+(\verb{noqtis timestamp}, \verb{noqtis ers}), and \code{nqcheck()} verifies them when
+\code{anchors} is given.
 }
+\section{Errors}{
+
+\code{nqseal()}: keys that are not a pair, a folder that holds something a
+capsule cannot (the reasons above), \code{meta} that is not a JSON object,
+\code{inputs} with format 1, a folder whose evidence record covers the
+seal (sealing again would replace what it proves), or a folder over
+the limits (2,000,000 files, paths over 4096 bytes, 64 levels).
+\code{nqcheck()} reports problems with the capsule as failed rows; only
+invalid arguments are errors.
+}
+
 \examples{
 d <- tempfile("capsule")
 dir.create(d)
 writeLines("hello", file.path(d, "a.txt"))
+dir.create(file.path(d, "data"))
+writeLines("1,2", file.path(d, "data", "b.csv"))
 k <- nqkeygen("ML-DSA-44")
 nqseal(d, k$sk, k$pk, "ML-DSA-44", meta = '{"project":"demo"}')
 r <- nqcheck(d, k$pk)
 r
 attr(r, "ok")
+# a changed file fails its row, and the whole check
 writeLines("hellO", file.path(d, "a.txt"))
-attr(nqcheck(d, k$pk), "ok")
-attr(nqcheck(d, k$pk, only = "b.txt"), "ok")
+r <- nqcheck(d, k$pk)
+r[!r$ok, ]
+attr(r, "ok")
+# a partial check reads only the files named
+attr(nqcheck(d, k$pk, only = "data/b.csv"), "ok")
+# another key is refused
+other <- nqkeygen("ML-DSA-44")
+attr(nqcheck(d, other$pk), "ok")
 unlink(d, recursive = TRUE)
 }
+\references{
+Rundgren, A., Jordan, B. and Erdtman, S. (2020). \emph{JSON Canonicalization
+Scheme (JCS)}, RFC 8785. \doi{10.17487/RFC8785}
+
+Laurie, B., Messeri, E. and Stradling, R. (2021). \emph{Certificate
+Transparency Version 2.0}, RFC 9162 (the Merkle tree of format 2).
+\doi{10.17487/RFC9162}
+}
+\seealso{
+\code{\link[=nqprove]{nqprove()}} and \code{\link[=nqfiles]{nqfiles()}} for format 2 capsules;
+\code{\link[=nqrotate]{nqrotate()}} for key changes; \code{\link[=nqidcard]{nqidcard()}} to say who sealed it.
+
+Other capsule functions:
+\code{\link[=nqcapid]{nqcapid()}},
+\code{\link[=nqidcard]{nqidcard()}},
+\code{\link[=nqrotate]{nqrotate()}}
+}
+\concept{capsule functions}

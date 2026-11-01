@@ -7,12 +7,20 @@
 nqver()
 }
 \value{
-A string, the version of the C library compiled into this
-package.
+A string, \code{"major.minor.patch"}.
 }
 \description{
-Version of the bundled noqtis library
+The version of the noqtis C library compiled into this package, which
+is also the package's own version.
 }
 \examples{
 nqver()
+utils::packageVersion("noqtis") == nqver()
 }
+\seealso{
+Other library functions:
+\code{\link[=nqalgs]{nqalgs()}},
+\code{\link[=nqrand]{nqrand()}},
+\code{\link[=nqselftest]{nqselftest()}}
+}
+\concept{library functions}

@@ -18,17 +18,49 @@ ML-KEM; the HQC seed.}
 }
 \value{
 A list with the raw vectors \code{pk} (public key) and \code{sk} (secret
-key) in the standard's encoding, and \code{alg}, the algorithm name.
+key) in the standard's encoding, and \code{alg}, the algorithm name as the
+library spells it.
 }
 \description{
 Generates a signature key pair (ML-DSA, SLH-DSA, Ed25519, the hybrids
 ML-DSA-44/65/87+Ed25519) or a key encapsulation key pair (ML-KEM, HQC).
 }
+\details{
+Without \code{seed}, the key pair comes from fresh operating-system
+randomness. With \code{seed}, it is the standard's deterministic key
+generation from that seed (the same seed always gives the same pair),
+which test vectors use; a seed is as secret as the secret key it makes.
+A hybrid's keys are the ML-DSA key followed by the Ed25519 key.
+SLH-DSA key generation builds one hash tree and takes noticeably
+longer for the \code{s} parameter sets than for the \code{f} ones.
+}
+\section{Errors}{
+
+An unknown algorithm, or a \code{seed} of the wrong length.
+}
+
 \examples{
 k <- nqkeygen("ML-DSA-44")
-length(k$pk)
-k2 <- nqkeygen("ML-KEM-512", seed = as.raw(0:63))
+c(pk = length(k$pk), sk = length(k$sk))
+# the same seed gives the same key pair
+s <- as.raw(0:31)
+identical(nqkeygen("ML-DSA-44", seed = s)$pk,
+          nqkeygen("ML-DSA-44", seed = s)$pk)
+nqkeygen("ML-KEM-512", seed = as.raw(0:63))$alg
+h <- nqkeygen("ml-dsa-65+ed25519")
+h$alg
+}
+\references{
+FIPS 203 \doi{10.6028/NIST.FIPS.203}, FIPS 204
+\doi{10.6028/NIST.FIPS.204}, FIPS 205 \doi{10.6028/NIST.FIPS.205} and
+RFC 8032 \doi{10.17487/RFC8032} define the key generation and the
+encodings.
 }
 \seealso{
-\code{\link[=nqsign]{nqsign()}}, \code{\link[=nqencap]{nqencap()}}.
+\code{\link[=nqsign]{nqsign()}} and \code{\link[=nqencap]{nqencap()}} use the keys; \code{\link[=nqwritekey]{nqwritekey()}} saves
+them in the command-line tool's key files.
+
+Other key functions:
+\code{\link[=nqreadkey]{nqreadkey()}}
 }
+\concept{key functions}

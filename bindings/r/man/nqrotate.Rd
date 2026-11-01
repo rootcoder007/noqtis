@@ -31,13 +31,37 @@ A key statement (\code{noqtis-keys-1}, canonical JSON) says that a signing
 key is replaced by a new one from a given time (\code{nqrotate()}, signed by
 both keys) or revoked from then (\code{nqrevoke()}, signed by the key).
 \code{\link[=nqcheck]{nqcheck()}} follows statements from a trusted key with its \code{keys}
-argument. Both algorithms must be post-quantum: Ed25519 alone is
-refused.
+argument.
 }
+\details{
+A rotation moves trust from the old key to the new one: a checker who
+trusts the old key then accepts seals by the new one. A seal made with
+a key that was rotated away or revoked still passes when a verified
+RFC 3161 timestamp shows it was made before that time; without one it
+fails, since the seal's own creation time is only the sealer's word.
+Both signatures of a rotation are checked before it is returned. Both
+algorithms must be post-quantum: Ed25519 alone is refused.
+}
+\section{Errors}{
+
+An unknown algorithm, Ed25519 alone, keys that are not pairs, or a
+\code{reason} over 255 bytes.
+}
+
 \examples{
 old <- nqkeygen("ML-DSA-44")
 new <- nqkeygen("ML-DSA-65")
 s <- nqrotate(old$sk, old$pk, "ML-DSA-44", new$sk, new$pk, "ML-DSA-65",
   reason = "yearly")
 cat(rawToChar(s))
+r <- nqrevoke(old$sk, old$pk, "ML-DSA-44",
+  at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost")
+substr(rawToChar(r), 1, 60)
 }
+\seealso{
+Other capsule functions:
+\code{\link[=nqcapid]{nqcapid()}},
+\code{\link[=nqidcard]{nqidcard()}},
+\code{\link[=nqseal]{nqseal()}}
+}
+\concept{capsule functions}

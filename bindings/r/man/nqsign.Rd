@@ -22,8 +22,7 @@ its UTF-8 bytes.}
 bytes), bound into the signature; verification needs the same one.}
 
 \item{det}{\code{FALSE} (the default) for hedged signing with fresh
-randomness; \code{TRUE} for the deterministic variant (all-zero
-per-signature randomness).}
+randomness; \code{TRUE} for the deterministic variant.}
 
 \item{ph}{\code{NULL} for the pure algorithm, or a hash name (see \code{\link[=nqhash]{nqhash()}})
 for HashML-DSA / HashSLH-DSA, which hash \code{msg} with it first.}
@@ -38,18 +37,86 @@ it overrides \code{det}.}
 \item{sig}{Signature, a raw vector.}
 }
 \value{
-\code{nqsign()}: the signature, a raw vector. \code{nqverify()}: \code{TRUE}
-when the signature verifies, \code{FALSE} otherwise (including a signature,
-key or context of the wrong length or encoding).
+\code{nqsign()}: the signature, a raw vector of the algorithm's
+signature size (see \code{\link[=nqalgs]{nqalgs()}}). \code{nqverify()}: \code{TRUE} when the
+signature verifies, \code{FALSE} otherwise (including a signature, key or
+context of the wrong length or encoding).
 }
 \description{
 \code{nqsign()} signs a message with ML-DSA (FIPS 204), SLH-DSA (FIPS 205),
 Ed25519 (RFC 8032) or a hybrid ML-DSA+Ed25519, whose signature verifies
 only when both parts do; \code{nqverify()} checks such a signature.
 }
+\details{
+Signing is hedged by default: fresh randomness goes into every
+signature, so signing twice gives two different, equally valid
+signatures, and a power analysis of repeated signing learns less. For
+Ed25519 the randomness goes into the nonce's hash; the signatures
+verify as any RFC 8032 ones. \code{det = TRUE} gives the standard's
+deterministic signature instead (all-zero randomness for ML-DSA and
+SLH-DSA, RFC 8032's own nonce for Ed25519), the same bytes every time,
+for reproducible output and test vectors.
+
+Every signature is verified under the public key held in the secret
+key before it is returned. A signature that fails that check was made
+while the computation was disturbed (a voltage or clock glitch, a
+flipped memory bit) or with a damaged key; such a signature can give
+the key away, so it is never returned and \code{nqsign()} signals an error.
+
+\code{ctx} is the standards' context string: a signature made with one
+context verifies only with the same one, which keeps signatures made
+for one purpose from being accepted for another. \code{ph} selects the
+pre-hash variants (HashML-DSA, HashSLH-DSA), which sign the hash of
+\code{msg}; they verify only as pre-hash signatures with the same hash.
+Ed25519 takes neither a context nor a pre-hash in this interface.
+}
+\section{Errors}{
+
+\code{nqsign()}: an unknown algorithm, a secret key of the wrong length, a
+context over 255 bytes, an unknown pre-hash, \code{rnd} of the wrong length,
+or \code{"noqtis: ...: the signature failed the check after signing (a fault)"}. \code{nqverify()} returns \code{FALSE} rather than an error for any
+signature that does not verify.
+}
+
 \examples{
 k <- nqkeygen("ML-DSA-44")
 s <- nqsign(k$sk, "hello", "ML-DSA-44")
 nqverify(k$pk, "hello", s, "ML-DSA-44")
 nqverify(k$pk, "hellO", s, "ML-DSA-44")
+# a context binds the signature to one purpose
+s2 <- nqsign(k$sk, "hello", "ML-DSA-44", ctx = "invoices")
+nqverify(k$pk, "hello", s2, "ML-DSA-44", ctx = "invoices")
+nqverify(k$pk, "hello", s2, "ML-DSA-44")
+# deterministic signatures repeat; hedged ones do not
+identical(nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE),
+          nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE))
+# pre-hash: HashML-DSA with SHA-512
+s3 <- nqsign(k$sk, "hello", "ML-DSA-44", ph = "sha512")
+nqverify(k$pk, "hello", s3, "ML-DSA-44", ph = "sha512")
+# a hybrid needs both halves to verify
+h <- nqkeygen("ML-DSA-44+Ed25519")
+nqverify(h$pk, "hello", nqsign(h$sk, "hello", h$alg), h$alg)
+# SLH-DSA, hash-based
+sl <- nqkeygen("SLH-DSA-SHAKE-128f")
+length(nqsign(sl$sk, "hello", sl$alg))
 }
+\references{
+National Institute of Standards and Technology (2024).
+\emph{Module-Lattice-Based Digital Signature Standard}, FIPS 204.
+\doi{10.6028/NIST.FIPS.204}
+
+National Institute of Standards and Technology (2024).
+\emph{Stateless Hash-Based Digital Signature Standard}, FIPS 205.
+\doi{10.6028/NIST.FIPS.205}
+
+Josefsson, S. and Liusvaara, I. (2017). \emph{Edwards-Curve Digital
+Signature Algorithm (EdDSA)}, RFC 8032. \doi{10.17487/RFC8032}
+}
+\seealso{
+\code{\link[=nqkeygen]{nqkeygen()}} makes the keys; \code{\link[=nqdsse]{nqdsse()}} signs a payload in a
+DSSE envelope; \code{\link[=nqseal]{nqseal()}} signs a whole folder.
+
+Other signature functions:
+\code{\link[=nqdsse]{nqdsse()}}
+}
+\concept{signature functions}

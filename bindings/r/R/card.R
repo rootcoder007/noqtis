@@ -12,8 +12,9 @@
 #' that it is unchanged, not that the name is true. Give the key's SHA-256
 #' (`key_sha256`) where people already know you, or let readers pin your
 #' public key with `pk`. The key must be post-quantum: Ed25519 alone is
-#' refused. `noqtis check --card` names the sealer of a capsule from its
-#' card.
+#' refused. The ORCID iD's check digit (ISO 7064 MOD 11-2) is verified,
+#' and every field is refused with a control character or invalid UTF-8.
+#' `noqtis check --card` names the sealer of a capsule from its card.
 #'
 #' @param sk,pk The key pair the card is for; for `nqidcheck()`, `pk` is
 #'   `NULL` or the public key the card must be for.
@@ -38,11 +39,24 @@
 #'   `pk`); `NULL` when its signature does not verify or it is for another
 #'   key. Input that is not a card is an error.
 #'
+#' @section Errors:
+#' A field out of its limits, an ORCID iD with a wrong check digit, keys
+#' that are not a pair, Ed25519 alone, or for `nqidcheck()` input that is
+#' not a card (or a file over 256 KiB).
+#'
+#' @family capsule functions
+#'
 #' @examples
 #' k <- nqkeygen("ML-DSA-44")
 #' card <- nqidcard(k$sk, k$pk, "ML-DSA-44", "Ada Lovelace",
-#'   orcid = "0000-0002-1825-0097")
-#' nqidcheck(card, k$pk)$orcid
+#'   orcid = "0000-0002-1825-0097", affil = "Analytical Engines")
+#' v <- nqidcheck(card, k$pk)
+#' v$name
+#' v$orcid
+#' v$key_sha256
+#' # the card is for this key only
+#' other <- nqkeygen("ML-DSA-44")
+#' is.null(nqidcheck(card, other$pk))
 #' @export
 nqidcard <- function(sk, pk, alg, name, orcid = NULL, email = NULL,
                      url = NULL, affil = NULL, at = Sys.time()) {

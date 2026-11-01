@@ -76,8 +76,8 @@
 #' `nqreadkey()` reads a key file written by `noqtis keygen` (or by
 #' `nqwritekey()`), as strictly as the command-line tool reads it: the
 #' exact header line `noqtis-key-1 <algorithm> <pub|sec>`, then the key as
-#' padded base64 with LF or CRLF line ends and no other character,
-#' canonical padding, and exactly the algorithm's key size.
+#' padded base64 (RFC 4648) with LF or CRLF line ends and no other
+#' character, canonical padding, and exactly the algorithm's key size.
 #' `nqwritekey()` writes one.
 #'
 #' @param path The key file.
@@ -93,9 +93,21 @@
 #'
 #' @details A secret key file is created readable by its owner only (on
 #'   Windows it takes the folder's permissions). An existing file is never
-#'   replaced unless `force = TRUE`. R's base64 here is not constant time:
-#'   read secret key files where timing cannot be observed.
+#'   replaced unless `force = TRUE`, and a dangling symbolic link counts
+#'   as an existing file. R's base64 here is not constant time: read
+#'   secret key files where timing cannot be observed.
 #'
+#' @section Errors:
+#' `nqreadkey()`: a file that is not a key file (a wrong header, a
+#' non-canonical or cut-short body, a key of the wrong size).
+#' `nqwritekey()`: an unknown algorithm, a key of the wrong size for it,
+#' or an existing file without `force = TRUE`.
+#'
+#' @references
+#' Josefsson, S. (2006). *The Base16, Base32, and Base64 Data Encodings*,
+#' RFC 4648. \doi{10.17487/RFC4648}
+#'
+#' @family key functions
 #' @seealso [nqkeygen()], [nqsign()].
 #'
 #' @examples
@@ -104,6 +116,10 @@
 #' nqwritekey(f, k$sk, "ML-DSA-44", "sec")
 #' identical(nqreadkey(f)$key, k$sk)
 #' readLines(f, n = 1)
+#' g <- tempfile()
+#' nqwritekey(g, k$pk, "ML-DSA-44", "pub")
+#' nqreadkey(g)$kind
+#' unlink(c(f, g))
 #' @export
 nqreadkey <- function(path) {
   if (!is.character(path) || length(path) != 1L || is.na(path) ||

@@ -1,10 +1,15 @@
 #' DSSE envelopes
 #'
-#' `nqdsse()` wraps a payload in a DSSE envelope (the in-toto and SLSA
-#' signing wrapper), signed with any signature algorithm of [nqalgs()]
-#' over the envelope's pre-authentication encoding, as canonical JSON with
-#' `payload`, `payloadType` and one signature whose `keyid` is the hex
-#' SHA-256 of `pk`. `nqdsseverify()` checks one.
+#' `nqdsse()` wraps a payload in a DSSE envelope (Dead Simple Signing
+#' Envelope, the signing wrapper of in-toto and SLSA), signed with any
+#' signature algorithm of [nqalgs()]; `nqdsseverify()` checks one.
+#'
+#' The signature covers the envelope's pre-authentication encoding
+#' (`"DSSEv1"`, the payload type and the payload, each with its length),
+#' so neither the type nor the payload can be changed or confused. The
+#' envelope is canonical JSON with `payload` (base64), `payloadType` and
+#' one signature whose `keyid` is the hex SHA-256 of `pk`. The signature
+#' is checked under `pk` before the envelope is returned.
 #'
 #' @param sk,pk The key pair (`nqdsse()`), or the public key to check
 #'   with (`nqdsseverify()`).
@@ -21,11 +26,27 @@
 #'   envelope's signatures verifies under `pk`, `NULL` when none does; an
 #'   error when `env` is not an envelope.
 #'
+#' @section Errors:
+#' An unknown algorithm, keys that are not a pair, a `type` out of its
+#' limits, or for `nqdsseverify()` input that is not a DSSE envelope.
+#'
+#' @references
+#' Secure Systems Lab. *DSSE: Dead Simple Signing Envelope*, protocol
+#' version 1. <https://github.com/secure-systems-lab/dsse>
+#'
+#' @family signature functions
+#' @seealso [nqsign()] for bare signatures.
+#'
 #' @examples
 #' k <- nqkeygen("ML-DSA-65")
 #' e <- nqdsse(k$sk, k$pk, '{"a":1}', "application/json", "ML-DSA-65")
+#' cat(rawToChar(e))
 #' v <- nqdsseverify(k$pk, e, "ML-DSA-65")
+#' v$type
 #' rawToChar(v$payload)
+#' # another key does not verify it
+#' other <- nqkeygen("ML-DSA-65")
+#' is.null(nqdsseverify(other$pk, e, "ML-DSA-65"))
 #' @export
 nqdsse <- function(sk, pk, payload, type, alg) {
   a <- .alg(alg, "sig")

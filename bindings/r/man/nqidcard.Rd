@@ -64,12 +64,33 @@ A card is self-signed: it shows that whoever holds the key wrote it and
 that it is unchanged, not that the name is true. Give the key's SHA-256
 (\code{key_sha256}) where people already know you, or let readers pin your
 public key with \code{pk}. The key must be post-quantum: Ed25519 alone is
-refused. \verb{noqtis check --card} names the sealer of a capsule from its
-card.
+refused. The ORCID iD's check digit (ISO 7064 MOD 11-2) is verified,
+and every field is refused with a control character or invalid UTF-8.
+\verb{noqtis check --card} names the sealer of a capsule from its card.
 }
+\section{Errors}{
+
+A field out of its limits, an ORCID iD with a wrong check digit, keys
+that are not a pair, Ed25519 alone, or for \code{nqidcheck()} input that is
+not a card (or a file over 256 KiB).
+}
+
 \examples{
 k <- nqkeygen("ML-DSA-44")
 card <- nqidcard(k$sk, k$pk, "ML-DSA-44", "Ada Lovelace",
-  orcid = "0000-0002-1825-0097")
-nqidcheck(card, k$pk)$orcid
+  orcid = "0000-0002-1825-0097", affil = "Analytical Engines")
+v <- nqidcheck(card, k$pk)
+v$name
+v$orcid
+v$key_sha256
+# the card is for this key only
+other <- nqkeygen("ML-DSA-44")
+is.null(nqidcheck(card, other$pk))
 }
+\seealso{
+Other capsule functions:
+\code{\link[=nqcapid]{nqcapid()}},
+\code{\link[=nqrotate]{nqrotate()}},
+\code{\link[=nqseal]{nqseal()}}
+}
+\concept{capsule functions}
