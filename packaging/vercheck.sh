@@ -88,5 +88,16 @@ if [ "$eb" != "packaging/gentoo/noqtis-$v.ebuild" ]; then
   bad=1
 fi
 
+# pkgs.yml builds the community recipes, so it names their version (which
+# moves after the release, with the archive hashes), not CMakeLists.txt's
+cv=$(sed -n 's/^pkgver=//p' packaging/community/aur/PKGBUILD)
+for w in $(grep -oE '(noqtis[-/]|--version )[0-9]+\.[0-9]+\.[0-9]+' \
+    .github/workflows/pkgs.yml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -u); do
+  if [ "$w" != "$cv" ]; then
+    echo "vercheck: .github/workflows/pkgs.yml names $w, the community recipes $cv" >&2
+    bad=1
+  fi
+done
+
 [ "$bad" = 0 ] || exit 1
 echo "vercheck: $v everywhere"
