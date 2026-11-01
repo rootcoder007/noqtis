@@ -101,13 +101,24 @@ gentoo)
 void)
   # xbps-src in a throwaway container as void-packages' CI has run it: the
   # "ethereal" chroot style, the container itself as the masterdir (no
-  # mounts, so no privileges needed)
+  # mounts, so no privileges needed). The first Void mirror whose index
+  # xbps-install can fetch serves both this container and xbps-src.
+  mkdir -p /etc/xbps.d
+  mirror=""
+  for m in https://repo-default.voidlinux.org https://repo-de.voidlinux.org https://repo-fi.voidlinux.org https://repo-fastly.voidlinux.org https://mirrors.dotsrc.org/voidlinux https://ftp.lysator.liu.se/pub/voidlinux https://mirror.clarkson.edu/voidlinux; do
+    echo "repository=$m/current" > /etc/xbps.d/00-repository-main.conf
+    if xbps-install -S; then
+      mirror="$m"
+      break
+    fi
+  done
+  [ -n "$mirror" ] || { echo "pkgtest: no Void mirror answers" >&2; exit 1; }
   xbps-install -Syu xbps
   xbps-install -yu
   xbps-install -y base-devel bash git curl cmake pkgconf
   git clone --depth 1 https://github.com/void-linux/void-packages "$w/vp"
-  printf 'XBPS_CHROOT_CMD=ethereal\nXBPS_ALLOW_CHROOT_BREAKOUT=yes\n' \
-    > "$w/vp/etc/conf"
+  printf 'XBPS_CHROOT_CMD=ethereal\nXBPS_ALLOW_CHROOT_BREAKOUT=yes\nXBPS_MIRROR=%s/current\n' \
+    "$mirror" > "$w/vp/etc/conf"
   ln -s / "$w/vp/masterdir"
   xbps-uhelper arch > /.xbps_chroot_init
   mkdir -p "$w/vp/srcpkgs/noqtis" "$w/vp/hostdir/sources/noqtis-$v"

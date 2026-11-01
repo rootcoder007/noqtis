@@ -415,15 +415,17 @@ jobs:
           - name: wolfi
             image: cgr.dev/chainguard/wolfi-base@sha256:dbcc3a4a3b1b9e68420a4742940aa6267c97e61811736a5fef0918a06ade1827
             deps: apk add --no-cache build-base cmake pkgconf git
-          # ghcr.io/void-linux/void-glibc:latest; repo-de is a tier-1
-          # mirror, used because repo-default timed out in testing
+          # ghcr.io/void-linux/void-glibc:latest; the first Void mirror whose
+          # index xbps-install can fetch (on 2026-11-01 repo-default and the
+          # Tier 1 mirrors refused connections for hours)
           - name: void
             image: ghcr.io/void-linux/void-glibc@sha256:91a7c5e2ccaa48ed2c664633110c0f19aff08a2d55ae0709083d1eb562b98ccb
             deps: >-
-              mkdir -p /etc/xbps.d && echo
-              repository=https://repo-de.voidlinux.org/current
-              > /etc/xbps.d/00-repository-main.conf && xbps-install -Syu xbps
-              && xbps-install -Sy gcc cmake make pkgconf git binutils
+              mkdir -p /etc/xbps.d &&
+              for m in https://repo-default.voidlinux.org https://repo-de.voidlinux.org https://repo-fi.voidlinux.org https://repo-fastly.voidlinux.org https://mirrors.dotsrc.org/voidlinux https://ftp.lysator.liu.se/pub/voidlinux https://mirror.clarkson.edu/voidlinux; do
+              echo "repository=$m/current" > /etc/xbps.d/00-repository-main.conf;
+              xbps-install -Syu xbps && break; done &&
+              xbps-install -Sy gcc cmake make pkgconf git binutils
           # gentoo/stage3:latest; cmake and git come from Gentoo's binary
           # package host, so nothing large compiles
           - name: gentoo
