@@ -33,8 +33,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: interop-${{ github.ref }}-${{ github.event_name }}-${{ github.sha }}
-  cancel-in-progress: false
+  # a push to main replaces the run of an older main commit still waiting
+  # (it tests that commit too); tags, releases and pull requests always
+  # run to the end
+  group: interop-${{ github.ref }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'tip' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
 jobs:
   rmoriebricklayer:
