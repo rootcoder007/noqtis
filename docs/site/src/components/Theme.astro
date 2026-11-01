@@ -1,0 +1,15 @@
+---
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// Replaces Starlight's ThemeProvider: the docs are dark unless the reader
+// chose light with the sun button, the same choice (localStorage nqtheme)
+// as on the home page; the system's light or dark setting is not followed.
+---
+
+{/* inline, so the page is drawn in its theme from the first frame */}
+<script is:inline>
+  (() => {
+    let t = null;
+    try { t = localStorage.getItem("nqtheme"); } catch {}
+    document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+  })();
+</script>

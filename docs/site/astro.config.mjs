@@ -33,6 +33,11 @@ export default defineConfig({
           "https://github.com/rootcoder007/noqtis/edit/main/docs/site/",
       },
       customCss: ["./src/styles/man.css"],
+      // dark unless the reader picks light with the sun button
+      components: {
+        ThemeProvider: "./src/components/Theme.astro",
+        ThemeSelect: "./src/components/ThemeBtn.astro",
+      },
       lastUpdated: false,
       // NQPAGEFIND=0 skips the search index (Pagefind's binary does not run
       // on 16K-page arm64 kernels); CI always builds it
