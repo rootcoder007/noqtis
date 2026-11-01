@@ -34,8 +34,11 @@ jobs:
       - name: abuild, check, install, use
         run: |
           apk add -q alpine-sdk sudo pkgconf cmake samurai
-          adduser -D b && addgroup b abuild && echo "b ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/b
-          mkdir -p /home/b/aports/testing && cp -r packaging/community/alpine/testing/noqtis /home/b/aports/testing/
+          adduser -D b
+          addgroup b abuild
+          echo "b ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/b
+          mkdir -p /home/b/aports/testing
+          cp -r packaging/community/alpine/testing/noqtis /home/b/aports/testing/
           chown -R b /home/b
           su b -c "abuild-keygen -a -i -n; cd ~/aports/testing/noqtis && abuild verify && REPODEST=/home/b/packages abuild -r"
           ls /home/b/packages/testing/x86_64/
@@ -55,7 +58,10 @@ jobs:
       - name: makepkg, check, install, use, .SRCINFO
         run: |
           pacman -Syu --noconfirm --needed cmake pkgconf git
-          useradd -m b && mkdir /b && cp packaging/community/aur/PKGBUILD /b/ && chown -R b /b
+          useradd -m b
+          mkdir /b
+          cp packaging/community/aur/PKGBUILD /b/
+          chown -R b /b
           su b -c "cd /b && makepkg --noconfirm && makepkg --printsrcinfo > .SRCINFO"
           cp /b/.SRCINFO "$GITHUB_WORKSPACE/SRCINFO"
           pacman -U --noconfirm /b/noqtis-0.1.2-*.pkg.tar.*
@@ -80,9 +86,17 @@ jobs:
     steps:
       - name: prepare container
         run: |
-          mkdir -p /etc/xbps.d && cp /usr/share/xbps.d/*-repository-*.conf /etc/xbps.d/
+          mkdir -p /etc/xbps.d
+          cp /usr/share/xbps.d/*-repository-*.conf /etc/xbps.d/
+          # void-packages' CI mirror; Void's default mirror when it is down
           sed -i 's|repo-default|repo-ci|g' /etc/xbps.d/*-repository-*.conf
-          xbps-install -Syu xbps && xbps-install -yu && xbps-install -y sudo bash curl git
+          if ! xbps-install -S; then
+            sed -i 's|repo-ci|repo-default|g' /etc/xbps.d/*-repository-*.conf
+            xbps-install -S
+          fi
+          xbps-install -yu xbps
+          xbps-install -yu
+          xbps-install -y sudo bash curl git
           useradd -G xbuilder -M builder
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -118,8 +132,11 @@ jobs:
           test ! -e /usr/include/sys/random.h
           export PATH=/opt/python/cp312-cp312/bin:$PATH
           # OpenSSL 1.0's ts signs with SHA-1; give tcli a 1.1 openssl so no TSA check skips
-          yum install -q -y epel-release && yum install -q -y openssl11
-          mkdir -p /tmp/o && ln -s /usr/bin/openssl11 /tmp/o/openssl && export PATH=/tmp/o:$PATH
+          yum install -q -y epel-release
+          yum install -q -y openssl11
+          mkdir -p /tmp/o
+          ln -s /usr/bin/openssl11 /tmp/o/openssl
+          export PATH=/tmp/o:$PATH
           openssl version
           pip install -q --require-hashes -r /src/.github/pkgs/cmake.txt
           cmake -S /src -B /tmp/b -G Ninja -DCMAKE_BUILD_TYPE=Release -DNQOSSL=OFF
@@ -142,7 +159,9 @@ jobs:
           persist-credentials: false
       - name: melange build (with the recipe's tests)
         run: |
-          mkdir w && cp packaging/community/wolfi/noqtis.yaml w/ && sed -i '/uses: test\/pkgconf/d; /uses: test\/tw\/ldd-check/d' w/noqtis.yaml
+          mkdir w
+          cp packaging/community/wolfi/noqtis.yaml w/
+          sed -i '/uses: test\/pkgconf/d; /uses: test\/tw\/ldd-check/d' w/noqtis.yaml
           docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange@sha256:c6eea71bf274b94d84c04238861d7abea55b61b50da921b88c194c112123593b keygen
           docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange@sha256:c6eea71bf274b94d84c04238861d7abea55b61b50da921b88c194c112123593b build noqtis.yaml \
             --arch x86_64 --signing-key melange.rsa --runner bubblewrap \
@@ -180,7 +199,8 @@ jobs:
           cd /var/db/repos/guru/dev-libs/noqtis
           ebuild noqtis-0.1.2.ebuild manifest
           cat Manifest
-          mkdir -p /etc/portage/package.accept_keywords && echo 'dev-libs/noqtis ~amd64' > /etc/portage/package.accept_keywords/noqtis
+          mkdir -p /etc/portage/package.accept_keywords
+          echo 'dev-libs/noqtis ~amd64' > /etc/portage/package.accept_keywords/noqtis
           export FEATURES='-ipc-sandbox -network-sandbox -pid-sandbox -sandbox -usersandbox'
           # tests for noqtis only, not for every dependency it pulls in
           mkdir -p /etc/portage/env /etc/portage/package.env
