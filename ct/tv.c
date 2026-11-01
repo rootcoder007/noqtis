@@ -52,6 +52,7 @@
 
 #include "noqtis.h"
 #include "core/lk.h"
+#include "ed/ed.h"
 #include "mldsa/md.h"
 #include "mldsa/mldsa.h"
 #include "mlkem/mlkem.h"
@@ -250,6 +251,29 @@ static void rdsa(const tv *t, int cls) {
   nqlkzm = 0;
 }
 
+/* Ed25519: a fixed key; the message and the hedge Z are fresh for every
+ * trace in both classes, as a signer's are */
+static void ped(const tv *t) {
+  (void)t;
+  xrfill(&G, fk, NQEDSK);
+}
+
+static void rued(const tv *t, int cls) {
+  const uint8_t *sk = fk;
+  uint8_t z[32];
+  if (cls) {
+    xrfill(&G, kb, NQEDSK);
+    sk = kb;
+  }
+  xrfill(&G, fm, 32);
+  xrfill(&G, z, sizeof z);
+  nqlkzm = t->zm;
+  R.on = 1;
+  nqedsignz(sk, fm, 32, NULL, 0, 0, z, ob);
+  R.on = 0;
+  nqlkzm = 0;
+}
+
 static const tv tvs[] = {
     {"mlkem512", "ML-KEM-512 masked decaps, one key vs random keys", 2, 0,
      0, 1, pkem, rkem},
@@ -265,8 +289,12 @@ static const tv tvs[] = {
      NQMLDSA87, 0, 0, 8, pdsa, rdsa},
     {"mldsa44y", "ML-DSA-44 masked signing, one key: one rnd vs random rnd",
      NQMLDSA44, 0, 1, 4, pdsa, rdsa},
+    {"ed25519", "Ed25519 masked signing, one key vs random keys", 0, 0, 0,
+     4, ped, rued},
     {"mlkem768z", "control: ML-KEM-768 decaps, masks zero", 3, 1, 0, 4,
      pkem, rkem},
+    {"ed25519z", "control: Ed25519 signing, masks zero", 0, 1, 0, 4, ped,
+     rued},
     {"mldsa44z", "control: ML-DSA-44 signing, key test, masks zero",
      NQMLDSA44, 1, 0, 8, pdsa, rdsa},
     {"mldsa44yz", "control: ML-DSA-44 signing, nonce test, masks zero",

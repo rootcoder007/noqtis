@@ -53,11 +53,16 @@ static void tpae(void) {
                 (const uint8_t *)P, strlen(P), env, sizeof env - 1, &n),
          NQOK);
   env[n] = 0;
+  /* Ed25519 is hedged, so the envelope's signature is checked as a
+   * signature over the PAE (and two envelopes differ) */
+  NQTEQI((long)field(env, "sig", got, sizeof got), 64);
+  NQTEQI(nqvrfy(NQED25519, pk, sizeof pk, (const uint8_t *)pae,
+                strlen(pae), NULL, 0, 0, got, 64),
+         NQOK);
   NQTEQI(nqsign(NQED25519, sk, sizeof sk, (const uint8_t *)pae,
                 strlen(pae), NULL, 0, 0, want, sizeof want, &sn),
          NQOK);
-  NQTEQI((long)field(env, "sig", got, sizeof got), 64);
-  NQTCHK(memcmp(got, want, 64) == 0);
+  NQTCHK(memcmp(got, want, 64) != 0);
   NQTCHK(strstr(env, "\"payloadType\":\"http://example.com/HelloWorld\"") !=
          NULL);
   NQTCHK(strncmp(env, "{\"payload\":\"aGVsbG8gd29ybGQ=\"", 28) == 0);

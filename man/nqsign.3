@@ -111,10 +111,18 @@ No context and
 .Fa ph
 .Dv NQS512
 is Ed25519ph (no other hash).
-It is deterministic:
+.Fn nqsign
+hedges it: the nonce hash also takes 32 fresh random bytes, placed with
+the secret prefix in a SHA-512 block of their own, so that a power
+analysis of the hash finds no fixed secret mixed with message bytes; the
+signature verifies as any RFC 8032 one.
 .Fn nqsignd
-takes no randomness
+gives RFC 8032's deterministic signature and takes no randomness
 .Pq Fa rnd No may be Dv NULL No with Fa rndlen No 0 .
+Signing (and key generation) is first-order masked: the secret scalar is
+split into two fresh shares modulo the group order, the public key is
+the sum of one ladder per share, every ladder starts from the base point
+in random projective coordinates, and S is computed share by share.
 Verification refuses a public key of small or mixed order, a scalar S
 not below the group order, and any non-canonical encoding.
 .Pp

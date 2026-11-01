@@ -8,7 +8,9 @@
  * complement by definition, so & on it is exact. */
 #include <string.h>
 
+#include "noqtis.h"
 #include "core/int.h"
+#include "core/lk.h"
 #include "ed/ed.h"
 #include "hash/h.h"
 
@@ -223,6 +225,19 @@ static void gpack(uint8_t r[32], ge p) {
   r[31] = (uint8_t)(r[31] ^ (par(tx) << 7));
 }
 
+/* TVLA build: every limb of a point's coordinates to the hook */
+#ifdef NQTVLA
+static void lkg(ge p) {
+  int i, j;
+  for (i = 0; i < 4; i++) {
+    for (j = 0; j < 16; j++) NQLK((uint64_t)p[i][j], NQLKSH);
+  }
+}
+#define NQLKG(p) lkg(p)
+#else
+#define NQLKG(p) ((void)0)
+#endif
+
 /* p = [s]q; q is used as scratch */
 static void gmul(ge p, ge q, const uint8_t s[32]) {
   int i, b;
@@ -236,6 +251,7 @@ static void gmul(ge p, ge q, const uint8_t s[32]) {
     gadd(q, p);
     gadd(p, p);
     gswap(p, q, b);
+    NQLKG(p);
   }
 }
 
@@ -283,6 +299,120 @@ static void red(uint8_t r[64]) {
   memset(r, 0, 64);
   modl(r, x);
   nqwipe(x, sizeof x);
+}
+
+/* ---- first-order masking of the secret scalar ---- */
+
+/* a nonzero field element from the random source (1 in the TVLA
+ * control, where every mask is zero) */
+static int rfe(gf o) {
+  uint8_t b[32];
+  int rc;
+  do {
+    rc = nqrand(b, sizeof b);
+    b[31] &= 127;
+    unpk(o, b);
+  } while (rc == NQOK && isz(o));
+  if (NQLKZM(1) == 0) fcpy(o, g1);
+  nqwipe(b, sizeof b);
+  return rc;
+}
+
+/* p = [s]B with the base point in random projective coordinates:
+ * (lx, ly, l, lxy) is B for every nonzero l, so no intermediate of the
+ * ladder is a fixed function of s */
+static int gbasem(ge p, const uint8_t s[32]) {
+  ge q;
+  gf l;
+  int rc = rfe(l);
+  fm(q[0], cx, l);
+  fm(q[1], cy, l);
+  fcpy(q[2], l);
+  fm(q[3], cx, cy);
+  fm(q[3], q[3], l);
+  gmul(p, q, s);
+  nqwipe(q, sizeof q);
+  nqwipe(l, sizeof l);
+  return rc;
+}
+
+/* x (64 limbs, each in [0, 255]) from the signed limbs of a value that
+ * is not negative */
+static void norm(int64_t x[64]) {
+  int i;
+  for (i = 0; i < 63; i++) {
+    const int64_t c = fl(x[i], 8);
+    x[i] -= c * 256;
+    x[i + 1] += c;
+  }
+}
+
+/* s = a - b mod L, for a and b below L */
+static void scsub(uint8_t s[32], const uint8_t a[32], const uint8_t b[32]) {
+  int64_t x[64];
+  int i;
+  for (i = 0; i < 64; i++) x[i] = 0;
+  for (i = 0; i < 32; i++) x[i] = (int64_t)a[i] - b[i] + cl[i];
+  norm(x);
+  modl(s, x);
+  nqwipe(x, sizeof x);
+}
+
+/* s = r + k a mod L (r may be NULL for 0) */
+static void scma(uint8_t s[32], const uint8_t *r, const uint8_t k[32],
+                 const uint8_t a[32]) {
+  int64_t x[64];
+  int i, j;
+  for (i = 0; i < 64; i++) x[i] = 0;
+  if (r != NULL) {
+    for (i = 0; i < 32; i++) x[i] = r[i];
+  }
+  for (i = 0; i < 32; i++) {
+    for (j = 0; j < 32; j++) x[i + j] += (int64_t)k[i] * (int64_t)a[j];
+  }
+  modl(s, x);
+  nqwipe(x, sizeof x);
+}
+
+/* the clamped scalar a of sk (mod L) as two shares, a = a0 + a1 mod L,
+ * a0 uniform and fresh on every call; and h, the 64-byte hash of sk,
+ * whose second half is the nonce prefix */
+static int split(const uint8_t sk[NQEDSK], uint8_t h[64], uint8_t a0[32],
+                 uint8_t a1[32]) {
+  uint8_t t[64], u[64];
+  int rc, i;
+  NQLKST(1);
+  nqs512(sk, NQEDSK, h);
+  h[0] &= 248;
+  h[31] &= 127;
+  h[31] |= 64;
+  memcpy(t, h, 32);
+  memset(t + 32, 0, 32);
+  red(t); /* a mod L */
+  rc = nqrand(u, sizeof u);
+  for (i = 0; i < 64; i++) u[i] = (uint8_t)NQLKZM(u[i]);
+  red(u);
+  memcpy(a0, u, 32);
+  scsub(a1, t, a0);
+  for (i = 0; i < 32; i++) NQLK(t[i], NQLKUN);
+  NQLKST(2);
+  for (i = 0; i < 32; i++) NQLK(a0[i], NQLKSH);
+  for (i = 0; i < 32; i++) NQLK(a1[i], NQLKSH);
+  nqwipe(t, sizeof t);
+  nqwipe(u, sizeof u);
+  return rc;
+}
+
+/* A = [a0]B + [a1]B, each share through its own randomised ladder */
+static int pubm(uint8_t pk[32], const uint8_t a0[32], const uint8_t a1[32]) {
+  ge p, q;
+  int rc = gbasem(p, a0);
+  if (rc == NQOK) rc = gbasem(q, a1);
+  gadd(p, q);
+  gpack(pk, p);
+  nqwipe(p, sizeof p);
+  nqwipe(q, sizeof q);
+  return rc;
 }
 
 /* -A from its encoding, or -1 when the encoding is not canonical or not
@@ -380,28 +510,34 @@ static int args(const uint8_t *msg, size_t msglen, const uint8_t *ctx,
 }
 
 int nqedkg(const uint8_t sk[NQEDSK], uint8_t pk[NQEDPK]) {
-  uint8_t h[64];
-  ge p;
+  uint8_t h[64], a0[32], a1[32], out[32];
+  int rc;
   if (sk == NULL || pk == NULL) return NQEARG;
-  nqs512(sk, NQEDSK, h);
-  h[0] &= 248;
-  h[31] &= 127;
-  h[31] |= 64;
-  gbase(p, h);
-  gpack(pk, p);
+  rc = split(sk, h, a0, a1);
+  if (rc == NQOK) rc = pubm(out, a0, a1);
+  if (rc == NQOK) memcpy(pk, out, 32); /* pk may overlap sk */
   nqwipe(h, sizeof h);
-  nqwipe(p, sizeof p);
-  return NQOK;
+  nqwipe(a0, sizeof a0);
+  nqwipe(a1, sizeof a1);
+  nqwipe(out, sizeof out);
+  return rc;
 }
 
 int nqedsign(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
              const uint8_t *ctx, size_t ctxlen, int ph,
              uint8_t sig[NQEDSIG]) {
-  uint8_t h[64], r[64], k[64], pk[32], mh[64], out[64];
+  return nqedsignz(sk, msg, msglen, ctx, ctxlen, ph, NULL, sig);
+}
+
+int nqedsignz(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
+              const uint8_t *ctx, size_t ctxlen, int ph,
+              const uint8_t z[32], uint8_t sig[NQEDSIG]) {
+  uint8_t h[64], r[64], k[64], pk[32], mh[64], out[64], a0[32], a1[32];
+  uint8_t s0[32], s1[32], zb[64 + 128];
   const uint8_t *m = msg;
   size_t ml = msglen;
   int64_t x[64];
-  int i, j, rc = args(msg, msglen, ctx, ctxlen);
+  int i, rc = args(msg, msglen, ctx, ctxlen);
   ge p;
   if (rc != NQOK) return rc;
   if (sk == NULL || sig == NULL) return NQEARG;
@@ -410,34 +546,55 @@ int nqedsign(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
     m = mh;
     ml = 64;
   }
-  nqs512(sk, NQEDSK, h);
-  h[0] &= 248;
-  h[31] &= 127;
-  h[31] |= 64;
-  gbase(p, h);
-  gpack(pk, p);
-  /* r = H(dom2 || prefix || M) mod L, R = [r]B */
-  hdom(r, ph, ctx, ctxlen, h + 32, 32, NULL, 0, m, ml);
-  red(r);
-  gbase(p, r);
-  gpack(out, p);
-  /* k = H(dom2 || R || A || M) mod L, S = r + k a mod L */
-  hdom(k, ph, ctx, ctxlen, out, 32, pk, 32, m, ml);
-  red(k);
-  for (i = 0; i < 64; i++) x[i] = 0;
-  for (i = 0; i < 32; i++) x[i] = r[i];
-  for (i = 0; i < 32; i++) {
-    for (j = 0; j < 32; j++) x[i + j] += (int64_t)k[i] * (int64_t)h[j];
+  rc = split(sk, h, a0, a1);
+  if (rc == NQOK) rc = pubm(pk, a0, a1);
+  if (rc == NQOK && z == NULL) {
+    /* RFC 8032: r = H(dom2 || prefix || M) mod L */
+    hdom(r, ph, ctx, ctxlen, h + 32, 32, NULL, 0, m, ml);
+  } else if (rc == NQOK) {
+    /* hedged: r = H(dom2 || Z || prefix || 0... || M) mod L, the zeros
+     * ending the block, so that the secret prefix is only ever hashed
+     * with the fresh Z, never with message bytes */
+    const size_t dl = (ph || ctxlen > 0) ? sizeof dom - 1 + 2 + ctxlen : 0;
+    const size_t pad = (128 - (dl + 64) % 128) % 128;
+    memset(zb, 0, sizeof zb);
+    memcpy(zb, z, 32);
+    memcpy(zb + 32, h + 32, 32);
+    hdom(r, ph, ctx, ctxlen, zb, 64 + pad, NULL, 0, m, ml);
   }
-  modl(out + 32, x);
-  /* the whole signature at the end: sig may overlap msg */
-  memcpy(sig, out, NQEDSIG);
+  if (rc == NQOK) {
+    red(r);
+    rc = gbasem(p, r);
+  }
+  if (rc == NQOK) {
+    gpack(out, p);
+    /* k = H(dom2 || R || A || M) mod L; S = (r + k a0) + k a1 mod L, the
+     * shares reduced apart */
+    hdom(k, ph, ctx, ctxlen, out, 32, pk, 32, m, ml);
+    red(k);
+    scma(s0, r, k, a0);
+    scma(s1, NULL, k, a1);
+    for (i = 0; i < 32; i++) NQLK(s0[i], NQLKSH);
+    for (i = 0; i < 32; i++) NQLK(s1[i], NQLKSH);
+    for (i = 0; i < 64; i++) x[i] = 0;
+    for (i = 0; i < 32; i++) x[i] = (int64_t)s0[i] + s1[i];
+    modl(out + 32, x);
+    NQLKST(10);
+    for (i = 0; i < 64; i++) NQLK(out[i], NQLKOUT);
+    /* the whole signature at the end: sig may overlap msg */
+    memcpy(sig, out, NQEDSIG);
+  }
   nqwipe(h, sizeof h);
   nqwipe(r, sizeof r);
   nqwipe(x, sizeof x);
   nqwipe(p, sizeof p);
   nqwipe(out, sizeof out);
-  return NQOK;
+  nqwipe(a0, sizeof a0);
+  nqwipe(a1, sizeof a1);
+  nqwipe(s0, sizeof s0);
+  nqwipe(s1, sizeof s1);
+  nqwipe(zb, sizeof zb);
+  return rc;
 }
 
 int nqedvrfy(const uint8_t pk[NQEDPK], const uint8_t *msg, size_t msglen,

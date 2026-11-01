@@ -291,8 +291,10 @@ static void ted(void) {
     ol = sizeof ob;
     NQTCHK(EVP_PKEY_get_raw_public_key(k, ob, &ol) == 1 && ol == 32);
     NQTEQM(ob, pk, 32);
-    NQTEQI(nqsign(NQED25519, sk, 32, m, mn, ctx, cn,
-                  v == 2 ? (int)NQS512 : 0, s1, 64, &sl), NQOK);
+    /* the deterministic signature byte for byte (nqsign is hedged: its
+     * signature is checked by OpenSSL below) */
+    NQTEQI(nqsignd(NQED25519, sk, 32, m, mn, ctx, cn,
+                   v == 2 ? (int)NQS512 : 0, NULL, 0, s1, 64, &sl), NQOK);
     p[n++] = OSSL_PARAM_construct_utf8_string(
         OSSL_SIGNATURE_PARAM_INSTANCE, (char *)(uintptr_t)inst[v], 0);
     if (cn > 0)
@@ -308,6 +310,16 @@ static void ted(void) {
     NQTEQM(s1, s2, 64);
     NQTEQI(nqvrfy(NQED25519, pk, 32, m, mn, ctx, cn,
                   v == 2 ? (int)NQS512 : 0, s2, 64), NQOK);
+    /* the hedged signature differs from the deterministic one, and
+     * OpenSSL accepts it */
+    NQTEQI(nqsign(NQED25519, sk, 32, m, mn, ctx, cn,
+                  v == 2 ? (int)NQS512 : 0, s1, 64, &sl), NQOK);
+    NQTCHK(memcmp(s1, s2, 64) != 0);
+    c = EVP_MD_CTX_new();
+    NQTCHK(c != NULL &&
+           EVP_DigestVerifyInit_ex(c, NULL, NULL, NULL, NULL, k, p) == 1);
+    NQTCHK(c != NULL && EVP_DigestVerify(c, s1, 64, m, mn) == 1);
+    EVP_MD_CTX_free(c);
     s2[i % 64] ^= 1;
     c = EVP_MD_CTX_new();
     NQTCHK(c != NULL &&

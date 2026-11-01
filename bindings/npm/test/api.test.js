@@ -49,7 +49,7 @@ for (const a of SIGS) {
     const msg = new TextEncoder().encode(`message for ${a.name}`);
     const ctx = 'noqtis-js';
     const slow = /^SLH-DSA-.*s$/.test(a.name);
-    // Ed25519 has no randomness: every signature is deterministic
+    // Ed25519's seed length differs; it is hedged like the others
     const ed = a.name === 'Ed25519';
     // Ed25519 and the hybrids pre-hash with SHA-512 only
     const edph = a.name.endsWith('Ed25519');
@@ -77,13 +77,12 @@ for (const a of SIGS) {
     // The SLH-DSA "s" sets sign slowly, so they make fewer signatures.
     const d1 = sign.sign(a.name, sk, msg, { ctx, deterministic: true });
     assert.equal(sign.verify(a.name, pk, msg, d1, { ctx }), true);
-    if (ed) assert.equal(hex(sig), hex(d1));
-    else assert.notEqual(hex(sig), hex(d1));
+    assert.notEqual(hex(sig), hex(d1));
     if (!slow) {
       const d2 = sign.sign(a.name, sk, msg, { ctx, deterministic: true });
       assert.equal(hex(d1), hex(d2));
       const h2 = sign.sign(a.name, sk, msg, { ctx });
-      if (!ed) assert.notEqual(hex(sig), hex(h2));
+      assert.notEqual(hex(sig), hex(h2));
       // string messages are UTF-8
       const s2 = sign.sign(a.name, sk, 'héllo');
       assert.equal(sign.verify(a.name, pk,

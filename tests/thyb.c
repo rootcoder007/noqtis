@@ -75,12 +75,20 @@ static void ted(void) {
   NQTEQI(nqsign(NQED25519, sk, 32, m, 5, NULL, 0, 0, sig, 64, &ol), NQOK);
   NQTEQI((int)ol, 64);
   NQTEQI(nqvrfy(NQED25519, pk, 32, m, 5, NULL, 0, 0, sig, 64), NQOK);
-  /* deterministic: nqsignd takes no randomness */
+  /* nqsignd is RFC 8032's deterministic signature; nqsign is hedged:
+   * two of its signatures differ, and both verify */
   {
-    uint8_t s2[64];
+    uint8_t s2[64], s3[64];
     NQTEQI(nqsignd(NQED25519, sk, 32, m, 5, NULL, 0, 0, NULL, 0, s2, 64,
                    &ol), NQOK);
-    NQTEQM(s2, sig, 64);
+    NQTEQI(nqsignd(NQED25519, sk, 32, m, 5, NULL, 0, 0, NULL, 0, s3, 64,
+                   &ol), NQOK);
+    NQTEQM(s2, s3, 64);
+    NQTEQI(nqvrfy(NQED25519, pk, 32, m, 5, NULL, 0, 0, s2, 64), NQOK);
+    NQTCHK(memcmp(s2, sig, 64) != 0);
+    NQTEQI(nqsign(NQED25519, sk, 32, m, 5, NULL, 0, 0, s3, 64, &ol), NQOK);
+    NQTCHK(memcmp(s3, sig, 64) != 0);
+    NQTEQI(nqvrfy(NQED25519, pk, 32, m, 5, NULL, 0, 0, s3, 64), NQOK);
     NQTEQI(nqsignd(NQED25519, sk, 32, m, 5, NULL, 0, 0, m, 1, s2, 64, &ol),
            NQEARG);
   }

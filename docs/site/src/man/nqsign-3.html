@@ -225,18 +225,27 @@
     sets give small signatures and slow signing, the
     &#x2018;<code class="Li">f</code>&#x2019; sets fast signing and larger
     signatures.</p>
-<p class="Pp" id="nqsignd"><code class="Dv">NQED25519</code> is Ed25519 (RFC
+<p class="Pp" id="nqsign"><code class="Dv">NQED25519</code> is Ed25519 (RFC
     8032): classical, not post-quantum, for interoperation (DSSE envelopes,
     say); a capsule is never sealed with it alone. No context and
     <var class="Fa">ph</var> 0 is Ed25519; a context is Ed25519ctx;
     <var class="Fa">ph</var> <code class="Dv">NQS512</code> is Ed25519ph (no
-    other hash). It is deterministic:
-    <a class="permalink" href="#nqsignd"><code class="Fn">nqsignd</code></a>()
-    takes no randomness (<var class="Fa">rnd</var> <span class="No">may
-    be</span> <code class="Dv">NULL</code> <span class="No">with</span>
-    <var class="Fa">rndlen</var> <span class="No">0</span>). Verification
-    refuses a public key of small or mixed order, a scalar S not below the group
-    order, and any non-canonical encoding.</p>
+    other hash).
+    <a class="permalink" href="#nqsign"><code class="Fn">nqsign</code></a>()
+    hedges it: the nonce hash also takes 32 fresh random bytes, placed with the
+    secret prefix in a SHA-512 block of their own, so that a power analysis of
+    the hash finds no fixed secret mixed with message bytes; the signature
+    verifies as any RFC 8032 one. <code class="Fn">nqsignd</code>() gives RFC
+    8032's deterministic signature and takes no randomness
+    (<var class="Fa">rnd</var> <span class="No">may be</span>
+    <code class="Dv">NULL</code> <span class="No">with</span>
+    <var class="Fa">rndlen</var> <span class="No">0</span>). Signing (and key
+    generation) is first-order masked: the secret scalar is split into two fresh
+    shares modulo the group order, the public key is the sum of one ladder per
+    share, every ladder starts from the base point in random projective
+    coordinates, and S is computed share by share. Verification refuses a public
+    key of small or mixed order, a scalar S not below the group order, and any
+    non-canonical encoding.</p>
 <p class="Pp">The hybrid sets <code class="Dv">NQMDED44</code>,
     <code class="Dv">NQMDED65</code> and <code class="Dv">NQMDED87</code> sign
     with ML-DSA and Ed25519 at once: the public key is the ML-DSA public key
@@ -296,12 +305,11 @@
     HashML-DSA or HashSLH-DSA, where <var class="Fa">msg</var> is still the
     message and is hashed by the function. Any of the twelve hashes may be used;
     for SHAKE128 and SHAKE256 the digest is 32 and 64 bytes.</p>
-<p class="Pp" id="nqsignd~2"><a class="permalink" href="#nqsignd~2"><code class="Fn">nqsignd</code></a>()
-    is
-    <a class="permalink" href="#nqsign"><code class="Fn" id="nqsign">nqsign</code></a>()
-    with the standard's per-signature randomness <var class="Fa">rnd</var> given
-    by the caller: exactly 32 bytes for ML-DSA, n bytes (16, 24 or 32) for
-    SLH-DSA. All zero bytes give the deterministic variant of the standard.</p>
+<p class="Pp" id="nqsignd"><a class="permalink" href="#nqsignd"><code class="Fn">nqsignd</code></a>()
+    is <code class="Fn">nqsign</code>() with the standard's per-signature
+    randomness <var class="Fa">rnd</var> given by the caller: exactly 32 bytes
+    for ML-DSA, n bytes (16, 24 or 32) for SLH-DSA. All zero bytes give the
+    deterministic variant of the standard.</p>
 <p class="Pp" id="nqvrfy"><a class="permalink" href="#nqvrfy"><code class="Fn">nqvrfy</code></a>()
     checks that <var class="Fa">sig</var> of <var class="Fa">siglen</var> bytes
     is a signature of <var class="Fa">msg</var> under the public key

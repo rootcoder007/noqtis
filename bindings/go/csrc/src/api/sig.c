@@ -259,11 +259,26 @@ static size_t hyctx(uint8_t out[CTXMAX], const uint8_t *ctx, size_t ctxlen) {
   return HYBL + ctxlen;
 }
 
-/* rnd NULL: hedged (fresh randomness inside the module). */
+/* Ed25519 on its own or in a hybrid: hedged with a fresh Z (nqsign),
+ * or RFC 8032's deterministic signature (det, nqsignd) */
+static int edsign(const uint8_t *sk, const uint8_t *msg, size_t msglen,
+                  const uint8_t *ctx, size_t ctxlen, int e, int det,
+                  uint8_t *sig) {
+  uint8_t z[32];
+  int rc = det ? NQOK : nqrand(z, sizeof z);
+  if (rc == NQOK) {
+    rc = nqedsignz(sk, msg, msglen, ctx, ctxlen, e, det ? NULL : z, sig);
+  }
+  nqwipe(z, sizeof z);
+  return rc;
+}
+
+/* rnd NULL: hedged (fresh randomness inside the module); det: Ed25519's
+ * deterministic signature (nqsignd) */
 static int sign(nqsalg alg, const uint8_t *sk, size_t sklen,
                 const uint8_t *msg, size_t msglen, const uint8_t *ctx,
                 size_t ctxlen, int ph, const uint8_t *rnd, size_t rndlen,
-                uint8_t *sig, size_t siglen, size_t *outlen) {
+                int det, uint8_t *sig, size_t siglen, size_t *outlen) {
   nqssz sz;
   size_t n = 0;
   int rc;
@@ -287,7 +302,7 @@ static int sign(nqsalg alg, const uint8_t *sk, size_t sklen,
     } else if (sklen != NQEDSK) {
       rc = NQEDEC;
     } else {
-      rc = nqedsign(sk, msg, msglen, ctx, ctxlen, e, sig);
+      rc = edsign(sk, msg, msglen, ctx, ctxlen, e, det, sig);
       n = NQEDSIG;
     }
   } else if (ishy(alg)) {
@@ -302,7 +317,7 @@ static int sign(nqsalg alg, const uint8_t *sk, size_t sklen,
     } else {
       /* Ed25519 first, while msg is whole: sig may overlap msg, and
        * ML-DSA signs in place */
-      rc = nqedsign(sk + ms, msg, msglen, hc, hl, e, es);
+      rc = edsign(sk + ms, msg, msglen, hc, hl, e, det, es);
       if (rc == NQOK) {
         rc = nqmdsign((int)mdof(alg), sk, ms, msg, msglen, hc, hl, ph, rnd,
                       rndlen, sig, mg, &n);
@@ -333,8 +348,8 @@ static int sign(nqsalg alg, const uint8_t *sk, size_t sklen,
 int nqsign(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *msg,
            size_t msglen, const uint8_t *ctx, size_t ctxlen, int ph,
            uint8_t *sig, size_t siglen, size_t *outlen) {
-  return sign(alg, sk, sklen, msg, msglen, ctx, ctxlen, ph, NULL, 0, sig,
-              siglen, outlen);
+  return sign(alg, sk, sklen, msg, msglen, ctx, ctxlen, ph, NULL, 0, 0,
+              sig, siglen, outlen);
 }
 
 int nqsignd(nqsalg alg, const uint8_t *sk, size_t sklen,
@@ -361,7 +376,8 @@ int nqsignd(nqsalg alg, const uint8_t *sk, size_t sklen,
     return NQEARG;
   }
   return sign(alg, sk, sklen, msg, msglen, ctx, ctxlen, ph,
-              alg == NQED25519 ? NULL : rnd, rndlen, sig, siglen, outlen);
+              alg == NQED25519 ? NULL : rnd, rndlen, 1, sig, siglen,
+              outlen);
 }
 
 int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen, const uint8_t *msg,

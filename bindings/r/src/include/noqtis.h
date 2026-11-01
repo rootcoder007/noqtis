@@ -148,9 +148,11 @@ NQAPI int nqsign(nqsalg alg, const uint8_t *sk, size_t sklen,
                  const uint8_t *ctx, size_t ctxlen, int ph,
                  uint8_t *sig, size_t siglen, size_t *outlen);
 /* rnd is the standard's per-signature randomness (32 bytes for ML-DSA
- * and the hybrids, n bytes for SLH-DSA, none for Ed25519, which is
- * deterministic: rnd may then be NULL with rndlen 0); all zero gives the
- * deterministic variant. */
+ * and the hybrids, n bytes for SLH-DSA, none for Ed25519: rnd may then be
+ * NULL with rndlen 0); all zero gives the deterministic variant. Ed25519
+ * (alone or in a hybrid) signs deterministically here, as RFC 8032 does;
+ * nqsign hedges it with fresh randomness instead, which verifies the same
+ * way. */
 NQAPI int nqsignd(nqsalg alg, const uint8_t *sk, size_t sklen,
                   const uint8_t *msg, size_t msglen,
                   const uint8_t *ctx, size_t ctxlen, int ph,
