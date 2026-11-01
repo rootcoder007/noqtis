@@ -16,13 +16,14 @@ j=${NQJOBS:-2}
 mkdir -p "$b"
 
 # on Windows, with the C runtime linked in (/MT) as in the Maven Central
-# jar; other compilers ignore the setting
-set -- -DCMAKE_BUILD_TYPE=Release -DNQSHARED=ON -DNQTESTS=OFF -DNQCLI=OFF \
-  -DNQMAN=OFF
+# jar (the script's own arguments stay in "$@")
+rt=MultiThreadedDLL
 case $(uname -s) in
-  MINGW* | MSYS* | CYGWIN*) set -- "$@" -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ;;
+  MINGW* | MSYS* | CYGWIN*) rt=MultiThreaded ;;
 esac
-cmake -S ../.. -B "$b/lib" "$@" >"$b/cmake.log"
+cmake -S ../.. -B "$b/lib" -DCMAKE_BUILD_TYPE=Release -DNQSHARED=ON \
+  -DNQTESTS=OFF -DNQCLI=OFF -DNQMAN=OFF \
+  -DCMAKE_MSVC_RUNTIME_LIBRARY="$rt" >"$b/cmake.log"
 cmake --build "$b/lib" --config Release -j "$j" >>"$b/cmake.log"
 
 lib=
