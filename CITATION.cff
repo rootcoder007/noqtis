@@ -3,7 +3,7 @@
 cff-version: 1.2.0
 message: "If you use NOQTIS in your work, please cite it as below."
 type: software
-title: "NOQTIS: Notary Of Quantum-safe Traceable Inputs and Seals"
+title: "NOQTIS: Notary of Quantum-Safe Traceable Inputs and Seals"
 abstract: >-
   NOQTIS is a C11 library and command-line tool, with no dependencies,
   that seals a folder of files (the exact data, code and outputs behind a

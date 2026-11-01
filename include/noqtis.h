@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
- * noqtis: Notary Of Quantum-safe Traceable Inputs and Seals.
+ * noqtis: Notary of Quantum-Safe Traceable Inputs and Seals.
  *
  * Public interface. Every function returns NQOK (0) or a negative NQE*
  * code; a failed verification is NQEVRFY, never NQOK. Callers allocate

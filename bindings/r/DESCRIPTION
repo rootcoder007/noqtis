@@ -1,6 +1,6 @@
 Package: noqtis
 Type: Package
-Title: Post-Quantum Signing, Key Encapsulation and Sealed Folders
+Title: Notary of Quantum-Safe Traceable Inputs and Seals
 Version: 0.1.4
 Authors@R: c(
     person(c("Vansh", "Singh"), "Ruhela", email = "vsruhela@proton.me",

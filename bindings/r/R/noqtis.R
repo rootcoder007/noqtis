@@ -1,4 +1,4 @@
-#' noqtis: post-quantum signatures, key encapsulation and file capsules
+#' noqtis: Notary of Quantum-Safe Traceable Inputs and Seals
 #'
 #' R interface to the noqtis C library, which the package bundles and
 #' compiles (C11, no dependencies): the post-quantum signature schemes

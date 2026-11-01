@@ -4,7 +4,7 @@
 \name{noqtis-package}
 \alias{noqtis}
 \alias{noqtis-package}
-\title{noqtis: post-quantum signatures, key encapsulation and file capsules}
+\title{noqtis: Notary of Quantum-Safe Traceable Inputs and Seals}
 \description{
 R interface to the noqtis C library, which the package bundles and
 compiles (C11, no dependencies): the post-quantum signature schemes

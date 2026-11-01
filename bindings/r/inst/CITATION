@@ -15,7 +15,7 @@ url <- if (identical(repo, "CRAN")) {
 bibentry(
   bibtype = "Manual",
   key     = "ruhela_noqtis_2026",
-  title   = "NOQTIS: Notary Of Quantum-safe Traceable Inputs and Seals",
+  title   = "NOQTIS: Notary of Quantum-Safe Traceable Inputs and Seals",
   author  = person(c("Vansh", "Singh"), "Ruhela",
                    comment = c(ORCID = "0009-0004-1750-3592")),
   year    = "2026",

@@ -13,7 +13,7 @@ License: Apache-2.0 WITH LLVM-exception
 LicenseUrl: https://github.com/rootcoder007/noqtis/blob/v0.1.3/LICENSE
 ShortDescription: Post-quantum signing, KEMs and sealed input records in C11
 Description: |-
-  noqtis (Notary Of Quantum-safe Traceable Inputs and Seals) signs and checks files with post-quantum
+  noqtis (Notary of Quantum-Safe Traceable Inputs and Seals) signs and checks files with post-quantum
   signatures (ML-DSA, SLH-DSA, hybrid ML-DSA + Ed25519), encrypts with post-quantum key encapsulation
   (ML-KEM, HQC) and seals signed records of the input files an analysis used.
 Moniker: noqtis
