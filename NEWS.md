@@ -1,3 +1,8 @@
+# noqtis 0.1.4
+
+- On Windows, `noqtis.exe` in the release archives (and so `install.ps1`, Scoop and winget) carries its own C runtime: it was linked against the Visual C++ runtime DLL (VCRUNTIME140.dll) and did not start on a Windows without it. The static library in the archives still uses the DLL runtime, as the programs that link it do. The Maven Central jar's Windows libraries carry their runtime too.
+- Releases: the release run stops before building anything unless every file that names the version (headers, bindings and their tests, package recipes, changelogs) names this one (`packaging/vercheck.sh`, also run by CI on every push), and unless the Go binding's tag `bindings/go/vX.Y.Z` is on the release commit, so the Go module proxy never caches the version as missing.
+
 # noqtis 0.1.3
 
 - NOQTIS builds on glibc older than 2.25 (CentOS and RHEL 7, the manylinux2014 and conda-forge build roots). These have the getrandom system call, which Linux has had since 3.17, but no `<sys/random.h>`; `nqrand` now calls it with `syscall(SYS_getrandom)` there. Nothing falls back to a weaker source; a failure is still `NQERNG`. The whole test suite passes on glibc 2.17.
