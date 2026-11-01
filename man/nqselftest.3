@@ -1,0 +1,51 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 1, 2026
+.Dt NQSELFTEST 3
+.Os
+.Sh NAME
+.Nm nqselftest
+.Nd known answers for every algorithm family
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqselftest void
+.Sh DESCRIPTION
+.Fn nqselftest
+runs fixed inputs through the public functions of every algorithm
+family and compares what they produce with answers built into the
+library, the kind of self-test a cryptographic module runs before it is
+used (FIPS 140-3, section 7.10):
+.Bl -bullet -compact
+.It
+SHA-224 to SHA-512/256, SHA3-224 to SHA3-512, SHAKE128 and SHAKE256 of
+.Dq abc ;
+.It
+HMAC-SHA-256 and HMAC-SHA-512 (RFC 4231, test case 2);
+.It
+ML-KEM-512, -768 and -1024: a key pair and an encapsulation from fixed
+seeds, and the decapsulation;
+.It
+ML-DSA-44, -65 and -87: a key pair from a fixed seed, the deterministic
+signature of a fixed message and its verification;
+.It
+SLH-DSA-SHA2-128f and SLH-DSA-SHAKE-128f: a key pair from a fixed seed;
+.It
+HQC-128: a key pair, an encapsulation and the decapsulation;
+.It
+Ed25519 and ML-DSA-44+Ed25519: a key pair, a deterministic signature and
+its verification.
+.El
+.Pp
+Each family's keys, ciphertexts, signatures, secrets and return codes
+are hashed with SHA-256; a decapsulation or verification that disagrees
+changes the hash.
+The masked decapsulations and signers run as in normal use.
+It takes about a tenth of a second and allocates nothing.
+.Sh RETURN VALUES
+.Dv NQOK
+when every answer matches;
+.Dv NQEKAT
+when one does not.
+.Sh SEE ALSO
+.Xr noqtis-selftest 1 ,
+.Xr nqerr 3

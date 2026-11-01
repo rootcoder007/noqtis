@@ -579,10 +579,27 @@ int nqedsignz(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
     for (i = 0; i < 64; i++) x[i] = 0;
     for (i = 0; i < 32; i++) x[i] = (int64_t)s0[i] + s1[i];
     modl(out + 32, x);
+    {
+      /* the check after signing: [S]B + [k](-A) must be R; a fault
+       * while signing gives a signature that fails it, not returned */
+      ge q2, p2;
+      uint8_t t[32];
+      if (unneg(q2, pk) != 0) {
+        rc = NQEFLT;
+      } else {
+        gmul(p2, q2, k);
+        gbase(q2, out + 32);
+        gadd(p2, q2);
+        gpack(t, p2);
+        if (memcmp(t, out, 32) != 0) rc = NQEFLT;
+      }
+      nqwipe(p2, sizeof p2);
+      nqwipe(q2, sizeof q2);
+    }
     NQLKST(10);
     for (i = 0; i < 64; i++) NQLK(out[i], NQLKOUT);
     /* the whole signature at the end: sig may overlap msg */
-    memcpy(sig, out, NQEDSIG);
+    if (rc == NQOK) memcpy(sig, out, NQEDSIG);
   }
   nqwipe(h, sizeof h);
   nqwipe(r, sizeof r);

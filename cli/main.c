@@ -27,6 +27,7 @@ typedef struct {
 
 static int ncver(int argc, char **argv);
 static int ncalgs(int argc, char **argv);
+static int ncself(int argc, char **argv);
 static int nchelp(int argc, char **argv);
 
 static const nccmd cmds[] = {
@@ -182,6 +183,10 @@ static const nccmd cmds[] = {
    "  manifest parse, 1 when one does not, 2 on a usage or folder error.\n"},
   {"algs", ncalgs, "list algorithms and sizes",
    "usage: noqtis algs\n"},
+  {"selftest", ncself, "run the known-answer self-test",
+   "usage: noqtis selftest\n"
+   "  Runs nqselftest: known answers for every algorithm family. Exit 0\n"
+   "  when every one matches, 1 when one does not.\n"},
   {"version", ncver, "print the version",
    "usage: noqtis version\n"},
   {"help", nchelp, "show help for a command",
@@ -399,6 +404,18 @@ static int ncver(int argc, char **argv) {
   if (rc != NCOK)
     return rc < 0 ? NCOK : rc;
   printf("noqtis %s\n", nqver());
+  return NCOK;
+}
+
+static int ncself(int argc, char **argv) {
+  int rc = noargs("selftest", argc, argv);
+  if (rc != NCOK)
+    return rc < 0 ? NCOK : rc;
+  if (nqselftest() != NQOK) {
+    printf("selftest: a known answer did not match\n");
+    return NCBAD;
+  }
+  printf("selftest: every known answer matches\n");
   return NCOK;
 }
 

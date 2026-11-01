@@ -34,11 +34,15 @@ public class NoqtisException extends RuntimeException {
     LIMIT,
     /** A context was used out of order (NQESTATE). */
     STATE,
+    /** A signature failed the check made right after signing (NQEFLT). */
+    FAULT,
+    /** A known answer of the self-test did not match (NQEKAT). */
+    SELFTEST,
     /** A code this binding does not know. */
     OTHER;
 
     static Code of(int c) {
-      return c <= -1 && c >= -10 ? values()[-c - 1] : OTHER;
+      return c <= -1 && c >= -12 ? values()[-c - 1] : OTHER;
     }
   }
 

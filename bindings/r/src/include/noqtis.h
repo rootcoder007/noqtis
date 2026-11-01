@@ -50,9 +50,17 @@ extern "C" {
 #define NQENOSUP  -8  /* an algorithm or option noqtis does not provide */
 #define NQELIM    -9  /* input exceeds a size or depth limit */
 #define NQESTATE -10  /* a context was used out of order */
+#define NQEFLT   -11  /* a signature failed the check made right after
+                       * signing (a fault); it was wiped, not returned */
+#define NQEKAT   -12  /* a known answer of nqselftest did not match */
 
 NQAPI const char *nqerr(int err);
 NQAPI const char *nqver(void);
+/* Known answers for every algorithm family (hashes, HMAC, ML-KEM,
+ * ML-DSA, SLH-DSA key generation, HQC, Ed25519 and a hybrid), run in
+ * about a tenth of a second: NQOK, or NQEKAT when one does not match. A
+ * module can run it once before use, as FIPS 140-3 asks. */
+NQAPI int nqselftest(void);
 
 /* ---- core ----------------------------------------------------------- */
 
@@ -65,6 +73,16 @@ NQAPI int nqcteq(const void *a, const void *b, size_t len);
 
 /* Fills buf with len bytes from the operating system's CSPRNG. */
 NQAPI int nqrand(uint8_t *buf, size_t len);
+/* A random source of the caller's (a hardware generator, an HSM, a
+ * DRBG the caller seeds): fn fills len bytes at buf and returns 0, or
+ * anything else on failure (then noqtis returns NQERNG). From then on
+ * nqrand, and every masked or hedged operation, draws from it; fn NULL
+ * restores the operating system's source. Not thread-safe against
+ * concurrent calls into noqtis: set it once at start. In a freestanding
+ * build (NQFREE) there is no operating system source, and nqrand fails
+ * until a source is set. */
+typedef int (*nqrngfn)(uint8_t *buf, size_t len, void *user);
+NQAPI int nqsetrng(nqrngfn fn, void *user);
 
 /* Replaces the allocator the capsule and parser layers use; NULL for both
  * restores malloc/free. Not thread safe: call before anything else. */

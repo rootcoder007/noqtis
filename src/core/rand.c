@@ -9,7 +9,9 @@
 
 #include "noqtis.h"
 
-#if defined(_WIN32)
+#if defined(NQFREE)
+/* freestanding: no operating system source, only nqsetrng's */
+#elif defined(_WIN32)
 #include <windows.h>
 #include <bcrypt.h>
 #elif defined(__EMSCRIPTEN__) || defined(__wasi__)
@@ -37,11 +39,25 @@
 #error "noqtis: no CSPRNG known for this platform"
 #endif
 
+static nqrngfn currng = NULL;
+static void *rnguser = NULL;
+
+int nqsetrng(nqrngfn fn, void *user) {
+  currng = fn;
+  rnguser = fn != NULL ? user : NULL;
+  return NQOK;
+}
+
 int nqrand(uint8_t *buf, size_t len) {
   if (buf == NULL && len != 0) {
     return NQEARG;
   }
-#if defined(_WIN32)
+  if (currng != NULL) {
+    return currng(buf, len, rnguser) == 0 ? NQOK : NQERNG;
+  }
+#if defined(NQFREE)
+  return NQERNG;
+#elif defined(_WIN32)
   while (len > 0) {
     ULONG chunk = len > 0x10000000u ? 0x10000000u : (ULONG)len;
     if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, buf, chunk,

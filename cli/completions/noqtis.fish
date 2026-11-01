@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp algs version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -29,6 +29,7 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a rotate -d 'say 
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a revoke -d 'say a seal key is revoked'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a idcard -d 'make or check an identity card'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a inspect -d 'show what a seal says'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a selftest -d 'run the known-answer self-test'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a timestamp -d 'add public timestamps'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a algs -d 'list the algorithms'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a version -d 'print the version'

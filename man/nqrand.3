@@ -3,14 +3,18 @@
 .Dt NQRAND 3
 .Os
 .Sh NAME
-.Nm nqrand
-.Nd random bytes from the operating system
+.Nm nqrand ,
+.Nm nqsetrng
+.Nd random bytes from the operating system or the caller's source
 .Sh LIBRARY
 libnoqtis, \-lnoqtis
 .Sh SYNOPSIS
 .In noqtis.h
 .Ft int
 .Fn nqrand "uint8_t *buf" "size_t len"
+.Vt typedef int (*nqrngfn)(uint8_t *buf, size_t len, void *user);
+.Ft int
+.Fn nqsetrng "nqrngfn fn" "void *user"
 .Sh DESCRIPTION
 .Fn nqrand
 fills
@@ -39,6 +43,39 @@ Every function of
 .Xr noqtis 3
 that needs randomness (key generation, hedged signing, encapsulation,
 mask shares) takes it from here.
+.Pp
+.Fn nqsetrng
+makes
+.Fn nqrand
+take its bytes from
+.Fa fn
+instead, called with
+.Fa user ;
+.Fa fn
+returns 0 when it filled
+.Fa buf
+and anything else when it failed, and
+.Fn nqrand
+then fails with
+.Er NQERNG .
+A
+.Dv NULL
+.Fa fn
+gives the operating system's source back.
+The setting is global and not synchronised: set it once, before any
+thread uses the library.
+The source must be a cryptographically secure one (a hardware random
+number generator, a DRBG seeded from one); the library does not test it.
+.Pp
+In the freestanding build
+.Pq Fl DNQFREE=ON ,
+for firmware and kernels without an operating system's source,
+.Fn nqrand
+fails with
+.Er NQERNG
+until
+.Fn nqsetrng
+has given it one.
 .Sh RETURN VALUES
 .Bl -tag -width NQERNG
 .It Dv NQOK
@@ -57,8 +94,13 @@ and
 .Fa len
 is not 0.
 .It Bq Er NQERNG
-The operating system's source failed.
+The operating system's source failed, or the caller's source did, or (in
+the freestanding build) no source was set.
 .El
+.Pp
+.Fn nqsetrng
+returns
+.Dv NQOK .
 .Sh EXAMPLES
 .Bd -literal -offset indent
 uint8_t key[32];

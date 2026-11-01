@@ -1,0 +1,26 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 1, 2026
+.Dt NOQTIS-SELFTEST 1
+.Os
+.Sh NAME
+.Nm noqtis-selftest
+.Nd run the known-answer self-test of noqtis
+.Sh SYNOPSIS
+.Nm noqtis selftest
+.Sh DESCRIPTION
+.Nm noqtis selftest
+runs
+.Xr nqselftest 3 :
+fixed inputs through every algorithm family (SHA-2, SHA-3 and SHAKE,
+HMAC, ML-KEM, ML-DSA, SLH-DSA key generation, HQC, Ed25519 and a
+hybrid), each family's outputs compared by their SHA-256 with the known
+answers built into the library.
+It prints
+.Dl selftest: every known answer matches
+or names the failure, and takes about a tenth of a second.
+.Sh EXIT STATUS
+0 when every known answer matches, 1 when one does not, 2 on a usage
+error.
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr nqselftest 3

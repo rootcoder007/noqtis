@@ -7,6 +7,7 @@ OBJECTS = \
   aead/ccp.o \
   aead/gcm.o \
   api/kem.o \
+  api/self.o \
   api/sig.o \
   cap/chk.o \
   cap/dsse.o \

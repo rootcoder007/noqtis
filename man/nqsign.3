@@ -309,6 +309,16 @@ unless the signature is valid.
 or
 .Fn nqsign :
 the operating system's random source failed.
+.It Bq Er NQEFLT
+.Fn nqsign
+or
+.Fn nqsignd :
+the signature just made does not verify under the public key held in the
+secret key, which happens only when the computation was disturbed (a
+glitch, a flipped memory bit) or the secret key is damaged.
+The signature is not released: a faulty signature can give away the key
+(Bindel et al. for ML-DSA, Castelnovi et al. for SLH-DSA, Romailler and
+Pelissier for Ed25519).
 .It Bq Er NQENOSUP
 .Fn nqsfind :
 no algorithm has that name.

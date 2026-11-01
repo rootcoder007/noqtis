@@ -26,6 +26,18 @@ option(NQTVLA "Compile the TVLA leakage hooks (a test build, never a release)" O
 # https:// URLs; off until it has been reviewed: nqtl* then return
 # NQENOSUP, and the tests reach the client through its internal API
 option(NQTLS "Enable the TLS 1.3 client (not yet reviewed)" OFF)
+# The algorithms alone, for firmware, bootloaders and kernels: no files,
+# no network, no operating system random source (nqsetrng) and no
+# default allocator (nqsetal); the library then needs only memcpy,
+# memmove, memset and memcmp of the C library. Implies no CLI, no tests
+# and no TLS.
+option(NQFREE "Build the freestanding, algorithms-only library" OFF)
+if(NQFREE)
+  set(NQCLI OFF CACHE BOOL "" FORCE)
+  set(NQTESTS OFF CACHE BOOL "" FORCE)
+  set(NQTLS OFF CACHE BOOL "" FORCE)
+  set(NQMAN OFF CACHE BOOL "" FORCE)
+endif()
 
 # C23's memset_explicit for nqwipe, when the build is C23 or later and
 # the C library declares it (glibc 2.43, for one)
@@ -67,6 +79,9 @@ endif()
 if(NQTLS)
   add_compile_definitions(NQTLSON)
 endif()
+if(NQFREE)
+  add_compile_definitions(NQFREE)
+endif()
 
 if(NQSAN AND NOT MSVC)
   add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer
@@ -83,6 +98,17 @@ endif()
 file(GLOB NQSRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*/*.c)
 file(GLOB NQTLSRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/tls/*.c)
 list(REMOVE_ITEM NQSRC ${NQTLSRC})
+if(NQFREE)
+  # the algorithm modules and the API over them; not cap/ (files and
+  # capsules), der/ or cls/ (certificates), the JSON reader or tls/
+  set(NQSRC "")
+  foreach(m core hash drbg mldsa slh mlkem hqc ed msk api)
+    file(GLOB s CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/${m}/*.c)
+    list(APPEND NQSRC ${s})
+  endforeach()
+  list(REMOVE_ITEM NQSRC ${PROJECT_SOURCE_DIR}/src/core/json.c)
+  set(NQTLSRC "")
+endif()
 function(nqobjlib name)
   add_library(${name} OBJECT ${ARGN})
   target_include_directories(${name}
@@ -101,10 +127,14 @@ function(nqobjlib name)
   endif()
 endfunction()
 nqobjlib(nqobj ${NQSRC})
-nqobjlib(nqtl ${NQTLSRC})
+set(NQOBJS $<TARGET_OBJECTS:nqobj>)
+if(NQTLSRC)
+  nqobjlib(nqtl ${NQTLSRC})
+  list(APPEND NQOBJS $<TARGET_OBJECTS:nqtl>)
+endif()
 
 if(NQSHARED)
-  add_library(noqtis SHARED $<TARGET_OBJECTS:nqobj> $<TARGET_OBJECTS:nqtl>)
+  add_library(noqtis SHARED ${NQOBJS})
   set_target_properties(noqtis PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR})
@@ -130,7 +160,7 @@ if(NQSHARED)
     target_compile_definitions(noqtis INTERFACE NQDLL)
   endif()
 else()
-  add_library(noqtis STATIC $<TARGET_OBJECTS:nqobj> $<TARGET_OBJECTS:nqtl>)
+  add_library(noqtis STATIC ${NQOBJS})
 endif()
 add_library(noqtis::noqtis ALIAS noqtis)
 target_include_directories(noqtis PUBLIC

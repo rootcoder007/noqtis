@@ -9,7 +9,7 @@ import nqload from '../dist/noqtis.js';
 
 const CODES = Object.freeze({
   OK: 0, EARG: -1, EBUF: -2, EVRFY: -3, EDEC: -4, ERNG: -5, EMEM: -6,
-  EIO: -7, ENOSUP: -8, ELIM: -9, ESTATE: -10,
+  EIO: -7, ENOSUP: -8, ELIM: -9, ESTATE: -10, EFLT: -11, EKAT: -12,
 });
 
 const HASHES = [

@@ -73,6 +73,31 @@ jobs:
           cmake --install build --prefix "$RUNNER_TEMP/nq"
           CC=${{ matrix.cc }} NQNEEDPC=1 tests/consumer/run.sh "$RUNNER_TEMP/nq"
 
+  freestanding:
+    # -DNQFREE=ON: the algorithms alone; the library may need nothing of
+    # the C library but these four, and works with the caller's random
+    # source
+    name: freestanding ${{ matrix.cc }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: CC=${{ matrix.cc }} cmake -S . -B build -DNQFREE=ON -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build -j4
+      - name: only memcpy, memmove, memset and strcmp from outside
+        run: |
+          u=$(nm -u build/libnoqtis.a | awk 'NF == 2 {print $2}' | grep -v '^nq' | sort -u | tr '\n' ' ')
+          echo "undefined: $u"
+          [ "$u" = "memcpy memmove memset strcmp " ]
+      - name: the self-test, a signature and a KEM round trip with the caller's source
+        run: |
+          ${{ matrix.cc }} -O2 -std=c11 -Wall -Wextra -Werror -I include tests/free/tfree.c build/libnoqtis.a -o tfree
+          ./tfree
+
   arm64:
     # arm64 Linux runners are free only for public repositories
     if: >

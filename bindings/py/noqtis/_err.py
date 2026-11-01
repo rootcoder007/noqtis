@@ -66,8 +66,18 @@ class StateError(NoqtisError):
     code = -10
 
 
+class FaultError(NoqtisError):
+    """A signature failed the check made right after signing (NQEFLT)."""
+    code = -11
+
+
+class SelfTestError(NoqtisError):
+    """A known answer of the self-test did not match (NQEKAT)."""
+    code = -12
+
+
 ERRS: Dict[int, Type[NoqtisError]] = {
     c.code: c for c in (ArgError, BufError, VerifyError, DecodeError,
                         RandError, MemError, FileError, UnsupportedError,
-                        LimitError, StateError)
+                        LimitError, StateError, FaultError, SelfTestError)
 }

@@ -288,6 +288,8 @@ static void tbasic(void) {
   ok(has("q.out", "ML-DSA-65") && has("q.out", "SLH-DSA-SHAKE-128f") &&
      has("q.out", "ML-KEM-768") && has("q.out", "HQC"),
      "algs lists every family");
+  want(0, "selftest", NULL);
+  ok(has("q.out", "every known answer matches"), "selftest passes");
   want(0, "help", NULL);
   ok(has("q.out", "keygen") && has("q.out", "check"), "help lists commands");
   want(0, "help sign", NULL);

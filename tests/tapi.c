@@ -689,6 +689,36 @@ static void treview(void) {
   tctx();
 }
 
+/* the check after signing: a secret key whose t0 (ML-DSA) or PK.root
+ * (SLH-DSA) is damaged signs nothing (NQEFLT, the output zeroed), where
+ * before the check it gave a signature that did not verify */
+static void tfault(void) {
+  static const nqsalg as[3] = {NQMLDSA44, NQSLHK128F, NQMDED44};
+  static uint8_t fpk[8000], fsk[8000], fsig[50000];
+  const uint8_t m[] = "fault";
+  size_t i, j, n;
+  for (i = 0; i < 3; i++) {
+    nqssz z;
+    NQTEQI(nqssize(as[i], &z), NQOK);
+    NQTEQI(nqskg(as[i], fpk, z.pk, fsk, z.sk), NQOK);
+    NQTEQI(nqsign(as[i], fsk, z.sk, m, sizeof m, NULL, 0, 0, fsig, z.sig, &n),
+           NQOK);
+    if (as[i] == NQSLHK128F) {
+      fsk[z.sk - 1] ^= 1; /* PK.root */
+    } else {
+      /* t0, the last 416 k bytes of the ML-DSA key: damage 64 of them */
+      for (j = 0; j < 64; j++) fsk[2560 - 1 - j] ^= 0xff;
+    }
+    memset(fsig, 0x5a, z.sig);
+    NQTEQI(nqsign(as[i], fsk, z.sk, m, sizeof m, NULL, 0, 0, fsig, z.sig, &n),
+           NQEFLT);
+    for (j = 0; j < z.sig && fsig[j] == 0; j++) {
+    }
+    NQTEQI((long)j, (long)z.sig);
+  }
+  NQTCHK(strstr(nqerr(NQEFLT), "fault") != NULL);
+}
+
 int main(void) {
   const char *f = getenv("NQFAST");
   fast = (f != NULL && f[0] == '1') || getenv("NQSLSUB") != NULL;
@@ -698,6 +728,7 @@ int main(void) {
   sigs();
   kems();
   treview();
+  tfault();
   printf("signature sets: %ld all checks, %ld one signature each, %ld "
          "keys only%s\n", levels[ALL], levels[ONE], levels[KG],
          slow   ? " (NQSLOW=1)"

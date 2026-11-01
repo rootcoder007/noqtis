@@ -134,6 +134,6 @@ _arguments -C \
     rotate\:"say a seal key was replaced" revoke\:"say a seal key is revoked"
     idcard\:"make or check an identity card"
     export\:"a capsule as in-toto, DSSE, RO-Crate or BagIt"
-    inspect\:"show what a seal says" timestamp\:"add public timestamps"
+    inspect\:"show what a seal says" selftest\:"run the known-answer self-test" timestamp\:"add public timestamps"
     algs\:"list the algorithms" version\:"print the version"))' \
   '*::arg:_noqtis_cmd'

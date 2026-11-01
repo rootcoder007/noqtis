@@ -29,6 +29,8 @@ from ._err import (
     NoqtisError,
     RandError,
     StateError,
+    FaultError,
+    SelfTestError,
     UnsupportedError,
     VerifyError,
 )
@@ -50,6 +52,8 @@ __all__ = [
     "Report",
     "Row",
     "StateError",
+    "FaultError",
+    "SelfTestError",
     "UnsupportedError",
     "VerifyError",
     "__version__",

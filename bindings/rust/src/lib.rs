@@ -52,6 +52,10 @@ pub enum Code {
     Limit,
     /// A context was used out of order (NQESTATE).
     State,
+    /// A signature failed the check made right after signing (NQEFLT).
+    Fault,
+    /// A known answer of the self-test did not match (NQEKAT).
+    SelfTest,
     /// A code this crate does not know.
     Other,
 }
@@ -69,6 +73,8 @@ impl Code {
             -8 => Code::Unsupported,
             -9 => Code::Limit,
             -10 => Code::State,
+            -11 => Code::Fault,
+            -12 => Code::SelfTest,
             _ => Code::Other,
         }
     }

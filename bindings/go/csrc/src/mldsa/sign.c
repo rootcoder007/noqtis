@@ -77,6 +77,37 @@ static void kgint(const nqmdp *p, const uint8_t *xi, uint8_t *pk,
   nqwipe(&w, sizeof w);
 }
 
+/* The public key of sk (t = A s1 + s2, rounded), for the check after
+ * signing; NQEDEC for a malformed sk. Only sk's own values go in, the
+ * same on every call. */
+static int pkof(const nqmdp *p, const uint8_t *sk, uint8_t *pk) {
+  kgws w;
+  uint8_t rho[32], key[32];
+  unsigned i, j;
+  int rc = NQOK;
+  if (nqmdsku(p, sk, rho, key, w.s1, w.s2, w.t0)) {
+    rc = NQEDEC;
+  } else {
+    for (i = 0; i < p->l; i++) {
+      w.s1h[i] = w.s1[i];
+      nqmdntt(w.s1h[i].c);
+    }
+    nqmdmat(p, rho, w.t, w.s1h, NULL, NULL);
+    for (i = 0; i < p->k; i++) {
+      nqmdred(w.t[i].c);
+      nqmdint(w.t[i].c);
+      for (j = 0; j < NQMDN; j++) w.t[i].c[j] += w.s2[i].c[j];
+      nqmdcadd(w.t[i].c);
+      p2r(w.t[i].c, w.t0[i].c);
+    }
+    memcpy(pk, rho, 32);
+    for (i = 0; i < p->k; i++) nqmdt1p(pk + 32 + 320 * i, w.t[i].c);
+  }
+  nqwipe(&w, sizeof w);
+  nqwipe(key, sizeof key);
+  return rc;
+}
+
 int nqmdkgd(int alg, const uint8_t *xi, size_t xilen, uint8_t *pk,
             size_t pklen, uint8_t *sk, size_t sklen) {
   const nqmdp *p = nqmdpar(alg);
@@ -401,6 +432,14 @@ static int sgmu(const nqmdp *p, const uint8_t *sk, const uint8_t *mu,
   if (rc == NQOK) {
     rc = msk == NQMDPLAIN ? nqmdspl(p, sk, mu, r, sig)
                           : nqmdsmk(p, sk, mu, r, sig);
+  }
+  if (rc == NQOK) {
+    /* the signature must verify under sk's own public key: a fault
+     * injected while signing (a skipped check, a flipped bit) gives one
+     * that does not, and it is not returned */
+    uint8_t pk[NQMDPKMAX];
+    rc = pkof(p, sk, pk);
+    if (rc == NQOK && vmu(p, pk, mu, sig) != NQOK) rc = NQEFLT;
   }
   nqwipe(r, sizeof r);
   if (rc != NQOK) {

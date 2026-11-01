@@ -4,7 +4,9 @@
 #include "core/int.h"
 #include "core/lk.h"
 
+#ifndef NQFREE
 #include <stdlib.h>
+#endif
 #include <string.h>
 
 #define NQSTR2(x) #x
@@ -27,6 +29,8 @@ const char *nqerr(int err) {
   case NQENOSUP: return "algorithm or option not supported";
   case NQELIM: return "input exceeds a size or depth limit";
   case NQESTATE: return "context used out of order";
+  case NQEFLT: return "the signature failed the check after signing (a fault)";
+  case NQEKAT: return "a self-test known answer did not match";
   default: return "unknown error";
   }
 }
@@ -71,15 +75,25 @@ int nqcteq(const void *a, const void *b, size_t len) {
 
 /* ---- allocator hook ---- */
 
+/* freestanding (NQFREE): no default allocator; nqsetal gives one */
 static void *defmal(size_t size, void *user) {
   (void)user;
+#ifdef NQFREE
+  (void)size;
+  return NULL;
+#else
   return malloc(size);
+#endif
 }
 
 static void deffree(void *ptr, size_t size, void *user) {
   (void)user;
   (void)size;
+#ifdef NQFREE
+  (void)ptr;
+#else
   free(ptr);
+#endif
 }
 
 static nqmalfn curmal = defmal;

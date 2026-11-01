@@ -135,6 +135,24 @@ static int sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
   /* the FORS public key is what a verifier recomputes */
   NQSLDECL(fpk, n);
   nqslhsg(&c, fpk, tree, leaf, sig + n + (size_t)p->k * (p->a + 1) * n);
+  {
+    /* the signature must verify under the public key in sk, from the
+     * digest (msg may be gone, sig overlapping it): a fault while
+     * signing gives one that does not, and it is not returned */
+    uint8_t f2[NQSLNMX];
+    int ok;
+    nqslffs(&c, sig + n, dg, a, f2);
+    ok = nqslhvf(&c, f2, sig + n + (size_t)p->k * (p->a + 1) * n, tree,
+                 leaf, pk + n);
+    nqwipe(f2, sizeof f2);
+    if (!ok) {
+      memset(sig, 0, p->sig);
+      nqwipe(&c, sizeof c);
+      nqwipe(dg, sizeof dg);
+      nqwipe(fpk, sizeof fpk);
+      return NQEFLT;
+    }
+  }
   nqwipe(&c, sizeof c);
   nqwipe(dg, sizeof dg);
   nqwipe(fpk, sizeof fpk);
