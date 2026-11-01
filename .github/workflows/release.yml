@@ -66,6 +66,26 @@ jobs:
           fi
           grep -qx "# noqtis $v" NEWS.md ||
             { echo "::error::NEWS.md has no '# noqtis $v' section"; exit 1; }
+          # every binding, recipe and test names this version
+          if [ "$REFTYPE" = tag ]; then
+            sh packaging/vercheck.sh "$REFNAME"
+          else
+            sh packaging/vercheck.sh
+          fi
+          if [ "$REFTYPE" = tag ]; then
+            # the Go binding's own tag goes up with the release tag, on the
+            # same commit: the Go proxy remembers a version it was asked
+            # for before its tag existed as missing
+            g=bindings/go/v$v
+            # an annotated tag's commit is on its peeled ^{} line
+            gs=$(git ls-remote origin "refs/tags/$g*" | awk -v r="refs/tags/$g" '
+              $2 == r { c = $1 } $2 == r "^{}" { p = $1 }
+              END { print p ? p : c }')
+            if [ "$gs" != "$(git rev-parse HEAD)" ]; then
+              echo "::error::push $g with $REFNAME, on the same commit (it is at '${gs:-nothing}')"
+              exit 1
+            fi
+          fi
           # the release notes, built here too so a dry run shows them
           python3 packaging/notes.py "$v" NEWS.md > notes.md
           { echo '### Release notes'; echo; cat notes.md; } >> "$GITHUB_STEP_SUMMARY"
