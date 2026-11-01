@@ -32,6 +32,10 @@ option(NQTLS "Enable the TLS 1.3 client (not yet reviewed)" OFF)
 # memmove, memset and strcmp of the C library. Implies no CLI, no tests
 # and no TLS.
 option(NQFREE "Build the freestanding, algorithms-only library" OFF)
+# with NQFREE: keep stack protection (-fstack-protector-strong), for a
+# target that provides __stack_chk_fail (and __stack_chk_guard where the
+# CPU keeps the canary in memory), as the Linux kernel and many RTOSes do
+option(NQFREESSP "Freestanding build with stack protection" OFF)
 if(NQFREE)
   set(NQCLI OFF CACHE BOOL "" FORCE)
   set(NQTESTS OFF CACHE BOOL "" FORCE)
@@ -83,9 +87,16 @@ if(NQFREE)
   add_compile_definitions(NQFREE)
   # no libc hardening the target may not have: compilers that turn on
   # stack protection or _FORTIFY_SOURCE by default (Ubuntu, Debian) would
-  # make the library call __stack_chk_fail and __memcpy_chk
+  # make the library call __stack_chk_fail and __memcpy_chk. _FORTIFY_SOURCE
+  # stays off (its __*_chk functions are the C library's); NQFREESSP keeps
+  # stack protection for a target that has its own __stack_chk_fail.
   if(NOT MSVC)
-    add_compile_options(-fno-stack-protector -U_FORTIFY_SOURCE)
+    add_compile_options(-U_FORTIFY_SOURCE)
+    if(NQFREESSP)
+      add_compile_options(-fstack-protector-strong)
+    else()
+      add_compile_options(-fno-stack-protector)
+    endif()
   endif()
 endif()
 

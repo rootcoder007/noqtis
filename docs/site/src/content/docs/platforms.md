@@ -59,7 +59,12 @@ with no default allocator. The library then needs only `memcpy`,
 for GCC and Clang. It is compiled with `-fno-stack-protector` and
 `-U_FORTIFY_SOURCE`, since a compiler that turns those on by default
 (Ubuntu's, Debian's) would otherwise make it call `__stack_chk_fail` and
-`__memcpy_chk`, which a target with no C library does not have. Randomness comes from the caller: `nqsetrng(fn, user)`
+`__memcpy_chk`, which a target with no C library does not have. A target
+that does provide `__stack_chk_fail` (and `__stack_chk_guard`, on CPUs that
+keep the canary in memory), as the Linux kernel and many RTOSes do, keeps
+stack protection with `-DNQFREESSP=ON` (`-fstack-protector-strong`);
+`_FORTIFY_SOURCE` stays off, since its `__*_chk` functions are the C
+library's. Randomness comes from the caller: `nqsetrng(fn, user)`
 names the function `nqrand` takes its bytes from (a hardware random
 number generator, or a DRBG seeded from one); until it is set, `nqrand`
 fails with `NQERNG`. `tests/free/tfree.c` runs the self-test, a

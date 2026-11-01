@@ -100,6 +100,16 @@ jobs:
         run: |
           ${{ matrix.cc }} -O2 -std=c11 -Wall -Wextra -Werror -I include tests/free/tfree.c build/libnoqtis.a -o tfree
           ./tfree
+      - name: NQFREESSP keeps stack protection, and needs only __stack_chk_fail besides
+        run: |
+          CC=${{ matrix.cc }} cmake -S . -B bssp -DNQFREE=ON -DNQFREESSP=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build bssp -j4
+          u=$(nm -u bssp/libnoqtis.a | awk 'NF == 2 {print $2}' | grep -v '^nq' | sort -u | tr '\n' ' ')
+          echo "undefined: $u"
+          # x86-64 keeps the canary in %fs, so no __stack_chk_guard here
+          [ "$u" = "__stack_chk_fail memcpy memmove memset strcmp " ]
+          ${{ matrix.cc }} -O2 -std=c11 -Wall -Wextra -Werror -I include tests/free/tfree.c bssp/libnoqtis.a -o tfreessp
+          ./tfreessp
 
   arm64:
     # arm64 Linux runners are free only for public repositories

@@ -223,8 +223,10 @@ getRandomValues through the WASI or emscripten layer); there is no fallback.
   API alone, for firmware and kernels: no files, capsules, JSON, TLS or
   default allocator; the library needs only `memcpy`, `memmove`, `memset`
   and `strcmp` (it is built with `-fno-stack-protector -U_FORTIFY_SOURCE`,
-  so no libc hardening call creeps in), and randomness comes from the
-  caller (`nqsetrng`). Done;
+  so no libc hardening call creeps in; `-DNQFREESSP=ON` keeps
+  `-fstack-protector-strong` for a target with its own
+  `__stack_chk_fail`), and randomness comes from the caller (`nqsetrng`).
+  Done;
   CI checks the undefined symbols with `nm` and runs `tests/free/tfree.c`.
 
 ### Releases
