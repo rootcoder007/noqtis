@@ -133,7 +133,8 @@ func TestSignKATs(t *testing.T) {
 	if err != nil || hex.EncodeToString(pk) != "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a" {
 		t.Fatal("Ed25519 keygen", err)
 	}
-	s := must(Sign("Ed25519", sk, nil, nil))
+	// RFC 8032's signature is the deterministic one; the default is hedged
+	s := must(Sign("Ed25519", sk, nil, nodet))
 	want := "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b"
 	if hex.EncodeToString(s) != want {
 		t.Fatal(hex.EncodeToString(s))

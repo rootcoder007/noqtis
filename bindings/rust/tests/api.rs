@@ -168,7 +168,8 @@ fn sign_kats() {
         hex(&pk),
         "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
     );
-    let s = sign::sign("Ed25519", &sk, b"", &sign::Opts::default()).unwrap();
+    // RFC 8032's signature is the deterministic one; the default is hedged
+    let s = sign::sign("Ed25519", &sk, b"", &NODET).unwrap();
     assert_eq!(
         hex(&s),
         "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065\
