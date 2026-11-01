@@ -338,6 +338,7 @@ void nqslhsg(const nqslc *c, const uint8_t *msg, uint64_t tree,
     sig += (size_t)p->hp * n;
     leaf = (uint32_t)(tree & (((uint64_t)1 << p->hp) - 1u));
     tree >>= p->hp;
+    nqpstep(1);
   }
 }
 

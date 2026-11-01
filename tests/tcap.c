@@ -1628,6 +1628,87 @@ static void tbig(const key *k) {
   remove(d);
 }
 
+/* ---- progress (nqsetprog) ---- */
+
+#define PMAX 64
+static int pst[PMAX];
+static uint64_t pdn[PMAX], ptt[PMAX];
+static size_t pn;
+
+static void prec(int stage, uint64_t done, uint64_t total, void *user) {
+  NQTCHK(user == (void *)&pn);
+  if (pn < PMAX) {
+    pst[pn] = stage;
+    pdn[pn] = done;
+    ptt[pn] = total;
+  }
+  pn++;
+}
+
+/* the calls since pn = 0 (at least least of them) were one stage of total
+ * units: begun at 0, never going back, ended at total */
+static void pone(int stage, uint64_t total, size_t least) {
+  size_t i, n = pn < PMAX ? pn : PMAX;
+  NQTCHK(pn >= least && pn <= PMAX);
+  if (n < 2) return;
+  NQTEQI(pst[0], stage);
+  NQTCHK(pdn[0] == 0 && ptt[0] == total);
+  for (i = 1; i < n; i++) {
+    NQTEQI(pst[i], stage);
+    NQTCHK(ptt[i] == total && pdn[i] >= pdn[i - 1] && pdn[i] <= total);
+  }
+  NQTCHK(pdn[n - 1] == total);
+}
+
+static void tprog(const key *k, const key *slh) {
+  static uint8_t big[100000], sig[20000];
+  char d[600];
+  nqrep *r = NULL;
+  size_t n = 0;
+  unsigned long long tb = 0;
+  fresh(d, sizeof d);
+  memset(big, 0x33, sizeof big);
+  wr(d, "big.bin", big, sizeof big);
+  ws(d, "small.txt", "x\n");
+  NQTEQI(nqsetprog(prec, &pn), NQOK);
+  /* seal and check: the bytes of the folder's files */
+  pn = 0;
+  NQTEQI(sealk(d, k, NULL), NQOK);
+  {
+    /* the folder's bytes, as the manifest counts them */
+    size_t i;
+    NQTEQI(nqinsp(d, &r), NQOK);
+    for (i = 0; i < nqrepn(r); i++) {
+      const char *c = NULL, *v = NULL;
+      if (nqrepi(r, i, &c, NULL, &v) == NQOK && strcmp(c, "info.bytes") == 0)
+        tb = strtoull(v, NULL, 10);
+    }
+    nqrepfree(r);
+    r = NULL;
+  }
+  NQTCHK(tb > sizeof big);
+  pone(NQPHASH, tb, 9);
+  pn = 0;
+  NQTEQI(chk(d, k, &r), NQOK);
+  nqrepfree(r);
+  pone(NQPHASH, tb, 9);
+  /* SLH-DSA signing: FORS and the d layers (22 for SHAKE-128f) */
+  pn = 0;
+  NQTEQI(nqsign(slh->alg, slh->skb, slh->sz.sk, big, 100, NULL, 0, 0, sig,
+                sizeof sig, &n), NQOK);
+  pone(NQPSIGN, 23, 25);
+  NQTCHK(pn == 25);
+  /* ML-DSA reports nothing; without a hook nothing is called */
+  pn = 0;
+  NQTEQI(nqsign(k->alg, k->skb, k->sz.sk, big, 100, NULL, 0, 0, sig,
+                sizeof sig, &n), NQOK);
+  NQTCHK(pn == 0);
+  NQTEQI(nqsetprog(NULL, NULL), NQOK);
+  NQTEQI(chk(d, k, &r), NQOK);
+  nqrepfree(r);
+  NQTCHK(pn == 0);
+}
+
 static void tfs(int gen) {
   key m44, m65, slh, other;
   const char *t = getenv("TMPDIR");
@@ -1669,6 +1750,7 @@ static void tfs(int gen) {
   tgolden(&m44, gen);
   tstamp(&m44);
   roundtrip(&m44, NULL);
+  tprog(&m44, &slh);
   roundtrip(&m65, GMETA);
   roundtrip(&slh, "{}");
   tamper(&m44, &other);

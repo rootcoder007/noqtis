@@ -66,7 +66,16 @@ Read the check report:
 .Fn nqrepi ,
 .Fn nqrepfree .
 .It Xr nqrand 3
-The operating system's random source.
+The operating system's random source, or the caller's
+.Pq Fn nqsetrng .
+.It Xr nqersput 3
+RFC 4998 evidence records for a seal:
+.Fn nqersreq ,
+.Fn nqersput .
+.It Xr nqselftest 3
+The known-answer self-test.
+.It Xr nqsetprog 3
+The progress of long calls.
 .It Xr nqwipe 3
 Erase secrets.
 .It Xr nqcteq 3

@@ -8,6 +8,7 @@
 #endif
 
 #include "noqtis.h"
+#include "core/int.h"
 
 #if defined(NQFREE)
 /* freestanding: no operating system source, only nqsetrng's */
@@ -46,6 +47,40 @@ int nqsetrng(nqrngfn fn, void *user) {
   currng = fn;
   rnguser = fn != NULL ? user : NULL;
   return NQOK;
+}
+
+/* ---- progress (nqsetprog): one stage at a time ---- */
+
+static nqprogfn progfn = NULL;
+static void *proguser = NULL;
+static int pstage = 0;
+static uint64_t pdone = 0, ptotal = 0;
+
+int nqsetprog(nqprogfn fn, void *user) {
+  progfn = fn;
+  proguser = fn != NULL ? user : NULL;
+  pstage = 0;
+  return NQOK;
+}
+
+void nqpbeg(int stage, uint64_t total) {
+  if (progfn == NULL) return;
+  pstage = stage;
+  pdone = 0;
+  ptotal = total;
+  progfn(stage, 0, total, proguser);
+}
+
+void nqpstep(uint64_t n) {
+  if (progfn == NULL || pstage == 0) return;
+  pdone = n > ptotal - pdone ? ptotal : pdone + n;
+  progfn(pstage, pdone, ptotal, proguser);
+}
+
+void nqpend(void) {
+  if (progfn == NULL || pstage == 0) return;
+  progfn(pstage, ptotal, ptotal, proguser);
+  pstage = 0;
 }
 
 int nqrand(uint8_t *buf, size_t len) {

@@ -1,0 +1,93 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 1, 2026
+.Dt NQSETPROG 3
+.Os
+.Sh NAME
+.Nm nqsetprog
+.Nd report the progress of long calls
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Vt typedef void (*nqprogfn)(int stage, uint64_t done, uint64_t total, void *user);
+.Ft int
+.Fn nqsetprog "nqprogfn fn" "void *user"
+.Sh DESCRIPTION
+.Fn nqsetprog
+sets a function the library calls as its long calls go, so that a
+caller can show how far they are:
+.Fa fn
+is called from the thread doing the work with
+.Fa user ,
+the stage, and
+.Fa done
+going from 0 to
+.Fa total ;
+once when the stage begins
+.Pq Fa done No 0 ,
+as it goes, and once more when it ends
+.Pq Fa done No equal to Fa total .
+The stages:
+.Bl -tag -width NQPHASH
+.It Dv NQPHASH
+The bytes of the folder's files that
+.Xr nqseal 3 ,
+.Fn nqseal2
+and
+.Xr nqchkx 3
+.Pq and so Fn nqchk , Fn nqchkt
+hash;
+.Fa total
+is the size of the files in the folder's listing (0 for a partial
+check, which hashes only the files named).
+.It Dv NQPSIGN
+An SLH-DSA signature's trees, the slow part of signing: the FORS tree,
+then each of the
+.Va d
+hypertree layers, so
+.Fa total
+is
+.Va d
++ 1 (8 or 9 for the
+.Ql s
+sets, 18 or 23 for the
+.Ql f
+sets).
+.El
+.Pp
+Only counts the caller could know are reported, nothing that depends on
+a secret.
+The function must not call back into the library.
+The setting is global and not synchronised, as
+.Xr nqsetrng 3 :
+set it once, before any thread uses the library.
+A
+.Dv NULL
+.Fa fn
+stops the calls.
+.Pp
+.Xr noqtis 1
+uses it to draw a progress bar on standard error when that is a
+terminal.
+.Sh RETURN VALUES
+.Fn nqsetprog
+returns
+.Dv NQOK .
+.Sh EXAMPLES
+.Bd -literal -offset indent
+static void show(int stage, uint64_t done, uint64_t total, void *u) {
+  (void)u;
+  fprintf(stderr, "\er%s %3u%%", stage == NQPHASH ? "hashing" : "signing",
+          total ? (unsigned)(done * 100 / total) : 0);
+  if (done == total) fputc('\en', stderr);
+}
+\&...
+nqsetprog(show, NULL);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis 3 ,
+.Xr nqchkx 3 ,
+.Xr nqrand 3 ,
+.Xr nqseal 3 ,
+.Xr nqsign 3

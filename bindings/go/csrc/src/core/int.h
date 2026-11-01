@@ -7,6 +7,12 @@
 #include <stdint.h>
 
 void *nqmal(size_t size);
+
+/* Progress for nqsetprog's hook (rand.c): a stage of total units begins,
+ * n more are done, it ends. No-ops without a hook. */
+void nqpbeg(int stage, uint64_t total);
+void nqpstep(uint64_t n);
+void nqpend(void);
 /* Wipes, then frees; size is the size passed to nqmal. */
 void nqfree(void *ptr, size_t size);
 

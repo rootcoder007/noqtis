@@ -193,6 +193,26 @@ No secret is printed: a shared secret reaches standard output only with
 .Pp
 On Windows, arguments are read as UTF-16 and passed on as UTF-8, and
 standard input and output are in binary mode.
+.Sh ENVIRONMENT
+.Bl -tag -width NOQTIS_PROGRESS
+.It Ev NOQTIS_PROGRESS
+.Cm seal ,
+.Cm check
+and signing with SLH-DSA draw a progress bar on standard error when it is
+a terminal and the work takes more than a third of a second; the bar is
+cleared when the work ends.
+.Ql 0
+turns it off;
+.Ql 1
+draws it to a standard error that is not a terminal too.
+.It Ev SOURCE_DATE_EPOCH
+The time
+.Cm seal
+writes as the manifest's
+.Ql created ,
+for reproducible capsules (see
+.Xr noqtis-seal 1 ) .
+.El
 .Sh EXIT STATUS
 For every command:
 .Bl -tag -width 3n

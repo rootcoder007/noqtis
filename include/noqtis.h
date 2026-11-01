@@ -84,6 +84,21 @@ NQAPI int nqrand(uint8_t *buf, size_t len);
 typedef int (*nqrngfn)(uint8_t *buf, size_t len, void *user);
 NQAPI int nqsetrng(nqrngfn fn, void *user);
 
+/* Progress of the long calls, for a caller to show (noqtis(1) draws a
+ * bar): fn(stage, done, total, user) is called as the work goes, from the
+ * thread doing it, with done from 0 to total, and once more with done ==
+ * total when the stage ends. Stages: NQPHASH, the bytes of a folder's
+ * files that nqseal, nqseal2 and nqchkx hash (total: the folder's
+ * listing); NQPSIGN, an SLH-DSA signature's d + 1 trees (FORS, then each
+ * hypertree layer), the slow part of signing. Only counts the caller
+ * could know are reported, nothing that depends on a secret. Global and
+ * not synchronised, as nqsetrng; NULL stops it. */
+#define NQPHASH 1
+#define NQPSIGN 2
+typedef void (*nqprogfn)(int stage, uint64_t done, uint64_t total,
+                         void *user);
+NQAPI int nqsetprog(nqprogfn fn, void *user);
+
 /* Replaces the allocator the capsule and parser layers use; NULL for both
  * restores malloc/free. Not thread safe: call before anything else. */
 typedef void *(*nqmalfn)(size_t size, void *user);

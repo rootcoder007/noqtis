@@ -495,6 +495,7 @@ static int run(int argc, char **argv) {
     printf("noqtis %s\n", nqver());
     return NCOK;
   }
+  ncprog();
   for (i = 0; i < NCNCMD; i++) {
     if (strcmp(cmds[i].name, argv[1]) == 0)
       return cmds[i].run(argc - 1, argv + 1);

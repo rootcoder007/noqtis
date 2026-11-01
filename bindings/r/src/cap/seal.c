@@ -317,7 +317,14 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
     o.lv = (uint8_t *)nqmal(lvn);
     if (o.lv == NULL) rc = NQEMEM;
   }
-  if (rc == NQOK) rc = manifest(dir, &l, ts, mj, &m, &sec, &o);
+  if (rc == NQOK) {
+    uint64_t tb = 0;
+    size_t q;
+    for (q = 0; q < l.n; q++) tb += l.e[q].size;
+    nqpbeg(NQPHASH, tb);
+    rc = manifest(dir, &l, ts, mj, &m, &sec, &o);
+    nqpend();
+  }
   if (rc == NQEARG && sec && why != NULL) *why = NQCLSEC;
   if (rc == NQOK && m.n > nqclim.man) rc = NQELIM;
   if (rc == NQELIM && m.n > nqclim.man && why != NULL) *why = NQCLMAN;

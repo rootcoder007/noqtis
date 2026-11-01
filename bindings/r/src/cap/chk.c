@@ -1686,6 +1686,13 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
           lok ? NULL : nqerr(rc), NULL);
     }
     if (r->err == NQOK) {
+      uint64_t tb = 0;
+      size_t q;
+      for (q = 0; lok && o->nonly == 0 && q < l.n; q++)
+        if (l.e[q].kind == NQCREG) tb += l.e[q].size;
+      nqpbeg(NQPHASH, tb);
+    }
+    if (r->err == NQOK) {
       if (o->nonly > 0) {
         flt f;
         f.p = o->only;
@@ -1704,6 +1711,7 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
                NULL);
       }
     }
+    nqpend();
     nqclfree(&l);
   }
   if (r->err == NQOK && mok && s.ok && s.ver == 2 && o->nlin > 0) {

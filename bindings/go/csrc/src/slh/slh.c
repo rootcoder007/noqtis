@@ -131,7 +131,9 @@ static int sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
   nqsatree(a, tree);
   nqsatype(a, NQSLFT);
   nqsakp(a, leaf);
+  nqpbeg(NQPSIGN, (uint64_t)p->d + 1);
   nqslfsg(&c, dg, a, sig + n, fpk);
+  nqpstep(1);
   /* the FORS public key is what a verifier recomputes */
   NQSLDECL(fpk, n);
   nqslhsg(&c, fpk, tree, leaf, sig + n + (size_t)p->k * (p->a + 1) * n);
@@ -145,6 +147,7 @@ static int sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
     ok = nqslhvf(&c, f2, sig + n + (size_t)p->k * (p->a + 1) * n, tree,
                  leaf, pk + n);
     nqwipe(f2, sizeof f2);
+    nqpend();
     if (!ok) {
       memset(sig, 0, p->sig);
       nqwipe(&c, sizeof c);
