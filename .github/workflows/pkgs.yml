@@ -167,7 +167,14 @@ jobs:
           docker run --rm -v "$PWD:/src" -v "$PWD/og.sh:/og.sh:ro" quay.io/pypa/manylinux2014_x86_64@sha256:5f0bcf92ed65391c7df442763168887d97ae734f2fbb17012eb6bed4a8aef98f sh /og.sh
 
   wolfi:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, arch: x86_64 }
+          - { os: ubuntu-24.04-arm, arch: aarch64 }
+    name: wolfi (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -180,11 +187,11 @@ jobs:
           sed -i '/uses: test\/pkgconf/d; /uses: test\/tw\/ldd-check/d' w/noqtis.yaml
           docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange@sha256:c6eea71bf274b94d84c04238861d7abea55b61b50da921b88c194c112123593b keygen
           docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange@sha256:c6eea71bf274b94d84c04238861d7abea55b61b50da921b88c194c112123593b build noqtis.yaml \
-            --arch x86_64 --signing-key melange.rsa --runner bubblewrap \
+            --arch ${{ matrix.arch }} --signing-key melange.rsa --runner bubblewrap \
             --repository-append https://packages.wolfi.dev/os \
             --keyring-append https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
           docker run --rm --privileged -v "$PWD/w:/w" -w /w cgr.dev/chainguard/melange@sha256:c6eea71bf274b94d84c04238861d7abea55b61b50da921b88c194c112123593b test noqtis.yaml \
-            --arch x86_64 --runner bubblewrap \
+            --arch ${{ matrix.arch }} --runner bubblewrap \
             --repository-append /w/packages --keyring-append /w/melange.rsa.pub \
             --repository-append https://packages.wolfi.dev/os \
             --keyring-append https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
