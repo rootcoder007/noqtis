@@ -25,7 +25,9 @@ build() {
 }
 
 check() {
-	ctest --test-dir build --output-on-failure
+	# sample the slow SLH-DSA vectors (every 32nd) and HQC rounds, as noqtis
+	# CI does on slow machines; the full sets take over half an hour
+	NQSLSUB=32 NQFAST=1 ctest --test-dir build -j"${JOBS:-2}" --output-on-failure
 }
 
 package() {
