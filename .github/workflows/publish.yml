@@ -151,6 +151,34 @@ jobs:
           echo "::error::the proxy has no $TAG of the Go binding (is bindings/go/$TAG pushed?)"
           exit 1
 
+  major:
+    # the action is used as rootcoder007/noqtis@v0: the tag of the major
+    # version (v0 for 0.x.y) follows each release, so that example works and
+    # gives the newest release of that major version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: move the major tag to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::not a release tag: $TAG"; exit 1 ;;
+          esac
+          m=${TAG%%.*}
+          # the commit the release tag names (an annotated tag is peeled)
+          sha=$(gh api "repos/$REPO/commits/$TAG" -q .sha)
+          echo "$m -> $sha ($TAG)"
+          if [ "$DRY" = true ]; then echo "dry run: $m not moved"; exit 0; fi
+          gh api -X PATCH "repos/$REPO/git/refs/tags/$m" -f sha="$sha" -F force=true >/dev/null 2>&1 ||
+            gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$m" -f sha="$sha" >/dev/null
+          test "$(gh api "repos/$REPO/commits/$m" -q .sha)" = "$sha"
+
   crate:
     runs-on: ubuntu-24.04
     timeout-minutes: 150

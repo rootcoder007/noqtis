@@ -61,7 +61,9 @@ results were made.
 The repository is also a GitHub Action, `rootcoder007/noqtis@v0`. It
 builds `noqtis` from the action's own source with CMake (cached, so later
 runs skip the build), puts it on `PATH`, and seals or checks a folder. It
-runs on Linux, macOS and Windows runners.
+runs on Linux, macOS and Windows runners. The tag `v0` follows each 0.x
+release; pin a full version (`@v0.1.4`) or a commit if a workflow must not
+change when noqtis does.
 
 ```yaml
 permissions:
