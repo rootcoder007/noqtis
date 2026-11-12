@@ -3,8 +3,11 @@ golden <- function() {
   src <- system.file("extdata", "capsule", package = "noqtis")
   d <- tempfile("nqcap")
   dir.create(d)
-  file.copy(list.files(src, full.names = TRUE, all.files = TRUE,
-    no.. = TRUE), d, recursive = TRUE)
+  file.copy(
+    list.files(src, full.names = TRUE, all.files = TRUE, no.. = TRUE),
+    d,
+    recursive = TRUE
+  )
   # the zero-length file, in case an archive tool dropped it
   if (!file.exists(file.path(d, "empty"))) file.create(file.path(d, "empty"))
   d
@@ -28,8 +31,10 @@ b64e <- function(x) {
   out <- character(0)
   for (i in seq(1L, length(x), by = 3L)) {
     v <- x[i] * 65536L + x[i + 1L] * 256L + x[i + 2L]
-    out <- c(out, a[v %/% 262144L + 1L], a[(v %/% 4096L) %% 64L + 1L],
-      a[(v %/% 64L) %% 64L + 1L], a[v %% 64L + 1L])
+    out <- c(
+      out, a[v %/% 262144L + 1L], a[(v %/% 4096L) %% 64L + 1L],
+      a[(v %/% 64L) %% 64L + 1L], a[v %% 64L + 1L]
+    )
   }
   if (pad > 0L) out[(length(out) - pad + 1L):length(out)] <- "="
   paste(out, collapse = "")
@@ -37,7 +42,7 @@ b64e <- function(x) {
 
 b64d <- function(s) {
   a <- c(LETTERS, letters, 0:9, "+", "/")
-  ch <- strsplit(gsub("[\r\n]", "", s), "")[[1]]
+  ch <- strsplit(gsub("[\r\n]", "", s), "", fixed = TRUE)[[1]]
   pad <- sum(ch == "=")
   v <- match(ch[ch != "="], a) - 1L
   v <- c(v, integer(pad))
@@ -52,15 +57,19 @@ b64d <- function(s) {
 # A noqtis-key-1 public key file, and its reader.
 wpub <- function(path, alg, pk) {
   b <- b64e(pk)
-  l <- substring(b, seq(1L, nchar(b), 64L),
-    pmin(seq(64L, nchar(b) + 63L, 64L), nchar(b)))
+  l <- substring(
+    b, seq(1L, nchar(b), 64L),
+    pmin(seq(64L, nchar(b) + 63L, 64L), nchar(b))
+  )
   writeLines(c(paste("noqtis-key-1", alg, "pub"), l), path, sep = "\n")
 }
 
 rpub <- function(path) {
   l <- readLines(path)
-  list(alg = strsplit(l[1], " ")[[1]][2], pk = b64d(paste(l[-1],
-    collapse = "")))
+  list(
+    alg = strsplit(l[1], " ", fixed = TRUE)[[1]][2],
+    pk = b64d(paste(l[-1], collapse = ""))
+  )
 }
 
 # The noqtis command-line tool: NOQTIS_CLI, else noqtis on the PATH.
@@ -71,8 +80,10 @@ cli <- function() {
 }
 
 runcli <- function(...) {
-  out <- suppressWarnings(system2(cli(), c(...), stdout = TRUE,
-    stderr = TRUE))
+  out <- suppressWarnings(system2(cli(), c(...),
+    stdout = TRUE,
+    stderr = TRUE
+  ))
   s <- attr(out, "status")
   list(out = out, rc = if (is.null(s)) 0L else s)
 }

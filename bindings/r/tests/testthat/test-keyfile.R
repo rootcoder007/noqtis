@@ -1,6 +1,6 @@
 # Key files: fixtures made once with the CLI,
 #   noqtis keygen -a ML-DSA-44 --seed 000102...1f -o k44
-fx <- function(f) test_path("fixtures", "keys", f)
+fx <- function(f) file.path("fixtures", "keys", f)
 td <- function() {
   d <- tempfile("nqkey")
   dir.create(d)
@@ -55,39 +55,56 @@ test_that("CRLF line ends are read; anything else is refused", {
     writeBin(charToRaw(x), f)
     f
   }
-  expect_identical(nqreadkey(w(gsub("\n", "\r\n", txt)))$key,
-    nqreadkey(fx("k44.pub"))$key)
+  expect_identical(
+    nqreadkey(w(gsub("\n", "\r\n", txt, fixed = TRUE)))$key,
+    nqreadkey(fx("k44.pub"))$key
+  )
   head <- sub("\n.*", "", txt)
   body <- sub("^[^\n]*\n", "", txt)
   bad <- c(
-    "", head, sub("noqtis-key-1", "noqtis-key-2", txt),
-    sub(" pub", " pub extra", txt), sub(" pub", "  pub", txt),
-    sub(" pub", " key", txt), sub("ML-DSA-44 pub", "ML-DSA-44", txt),
-    paste0(head, "\n", sub("A", "-", body)),
-    paste0(head, "\n", sub("\n", " \n", body)),
+    "", head, sub("noqtis-key-1", "noqtis-key-2", txt, fixed = TRUE),
+    sub(" pub", " pub extra", txt, fixed = TRUE),
+    sub(" pub", "  pub", txt, fixed = TRUE),
+    sub(" pub", " key", txt, fixed = TRUE),
+    sub("ML-DSA-44 pub", "ML-DSA-44", txt, fixed = TRUE),
+    paste0(head, "\n", sub("A", "-", body, fixed = TRUE)),
+    paste0(head, "\n", sub("\n", " \n", body, fixed = TRUE)),
     paste0(head, "\n=", body),
     paste0(head, "\n", substr(body, 5, nchar(body)))
   )
   for (b in bad) {
     expect_error(nqreadkey(w(b)), "noqtis key file|bytes of base64",
-      info = b)
+      info = b
+    )
   }
-  expect_error(nqreadkey(w(sub("ML-DSA-44", "RSA-2048", txt))),
-    "unknown algorithm")
+  expect_error(
+    nqreadkey(w(sub("ML-DSA-44", "RSA-2048", txt, fixed = TRUE))),
+    "unknown algorithm"
+  )
   expect_error(nqreadkey(d), "existing key file")
 })
 
 test_that("non-canonical padding is refused", {
+  t <- readLines(fx("k44.pub"))
   k <- nqreadkey(fx("k44.pub"))$key
-  s <- paste(noqtis:::.b64enc(k), collapse = "")
+  s <- paste(t[-1L], collapse = "")
   p <- nchar(s) - nchar(sub("=+$", "", s))
+  expect_identical(p, 2L)
   a <- c(LETTERS, letters, 0:9, "+", "/")
   last <- substr(s, nchar(s) - p, nchar(s) - p)
   nc <- a[bitwOr(match(last, a) - 1L, 1L) + 1L]
   expect_false(identical(nc, last))
   s2 <- paste0(substr(s, 1, nchar(s) - p - 1L), nc, strrep("=", p))
-  expect_null(noqtis:::.b64dec(s2))
-  expect_identical(noqtis:::.b64dec(s), k)
+  lines <- function(x) {
+    st <- seq(1L, nchar(x), by = 64L)
+    substring(x, st, pmin(st + 63L, nchar(x)))
+  }
+  f <- tempfile()
+  on.exit(unlink(f), add = TRUE)
+  writeLines(c(t[1L], lines(s2)), f)
+  expect_error(nqreadkey(f), "bytes of base64")
+  writeLines(c(t[1L], lines(s)), f)
+  expect_identical(nqreadkey(f)$key, k)
 })
 
 test_that("nqwritekey refuses a key that is not the algorithm's size", {
@@ -98,4 +115,45 @@ test_that("nqwritekey refuses a key that is not the algorithm's size", {
   expect_error(nqwritekey(f, k$pk, "ML-DSA-99", "pub"), "unknown")
   expect_error(nqwritekey(f, "x", "ML-DSA-44", "pub"), "raw vector")
   expect_false(file.exists(f))
+})
+
+test_that("key file arguments and odd files are refused", {
+  k <- nqkeygen("ML-DSA-44", seed = as.raw(0:31))
+  d <- td()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  f <- file.path(d, "k")
+  expect_error(nqwritekey(1, k$sk, "ML-DSA-44"), "one file path")
+  expect_error(nqwritekey(f, k$sk, "ML-DSA-44", force = NA), "TRUE or FALSE")
+  expect_error(nqwritekey(f, k$sk, 44), "one algorithm name")
+  big <- file.path(d, "big")
+  writeBin(raw(1048577), big)
+  expect_error(nqreadkey(big), "not a noqtis key file")
+  txt <- readLines(fx("k44.pub"))
+  w <- function(x) {
+    g <- tempfile(tmpdir = d)
+    writeLines(x, g)
+    g
+  }
+  tab <- sub(" ", "\t", txt[1L], fixed = TRUE)
+  expect_error(nqreadkey(w(c(tab, txt[-1L]))), "not a noqtis key file")
+  last <- txt[length(txt)]
+  odd <- paste0(substr(last, 1L, nchar(last) - 2L), "=A")
+  expect_error(
+    nqreadkey(w(c(txt[-length(txt)], odd))),
+    "bytes of base64"
+  )
+})
+
+test_that("an existing folder in the way is not removed", {
+  k <- nqkeygen("ML-DSA-44")
+  d <- td()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  f <- file.path(d, "k")
+  dir.create(f)
+  writeLines("x", file.path(f, "inside"))
+  expect_error(
+    suppressWarnings(nqwritekey(f, k$sk, "ML-DSA-44", force = TRUE)),
+    "cannot remove"
+  )
+  expect_true(file.exists(file.path(f, "inside")))
 })

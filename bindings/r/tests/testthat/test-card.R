@@ -1,40 +1,41 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-T0 <- 1767225600 # 2026-01-01T00:00:00Z
+t0 <- 1767225600 # 2026-01-01T00:00:00Z
 
 test_that("a card round trips", {
   k <- nqkeygen("ML-DSA-44")
   card <- nqidcard(k$sk, k$pk, "ML-DSA-44", "Ada Lovelace",
     orcid = "https://orcid.org/0000-0002-1694-233x",
     email = "ada@example.org", url = "https://example.org/ada",
-    affil = "AES", at = T0)
+    affil = "AES", at = t0
+  )
   t <- rawToChar(card)
   expect_match(t, '"format":"noqtis-idcard-1"', fixed = TRUE)
   expect_match(t, '"orcid":"0000-0002-1694-233X"', fixed = TRUE)
   r <- nqidcheck(card)
-  expect_equal(r$name, "Ada Lovelace")
-  expect_equal(r$orcid, "0000-0002-1694-233X")
-  expect_equal(r$email, "ada@example.org")
-  expect_equal(r$url, "https://example.org/ada")
-  expect_equal(r$affil, "AES")
-  expect_equal(r$created, "2026-01-01T00:00:00Z")
-  expect_equal(r$alg, "ML-DSA-44")
+  expect_identical(r$name, "Ada Lovelace")
+  expect_identical(r$orcid, "0000-0002-1694-233X")
+  expect_identical(r$email, "ada@example.org")
+  expect_identical(r$url, "https://example.org/ada")
+  expect_identical(r$affil, "AES")
+  expect_identical(r$created, "2026-01-01T00:00:00Z")
+  expect_identical(r$alg, "ML-DSA-44")
   expect_identical(r$pk, k$pk)
-  expect_equal(r$key_sha256, nqhash(k$pk, "sha256", hex = TRUE))
-  expect_equal(nqidcheck(card, k$pk), r)
+  expect_identical(r$key_sha256, nqhash(k$pk, "sha256", hex = TRUE))
+  expect_identical(nqidcheck(card, k$pk), r)
   f <- tempfile(fileext = ".card")
   on.exit(unlink(f, recursive = TRUE), add = TRUE)
   writeBin(card, f)
-  expect_equal(nqidcheck(f), r)
-  m <- nqidcheck(nqidcard(k$sk, k$pk, "ML-DSA-44", "Adéle", at = T0))
-  expect_equal(m$name, "Adéle")
+  expect_identical(nqidcheck(f), r)
+  m <- nqidcheck(nqidcard(k$sk, k$pk, "ML-DSA-44", "Adéle", at = t0))
+  expect_identical(m$name, "Adéle")
   expect_null(m$orcid)
   expect_null(m$affil)
 })
 
 test_that("bad fields and keys are refused", {
   k <- nqkeygen("ML-DSA-44")
-  mk <- function(...) nqidcard(k$sk, k$pk, "ML-DSA-44", at = T0, ...)
+  mk <- function(...) nqidcard(k$sk, k$pk, "ML-DSA-44", at = t0, ...)
   expect_error(mk("A", orcid = "0000-0002-1825-0098"), "noqtis")
   expect_error(mk("A", email = "ada"), "noqtis")
   expect_error(mk("A", url = "http://example.org"), "noqtis")
@@ -49,22 +50,26 @@ test_that("bad fields and keys are refused", {
   expect_error(mk(NA_character_), "name")
   expect_error(mk("A", orcid = 1), "orcid")
   k2 <- nqkeygen("ML-DSA-44")
-  expect_error(nqidcard(k2$sk, k$pk, "ML-DSA-44", "A", at = T0), "noqtis")
+  expect_error(nqidcard(k2$sk, k$pk, "ML-DSA-44", "A", at = t0), "noqtis")
   ed <- nqkeygen("Ed25519")
-  expect_error(nqidcard(ed$sk, ed$pk, "Ed25519", "A", at = T0), "noqtis")
+  expect_error(nqidcard(ed$sk, ed$pk, "Ed25519", "A", at = t0), "noqtis")
 })
 
 test_that("changed cards, other keys and other formats", {
   k <- nqkeygen("ML-DSA-44")
   k2 <- nqkeygen("ML-DSA-44")
-  card <- nqidcard(k$sk, k$pk, "ML-DSA-44", "Ada Lovelace", at = T0)
-  ch <- charToRaw(sub("Ada Lovelace", "Ada Lovelacf", rawToChar(card)))
+  card <- nqidcard(k$sk, k$pk, "ML-DSA-44", "Ada Lovelace", at = t0)
+  ch <- charToRaw(
+    sub("Ada Lovelace", "Ada Lovelacf", rawToChar(card), fixed = TRUE)
+  )
   expect_null(nqidcheck(ch))
   expect_null(nqidcheck(card, k2$pk))
   expect_error(nqidcheck(c(charToRaw(" "), card)), "not a noqtis-idcard-1")
   expect_error(nqidcheck(charToRaw("{}")), "not a noqtis-idcard-1")
-  expect_error(nqidcheck(nqrevoke(k$sk, k$pk, "ML-DSA-44", at = T0)),
-    "not a noqtis-idcard-1")
+  expect_error(
+    nqidcheck(nqrevoke(k$sk, k$pk, "ML-DSA-44", at = t0)),
+    "not a noqtis-idcard-1"
+  )
   expect_error(nqidcheck(as.raw(rep(91L, 256 * 1024 + 1))), "noqtis")
   expect_error(nqidcheck("no-such-card"), "card")
   d <- tempfile()
@@ -75,4 +80,12 @@ test_that("changed cards, other keys and other formats", {
   expect_error(nqidcheck(file.path(d, "noqtis.sig")), "not a noqtis-idcard-1")
   writeBin(card, file.path(d, "noqtis.sig"))
   expect_false(attr(nqcheck(d, k$pk), "ok"))
+})
+
+test_that("a card file over 256 KiB is refused unread", {
+  f <- tempfile()
+  on.exit(unlink(f), add = TRUE)
+  writeBin(raw(256 * 1024 + 1), f)
+  expect_error(nqidcheck(f), "over 256 KiB")
+  expect_error(nqidcheck(tempfile()), "path of a card file")
 })

@@ -37,8 +37,10 @@ test_that("a tampered copy fails", {
   on.exit(unlink(d, recursive = TRUE), add = TRUE)
   f <- file.path(d, "noqtis.json")
   s <- readChar(f, file.size(f), useBytes = TRUE)
-  writeChar(sub("golden", "Golden", s, fixed = TRUE), f, eos = NULL,
-    useBytes = TRUE)
+  writeChar(sub("golden", "Golden", s, fixed = TRUE), f,
+    eos = NULL,
+    useBytes = TRUE
+  )
   expect_false(attr(nqcheck(d), "ok"))
   # a changed signature
   d <- golden()
@@ -53,8 +55,8 @@ test_that("a tampered copy fails", {
   d <- tempfile()
   on.exit(unlink(d, recursive = TRUE), add = TRUE)
   dir.create(d)
-  expect_false(isTRUE(tryCatch(attr(nqcheck(d), "ok"),
-    error = function(e) FALSE)))
+  ok <- tryCatch(attr(nqcheck(d), "ok"), error = function(e) FALSE)
+  expect_false(isTRUE(ok))
 })
 
 test_that("sealing the golden files again gives the golden manifest", {
@@ -70,14 +72,20 @@ test_that("sealing the golden files again gives the golden manifest", {
   k <- gkey()
   old <- Sys.getenv("SOURCE_DATE_EPOCH", NA)
   Sys.setenv(SOURCE_DATE_EPOCH = "1793210645")
-  on.exit(if (is.na(old)) Sys.unsetenv("SOURCE_DATE_EPOCH") else
-    Sys.setenv(SOURCE_DATE_EPOCH = old), add = TRUE)
+  on.exit(if (is.na(old)) {
+    Sys.unsetenv("SOURCE_DATE_EPOCH")
+  } else {
+    Sys.setenv(SOURCE_DATE_EPOCH = old)
+  }, add = TRUE)
   p <- nqseal(d, k$sk, k$pk, "ML-DSA-44",
-    meta = '{"project":"golden","n":1.50,"tags":["a","b"]}')
+    meta = '{"project":"golden","n":1.50,"tags":["a","b"]}'
+  )
   expect_true(all(file.exists(p)))
   rd <- function(f) readBin(f, "raw", file.size(f))
-  expect_identical(rd(file.path(d, "noqtis.json")),
-    rd(file.path(g, "noqtis.json")))
+  expect_identical(
+    rd(file.path(d, "noqtis.json")),
+    rd(file.path(g, "noqtis.json"))
+  )
   expect_true(attr(nqcheck(d, k$pk), "ok"))
 })
 
@@ -117,8 +125,10 @@ test_that("RFC 3161 timestamps verify under their anchor only", {
   # the token over the golden signature, added to the seal
   f <- file.path(d, "noqtis.sig")
   s <- readChar(f, file.size(f), useBytes = TRUE)
-  s <- paste0(substr(s, 1L, nchar(s) - 1L), ',"timestamp":"', b64e(tok),
-    '"}')
+  s <- paste0(
+    substr(s, 1L, nchar(s) - 1L), ',"timestamp":"', b64e(tok),
+    '"}'
+  )
   writeChar(s, f, eos = NULL, useBytes = TRUE)
   r <- nqcheck(d, k$pk, anchors = list(root))
   expect_true(attr(r, "ok"))

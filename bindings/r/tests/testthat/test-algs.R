@@ -1,16 +1,16 @@
 test_that("nqalgs lists every algorithm with the standards' sizes", {
   a <- nqalgs()
   expect_s3_class(a, "data.frame")
-  expect_equal(sum(a$type == "sig"), 19L)
-  expect_equal(sum(a$type == "kem"), 6L)
+  expect_identical(sum(a$type == "sig"), 19L)
+  expect_identical(sum(a$type == "kem"), 6L)
   r <- a[a$name == "ML-DSA-44", ]
-  expect_equal(c(r$pk, r$sk, r$sig), c(1312L, 2560L, 2420L))
+  expect_identical(c(r$pk, r$sk, r$sig), c(1312L, 2560L, 2420L))
   r <- a[a$name == "ML-DSA-87", ]
-  expect_equal(c(r$pk, r$sk, r$sig), c(2592L, 4896L, 4627L))
+  expect_identical(c(r$pk, r$sk, r$sig), c(2592L, 4896L, 4627L))
   r <- a[a$name == "SLH-DSA-SHA2-128s", ]
-  expect_equal(c(r$pk, r$sk, r$sig), c(32L, 64L, 7856L))
+  expect_identical(c(r$pk, r$sk, r$sig), c(32L, 64L, 7856L))
   r <- a[a$name == "ML-KEM-768", ]
-  expect_equal(c(r$pk, r$sk, r$ct, r$ss), c(1184L, 2400L, 1088L, 32L))
+  expect_identical(c(r$pk, r$sk, r$ct, r$ss), c(1184L, 2400L, 1088L, 32L))
   expect_true(all(is.na(a$ct[a$type == "sig"])))
 })
 
@@ -40,7 +40,7 @@ test_that("unknown algorithm names are errors", {
   expect_error(nqsign(raw(2560), "x", "ML-KEM-512"), "signature")
   expect_error(nqencap(raw(1312), "ML-DSA-44"), "encapsulation")
   # case is ignored
-  expect_equal(nqkeygen("ml-dsa-44", seed = as.raw(0:31))$alg, "ML-DSA-44")
+  expect_identical(nqkeygen("ml-dsa-44", seed = as.raw(0:31))$alg, "ML-DSA-44")
 })
 
 test_that("nqselftest passes", {

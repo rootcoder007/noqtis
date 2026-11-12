@@ -35,8 +35,10 @@ test_that("every signature algorithm round trips and rejects tampering", {
 })
 
 test_that("keys from a seed and deterministic signatures repeat", {
-  for (a in c("ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
-    "SLH-DSA-SHAKE-128f")) {
+  for (a in c(
+    "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
+    "SLH-DSA-SHAKE-128f"
+  )) {
     n <- if (startsWith(a, "ML-DSA")) 32L else 48L
     k1 <- nqkeygen(a, seed = as.raw(seq_len(n)))
     k2 <- nqkeygen(a, seed = as.raw(seq_len(n)))
@@ -72,8 +74,8 @@ test_that("pre-hash signatures (HashML-DSA, HashSLH-DSA)", {
       s <- nqsign(k$sk, "data", a, ph = h)
       expect_true(nqverify(k$pk, "data", s, a, ph = h), label = h)
       expect_false(nqverify(k$pk, "data", s, a), label = h)
-      expect_false(nqverify(k$pk, "data", s, a,
-        ph = if (h == "sha512") "sha256" else "sha512"), label = h)
+      oh <- if (h == "sha512") "sha256" else "sha512"
+      expect_false(nqverify(k$pk, "data", s, a, ph = oh), label = h)
       expect_false(nqverify(k$pk, "Data", s, a, ph = h), label = h)
     }
   }
@@ -83,7 +85,8 @@ test_that("arguments are checked", {
   k <- nqkeygen("ML-DSA-44")
   expect_error(nqsign(k$sk, "m", "ML-DSA-44", ctx = strrep("c", 256)))
   expect_false(nqverify(k$pk, "m", raw(2420), "ML-DSA-44",
-    ctx = strrep("c", 256)))
+    ctx = strrep("c", 256)
+  ))
   expect_error(nqsign(k$sk[-1], "m", "ML-DSA-44"))
   expect_error(nqsign("sk", "m", "ML-DSA-44"), "raw vector")
   expect_error(nqsign(k$sk, 1, "ML-DSA-44"), "raw vector or one string")
@@ -93,9 +96,32 @@ test_that("arguments are checked", {
   expect_error(nqkeygen("ML-DSA-44", seed = "abc"), "raw vector")
   # a string message is its UTF-8 bytes
   s <- nqsign(k$sk, "café", "ML-DSA-44")
-  expect_true(nqverify(k$pk, charToRaw(enc2utf8("café")), s,
-    "ML-DSA-44"))
+  expect_true(nqverify(
+    k$pk, charToRaw(enc2utf8("café")), s,
+    "ML-DSA-44"
+  ))
   # empty messages are allowed
   s <- nqsign(k$sk, raw(0), "ML-DSA-44")
   expect_true(nqverify(k$pk, "", s, "ML-DSA-44"))
+})
+
+test_that("an over-long context fails verification, hybrids included", {
+  for (a in c("ML-DSA-44", "ML-DSA-44+Ed25519")) {
+    k <- nqkeygen(a)
+    s <- nqsign(k$sk, "m", a)
+    lim <- if (endsWith(a, "+Ed25519")) 241L else 255L
+    expect_false(nqverify(k$pk, "m", s, a, ctx = strrep("c", lim + 1L)))
+    expect_error(nqsign(k$sk, "m", a, ctx = strrep("c", lim + 1L)), "noqtis")
+    s2 <- nqsign(k$sk, "m", a, ctx = strrep("c", lim))
+    expect_true(nqverify(k$pk, "m", s2, a, ctx = strrep("c", lim)))
+  }
+})
+
+test_that("a pre-hash the algorithm does not have is an error", {
+  h <- nqkeygen("ML-DSA-44+Ed25519")
+  s <- nqsign(h$sk, "m", "ML-DSA-44+Ed25519")
+  expect_error(
+    nqverify(h$pk, "m", s, "ML-DSA-44+Ed25519", ph = "sha256"),
+    "nqvrfy: algorithm or option not supported"
+  )
 })
