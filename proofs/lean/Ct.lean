@@ -67,7 +67,7 @@ theorem mkh (a0 a1 g2 : BitVec 32) (hg : g2 = 95232#32 ∨ g2 = 261888#32)
       if g2.slt a0 ∨ a0.slt (0#32 - g2) ∨ (a0 = 0#32 - g2 ∧ a1 ≠ 0#32) then 1#32 else 0#32 := by
   rcases hg with rfl | rfl <;>
   · simp only
-    split_ifs <;> bv_decide
+    split_ifs <;> bv_decide (config := { timeout := 600 })
 
 /-- `nqmdchk(a, b)`, per coefficient: `t = a − ((a >> 31) & 2a)` is `|a|`, and the flag
 `(b − 1 − t) >> 31` is 1 exactly when `|a| ≥ b`, for `|a| < 2³⁰` and `0 < b < 2³⁰`. -/
@@ -77,7 +77,7 @@ theorem mdchk (a b : BitVec 32) (ha1 : (-1073741824#32).slt a) (ha2 : a.slt 1073
     ((b - 1#32 - t) >>> 31 = if b.sle t then 1#32 else 0#32) ∧
       (t = if a.slt 0#32 then 0#32 - a else a) := by
   simp only
-  constructor <;> split_ifs <;> bv_decide
+  constructor <;> split_ifs <;> bv_decide (config := { timeout := 600 })
 
 /-! ### Byte order: the helpers name the order, not the host's -/
 

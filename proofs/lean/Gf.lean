@@ -43,7 +43,8 @@ theorem gm_spec (a b : BitVec 32) (ha : a.ult 256#32) (hb : b.ult 256#32) :
     gm a b = reduce (clmul a b) := by
   unfold gm reduce clmul
   simp only [List.range, List.range.loop, List.foldl]
-  bv_decide
+  -- a few seconds alone; more than the default 10 s on a loaded machine
+  bv_decide (config := { timeout := 600 })
 
 /-- code.c `ginv(a)`: `a², a³, a⁴, a⁷, a¹¹, a¹⁵, a³⁰, a⁶⁰, a¹²⁰, a¹²⁷, a²⁵⁴`. -/
 def ginv (a : BitVec 32) : BitVec 32 :=
