@@ -99,5 +99,11 @@ for w in $(grep -oE '(noqtis[-/]|--version )[0-9]+\.[0-9]+\.[0-9]+' \
   fi
 done
 
+# the T2 package names that version too, in [V] and in its [D] file and URL;
+# its checksum is checked against the download by T2's own Download in pkgs.yml
+t2=packaging/community/t2/package/security/noqtis/noqtis.desc
+has "$t2" "[V] $cv"
+has "$t2" " noqtis-$cv.tar.gz https://github.com/rootcoder007/noqtis/releases/download/v$cv/"
+
 [ "$bad" = 0 ] || exit 1
 echo "vercheck: $v everywhere"
