@@ -145,7 +145,9 @@ import { init, sign, capsule } from 'noqtis';
 
 /** Seal the files of an <input type="file" webkitdirectory> and check them. */
 export async function sealPicked(/** @type {FileList} */ list) {
-  await init();
+  // in a browser the page fetches the module; serve noqtis.wasm (in the
+  // package as noqtis/noqtis.wasm) with the site
+  await init({ wasm: await fetch('/assets/noqtis.wasm') });
   const files = new Map();
   for (const f of Array.from(list)) {
     // webkitRelativePath is "picked-folder/sub/file"; drop the first part
@@ -178,10 +180,11 @@ To check a capsule someone gave you, put their `noqtis.json` and
 `capsule.check(files, { trust: theirPublicKey })`. Without `trust` the
 check accepts the key the seal carries, and its report says so.
 
-The package loads `noqtis.wasm` with
-`new URL('noqtis.wasm', import.meta.url)`, which Vite, webpack 5,
-esbuild and Rollup handle. Where that is not available, fetch the bytes
-yourself and pass them: `await init({ wasm: bytes })`.
+In a browser the package reads no file and makes no request: `init()`
+takes the module from the page, as a `Response` (above), its bytes or a
+compiled `WebAssembly.Module`; with Vite, for example,
+`import url from 'noqtis/noqtis.wasm?url'` and `fetch(url)`. On Node,
+Deno and Bun `init()` reads the package's own `noqtis.wasm`.
 
 ## Deno and Bun
 

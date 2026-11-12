@@ -79,7 +79,7 @@ distributions. A change that touches secret data needs a ctgrind test
 (`tests/t*ct.c`); a change to a parser needs tests for what it refuses.
 
 The bindings have their own tests: `bindings/py` (`pytest`),
-`bindings/npm` (`npm test`, after `sh build.sh` with emscripten) and
+`bindings/npm` (`npm test`, after `sh build.sh` with wasi-sdk) and
 `bindings/r` (`R CMD check`). If you change `src/` or `include/`, run
 `sh bindings/r/tools/vendor.sh` so the R package carries the same
 sources; CI checks that it does.

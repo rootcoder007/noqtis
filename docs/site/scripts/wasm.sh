@@ -13,7 +13,7 @@ root=$(cd "$site/../.." && pwd)
 npm="$root/bindings/npm"
 pub="$site/public"
 rm -rf "$pub/wasm" "$pub/sample.json"
-if [ -f "$npm/dist/noqtis.wasm" ] && [ -f "$npm/dist/noqtis.js" ]; then
+if [ -f "$npm/dist/noqtis.wasm" ]; then
   mkdir -p "$pub/wasm/lib" "$pub/wasm/dist"
   cp "$npm/lib/index.js" "$npm/lib/wasm.js" "$npm/lib/wasi.js" "$pub/wasm/lib/"
   cp "$npm/dist/noqtis.wasm" "$pub/wasm/dist/"

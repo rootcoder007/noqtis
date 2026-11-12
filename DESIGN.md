@@ -185,7 +185,7 @@ with nothing to compile for the user where a package manager allows it.
 | macOS | arm64, x86-64 | Apple clang | a release archive for each |
 | Windows | x86-64, arm64 | MSVC, clang-cl, MinGW-w64 | BCryptGenRandom; no POSIX assumed |
 | FreeBSD, OpenBSD, NetBSD | x86-64 | clang; gcc on NetBSD | arc4random_buf |
-| WebAssembly | wasm32 | emscripten, wasi-sdk | the tests under Node and under wasmtime; the npm package on Node, Deno and Bun |
+| WebAssembly | wasm32 | emscripten, wasi-sdk | the tests under Node (emscripten) and under wasmtime (wasi-sdk); the npm package (wasi-sdk, loaded by its own lib/wasm.js and lib/wasi.js) on Node, Deno and Bun |
 | Android | x86-64 (emulator); arm64 built only | NDK clang | API 28 and later; the tests through adb; no CLI |
 | iOS | arm64 (simulator) | Apple clang | the tests through xcrun simctl spawn; no CLI |
 

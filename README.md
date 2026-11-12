@@ -91,7 +91,7 @@ In short:
 | Containers | `docker build -t noqtis .` | `ghcr.io/rootcoder007/noqtis` |
 | Nix | `nix build` (`flake.nix`) | Nixpkgs after its review |
 | Arch, Alpine, Fedora, Debian, Wolfi | recipes in `packaging/` (`packaging/pkgtest.sh` builds one) | AUR first; the distributions after their review |
-| JavaScript (Node, Deno, Bun, browsers) | `sh bindings/npm/build.sh` (emscripten) | `npm install noqtis` |
+| JavaScript (Node, Deno, Bun, browsers) | `sh bindings/npm/build.sh` (wasi-sdk) | `npm install noqtis` |
 | Python | `pip install ./bindings/py` | `pip install noqtis` |
 | R | `R CMD INSTALL bindings/r` | r-universe (`rootcoder007.r-universe.dev`); `install.packages("noqtis")` after CRAN's review |
 | Rust | `cargo add noqtis --git https://github.com/rootcoder007/noqtis` | `cargo add noqtis` |

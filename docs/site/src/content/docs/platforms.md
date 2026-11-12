@@ -17,7 +17,7 @@ vector, no large-data hash tests) to stay within a job's time.
 | macOS | arm64, x86-64 | Apple Clang | a release archive for each |
 | Windows | x86-64, arm64 | MSVC, clang-cl, MinGW-w64 | `BCryptGenRandom`; wide-character paths |
 | FreeBSD, OpenBSD, NetBSD | x86-64 | Clang; GCC on NetBSD | `arc4random_buf` |
-| WebAssembly | wasm32 | emscripten, wasi-sdk | emscripten: the library's tests under Node, the npm package on Node 22, 24 and 26, Deno and Bun; wasi-sdk: the library's tests under wasmtime (no command-line tool) |
+| WebAssembly | wasm32 | emscripten, wasi-sdk | emscripten: the library's tests under Node; wasi-sdk: the library's tests under wasmtime (no command-line tool) and the npm package on Node 22, 24 and 26, Deno and Bun |
 | Android | x86-64; arm64 built only | NDK Clang | the library's tests on an emulator (API 34, built for API 28 and later); `getrandom`; no command-line tool |
 | iOS | arm64 (simulator) | Apple Clang | the library's tests on a simulator with `xcrun simctl spawn`; `arc4random_buf`; no command-line tool |
 
@@ -32,7 +32,7 @@ on release tags, weekly and on demand.
 
 Each platform uses its operating system's source: `getrandom` on Linux,
 `arc4random_buf` on macOS, iOS and the BSDs, `BCryptGenRandom` on Windows,
-WebCrypto `getRandomValues` (emscripten) or WASI `random_get` (wasi-sdk).
+WebCrypto `getRandomValues` (emscripten; and the npm package, whose WASI `random_get` calls it) or WASI `random_get` (wasi-sdk under wasmtime).
 There is no fallback: if the source fails, the call fails with `NQERNG`.
 
 ## Portability rules
