@@ -22,9 +22,9 @@ To try it in a T2 tree (on T2, as root):
 The `t2` job in `.github/workflows/pkgs.yml` runs `ci.sh` in the root file
 system of a T2 ISO (T2 publishes no container image), on x86-64 and arm64:
 it checks the `.desc`, downloads the tarball from the `[D]` URL (checking
-the checksum), builds the build dependencies the `.cache` names, then the
-package with `Emerge-Pkg` (printing the `.cache` that build writes), then the
-package again with `SDECFG_DO_CHECK`, so that the build runs the noqtis
+the checksum), builds the package and the build dependencies its `.cache`
+names with `Emerge-Pkg` (printing the `.cache` that build writes), then the
+package alone again with `SDECFG_DO_CHECK`, so that the build runs the noqtis
 tests, and builds a program against the installed package. It changes one line of the T2 tree: the ISOs carry no cmake, and
 `cmake.desc` cannot bootstrap cmake without one (a T2 bug, see `ci.sh`).
 Last, it builds this tree with T2's gcc at `-O2` and at `-Os` with

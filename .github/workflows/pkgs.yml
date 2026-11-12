@@ -1,6 +1,6 @@
 # pkgs.yml -- builds every recipe in packaging/community (the files sent to
 # conda-forge, vcpkg, Conan, nixpkgs, AUR, Alpine, Void, Wolfi, Gentoo GURU,
-# winget and Scoop) on the system it is for, from the release tarball the
+# T2 SDE, winget and Scoop) on the system it is for, from the release tarball the
 # recipe names, with the noqtis tests; and builds this tree on glibc 2.17.
 name: pkgs
 
@@ -242,6 +242,51 @@ jobs:
         with:
           name: guru-manifest
           path: /var/db/repos/guru/dev-libs/noqtis/Manifest
+
+  t2:
+    # T2 SDE publishes ISOs, not container images: the job makes an image of
+    # the root file system of a T2 ISO (pinned by its SHA-256) and builds the
+    # package there with T2's own scripts, from the T2 tree at a fixed commit
+    # (packaging/community/t2/ci.sh); arm64 runs natively on an arm runner
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: x86_64
+            iso: t2-26.6-x86-64-base-wayland-bootstrap-gcc-nocona.iso
+            sum: e176704d9a10b5fbdee494a29822b956cc72a41b6690417b21ea5d5f8be0b3eb
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+            iso: t2-26.7-arm64-base-wayland-bootstrap-gcc.iso
+            sum: 388c2c2142c6409ac5a22308356a25f2ee8d4e6eb7517a18de5710707a9f6eb1
+    name: t2 (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: T2 userland from the ISO
+        run: |
+          curl -sSfL -o t2.iso "https://dl.t2sde.org/binary/2026/incoming/${{ matrix.iso }}"
+          echo "${{ matrix.sum }}  t2.iso" | sha256sum -c -
+          # alpine:edge, as in the alpine job
+          docker run --rm -v "$PWD:/w" alpine@sha256:020dfcbaaf4cc1078bf2d9c7ba31a8466e334061dcd2f248001d68f79e52c000 sh -c \
+            "apk add -q squashfs-tools xorriso >&2 &&
+            xorriso -osirrox on -indev /w/t2.iso -extract /rootfs.sqf /tmp/r.sqf 2>/dev/null &&
+            unsquashfs -q -n -d /tmp/r /tmp/r.sqf >&2 && tar -C /tmp/r -cf - ." | docker import - t2
+          rm t2.iso
+      - name: the T2 tree (rxrbln/t2sde, the git mirror of svn t2/trunk r101039)
+        run: |
+          git init -q /tmp/t2
+          git -C /tmp/t2 fetch -q --depth 1 https://github.com/rxrbln/t2sde.git 1d1bca4a3e2b0102d8af6ab241ec4ab0b358de41
+          git -C /tmp/t2 checkout -q FETCH_HEAD
+      - name: Check-PkgFormat, Download, Emerge-Pkg (with the tests), use, -O2 and -Os -Werror
+        run: |
+          docker run --rm -e NQFAST=1 -e NQSLSUB=32 -e CTEST_PARALLEL_LEVEL="$(nproc)" \
+            -v /tmp/t2:/t2:ro -v "$PWD:/nq:ro" t2 \
+            sh /nq/packaging/community/t2/ci.sh
 
   conda:
     strategy:
