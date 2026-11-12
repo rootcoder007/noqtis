@@ -27,8 +27,12 @@ export type HashAlg =
   | 'shake128' | 'shake256';
 
 export interface InitOptions {
-  /** noqtis.wasm as bytes, a compiled module, or its URL or path. */
-  wasm?: Uint8Array | ArrayBuffer | WebAssembly.Module | URL | string;
+  /**
+   * noqtis.wasm as bytes, a compiled module or a Response; on Node, Deno and
+   * Bun also its path or file: URL, and optional there (the package reads
+   * its own). Required in a browser, where the package fetches nothing.
+   */
+  wasm?: Uint8Array | ArrayBuffer | WebAssembly.Module | Response | URL | string;
 }
 
 /** Loads the WebAssembly module; call (and await) once before anything else. */
