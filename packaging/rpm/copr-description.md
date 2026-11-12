@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/rootcoder007/noqtis/main/docs/logo/noqtis-hex-512.png" align="right" height="120" alt="NOQTIS hex logo" />
+![NOQTIS hex logo](https://raw.githubusercontent.com/rootcoder007/noqtis/main/docs/logo/noqtis-hex-160.png)
 
 **NOQTIS** seals the exact files behind a result with a post-quantum
 signature, so anyone can check later, offline, that nothing changed. One
