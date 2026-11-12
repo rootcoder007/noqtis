@@ -30,6 +30,7 @@ Options (all `-D...` at configure time):
 | `NQMAN=OFF` | on | do not install the manual pages |
 | `NQWERROR=OFF` | on | do not treat warnings as errors |
 | `NQTLS=ON` | off | the TLS 1.3 client (`src/tls`) in the public API and `https://` in the tool; not yet reviewed |
+| `NQCOV=ON` | off | gcov counters (`--coverage -O0`), for `tests/cov.sh`, which builds, runs the tests and reports line and branch coverage of `src/` per folder |
 | `NQDIFF=ON` | off | `dv` and CTest `tdiff`: the differential test against rmoriebricklayer (`tests/diff/run.sh`; needs Rscript and the R package to run, skipped without them) |
 
 Warnings are errors: `-Wall -Wextra -Wpedantic -Wconversion -Wshadow

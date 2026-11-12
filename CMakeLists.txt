@@ -17,6 +17,9 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 option(NQWERROR "Treat warnings as errors" ON)
 option(NQSAN "Build with AddressSanitizer and UBSan" OFF)
+# line and branch coverage of the library by its own tests (gcc --coverage;
+# tests/cov.sh runs them and reports per folder): a measuring build only
+option(NQCOV "Build with gcov coverage counters" OFF)
 option(NQTESTS "Build the tests" ON)
 option(NQSHARED "Build a shared library instead of a static one" OFF)
 option(NQCLI "Build the noqtis command-line tool" ON)
@@ -107,6 +110,10 @@ if(NQSAN AND NOT MSVC)
   add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer
                       -fno-sanitize-recover=all)
   add_link_options(-fsanitize=address,undefined)
+endif()
+if(NQCOV AND NOT MSVC)
+  add_compile_options(--coverage -O0)
+  add_link_options(--coverage)
 endif()
 
 # every module is a folder under src/; its .c files make up the library.
