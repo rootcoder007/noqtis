@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // A runtime smoke test with no test framework, for Deno and Bun:
 //   deno run --allow-read test/smoke.js    bun test/smoke.js
-import { init, sign, kem, hash, capsule, random, version } from '../lib/index.js';
+import { init, sign, kem, hash, capsule, random, version } from '../lib/main.js';
 
 const fail = (m) => {
   throw new Error(`smoke: ${m}`);

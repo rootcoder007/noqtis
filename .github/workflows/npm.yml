@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # The npm package (bindings/npm): builds the library to WebAssembly with
-# the pinned emsdk, runs the package's tests on Node 22, 24 and 26 (with
+# the pinned wasi-sdk (as ci.yml's WASI job), runs the package's tests on Node 22, 24 and 26 (with
 # the native CLI built beside it for the cross-checks) and the smoke test
 # on Deno and Bun, type-checks the declarations and dry-runs `npm pack`.
 # A release tag runs `npm publish --dry-run` once every test passes; only
@@ -48,7 +48,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
 env:
-  EMSDK_VERSION: "6.0.12"
+  # the same wasi-sdk as the WASI job of ci.yml
+  WASISDK: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-linux.tar.gz
+  WASISDKSUM: b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4
 
 jobs:
   test:
@@ -61,10 +63,13 @@ jobs:
         node: ["22", "24", "26"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
-        with:
-          version: ${{ env.EMSDK_VERSION }}
-          actions-cache-folder: emsdk-cache
+      - name: wasi-sdk (checked against its SHA-256)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sdk.tgz" "$WASISDK"
+          printf '%s  %s\n' "$WASISDKSUM" "$RUNNER_TEMP/sdk.tgz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/wasi-sdk"
+          tar -xzf "$RUNNER_TEMP/sdk.tgz" -C "$RUNNER_TEMP/wasi-sdk" --strip-components=1
+          echo "WASI_SDK_PATH=$RUNNER_TEMP/wasi-sdk" >> "$GITHUB_ENV"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
@@ -103,10 +108,13 @@ jobs:
         rt: [deno, bun]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
-        with:
-          version: ${{ env.EMSDK_VERSION }}
-          actions-cache-folder: emsdk-cache
+      - name: wasi-sdk (checked against its SHA-256)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sdk.tgz" "$WASISDK"
+          printf '%s  %s\n' "$WASISDKSUM" "$RUNNER_TEMP/sdk.tgz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/wasi-sdk"
+          tar -xzf "$RUNNER_TEMP/sdk.tgz" -C "$RUNNER_TEMP/wasi-sdk" --strip-components=1
+          echo "WASI_SDK_PATH=$RUNNER_TEMP/wasi-sdk" >> "$GITHUB_ENV"
       - name: build the WebAssembly module
         run: sh bindings/npm/build.sh
       - if: matrix.rt == 'deno'
@@ -142,10 +150,13 @@ jobs:
       id-token: write # npm provenance (Sigstore)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
-        with:
-          version: ${{ env.EMSDK_VERSION }}
-          actions-cache-folder: emsdk-cache
+      - name: wasi-sdk (checked against its SHA-256)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sdk.tgz" "$WASISDK"
+          printf '%s  %s\n' "$WASISDKSUM" "$RUNNER_TEMP/sdk.tgz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/wasi-sdk"
+          tar -xzf "$RUNNER_TEMP/sdk.tgz" -C "$RUNNER_TEMP/wasi-sdk" --strip-components=1
+          echo "WASI_SDK_PATH=$RUNNER_TEMP/wasi-sdk" >> "$GITHUB_ENV"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"

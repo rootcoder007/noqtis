@@ -9,7 +9,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { init, sign, kem, keyfile } from '../lib/index.js';
+import { init, sign, kem, keyfile } from '../lib/main.js';
 import { checkDir, sealDir } from '../lib/node.js';
 
 await init();

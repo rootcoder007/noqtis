@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { init, idcard, capsule, sign, hash, codes, NoqtisError }
-  from '../lib/index.js';
+  from '../lib/main.js';
 
 await init();
 

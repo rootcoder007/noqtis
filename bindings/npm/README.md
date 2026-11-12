@@ -42,7 +42,7 @@ after `init()` is synchronous.
 
 | Call | Returns |
 |---|---|
-| `init({ wasm })` | a promise; `wasm` (optional) is noqtis.wasm as bytes, a `WebAssembly.Module` or a URL, for runtimes that cannot find it next to `dist/noqtis.js` |
+| `init({ wasm })` | a promise; `wasm` is noqtis.wasm as bytes, a `WebAssembly.Module` or a `Response`, and on Node, Deno and Bun also a path or `file:` URL; optional there (the package's own file is read), required in a browser |
 | `algs()` | every algorithm with its sizes in bytes: `{ name, kind: 'sign', publicKey, secretKey, signature }`, `{ name, kind: 'kem', publicKey, secretKey, ciphertext, sharedSecret }`, `{ name, kind: 'hash', digest }` |
 | `sign.keygen(alg, { seed })` | `{ publicKey, secretKey }`; `seed` is the standard's seed (xi, 32 bytes, for ML-DSA; SK.seed, SK.prf, PK.seed for SLH-DSA; the 32-byte private key for Ed25519; xi and the Ed25519 key, 64 bytes, for a hybrid) |
 | `sign.sign(alg, sk, msg, { ctx, deterministic, rnd, prehash })` | the signature (FIPS 204/205 encoding); `ctx` at most 255 bytes; `deterministic` uses all-zero per-signature randomness; `prehash` names a hash for HashML-DSA / HashSLH-DSA |
@@ -184,19 +184,34 @@ The CommonJS `require('noqtis/node')` functions return promises.
 
 ## Bundlers and other runtimes
 
-The package is ESM with a CommonJS entry, `sideEffects: false`, and loads
-`dist/noqtis.wasm` with `new URL('noqtis.wasm', import.meta.url)`, which
-Vite, webpack 5, esbuild and Rollup handle. Where that is not available
-(some edge runtimes), fetch or import the bytes yourself and pass them:
-`await init({ wasm: bytes })`. The file is exported as `noqtis/noqtis.wasm`.
+The package is ESM with a CommonJS entry and `sideEffects: false`. On
+Node, Deno and Bun (the `node` export condition) `init()` reads the
+package's own `dist/noqtis.wasm`, its one file read. The browser entry
+reads no file and makes no request: pass the module yourself, from your
+own fetch or your bundler's asset import of `noqtis/noqtis.wasm`:
+
+```js
+import { init } from 'noqtis';
+// serve node_modules/noqtis/dist/noqtis.wasm with your site, then
+await init({ wasm: await fetch('/assets/noqtis.wasm') });
+// or with Vite: import url from 'noqtis/noqtis.wasm?url';
+//               await init({ wasm: await fetch(url) });
+```
+
+The JavaScript is plain, unminified source: `lib/index.js` (the API),
+`lib/wasm.js` (instantiates the module), `lib/wasi.js` (the few host
+functions the C library calls: `crypto.getRandomValues` for randomness,
+the clock, and an in-memory folder for capsules; nothing else, no
+network, no environment). Without `crypto.getRandomValues` `init()`
+fails; there is no fallback.
 
 Deno: `import { init } from 'npm:noqtis';`. Bun: as Node.
 
 ## Building from source
 
 ```sh
-# emsdk 6.0.12 active (emcc on PATH)
-sh build.sh     # dist/noqtis.js and dist/noqtis.wasm from ../../src
+# wasi-sdk 34 unpacked, WASI_SDK_PATH set to it
+sh build.sh     # dist/noqtis.wasm from ../../src
 npm test        # NOQTIS_CLI=/path/to/noqtis also runs the CLI cross-checks
 ```
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Copies the WebAssembly build of the npm package (bindings/npm: lib/index.js,
-# dist/noqtis.js, dist/noqtis.wasm) and the sample capsule
+# lib/wasm.js, lib/wasi.js, dist/noqtis.wasm) and the sample capsule
 # (tests/vectors/cap/sample) into public/, for the page that checks a
 # capsule in the browser (demo.mdx). The site serves them itself: the page
 # loads nothing from anywhere else. Runs before `npm run build`. Without
@@ -15,8 +15,8 @@ pub="$site/public"
 rm -rf "$pub/wasm" "$pub/sample.json"
 if [ -f "$npm/dist/noqtis.wasm" ] && [ -f "$npm/dist/noqtis.js" ]; then
   mkdir -p "$pub/wasm/lib" "$pub/wasm/dist"
-  cp "$npm/lib/index.js" "$pub/wasm/lib/"
-  cp "$npm/dist/noqtis.js" "$npm/dist/noqtis.wasm" "$pub/wasm/dist/"
+  cp "$npm/lib/index.js" "$npm/lib/wasm.js" "$npm/lib/wasi.js" "$pub/wasm/lib/"
+  cp "$npm/dist/noqtis.wasm" "$pub/wasm/dist/"
   cp "$root/LICENSE" "$root/NOTICE" "$pub/wasm/"
 elif [ "${NQWASM:-}" = 1 ]; then
   echo "wasm.sh: $npm/dist/noqtis.wasm is missing (sh bindings/npm/build.sh)" >&2

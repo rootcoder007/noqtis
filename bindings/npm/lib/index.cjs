@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// CommonJS entry: the same API as index.js, which it loads with a dynamic
-// import() inside init() (Node 18 cannot require() an ES module). Every
-// function but init() throws until init() has resolved.
+// CommonJS entry: the same API as main.js (index.js with the package's
+// own noqtis.wasm found on Node), which it loads with import() of that one
+// fixed file inside init(). Every function but init() throws until init()
+// has resolved.
 'use strict';
 
 let m = null;
@@ -15,7 +16,7 @@ function need() {
 
 async function init(opts) {
   if (pending === null) {
-    pending = import('./index.js').then(async (mod) => {
+    pending = import('./main.js').then(async (mod) => {
       await mod.init(opts);
       m = mod;
     });

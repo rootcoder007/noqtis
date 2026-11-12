@@ -9,7 +9,8 @@
 import { init, sign, kem, hash, capsule, random } from '../lib/index.js';
 const out = document.getElementById('out');
 try {
-  await init();
+  // the browser entry fetches nothing itself: the page does
+  await init({ wasm: await fetch('../dist/noqtis.wasm') });
   const k = sign.keygen('ML-DSA-65');
   const s = sign.sign('ML-DSA-65', k.secretKey, 'browser', { ctx: 'x' });
   if (!sign.verify('ML-DSA-65', k.publicKey, 'browser', s, { ctx: 'x' })) {

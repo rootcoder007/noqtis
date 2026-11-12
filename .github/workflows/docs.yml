@@ -134,10 +134,13 @@ jobs:
         working-directory: docs/site
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
-        with:
-          version: "6.0.12" # as npm.yml
-          actions-cache-folder: emsdk-cache
+      - name: wasi-sdk, as npm.yml (checked against its SHA-256)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sdk.tgz" "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-linux.tar.gz"
+          printf '%s  %s\n' b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4 "$RUNNER_TEMP/sdk.tgz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/wasi-sdk"
+          tar -xzf "$RUNNER_TEMP/sdk.tgz" -C "$RUNNER_TEMP/wasi-sdk" --strip-components=1
+          echo "WASI_SDK_PATH=$RUNNER_TEMP/wasi-sdk" >> "$GITHUB_ENV"
       - name: build the WebAssembly module (for the browser check page)
         working-directory: .
         run: sh bindings/npm/build.sh

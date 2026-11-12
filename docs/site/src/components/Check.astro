@@ -135,7 +135,8 @@
     say("Loading the WebAssembly module from this site...");
     try {
       const m = await import(/* @vite-ignore */ `${base}wasm/lib/index.js`);
-      await m.init();
+      // the package's browser entry fetches nothing itself
+      await m.init({ wasm: await fetch(`${base}wasm/dist/noqtis.wasm`) });
       nq = m;
       return nq;
     } catch (e) {

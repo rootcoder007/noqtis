@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { init, sign, kem, hash } from '../lib/index.js';
+import { init, sign, kem, hash } from '../lib/main.js';
 
 await init();
 

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { init, capsule, dsse, sign, hash, codes, NoqtisError }
-  from '../lib/index.js';
+  from '../lib/main.js';
 import { checkDir } from '../lib/node.js';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

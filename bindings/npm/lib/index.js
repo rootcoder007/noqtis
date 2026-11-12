@@ -5,7 +5,7 @@
 // synchronous. Every buffer the wrapper places in WebAssembly memory is
 // wiped (nqwipe) before it is freed, on every path.
 
-import nqload from '../dist/noqtis.js';
+import { instance } from './wasm.js';
 
 const CODES = Object.freeze({
   OK: 0, EARG: -1, EBUF: -2, EVRFY: -3, EDEC: -4, ERNG: -5, EMEM: -6,
@@ -17,7 +17,7 @@ const HASHES = [
   'sha3-224', 'sha3-256', 'sha3-384', 'sha3-512', 'shake128', 'shake256',
 ];
 
-let M = null; // the emscripten module
+let M = null; // the WebAssembly module (wasm.js)
 let pending = null;
 let sigs = null; // name (upper case) -> {id, name, pk, sk, sig}
 let kems = null; // name (upper case) -> {id, name, pk, sk, ct, ss}
@@ -47,26 +47,14 @@ function need() {
   }
 }
 
-async function cryptoSource() {
-  const g = globalThis.crypto;
-  if (g && typeof g.getRandomValues === 'function') {
-    return g;
-  }
-  // Node 18 has no global WebCrypto; its node:crypto webcrypto is the same
-  // getRandomValues. The specifier is a variable so bundlers leave it.
-  const pv = typeof process === 'object' ? process.versions : undefined;
-  if (pv && pv.node) {
-    const spec = 'node:crypto';
-    const c = await import(/* webpackIgnore: true */ /* @vite-ignore */ spec);
-    return c.webcrypto;
-  }
-  throw new Error('noqtis: crypto.getRandomValues is not available');
-}
-
 /**
- * Loads the WebAssembly module. `opts.wasm` may be the module's bytes, a
- * compiled WebAssembly.Module, or a URL/path to noqtis.wasm; by default it
- * is found next to dist/noqtis.js. Safe to call more than once.
+ * Loads the WebAssembly module. `opts.wasm` is noqtis.wasm: its bytes, a
+ * compiled WebAssembly.Module or a Response. This entry (the browser one)
+ * reads no file and makes no request, so in a browser pass it; on Node,
+ * Deno and Bun the package's main entry (main.js) finds the package's own
+ * file and also takes a path. Randomness comes from crypto.getRandomValues
+ * (WebCrypto) and from nothing else: without it init() fails. Safe to call
+ * more than once.
  */
 export function init(opts = {}) {
   if (M !== null) {
@@ -74,21 +62,14 @@ export function init(opts = {}) {
   }
   if (pending === null) {
     pending = (async () => {
-      const arg = { nqcrypto: await cryptoSource(), print() {}, printErr() {} };
       const w = opts.wasm;
-      if (w instanceof WebAssembly.Module) {
-        arg.instantiateWasm = (imports, done) => {
-          WebAssembly.instantiate(w, imports).then((inst) => done(inst, w));
-          return {};
-        };
-      } else if (w instanceof ArrayBuffer || ArrayBuffer.isView(w)) {
-        arg.wasmBinary = w instanceof ArrayBuffer ? new Uint8Array(w) : w;
-      } else if (typeof w === 'string' || w instanceof URL) {
-        const s = String(w);
-        arg.locateFile = (p) => (p.endsWith('.wasm') ? s : p);
+      if (w === undefined || typeof w === 'string' || w instanceof URL) {
+        throw new TypeError('noqtis: pass the WebAssembly module to init(): '
+          + '`await init({ wasm })` with the bytes of noqtis.wasm, a '
+          + 'WebAssembly.Module or a Response (the package exports the file '
+          + 'as noqtis/noqtis.wasm)');
       }
-      const m = await nqload(arg);
-      M = m;
+      M = await instance(w, globalThis.crypto);
       tables();
     })();
     pending.catch(() => {

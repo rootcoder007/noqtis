@@ -27,6 +27,10 @@
   "bugs": {
     "url": "https://github.com/rootcoder007/noqtis/issues"
   },
+  "funding": {
+    "type": "crowdfunding",
+    "url": "https://app.lfx.dev/crowdfunding/initiatives/noqtis-security-audit-of-a-post-quantum-signing-and-provenance-library-in-c11"
+  },
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./lib/index.js",
@@ -35,6 +39,7 @@
     ".": {
       "import": {
         "types": "./lib/index.d.ts",
+        "node": "./lib/main.js",
         "default": "./lib/index.js"
       },
       "require": {
@@ -57,6 +62,9 @@
   },
   "files": [
     "lib/index.js",
+    "lib/main.js",
+    "lib/wasm.js",
+    "lib/wasi.js",
     "lib/index.cjs",
     "lib/index.d.ts",
     "lib/index.d.cts",
@@ -64,7 +72,6 @@
     "lib/node.cjs",
     "lib/node.d.ts",
     "lib/node.d.cts",
-    "dist/noqtis.js",
     "dist/noqtis.wasm",
     "LICENSE",
     "NOTICE",
@@ -72,6 +79,7 @@
   ],
   "sideEffects": false,
   "browser": {
+    "./lib/main.js": "./lib/index.js",
     "./lib/node.js": false,
     "./lib/node.cjs": false
   },
@@ -80,9 +88,9 @@
   },
   "scripts": {
     "build": "sh build.sh",
-    "test": "node --test test/api.test.js test/acvp.test.js test/cap.test.js test/cap2.test.js test/card.test.js test/cjs.test.cjs test/cli.test.js",
+    "test": "node --experimental-vm-modules --test test/api.test.js test/acvp.test.js test/cap.test.js test/cap2.test.js test/card.test.js test/cjs.test.cjs test/cli.test.js test/wasi.test.js test/web.test.js",
     "types": "tsc -p test/tsconfig.json",
-    "prepack": "test -f dist/noqtis.wasm && test -f dist/noqtis.js"
+    "prepack": "test -f dist/noqtis.wasm"
   },
   "devDependencies": {
     "@types/node": "22.18.0",

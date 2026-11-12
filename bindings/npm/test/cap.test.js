@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { init, capsule, sign, codes, NoqtisError } from '../lib/index.js';
+import { init, capsule, sign, codes, NoqtisError } from '../lib/main.js';
 import { readCapsule, checkDir, sealDir } from '../lib/node.js';
 
 await init();

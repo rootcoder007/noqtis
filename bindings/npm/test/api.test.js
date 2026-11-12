@@ -7,7 +7,7 @@ import * as nc from 'node:crypto';
 import nq, {
   init, algs, version, selftest, random, hash, hmac, sign, kem, keyfile, codes,
   errmsg, NoqtisError, _heap,
-} from '../lib/index.js';
+} from '../lib/main.js';
 
 await init();
 
