@@ -87,7 +87,9 @@ push.
 | winget, Chocolatey | `winget install rootcoder007.noqtis` | not yet: winget is in review ([winget-pkgs#467864](https://github.com/microsoft/winget-pkgs/pull/467864)); Chocolatey not submitted |
 | Arch User Repository | `yay -S noqtis` | not yet: the `PKGBUILD` is in `packaging/arch`, not uploaded |
 | Nixpkgs, conda-forge | `nix-env -iA nixpkgs.noqtis`, `conda install -c conda-forge noqtis` | not yet: in review ([nixpkgs#581383](https://github.com/NixOS/nixpkgs/pull/581383), [staged-recipes#35447](https://github.com/conda-forge/staged-recipes/pull/35447)); `nix build` works from the source tree |
-| vcpkg, Conan, Alpine, Wolfi | `vcpkg install noqtis`, ... | not yet: not submitted (each reviews new packages) |
+| Conan, Alpine | `conan install --requires=noqtis/[*]`, `apk add noqtis` | not yet: in review ([conan-center-index#31306](https://github.com/conan-io/conan-center-index/pull/31306), [aports!110935](https://gitlab.alpinelinux.org/alpine/aports/-/merge_requests/110935)) |
+| vcpkg | `vcpkg install noqtis --overlay-ports=packaging/community/vcpkg/ports` from the source tree | the port is in the source tree; vcpkg's own registry declined the project for now as too new ([vcpkg#54818](https://github.com/microsoft/vcpkg/pull/54818)) |
+| Wolfi, Void, Gentoo GURU, T2 SDE | recipes in `packaging/community` | not yet: not submitted; each recipe is built and tested in CI on its own system |
 | Debian, Ubuntu, Fedora, EPEL, homebrew-core (their own archives) | `apt install noqtis`, `dnf install noqtis` with no extra repository | not yet: these need a sponsor and a review; until then use the OBS and COPR repositories |
 
 ## Release archives

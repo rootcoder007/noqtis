@@ -349,7 +349,9 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
 - Fuzzing: libFuzzer targets for every parser of untrusted bytes (DER,
   X.509, OCSP, timestamp tokens, JSON, capsules, key files, base64) and
   for the command line's arguments, 90 seconds each on every push and an
-  hour weekly (`fuzz/`); OSS-Fuzz application filed.
+  hour weekly (`fuzz/`). OSS-Fuzz declined the project for now as too new
+  ([oss-fuzz#16392](https://github.com/google/oss-fuzz/pull/16392)), so
+  the fuzzers run in this repository's CI only.
 - Bounded proofs with CBMC (`proofs/cbmc/`, on every push): for every
   input up to a size, no access out of bounds, no arithmetic overflow and
   no undefined shift in the DER reader (one header of any length, whole
@@ -357,6 +359,20 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
   JSON reader (its lexers up to 4 bytes, the whole parser on 1 byte). A
   bounded proof says nothing about longer inputs; those are left to the
   fuzzers and the tests.
+- Proofs of the arithmetic in Lean 4 with Mathlib (`proofs/lean/`, built
+  in CI when they change): the Montgomery and Barrett reductions, the
+  compression and rounding steps and their error bounds, Power2Round,
+  Decompose and the hint lemma of FIPS 204, the roots of unity and the
+  factorisations of X^256 + 1 behind both number-theoretic transforms,
+  ByteEncode and ByteDecode as inverses, the constant-time selection and
+  comparison tricks for every 32-bit word, the SLH-DSA sizes and HQC's
+  GF(2^8) arithmetic. They prove the mathematics of a model written to
+  mirror the C expression by expression. They do not prove that the C
+  code computes that model, that the transform networks compute the
+  transforms, or anything about timing or power; the link from model to
+  code is by inspection and by the tests. `proofs/lean/README.md` lists
+  each theorem, the C function it is about, the C behaviour it assumes
+  and the axioms it uses. There is no `sorry`.
 - OpenSSL 3.5 or later: `tests/ossl/xossl.c` checks that ML-DSA, all
   twelve SLH-DSA sets and ML-KEM give the same keys, signatures,
   ciphertexts and secrets as OpenSSL from the same seeds, that the
@@ -364,6 +380,18 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
   signatures OpenSSL makes and refuses changed ones; `fuzz/ossl/fdiff.c`
   fuzzes the same comparisons, and noqtis must never accept an RSA or
   ECDSA signature that OpenSSL refuses.
+- A second independent implementation: `tests/diff/` (CTest `tdiff`, in
+  CI whenever the library or the test changes) compares noqtis byte for
+  byte with rmoriebricklayer, an R
+  package with its own C++ code for the same standards, on every
+  algorithm both have: keys from seeds, encapsulations and signatures
+  with given randomness, decapsulation of tampered ciphertexts,
+  verification of tampered signatures, messages, contexts and keys,
+  malformed keys and wrong lengths, and every SHA-2, SHA-3, SHAKE and
+  HMAC digest. One side refusing what the other accepts is a failure.
+  The two share an author, so this guards against a slip in one code
+  base, not against a shared misreading of a standard; the NIST and
+  Wycheproof vectors and OpenSSL are the outside references.
 - The command-line tool is tested as a user runs it, including exit codes,
   owner-only files and that no secret reaches standard output.
 
