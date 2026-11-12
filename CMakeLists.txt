@@ -22,6 +22,9 @@ option(NQSHARED "Build a shared library instead of a static one" OFF)
 option(NQCLI "Build the noqtis command-line tool" ON)
 option(NQCT "Build the dudect and TVLA harnesses in ct/" OFF)
 option(NQTVLA "Compile the TVLA leakage hooks (a test build, never a release)" OFF)
+# the differential test against rmoriebricklayer (tests/diff): needs
+# Rscript and the R package when it runs, never to build
+option(NQDIFF "Build the differential test against rmoriebricklayer" OFF)
 # the TLS 1.3 client (src/tls) in the public API (nqtl*) and the tool's
 # https:// URLs; off until it has been reviewed: nqtl* then return
 # NQENOSUP, and the tests reach the client through its internal API
@@ -261,6 +264,17 @@ if(NQTESTS)
       add_test(NAME xossl COMMAND xossl)
       message(STATUS "noqtis: cross-check against OpenSSL ${OPENSSL_VERSION}")
     endif()
+  endif()
+  # the differential test against rmoriebricklayer (tests/diff/run.sh):
+  # dv on the public API, the R side through Rscript; skipped (77)
+  # without Rscript and the package
+  if(NQDIFF AND NOT WIN32)
+    add_executable(dv tests/diff/dv.c)
+    target_link_libraries(dv PRIVATE noqtis)
+    target_compile_options(dv PRIVATE ${NQWARN})
+    add_test(NAME tdiff COMMAND sh ${PROJECT_SOURCE_DIR}/tests/diff/run.sh
+             $<TARGET_FILE:dv>)
+    set_tests_properties(tdiff PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 7200)
   endif()
   # the ACVP harnesses, each run on the vector sets in tests/vectors/acvp
   add_subdirectory(acvp)

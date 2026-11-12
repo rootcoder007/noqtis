@@ -76,12 +76,14 @@ runs today. In place: dudect and simulated TVLA (`ct/`, workflow
 libFuzzer targets for every parser of untrusted bytes (`fuzz/`, workflow
 `fuzz.yml`), ACVP harnesses for every algorithm family (`acvp/`), and
 cross-verification with rmoriebricklayer where the formats overlap
-(`tests/interop/`), the cross-check against OpenSSL 3.5 or later
-(`tests/ossl/xossl.c`: the same keys, signatures, ciphertexts and
-digests byte for byte) and its differential fuzzer (`fuzz/ossl/fdiff.c`),
-both in workflow `ossl.yml`, and fuzzed command-line arguments
-(`fuzz/fcli.c`). HMAC is tested with the ACVP and Wycheproof HMAC
-vectors and against OpenSSL.
+(`tests/interop/`), a differential test against rmoriebricklayer's own
+implementations of every algorithm both have (`tests/diff/`, CTest
+`tdiff` with `-DNQDIFF=ON`, workflow `diff.yml`), the cross-check
+against OpenSSL 3.5 or later (`tests/ossl/xossl.c`: the same keys,
+signatures, ciphertexts and digests byte for byte) and its differential
+fuzzer (`fuzz/ossl/fdiff.c`), both in workflow `ossl.yml`, and fuzzed
+command-line arguments (`fuzz/fcli.c`). HMAC is tested with the ACVP
+and Wycheproof HMAC vectors and against OpenSSL.
 
 | # | Module | Contents | Must pass |
 |---|---|---|---|

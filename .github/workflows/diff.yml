@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Differential test against rmoriebricklayer, an independent implementation
+# of the same standards: builds its sources as checked out (not a release)
+# and runs CTest tdiff (tests/diff/run.sh), which fails on any difference
+# between the two, a refusal on one side only included. Every ML-KEM, HQC
+# and ML-DSA set and the hashes take 300 cases; SLH-DSA is sampled (6 per
+# f set, 2 per s set), and the weekly run takes 30 per SLH-DSA set
+# (NQSLOW=1). tdiff must run, not skip.
+name: diff
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "include/**"
+      - "tests/diff/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/diff.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "include/**"
+      - "tests/diff/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/diff.yml"
+  schedule:
+    - cron: "17 7 * * 3"
+  workflow_dispatch:
+    inputs:
+      blref:
+        description: rmoriebricklayer branch, tag or commit
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  # a push to main replaces the run of an older main commit still waiting
+  # (it tests that commit too); tags, releases and pull requests always
+  # run to the end
+  group: diff-${{ github.ref }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'tip' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+jobs:
+  rmoriebricklayer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rootcoder007/rmorie-bricklayer
+          ref: ${{ inputs.blref || 'main' }}
+          path: bl
+          persist-credentials: false
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          r-version: release
+          use-public-rspm: true
+      - name: install rmoriebricklayer
+        # its configure needs the libcurl headers; its R imports are all
+        # base packages
+        timeout-minutes: 30
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libcurl4-openssl-dev
+          MAKEFLAGS=-j4 R CMD INSTALL --no-docs --no-html bl
+          git -C bl log -1 --format='rmoriebricklayer at %H'
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQDIFF=ON -DNQCLI=OFF
+      - run: cmake --build build -j4 --target dv
+      - name: tdiff (must run, not skip)
+        timeout-minutes: 80
+        env:
+          NQSLOW: ${{ github.event_name == 'schedule' && '1' || '0' }}
+        run: |
+          ctest --test-dir build -R '^tdiff$' --output-on-failure -V | tee tdiff.txt
+          grep -q 'tdiff: 22 algorithms, 0 with a difference' tdiff.txt
