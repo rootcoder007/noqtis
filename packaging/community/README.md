@@ -15,6 +15,7 @@ under test.
 | `guru/dev-libs/noqtis` | Gentoo GURU |
 | `nixpkgs/pkgs/by-name/no/noqtis` | NixOS/nixpkgs |
 | `scoop/bucket` | a Scoop bucket |
+| `t2/package/security/noqtis` | T2 SDE (svn.exactcode.de t2/trunk) |
 | `vcpkg/ports/noqtis` | microsoft/vcpkg |
 | `void/srcpkgs/noqtis` | void-linux/void-packages |
 | `winget/manifests` | microsoft/winget-pkgs |
