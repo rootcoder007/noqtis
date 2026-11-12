@@ -18,7 +18,7 @@
 #'
 #' @param sk,pk The key pair the card is for; for `nqidcheck()`, `pk` is
 #'   `NULL` or the public key the card must be for.
-#' @param alg Its signature algorithm.
+#' @inheritParams nqrotate
 #' @param name Your name: 1 to 255 bytes of text, no control character, no
 #'   space at either end.
 #' @param orcid `NULL`, or your ORCID iD (`"0000-0002-1825-0097"` or its
@@ -49,7 +49,8 @@
 #' @examples
 #' k <- nqkeygen("ML-DSA-44")
 #' card <- nqidcard(k$sk, k$pk, "ML-DSA-44", "Ada Lovelace",
-#'   orcid = "0000-0002-1825-0097", affil = "Analytical Engines")
+#'   orcid = "0000-0002-1825-0097", affil = "Analytical Engines"
+#' )
 #' v <- nqidcheck(card, k$pk)
 #' v$name
 #' v$orcid
@@ -63,25 +64,17 @@ nqidcard <- function(sk, pk, alg, name, orcid = NULL, email = NULL,
   a <- .alg(alg, "sig")
   .rawarg(sk, "sk")
   .rawarg(pk, "pk")
-  .Call(Ccard, a$id, sk, pk, .str1(name, "name", FALSE),
-        .str1(orcid, "orcid"), .str1(email, "email"), .str1(url, "url"),
-        .str1(affil, "affil"), .at(at))
+  .Call(
+    Ccard, a$id, sk, pk, .str1(name, "name", FALSE),
+    .str1(orcid, "orcid"), .str1(email, "email"), .str1(url, "url"),
+    .str1(affil, "affil"), .at(at)
+  )
 }
 
 #' @rdname nqidcard
 #' @export
 nqidcheck <- function(card, pk = NULL) {
-  if (is.character(card)) {
-    if (length(card) != 1L || is.na(card) || !file.exists(card)) {
-      stop("'card' must be a raw vector or the path of a card file",
-        call. = FALSE)
-    }
-    n <- file.size(card)
-    if (is.na(n) || n > 256 * 1024) {
-      stop("'card' is over 256 KiB, larger than any card", call. = FALSE)
-    }
-    card <- readBin(card, "raw", n = n)
-  }
+  if (is.character(card)) card <- .cardfile(card)
   .rawarg(card, "card")
   if (!is.null(pk)) .rawarg(pk, "pk")
   r <- .Call(Ccardvrfy, card, pk)
@@ -104,9 +97,25 @@ nqidcheck <- function(card, pk = NULL) {
   if (null && is.null(x)) {
     return(NULL)
   }
-  if (!is.character(x) || length(x) != 1L || is.na(x)) {
-    stop(sprintf("'%s' must be %sone string", what,
-      if (null) "NULL or " else ""), call. = FALSE)
+  if (!.is1(x)) {
+    stop(sprintf(
+      "'%s' must be %sone string", what,
+      if (null) "NULL or " else ""
+    ), call. = FALSE)
   }
   enc2utf8(x)
+}
+
+# The bytes of a card file.
+.cardfile <- function(card) {
+  if (!.file1(card)) {
+    stop("'card' must be a raw vector or the path of a card file",
+      call. = FALSE
+    )
+  }
+  n <- file.size(card)
+  if (n > 256 * 1024) {
+    stop("'card' is over 256 KiB, larger than any card", call. = FALSE)
+  }
+  readBin(card, "raw", n = n)
 }

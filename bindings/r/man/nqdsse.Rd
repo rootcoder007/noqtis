@@ -62,7 +62,7 @@ is.null(nqdsseverify(other$pk, e, "ML-DSA-65"))
 }
 \references{
 Secure Systems Lab. \emph{DSSE: Dead Simple Signing Envelope}, protocol
-version 1. \url{https://github.com/secure-systems-lab/dsse}
+version 1. \url{https://github.com/dsse-lf/dsse}
 }
 \seealso{
 \code{\link[=nqsign]{nqsign()}} for bare signatures.

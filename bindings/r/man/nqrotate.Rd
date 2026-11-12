@@ -52,10 +52,12 @@ An unknown algorithm, Ed25519 alone, keys that are not pairs, or a
 old <- nqkeygen("ML-DSA-44")
 new <- nqkeygen("ML-DSA-65")
 s <- nqrotate(old$sk, old$pk, "ML-DSA-44", new$sk, new$pk, "ML-DSA-65",
-  reason = "yearly")
+  reason = "yearly"
+)
 cat(rawToChar(s))
 r <- nqrevoke(old$sk, old$pk, "ML-DSA-44",
-  at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost")
+  at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost"
+)
 substr(rawToChar(r), 1, 60)
 }
 \seealso{

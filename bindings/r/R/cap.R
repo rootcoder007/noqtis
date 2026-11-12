@@ -29,7 +29,7 @@
 #' `anchors` is given.
 #'
 #' @param dir Path of the folder.
-#' @param sk Secret key, a raw vector (as from [nqkeygen()]).
+#' @inheritParams nqsign
 #' @param pk Public key, a raw vector; for `nqseal()` it must pair with `sk`
 #'   and is written into the seal; for `nqcheck()`, `NULL` accepts the key
 #'   in the seal (the `key` row then says so), otherwise the seal must be
@@ -121,32 +121,16 @@ nqseal <- function(dir, sk, pk, alg, meta = NULL,
   a <- .alg(alg, "sig")
   .rawarg(sk, "sk")
   .rawarg(pk, "pk")
-  if (!is.null(meta) &&
-    (!is.character(meta) || length(meta) != 1L || is.na(meta))) {
+  if (!is.null(meta) && !.is1(meta)) {
     stop("'meta' must be NULL or one string of JSON text", call. = FALSE)
   }
-  if (!is.numeric(format) || length(format) != 1L || is.na(format) ||
-    !format %in% c(1, 2)) {
-    stop("'format' must be 1 or 2", call. = FALSE)
-  }
-  if (format == 1 && !is.null(inputs)) {
-    stop("'inputs' need format 2", call. = FALSE)
-  }
+  format <- .fmt(format, inputs)
   d <- .dir(dir)
   if (format == 1) {
     .Call(Cseal, d, a$id, sk, pk, meta)
   } else {
-    if (is.null(inputs)) inputs <- character()
-    if (!is.character(inputs) || anyNA(inputs)) {
-      stop("'inputs' must be the folders of capsules", call. = FALSE)
-    }
-    nm <- names(inputs)
-    if (is.null(nm)) nm <- rep("", length(inputs))
-    nm <- as.character(nm)
-    miss <- is.na(nm) | nm == ""
-    nm[miss] <- basename(inputs[miss])
-    ids <- lapply(inputs, nqcapid)
-    .Call(Cseal2, d, a$id, sk, pk, meta, unname(ids), enc2utf8(unname(nm)))
+    ins <- .inputs(inputs)
+    .Call(Cseal2, d, a$id, sk, pk, meta, ins$ids, ins$names)
   }
   invisible(file.path(dir, c("noqtis.json", "noqtis.sig")))
 }
@@ -156,56 +140,22 @@ nqseal <- function(dir, sk, pk, alg, meta = NULL,
 nqcheck <- function(dir, pk = NULL, anchors = NULL, only = NULL,
                     lineage = NULL, keys = NULL, proof = NULL) {
   if (!is.null(pk)) .rawarg(pk, "pk")
-  if (!is.null(anchors)) {
-    if (is.raw(anchors)) anchors <- list(anchors)
-    if (!is.list(anchors) || !all(vapply(anchors, is.raw, NA))) {
-      stop("'anchors' must be a list of raw vectors", call. = FALSE)
-    }
-    if (length(anchors) == 0L) anchors <- NULL
-  }
+  anchors <- .anchors(anchors)
   if (!is.null(proof)) {
     proof <- .blob(proof, "proof")
     if (!is.null(only) || !is.null(lineage) || !is.null(keys)) {
       stop("'only', 'lineage' and 'keys' do not apply to a proof",
-        call. = FALSE)
+        call. = FALSE
+      )
     }
   }
-  if (!is.null(only) && (!is.character(only) || anyNA(only))) {
-    stop("'only' must be a character vector of paths", call. = FALSE)
-  }
+  only <- .only(only)
   if (!is.null(lineage)) {
     lineage <- vapply(lineage, .dir, "", USE.NAMES = FALSE)
   }
-  if (!is.null(keys)) {
-    if (is.raw(keys)) keys <- list(keys)
-    keys <- lapply(keys, .blob, what = "keys")
-    if (is.null(pk)) {
-      stop("'keys' need 'pk', the trusted key", call. = FALSE)
-    }
-  }
+  keys <- .keys(keys, pk)
   d <- if (is.null(dir) && !is.null(proof)) NULL else .dir(dir)
-  r <- .Call(Cchk, d, pk, anchors, if (is.null(only)) NULL else
-    enc2utf8(only), lineage, keys, proof)
-  .rep(r)
-}
-
-.rep <- function(r) {
-  out <- data.frame(check = r[[2]], ok = r[[3]], detail = r[[4]],
-    stringsAsFactors = FALSE)
-  attr(out, "ok") <- r[[1]] == 0L && nrow(out) > 0L && all(out$ok)
-  out
-}
-
-# A raw vector as given, or the bytes of the file one string names.
-.blob <- function(x, what) {
-  if (is.raw(x)) {
-    return(x)
-  }
-  if (is.character(x) && length(x) == 1L && !is.na(x) && file.exists(x)) {
-    return(readBin(x, "raw", file.size(x)))
-  }
-  stop(sprintf("'%s' must be raw vectors or file paths", what),
-    call. = FALSE)
+  .rep(.Call(Cchk, d, pk, anchors, only, lineage, keys, proof))
 }
 
 #' Capsule ids, files and proofs
@@ -323,10 +273,12 @@ nqprove <- function(dir, paths) {
 #' old <- nqkeygen("ML-DSA-44")
 #' new <- nqkeygen("ML-DSA-65")
 #' s <- nqrotate(old$sk, old$pk, "ML-DSA-44", new$sk, new$pk, "ML-DSA-65",
-#'   reason = "yearly")
+#'   reason = "yearly"
+#' )
 #' cat(rawToChar(s))
 #' r <- nqrevoke(old$sk, old$pk, "ML-DSA-44",
-#'   at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost")
+#'   at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost"
+#' )
 #' substr(rawToChar(r), 1, 60)
 #' @export
 nqrotate <- function(sk, pk, alg, nsk, npk, nalg, at = Sys.time(),
@@ -355,4 +307,90 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
     stop("'at' must be a time or seconds since 1970", call. = FALSE)
   }
   floor(as.double(at))
+}
+
+.rep <- function(r) {
+  out <- data.frame(
+    check = r[[2]], ok = r[[3]], detail = r[[4]],
+    stringsAsFactors = FALSE
+  )
+  attr(out, "ok") <- r[[1]] == 0L && nrow(out) > 0L && all(out$ok)
+  out
+}
+
+# A raw vector as given, or the bytes of the file one string names.
+.blob <- function(x, what) {
+  if (is.raw(x)) {
+    return(x)
+  }
+  if (.is1(x) && file.exists(x)) {
+    return(readBin(x, "raw", file.size(x)))
+  }
+  stop(sprintf("'%s' must be raw vectors or file paths", what),
+    call. = FALSE
+  )
+}
+
+# The format, 1 or 2; inputs need 2.
+.fmt <- function(format, inputs) {
+  if (!is.numeric(format) || length(format) != 1L || !format %in% c(1, 2)) {
+    stop("'format' must be 1 or 2", call. = FALSE)
+  }
+  if (format == 1 && !is.null(inputs)) {
+    stop("'inputs' need format 2", call. = FALSE)
+  }
+  format
+}
+
+# The identities and names of the input capsules of a format 2 seal; a
+# name not given is the folder's base name.
+.inputs <- function(inputs) {
+  if (is.null(inputs)) inputs <- character()
+  if (!is.character(inputs) || anyNA(inputs)) {
+    stop("'inputs' must be the folders of capsules", call. = FALSE)
+  }
+  nm <- names(inputs)
+  if (is.null(nm)) nm <- rep("", length(inputs))
+  miss <- is.na(nm) | nm == ""
+  nm[miss] <- basename(inputs[miss])
+  list(
+    ids = unname(lapply(inputs, nqcapid)),
+    names = enc2utf8(unname(as.character(nm)))
+  )
+}
+
+# The trust anchors: NULL, or a non-empty list of raw vectors.
+.anchors <- function(anchors) {
+  if (is.null(anchors)) {
+    return(NULL)
+  }
+  if (is.raw(anchors)) anchors <- list(anchors)
+  if (!is.list(anchors) || !all(vapply(anchors, is.raw, NA))) {
+    stop("'anchors' must be a list of raw vectors", call. = FALSE)
+  }
+  if (length(anchors) == 0L) NULL else anchors
+}
+
+# Key statements, as raw vectors; they need the trusted key pk.
+.keys <- function(keys, pk) {
+  if (is.null(keys)) {
+    return(NULL)
+  }
+  if (is.raw(keys)) keys <- list(keys)
+  keys <- lapply(keys, .blob, what = "keys")
+  if (is.null(pk)) {
+    stop("'keys' need 'pk', the trusted key", call. = FALSE)
+  }
+  keys
+}
+
+# The paths of a partial check, as UTF-8, or NULL.
+.only <- function(only) {
+  if (is.null(only)) {
+    return(NULL)
+  }
+  if (!is.character(only) || anyNA(only)) {
+    stop("'only' must be a character vector of paths", call. = FALSE)
+  }
+  enc2utf8(only)
 }

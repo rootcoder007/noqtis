@@ -28,8 +28,10 @@ keys, nonces and salts.
 
 \examples{
 nqrand(16)
-set.seed(1); a <- nqrand(8)
-set.seed(1); b <- nqrand(8)
+set.seed(1)
+a <- nqrand(8)
+set.seed(1)
+b <- nqrand(8)
 identical(a, b)
 }
 \seealso{

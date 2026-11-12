@@ -19,7 +19,8 @@ its UTF-8 bytes.}
 \code{\link[=nqalgs]{nqalgs()}}.}
 
 \item{ctx}{\code{NULL} or a context string (raw vector or string, at most 255
-bytes), bound into the signature; verification needs the same one.}
+bytes, 241 for a hybrid), bound into the signature; verification
+needs the same one.}
 
 \item{det}{\code{FALSE} (the default) for hedged signing with fresh
 randomness; \code{TRUE} for the deterministic variant.}
@@ -73,7 +74,8 @@ Ed25519 takes neither a context nor a pre-hash in this interface.
 \section{Errors}{
 
 \code{nqsign()}: an unknown algorithm, a secret key of the wrong length, a
-context over 255 bytes, an unknown pre-hash, \code{rnd} of the wrong length,
+context over 255 bytes (241 for a hybrid), an unknown pre-hash, \code{rnd}
+of the wrong length,
 or \code{"noqtis: ...: the signature failed the check after signing (a fault)"}. \code{nqverify()} returns \code{FALSE} rather than an error for any
 signature that does not verify.
 }
@@ -88,8 +90,10 @@ s2 <- nqsign(k$sk, "hello", "ML-DSA-44", ctx = "invoices")
 nqverify(k$pk, "hello", s2, "ML-DSA-44", ctx = "invoices")
 nqverify(k$pk, "hello", s2, "ML-DSA-44")
 # deterministic signatures repeat; hedged ones do not
-identical(nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE),
-          nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE))
+identical(
+  nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE),
+  nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE)
+)
 # pre-hash: HashML-DSA with SHA-512
 s3 <- nqsign(k$sk, "hello", "ML-DSA-44", ph = "sha512")
 nqverify(k$pk, "hello", s3, "ML-DSA-44", ph = "sha512")

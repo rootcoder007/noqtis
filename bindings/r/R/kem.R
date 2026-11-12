@@ -96,13 +96,14 @@ nqdecap <- function(sk, ct, alg) {
 #'
 #' @examples
 #' nqrand(16)
-#' set.seed(1); a <- nqrand(8)
-#' set.seed(1); b <- nqrand(8)
+#' set.seed(1)
+#' a <- nqrand(8)
+#' set.seed(1)
+#' b <- nqrand(8)
 #' identical(a, b)
 #' @export
 nqrand <- function(n) {
-  if (!is.numeric(n) || length(n) != 1L || is.na(n) || n < 0 ||
-    n != floor(n) || n > .Machine$integer.max) {
+  if (!.count1(n)) {
     stop("'n' must be one non-negative whole number", call. = FALSE)
   }
   .Call(Crand, as.integer(n))

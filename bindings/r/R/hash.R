@@ -61,33 +61,11 @@
 nqhash <- function(x, alg = "sha256", file = FALSE, hex = FALSE,
                    len = NULL) {
   id <- .hid(alg)
-  shk <- id >= 11L
-  n <- if (is.null(len)) {
-    c(28L, 32L, 48L, 64L, 28L, 32L, 28L, 32L, 48L, 64L, 32L, 64L)[id]
-  } else {
-    if (!shk) stop("'len' applies to SHAKE only", call. = FALSE)
-    if (!is.numeric(len) || length(len) != 1L || is.na(len) || len < 0 ||
-      len != floor(len) || len > .Machine$integer.max) {
-      stop("'len' must be one non-negative whole number", call. = FALSE)
-    }
-    as.integer(len)
-  }
-  if (isTRUE(file)) {
-    if (!is.character(x) || length(x) != 1L || is.na(x) || !file.exists(x) ||
-      dir.exists(x)) {
-      stop("'x' must be the path of an existing file", call. = FALSE)
-    }
-    con <- file(x, "rb")
-    on.exit(close(con))
-    ctx <- .Call(Chini, id)
-    repeat {
-      b <- readBin(con, "raw", 1048576L)
-      if (length(b) == 0L) break
-      ctx <- .Call(Chupd, ctx, b)
-    }
-    d <- .Call(Chfin, ctx, n)
+  n <- .hlen(id, len)
+  d <- if (isTRUE(file)) {
+    .hfile(x, id, n)
   } else if (identical(file, FALSE)) {
-    d <- .Call(Chash, id, .bytes(x, "x"), n)
+    .Call(Chash, id, .bytes(x, "x"), n)
   } else {
     stop("'file' must be TRUE or FALSE", call. = FALSE)
   }
@@ -102,4 +80,32 @@ nqhmac <- function(key, x, alg = "sha256", hex = FALSE) {
   if (id >= 11L) stop("HMAC needs a SHA-2 or SHA-3 hash", call. = FALSE)
   d <- .Call(Chmac, id, .bytes(key, "key"), .bytes(x, "x"))
   if (isTRUE(hex)) .hex(d) else d
+}
+
+# The output length of hash id: its own, or len for SHAKE.
+.hlen <- function(id, len) {
+  if (is.null(len)) {
+    return(c(28L, 32L, 48L, 64L, 28L, 32L, 28L, 32L, 48L, 64L, 32L, 64L)[id])
+  }
+  if (id < 11L) stop("'len' applies to SHAKE only", call. = FALSE)
+  if (!.count1(len)) {
+    stop("'len' must be one non-negative whole number", call. = FALSE)
+  }
+  as.integer(len)
+}
+
+# The digest of the file at path x, read in chunks of 1 MiB.
+.hfile <- function(x, id, n) {
+  if (!.file1(x)) {
+    stop("'x' must be the path of an existing file", call. = FALSE)
+  }
+  con <- file(x, "rb")
+  on.exit(close(con), add = TRUE)
+  ctx <- .Call(Chini, id)
+  repeat {
+    b <- readBin(con, "raw", 1048576L)
+    if (length(b) == 0L) break
+    ctx <- .Call(Chupd, ctx, b)
+  }
+  .Call(Chfin, ctx, n)
 }

@@ -3,16 +3,15 @@
   "sha3-224", "sha3-256", "sha3-384", "sha3-512", "shake128", "shake256"
 )
 
-# The algorithm table, built once from the C library.
-.tab <- local({
-  t <- NULL
-  function() {
-    if (is.null(t)) {
-      t <<- .algsraw()
-    }
-    t
+# The algorithm table, built once from the C library and kept here.
+.cache <- new.env(parent = emptyenv())
+
+.tab <- function() {
+  if (is.null(.cache$tab)) {
+    .cache$tab <- .algsraw()
   }
-})
+  .cache$tab
+}
 
 .algsraw <- function() {
   x <- .Call(Calgs)
@@ -25,7 +24,7 @@
 # One row of the table for alg (a name, case ignored) of the given type.
 .alg <- function(alg, type = c("sig", "kem")) {
   type <- match.arg(type)
-  if (!is.character(alg) || length(alg) != 1L || is.na(alg)) {
+  if (!.is1(alg)) {
     stop("'alg' must be one algorithm name; see nqalgs()", call. = FALSE)
   }
   t <- .tab()
@@ -34,7 +33,8 @@
   if (is.na(i)) {
     what <- if (type == "sig") "signature" else "key encapsulation"
     stop(sprintf("unknown %s algorithm '%s'; see nqalgs()", what, alg),
-      call. = FALSE)
+      call. = FALSE
+    )
   }
   t[i, , drop = FALSE]
 }
@@ -50,13 +50,15 @@
 
 # Hash name to the library's nqhalg number.
 .hid <- function(alg) {
-  if (!is.character(alg) || length(alg) != 1L || is.na(alg)) {
+  if (!.is1(alg)) {
     stop("'alg' must be one hash name", call. = FALSE)
   }
   i <- match(tolower(alg), .hashes)
   if (is.na(i)) {
-    stop(sprintf("unknown hash '%s'; one of: %s", alg,
-      paste(.hashes, collapse = ", ")), call. = FALSE)
+    stop(sprintf(
+      "unknown hash '%s'; one of: %s", alg,
+      toString(.hashes)
+    ), call. = FALSE)
   }
   i
 }
@@ -69,11 +71,12 @@
   if (is.raw(x)) {
     return(x)
   }
-  if (is.character(x) && length(x) == 1L && !is.na(x)) {
+  if (.is1(x)) {
     return(charToRaw(enc2utf8(x)))
   }
   stop(sprintf("'%s' must be a raw vector or one string", what),
-    call. = FALSE)
+    call. = FALSE
+  )
 }
 
 .rawarg <- function(x, what) {
@@ -86,9 +89,23 @@
 .hex <- function(x) paste(sprintf("%02x", as.integer(x)), collapse = "")
 
 .dir <- function(dir) {
-  if (!is.character(dir) || length(dir) != 1L || is.na(dir) ||
-    !dir.exists(dir)) {
+  if (!.is1(dir) || !dir.exists(dir)) {
     stop("'dir' must be the path of an existing folder", call. = FALSE)
   }
   enc2utf8(normalizePath(dir, mustWork = TRUE))
 }
+
+# One string, not NA.
+.is1 <- function(x) is.character(x) && length(x) == 1L && !is.na(x)
+
+# One whole number from 0 to the largest integer.
+.count1 <- function(x) {
+  is.numeric(x) && length(x) == 1L && !is.na(x) && x >= 0 &&
+    x == floor(x) && x <= .Machine$integer.max
+}
+
+# The path of one existing regular file.
+.file1 <- function(x) .is1(x) && file.exists(x) && !dir.exists(x)
+
+# TRUE or FALSE.
+.flag1 <- function(x) is.logical(x) && length(x) == 1L && !is.na(x)

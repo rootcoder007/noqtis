@@ -44,8 +44,10 @@ k <- nqkeygen("ML-DSA-44")
 c(pk = length(k$pk), sk = length(k$sk))
 # the same seed gives the same key pair
 s <- as.raw(0:31)
-identical(nqkeygen("ML-DSA-44", seed = s)$pk,
-          nqkeygen("ML-DSA-44", seed = s)$pk)
+identical(
+  nqkeygen("ML-DSA-44", seed = s)$pk,
+  nqkeygen("ML-DSA-44", seed = s)$pk
+)
 nqkeygen("ML-KEM-512", seed = as.raw(0:63))$alg
 h <- nqkeygen("ml-dsa-65+ed25519")
 h$alg

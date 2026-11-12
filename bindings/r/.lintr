@@ -1,0 +1,12 @@
+linters: linters_with_defaults(
+    line_length_linter = line_length_linter(80L),
+    # the package's names are short words (nqsign, nqkeygen), as in the
+    # C library; snake_case does not apply
+    object_name_linter = NULL
+  )
+exclusions: list(
+    "src" = Inf,
+    "inst" = Inf,
+    "tools" = Inf
+  )
+encoding: "UTF-8"

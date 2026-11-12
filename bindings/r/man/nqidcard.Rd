@@ -78,7 +78,8 @@ not a card (or a file over 256 KiB).
 \examples{
 k <- nqkeygen("ML-DSA-44")
 card <- nqidcard(k$sk, k$pk, "ML-DSA-44", "Ada Lovelace",
-  orcid = "0000-0002-1825-0097", affil = "Analytical Engines")
+  orcid = "0000-0002-1825-0097", affil = "Analytical Engines"
+)
 v <- nqidcheck(card, k$pk)
 v$name
 v$orcid

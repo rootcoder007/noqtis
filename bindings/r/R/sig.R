@@ -71,8 +71,10 @@ nqalgs <- function() .tab()
 #' c(pk = length(k$pk), sk = length(k$sk))
 #' # the same seed gives the same key pair
 #' s <- as.raw(0:31)
-#' identical(nqkeygen("ML-DSA-44", seed = s)$pk,
-#'           nqkeygen("ML-DSA-44", seed = s)$pk)
+#' identical(
+#'   nqkeygen("ML-DSA-44", seed = s)$pk,
+#'   nqkeygen("ML-DSA-44", seed = s)$pk
+#' )
 #' nqkeygen("ML-KEM-512", seed = as.raw(0:63))$alg
 #' h <- nqkeygen("ml-dsa-65+ed25519")
 #' h$alg
@@ -119,7 +121,8 @@ nqkeygen <- function(alg, seed = NULL) {
 #' @param alg Signature algorithm name, one of the `"sig"` rows of
 #'   [nqalgs()].
 #' @param ctx `NULL` or a context string (raw vector or string, at most 255
-#'   bytes), bound into the signature; verification needs the same one.
+#'   bytes, 241 for a hybrid), bound into the signature; verification
+#'   needs the same one.
 #' @param det `FALSE` (the default) for hedged signing with fresh
 #'   randomness; `TRUE` for the deterministic variant.
 #' @param ph `NULL` for the pure algorithm, or a hash name (see [nqhash()])
@@ -136,7 +139,8 @@ nqkeygen <- function(alg, seed = NULL) {
 #'
 #' @section Errors:
 #' `nqsign()`: an unknown algorithm, a secret key of the wrong length, a
-#' context over 255 bytes, an unknown pre-hash, `rnd` of the wrong length,
+#' context over 255 bytes (241 for a hybrid), an unknown pre-hash, `rnd`
+#' of the wrong length,
 #' or `"noqtis: ...: the signature failed the check after signing (a
 #' fault)"`. `nqverify()` returns `FALSE` rather than an error for any
 #' signature that does not verify.
@@ -167,8 +171,10 @@ nqkeygen <- function(alg, seed = NULL) {
 #' nqverify(k$pk, "hello", s2, "ML-DSA-44", ctx = "invoices")
 #' nqverify(k$pk, "hello", s2, "ML-DSA-44")
 #' # deterministic signatures repeat; hedged ones do not
-#' identical(nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE),
-#'           nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE))
+#' identical(
+#'   nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE),
+#'   nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE)
+#' )
 #' # pre-hash: HashML-DSA with SHA-512
 #' s3 <- nqsign(k$sk, "hello", "ML-DSA-44", ph = "sha512")
 #' nqverify(k$pk, "hello", s3, "ML-DSA-44", ph = "sha512")
@@ -221,8 +227,10 @@ nqverify <- function(pk, msg, sig, alg, ctx = NULL, ph = NULL) {
   if (rc %in% c(-3L, -4L)) {
     return(FALSE)
   }
-  # NQEARG for an over-long context is a failed check as well
-  if (rc == -1L && !is.null(ctx) && length(ctx) > 255L) {
+  # NQEARG for an over-long context is a failed check as well (a hybrid
+  # puts "noqtis-hybrid:" before the context, so it allows 241 bytes)
+  lim <- if (endsWith(a$name, "+Ed25519")) 241L else 255L
+  if (rc == -1L && length(ctx) > lim) {
     return(FALSE)
   }
   stop(sprintf("noqtis: nqvrfy: %s", .Call(Cerr, rc)), call. = FALSE)

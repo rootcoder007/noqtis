@@ -32,7 +32,7 @@
 #'
 #' @references
 #' Secure Systems Lab. *DSSE: Dead Simple Signing Envelope*, protocol
-#' version 1. <https://github.com/secure-systems-lab/dsse>
+#' version 1. <https://github.com/dsse-lf/dsse>
 #'
 #' @family signature functions
 #' @seealso [nqsign()] for bare signatures.
@@ -52,7 +52,7 @@ nqdsse <- function(sk, pk, payload, type, alg) {
   a <- .alg(alg, "sig")
   .rawarg(sk, "sk")
   .rawarg(pk, "pk")
-  if (!is.character(type) || length(type) != 1L || is.na(type)) {
+  if (!.is1(type)) {
     stop("'type' must be one string", call. = FALSE)
   }
   .Call(Cdsse, a$id, sk, pk, enc2utf8(type), .bytes(payload, "payload"))
