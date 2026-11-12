@@ -16,4 +16,4 @@ rev = "v4.34.0"
 
 [[lean_lib]]
 name = "Noqtis"
-roots = ["Mlkem", "Mldsa", "Ct", "Slh", "Gf", "Enc"]
+roots = ["Mlkem", "Mldsa", "Ct", "Slh", "Gf", "Enc", "Ntt"]

@@ -21,6 +21,7 @@ side-channel property.
 | `Ct.lean` | src/core/int.h, core.c, mldsa/poly.c, mlkem/ring.h | `nqctmask`, `nqctsel`, `nqcmov`, `nqcteq`, `nqmkps` for every word, and the wrap in `nqmddec`, `nqmdmkh`, `nqmdchk` for every word in the range the code gives them; the byte order of the 32-bit load/store helpers (the 64-bit ones are built from them or the same way) |
 | `Slh.lean` | src/slh/slh.c, in.h | WOTS+ len = 2n + 3, the checksum fits, FIPS 205's m, the signature sizes |
 | `Gf.lean` | src/hqc/code.c | `gm` is the GF(2⁸) product mod 0x11D, `ginv` the inverse, α = x of order 255 |
+| `Ntt.lean` | src/mlkem/kem.c (`nqmkntt`, `nqmkint`, `nqmkdot`), src/mldsa/poly.c (`nqmdntt`, `nqmdint`) | X²⁵⁶ + 1 = ∏ (X² − 17^(2i+1)) over Z₃₃₂₉ (the 128 moduli of ML-KEM's incomplete NTT) and = ∏ (X − 1753^(2i+1)) over Z₈₃₈₀₄₁₇ (ML-DSA's complete NTT) |
 | `Enc.lean` | src/mlkem (`nqmkbe`/`nqmkbd`), src/mldsa/poly.c (`nqmdbpk`/`nqmdbun`) | ByteEncode_d and ByteDecode_d are inverse bijections between L values of d bits and the d·L/8-byte string |
 
 Byte order. Every statement about bytes is about a byte sequence: the
@@ -55,8 +56,8 @@ checks itself. There is no `sorry`.
 
 Not proved: that the NTT and inverse NTT butterfly networks of
 `nqmkntt`/`nqmkint` and `nqmdntt`/`nqmdint` compute the transforms
-(here: the roots of unity and, for ML-KEM, the roots of X¹²⁸ + 1 the
-incomplete NTT works modulo); bounds on the coefficients inside the
+(here: the roots of unity and the factorisations of X²⁵⁶ + 1 the
+transforms work modulo); bounds on the coefficients inside the
 butterflies; anything about SHA-2, SHA-3 or the samplers.
 
 ## Build
