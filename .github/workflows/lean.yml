@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# The Lean proofs of the arithmetic (proofs/lean): builds them against
+# Mathlib as lean-toolchain and lake-manifest.json pin it. A proof that
+# stops compiling, or a `sorry`, fails the job. What the proofs cover and
+# what they do not: proofs/lean/README.md.
+name: lean
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "proofs/lean/**"
+      - ".github/workflows/lean.yml"
+  pull_request:
+    paths:
+      - "proofs/lean/**"
+      - ".github/workflows/lean.yml"
+  schedule:
+    - cron: "41 3 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lean-${{ github.ref }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'tip' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: lake build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: proofs/lean
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: elan (the toolchain comes from lean-toolchain)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -o "$RUNNER_TEMP/elan-init.sh"
+          sh "$RUNNER_TEMP/elan-init.sh" -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: prebuilt Mathlib
+        run: lake exe cache get
+      - name: build the proofs
+        run: |
+          set -o pipefail
+          lake build 2>&1 | tee build.log
+          if grep -n "declaration uses 'sorry'\|^error" build.log; then
+            echo "::error::a proof is incomplete or broken"
+            exit 1
+          fi
+      - name: no sorry in any source
+        run: |
+          if grep -n "sorry" ./*.lean; then
+            echo "::error::sorry found"
+            exit 1
+          fi
