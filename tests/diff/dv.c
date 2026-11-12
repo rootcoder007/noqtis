@@ -750,7 +750,7 @@ static int chk(const char *path) {
   while ((ln = rdln(f, &buf, &cap)) != NULL) {
     char *tok[12], *op, *alg, *ph = NULL;
     int nt = 0, ni, no, j, k, bad = 0;
-    fld in[5], ex[2];
+    fld in[5] = {{NULL, 0, 0}}, ex[2] = {{NULL, 0, 0}};
     size_t shk = 0;
     if (ln[0] == '\0') continue;
     nl++;
