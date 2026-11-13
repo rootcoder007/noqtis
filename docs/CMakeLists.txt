@@ -25,7 +25,7 @@ set(NQMANAKA
   "nqseal2:nqcapid"
   "nqerr:nqver"
   "nqtlnew:nqtlct,nqtlhs,nqtlwr,nqtlrd,nqtlend,nqtlwhy,nqtlfree"
-  "nqdnew:nqdparse,nqdload,nqdjson,nqdsave,nqdrfree,nqdlen,nqdat,nqdput,nqdset,nqddel,nqdsrc"
+  "nqdnew:nqdparse,nqdload,nqdjson,nqdsave,nqdrfree,nqdlen,nqdat,nqdkey,nqdput,nqdset,nqddel,nqdsrc"
   "nqdchk:nqdrepn,nqdrepi,nqdrepj,nqdrepfree"
   "nqdinfer:nqdschk"
   "nqdstats:nqddrift")

@@ -837,6 +837,21 @@ int nqdat(const nqdrec *r, const char *m, size_t i, char *out, size_t cap,
   return rc;
 }
 
+int nqdkey(const nqdrec *r, const char *m, const char *key, char *out,
+           size_t cap, size_t *outlen) {
+  const dfld *f;
+  const djs *a;
+  size_t i;
+  if (r == NULL || m == NULL || key == NULL || (f = member(m)) == NULL ||
+      f->akey == NULL)
+    return NQEARG;
+  a = qdjget(r->root, m);
+  for (i = 0; a != NULL && i < a->n; i++)
+    if (strcmp(keyof(a->k[i], f->akey), key) == 0)
+      return nqdat(r, m, i, out, cap, outlen);
+  return NQEIO;
+}
+
 int nqdput(nqdrec *r, const char *m, const char *json, size_t n, char *why,
            size_t cap) {
   const dfld *f;

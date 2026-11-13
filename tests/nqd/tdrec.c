@@ -204,6 +204,10 @@ static void rec(void) {
   NQTEQI(nqdat(r, "sources", 1, out, sizeof out, &n), NQOK);
   NQTCHK(strncmp(out, "{\"path\":\"b.csv\"", 15) == 0);
   NQTEQI(nqdat(r, "sources", 2, out, sizeof out, &n), NQEIO);
+  NQTEQI(nqdkey(r, "sources", "b.csv", out, sizeof out, &n), NQOK);
+  NQTCHK(strncmp(out, "{\"path\":\"b.csv\"", 15) == 0);
+  NQTEQI(nqdkey(r, "sources", "c.csv", out, sizeof out, &n), NQEIO);
+  NQTEQI(nqdkey(r, "steps", "x", out, sizeof out, &n), NQEARG);
   /* put: replace by key, insert in order, refuse invalid */
   NQTEQI(P("sources", "{\"path\":\"a.csv\",\"size\":2,\"sha256\":"
                 "\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"

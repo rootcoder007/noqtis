@@ -79,6 +79,11 @@ NQDAPI size_t nqdlen(const nqdrec *r, const char *member);
 /* Element i of member (i 0 for an object member) as canonical JSON. */
 NQDAPI int nqdat(const nqdrec *r, const char *member, size_t i, char *out,
                   size_t cap, size_t *outlen);
+/* The element of a keyed member ("sources", "schemas", "stats" by path,
+ * "checks" by name) with key, as nqdat writes it; NQEIO when there is
+ * none, NQEARG for a member that is not keyed. */
+NQDAPI int nqdkey(const nqdrec *r, const char *member, const char *key,
+                  char *out, size_t cap, size_t *outlen);
 /* Adds the element json (n bytes) to member, checked as nqdparse checks
  * it: "sources", "schemas" and "stats" are keyed by "path" and
  * "checks" by "name", and an element with the same key is replaced;

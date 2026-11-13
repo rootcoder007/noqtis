@@ -11,6 +11,7 @@
 .Nm nqdrfree ,
 .Nm nqdlen ,
 .Nm nqdat ,
+.Nm nqdkey ,
 .Nm nqdput ,
 .Nm nqdset ,
 .Nm nqddel ,
@@ -41,6 +42,11 @@ libnqd, \-lnqd \-lnoqtis
 .Ft int
 .Fo nqdat
 .Fa "const nqdrec *r" "const char *member" "size_t i"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqdkey
+.Fa "const nqdrec *r" "const char *member" "const char *key"
 .Fa "char *out" "size_t cap" "size_t *outlen"
 .Fc
 .Ft int
@@ -138,6 +144,11 @@ writes element
 (0 for an object member) as canonical JSON, as
 .Fn nqdjson
 does.
+.Fn nqdkey
+does the same for the element of a keyed member with
+.Fa key
+(its path, or its name for
+.Ql checks ) .
 .Fn nqdput
 adds an element:
 .Ql sources ,
