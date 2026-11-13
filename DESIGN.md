@@ -195,7 +195,10 @@ show drift. It is a separate library, `libnqd`, with these boundaries:
   recursion in parsers (the JSON reader keeps an explicit stack of 32
   levels; the CSV reader is a state machine), every input bounded
   (a record 64 MiB, a CSV field 1 MiB, a line 16 MiB or 16,384
-  fields), every parser fuzzed (`fuzz/fdrec.c`, `fuzz/fdcsv.c`, `fuzz/fddft.c`). nqd
+  fields, a regex pattern 1,024 bytes), every parser fuzzed (`fuzz/fdrec.c`,
+  `fuzz/fdcsv.c`, `fuzz/fddft.c`, `fuzz/fdrx.c`); the regex rule's matcher
+  runs a set of states (Thompson), never backtracks, so its time is
+  linear in the value. nqd
   allocates with `malloc` and `free` and never `realloc`; it does not
   go through the core's `nqsetal` hook, which is not public.
 - **Format.** `noqtis.data.json` is `noqtis-data-1` (`noqtis-data(5)`,
@@ -207,11 +210,13 @@ show drift. It is a separate library, `libnqd`, with these boundaries:
 
 | # | Module | Contents | Must pass |
 |---|---|---|---|
-| Q1 | record | `noqtis.data.json`: reader, canonical writer, members, `nqdchk`; `noqtis data` | `tdrec` (RFC 8785 appendix B numbers, refusals), `tdcli`, `fdrec` |
-| Q2 | schemas | CSV reader (RFC 4180), schema inference and check, rules; `noqtis schema` | `tdcsv` (the reader's refusals, every type and rule), `tdcli`, `fdcsv` |
-| Q3 | drift | summaries (`nqdstats`), KS from the sketch, PSI, Jensen-Shannon, chi-square of homogeneity, Benford (`nqddrift`); `noqtis drift` | `tddft` (against R's `ks.test` and `chisq.test`, `tests/nqd/drift.R`), `tdcli`, `fddft`; `tests/nqd/kserr.c` measures the sketch's error |
+| Q1 | record | `noqtis.data.json`: reader, canonical writer, members, `nqdchk` (recomputes recorded checks, step digests and summaries); `noqtis data` | `tdrec` (RFC 8785 appendix B numbers, refusals), `tdcli`, `fdrec` |
+| Q2 | schemas | CSV reader (RFC 4180), schema inference and check, rules (with regex and MAD); `noqtis schema` | `tdcsv` (the reader's refusals, every type and rule), `tdrx` (the matcher against Python's `re`, the MAD rule against R), `tdcli`, `fdcsv`, `fdrx` |
+| Q3 | drift | summaries (`nqdstats`), KS from the sketch, PSI, Jensen-Shannon, chi-square of homogeneity, Benford (`nqddrift`), calibration (`nqddcal`); `noqtis drift` | `tddft` (against R's `ks.test` and `chisq.test`, `tests/nqd/drift.R`), `tdcli`, `fddft`; `tests/nqd/kserr.c` measures the sketch's error |
 | Q5, Q6 | env, commitments, citation | `noqtis env`; `nqdcommit`, `nqdreveal` (`noqtis commit`, `reveal`); `nqdcite` (`noqtis cite`) | `tdrec` (a commitment known answer from another SHA3 implementation), `tdcli` |
 | Q4 | diff | `nqddiff` (manifests through `nqfiles`, records member by member); `noqtis diff`; `seal -r`, `check -r` | `tdcli` (a file added, removed and changed, sources, schemas, env; nested capsules) |
+| Q7 | synthetic data | `nqdsyn` (a CSV file from its schema, deterministic, recorded as synthetic); `noqtis data syn` | `tdcli` (against a file made by a separate Python implementation; refusals) |
+| Q8 | reports | `nqdrpt` (Markdown and text, values escaped once); `noqtis report`; the action's report mode, outputs and annotations | `tdrpt`, `tdcli`, `.github/workflows/action.yml` |
 
 ## Platforms and packaging
 
