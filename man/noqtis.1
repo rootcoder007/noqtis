@@ -78,6 +78,11 @@ The capsule as in-toto (signed in DSSE), RO-Crate, BagIt or a bundle
 reads).
 See
 .Xr noqtis-export 1 .
+.It Cm pack
+Start, build and check a reproducibility bundle: a capsule with its
+environment and lock files recorded, shipped as one file.
+See
+.Xr noqtis-pack 1 .
 .It Cm rotate , revoke
 Say that a seal key was replaced, or must no longer be trusted, for
 .Cm check Fl -keys .
@@ -260,6 +265,7 @@ results: FAILED (1 of 22 checks failed)
 .Xr noqtis-idcard 1 ,
 .Xr noqtis-inspect 1 ,
 .Xr noqtis-keygen 1 ,
+.Xr noqtis-pack 1 ,
 .Xr noqtis-prove 1 ,
 .Xr noqtis-revoke 1 ,
 .Xr noqtis-rotate 1 ,

@@ -98,6 +98,18 @@ _noqtis_cmd() {
         '(-f --force)'{-f,--force}'[replace the file]' \
         '--no-files[a bundle of the data record alone]' \
         ':dir:_files -/' ;;
+    pack)
+      _arguments \
+        '1:action:(init build check unpack)' \
+        '(-t --template)'{-t,--template=}'[the template]:name:(plain r python)' \
+        '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
+        '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
+        '--format=[capsule format]:format:(1 2)' \
+        '*--lock=[a lock file]:file:_files' \
+        '(-o --out)'{-o,--out=}'[the bundle file]:file:_files' \
+        '(-f --force)'{-f,--force}'[replace the file]' \
+        '--no-files[a bundle of the data record alone]' \
+        '*:path:_files' ;;
     rotate|revoke)
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
@@ -206,6 +218,7 @@ _arguments -C \
     rotate\:"say a seal key was replaced" revoke\:"say a seal key is revoked"
     idcard\:"make or check an identity card"
     export\:"a capsule as in-toto, DSSE, RO-Crate, BagIt or a bundle"
+    pack\:"start, build and check a reproducibility bundle"
     inspect\:"show what a seal says" selftest\:"run the known-answer self-test" timestamp\:"add public timestamps" ers\:"start or renew an evidence record"
     data\:"make, show and check a data record"
     schema\:"pin and check the schema of CSV files"

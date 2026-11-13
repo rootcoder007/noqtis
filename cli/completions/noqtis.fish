@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite algs selftest version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite pack algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -25,6 +25,7 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a prove -d 'prove
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a export -d 'a capsule as in-toto, DSSE, RO-Crate, BagIt or a bundle'
 complete -c noqtis -n "__fish_seen_subcommand_from export" -l as -x -a "intoto dsse rocrate bagit bundle" -d format
 complete -c noqtis -n "__fish_seen_subcommand_from export" -l no-files -d 'a bundle of the data record alone'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a pack -d 'start, build and check a reproducibility bundle'
 complete -c noqtis -n "__fish_seen_subcommand_from verify" -l dsse -d 'check a DSSE envelope'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a rotate -d 'say a seal key was replaced'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a revoke -d 'say a seal key is revoked'
@@ -156,3 +157,15 @@ complete -c noqtis -n "__fish_seen_subcommand_from commit" -l after -x -d 'not b
 complete -c noqtis -n "__fish_seen_subcommand_from commit" -s o -l out -r -F -d 'the salt file'
 complete -c noqtis -n "__fish_seen_subcommand_from commit" -s f -l force -d 'replace the salt file'
 complete -c noqtis -n "__fish_seen_subcommand_from cite" -l format -x -a "cff bibtex" -d 'the format'
+
+# noqtis pack
+complete -c noqtis -n "__fish_seen_subcommand_from pack; and not __fish_seen_subcommand_from init build check unpack" -a "init build check unpack"
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -F
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -s t -l template -x -a "plain r python" -d 'the template'
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -s k -l key -r -F -d 'secret key'
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -s p -l pub -r -F -d 'its public key'
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -l format -x -a "1 2" -d 'capsule format'
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -l lock -r -F -d 'a lock file'
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -s o -l out -r -F -d 'the bundle file'
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -s f -l force -d 'replace the file'
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -l no-files -d 'a bundle of the data record alone'

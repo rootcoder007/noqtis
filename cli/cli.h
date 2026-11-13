@@ -244,6 +244,7 @@ int ncers(int argc, char **argv);
 /* ---- the data layer (data.c, through nqd.h) ---- */
 
 int ncdata(int argc, char **argv);
+int ncpack(int argc, char **argv);
 /* the record of dir (a new one when it has none and mk), with the
  * reason printed on failure; NCOK or NCUSE */
 int ncdload(const char *cmd, const char *dir, int mk, nqdrec **r);

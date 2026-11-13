@@ -147,6 +147,26 @@ static const nccmd cmds[] = {
    "  `noqtis check <file>` checks; --no-files leaves out every file but\n"
    "  the data record.\n"
    "  -o  write to <file> (default stdout); -f replaces it\n"},
+  {"pack", ncpack, "start, build and check a reproducibility bundle",
+   "usage: noqtis pack init [-t|--template plain|r|python] <dir>\n"
+   "       noqtis pack build -k <key> [-p <key.pub>] [--format 1|2]\n"
+   "                         [--lock <file>]... [-o <file>] [-f]\n"
+   "                         [--no-files] <dir>\n"
+   "       noqtis pack check [-p <key.pub>] <dir|file>\n"
+   "       noqtis pack unpack <file> <dir>\n"
+   "  A bundle is a capsule whose data record holds the environment and\n"
+   "  its lock files, sealed, and shipped as one file.\n"
+   "  init    start one from a template: data/, the code folder (code/,\n"
+   "          R/ or src/), output/, a README and an empty data record\n"
+   "  build   record the environment (`noqtis env`, --lock as there),\n"
+   "          seal (`noqtis seal`), and with -o write the bundle file\n"
+   "          (`noqtis export --as bundle`)\n"
+   "  check   before shipping: the capsule (`noqtis check`), the data\n"
+   "          record (`noqtis data check`, lock files included), and that\n"
+   "          the environment and at least one lock file are recorded\n"
+   "  unpack  the bundle file into a new folder\n"
+   "  Exit 0 when everything passes, 1 when a check fails or a bundle is\n"
+   "  malformed, 2 on a usage or file error.\n"},
   {"rotate", ncrot, "say that a seal key was replaced by a new one",
    "usage: noqtis rotate -k <key> [-p <key.pub>] -n <new> [--new-pub <new.pub>]\n"
    "                     [--at <time>] [--reason <text>] [-o <file>] [-f]\n"

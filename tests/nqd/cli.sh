@@ -582,6 +582,65 @@ ok 1 "nothing left the folder" test -e "$w/tmp/x"
 ok 0 "check leaves nothing in TMPDIR" test -z "$(ls -A "$w/tmp")"
 unset TMPDIR
 
+# ---- pack: unpack, init, build, check ----
+
+ok 0 "pack unpack" "$nq" pack unpack "$w/b.nqb" "$w/u"
+ok 0 "check the unpacked folder" "$nq" check -p "$w/k.pub" "$w/u"
+ok 2 "pack unpack into a folder that is there" "$nq" pack unpack \
+  "$w/b.nqb" "$w/u"
+has "$w/err" "must not exist" "unpack never writes into a folder"
+ok 1 "pack unpack a cut bundle" "$nq" pack unpack "$w/cut.nqb" "$w/u2"
+ok 1 "a cut bundle leaves no folder" test -e "$w/u2"
+for p in '\000\004../x' '\000\002/x' '\000\003C:x'; do
+  { printf 'noqtis-bundle-1\n'; printf "$p"
+    printf '\000\000\000\000\000\000\000\001x\000\000'; } >"$w/evil.nqb"
+  ok 1 "pack unpack refuses $p" "$nq" pack unpack "$w/evil.nqb" "$w/u3"
+  has "$w/err" "not a path a capsule holds" "the path is named as refused"
+  ok 1 "nothing of $p is written" test -e "$w/u3"
+done
+ok 1 "nothing left the folder" test -e "$w/x"
+p=$w/proj
+ok 0 "pack init -t r" "$nq" pack init -t r "$p"
+ok 0 "pack init made R/" test -d "$p/R"
+ok 0 "pack init made data/" test -d "$p/data"
+has "$p/README.md" "renv.lock" "the README names the lock file"
+ok 2 "pack init twice" "$nq" pack init "$p"
+has "$w/err" "already has a data record" "init twice says so"
+ok 2 "pack init, unknown template" "$nq" pack init -t cobol "$w/p2"
+has "$w/err" "plain, r or python" "the templates are listed"
+ok 0 "pack init python" "$nq" pack init --template python "$w/py"
+ok 0 "pack init python made src/" test -d "$w/py/src"
+cp "$v/cap/data/a.csv" "$p/data/"
+printf '{"R":{"Version":"4.6.2"}}\n' >"$p/renv.lock"
+ok 0 "pack: data add" "$nq" data add "$p" data/a.csv
+ok 1 "pack check before build" "$nq" pack check "$p"
+has "$w/out" "not ready to ship" "unsealed is not ready"
+ok 2 "pack build --no-files without -o" "$nq" pack build -k "$w/k" \
+  --no-files "$p"
+ok 2 "pack build without a key" "$nq" pack build "$p"
+ok 0 "pack build" "$nq" pack build -k "$w/k" -o "$w/p.nqb" "$p"
+has "$w/out" "bundle written" "build writes the bundle"
+ok 0 "pack check the bundle" "$nq" pack check -p "$w/k.pub" "$w/p.nqb"
+has "$w/out" "renv.lock: SHA-256 matches" "the lock file is checked"
+has "$w/out" "1 lock files recorded" "the lock file is counted"
+has "$w/out" "ready to ship" "the bundle is ready"
+ok 0 "pack check the folder" "$nq" pack check -p "$w/k.pub" "$p"
+ok 0 "check the pack bundle" "$nq" check -p "$w/k.pub" "$w/p.nqb"
+printf '{"R":{"Version":"4.6.3"}}\n' >"$p/renv.lock"
+ok 0 "pack: seal again without env" "$nq" seal -k "$w/k" "$p"
+ok 1 "pack check, lock changed after env" "$nq" pack check -p "$w/k.pub" \
+  "$p"
+has "$w/out" "renv.lock: SHA-256 is" "the changed lock file fails"
+has "$w/err" "noqtis env" "and says to record it again"
+ok 0 "pack build again" "$nq" pack build -k "$w/k" "$p"
+ok 0 "pack check after build" "$nq" pack check -p "$w/k.pub" "$p"
+ok 0 "pack build python, no lock" "$nq" pack build -k "$w/k" "$w/py"
+ok 1 "pack check without a lock file" "$nq" pack check "$w/py"
+has "$w/out" "0 lock files recorded" "no lock file fails"
+ok 2 "pack nothing" "$nq" pack nothing
+ok 0 "help pack" "$nq" help pack
+has "$w/out" "noqtis pack build" "help lists build"
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"

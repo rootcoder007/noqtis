@@ -18,7 +18,7 @@ _noqtis() {
   prev=${COMP_WORDS[COMP_CWORD-1]}
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=($(compgen -W "keygen sign verify enc dec hash seal check
-      prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite algs selftest version -V
+      prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite pack algs selftest version -V
       --version" -- "$cur"))
     return
   fi
@@ -39,6 +39,9 @@ _noqtis() {
       [ "$prev" = --format ] && COMPREPLY=($(compgen -W "1 2" -- "$cur"))
       [ "$prev" = --as ] &&
         COMPREPLY=($(compgen -W "intoto dsse rocrate bagit bundle" -- "$cur"))
+      return ;;
+    -t | --template)
+      COMPREPLY=($(compgen -W "plain r python" -- "$cur"))
       return ;;
     --input | --lineage)
       COMPREPLY=($(compgen -d -- "$cur"))
@@ -92,6 +95,13 @@ _noqtis() {
       opts="-f --force -u --url --title --publisher --licence --retrieved
         --etag --modified --archived --mirror --synthetic -j --json --seed
         --rows" ;;
+    pack)
+      if [ "$COMP_CWORD" -eq 2 ]; then
+        COMPREPLY=($(compgen -W "init build check unpack" -- "$cur"))
+        return
+      fi
+      opts="-t --template -k --key -p --pub --format --lock -o --out -f
+        --force --no-files" ;;
     schema)
       if [ "$COMP_CWORD" -eq 2 ]; then
         COMPREPLY=($(compgen -W "infer check" -- "$cur"))
@@ -106,7 +116,7 @@ _noqtis() {
     case $cmd in
       seal | check | inspect | timestamp | ers | export | diff | report)
         COMPREPLY=($(compgen -d -- "$cur")) ;;
-      data | schema | drift | env | commit | reveal | cite)
+      data | schema | drift | env | commit | reveal | cite | pack)
         COMPREPLY=($(compgen -d -- "$cur") $(compgen -f -- "$cur")) ;;
       prove) COMPREPLY=($(compgen -d -- "$cur") $(compgen -f -- "$cur")) ;;
       *) COMPREPLY=($(compgen -f -- "$cur")) ;;

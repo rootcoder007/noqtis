@@ -1,0 +1,139 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 13, 2026
+.Dt NOQTIS-PACK 1
+.Os
+.Sh NAME
+.Nm noqtis-pack
+.Nd start, build and check a reproducibility bundle
+.Sh SYNOPSIS
+.Nm noqtis pack init
+.Op Fl t | Fl -template Cm plain | r | python
+.Ar dir
+.Nm noqtis pack build
+.Fl k Ar key
+.Op Fl p Ar key.pub
+.Op Fl -format Cm 1 | 2
+.Op Fl -lock Ar file ...
+.Op Fl o Ar file
+.Op Fl f
+.Op Fl -no-files
+.Ar dir
+.Nm noqtis pack check
+.Op Fl p Ar key.pub
+.Ar dir | file
+.Nm noqtis pack unpack
+.Ar file dir
+.Sh DESCRIPTION
+A reproducibility bundle is a capsule
+.Pq Xr noqtis-capsule 5
+whose data record
+.Pq Xr noqtis-data 5
+holds the environment of the run and the digests of its lock files,
+sealed, and shipped as one file.
+Each action is a command the tool already has, run in order.
+.Bl -tag -width Ds
+.It Cm init
+Start a bundle in
+.Ar dir
+(made when it is not there) from a template: the folders
+.Pa data/ ,
+the code folder
+.Pf ( Pa code/ ,
+.Pa R/
+or
+.Pa src/ )
+and
+.Pa output/ ,
+a
+.Pa README.md
+that says what goes where and how the lock file is made
+.Pf ( Pa renv.lock
+from
+.Ql renv::snapshot() ,
+.Pa uv.lock ) ,
+kept when there is one, and an empty data record.
+A folder with a data record is refused.
+.It Cm build
+Record the environment
+.Po
+.Xr noqtis-env 1 ;
+.Fl -lock
+as there
+.Pc ,
+seal
+.Po
+.Xr noqtis-seal 1 ;
+.Fl k ,
+.Fl p ,
+.Fl -format
+as there
+.Pc ,
+and with
+.Fl o
+write the bundle file
+.Po
+.Xr noqtis-export 1
+.Fl -as Cm bundle ;
+.Fl f
+replaces a file there,
+.Fl -no-files
+leaves out every file but the data record
+.Pc .
+.It Cm check
+Before shipping: the capsule
+.Po
+.Xr noqtis-check 1 ,
+with
+.Fl p
+.Pc ,
+its data record
+.Po
+.Xr noqtis-data 1
+.Cm check :
+sources, schemas, chunks, and each lock file against the digest
+.Cm env
+recorded
+.Pc ,
+and that the environment and at least one lock file are recorded.
+.Ar file
+is a bundle; a bundle without its files has no data to check, and
+fails here.
+.It Cm unpack
+Read the bundle
+.Ar file
+into the new folder
+.Ar dir
+.Pq Xr nqdunpack 3 ,
+refusing it whole for anything malformed, and for any path that would
+leave
+.Ar dir .
+Check the folder after with
+.Xr noqtis-check 1 .
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+Done; for
+.Cm check ,
+every check passed.
+.It 1
+A check failed, or the bundle is malformed.
+.It 2
+A usage error, or a file or folder that cannot be read or written.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis pack init --template r study
+$ noqtis data add --url https://example.org/a.csv study data/a.csv
+$ noqtis pack build -k me -o study.nqb study
+$ noqtis pack check -p me.pub study.nqb
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-data 1 ,
+.Xr noqtis-env 1 ,
+.Xr noqtis-export 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqdpack 3 ,
+.Xr noqtis-capsule 5 ,
+.Xr noqtis-data 5
