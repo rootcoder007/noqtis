@@ -3,10 +3,14 @@
 # The tool's data-layer commands, as a user runs them: exit codes,
 # outputs, the files written, and every refusal saying what to do.
 # POSIX sh only (runs under busybox).
-#   tests/nqd/cli.sh <noqtis> <tests dir>
+#   tests/nqd/cli.sh <noqtis> <tests dir> [<noqtis built with NQTEST>]
 set -u
 nq=$1
 td=$2
+nqt=${3:-}
+# absolute, as one test runs the tool from another folder
+case $nq in /*) ;; *) nq=$(pwd)/$nq ;; esac
+case $nqt in /* | "") ;; *) nqt=$(pwd)/$nqt ;; esac
 v=$td/vectors/nqd
 w=${TMPDIR:-/tmp}/nqdcli.$$
 rm -rf "$w"
@@ -269,6 +273,44 @@ ok 1 "check -r, one changed" "$nq" check -p "$w/k.pub" -r "$t"
 has "$w/err" "2 capsules, 1 OK, 1 failed" "check -r finds it"
 ok 2 "check -r, nothing" "$nq" check -r "$t/c"
 has "$w/err" "no capsule under" "check -r says none"
+
+# -r never follows a link: not one inside the tree, not the top folder,
+# not a folder that turns into a link after the walk
+o=$w/outside
+mkdir -p "$o/cap" "$t/l"
+printf 'z\n' >"$o/cap/f.txt"
+ok 0 "-r: data init outside" "$nq" data init "$o/cap"
+ln -s "$o" "$t/l/out"
+ok 0 "seal -r with a link inside" "$nq" seal -k "$w/k" -r "$t"
+has "$w/err" "2 capsules, 2 sealed, 0 failed" "the link is not descended"
+ok 1 "nothing written outside" test -f "$o/cap/noqtis.json"
+ok 0 "check -r with a link inside" "$nq" check -p "$w/k.pub" -r "$t"
+has "$w/err" "2 capsules, 2 OK, 0 failed" "check -r skips the link"
+ln -s "$t" "$w/tlink"
+ok 2 "seal -r on a link" "$nq" seal -k "$w/k" -r "$w/tlink"
+has "$w/err" "without following links" "a top link is refused"
+ok 1 "nothing written through the top link" test -f "$o/cap/noqtis.sig"
+# option paths relative to where the tool is run still work
+ok 0 "check -r, relative paths" sh -c 'cd "$1" && "$2" check -p k.pub -r tree' \
+  sh "$w" "$nq"
+if [ -n "$nqt" ]; then
+  # the test hook swaps $t/a for a link to $o/cap after the walk
+  export NQTESTSWAP="$t/a" NQTESTSWAPTO="$o/cap"
+  ok 2 "seal -r, a folder swapped for a link" "$nqt" seal -k "$w/k" -r "$t"
+  has "$w/err" "is no longer a folder" "the swapped folder is refused"
+  has "$w/err" "2 capsules, 1 sealed, 1 failed" "and counted as failed"
+  ok 1 "nothing sealed through the swap" test -f "$o/cap/noqtis.sig"
+  ok 1 "nor its manifest" test -f "$o/cap/noqtis.json"
+  rm "$t/a"
+  mv "$t/a.was" "$t/a"
+  ok 2 "check -r, a folder swapped for a link" "$nqt" check -p "$w/k.pub" \
+    -r "$t"
+  has "$w/err" "is no longer a folder" "check -r refuses it too"
+  rm "$t/a"
+  mv "$t/a.was" "$t/a"
+  unset NQTESTSWAP NQTESTSWAPTO
+  ok 0 "check -r after the swaps" "$nq" check -p "$w/k.pub" -r "$t"
+fi
 
 # ---- env, commit, reveal, cite ----
 

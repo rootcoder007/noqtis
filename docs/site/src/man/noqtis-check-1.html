@@ -132,12 +132,15 @@ or
     <code class="Fl">--recursive</code></dt>
   <dd>Check, with the same options, every folder under <var class="Ar">dir</var>
       (and <var class="Ar">dir</var> itself) that holds
-      <span class="Pa">noqtis.sig</span>, deepest first, without following
-      links, 64 levels down at most; each prints its report (with
-      <code class="Fl">-j</code>, one JSON line each), and standard error ends
-      with how many passed and failed. <var class="Ar">dir</var> comes last. The
-      exit status is the worst of the checks; no capsule under
-      <var class="Ar">dir</var> is 2.</dd>
+      <span class="Pa">noqtis.sig</span>, deepest first, 64 levels down at most;
+      each prints its report (with <code class="Fl">-j</code>, one JSON line
+      each), and standard error ends with how many passed and failed. It never
+      follows a link: each folder is opened from the one above it without
+      following links, when it is listed and again when it is checked, so a link
+      inside <var class="Ar">dir</var>, <var class="Ar">dir</var> itself as a
+      link, or a folder replaced by a link in between is refused.
+      <var class="Ar">dir</var> comes last. The exit status is the worst of the
+      checks; no capsule under <var class="Ar">dir</var> is 2.</dd>
   <dt id="anchor"><a class="permalink" href="#anchor"><code class="Fl">--anchor</code></a>
     <var class="Ar">der-file</var></dt>
   <dd>A TSA trust anchor: the root or issuing certificate of a time-stamping

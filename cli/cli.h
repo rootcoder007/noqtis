@@ -94,6 +94,23 @@ int ncclose(FILE *f, const char *path, int bad);
  * NCWALKMAX folders or when memory runs out */
 #define NCWALKMAX ((size_t)100000)
 int ncwalk(const char *dir, char ***out, size_t *n);
+/* POSIX: makes the folder path (one ncwalk listed under top) the
+ * working folder, reached from top by descriptor with O_NOFOLLOW at
+ * every step, and returns "." to give the command; NULL when a step is
+ * now a link or not a folder. Windows: returns path (ncwalk skipped
+ * reparse points). nchome saves the working folder (a descriptor),
+ * ncback returns to it, NCOK or NCUSE. */
+const char *ncenter(const char *top, const char *path);
+int nchome(void);
+int ncback(int fd);
+void ncunhome(int fd);
+/* p made absolute against the working folder (POSIX; a URL or an
+ * absolute path as it is), in a new buffer (free it); NULL out of
+ * memory */
+char *ncabs(const char *p);
+#ifdef NQTEST
+void nctswap(const char *path);
+#endif
 /* runs cmd (ncseal or ncchk) on every capsule folder under the folder
  * that is its last argument: those holding the file mark (seal: a
  * manifest or a data record), with -r taken out of argv */

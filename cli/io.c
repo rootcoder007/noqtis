@@ -331,9 +331,9 @@ static int addf(char ***v, size_t *n, size_t *cap, const char *p) {
   return NCOK;
 }
 
-/* the folders inside dir (one level), not links, appended to v */
-static int subdirs(const char *dir, char ***v, size_t *n, size_t *cap) {
 #ifdef _WIN32
+/* the folders inside dir (one level), not reparse points, appended to v */
+static int subdirs(const char *dir, char ***v, size_t *n, size_t *cap) {
   char pat[4200];
   wchar_t *w;
   WIN32_FIND_DATAW fd;
@@ -360,26 +360,8 @@ static int subdirs(const char *dir, char ***v, size_t *n, size_t *cap) {
   } while (rc == NCOK && FindNextFileW(h, &fd));
   FindClose(h);
   return rc;
-#else
-  DIR *d = opendir(dir);
-  struct dirent *e;
-  int rc = NCOK;
-  if (d == NULL)
-    return NCOK;
-  while (rc == NCOK && (e = readdir(d)) != NULL) {
-    char p[4200];
-    struct stat st;
-    if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
-      continue;
-    if ((size_t)snprintf(p, sizeof p, "%s/%s", dir, e->d_name) >= sizeof p)
-      continue;
-    if (lstat(p, &st) == 0 && S_ISDIR(st.st_mode))
-      rc = addf(v, n, cap, p);
-  }
-  closedir(d);
-  return rc;
-#endif
 }
+#endif
 
 static int bydepth(const void *a, const void *b) {
   const char *x = *(const char *const *)a, *y = *(const char *const *)b;
@@ -393,10 +375,37 @@ static int bydepth(const void *a, const void *b) {
   return strcmp(*(const char *const *)a, *(const char *const *)b);
 }
 
+#ifndef _WIN32
+/* one open folder of the walk: its descriptor, a DIR on a dup of it (a
+ * descriptor fdopendir takes over is not to be used again), and the
+ * length of its path */
+typedef struct {
+  int fd;
+  DIR *d;
+  size_t plen;
+} ncwlv;
+
+static int wpush(ncwlv *l, int fd, size_t plen) {
+  int dd = dup(fd);
+  l->fd = fd;
+  l->plen = plen;
+  l->d = dd < 0 ? NULL : fdopendir(dd);
+  if (l->d == NULL) {
+    if (dd >= 0)
+      close(dd);
+    close(fd);
+    return NCUSE;
+  }
+  return NCOK;
+}
+#endif
+
 int ncwalk(const char *dir, char ***out, size_t *n) {
   char **v = NULL;
   size_t nv = 0, cap = 0, i;
-  int rc = addf(&v, &nv, &cap, dir);
+  int rc;
+#ifdef _WIN32
+  rc = addf(&v, &nv, &cap, dir);
   /* breadth first over a list that grows: no recursion */
   for (i = 0; rc == NCOK && i < nv; i++) {
     const char *p;
@@ -408,6 +417,65 @@ int ncwalk(const char *dir, char ***out, size_t *n) {
     if (nv > NCWALKMAX)
       rc = NCUSE;
   }
+#else
+  /* by descriptor, depth first over an explicit stack of at most 64
+   * open folders (two descriptors each): every folder is reached with
+   * openat(O_DIRECTORY | O_NOFOLLOW) from the one above it, never by its
+   * path, so a folder swapped for a link is not followed, here or one
+   * level down */
+  ncwlv st[64];
+  int top = 0, fd;
+  char path[4200];
+  if (strlen(dir) >= sizeof path)
+    return NCUSE;
+  strcpy(path, dir);
+  fd = open(dir, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (fd < 0 || wpush(&st[0], fd, strlen(path)) != NCOK)
+    return NCUSE;
+  rc = addf(&v, &nv, &cap, path);
+  while (top >= 0) {
+    struct dirent *e;
+    struct stat sb;
+    size_t l;
+    int nfd;
+    if (rc != NCOK || (e = readdir(st[top].d)) == NULL) {
+      closedir(st[top].d);
+      close(st[top].fd);
+      if (--top >= 0)
+        path[st[top].plen] = '\0';
+      continue;
+    }
+    if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
+      continue;
+    if (fstatat(st[top].fd, e->d_name, &sb, AT_SYMLINK_NOFOLLOW) != 0 ||
+        !S_ISDIR(sb.st_mode))
+      continue;
+    l = st[top].plen;
+    if (l + 1 + strlen(e->d_name) >= sizeof path)
+      continue;
+    nfd = openat(st[top].fd, e->d_name,
+                 O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (nfd < 0)
+      continue; /* a link now, or gone: not listed */
+    path[l] = '/';
+    strcpy(path + l + 1, e->d_name);
+    rc = addf(&v, &nv, &cap, path);
+    if (rc == NCOK && nv > NCWALKMAX)
+      rc = NCUSE;
+    if (rc != NCOK || top + 1 >= 64) {
+      /* listed, not descended: 64 levels at most */
+      close(nfd);
+      path[l] = '\0';
+      continue;
+    }
+    if (wpush(&st[top + 1], nfd, strlen(path)) != NCOK) {
+      rc = NCUSE;
+      path[l] = '\0';
+      continue;
+    }
+    top++;
+  }
+#endif
   if (rc != NCOK) {
     for (i = 0; i < nv; i++)
       free(v[i]);
@@ -419,3 +487,115 @@ int ncwalk(const char *dir, char ***out, size_t *n) {
   *n = nv;
   return NCOK;
 }
+
+#ifndef _WIN32
+static int ncenterfd(const char *top, const char *path) {
+  const char *r = path + strlen(top);
+  int fd = open(top, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (strncmp(path, top, strlen(top)) != 0 || (*r != '\0' && *r != '/')) {
+    if (fd >= 0)
+      close(fd);
+    return -1;
+  }
+  while (fd >= 0 && *r) {
+    char nm[1024];
+    size_t k;
+    int nfd;
+    while (*r == '/')
+      r++;
+    for (k = 0; r[k] && r[k] != '/'; k++)
+      ;
+    if (k == 0)
+      break;
+    if (k >= sizeof nm) {
+      close(fd);
+      return -1;
+    }
+    memcpy(nm, r, k);
+    nm[k] = '\0';
+    r += k;
+    nfd = openat(fd, nm, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    close(fd);
+    fd = nfd;
+  }
+  return fd;
+}
+#endif
+
+const char *ncenter(const char *top, const char *path) {
+#ifdef _WIN32
+  (void)top;
+  return path;
+#else
+  int fd = ncenterfd(top, path), rc;
+  if (fd < 0)
+    return NULL;
+  rc = fchdir(fd);
+  close(fd);
+  return rc == 0 ? "." : NULL;
+#endif
+}
+
+int nchome(void) {
+#ifdef _WIN32
+  return 0;
+#else
+  return open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+#endif
+}
+
+void ncunhome(int fd) {
+#ifdef _WIN32
+  (void)fd;
+#else
+  if (fd >= 0)
+    close(fd);
+#endif
+}
+
+int ncback(int fd) {
+#ifdef _WIN32
+  (void)fd;
+  return NCOK;
+#else
+  int rc = fd >= 0 ? fchdir(fd) : -1;
+  return rc == 0 ? NCOK : NCUSE;
+#endif
+}
+
+char *ncabs(const char *p) {
+  char *o;
+#ifndef _WIN32
+  char cwd[4096];
+  if (p[0] != '/' && strstr(p, "://") == NULL &&
+      getcwd(cwd, sizeof cwd) != NULL) {
+    o = (char *)malloc(strlen(cwd) + strlen(p) + 2);
+    if (o != NULL)
+      sprintf(o, "%s/%s", cwd, p);
+    return o;
+  }
+#endif
+  o = (char *)malloc(strlen(p) + 1);
+  if (o != NULL)
+    strcpy(o, p);
+  return o;
+}
+
+#ifdef NQTEST
+/* a test hook for -r (tests/nqd/cli.sh): when path is the folder
+ * NQTESTSWAP names, it is renamed and a link to NQTESTSWAPTO put in its
+ * place, between the walk and the run on it, without timing */
+void nctswap(const char *path) {
+#ifndef _WIN32
+  const char *s = getenv("NQTESTSWAP"), *t = getenv("NQTESTSWAPTO");
+  char was[4200];
+  if (s == NULL || t == NULL || strcmp(s, path) != 0)
+    return;
+  snprintf(was, sizeof was, "%s.was", path);
+  if (rename(path, was) != 0 || symlink(t, path) != 0)
+    fprintf(stderr, "nctswap: %s: %s\n", path, strerror(errno));
+#else
+  (void)path;
+#endif
+}
+#endif

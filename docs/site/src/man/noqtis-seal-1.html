@@ -150,9 +150,13 @@ and the summary line ends in &#x2018;<code class="Li">and a
       <span class="Pa">noqtis.json</span> (a capsule sealed before) or
       <span class="Pa">noqtis.data.json</span> (a data record), deepest first,
       so that a capsule inside another is sealed before the one that holds it.
-      Links are not followed, and the search stops 64 levels down.
-      <var class="Ar">dir</var> comes last. Standard error ends with how many
-      were sealed and failed; the exit status is the worst of them.</dd>
+      The search stops 64 levels down and never follows a link: each folder is
+      opened from the one above it without following links, when it is listed
+      and again when it is sealed, so a link inside <var class="Ar">dir</var>,
+      <var class="Ar">dir</var> itself as a link, or a folder replaced by a link
+      in between is refused, never sealed through. <var class="Ar">dir</var>
+      comes last. Standard error ends with how many were sealed and failed; the
+      exit status is the worst of them.</dd>
 </dl>
 </section>
 <section class="Sh">

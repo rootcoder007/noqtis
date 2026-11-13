@@ -173,7 +173,13 @@ itself) that holds
 .Pa noqtis.data.json
 (a data record), deepest first, so that a capsule inside another is
 sealed before the one that holds it.
-Links are not followed, and the search stops 64 levels down.
+The search stops 64 levels down and never follows a link: each folder is
+opened from the one above it without following links, when it is listed
+and again when it is sealed, so a link inside
+.Ar dir ,
+.Ar dir
+itself as a link, or a folder replaced by a link in between is refused,
+never sealed through.
 .Ar dir
 comes last.
 Standard error ends with how many were sealed and failed; the exit
