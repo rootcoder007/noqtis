@@ -83,6 +83,11 @@ Start, build and check a reproducibility bundle: a capsule with its
 environment and lock files recorded, shipped as one file.
 See
 .Xr noqtis-pack 1 .
+.It Cm chunk
+Record the chunk digests of a large file, and check a piece of it
+alone.
+See
+.Xr noqtis-chunk 1 .
 .It Cm rotate , revoke
 Say that a seal key was replaced, or must no longer be trusted, for
 .Cm check Fl -keys .
@@ -257,6 +262,7 @@ results: FAILED (1 of 22 checks failed)
 .Sh SEE ALSO
 .Xr noqtis-algs 1 ,
 .Xr noqtis-check 1 ,
+.Xr noqtis-chunk 1 ,
 .Xr noqtis-dec 1 ,
 .Xr noqtis-enc 1 ,
 .Xr noqtis-ers 1 ,

@@ -110,6 +110,13 @@ _noqtis_cmd() {
         '(-f --force)'{-f,--force}'[replace the file]' \
         '--no-files[a bundle of the data record alone]' \
         '*:path:_files' ;;
+    chunk)
+      _arguments \
+        '1:action:(pin check)' \
+        '--size=[bytes in a chunk]:bytes:' \
+        '--at=[where the piece starts]:offset:' \
+        '(-j --json)'{-j,--json}'[JSON output]' \
+        '*:path:_files' ;;
     rotate|revoke)
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
@@ -219,6 +226,7 @@ _arguments -C \
     idcard\:"make or check an identity card"
     export\:"a capsule as in-toto, DSSE, RO-Crate, BagIt or a bundle"
     pack\:"start, build and check a reproducibility bundle"
+    chunk\:"chunk digests of a large file, a piece checked"
     inspect\:"show what a seal says" selftest\:"run the known-answer self-test" timestamp\:"add public timestamps" ers\:"start or renew an evidence record"
     data\:"make, show and check a data record"
     schema\:"pin and check the schema of CSV files"

@@ -1571,6 +1571,113 @@ static int dsyn(int argc, char **argv) {
   return rc;
 }
 
+static int cpin(int argc, char **argv) {
+  const char *sz = NULL;
+  uint64_t chunk = (uint64_t)1 << 20;
+  int np, help, i, rc, e;
+  nqdrec *r;
+  char why[600], *b;
+  size_t n;
+  ncopt o[] = {{0, "size", 1, &sz, NULL}};
+  if (ncargs("chunk pin", argc, argv, o, 1, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "chunk");
+    return NCOK;
+  }
+  if (np < 2) {
+    ncmsg("chunk pin", "give the folder and at least one file in it");
+    return NCUSE;
+  }
+  if (sz != NULL && optu64("chunk pin", "--size", sz, &chunk) != NCOK)
+    return NCUSE;
+  if ((rc = ncdload("chunk pin", argv[0], 1, &r)) != NCOK)
+    return rc;
+  for (i = 1; i < np && rc == NCOK; i++) {
+    n = 0;
+    e = nqdchunk(argv[0], argv[i], chunk, NULL, 0, &n, why, sizeof why);
+    if (e == NQEBUF && (b = (char *)malloc(n + 1)) != NULL) {
+      e = nqdchunk(argv[0], argv[i], chunk, b, n + 1, &n, why, sizeof why);
+      if (e == NQOK)
+        e = nqdput(r, "chunks", b, n, why, sizeof why);
+      free(b);
+    }
+    if (e != NQOK) {
+      ncmsg("chunk pin", "%s: %s", argv[i], why[0] ? why : nqerr(e));
+      rc = NCUSE;
+    }
+  }
+  if (rc == NCOK)
+    rc = ncdsave("chunk pin", argv[0], r);
+  nqdrfree(r);
+  return rc;
+}
+
+static int ccheck(int argc, char **argv) {
+  const char *atv = NULL;
+  uint64_t off = 0;
+  int np, help, json = 0, rc, e;
+  nqdrec *r;
+  nqdrep *rep = NULL;
+  char p[4200], *b;
+  size_t n = 0;
+  ncopt o[] = {{0, "at", 1, &atv, NULL}, {'j', "json", 0, NULL, &json}};
+  if (ncargs("chunk check", argc, argv, o, 2, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "chunk");
+    return NCOK;
+  }
+  if (np != 2 && np != 3) {
+    ncmsg("chunk check", "give the folder, the file and, when you have only "
+          "a piece of it, the piece");
+    return NCUSE;
+  }
+  if (atv != NULL && optu64("chunk check", "--at", atv, &off) != NCOK)
+    return NCUSE;
+  if (atv != NULL && np != 3) {
+    ncmsg("chunk check", "--at says where a piece starts: give the piece");
+    return NCUSE;
+  }
+  if ((rc = ncdload("chunk check", argv[0], 0, &r)) != NCOK)
+    return rc;
+  e = nqdkey(r, "chunks", argv[1], NULL, 0, &n);
+  if (e != NQEBUF || (b = (char *)malloc(n + 1)) == NULL) {
+    ncmsg("chunk check", "%s records no chunks of %s: pin them with `noqtis "
+          "chunk pin %s %s`", argv[0], argv[1], argv[0], argv[1]);
+    nqdrfree(r);
+    return NCUSE;
+  }
+  e = nqdkey(r, "chunks", argv[1], b, n + 1, &n);
+  nqdrfree(r);
+  if (np == 3)
+    snprintf(p, sizeof p, "%s", argv[2]);
+  else
+    snprintf(p, sizeof p, "%s/%s", argv[0], argv[1]);
+  if (e == NQOK)
+    e = nqdpiece(b, n, p, off, &rep);
+  free(b);
+  if (rep == NULL)
+    return nclib("chunk check", argv[1], e);
+  rc = ncdrep("chunk check", np == 3 ? argv[2] : argv[1], rep, e, json);
+  nqdrepfree(rep);
+  return rc;
+}
+
+int ncchunk(int argc, char **argv) {
+  if (argc < 2 || strcmp(argv[1], "-h") == 0 ||
+      strcmp(argv[1], "--help") == 0) {
+    ncuse(argc < 2 ? stderr : stdout, "chunk");
+    return argc < 2 ? NCUSE : NCOK;
+  }
+  if (strcmp(argv[1], "pin") == 0)
+    return cpin(argc - 1, argv + 1);
+  if (strcmp(argv[1], "check") == 0)
+    return ccheck(argc - 1, argv + 1);
+  ncmsg("chunk", "unknown action %s (pin, check)", argv[1]);
+  return NCUSE;
+}
+
 int ncdata(int argc, char **argv) {
   static const struct {
     const char *v;

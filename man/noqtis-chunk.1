@@ -1,0 +1,75 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 13, 2026
+.Dt NOQTIS-CHUNK 1
+.Os
+.Sh NAME
+.Nm noqtis-chunk
+.Nd record the chunk digests of a large file, and check a piece of it
+.Sh SYNOPSIS
+.Nm noqtis chunk pin
+.Op Fl -size Ar bytes
+.Ar dir file ...
+.Nm noqtis chunk check
+.Op Fl -at Ar offset
+.Op Fl j | Fl -json
+.Ar dir file
+.Op Ar piece
+.Sh DESCRIPTION
+.Cm pin
+reads each
+.Ar file
+in
+.Ar dir
+once and records in the data record
+.Pq Cm chunks , Xr noqtis-data 5
+the SHA-256 of each run of
+.Fl -size
+bytes (default 1048576; 1024 to 1073741824), the last run short.
+The file is not split.
+Seal the folder afterwards: the seal covers the digests through the
+record.
+.Pp
+.Cm check
+checks
+.Ar file ,
+or
+.Ar piece ,
+a part of it whose first byte is byte
+.Fl -at
+of the file (a multiple of the chunk size; default 0), against the
+recorded digests: each whole chunk it holds, and a short last one when
+it ends where the file does.
+Only that is read, so a range fetched alone, or the part of a file that
+survived, can be checked without the rest.
+A short run at the end of a piece that is not the file's end is not
+checked, and a row says so.
+.Pp
+To trust the digests without the file, check the record's seal alone:
+.Ql noqtis check --only noqtis.data.json .
+.Xr noqtis-data 1
+.Cm check
+checks each file whole against its chunks.
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+Recorded; or every chunk read matches.
+.It 1
+A chunk differs, the piece runs past the file, or it holds no whole
+chunk.
+.It 2
+A usage or file error, or no chunks recorded for
+.Ar file .
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis chunk pin --size 4194304 results data/big.parquet
+$ noqtis seal -k me results
+$ curl -r 8388608-16777215 -o part https://example.org/big.parquet
+$ noqtis check -p me.pub --only noqtis.data.json results
+$ noqtis chunk check --at 8388608 results data/big.parquet part
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-data 1 ,
+.Xr nqdchunk 3 ,
+.Xr noqtis-data 5

@@ -641,6 +641,51 @@ ok 2 "pack nothing" "$nq" pack nothing
 ok 0 "help pack" "$nq" help pack
 has "$w/out" "noqtis pack build" "help lists build"
 
+# ---- chunk: pin, check, a piece ----
+
+k=$w/cnk
+mkdir -p "$k"
+i=0
+while [ $i -lt 200 ]; do
+  echo "line $i of a file read in pieces" >>"$k/big.txt"
+  i=$((i + 1))
+done
+ok 0 "chunk pin" "$nq" chunk pin --size 1024 "$k" big.txt
+ok 0 "chunk: show" "$nq" data show "$k"
+has "$w/out" '"chunk":1024' "the chunk size is recorded"
+ok 0 "chunk check" "$nq" chunk check "$k" big.txt
+has "$w/out" "chunks 0 to" "every chunk matches"
+dd if="$k/big.txt" of="$w/piece" bs=1024 skip=2 count=2 2>/dev/null
+ok 0 "chunk check a piece" "$nq" chunk check --at 2048 "$k" big.txt \
+  "$w/piece"
+has "$w/out" "chunks 2 to 3" "the piece's chunks match"
+ok 1 "chunk check a piece at the wrong place" "$nq" chunk check --at 1024 \
+  "$k" big.txt "$w/piece"
+has "$w/err" "chunk pin" "a differing chunk says what to do"
+ok 1 "chunk check, not a chunk's start" "$nq" chunk check --at 5 "$k" \
+  big.txt "$w/piece"
+ok 2 "chunk check --at without a piece" "$nq" chunk check --at 0 "$k" \
+  big.txt
+ok 2 "chunk check --at not a number" "$nq" chunk check --at x "$k" \
+  big.txt "$w/piece"
+ok 2 "chunk pin --size too small" "$nq" chunk pin --size 10 "$k" big.txt
+ok 2 "chunk pin a missing file" "$nq" chunk pin "$k" none.txt
+ok 2 "chunk check, no chunks recorded" "$nq" chunk check "$k" none.txt
+has "$w/err" "chunk pin" "no chunks says how to pin them"
+ok 0 "data check with chunks" "$nq" data check "$k"
+ok 0 "chunk: seal" "$nq" seal -k "$w/k" "$k"
+mv "$k/big.txt" "$w/big.txt"
+ok 0 "the record checks without the file" "$nq" check -p "$w/k.pub" \
+  --only noqtis.data.json "$k"
+ok 0 "and a piece against it" "$nq" chunk check --at 2048 "$k" big.txt \
+  "$w/piece"
+printf 'x' >>"$w/big.txt"
+mv "$w/big.txt" "$k/big.txt"
+ok 1 "chunk check, a changed file" "$nq" chunk check --json "$k" big.txt
+has "$w/out" '"check":"chunk","ok":false' "json rows"
+ok 1 "data check, a changed file" "$nq" data check "$k"
+ok 2 "chunk nothing" "$nq" chunk nothing
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"

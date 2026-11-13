@@ -302,6 +302,21 @@ static const nccmd cmds[] = {
    "              0.001); with --benford, a Benford one too\n"
    "  Exit 0 when nothing drifted, 1 when a column failed, 3 when one\n"
    "  only warned, 2 on a usage or file error.\n"},
+  {"chunk", ncchunk, "record chunk digests of a large file, check a piece",
+   "usage: noqtis chunk pin [--size <bytes>] <dir> <file>...\n"
+   "       noqtis chunk check [--at <offset>] [--json] <dir> <file>\n"
+   "                          [<piece>]\n"
+   "  pin    record in the data record the SHA-256 of each run of --size\n"
+   "         bytes (default 1048576; 1024 to 1 GiB) of each file, the last\n"
+   "         one short; the file is read, never split\n"
+   "  check  check the file, or a piece of it that starts at byte --at of\n"
+   "         the file (a multiple of the chunk size; default 0), against\n"
+   "         them: each whole chunk the piece holds, and a short last one\n"
+   "         when the piece ends where the file does. Only the piece is\n"
+   "         read; `noqtis check --only noqtis.data.json` checks the\n"
+   "         record's seal without the file.\n"
+   "  Exit 0 when every chunk read matches, 1 when one differs, 2 on a\n"
+   "  usage or file error.\n"},
   {"env", ncenv, "record the environment in the data record",
    "usage: noqtis env [--rng <kind> [--seed <seed>]] [--lock <file>]... <dir>\n"
    "  Records in the data record's env the platform (os, arch), the noqtis\n"
