@@ -336,8 +336,21 @@ int qdnumfmt(double d, char *out) {
       memcpy(o, dg + 1, k - 1);
       o += k - 1;
     }
-    o += sprintf(o, "e%c%d", nexp - 1 < 0 ? '-' : '+',
-                 nexp - 1 < 0 ? 1 - nexp : nexp - 1);
+    {
+      /* the exponent, written by hand: no printf in the library (an R
+       * package may not call sprintf) */
+      int e = nexp - 1 < 0 ? 1 - nexp : nexp - 1;
+      char t[4];
+      int nt = 0;
+      *o++ = 'e';
+      *o++ = nexp - 1 < 0 ? '-' : '+';
+      do {
+        t[nt++] = (char)('0' + e % 10);
+        e /= 10;
+      } while (e > 0 && nt < 4);
+      while (nt > 0)
+        *o++ = t[--nt];
+    }
   }
   *o = '\0';
   return NQOK;
