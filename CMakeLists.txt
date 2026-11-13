@@ -42,7 +42,11 @@ option(NQFREE "Build the freestanding, algorithms-only library" OFF)
 # target that provides __stack_chk_fail (and __stack_chk_guard where the
 # CPU keeps the canary in memory), as the Linux kernel and many RTOSes do
 option(NQFREESSP "Freestanding build with stack protection" OFF)
+# nqd, the data layer (nqd/, include/nqd.h): data records, CSV schemas,
+# drift; a separate library on the public API, outside the audited core
+option(NQDATA "Build the data layer nqd" ON)
 if(NQFREE)
+  set(NQDATA OFF CACHE BOOL "" FORCE)
   set(NQCLI OFF CACHE BOOL "" FORCE)
   set(NQTESTS OFF CACHE BOOL "" FORCE)
   set(NQTLS OFF CACHE BOOL "" FORCE)
@@ -197,6 +201,13 @@ if(WIN32)
   target_link_libraries(noqtis PRIVATE bcrypt)
 endif()
 
+# the data layer (nqd/), on the public API only; the tool needs it
+if(NQDATA)
+  add_subdirectory(nqd)
+elseif(NQCLI)
+  message(FATAL_ERROR "noqtis: the tool needs the data layer (NQDATA=ON)")
+endif()
+
 # the command-line tool (cli/), on the public API only
 if(NQCLI)
   add_subdirectory(cli)
@@ -327,6 +338,10 @@ if(NQTESTS)
   # tcli runs the tool as a child process, which emscripten cannot do
   if(NQCLI AND NOT EMSCRIPTEN)
     add_subdirectory(tests/cli)
+  endif()
+  # the data layer's tests (tests/nqd)
+  if(NQDATA)
+    add_subdirectory(tests/nqd)
   endif()
 endif()
 
