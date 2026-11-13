@@ -212,7 +212,8 @@ and
 .Ql cols
 .Pq Cm min No and/or Cm max .
 .It Cm stats
-Summaries kept to detect drift later without keeping the data.
+Summaries kept to detect drift later without keeping the data
+.Pq Xr noqtis-drift 1 .
 Each element:
 .Cm path
 (required),
@@ -241,8 +242,8 @@ for a categorical column
 ([value, count] pairs sorted by value) and
 .Cm other
 (the count of values beyond those kept).
-How they are made, and the error of each test made from them, is
-defined with the drift checks.
+.Xr noqtis-drift 1
+defines how they are made and the error of each test made from them.
 .It Cm env
 The environment of the run: strings
 .Cm os ,

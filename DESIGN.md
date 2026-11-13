@@ -195,7 +195,7 @@ show drift. It is a separate library, `libnqd`, with these boundaries:
   recursion in parsers (the JSON reader keeps an explicit stack of 32
   levels; the CSV reader is a state machine), every input bounded
   (a record 64 MiB, a CSV field 1 MiB, a line 16 MiB or 16,384
-  fields), every parser fuzzed (`fuzz/fdrec.c`, `fuzz/fdcsv.c`). nqd
+  fields), every parser fuzzed (`fuzz/fdrec.c`, `fuzz/fdcsv.c`, `fuzz/fddft.c`). nqd
   allocates with `malloc` and `free` and never `realloc`; it does not
   go through the core's `nqsetal` hook, which is not public.
 - **Format.** `noqtis.data.json` is `noqtis-data-1` (`noqtis-data(5)`,
@@ -209,6 +209,7 @@ show drift. It is a separate library, `libnqd`, with these boundaries:
 |---|---|---|---|
 | Q1 | record | `noqtis.data.json`: reader, canonical writer, members, `nqdchk`; `noqtis data` | `tdrec` (RFC 8785 appendix B numbers, refusals), `tdcli`, `fdrec` |
 | Q2 | schemas | CSV reader (RFC 4180), schema inference and check, rules; `noqtis schema` | `tdcsv` (the reader's refusals, every type and rule), `tdcli`, `fdcsv` |
+| Q3 | drift | summaries (`nqdstats`), KS from the sketch, PSI, Jensen-Shannon, chi-square of homogeneity, Benford (`nqddrift`); `noqtis drift` | `tddft` (against R's `ks.test` and `chisq.test`, `tests/nqd/drift.R`), `tdcli`, `fddft`; `tests/nqd/kserr.c` measures the sketch's error |
 | Q4 | diff | `nqddiff` (manifests through `nqfiles`, records member by member); `noqtis diff`; `seal -r`, `check -r` | `tdcli` (a file added, removed and changed, sources, schemas, env; nested capsules) |
 
 ## Platforms and packaging

@@ -6,6 +6,7 @@
 .Nm nqdchk ,
 .Nm nqdrepn ,
 .Nm nqdrepi ,
+.Nm nqdrepj ,
 .Nm nqdrepfree
 .Nd check a capsule's data record against its files
 .Sh LIBRARY
@@ -21,6 +22,8 @@ libnqd, \-lnqd \-lnoqtis
 .Fa "const nqdrep *r" "size_t i"
 .Fa "const char **check" "int *ok" "const char **detail"
 .Fc
+.Ft const char *
+.Fn nqdrepj "const nqdrep *r" "size_t i"
 .Ft void
 .Fn nqdrepfree "nqdrep *r"
 .Sh DESCRIPTION
@@ -62,6 +65,13 @@ and
 read and free the report as
 .Xr nqrep 3
 does a capsule's.
+.Fn nqdrepj
+returns the numbers of row
+.Fa i
+as canonical JSON, for rows that have them (those of
+.Xr nqddrift 3 ) ,
+or
+.Dv NULL .
 The strings stay valid until the report is freed.
 .Sh RETURN VALUES
 .Fn nqdchk

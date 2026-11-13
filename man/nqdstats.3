@@ -1,0 +1,109 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NQDSTATS 3
+.Os
+.Sh NAME
+.Nm nqdstats ,
+.Nm nqddrift
+.Nd summarise a CSV file, and compare a later one with the summary
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Bd -literal
+typedef struct {
+  double psiwarn; /* 0.1 */
+  double psifail; /* 0.25 */
+  double alpha;   /* 0.001 */
+  double minn;    /* 1000 */
+  int benford;    /* 0 */
+} nqddopt;
+.Ed
+.Ft int
+.Fo nqdstats
+.Fa "const char *dir" "const char *path" "const nqdcsvopt *o"
+.Fa "char *out" "size_t cap" "size_t *outlen" "char *why" "size_t wcap"
+.Fc
+.Ft int
+.Fo nqddrift
+.Fa "const char *stats" "size_t n" "const char *file"
+.Fa "const nqdcsvopt *o" "const nqddopt *d" "nqdrep **rep"
+.Fc
+.Sh DESCRIPTION
+.Fn nqdstats
+reads the CSV file
+.Fa path
+in
+.Fa dir
+and writes its summaries to
+.Fa out
+as a
+.Ql stats
+element in canonical JSON, for
+.Xr nqdput 3 ;
+.Fa o
+is as for
+.Xr nqdinfer 3
+(its
+.Fa ranges
+unused), and may be
+.Dv NULL .
+.Pp
+.Fn nqddrift
+compares the CSV file at
+.Fa file
+(any path) with the
+.Ql stats
+element
+.Fa stats
+.Pf ( Fa n
+bytes): one
+.Ql drift
+row for the row counts, and per column a
+.Ql drift
+row (passed or failed) or a
+.Ql drift.warn
+row (passed, with a warning).
+Each column's row carries its numbers as JSON, read with
+.Xr nqdrepj 3 .
+.Fa d
+sets the levels
+.Pf ( Dv NULL :
+the defaults above).
+.Xr noqtis-drift 1
+defines the summaries, the tests, the levels and the error of the
+sketch.
+.Pp
+Both hold every number of a column in memory while reading the file,
+8 bytes each.
+.Sh RETURN VALUES
+.Fn nqdstats
+returns
+.Dv NQOK ,
+.Dv NQEBUF
+with
+.Fa *outlen
+set when
+.Fa cap
+is too small,
+.Dv NQEDEC
+for a file that is not CSV or has rows of different lengths,
+.Dv NQEIO
+for a file that cannot be read,
+.Dv NQELIM
+over the reader's limits.
+.Fn nqddrift
+returns
+.Dv NQOK
+when no row failed and
+.Dv NQEVRFY
+when one did (an element that is not
+.Ql stats ,
+or a file that cannot be read, is a failed row), with
+.Fa *rep
+set.
+.Sh SEE ALSO
+.Xr noqtis-drift 1 ,
+.Xr nqdchk 3 ,
+.Xr nqdinfer 3 ,
+.Xr noqtis-data 5
