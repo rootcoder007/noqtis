@@ -19,7 +19,7 @@ NOTE = ("Generated from {src} by docs/site/scripts/api.py when the site is "
 
 
 def page(title, desc, src, body):
-    return ("---\ntitle: %s\ndescription: %s\n---\n\n:::note\n%s\n:::\n\n%s"
+    return ("---\ntitle: %s\ndescription: %s\n---\n\n<!-- %s -->\n\n%s"
             % (title, desc, NOTE.format(src=src), body.rstrip() + "\n"))
 
 
