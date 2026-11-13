@@ -65,6 +65,7 @@ OBJECTS = \
   xdh/x25519.o \
   nqd/bnd.o \
   nqd/chk.o \
+  nqd/chn.o \
   nqd/cmt.o \
   nqd/cnk.o \
   nqd/csv.o \

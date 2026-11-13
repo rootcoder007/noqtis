@@ -1,0 +1,93 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 13, 2026
+.Dt NQDCHAIN 3
+.Os
+.Sh NAME
+.Nm nqdchain
+.Nd check an append-only chain of capsules
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Ft int
+.Fo nqdchain
+.Fa "const char *const *dirs" "size_t n" "const nqcopt *o"
+.Fa "uint8_t head[32]" "nqdrep **rep"
+.Fc
+.Sh DESCRIPTION
+A chain is a log of capsules to which a link is only ever added: the
+first sealed in format 2, each after it sealed with the one before as
+its only input
+.Po
+.Xr nqseal2 3 ,
+.Ql noqtis seal --input
+.Pc ,
+so that the seal of each signs the id of the last.
+.Fn nqdchain
+checks the
+.Fa n
+capsule folders
+.Fa dirs ,
+oldest first:
+.Bl -bullet
+.It
+each checks as
+.Xr nqchkx 3
+checks it with
+.Fa o
+(its trusted key, anchors and key statements;
+.Fa o Ns -> Ns Fa only
+and
+.Fa o Ns -> Ns Fa lin
+are not used;
+.Fa o
+may be
+.Dv NULL ) ;
+.It
+each after the first lists exactly one input, the id
+.Pq Xr nqcapid 3
+of the one before it, read from its manifest and bound to its seal: the
+bytes the seal signs must hash to the capsule's id;
+.It
+every link is sealed by the key of the first.
+.El
+.Pp
+The first link's own inputs are not followed, so a chain can be checked
+from any link on.
+Unlike
+.Fa o Ns -> Ns Fa lin ,
+which follows inputs as a tree to 64 levels, a chain is checked one
+link at a time, at any length.
+.Pp
+The report has a
+.Ql link
+row per link and per failure, a
+.Ql key
+row and, when every row passed, a
+.Ql head
+row with the last link's id in hex, which
+.Fa head
+then holds; otherwise
+.Fa head
+is zeros.
+.Sh RETURN VALUES
+.Dv NQOK
+when every row passed,
+.Dv NQEVRFY
+otherwise;
+.Fa *rep
+is set in both cases
+.Pq Xr nqdchk 3 .
+.Dv NQEARG
+for
+.Fa n
+0 or a
+.Dv NULL
+argument;
+.Dv NQEMEM .
+.Sh SEE ALSO
+.Xr noqtis-chain 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqchkx 3 ,
+.Xr nqseal2 3 ,
+.Xr noqtis-capsule 5

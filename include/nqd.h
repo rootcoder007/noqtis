@@ -296,6 +296,22 @@ NQDAPI int nqdpack(const char *dir, int files, const char *file);
 NQDAPI int nqdunpack(const char *file, const char *dir, int rm, char *why,
                      size_t cap);
 
+/* ---- chains ---- */
+
+/* Checks the chain of capsules dirs[0..n), oldest first: an append-only
+ * log in which each capsule after the first is sealed in format 2 with
+ * the one before as its only input (noqtis seal --input). Each link is
+ * checked as nqchkx checks it with o (NULL: none; o's only and lineage
+ * are not used); each names exactly the id of the link before it, read
+ * from its manifest and bound to its seal; and every link is sealed by
+ * the first link's key. The first link's own inputs are not followed.
+ * "link" rows, one per link and failure, a "key" row and, when all
+ * passed, a "head" row with the last link's id, which head then holds
+ * (else zeros). NQOK when every row passed, NQEVRFY otherwise; *rep is
+ * set in both cases. */
+NQDAPI int nqdchain(const char *const *dirs, size_t n, const nqcopt *o,
+                    uint8_t head[32], nqdrep **rep);
+
 /* ---- checking ---- */
 
 /* Checks the record in dir: that it parses and is canonical, that each
