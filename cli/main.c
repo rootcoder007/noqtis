@@ -264,6 +264,32 @@ static const nccmd cmds[] = {
    "              0.001); with --benford, a Benford one too\n"
    "  Exit 0 when nothing drifted, 1 when a column failed, 3 when one\n"
    "  only warned, 2 on a usage or file error.\n"},
+  {"env", ncenv, "record the environment in the data record",
+   "usage: noqtis env [--rng <kind> [--seed <seed>]] [--lock <file>]... <dir>\n"
+   "  Records in the data record's env the platform (os, arch), the noqtis\n"
+   "  version, the locale and time zone, the random number generator and\n"
+   "  its seed when given, and the SHA-256 of lock files: those named\n"
+   "  (paths in <dir>), else renv.lock, uv.lock, poetry.lock,\n"
+   "  Pipfile.lock, requirements.txt, Cargo.lock, go.sum,\n"
+   "  package-lock.json, pnpm-lock.yaml, yarn.lock, environment.yml or\n"
+   "  Manifest.toml at the top of <dir>. A binding fills runtime.\n"},
+  {"commit", nccommit, "commit to a file now, to reveal it later",
+   "usage: noqtis commit [--kind randomisation|preregistration|other]\n"
+   "                     [--label <text>] [--after <time>] [-o <salt>] [-f]\n"
+   "                     <dir> <file>\n"
+   "  Records in the data record a commitment to <file> (a randomisation\n"
+   "  list, an analysis plan): its SHA3-256 under a fresh 32-byte secret\n"
+   "  salt, written to <file>.salt (owner-only; -o elsewhere). Keep the\n"
+   "  salt and <file> out of the capsule until the reveal; seal the\n"
+   "  capsule (with a timestamp) so the commitment is dated.\n"},
+  {"reveal", ncreveal, "check a file against a commitment",
+   "usage: noqtis reveal <dir> <file> <salt>\n"
+   "  Exit 0 when <file> and its salt match a commitment of the data\n"
+   "  record of <dir>, 1 when none matches, 2 on a usage or file error.\n"},
+  {"cite", nccite, "print how to cite the data",
+   "usage: noqtis cite [--format cff|bibtex] <dir>\n"
+   "  Prints a CITATION.cff (default) or a BibTeX entry from the data\n"
+   "  record's cite.\n"},
   {"diff", ncdiff, "what changed between two capsules",
    "usage: noqtis diff [--json] <dir> <dir>\n"
    "  Lists the files added, removed or changed between the two sealed\n"

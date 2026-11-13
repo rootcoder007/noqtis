@@ -1,0 +1,35 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NOQTIS-REVEAL 1
+.Os
+.Sh NAME
+.Nm noqtis-reveal
+.Nd check a file against a commitment
+.Sh SYNOPSIS
+.Nm noqtis reveal
+.Ar dir file salt
+.Sh DESCRIPTION
+.Nm noqtis reveal
+computes the commitment of
+.Ar file
+under the salt in the file
+.Ar salt
+.Pq Xr noqtis-commit 1
+and compares it, in constant time, with every commitment in the data
+record of
+.Ar dir .
+Check the capsule first
+.Pq Xr noqtis-check 1 :
+the commitment counts only if the record is the one sealed.
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+the file matches a commitment (its number is printed)
+.It 1
+it matches none: the file or the salt is not the one committed to
+.It 2
+a usage or file error
+.El
+.Sh SEE ALSO
+.Xr noqtis-commit 1 ,
+.Xr nqdcommit 3

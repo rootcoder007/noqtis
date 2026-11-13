@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff algs selftest version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff env commit reveal cite algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -36,6 +36,10 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a data -d 'make, 
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a schema -d 'pin and check the schema of CSV files'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a diff -d 'what changed between two capsules'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a drift -d 'summarise CSV files and check them for drift'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a env -d 'record the environment'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a commit -d 'commit to a file, to reveal it later'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a reveal -d 'check a file against a commitment'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a cite -d 'print how to cite the data'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a algs -d 'list the algorithms'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a version -d 'print the version'
 
@@ -130,3 +134,15 @@ complete -c noqtis -n "__fish_seen_subcommand_from drift" -l psi-fail -x -d 'PSI
 complete -c noqtis -n "__fish_seen_subcommand_from drift" -l alpha -x -d 'p-value that warns'
 complete -c noqtis -n "__fish_seen_subcommand_from drift" -l min-n -x -d 'values both need before PSI fails'
 complete -c noqtis -n "__fish_seen_subcommand_from drift" -l benford -d 'Benford test warns too'
+
+# noqtis env, commit, reveal, cite
+complete -c noqtis -n "__fish_seen_subcommand_from env commit reveal cite" -F
+complete -c noqtis -n "__fish_seen_subcommand_from env" -l rng -x -d 'the random number generator'
+complete -c noqtis -n "__fish_seen_subcommand_from env" -l seed -x -d 'its seed'
+complete -c noqtis -n "__fish_seen_subcommand_from env" -l lock -r -F -d 'a lock file'
+complete -c noqtis -n "__fish_seen_subcommand_from commit" -l kind -x -a "randomisation preregistration other" -d 'what the file is'
+complete -c noqtis -n "__fish_seen_subcommand_from commit" -l label -x -d 'a short name'
+complete -c noqtis -n "__fish_seen_subcommand_from commit" -l after -x -d 'not before, UTC'
+complete -c noqtis -n "__fish_seen_subcommand_from commit" -s o -l out -r -F -d 'the salt file'
+complete -c noqtis -n "__fish_seen_subcommand_from commit" -s f -l force -d 'replace the salt file'
+complete -c noqtis -n "__fish_seen_subcommand_from cite" -l format -x -a "cff bibtex" -d 'the format'

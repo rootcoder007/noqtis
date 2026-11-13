@@ -968,6 +968,350 @@ int ncdrift(int argc, char **argv) {
   return NCUSE;
 }
 
+/* the platform this tool was built for */
+static const char *osname(void) {
+#if defined(_WIN32)
+  return "windows";
+#elif defined(__APPLE__)
+  return "macos";
+#elif defined(__linux__)
+  return "linux";
+#elif defined(__FreeBSD__)
+  return "freebsd";
+#elif defined(__OpenBSD__)
+  return "openbsd";
+#elif defined(__NetBSD__)
+  return "netbsd";
+#else
+  return "other";
+#endif
+}
+
+static const char *archname(void) {
+#if defined(__x86_64__) || defined(_M_X64)
+  return "x86_64";
+#elif defined(__aarch64__) || defined(_M_ARM64)
+  return "aarch64";
+#elif defined(__i386__) || defined(_M_IX86)
+  return "i686";
+#elif defined(__arm__)
+  return "arm";
+#elif defined(__s390x__)
+  return "s390x";
+#elif defined(__riscv)
+  return "riscv";
+#elif defined(__wasm__)
+  return "wasm32";
+#else
+  return "other";
+#endif
+}
+
+/* appends ,"k":<JSON string of v> to b (cap bytes) */
+static int jadd(char *b, size_t cap, const char *k, const char *v) {
+  char *q;
+  size_t n = strlen(b);
+  if (v == NULL || *v == '\0')
+    return NCOK;
+  if ((q = ncjq(v)) == NULL)
+    return NCUSE;
+  if ((size_t)snprintf(b + n, cap - n, "%s\"%s\":%s", n > 1 ? "," : "", k,
+                       q) >= cap - n) {
+    free(q);
+    return NCUSE;
+  }
+  free(q);
+  return NCOK;
+}
+
+static int denv(int argc, char **argv) {
+  static const char *const known[] = {
+      "renv.lock", "uv.lock", "poetry.lock", "Pipfile.lock",
+      "requirements.txt", "Cargo.lock", "go.sum", "package-lock.json",
+      "pnpm-lock.yaml", "yarn.lock", "environment.yml", "Manifest.toml"};
+  const char *seed = NULL, *rng = NULL, *lk[NCMAXV];
+  int np, help, nl = 0, i, rc;
+  char b[16384], why[600];
+  nqdrec *r;
+  ncopt o[] = {{0, "seed", 1, &seed, NULL},
+               {0, "rng", 1, &rng, NULL},
+               {0, "lock", NCMANY, lk, &nl}};
+  if (ncargs("env", argc, argv, o, 3, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "env");
+    return NCOK;
+  }
+  if (np != 1) {
+    ncmsg("env", "give one capsule folder");
+    return NCUSE;
+  }
+  if (seed != NULL && rng == NULL) {
+    ncmsg("env", "--seed needs --rng, the generator it seeds (such as "
+          "Mersenne-Twister)");
+    return NCUSE;
+  }
+  strcpy(b, "{");
+  if (jadd(b, sizeof b, "os", osname()) != NCOK ||
+      jadd(b, sizeof b, "arch", archname()) != NCOK ||
+      jadd(b, sizeof b, "noqtis", nqver()) != NCOK ||
+      jadd(b, sizeof b, "locale",
+           getenv("LC_ALL") && *getenv("LC_ALL") ? getenv("LC_ALL")
+                                                  : getenv("LANG")) !=
+          NCOK ||
+      jadd(b, sizeof b, "tz", getenv("TZ")) != NCOK)
+    return nclib("env", "memory", NQELIM);
+  strcat(b, "}");
+  if ((rc = ncdload("env", argv[0], 1, &r)) != NCOK)
+    return rc;
+  if (nqdput(r, "env", b, strlen(b), why, sizeof why) != NQOK) {
+    ncmsg("env", "%s", why);
+    nqdrfree(r);
+    return NCUSE;
+  }
+  if (rng != NULL) {
+    char g[1024] = "{";
+    jadd(g, sizeof g, "kind", rng);
+    if (seed != NULL)
+      jadd(g, sizeof g, "seed", seed);
+    strcat(g, "}");
+    if (nqdset(r, "env", NULL, "rng", g, strlen(g), why, sizeof why) !=
+        NQOK) {
+      ncmsg("env", "--rng: %s", why);
+      nqdrfree(r);
+      return NCUSE;
+    }
+  }
+  /* lock files: those named, else the known ones at the top of dir */
+  {
+    char a[16384] = "[";
+    int k = 0, n = nl > 0 ? nl : (int)(sizeof known / sizeof known[0]);
+    for (i = 0; i < n; i++) {
+      const char *f = nl > 0 ? lk[i] : known[i];
+      char p[4200], hx[65], e[4400], *q;
+      uint8_t *buf, h[32];
+      size_t bl, j;
+      snprintf(p, sizeof p, "%s/%s", argv[0], f);
+      if (!ncisreg(p)) {
+        if (nl > 0) {
+          ncmsg("env", "--lock %s: not a file in %s", f, argv[0]);
+          nqdrfree(r);
+          return NCUSE;
+        }
+        continue;
+      }
+      if (ncrdx(p, 0, NCRDMAX, &buf, &bl) != NCOK ||
+          nqhash(NQS256, buf, bl, h, 32) != NQOK) {
+        ncmsg("env", "%s: cannot be read", p);
+        nqdrfree(r);
+        return NCUSE;
+      }
+      ncfree(buf, bl, 0);
+      for (j = 0; j < 32; j++)
+        snprintf(hx + 2 * j, 3, "%02x", h[j]);
+      if ((q = ncjq(f)) == NULL)
+        return nclib("env", "memory", NQEMEM);
+      snprintf(e, sizeof e, "%s{\"path\":%s,\"sha256\":\"%s\"}",
+               k++ ? "," : "", q, hx);
+      free(q);
+      if (strlen(a) + strlen(e) + 2 >= sizeof a) {
+        ncmsg("env", "too many lock files");
+        nqdrfree(r);
+        return NCUSE;
+      }
+      strcat(a, e);
+    }
+    strcat(a, "]");
+    if (k > 0 &&
+        nqdset(r, "env", NULL, "locks", a, strlen(a), why, sizeof why) !=
+            NQOK) {
+      ncmsg("env", "--lock: %s", why);
+      nqdrfree(r);
+      return NCUSE;
+    }
+  }
+  rc = ncdsave("env", argv[0], r);
+  nqdrfree(r);
+  return rc;
+}
+
+int ncenv(int argc, char **argv) {
+  return denv(argc, argv);
+}
+
+int nccommit(int argc, char **argv) {
+  const char *kind = "other", *lab = NULL, *after = NULL, *out = NULL;
+  int np, help, force = 0, rc;
+  uint8_t *m, salt[32];
+  size_t n;
+  char hx[65], e[2048], t[21], why[600], sp[4200];
+  nqdrec *r;
+  ncopt o[] = {{0, "kind", 1, &kind, NULL},
+               {0, "label", 1, &lab, NULL},
+               {0, "after", 1, &after, NULL},
+               {'o', "out", 1, &out, NULL},
+               {'f', "force", 0, NULL, &force}};
+  if (ncargs("commit", argc, argv, o, 5, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "commit");
+    return NCOK;
+  }
+  if (np != 2) {
+    ncmsg("commit", "give the capsule folder and the file to commit to");
+    return NCUSE;
+  }
+  if (ncrdx(argv[1], 0, NCRDMAX, &m, &n) != NCOK) {
+    ncmsg("commit", "%s: cannot be read (or is over 1 GiB)", argv[1]);
+    return NCUSE;
+  }
+  if (nqrand(salt, sizeof salt) != NQOK ||
+      nqdcommit(salt, sizeof salt, m, n, hx) != NQOK) {
+    ncfree(m, n, 0);
+    nqwipe(salt, sizeof salt);
+    return nclib("commit", "the commitment", NQERNG);
+  }
+  ncfree(m, n, 0);
+  if (optime("now", t) != NCOK) {
+    nqwipe(salt, sizeof salt);
+    return NCUSE;
+  }
+  snprintf(e, sizeof e,
+           "{\"kind\":\"%s\",\"created\":\"%s\",\"alg\":\"sha3-256\","
+           "\"digest\":\"%s\"",
+           strchr(kind, '"') == NULL ? kind : "?", t, hx);
+  if (lab != NULL) {
+    char *q = ncjq(lab);
+    if (q != NULL && strlen(e) + strlen(q) + 12 < sizeof e) {
+      strcat(e, ",\"label\":");
+      strcat(e, q);
+    }
+    free(q);
+  }
+  if (after != NULL && strlen(after) == 20 && strchr(after, '"') == NULL) {
+    strcat(e, ",\"after\":\"");
+    strcat(e, after);
+    strcat(e, "\"");
+  } else if (after != NULL) {
+    ncmsg("commit", "--after: a UTC time YYYY-MM-DDTHH:MM:SSZ");
+    nqwipe(salt, sizeof salt);
+    return NCUSE;
+  }
+  strcat(e, "}");
+  snprintf(sp, sizeof sp, "%s.salt", argv[1]);
+  if (out == NULL)
+    out = sp;
+  if ((rc = ncdload("commit", argv[0], 1, &r)) != NCOK) {
+    nqwipe(salt, sizeof salt);
+    return rc;
+  }
+  if (nqdput(r, "commits", e, strlen(e), why, sizeof why) != NQOK) {
+    ncmsg("commit", "%s", why);
+    nqdrfree(r);
+    nqwipe(salt, sizeof salt);
+    return NCUSE;
+  }
+  /* the salt first: a record that names a commitment nobody can open
+   * would be worse than none */
+  if (ncwr(out, salt, sizeof salt, force, 1) != NCOK) {
+    nqwipe(salt, sizeof salt);
+    nqdrfree(r);
+    return ncwfail("commit", out, force);
+  }
+  nqwipe(salt, sizeof salt);
+  rc = ncdsave("commit", argv[0], r);
+  nqdrfree(r);
+  if (rc == NCOK)
+    ncmsg("commit", "committed to %s (SHA3-256 %.16s...); the salt is in "
+          "%s: keep it secret and outside the capsule until the reveal",
+          argv[1], hx, out);
+  return rc;
+}
+
+int ncreveal(int argc, char **argv) {
+  int np, help, rc;
+  uint8_t *m, *s;
+  size_t n, sn, at = 0;
+  nqdrec *r;
+  if (ncargs("reveal", argc, argv, NULL, 0, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "reveal");
+    return NCOK;
+  }
+  if (np != 3) {
+    ncmsg("reveal", "give the capsule folder, the file and its salt file");
+    return NCUSE;
+  }
+  if ((rc = ncdload("reveal", argv[0], 0, &r)) != NCOK)
+    return rc;
+  if (ncrdx(argv[1], 0, NCRDMAX, &m, &n) != NCOK ||
+      ncrdx(argv[2], 1, NCRDSMALL, &s, &sn) != NCOK) {
+    ncmsg("reveal", "%s or %s cannot be read", argv[1], argv[2]);
+    nqdrfree(r);
+    return NCUSE;
+  }
+  rc = nqdreveal(r, s, sn, m, n, &at);
+  ncfree(m, n, 0);
+  ncfree(s, sn, 1);
+  nqdrfree(r);
+  if (rc == NQOK) {
+    printf("%s: matches commitment %lu of %s\n", ncesc(argv[1]),
+           (unsigned long)at + 1, ncesc(argv[0]));
+    return NCOK;
+  }
+  if (rc == NQEVRFY) {
+    printf("%s: matches no commitment of %s\n", ncesc(argv[1]),
+           ncesc(argv[0]));
+    ncmsg("reveal", "the file, or the salt, is not the one committed to: "
+          "this is not the list or plan recorded before");
+    return NCBAD;
+  }
+  return nclib("reveal", "the salt", rc);
+}
+
+int nccite(int argc, char **argv) {
+  const char *fmt = "cff";
+  int np, help, rc, f;
+  nqdrec *r;
+  size_t n = 0;
+  char *b;
+  ncopt o[] = {{0, "format", 1, &fmt, NULL}};
+  if (ncargs("cite", argc, argv, o, 1, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "cite");
+    return NCOK;
+  }
+  if (np != 1) {
+    ncmsg("cite", "give one capsule folder");
+    return NCUSE;
+  }
+  f = strcmp(fmt, "cff") == 0 ? NQDCFF : strcmp(fmt, "bibtex") == 0 ? NQDBIB
+                                                                  : 0;
+  if (f == 0) {
+    ncmsg("cite", "--format: cff or bibtex");
+    return NCUSE;
+  }
+  if ((rc = ncdload("cite", argv[0], 0, &r)) != NCOK)
+    return rc;
+  rc = nqdcite(r, f, NULL, 0, &n);
+  if (rc == NQEIO) {
+    ncmsg("cite", "%s says nothing of how to cite it: add it with `noqtis "
+          "data put %s cite <json-file>` (title, authors, year, doi, ...)",
+          argv[0], argv[0]);
+    nqdrfree(r);
+    return NCUSE;
+  }
+  if (rc == NQEBUF && (b = (char *)malloc(n + 1)) != NULL) {
+    if (nqdcite(r, f, b, n + 1, &n) == NQOK)
+      fputs(b, stdout);
+    free(b);
+  }
+  nqdrfree(r);
+  return NCOK;
+}
+
 int ncdiff(int argc, char **argv) {
   int np, help, json = 0, rc;
   nqdrep *rep = NULL;

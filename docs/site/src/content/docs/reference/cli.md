@@ -31,6 +31,9 @@ noqtis help [<command>]
 | `data init\|add\|put\|del\|fmt\|show\|check <dir> ...` | the capsule's data record (`noqtis.data.json`): sources, members, and a check of every listed file against it | [noqtis-data(1)](/noqtis/reference/man/noqtis-data-1/) |
 | `schema infer [--put] [--ranges] <dir> <file>...`, `schema check <dir> [<file>...]` | pins the schema of CSV files (columns, types, missing values, rows) and checks the files against it and its rules | [noqtis-schema(1)](/noqtis/reference/man/noqtis-schema-1/) |
 | `drift pin <dir> <file>...`, `drift check <dir> [<file>[=<current>]...]` | keeps fixed-size summaries of CSV files, then compares a later file with them (KS, PSI, Jensen-Shannon, chi-square, Benford); exit 3 for a warning | [noqtis-drift(1)](/noqtis/reference/man/noqtis-drift-1/) |
+| `env [--rng <kind> [--seed <s>]] [--lock <file>]... <dir>` | records the platform, locale, time zone, RNG and lock-file digests in the data record | [noqtis-env(1)](/noqtis/reference/man/noqtis-env-1/) |
+| `commit [--kind <k>] [--label <t>] [--after <time>] <dir> <file>`, `reveal <dir> <file> <salt>` | a salted SHA3-256 commitment to a file (a randomisation list, a plan) in the record, and its check later | [noqtis-commit(1)](/noqtis/reference/man/noqtis-commit-1/), [noqtis-reveal(1)](/noqtis/reference/man/noqtis-reveal-1/) |
+| `cite [--format cff\|bibtex] <dir>` | how to cite the data, from the record | [noqtis-cite(1)](/noqtis/reference/man/noqtis-cite-1/) |
 | `diff [--json] <dir> <dir>` | what changed between two capsules: files, sources, schemas, summaries, environment | [noqtis-diff(1)](/noqtis/reference/man/noqtis-diff-1/) |
 | `algs` | every algorithm and its sizes | [noqtis-algs(1)](/noqtis/reference/man/noqtis-algs-1/) |
 | `version` | `noqtis <version>` (also `--version`, `-V`) | [noqtis-version(1)](/noqtis/reference/man/noqtis-version-1/) |

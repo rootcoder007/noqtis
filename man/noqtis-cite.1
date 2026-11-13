@@ -1,0 +1,31 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NOQTIS-CITE 1
+.Os
+.Sh NAME
+.Nm noqtis-cite
+.Nd print how to cite the data of a capsule
+.Sh SYNOPSIS
+.Nm noqtis cite
+.Op Fl -format Cm cff | bibtex
+.Ar dir
+.Sh DESCRIPTION
+Prints, from the
+.Cm cite
+member of the data record of
+.Ar dir
+.Pq Xr noqtis-data 5 ,
+a
+.Pa CITATION.cff
+(version 1.2.0, type dataset; the default) or a BibTeX
+.Ql @misc
+entry: title, authors, year, version, DOI, URL and licence.
+Add the member with
+.Cm noqtis data put Ar dir Cm cite Ar file .
+.Sh EXIT STATUS
+0 when printed, 2 on a usage error or a record with no
+.Cm cite .
+.Sh SEE ALSO
+.Xr noqtis-data 1 ,
+.Xr nqdcommit 3 ,
+.Xr noqtis-data 5

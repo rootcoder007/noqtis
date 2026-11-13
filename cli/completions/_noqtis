@@ -137,6 +137,21 @@ _noqtis_cmd() {
         '--synthetic[a generated stand-in]' \
         '(-j --json)'{-j,--json}'[JSON output]' \
         '*:path:_files' ;;
+    env)
+      _arguments '--rng=[the random number generator]:kind:' \
+        '--seed=[its seed]:seed:' '*--lock=[a lock file]:file:_files' \
+        ':dir:_files -/' ;;
+    commit)
+      _arguments \
+        '--kind=[what the file is]:kind:(randomisation preregistration other)' \
+        '--label=[a short name]:text:' '--after=[not before, UTC]:time:' \
+        '(-o --out)'{-o,--out=}'[the salt file]:file:_files' \
+        '(-f --force)'{-f,--force}'[replace the salt file]' \
+        ':dir:_files -/' ':file:_files' ;;
+    reveal)
+      _arguments ':dir:_files -/' ':file:_files' ':salt:_files' ;;
+    cite)
+      _arguments '--format=[the format]:format:(cff bibtex)' ':dir:_files -/' ;;
     drift)
       _arguments \
         '1:action:(pin check)' \
@@ -185,5 +200,9 @@ _arguments -C \
     schema\:"pin and check the schema of CSV files"
     diff\:"what changed between two capsules"
     drift\:"summarise CSV files and check them for drift"
+    env\:"record the environment"
+    commit\:"commit to a file, to reveal it later"
+    reveal\:"check a file against a commitment"
+    cite\:"print how to cite the data"
     algs\:"list the algorithms" version\:"print the version"))' \
   '*::arg:_noqtis_cmd'

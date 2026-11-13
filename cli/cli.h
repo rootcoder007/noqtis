@@ -226,6 +226,10 @@ int ncdreps(const char *cmd, const char *lab, const nqdrep *const *rs,
 int ncschema(int argc, char **argv);
 int ncdiff(int argc, char **argv);
 int ncdrift(int argc, char **argv);
+int ncenv(int argc, char **argv);
+int nccommit(int argc, char **argv);
+int ncreveal(int argc, char **argv);
+int nccite(int argc, char **argv);
 /* s as a JSON string, to stdout or into a new buffer (free it) */
 void ncjstr(const char *s);
 char *ncjq(const char *s);

@@ -1,0 +1,73 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NOQTIS-ENV 1
+.Os
+.Sh NAME
+.Nm noqtis-env
+.Nd record the environment of a run in the data record
+.Sh SYNOPSIS
+.Nm noqtis env
+.Op Fl -rng Ar kind Op Fl -seed Ar seed
+.Op Fl -lock Ar file ...
+.Ar dir
+.Sh DESCRIPTION
+.Nm noqtis env
+sets the
+.Cm env
+member of the data record of
+.Ar dir
+.Pq Xr noqtis-data 5 :
+.Cm os
+and
+.Cm arch
+(those this tool was built for),
+.Cm noqtis
+(its version),
+.Cm locale
+.Pf ( Ev LC_ALL ,
+else
+.Ev LANG )
+and
+.Cm tz
+.Pq Ev TZ ,
+when set;
+.Cm rng
+from
+.Fl -rng
+and
+.Fl -seed ;
+and
+.Cm locks :
+the SHA-256 of each lock file named with
+.Fl -lock
+(a path in
+.Ar dir ,
+up to 32), or else of each of
+.Pa renv.lock ,
+.Pa uv.lock ,
+.Pa poetry.lock ,
+.Pa Pipfile.lock ,
+.Pa requirements.txt ,
+.Pa Cargo.lock ,
+.Pa go.sum ,
+.Pa package-lock.json ,
+.Pa pnpm-lock.yaml ,
+.Pa yarn.lock ,
+.Pa environment.yml
+and
+.Pa Manifest.toml
+found at the top of
+.Ar dir .
+It replaces the
+.Cm env
+there.
+The language runtime and its packages
+.Pq Cm runtime
+are filled by a binding, which knows them, with
+.Cm noqtis data put .
+.Sh EXIT STATUS
+0 when the record is written, 2 on a usage or file error.
+.Sh SEE ALSO
+.Xr noqtis-data 1 ,
+.Xr noqtis-diff 1 ,
+.Xr noqtis-data 5

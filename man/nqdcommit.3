@@ -1,0 +1,102 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NQDCOMMIT 3
+.Os
+.Sh NAME
+.Nm nqdcommit ,
+.Nm nqdreveal ,
+.Nm nqdcite
+.Nd commitments and citations of a data record
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Ft int
+.Fo nqdcommit
+.Fa "const uint8_t *salt" "size_t sl" "const uint8_t *m" "size_t n"
+.Fa "char hex[65]"
+.Fc
+.Ft int
+.Fo nqdreveal
+.Fa "const nqdrec *r" "const uint8_t *salt" "size_t sl"
+.Fa "const uint8_t *m" "size_t n" "size_t *idx"
+.Fc
+.Ft int
+.Fo nqdcite
+.Fa "const nqdrec *r" "int fmt" "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Sh DESCRIPTION
+.Fn nqdcommit
+writes to
+.Fa hex
+the 64 lower-case hex digits (and a NUL) of the commitment to the
+.Fa n
+bytes at
+.Fa m
+under the secret
+.Fa salt
+of
+.Fa sl
+bytes, 16 to 1,024 (take 32 from
+.Xr nqrand 3 ) :
+SHA3-256 of the string
+.Ql noqtis-commit-1
+with its NUL, the salt's length as 8 bytes big-endian, the salt and
+the bytes.
+The tag keeps the digest from passing for any other digest noqtis
+makes; the length fixes where the salt ends.
+Put it in a
+.Ql commits
+element with
+.Xr nqdput 3 .
+.Pp
+.Fn nqdreveal
+computes the same over
+.Fa m
+and
+.Fa salt
+and compares it with every
+.Ql commits
+digest of
+.Fa r ,
+each in constant time; on a match
+.Fa *idx
+(when not
+.Dv NULL )
+gets the element's index.
+.Pp
+.Fn nqdcite
+writes the record's
+.Ql cite
+as a
+.Pa CITATION.cff
+1.2.0
+.Pq Dv NQDCFF
+or a BibTeX entry
+.Pq Dv NQDBIB
+to
+.Fa out ,
+as
+.Xr nqdjson 3
+writes.
+.Sh RETURN VALUES
+.Dv NQOK ;
+.Fn nqdreveal :
+.Dv NQEVRFY
+when no commitment matches;
+.Fn nqdcite :
+.Dv NQEIO
+when there is no
+.Ql cite ,
+.Dv NQEBUF
+for a
+.Fa cap
+too small;
+.Dv NQEARG
+for a salt out of bounds or an unknown format.
+.Sh SEE ALSO
+.Xr noqtis-cite 1 ,
+.Xr noqtis-commit 1 ,
+.Xr noqtis-reveal 1 ,
+.Xr nqdnew 3 ,
+.Xr noqtis-data 5

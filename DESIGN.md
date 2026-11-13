@@ -210,6 +210,7 @@ show drift. It is a separate library, `libnqd`, with these boundaries:
 | Q1 | record | `noqtis.data.json`: reader, canonical writer, members, `nqdchk`; `noqtis data` | `tdrec` (RFC 8785 appendix B numbers, refusals), `tdcli`, `fdrec` |
 | Q2 | schemas | CSV reader (RFC 4180), schema inference and check, rules; `noqtis schema` | `tdcsv` (the reader's refusals, every type and rule), `tdcli`, `fdcsv` |
 | Q3 | drift | summaries (`nqdstats`), KS from the sketch, PSI, Jensen-Shannon, chi-square of homogeneity, Benford (`nqddrift`); `noqtis drift` | `tddft` (against R's `ks.test` and `chisq.test`, `tests/nqd/drift.R`), `tdcli`, `fddft`; `tests/nqd/kserr.c` measures the sketch's error |
+| Q5, Q6 | env, commitments, citation | `noqtis env`; `nqdcommit`, `nqdreveal` (`noqtis commit`, `reveal`); `nqdcite` (`noqtis cite`) | `tdrec` (a commitment known answer from another SHA3 implementation), `tdcli` |
 | Q4 | diff | `nqddiff` (manifests through `nqfiles`, records member by member); `noqtis diff`; `seal -r`, `check -r` | `tdcli` (a file added, removed and changed, sources, schemas, env; nested capsules) |
 
 ## Platforms and packaging

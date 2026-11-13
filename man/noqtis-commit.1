@@ -1,0 +1,64 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NOQTIS-COMMIT 1
+.Os
+.Sh NAME
+.Nm noqtis-commit
+.Nd commit to a file now, to reveal it later
+.Sh SYNOPSIS
+.Nm noqtis commit
+.Op Fl -kind Cm randomisation | preregistration | other
+.Op Fl -label Ar text
+.Op Fl -after Ar time
+.Op Fl o | Fl -out Ar salt
+.Op Fl f | Fl -force
+.Ar dir file
+.Sh DESCRIPTION
+.Nm noqtis commit
+records in the data record of
+.Ar dir
+.Pq Xr noqtis-data 5
+a commitment to
+.Ar file ,
+such as a randomisation list made before a trial or an analysis plan
+written before the data are seen: the 64 hex digits of
+.Bd -literal -offset indent
+SHA3-256("noqtis-commit-1" || 0x00 || 32 as 8 bytes big-endian ||
+         salt || the bytes of file)
+.Ed
+.Pp
+with a fresh 32-byte salt from the operating system's random source,
+written to
+.Ar file Ns Pa .salt
+(owner-only; or
+.Fl o ;
+.Fl f
+replaces one).
+Without the salt the digest says nothing of the file; with it anyone
+can check that a file is the one committed to
+.Pq Xr noqtis-reveal 1 .
+Keep the file and its salt out of the capsule until the reveal, and
+seal the capsule with a timestamp
+.Pq Xr noqtis-seal 1 Fl -tsa
+so the commitment has a date no one can move.
+.Bl -tag -width Ds
+.It Fl -kind
+what the file is (default
+.Cm other )
+.It Fl -label
+a short name for it
+.It Fl -after
+a UTC time
+.Ql YYYY-MM-DDTHH:MM:SSZ
+before which it is not to be revealed
+.El
+.Sh EXIT STATUS
+0 when the commitment and the salt are written, 2 on a usage or file
+error (an existing salt file without
+.Fl f
+among them).
+.Sh SEE ALSO
+.Xr noqtis-reveal 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqdcommit 3 ,
+.Xr noqtis-data 5

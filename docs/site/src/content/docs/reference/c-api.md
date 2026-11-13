@@ -396,6 +396,12 @@ int nqdstats(const char *dir, const char *path, const nqdcsvopt *o,
 int nqddrift(const char *stats, size_t n, const char *file,
              const nqdcsvopt *o, const nqddopt *d, nqdrep **rep);
 int nqddiff(const char *a, const char *b, nqdrep **rep);
+int nqdcommit(const uint8_t *salt, size_t sl, const uint8_t *m, size_t n,
+              char hex[65]);
+int nqdreveal(const nqdrec *r, const uint8_t *salt, size_t sl,
+              const uint8_t *m, size_t n, size_t *idx);
+int nqdcite(const nqdrec *r, int fmt, char *out, size_t cap,
+            size_t *outlen);   /* NQDCFF, NQDBIB */
 int nqdchk(const char *dir, nqdrep **rep);
 size_t nqdrepn(const nqdrep *r);
 int nqdrepi(const nqdrep *r, size_t i, const char **check, int *ok,
@@ -408,6 +414,7 @@ void nqdrepfree(nqdrep *r);
 [nqdinfer(3)](/noqtis/reference/man/nqdinfer-3/),
 [nqdstats(3)](/noqtis/reference/man/nqdstats-3/),
 [nqddiff(3)](/noqtis/reference/man/nqddiff-3/),
+[nqdcommit(3)](/noqtis/reference/man/nqdcommit-3/),
 [nqdchk(3)](/noqtis/reference/man/nqdchk-3/)
 
 ## Shared libraries and Windows

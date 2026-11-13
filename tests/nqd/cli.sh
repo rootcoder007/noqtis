@@ -270,6 +270,43 @@ has "$w/err" "2 capsules, 1 OK, 1 failed" "check -r finds it"
 ok 2 "check -r, nothing" "$nq" check -r "$t/c"
 has "$w/err" "no capsule under" "check -r says none"
 
+# ---- env, commit, reveal, cite ----
+
+e=$w/env
+mkdir -p "$e"
+printf 'x\n' >"$e/f.txt"
+printf '{"R":{"Version":"4.6.2"}}' >"$e/renv.lock"
+ok 0 "env" "$nq" env --rng Mersenne-Twister --seed 42 "$e"
+ok 0 "env: show" "$nq" data show "$e"
+has "$w/out" '"arch":' "env arch"
+has "$w/out" '"path":"renv.lock","sha256":"' "env lock found"
+has "$w/out" '"rng":{"kind":"Mersenne-Twister","seed":"42"}' "env rng"
+ok 2 "env --seed alone" "$nq" env --seed 1 "$e"
+ok 2 "env --lock missing" "$nq" env --lock nope.lock "$e"
+printf 'arm,id\nA,1\nB,2\n' >"$w/list.csv"
+ok 0 "commit" "$nq" commit --kind randomisation --label trial "$e" \
+  "$w/list.csv"
+has "$w/err" "keep it secret" "commit says to keep the salt"
+ok 0 "commit: salt written" test -f "$w/list.csv.salt"
+ok 2 "commit again: salt exists" "$nq" commit "$e" "$w/list.csv"
+ok 2 "commit: bad kind" "$nq" commit -f --kind lottery "$e" "$w/list.csv"
+ok 0 "reveal" "$nq" reveal "$e" "$w/list.csv" "$w/list.csv.salt"
+has "$w/out" "matches commitment 1" "reveal matches"
+printf 'arm,id\nB,1\nA,2\n' >"$w/list2.csv"
+ok 1 "reveal another list" "$nq" reveal "$e" "$w/list2.csv" \
+  "$w/list.csv.salt"
+has "$w/err" "not the list or plan recorded" "reveal says why"
+ok 2 "cite without cite" "$nq" cite "$e"
+has "$w/err" "data put" "cite says how to add one"
+printf '{"title":"Example","authors":["A. Author"],"year":2026}' \
+  >"$w/cite.json"
+ok 0 "put cite" "$nq" data put "$e" cite "$w/cite.json"
+ok 0 "cite cff" "$nq" cite "$e"
+has "$w/out" "cff-version: 1.2.0" "cff"
+ok 0 "cite bibtex" "$nq" cite --format bibtex "$e"
+has "$w/out" "@misc{data," "bibtex"
+ok 2 "cite bad format" "$nq" cite --format ris "$e"
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"

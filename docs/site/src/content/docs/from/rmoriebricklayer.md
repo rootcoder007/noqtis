@@ -14,7 +14,7 @@ table is about data.
 | rmoriebricklayer | NOQTIS |
 |---|---|
 | `loadprov`, `capsule_bundle.json` reading | `noqtis data show`, `nqdload`, `nqdata()` (R), `data.load` (Python) |
-| `citecps` (citation from provenance) | the record's `cite` member (`noqtis data put <dir> cite`) |
+| `citecps` (citation from provenance) | the record's `cite` member, printed as CITATION.cff or BibTeX by `noqtis cite`, `nqdcite` |
 | `recrd`, `recevid` (record cross-checks, correctness evidence) | `checks` elements (`noqtis data put <dir> checks`); a check recorded as `fail` fails `noqtis data check` |
 | `rcdmnf`, `wrrcdmnf`, `vrfrcdmnf` (recode manifests) | `steps` elements with the mapping's SHA-256; the seal covers them |
 | `infsch` (infer a schema) | `noqtis schema infer`, `nqdinfer`, `nqschema()` |
@@ -27,8 +27,8 @@ table is about data.
 | `rmbl verify` | `noqtis check` and `noqtis data check` |
 | `rmbl drift` | `noqtis drift check` (fetch the source first; the tool does not yet fetch it) |
 | `mksyncsv`, `mksyncol` (synthetic data) | the `synthetic` flag of a source; generating data stays in R |
-| `capenv`, `capdeps`, `mnfrecseed` | the record's `env` member (filled by hand or by a binding for now) |
-| `ralloc`, `prrgdecl` | the record's `commits` member (format only so far) |
+| `capenv`, `mnfrecseed` | `noqtis env` (platform, locale, time zone, RNG and seed, lock files); `capdeps` (each package's source) goes in `env.runtime.packages` from a binding |
+| `ralloc`, `rallocvrf`, `prrgdecl`, `prrgchk` | `noqtis commit` and `noqtis reveal`, `nqdcommit`, `nqdreveal`: a salted SHA3-256 commitment in the record, dated by the capsule's timestamp; making the list itself stays in R |
 
 Not in NOQTIS on purpose: stateful XMSS signing (index reuse is fatal;
 SLH-DSA covers hash-based signatures), the language-model helpers, the
