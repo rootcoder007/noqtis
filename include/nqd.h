@@ -172,6 +172,21 @@ typedef struct {
 NQDAPI int nqddrift(const char *stats, size_t n, const char *file,
                     const nqdcsvopt *o, const nqddopt *d, nqdrep **rep);
 
+/* Calibrates the warnings of the "stats" element stats (n bytes) on the
+ * nf CSV files files[] known not to have drifted from it (o as for
+ * nqddrift): each is compared with it as nqddrift does, and every
+ * column gets "cal": the number of files, the largest PSI, the smallest
+ * KS or chi-square p-value and the smallest Benford p-value seen. The
+ * element with them goes to out (cap bytes, NUL added; *outlen its
+ * length, also with NQEBUF). nqddrift then warns of a calibrated column
+ * only for a PSI above that largest one or a p-value below that
+ * smallest one, besides its thresholds; failures do not change. NQEDEC
+ * with why when a file lacks a column of the reference or holds values
+ * of another kind. */
+NQDAPI int nqddcal(const char *stats, size_t n, const char *const *files,
+                   size_t nf, const nqdcsvopt *o, char *out, size_t cap,
+                   size_t *outlen, char *why, size_t wcap);
+
 /* ---- commitments and citations ---- */
 
 /* A commitment to n bytes at m (a randomisation list, an analysis plan)

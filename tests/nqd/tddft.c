@@ -213,10 +213,136 @@ static void refusals(void) {
   nqdrepfree(rep);
 }
 
+static const djs *calof(const djs *st, const char *name) {
+  const djs *cs = qdjget(st, "columns");
+  size_t i;
+  for (i = 0; cs != NULL && i < cs->n; i++)
+    if (strcmp(qdjget(cs->k[i], "name")->s, name) == 0)
+      return qdjget(cs->k[i], "cal");
+  return NULL;
+}
+
+/* calibration on ref.csv itself and cur.csv: the largest PSI and the
+ * smallest p-values are those R gives for cur.csv (ref.csv against
+ * itself has PSI 0 and p 1); then cur.csv no longer warns, and cur2.csv
+ * (cur.csv's x moved by 3) still does */
+static void cal(void) {
+  static char st[1 << 16], out[1 << 16];
+  const char *fs[3] = {"vectors/nqd/drift/ref.csv",
+                       "vectors/nqd/drift/cur.csv",
+                       "vectors/nqd/cap/data/a.csv"};
+  char why[600];
+  size_t n, m;
+  djs *v = NULL, *x, *b;
+  const djs *c;
+  nqdrep *rep = NULL;
+  double bpref = NAN;
+  NQTEQI(nqdstats("vectors/nqd/drift", "ref.csv", NULL, st, sizeof st, &n,
+                  why, sizeof why),
+         NQOK);
+  NQTEQI(nqddcal(st, n, fs, 2, NULL, out, sizeof out, &m, why, sizeof why),
+         NQOK);
+  NQTEQI(qdjparse(out, m, &v, why, sizeof why), NQOK);
+  NQTCHK(v != NULL);
+  if (v == NULL)
+    return;
+  /* Benford's p of ref.csv's own digits, from the uncalibrated row */
+  NQTEQI(drift("ref.csv", "cur.csv", NULL, &rep), NQOK);
+  b = rowj(rep, "b");
+  if (b != NULL)
+    bpref = jd(b, "benfordpref");
+  qdjfree(b);
+  nqdrepfree(rep);
+  if ((c = calof(v, "x")) != NULL) {
+    NEAR(jd(c, "n"), 2, 0);
+    NEAR(jd(c, "psi"), ex("psi"), 1e-12);
+    NEAR(jd(c, "p"), ex("ks.p"), 1e-9);
+  }
+  NQTCHK(c != NULL);
+  if ((c = calof(v, "c")) != NULL) {
+    NEAR(jd(c, "psi"), ex("cat.psi"), 1e-12);
+    NEAR(jd(c, "p"), ex("chi.p"), 1e-10);
+    NQTCHK(qdjget(c, "bp") == NULL);
+  }
+  NQTCHK(c != NULL);
+  if ((c = calof(v, "b")) != NULL)
+    NEAR(jd(c, "bp"), fmin(bpref, ex("ben.p")), 1e-10);
+  NQTCHK(c != NULL);
+  qdjfree(v);
+  /* cur.csv warned uncalibrated (small()); calibrated, nothing does */
+  NQTEQI(nqddrift(out, m, "vectors/nqd/drift/cur.csv", NULL, NULL, &rep),
+         NQOK);
+  x = rowj(rep, "x");
+  NQTCHK(x != NULL && strcmp(qdjget(x, "level")->s, "ok") == 0);
+  NQTCHK(x != NULL && jd(x, "calp") == jd(x, "ksp"));
+  qdjfree(x);
+  x = rowj(rep, "c");
+  NQTCHK(x != NULL && strcmp(qdjget(x, "level")->s, "ok") == 0);
+  qdjfree(x);
+  nqdrepfree(rep);
+  NQTEQI(nqddrift(out, m, "vectors/nqd/drift/cur2.csv", NULL, NULL, &rep),
+         NQOK);
+  x = rowj(rep, "x");
+  NQTCHK(x != NULL && strcmp(qdjget(x, "level")->s, "warn") == 0);
+  NQTCHK(x != NULL && jd(x, "ksp") < jd(x, "calp"));
+  qdjfree(x);
+  x = rowj(rep, "c"); /* c is cur.csv's own: no warning */
+  NQTCHK(x != NULL && strcmp(qdjget(x, "level")->s, "ok") == 0);
+  qdjfree(x);
+  nqdrepfree(rep);
+  /* failures do not change: with min-n 1 the PSI of cur2.csv fails x */
+  {
+    nqddopt d;
+    d.psiwarn = 0.1;
+    d.psifail = 0.25;
+    d.alpha = 0.001;
+    d.minn = 1;
+    d.benford = 0;
+    NQTEQI(nqddrift(out, m, "vectors/nqd/drift/cur2.csv", NULL, &d, &rep),
+           NQEVRFY);
+    nqdrepfree(rep);
+  }
+  /* refusals: a file without the reference's columns, no files, not a
+   * stats element, a calibration out of range */
+  why[0] = '\0';
+  NQTEQI(nqddcal(st, n, fs + 1, 2, NULL, out, sizeof out, &m, why,
+                 sizeof why),
+         NQEDEC);
+  NQTCHK(strstr(why, "a.csv") != NULL &&
+         strstr(why, "has the reference's columns") != NULL);
+  NQTEQI(nqddcal(st, n, fs, 0, NULL, out, sizeof out, &m, why, sizeof why),
+         NQEARG);
+  NQTEQI(nqddcal(st, n, NULL, 1, NULL, out, sizeof out, &m, why, sizeof why),
+         NQEARG);
+  NQTEQI(nqddcal("{}", 2, fs, 1, NULL, out, sizeof out, &m, why, sizeof why),
+         NQEDEC);
+  NQTEQI(nqddcal(st, n, fs, 2, NULL, out, 10, &m, why, sizeof why), NQEBUF);
+  {
+    static const char *bad[] = {
+        "{\"n\":1,\"p\":2,\"psi\":0}", "{\"n\":0,\"p\":1,\"psi\":0}",
+        "{\"n\":1,\"p\":1,\"psi\":-1}", "{\"n\":1,\"p\":1}",
+        "{\"bp\":1.5,\"n\":1,\"p\":1,\"psi\":0}"};
+    size_t i;
+    for (i = 0; i < 5; i++) {
+      nqdrec *r = NULL;
+      char e[300];
+      size_t l = (size_t)snprintf(e, sizeof e,
+                                  "{\"path\":\"a.csv\",\"rows\":1,\"columns\":"
+                                  "[{\"name\":\"x\",\"n\":1,\"cal\":%s}]}",
+                                  bad[i]);
+      NQTEQI(nqdnew(&r), NQOK);
+      NQTEQI(nqdput(r, "stats", e, l, why, sizeof why), NQEDEC);
+      NQTCHK(strstr(why, "cal") != NULL);
+      nqdrfree(r);
+    }
+  }
+}
+
 int main(void) {
   dists();
   small();
   big();
   refusals();
+  cal();
   return nqtdone("tddft");
 }

@@ -738,6 +738,14 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
   const djs *cn = qdjget(st, "counts"), *dg = qdjget(st, "digits");
   const djs *cats = qdjget(st, "cats"), *oth = qdjget(st, "other");
   const djs *nn = qdjget(st, "n"), *nu = qdjget(st, "nulls");
+  const djs *cal = qdjget(st, "cal");
+  /* calibrated on files that had not drifted: a warning needs a PSI
+   * above the largest and a p-value below the smallest seen there */
+  double cpsi = cal != NULL ? qdjget(cal, "psi")->d : -1;
+  double cp = cal != NULL ? qdjget(cal, "p")->d : 2;
+  double cbp = cal != NULL && qdjget(cal, "bp") != NULL
+                   ? qdjget(cal, "bp")->d
+                   : 2;
   double nref = nn->d, psi = 0, js = 0, x2 = 0, df = 0, pc = 1, bp = 1;
   double bx = 0, bref = 1, bxr = 0;
   double nulr = nu != NULL ? nu->d / (nref + nu->d) : 0;
@@ -832,8 +840,9 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
     jnum(&b, "benfordpref", bref);
     if ((psi >= d->psifail && minn))
       level = 2;
-    else if (psi >= d->psiwarn || psi >= d->psifail || ks.p < d->alpha ||
-             (d->benford && bp < d->alpha))
+    else if (((psi >= d->psiwarn || psi >= d->psifail) && psi > cpsi) ||
+             (ks.p < d->alpha && ks.p < cp) ||
+             (d->benford && bp < d->alpha && bp < cbp))
       level = 1;
     snprintf(ps, sizeof ps, "%.3g", ks.p);
     if (ks.err > 0)
@@ -878,7 +887,7 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
     qdfree(bb);
     if (psi >= d->psifail && minn)
       level = 2;
-    else if (psi >= d->psiwarn || pc < d->alpha)
+    else if ((psi >= d->psiwarn && psi > cpsi) || (pc < d->alpha && pc < cp))
       level = 1;
     snprintf(det, sizeof det,
              "%s: n %.0f then %llu; chi-square %.4g on %.0f df (p %.3g), "
@@ -886,6 +895,15 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
              "categories",
              name, nref, (unsigned long long)c->n, x2, df, pc, psi, js,
              c->n ? (double)((double)c->n - seen) / (double)c->n : 0.0);
+  }
+  if (cal != NULL) {
+    jnum(&b, "calpsi", cpsi);
+    jnum(&b, "calp", cp);
+    if (cbp <= 1)
+      jnum(&b, "calbp", cbp);
+    size_t l = strlen(det);
+    qdwhy(det + l, sizeof det - l, "; calibrated: PSI %.4f, p %.3g", cpsi,
+          cp);
   }
   qdbstr(&b, ",\"level\":\"");
   qdbstr(&b, lvl(level));
@@ -1001,4 +1019,118 @@ int nqddrift(const char *stats, size_t n, const char *file,
   }
   *out = rep;
   return bad ? NQEVRFY : NQOK;
+}
+
+/* ---- calibration ---- */
+
+int nqddcal(const char *stats, size_t n, const char *const *files, size_t nf,
+            const nqdcsvopt *o, char *out, size_t cap, size_t *outlen,
+            char *why, size_t wcap) {
+  djs *st = NULL, *cols;
+  double *mp = NULL, *mq = NULL, *mb = NULL;
+  size_t nc, i, f, k;
+  int rc;
+  dbuf b;
+  if (why != NULL && wcap)
+    why[0] = '\0';
+  if (stats == NULL || files == NULL || nf == 0)
+    return NQEARG;
+  for (f = 0; f < nf; f++)
+    if (files[f] == NULL)
+      return NQEARG;
+  rc = qdjparse(stats, n, &st, why, wcap);
+  if (rc == NQOK)
+    rc = qdelemok("stats", st, why, wcap);
+  if (rc != NQOK) {
+    qdjfree(st);
+    return rc;
+  }
+  cols = qdjgetw(st, "columns");
+  nc = cols != NULL ? cols->n : 0;
+  mp = (double *)qdmal((nc + 1) * sizeof *mp);
+  mq = (double *)qdmal((nc + 1) * sizeof *mq);
+  mb = (double *)qdmal((nc + 1) * sizeof *mb);
+  if (mp == NULL || mq == NULL || mb == NULL) {
+    rc = NQEMEM;
+    goto out;
+  }
+  for (k = 0; k < nc; k++) {
+    mp[k] = 0;
+    mq[k] = 1;
+    mb[k] = 2; /* none: a categorical column */
+  }
+  for (f = 0; f < nf && rc == NQOK; f++) {
+    nqdrep *rep = NULL;
+    int e = nqddrift(stats, n, files[f], o, NULL, &rep);
+    if (rep == NULL) {
+      rc = e;
+      break;
+    }
+    for (i = 0; i < nqdrepn(rep) && rc == NQOK; i++) {
+      const char *j = nqdrepj(rep, i), *dt = NULL;
+      int ok = 0;
+      djs *v = NULL;
+      const djs *nm, *ps, *p, *bp;
+      nqdrepi(rep, i, NULL, &ok, &dt);
+      if (j == NULL) {
+        /* the count row and a new column pass; a column gone, or a
+         * file that cannot be read, does not */
+        if (!ok) {
+          qdwhy(why, wcap, "%s: %s: a file that has not drifted has the "
+                "reference's columns", files[f], dt);
+          rc = NQEDEC;
+        }
+        continue;
+      }
+      if ((rc = qdjparse(j, strlen(j), &v, why, wcap)) != NQOK)
+        break;
+      nm = qdjget(v, "name");
+      ps = qdjget(v, "psi");
+      p = qdjget(v, "ksp") != NULL ? qdjget(v, "ksp") : qdjget(v, "chisqp");
+      bp = qdjget(v, "benfordp");
+      for (k = 0; k < nc; k++)
+        if (strcmp(qdjget(cols->k[k], "name")->s, nm->s) == 0)
+          break;
+      if (k == nc || ps == NULL || p == NULL) {
+        qdwhy(why, wcap, "%s: %s: a file that has not drifted has values of "
+              "the reference's kind", files[f], dt);
+        rc = NQEDEC;
+      } else {
+        if (ps->d > mp[k])
+          mp[k] = ps->d;
+        if (p->d < mq[k])
+          mq[k] = p->d;
+        if (bp != NULL && (mb[k] > 1 || bp->d < mb[k]))
+          mb[k] = bp->d;
+      }
+      qdjfree(v);
+    }
+    nqdrepfree(rep);
+  }
+  for (k = 0; k < nc && rc == NQOK; k++) {
+    djs *c = qdjnew(DJOBJ);
+    if (c == NULL || qdjset(c, "n", qdjnum((double)nf)) != NQOK ||
+        qdjset(c, "psi", qdjnum(mp[k])) != NQOK ||
+        qdjset(c, "p", qdjnum(mq[k])) != NQOK ||
+        (mb[k] <= 1 && qdjset(c, "bp", qdjnum(mb[k])) != NQOK)) {
+      qdjfree(c);
+      rc = NQEMEM;
+      break;
+    }
+    rc = qdjset(cols->k[k], "cal", c);
+  }
+  if (rc == NQOK)
+    rc = qdelemok("stats", st, why, wcap);
+  if (rc == NQOK) {
+    memset(&b, 0, sizeof b);
+    qdjwrite(st, &b);
+    rc = qdbout(&b, out, cap, outlen);
+    qdbfree(&b);
+  }
+out:
+  qdfree(mp);
+  qdfree(mq);
+  qdfree(mb);
+  qdjfree(st);
+  return rc;
 }

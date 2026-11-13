@@ -66,6 +66,7 @@ static int xstc(const djs *o, char *why, size_t cap, const char *at);
 static int xrule(const djs *o, char *why, size_t cap, const char *at);
 static int xcol(const djs *o, char *why, size_t cap, const char *at);
 static int xst(const djs *o, char *why, size_t cap, const char *at);
+static int xcal(const djs *o, char *why, size_t cap, const char *at);
 static int xchk(const djs *o, char *why, size_t cap, const char *at);
 
 static const dfld frng[] = {{"max", VINT, 0, NULL, NULL, 0},
@@ -122,7 +123,13 @@ static const dfld fsch[] = {{"columns", VARR, 0, &kcol, "name", 2},
                             {"rows", VOBJ, 0, &krng, NULL, 0},
                             {"rules", VARR, 0, &krule, NULL, 0}};
 static const dkind ksch = {fsch, N(fsch), xsch};
-static const dfld fstc[] = {{"cats", VPSI, 0, NULL, NULL, 0},
+static const dfld fcal[] = {{"bp", VNUM, 0, NULL, NULL, 0},
+                            {"n", VINT, 1, NULL, NULL, 0},
+                            {"p", VNUM, 1, NULL, NULL, 0},
+                            {"psi", VNUM, 1, NULL, NULL, 0}};
+static const dkind kcal = {fcal, N(fcal), xcal};
+static const dfld fstc[] = {{"cal", VOBJ, 0, &kcal, NULL, 0},
+                            {"cats", VPSI, 0, NULL, NULL, 0},
                             {"counts", VIARR, 0, NULL, NULL, 0},
                             {"digits", VIARR, 0, NULL, NULL, 0},
                             {"edges", VNARR, 0, NULL, NULL, 0},
@@ -509,6 +516,18 @@ static int delimok(const djs *o, char *why, size_t cap, const char *at) {
 
 static int xst(const djs *o, char *why, size_t cap, const char *at) {
   return delimok(o, why, cap, at);
+}
+
+static int xcal(const djs *o, char *why, size_t cap, const char *at) {
+  const djs *b = qdjget(o, "bp");
+  if (!(qdjget(o, "psi")->d >= 0) || !(qdjget(o, "p")->d >= 0) ||
+      !(qdjget(o, "p")->d <= 1) || qdjget(o, "n")->d < 1 ||
+      (b != NULL && !(b->d >= 0 && b->d <= 1))) {
+    qdwhy(why, cap, "%s: psi at least 0, p and bp from 0 to 1, n at least 1",
+         at);
+    return NQEDEC;
+  }
+  return NQOK;
 }
 
 static int xchk(const djs *o, char *why, size_t cap, const char *at) {
