@@ -1,0 +1,111 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NQDINFER 3
+.Os
+.Sh NAME
+.Nm nqdinfer ,
+.Nm nqdschk
+.Nd infer and check the schema of a CSV file
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Bd -literal
+typedef struct {
+  char delim;   /* 0 for ',' */
+  int noheader; /* the first line is data */
+  int ranges;   /* pin number and date ranges */
+} nqdcsvopt;
+.Ed
+.Ft int
+.Fo nqdinfer
+.Fa "const char *dir" "const char *path" "const nqdcsvopt *o"
+.Fa "char *out" "size_t cap" "size_t *outlen" "char *why" "size_t wcap"
+.Fc
+.Ft int
+.Fo nqdschk
+.Fa "const char *dir" "const char *schema" "size_t n" "nqdrep **rep"
+.Fc
+.Sh DESCRIPTION
+.Fn nqdinfer
+reads the CSV file
+.Fa path
+(relative to
+.Fa dir )
+and writes its schema to
+.Fa out ,
+a
+.Ql schemas
+element
+.Pq Xr noqtis-data 5
+in canonical JSON, to give to
+.Xr nqdput 3 :
+column names (from the header, or V1, V2, ... with
+.Fa noheader ) ,
+the narrowest type of each, whether it has missing values (the empty
+field and
+.Ql NA ) ,
+the row count pinned, and with
+.Fa ranges
+each number or date column's range.
+.Xr noqtis-schema 1
+says what each type accepts.
+.Fa o
+may be
+.Dv NULL
+for the defaults.
+On failure a sentence goes to
+.Fa why .
+.Pp
+.Fn nqdschk
+checks the file named by the
+.Ql schemas
+element
+.Fa schema
+.Pf ( Fa n
+bytes of JSON) against it and reports one
+.Ql schema
+row per problem (the first ten, then a count) or one passing row, and
+one
+.Ql rule
+row per rule, as
+.Xr nqdchk 3
+does for every schema of a record.
+.Sh RETURN VALUES
+.Fn nqdinfer :
+.Dv NQOK ;
+.Dv NQEBUF
+with
+.Fa *outlen
+set when
+.Fa cap
+is too small;
+.Dv NQEDEC
+for a file that is not CSV, rows of different lengths or a column name
+twice;
+.Dv NQELIM
+over the reader's limits (a field 1 MiB, a line 16 MiB or 16,384
+fields);
+.Dv NQEIO
+for a file that cannot be read;
+.Dv NQEARG
+for a bad path or delimiter.
+.Pp
+.Fn nqdschk :
+.Dv NQOK
+when every row passed,
+.Dv NQEVRFY
+otherwise (an element that is not a schema is a failed row), with
+.Fa *rep
+set; free it with
+.Xr nqdrepfree 3 .
+.Sh SEE ALSO
+.Xr noqtis-schema 1 ,
+.Xr nqdchk 3 ,
+.Xr nqdnew 3 ,
+.Xr noqtis-data 5
+.Sh STANDARDS
+.Rs
+.%R RFC 4180
+.%T Common Format and MIME Type for Comma-Separated Values (CSV) Files
+.Re
