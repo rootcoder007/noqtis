@@ -105,6 +105,34 @@ NQDAPI int nqdset(nqdrec *r, const char *member, const char *key,
 NQDAPI int nqdsrc(nqdrec *r, const char *dir, const char *path, char *why,
                   size_t cap);
 
+/* ---- schemas of CSV files ---- */
+
+/* How nqdinfer reads a file: delim 0 for ',' (else one byte, not a
+ * quote or a line break); noheader 1 when the first line is data (the
+ * columns are then named V1, V2, ...); ranges 1 to pin each number and
+ * date column's smallest and largest value too. NULL: the defaults. */
+typedef struct {
+  char delim;
+  int noheader;
+  int ranges;
+} nqdcsvopt;
+
+/* The schema of the CSV file path in dir, as a "schemas" element in
+ * canonical JSON: its columns with their names and types (bool, int,
+ * real, date, text, the narrowest every value fits; "" and "NA" are
+ * missing), whether each has missing values, and its number of rows,
+ * pinned. NQEDEC with why for a file that is not CSV (RFC 4180) or has
+ * rows of different lengths or a column name twice. */
+NQDAPI int nqdinfer(const char *dir, const char *path, const nqdcsvopt *o,
+                    char *out, size_t cap, size_t *outlen, char *why,
+                    size_t wcap);
+/* Checks the file of the "schemas" element schema (n bytes of JSON)
+ * in dir against it: the header, every value's type, missing values,
+ * ranges and sets, the row bounds and each rule. NQOK when every row
+ * passed, NQEVRFY otherwise, with *rep set in both cases. */
+NQDAPI int nqdschk(const char *dir, const char *schema, size_t n,
+                   nqdrep **rep);
+
 /* ---- checking ---- */
 
 /* Checks the record in dir: that it parses and is canonical, that each

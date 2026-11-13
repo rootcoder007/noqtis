@@ -126,6 +126,51 @@ int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...)
     ;
 nqdrep *qdrepnew(void);
 
+/* ---- CSV (csv.c) ---- */
+
+#define QDCSVFIELD ((size_t)1 << 20)  /* bytes in a field */
+#define QDCSVREC ((size_t)16 << 20)   /* bytes in a record */
+#define QDCSVNF ((size_t)16384)       /* fields in a record */
+
+typedef struct {
+  int (*rd)(void *u, char *b, size_t cap, size_t *got);
+  void *u;
+  int own; /* 1: u is a FILE to close; 2: memory to free */
+  char buf[65536];
+  size_t bn, bi;
+  int eof, bom;
+  char delim;
+  size_t maxfield, maxfields, maxrec;
+  char *rec; /* the fields of the record, each ended by NUL */
+  size_t reclen, reccap;
+  size_t *off;
+  size_t nf, offcap;
+  uint64_t line;    /* the line the next record starts on */
+  uint64_t recline; /* the line the current record started on */
+  uint64_t nrec;
+  char why[200];
+} qdcsv;
+
+/* a reader of the file path, or of n bytes at p (kept, not copied) */
+int qdcsvfile(qdcsv *c, const char *path, char delim);
+int qdcsvmem(qdcsv *c, const char *p, size_t n, char delim);
+/* the next record: NQOK with *got 1, or *got 0 at the end; NQEDEC or
+ * NQELIM with c->why on a malformed file, NQEIO, NQEMEM */
+int qdcsvnext(qdcsv *c, int *got);
+/* field i of the current record (NUL-terminated), its length in *len */
+const char *qdcsvf(const qdcsv *c, size_t i, size_t *len);
+void qdcsvclose(qdcsv *c);
+
+/* value classes of a CSV field (sch.c) */
+#define QDTBOOL 1u
+#define QDTINT 2u
+#define QDTREAL 4u
+#define QDTDATE 8u
+/* the classes s[0..n) belongs to; *d its number when QDTREAL */
+unsigned qdvclass(const char *s, size_t n, double *d);
+/* big-endian 64 bits at p */
+uint64_t qdld64(const uint8_t *p);
+
 /* the "schema" rows of nqdchk for one schemas element (sch.c); sy is
  * " [synthetic]" or "" */
 int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy);
