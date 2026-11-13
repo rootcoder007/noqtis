@@ -134,25 +134,16 @@ Signed-off-by: Your Name <your address>
   it cannot be merged.
 - Signed commits (`git commit -S`, GPG or SSH) are welcome.
 
-## The documentation site
+## The documentation
 
-The site is Astro Starlight in `docs/site`, built in CI with a check of
-every internal link. To work on it you need Node 22.12 or later:
-
-```sh
-cd docs/site
-npm ci
-npm run dev        # http://localhost:4321/noqtis/
-npm run build      # what CI runs; fails on a broken internal link
-```
-
-After a change to a manual page in `man/`, `npm run man` (needs
-`mandoc`) renders the pages into `src/content/docs/reference/man/`;
-commit the result with the page.
-
-`NQPAGEFIND=0 npm run build` skips the search index where Pagefind's
-binary does not run. Version numbers never appear typed into a page:
-they come from the release you install.
+The site is <https://noqtis.dev/>. In this repository the documentation
+is the manual pages in `man/`, the guides in `docs/guides/`, the format
+specifications in `docs/spec/` and `docs/security.md`. CI lints the manual
+pages with `mandoc`, and runs the code of each language guide against the
+binding it has built (`docs/examples/guide.py`), so a guide's code and the
+output it shows must stay true. The R package's reference at
+<https://rootcoder007.github.io/noqtis/> is built with pkgdown from
+`bindings/r`.
 
 ## Pull requests
 

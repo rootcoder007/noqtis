@@ -1,7 +1,4 @@
----
-title: Use from JavaScript
-description: The noqtis npm package (WebAssembly) in Node, Deno, Bun and browsers - seal and check a folder, sign, verify and encapsulate.
----
+# Use from JavaScript
 
 The `noqtis` npm package is the C library compiled to WebAssembly: one
 package for Node, browsers, Deno and Bun, with nothing to compile and no

@@ -1,7 +1,4 @@
----
-title: Keys and key files
-description: Choosing an algorithm, the NOQTIS key file format, deterministic keys, and keeping secret keys safe.
----
+# Keys and key files
 
 ## Choosing an algorithm
 
@@ -32,8 +29,8 @@ SLH-DSA-SHA2-128s      sig       32      64    7856    -
   break it.
 - **ML-KEM** (FIPS 203) and **HQC** (experimental: its NIST standard is
   not final, and the final encoding may differ) are key encapsulation mechanisms, for
-  [enc](/noqtis/reference/man/noqtis-enc-1/) and
-  [dec](/noqtis/reference/man/noqtis-dec-1/); they cannot sign or seal.
+  [enc](https://noqtis.dev/reference/man/noqtis-enc-1/) and
+  [dec](https://noqtis.dev/reference/man/noqtis-dec-1/); they cannot sign or seal.
 
 Names are case-insensitive on the command line.
 
@@ -96,9 +93,9 @@ nqwritekey("me2.pub", pk, k$alg, "pub")
 
 Written secret key files are owner-only, and no binding replaces an
 existing file unless asked to (`force=True`, `force = TRUE`). See the
-[Python](/noqtis/reference/api/python/),
-[JavaScript](/noqtis/reference/api/javascript/) and
-[R](/noqtis/reference/api/r/) API references.
+[Python](https://noqtis.dev/reference/api/python/),
+[JavaScript](https://noqtis.dev/reference/api/javascript/) and
+[R](https://noqtis.dev/reference/api/r/) API references.
 
 ## Deterministic keys
 
@@ -120,10 +117,10 @@ listings; prefer a seed file.
 ## Keeping the secret key safe
 
 - Keep it off shared machines and out of repositories; in CI, store it as
-  an encrypted secret (see [CI](/noqtis/guides/ci/)).
+  an encrypted secret (see [CI](https://noqtis.dev/guides/ci/)).
 - Publish the `.pub` file widely and in more than one place, so others can
   pin it.
 - There is no revocation in the capsule format: if a secret key leaks,
   announce it where you published the public key, make a new key and
-  reseal what matters. A [timestamp](/noqtis/guides/timestamps/) shows
+  reseal what matters. A [timestamp](https://noqtis.dev/guides/timestamps/) shows
   which seals predate the leak.

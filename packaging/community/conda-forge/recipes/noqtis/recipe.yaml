@@ -56,7 +56,7 @@ tests:
 about:
   homepage: https://github.com/rootcoder007/noqtis
   repository: https://github.com/rootcoder007/noqtis
-  documentation: https://rootcoder007.github.io/noqtis/
+  documentation: https://noqtis.dev/
   summary: Post-quantum signing, KEMs and sealed input records in C11
   description: |
     noqtis (Notary of Quantum-Safe Traceable Inputs and Seals) is a C11

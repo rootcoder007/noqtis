@@ -1,7 +1,4 @@
----
-title: Use from Rust
-description: The noqtis Rust crate - seal and check a folder, sign and verify, encapsulate and hash, with the C library compiled in.
----
+# Use from Rust
 
 The `noqtis` crate compiles the C library into itself with the `cc`
 crate: it needs a C11 compiler and nothing else (no bindgen, no system

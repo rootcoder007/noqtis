@@ -1,7 +1,4 @@
----
-title: Capsule format, version 1
-description: The normative specification of NOQTIS capsules, noqtis-capsule-1 manifests and noqtis-seal-1 seals.
----
+# Capsule format, version 1
 
 | | |
 |---|---|

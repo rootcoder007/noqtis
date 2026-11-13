@@ -1,14 +1,10 @@
----
-title: Security
-description: Threat model, what a check does and does not verify, constant-time and masking claims and how they are tested, test vectors, fuzzing, audit status and reporting.
----
+# Security
 
-:::caution[Not yet audited]
+**Not yet audited.**
 NOQTIS has not had an external security audit. Until an audit report is
 published, treat NOQTIS as unaudited code. An independent audit through
 OSTIF has been applied for, and is open for
 [funding](https://app.lfx.dev/crowdfunding/initiatives/noqtis-security-audit-of-a-post-quantum-signing-and-provenance-library-in-c11).
-:::
 
 ## Reporting a vulnerability
 
@@ -335,7 +331,7 @@ Each test prints how many vectors of each set ran, passed and were
 skipped; the CI logs of every push and the release notes carry those
 counts. Every vector file's source URL and SHA-256 are in
 `tests/vectors/SOURCES.md`. Each algorithm also has an ACVP harness that
-writes responses in the format a CAVP lab accepts; [Validation](/noqtis/validation/)
+writes responses in the format a CAVP lab accepts; [Validation](https://noqtis.dev/validation/)
 says how a lab would run them. There is no CAVP or CMVP certificate.
 
 ## Other testing

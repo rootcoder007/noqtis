@@ -149,8 +149,7 @@ nqrepfree(rep);
 
 ## Documentation
 
-- The site: <https://noqtis.dev/> (sources in
-  `docs/site`): getting started, guides, a tutorial for
+- The site: <https://noqtis.dev/>: getting started, guides, a tutorial for
   [C](https://noqtis.dev/guides/c/),
   [Python](https://noqtis.dev/guides/py/),
   [JavaScript](https://noqtis.dev/guides/js/),
@@ -164,7 +163,8 @@ nqrepfree(rep);
   `man noqtis-inspect`, `man noqtis-timestamp`,
   `man nqsign`, `man noqtis-capsule` (sources in [man/](man/)).
 - The capsule format specification:
-  [docs/site/src/content/docs/spec/capsule.md](docs/site/src/content/docs/spec/capsule.md).
+  [docs/spec/capsule.md](docs/spec/capsule.md); the data record format:
+  [docs/spec/data.md](docs/spec/data.md).
 - Runnable examples: [docs/examples/](docs/examples/), compiled and run in CI.
 - [DESIGN.md](DESIGN.md): the modules, the checks each must pass, and the
   release plan.

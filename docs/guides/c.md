@@ -1,7 +1,4 @@
----
-title: Use the C library
-description: Build a program against libnoqtis with CMake or pkg-config, seal and check a folder, and sign and verify a message.
----
+# Use the C library
 
 NOQTIS is one C11 library, `libnoqtis`, with one header, `noqtis.h`.
 This tutorial builds a small program that seals a folder, checks it,
@@ -9,7 +6,7 @@ signs a message, and then shows a check failing after a file changes.
 
 ## Install the library
 
-Build and install it from source (see [Install](/noqtis/start/install/)
+Build and install it from source (see [Install](https://noqtis.dev/start/install/)
 for the package managers):
 
 ```sh
@@ -171,9 +168,9 @@ accepts the key in the seal and says so).
 
 ## Next
 
-- [Seal and check a capsule](/noqtis/guides/seal/): what a seal records
+- [Seal and check a capsule](https://noqtis.dev/guides/seal/): what a seal records
   and what it refuses.
-- [C API](/noqtis/reference/c-api/): every function, with its errors.
-- [nqseal(3)](/noqtis/reference/man/nqseal-3/),
-  [nqchk(3)](/noqtis/reference/man/nqchk-3/),
-  [nqsign(3)](/noqtis/reference/man/nqsign-3/).
+- [C API](https://noqtis.dev/reference/c-api/): every function, with its errors.
+- [nqseal(3)](https://noqtis.dev/reference/man/nqseal-3/),
+  [nqchk(3)](https://noqtis.dev/reference/man/nqchk-3/),
+  [nqsign(3)](https://noqtis.dev/reference/man/nqsign-3/).

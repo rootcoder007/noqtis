@@ -1,7 +1,4 @@
----
-title: Timestamps
-description: RFC 3161 timestamps over a capsule's signature, from the command line or from C, and the TSA trust anchors that check them.
----
+# Timestamps
 
 A seal says *who* signed the files; a timestamp from a time-stamping
 authority (TSA) says *when*: that the signature existed at a time the TSA
@@ -127,4 +124,4 @@ rc = nqtsput("results", rsp, rn, nonce, sizeof nonce, anc, anclen, 2,
              &gt, &why);   /* NQOK: stored; else why says what failed */
 ```
 
-See [nqtsput(3)](/noqtis/reference/man/nqtsput-3/).
+See [nqtsput(3)](https://noqtis.dev/reference/man/nqtsput-3/).

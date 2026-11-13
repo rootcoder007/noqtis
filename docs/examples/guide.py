@@ -5,7 +5,7 @@
     python3 docs/examples/guide.py <lang>
 
 <lang> is py, r, go, rust, java or js. The script takes the guide's code
-blocks (docs/site/src/content/docs/guides/<lang>.md), runs them against
+blocks (docs/guides/<lang>.md), runs them against
 the binding the calling CI job has built, and fails unless every line of
 the page's text blocks (the output the page shows; for R, its "> "
 prompt lines left out) appears in the output, in order. For py, r and
@@ -29,7 +29,7 @@ import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-GUIDES = ROOT / "docs/site/src/content/docs/guides"
+GUIDES = ROOT / "docs/guides"
 LANGS = {"py": ("python",), "r": ("r",), "go": ("go",), "rust": ("rust",),
          "java": ("java",), "js": ("js",)}
 

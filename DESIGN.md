@@ -402,7 +402,7 @@ noqtis is announced only when every item below is done; releases from
       Crowdfunding).
 - [x] Threat model (what noqtis protects, against whom, and what it does
       not protect) on the site's security page
-      (`docs/site/src/content/docs/security.md`).
+      (`docs/security.md`).
 
 ### Documentation
 
@@ -449,9 +449,9 @@ Kept in the repository, so it is reviewed and tested like the code.
   change that would break programs compiled against an earlier version
   fails unless the major version changes. Each release publishes the
   report.
-- **Site:** Astro Starlight, published at `noqtis.dev`; CI also builds
-  it and publishes the same pages on GitHub Pages
-  (`rootcoder007.github.io/noqtis`). It is dark unless the reader picks light. It carries getting started per platform,
+- **Site:** published at `noqtis.dev`. GitHub Pages
+  (`rootcoder007.github.io/noqtis`) carries the R package's reference, and
+  sends any other address to `noqtis.dev`. It is dark unless the reader picks light. It carries getting started per platform,
   guides (sealing, checking someone else's capsule, keys, timestamps, CI),
   the versioned capsule format specification, the API reference rendered
   from the man pages, the binding references, the security page (threat

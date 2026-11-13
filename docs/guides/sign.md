@@ -1,7 +1,4 @@
----
-title: Sign and verify a file
-description: Detached ML-DSA and SLH-DSA signatures of single files, with contexts, deterministic signing and pre-hashing.
----
+# Sign and verify a file
 
 For one file, a detached signature is simpler than a capsule.
 
@@ -100,5 +97,5 @@ if (rc == NQOK)
 /* rc == NQOK only for a valid signature */
 ```
 
-See [nqsign(3)](/noqtis/reference/man/nqsign-3/) and the
-[C API](/noqtis/reference/c-api/).
+See [nqsign(3)](https://noqtis.dev/reference/man/nqsign-3/) and the
+[C API](https://noqtis.dev/reference/c-api/).

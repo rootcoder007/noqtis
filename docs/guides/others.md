@@ -1,7 +1,4 @@
----
-title: Check someone else's capsule
-description: What a passing check proves, why you pin the public key, and what to do when a check fails.
----
+# Check someone else's capsule
 
 You received a folder with `noqtis.json` and `noqtis.sig` in it, perhaps
 with a paper, a dataset or a build. Here is how to check it and what the
@@ -65,7 +62,7 @@ With `-p`, a capsule resealed by anyone else fails the `key` and
 ## What it does not prove
 
 - **When** it was sealed. The `created` field is what the sealer's clock
-  said; only a [timestamp](/noqtis/guides/timestamps/) from a third party
+  said; only a [timestamp](https://noqtis.dev/guides/timestamps/) from a third party
   proves a time.
 - That the results are **correct**, or that the listed inputs were the ones
   actually used: a capsule records what was there, not how it was made.
@@ -88,7 +85,7 @@ Every failing row says what failed:
 | `key`, `signature` | sealed by another key, or the manifest or seal was edited | do not trust the capsule |
 | `manifest.digest` | `noqtis.json` was changed | do not trust the capsule |
 | `seal.*`, `manifest.parse`, ... | damaged or not a NOQTIS capsule | get a fresh copy |
-| `timestamp` | see [timestamps](/noqtis/guides/timestamps/) | |
+| `timestamp` | see [timestamps](https://noqtis.dev/guides/timestamps/) | |
 
 Archive tools and file systems sometimes change what they carry: a ZIP or
 Git checkout that converts line endings (`core.autocrlf`) changes text

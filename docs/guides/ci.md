@@ -1,7 +1,4 @@
----
-title: Use in CI
-description: Seal build or analysis outputs in CI and check capsules as a gate, with exit codes and JSON output.
----
+# Use in CI
 
 `noqtis` is built for scripts: every command exits **0** on success, **1**
 when a verification fails, **2** on a usage, file or library error, and
@@ -28,7 +25,7 @@ noqtis check --json -p keys/release.pub dist/ > check.json || {
 
 The JSON line is
 `{"capsule":"<dir>","ok":<bool>,"result":"<text>","checks":[{"check":"<name>","ok":<bool>,"detail":"<text>"},...]}`;
-the check names are listed in [noqtis-check(1)](/noqtis/reference/man/noqtis-check-1/)
+the check names are listed in [noqtis-check(1)](https://noqtis.dev/reference/man/noqtis-check-1/)
 and stay stable.
 
 ## Seal outputs in a workflow

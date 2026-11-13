@@ -1,7 +1,4 @@
----
-title: Data record format
-description: The normative specification of noqtis-data-1, the data record a capsule can carry.
----
+# Data record format
 
 | | |
 |---|---|
@@ -11,9 +8,9 @@ description: The normative specification of noqtis-data-1, the data record a cap
 | **Reference implementation** | `nqd/` of NOQTIS (`nqdparse`, `nqdjson`, `nqdchk`) |
 
 The record is listed in the capsule's manifest and covered by its seal
-like any other file ([capsule format](/noqtis/spec/capsule/)). The full
+like any other file ([capsule format](https://noqtis.dev/spec/capsule/)). The full
 member list, with the types and what a reader must refuse, is
-[noqtis-data(5)](/noqtis/reference/man/noqtis-data-5/); this page
+[noqtis-data(5)](https://noqtis.dev/reference/man/noqtis-data-5/); this page
 summarises it.
 
 ## Encoding
@@ -46,4 +43,4 @@ summarises it.
 | `cite` | `title`; `authors`, `version`, `doi`, `url`, `licence`, `year` |
 
 How `stats` is made, and the tests made from it, is defined in
-[noqtis-drift(1)](/noqtis/reference/man/noqtis-drift-1/).
+[noqtis-drift(1)](https://noqtis.dev/reference/man/noqtis-drift-1/).

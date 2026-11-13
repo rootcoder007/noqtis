@@ -1,7 +1,4 @@
----
-title: Seal and check a capsule
-description: What noqtis seal records, what it refuses, metadata, reproducible capsules and reading the check report.
----
+# Seal and check a capsule
 
 ## Sealing
 
@@ -78,7 +75,7 @@ wrong at once. The rows:
 | `manifest.read`, `manifest.digest` | `noqtis.json` is readable and its SHA-256 is the seal's |
 | `key` | the seal's key is the one given with `-p` (or says it was not pinned) |
 | `signature` | the signature over `noqtis.json` verifies |
-| `timestamp` | only when the seal has a timestamp; see [timestamps](/noqtis/guides/timestamps/) |
+| `timestamp` | only when the seal has a timestamp; see [timestamps](https://noqtis.dev/guides/timestamps/) |
 | `folder` | the folder could be listed |
 | `file` (one per listed file) | present, a regular file, same size, SHA-256 and SHA3-256 |
 | `manifest.parse`, `manifest.canonical`, `manifest.fields`, `manifest.format`, `manifest.created`, `manifest.order` | `noqtis.json` is canonical `noqtis-capsule-1` with sorted, unique paths |
@@ -112,6 +109,6 @@ for (size_t i = 0; i < nqrepn(rep); i++) {
 nqrepfree(rep);
 ```
 
-See [nqseal(3)](/noqtis/reference/man/nqseal-3/),
-[nqchk(3)](/noqtis/reference/man/nqchk-3/) and
-[nqrep(3)](/noqtis/reference/man/nqrep-3/).
+See [nqseal(3)](https://noqtis.dev/reference/man/nqseal-3/),
+[nqchk(3)](https://noqtis.dev/reference/man/nqchk-3/) and
+[nqrep(3)](https://noqtis.dev/reference/man/nqrep-3/).

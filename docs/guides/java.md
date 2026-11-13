@@ -1,7 +1,4 @@
----
-title: Use from Java
-description: The noqtis Java binding - seal and check a folder, sign and verify, encapsulate and hash, over the shared library with the FFM API.
----
+# Use from Java
 
 The Java binding calls the shared library `libnoqtis` through the
 Foreign Function and Memory API of JDK 22 and later: no JNI code to

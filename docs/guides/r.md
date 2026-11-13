@@ -1,7 +1,4 @@
----
-title: Use from R
-description: The noqtis R package - seal the folder behind an analysis, check it, sign and verify, with the C library bundled.
----
+# Use from R
 
 The `noqtis` R package bundles the C library: nothing else to install,
 and randomness comes from the operating system, never from R's random

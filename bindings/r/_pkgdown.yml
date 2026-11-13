@@ -1,0 +1,16 @@
+url: https://rootcoder007.github.io/noqtis/
+repo:
+  url:
+    home: https://github.com/rootcoder007/noqtis/
+    source: https://github.com/rootcoder007/noqtis/blob/main/bindings/r/
+    issue: https://github.com/rootcoder007/noqtis/issues/
+template:
+  bootstrap: 5
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, site, github]
+  components:
+    site:
+      text: noqtis.dev
+      href: https://noqtis.dev/

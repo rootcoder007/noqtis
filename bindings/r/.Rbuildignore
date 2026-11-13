@@ -1,4 +1,6 @@
 ^tools$
+^_pkgdown\.yml$
+^pkgdown$
 ^\.gitignore$
 ^.*\.Rproj$
 ^\.Rproj\.user$

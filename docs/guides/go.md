@@ -1,7 +1,4 @@
----
-title: Use from Go
-description: The noqtis Go package - seal and check a folder, sign and verify, encapsulate and hash, with the C library compiled in by cgo.
----
+# Use from Go
 
 The Go package compiles the C library into itself with cgo, from a copy
 of the sources in the module: it needs a C compiler (gcc or clang; on

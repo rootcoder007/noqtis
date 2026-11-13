@@ -1,7 +1,4 @@
----
-title: Use from Python
-description: The noqtis Python package - seal and check a folder, sign and verify, encapsulate and hash, with the C library compiled in.
----
+# Use from Python
 
 The `noqtis` Python package has the C library compiled into it: no
 runtime dependencies, one wheel per platform for CPython 3.9 and later.

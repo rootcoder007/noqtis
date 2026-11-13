@@ -1,13 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # The documentation: lints the manual pages (mandoc), runs every example
-# of the manual pages and the site against the built library and tool,
-# builds the WebAssembly module for the site's in-browser capsule check,
-# builds the Astro Starlight site (with its internal link check) and, for
-# a push to main, publishes it on GitHub Pages (a release is a commit
-# already on main, so it needs no deploy of its own). Publishing
-# runs only once the repository is public; until then the built site is
-# kept as the run's Pages artifact.
+# of the manual pages against the built library and tool, builds the R
+# package's reference with pkgdown and, for a push to main, publishes it
+# on GitHub Pages. The documentation site itself is https://noqtis.dev/.
 name: docs
 
 on:
@@ -15,8 +11,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "bindings/npm/**"
-      - "tests/vectors/cap/**"
+      - "bindings/r/**"
       - "man/**"
       - "cli/**"
       - "include/**"
@@ -26,8 +21,7 @@ on:
   pull_request:
     paths:
       - "docs/**"
-      - "bindings/npm/**"
-      - "tests/vectors/cap/**"
+      - "bindings/r/**"
       - "man/**"
       - "cli/**"
       - "include/**"
@@ -125,54 +119,43 @@ jobs:
       - name: every C example, compiled with -Werror and run
         run: sh docs/examples/c.sh "$PWD/nq"
 
-  site:
-    name: site (Astro Starlight)
+  rsite:
+    # https://rootcoder007.github.io/noqtis/: the R package's reference
+    # (pkgdown, from bindings/r). Its 404 page sends every other address,
+    # where the documentation used to be, to the same path on noqtis.dev.
+    name: R package site (pkgdown)
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
-    defaults:
-      run:
-        working-directory: docs/site
+    timeout-minutes: 30
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      PKG_USE_BIOCONDUCTOR: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: wasi-sdk, as npm.yml (checked against its SHA-256)
-        run: |
-          curl -fsSL -o "$RUNNER_TEMP/sdk.tgz" "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-linux.tar.gz"
-          printf '%s  %s\n' b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4 "$RUNNER_TEMP/sdk.tgz" | sha256sum -c -
-          mkdir "$RUNNER_TEMP/wasi-sdk"
-          tar -xzf "$RUNNER_TEMP/sdk.tgz" -C "$RUNNER_TEMP/wasi-sdk" --strip-components=1
-          echo "WASI_SDK_PATH=$RUNNER_TEMP/wasi-sdk" >> "$GITHUB_ENV"
-      - name: build the WebAssembly module (for the browser check page)
-        working-directory: .
-        run: sh bindings/npm/build.sh
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: docs/site/package-lock.json
-      - run: sudo apt-get update && sudo apt-get install -y mandoc
-      - run: npm ci --no-audit --no-fund
-      - name: render the manual pages into the site
-        run: npm run man
-      - name: build (fails on a broken internal link)
-        env:
-          ASTRO_TELEMETRY_DISABLED: "1"
-          NQWASM: "1" # the page's WebAssembly module must be there
-        run: npm run build
-      - name: the browser check page and its files are in the site
+          persist-credentials: false
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          working-directory: bindings/r
+          extra-packages: any::pkgdown, local::.
+          needs: website
+      - name: build
         run: |
-          test -f dist/demo/index.html
-          test -f dist/wasm/dist/noqtis.wasm
-          test -f dist/wasm/lib/index.js
-          test -f dist/sample.json
-      - name: size
-        run: du -sh dist && find dist -type f | wc -l
+          Rscript -e 'pkgdown::build_site_github_pages("bindings/r", dest_dir = "../../rsite", new_process = FALSE, install = FALSE)'
+          cp bindings/r/pkgdown/404.html rsite/404.html
+          test -f rsite/index.html
+          test -f rsite/reference/index.html
+          grep -q "noqtis.dev" rsite/404.html
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: docs/site/dist
+          path: rsite
 
   deploy:
     name: publish on GitHub Pages
-    needs: [man, examples, site]
+    needs: [man, examples, rsite]
     if: >-
       github.event.repository.private == false &&
       (github.event_name == 'release' || github.event_name == 'workflow_dispatch' ||

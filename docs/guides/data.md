@@ -1,15 +1,12 @@
----
-title: Data records, schemas and drift
-description: Record where a capsule's data came from, pin the schema of its CSV files, and find out later whether the source drifted, without keeping the old data.
----
+# Data records, schemas and drift
 
 A capsule proves that its files are the ones sealed. A data record,
 `noqtis.data.json` in the capsule folder, adds what the files are: where
 each came from, the shape of each CSV file, and summaries that show
 later whether a new copy of the data has drifted. The record is an
 ordinary file of the capsule, so the seal covers it, and
-[`noqtis check`](/noqtis/reference/man/noqtis-check-1/) fails if it
-changes. The format is [`noqtis-data-1`](/noqtis/spec/data/).
+[`noqtis check`](https://noqtis.dev/reference/man/noqtis-check-1/) fails if it
+changes. The format is [`noqtis-data-1`](https://noqtis.dev/spec/data/).
 
 ## Record the sources
 
@@ -77,7 +74,7 @@ chi-square of homogeneity for the others, Benford's first-digit test.
 It exits `0` when nothing drifted, `1` when a column failed and `3`
 when one only warned, for CI. The definitions, the levels and the
 measured error of the sketch are in
-[noqtis-drift(1)](/noqtis/reference/man/noqtis-drift-1/).
+[noqtis-drift(1)](https://noqtis.dev/reference/man/noqtis-drift-1/).
 
 ## Compare two capsules
 

@@ -9,7 +9,7 @@ on:
       - "bindings/r/**"
       - "src/**"
       - "include/**"
-      - "docs/site/src/content/docs/guides/r.md"
+      - "docs/guides/r.md"
       - "docs/examples/guide.py"
       - ".github/workflows/r.yml"
   pull_request:
@@ -17,7 +17,7 @@ on:
       - "bindings/r/**"
       - "src/**"
       - "include/**"
-      - "docs/site/src/content/docs/guides/r.md"
+      - "docs/guides/r.md"
       - "docs/examples/guide.py"
       - ".github/workflows/r.yml"
   workflow_dispatch:
