@@ -47,6 +47,7 @@ export NQSLSUB=8 NQFAST=1
 %license LICENSE NOTICE
 %doc README.md
 %{_libdir}/libnoqtis.so.0{,.*}
+%{_libdir}/libnqd.so.0{,.*}
 %{_bindir}/noqtis
 %{_mandir}/man1/*
 %{_datadir}/bash-completion/completions/noqtis
@@ -59,7 +60,9 @@ export NQSLSUB=8 NQFAST=1
 
 %files devel
 %{_includedir}/noqtis.h
+%{_includedir}/nqd.h
 %{_libdir}/libnoqtis.so
+%{_libdir}/libnqd.so
 %{_libdir}/pkgconfig/noqtis.pc
 %{_libdir}/cmake/noqtis/
 %{_mandir}/man3/*

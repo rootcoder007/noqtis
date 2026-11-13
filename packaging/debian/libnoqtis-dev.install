@@ -1,5 +1,7 @@
 usr/include/noqtis.h
+usr/include/nqd.h
 usr/lib/*/libnoqtis.so
+usr/lib/*/libnqd.so
 usr/lib/*/pkgconfig/noqtis.pc
 usr/lib/*/cmake/noqtis
 usr/share/man/man3/*
