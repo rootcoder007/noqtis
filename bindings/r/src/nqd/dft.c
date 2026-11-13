@@ -596,6 +596,22 @@ int nqdstats(const char *dir, const char *path, const nqdcsvopt *o,
     rc = NQEMEM;
     goto out;
   }
+  /* how the file was read, when not the default, so that it can be
+   * read the same way again (nqdchk, nqddrift) */
+  if (o != NULL && o->delim && o->delim != ',') {
+    char dd[2];
+    dd[0] = o->delim;
+    dd[1] = '\0';
+    if (qdjset(e, "delim", qdjstr(dd)) != NQOK) {
+      rc = NQEMEM;
+      goto out;
+    }
+  }
+  if (o != NULL && o->noheader &&
+      qdjset(e, "header", qdjnew(DJFALSE)) != NQOK) {
+    rc = NQEMEM;
+    goto out;
+  }
   for (i = 0; i < nc && rc == NQOK; i++) {
     djs *k = qdjnew(DJOBJ);
     if (k == NULL || qdjset(k, "name", qdjstr(cs[i].name)) != NQOK ||
@@ -895,6 +911,7 @@ int nqddrift(const char *stats, size_t n, const char *file,
   int rc, bad = 0;
   const djs *cols;
   nqddopt d;
+  nqdcsvopt co;
   if (stats == NULL || file == NULL || out == NULL)
     return NQEARG;
   *out = NULL;
@@ -920,7 +937,18 @@ int nqddrift(const char *stats, size_t n, const char *file,
     *out = rep;
     return NQEVRFY;
   }
-  rc = readcols(file, o, &cs, &nc, &rows, why, sizeof why);
+  /* the file is read as the reference was, unless the caller says */
+  memset(&co, 0, sizeof co);
+  if (o != NULL)
+    co = *o;
+  {
+    const djs *dl = qdjget(st, "delim"), *hd = qdjget(st, "header");
+    if (!co.delim && dl != NULL)
+      co.delim = dl->s[0];
+    if (hd != NULL && hd->t == DJFALSE)
+      co.noheader = 1;
+  }
+  rc = readcols(file, &co, &cs, &nc, &rows, why, sizeof why);
   if (rc != NQOK) {
     qdjfree(st);
     if (rc == NQEMEM) {

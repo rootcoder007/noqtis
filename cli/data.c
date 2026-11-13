@@ -419,6 +419,15 @@ static const char *dfix(const char *check) {
     return "the data drifted from its summary: look at the column, and if "
            "the change is expected pin the new data (`noqtis drift pin`) "
            "and seal again";
+  if (strcmp(check, "stats") == 0)
+    return "the file's summaries are not those recorded: the file changed "
+           "(see `noqtis drift check`), or was pinned read another way; "
+           "pin it again with `noqtis drift pin` if the change is expected, "
+           "and seal again";
+  if (strcmp(check, "step") == 0)
+    return "the script or mapping of a step changed: restore it, or record "
+           "the step again with the new SHA-256 (`noqtis hash`) and seal "
+           "again";
   if (strcmp(check, "schema") == 0 || strcmp(check, "rule") == 0)
     return "the file does not match its schema: correct the data, or pin a "
            "new schema with `noqtis schema infer` and seal again";

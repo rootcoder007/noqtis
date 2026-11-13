@@ -65,6 +65,8 @@ static int xsch(const djs *o, char *why, size_t cap, const char *at);
 static int xstc(const djs *o, char *why, size_t cap, const char *at);
 static int xrule(const djs *o, char *why, size_t cap, const char *at);
 static int xcol(const djs *o, char *why, size_t cap, const char *at);
+static int xst(const djs *o, char *why, size_t cap, const char *at);
+static int xchk(const djs *o, char *why, size_t cap, const char *at);
 
 static const dfld frng[] = {{"max", VINT, 0, NULL, NULL, 0},
                             {"min", VINT, 0, NULL, NULL, 0}};
@@ -131,9 +133,11 @@ static const dfld fstc[] = {{"cats", VPSI, 0, NULL, NULL, 0},
                             {"q", VPNI, 0, NULL, NULL, 0}};
 static const dkind kstc = {fstc, N(fstc), xstc};
 static const dfld fst[] = {{"columns", VARR, 0, &kstc, "name", 2},
+                           {"delim", VSTR, 0, NULL, NULL, 0},
+                           {"header", VBOOL, 0, NULL, NULL, 0},
                            {"path", VPATH, 1, NULL, NULL, 0},
                            {"rows", VINT, 1, NULL, NULL, 0}};
-static const dkind kst = {fst, N(fst), NULL};
+static const dkind kst = {fst, N(fst), xst};
 static const dfld fpkg[] = {{"name", VSTR, 1, NULL, NULL, 0},
                             {"source", VSTR, 0, NULL, NULL, 0},
                             {"version", VSTR, 0, NULL, NULL, 0}};
@@ -173,7 +177,7 @@ static const dfld fchk[] = {{"expected", VNS, 0, NULL, NULL, 0},
                             {"observed", VNS, 0, NULL, NULL, 0},
                             {"status", VENUM, 1, estat, NULL, 0},
                             {"tol", VNUM, 0, NULL, NULL, 0}};
-static const dkind kchk = {fchk, N(fchk), NULL};
+static const dkind kchk = {fchk, N(fchk), xchk};
 static const dfld fcmt[] = {{"after", VTIME, 0, NULL, NULL, 0},
                             {"alg", VENUM, 1, ealg, NULL, 0},
                             {"created", VTIME, 1, NULL, NULL, 0},
@@ -490,9 +494,8 @@ static int vobj(djs *o, const dkind *kd, int fix, char *why, size_t cap,
 
 /* ---- checks across members ---- */
 
-static int xsch(const djs *o, char *why, size_t cap, const char *at) {
+static int delimok(const djs *o, char *why, size_t cap, const char *at) {
   const djs *d = qdjget(o, "delim");
-  const djs *r = qdjget(o, "rows");
   if (d != NULL && (d->sl != 1 || d->s[0] == '"' || d->s[0] == '\r' ||
                     d->s[0] == '\n')) {
     qdwhy(why, cap,
@@ -501,6 +504,26 @@ static int xsch(const djs *o, char *why, size_t cap, const char *at) {
          at);
     return NQEDEC;
   }
+  return NQOK;
+}
+
+static int xst(const djs *o, char *why, size_t cap, const char *at) {
+  return delimok(o, why, cap, at);
+}
+
+static int xchk(const djs *o, char *why, size_t cap, const char *at) {
+  const djs *t = qdjget(o, "tol");
+  if (t != NULL && !(t->d >= 0)) {
+    qdwhy(why, cap, "%s.tol: a tolerance is at least 0", at);
+    return NQEDEC;
+  }
+  return NQOK;
+}
+
+static int xsch(const djs *o, char *why, size_t cap, const char *at) {
+  const djs *r = qdjget(o, "rows");
+  if (delimok(o, why, cap, at) != NQOK)
+    return NQEDEC;
   if (r != NULL) {
     int64_t lo = 0, hi = 0;
     if (qdjint(qdjget(r, "min"), &lo) && qdjint(qdjget(r, "max"), &hi) &&

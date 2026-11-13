@@ -221,6 +221,82 @@ printf 'x,c,b\n1,a\n' >"$w/ragged.csv"
 ok 1 "drift check ragged" "$nq" drift check "$f" "data/a.csv=$w/ragged.csv"
 has "$w/out" "line 2 has 2 fields" "ragged says the line"
 
+# ---- data check recomputes what the record holds ----
+
+ok 0 "data check: summaries recompute" "$nq" data check "$f"
+has "$w/out" "data/a.csv: the summaries recompute from the file" "stats row"
+cp "$f/data/a.csv" "$w/keepa.csv"
+cp "$v/drift/cur.csv" "$f/data/a.csv"
+ok 1 "data check: summaries differ" "$nq" data check "$f"
+has "$w/out" "data/a.csv: the recorded summaries are not those of the file (column" "stats row fails"
+has "$w/err" "noqtis drift pin" "stats row says what to do"
+cp "$w/keepa.csv" "$f/data/a.csv"
+printf 'a;b\n1;x\n2;y\n3;x\n' >"$f/data/s.csv"
+printf '1,x\n2,y\n' >"$f/data/h.csv"
+ok 0 "drift pin -d ;" "$nq" drift pin -d ';' "$f" data/s.csv
+ok 0 "drift pin --no-header" "$nq" drift pin --no-header "$f" data/h.csv
+ok 0 "show: pinned read options" "$nq" data show "$f"
+has "$w/out" '"delim":";","path":"data/s.csv"' "stats keeps its delimiter"
+has "$w/out" '"header":false,"path":"data/h.csv"' "stats keeps no header"
+ok 0 "data check reads them the same way" "$nq" data check "$f"
+has "$w/out" "data/s.csv: the summaries recompute" "delimiter used"
+has "$w/out" "data/h.csv: the summaries recompute" "no header used"
+ok 0 "drift check reads them the same way" "$nq" drift check "$f" \
+  data/s.csv data/h.csv
+has "$w/out" "data/s.csv: b: n 3 then 3" "drift reads with the delimiter"
+
+k2=$w/rec
+mkdir -p "$k2"
+ok 0 "rec: init" "$nq" data init "$k2"
+printf '{"name":"total","status":"pass","expected":1204,"observed":1203.5,"tol":0.5}' \
+  >"$w/c1.json"
+ok 0 "rec: put a check within tol" "$nq" data put "$k2" checks "$w/c1.json"
+ok 0 "rec: check recomputed, holds" "$nq" data check "$k2"
+has "$w/out" "total: pass (observed 1203.5, expected 1204, tolerance 0.5: holds)" "holds"
+printf '{"name":"total","status":"pass","expected":1204,"observed":1203.5,"tol":0.4}' \
+  >"$w/c1.json"
+ok 0 "rec: put a check over tol" "$nq" data put "$k2" checks "$w/c1.json"
+ok 1 "rec: pass that does not hold fails" "$nq" data check "$k2"
+has "$w/out" "total: recorded as pass, but observed 1203.5 and expected 1204 differ by more than 0.4" "over tol"
+printf '{"name":"total","status":"pass","expected":1204,"observed":1203.5}' \
+  >"$w/c1.json"
+ok 0 "rec: put a check, no tol" "$nq" data put "$k2" checks "$w/c1.json"
+ok 1 "rec: no tol is 0" "$nq" data check "$k2"
+has "$w/out" "differ by more than 0" "tol 0"
+printf '{"name":"total","status":"warn","expected":1204,"observed":1203.5}' \
+  >"$w/c1.json"
+ok 0 "rec: put a warning" "$nq" data put "$k2" checks "$w/c1.json"
+ok 0 "rec: a warning passes" "$nq" data check "$k2"
+has "$w/out" "total: warn (observed 1203.5, expected 1204, tolerance 0: does not hold)" "warn row"
+printf '{"name":"code","status":"pass","expected":"AB","observed":"Ab"}' \
+  >"$w/c2.json"
+ok 0 "rec: put a string check" "$nq" data put "$k2" checks "$w/c2.json"
+ok 1 "rec: strings differ" "$nq" data check "$k2"
+has "$w/out" 'code: recorded as pass, but observed "Ab" is not expected "AB"' "strings"
+printf '{"name":"code","status":"pass","expected":"AB","observed":"AB"}' \
+  >"$w/c2.json"
+ok 0 "rec: put it equal" "$nq" data put "$k2" checks "$w/c2.json"
+ok 0 "rec: strings equal" "$nq" data check "$k2"
+has "$w/out" "code: pass (observed and expected equal)" "strings equal"
+printf '{"name":"t","status":"pass","expected":1,"observed":1,"tol":-1}' \
+  >"$w/c3.json"
+ok 2 "rec: a negative tol" "$nq" data put "$k2" checks "$w/c3.json"
+has "$w/err" "a tolerance is at least 0" "negative tol refused"
+printf 'from,to\n1,a\n2,b\n' >"$k2/map.csv"
+hm=$("$nq" hash <"$k2/map.csv" | cut -c1-64)
+printf '{"kind":"recode","from":"code","to":"label","script":"map.csv","sha256":"%s"}' \
+  "$hm" >"$w/s1.json"
+ok 0 "rec: put a recode step" "$nq" data put "$k2" steps "$w/s1.json"
+ok 0 "rec: the mapping checks" "$nq" data check "$k2"
+has "$w/out" "step 1 (recode code -> label): map.csv has its recorded SHA-256" "step row"
+printf '3,c\n' >>"$k2/map.csv"
+ok 1 "rec: a changed mapping fails" "$nq" data check "$k2"
+has "$w/out" "step 1 (recode code -> label): map.csv has SHA-256" "changed step"
+has "$w/err" "the script or mapping of a step changed" "step says what to do"
+rm "$k2/map.csv"
+ok 1 "rec: a missing mapping fails" "$nq" data check "$k2"
+has "$w/out" "map.csv missing or unreadable" "missing step"
+
 # ---- diff ----
 
 d1=$w/d1
