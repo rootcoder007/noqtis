@@ -152,15 +152,12 @@ int qdfdig(const char *s, size_t n);
 #define QDCSVFIELD ((size_t)1 << 20)  /* bytes in a field */
 #define QDCSVREC ((size_t)16 << 20)   /* bytes in a record */
 #define QDCSVNF ((size_t)16384)       /* fields in a record */
-#ifndef QDCSVBUF
-#define QDCSVBUF 65536 /* the read buffer (smaller in the CBMC proof) */
-#endif
 
 typedef struct {
   int (*rd)(void *u, char *b, size_t cap, size_t *got);
   void *u;
   int own; /* 1: u is a FILE to close; 2: memory to free */
-  char buf[QDCSVBUF];
+  char buf[65536];
   size_t bn, bi;
   int eof, bom;
   char delim;

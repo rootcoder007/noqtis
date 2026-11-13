@@ -10,15 +10,6 @@
 
 #include <string.h>
 
-/* the first sizes of the record and offset buffers (smaller in the CBMC
- * proof, proofs/cbmc/dcsv.c) */
-#ifndef QDCSVCAP
-#define QDCSVCAP 1024
-#endif
-#ifndef QDCSVOFF
-#define QDCSVOFF 32
-#endif
-
 static int fill(qdcsv *c) {
   size_t got = 0;
   int rc;
@@ -118,7 +109,7 @@ static int putb(qdcsv *c, char b) {
   if (c->reclen + 1 >= c->maxrec)
     return NQELIM;
   if (c->reclen + 2 > c->reccap) {
-    size_t nc = c->reccap ? c->reccap * 2 : QDCSVCAP;
+    size_t nc = c->reccap ? c->reccap * 2 : 1024;
     char *n;
     if (nc > c->maxrec + 1)
       nc = c->maxrec + 1;
@@ -150,7 +141,7 @@ static int endf(qdcsv *c, size_t start) {
   if (c->nf >= c->maxfields)
     return NQELIM;
   if (c->nf == c->offcap) {
-    size_t nc = c->offcap ? c->offcap * 2 : QDCSVOFF, i;
+    size_t nc = c->offcap ? c->offcap * 2 : 32, i;
     size_t *n = (size_t *)qdmal(nc * sizeof *n);
     if (n == NULL)
       return NQEMEM;
