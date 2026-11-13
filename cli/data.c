@@ -1494,13 +1494,82 @@ int ncdiff(int argc, char **argv) {
   return rc == NQOK ? NCOK : rc == NQEVRFY ? NCBAD : NCUSE;
 }
 
+/* a whole number option from 0 to 2^64 - 1 */
+static int optu64(const char *cmd, const char *name, const char *v,
+                  uint64_t *out) {
+  uint64_t x = 0;
+  const char *q;
+  if (v == NULL)
+    return NCOK;
+  for (q = v; *q; q++) {
+    unsigned d = (unsigned)(*q - '0');
+    if (*q < '0' || *q > '9' || x > (UINT64_MAX - d) / 10) {
+      ncmsg(cmd, "%s %s: a whole number from 0 to 18446744073709551615",
+            name, v);
+      return NCUSE;
+    }
+    x = x * 10 + d;
+  }
+  if (q == v) {
+    ncmsg(cmd, "%s: a whole number", name);
+    return NCUSE;
+  }
+  *out = x;
+  return NCOK;
+}
+
+static int dsyn(int argc, char **argv) {
+  const char *sd = NULL, *rw = NULL;
+  int np, help, rc;
+  uint64_t seed = 0, rows = 0;
+  nqdrec *r = NULL;
+  char why[600];
+  ncopt o[] = {{0, "seed", 1, &sd, NULL}, {0, "rows", 1, &rw, NULL}};
+  if (ncargs("data syn", argc, argv, o, 2, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "data");
+    return NCOK;
+  }
+  if (np != 2) {
+    ncmsg("data syn", "give the folder and the CSV file to make");
+    return NCUSE;
+  }
+  if (sd == NULL) {
+    ncmsg("data syn", "give --seed: the same seed makes the same file");
+    return NCUSE;
+  }
+  if (optu64("data syn", "--seed", sd, &seed) != NCOK ||
+      optu64("data syn", "--rows", rw, &rows) != NCOK)
+    return NCUSE;
+  if ((rc = ncdload("data syn", argv[0], 0, &r)) != NCOK)
+    return rc;
+  why[0] = '\0';
+  rc = nqdsyn(r, argv[0], argv[1], seed, rows, why, sizeof why);
+  if (rc != NQOK) {
+    ncmsg("data syn", "%s", why[0] ? why : nqerr(rc));
+    if (rc == NQEARG)
+      ncmsg("data syn", "the recipe is the file's schema: pin one with "
+            "`noqtis schema infer --put` or `noqtis data put %s schemas`",
+            argv[0]);
+    nqdrfree(r);
+    return NCUSE;
+  }
+  rc = ncdsave("data syn", argv[0], r);
+  if (rc == NCOK)
+    ncmsg("data syn", "wrote %s, synthetic, and recorded it as such",
+          argv[1]);
+  nqdrfree(r);
+  return rc;
+}
+
 int ncdata(int argc, char **argv) {
   static const struct {
     const char *v;
     int (*f)(int, char **);
   } vs[] = {{"init", dinit}, {"add", dadd},     {"put", dput},
             {"del", ddel},   {"fmt", dfmt},     {"show", dshow},
-            {"check", dcheck}};
+            {"check", dcheck}, {"syn", dsyn}};
   size_t i;
   if (argc < 2 || strcmp(argv[1], "-h") == 0 ||
       strcmp(argv[1], "--help") == 0) {
@@ -1510,7 +1579,7 @@ int ncdata(int argc, char **argv) {
   for (i = 0; i < sizeof vs / sizeof vs[0]; i++)
     if (strcmp(argv[1], vs[i].v) == 0)
       return vs[i].f(argc - 1, argv + 1);
-  ncmsg("data", "unknown action %s (init, add, put, del, fmt, show, check)",
-        argv[1]);
+  ncmsg("data", "unknown action %s (init, add, put, del, fmt, show, check, "
+        "syn)", argv[1]);
   return NCUSE;
 }

@@ -1,0 +1,1 @@
+{"path":"data/s.csv","kind":"csv","rows":{"min":5},"columns":[{"name":"id","type":"int","min":1,"max":1000,"nulls":false},{"name":"x","type":"real","min":-1,"max":1,"nulls":true},{"name":"d","type":"date","min":"2020-02-27","max":"2020-03-02"},{"name":"f","type":"bool"},{"name":"c","type":"text","set":["a","b,c","d\"e"]},{"name":"t","type":"text","nulls":true}]}

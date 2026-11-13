@@ -383,6 +383,47 @@ has "$w/out" '^::error title=noqtis file::.*: noqtis.data.json' "changed file an
 has "$w/out" '"status":"failed","sealed":true,"total":25,"failed":2,"verified":1,"changed":1' "json counts on failure"
 has "$w/out" '"check":"data.recorded","ok":false,"detail":"50%\\u000ax: fail"' "json rows"
 
+# ---- synthetic data ----
+
+y=$w/syn
+mkdir -p "$y/data"
+ok 0 "syn: init" "$nq" data init "$y"
+ok 2 "syn: no seed" "$nq" data syn "$y" data/s.csv
+has "$w/err" "give --seed" "syn needs a seed"
+ok 2 "syn: no schema" "$nq" data syn --seed 7 "$y" data/s.csv
+has "$w/err" "no schema with columns" "syn needs a recipe"
+has "$w/err" "schema infer --put" "and says how to make one"
+ok 0 "syn: put the recipe" "$nq" data put "$y" schemas "$v/syn/schema.json"
+ok 2 "syn: a bad seed" "$nq" data syn --seed 18446744073709551616 "$y" data/s.csv
+ok 2 "syn: a bad row count" "$nq" data syn --seed 1 --rows -3 "$y" data/s.csv
+# s7.csv was written by tests/vectors/nqd/syn's recipe with seed 7 and
+# 16 rows by a separate implementation in Python (hashlib)
+ok 0 "syn: seed 7, 16 rows" "$nq" data syn --seed 7 --rows 16 "$y" data/s.csv
+same "$y/data/s.csv" "$v/syn/s7.csv" "syn is the reference vector"
+ok 0 "syn: marked synthetic" "$nq" data show "$y"
+has "$w/out" '"synthetic":true' "syn records the source as synthetic"
+ok 0 "syn: data check" "$nq" data check "$y"
+has "$w/out" "data/s.csv \[synthetic\]: 16 rows, 6 columns as the schema says" "syn fits its schema"
+ok 0 "syn: again, over the synthetic file" "$nq" data syn --seed 7 --rows 16 "$y" data/s.csv
+same "$y/data/s.csv" "$v/syn/s7.csv" "the same seed, the same bytes"
+ok 0 "syn: rows from the schema" "$nq" data syn --seed 7 "$y" data/s.csv
+ok 0 "syn: hash" sh -c '"$1" hash <"$2" >"$3"' sh "$nq" "$y/data/s.csv" "$w/h5"
+ok 1 "syn: 5 rows, so not s7" test "$("$nq" hash <"$v/syn/s7.csv")" = "$(cat "$w/h5")"
+ok 0 "syn: 3,000 rows" "$nq" data syn --seed 9 --rows 3000 "$y" data/s.csv
+ok 0 "syn: 3,000 rows fit the schema" "$nq" schema check "$y"
+has "$w/out" "data/s.csv: 3000 rows, 6 columns as the schema says" "every value fits"
+# real data is never replaced
+cp "$v/cap/data/a.csv" "$y/data/real.csv"
+printf '{"path":"data/real.csv","kind":"csv","columns":[{"name":"id","type":"int"}]}' >"$w/rs.json"
+ok 0 "syn: a schema for a real file" "$nq" data put "$y" schemas "$w/rs.json"
+ok 2 "syn: refuses an unrecorded file" "$nq" data syn --seed 1 "$y" data/real.csv
+has "$w/err" "the file is there and not recorded as synthetic" "unrecorded refused"
+ok 0 "syn: record the real file" "$nq" data add "$y" data/real.csv
+ok 2 "syn: refuses a real source" "$nq" data syn --seed 1 "$y" data/real.csv
+has "$w/err" "its source is not marked synthetic" "real source refused"
+same "$y/data/real.csv" "$v/cap/data/a.csv" "the real file is untouched"
+ok 2 "syn: refuses a path outside" "$nq" data syn --seed 1 "$y" ../x.csv
+
 # ---- seal -r, check -r ----
 
 t=$w/tree

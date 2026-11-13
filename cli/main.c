@@ -212,6 +212,7 @@ static const nccmd cmds[] = {
    "       noqtis data fmt <dir>\n"
    "       noqtis data show [--json] <dir>\n"
    "       noqtis data check [--json] <dir>\n"
+   "       noqtis data syn --seed <n> [--rows <n>] <dir> <file>\n"
    "  The data record, noqtis.data.json in the capsule folder, says where\n"
    "  each file came from, its schema and summaries (noqtis-data(5)). Seal\n"
    "  the folder after changing it: the seal lists it like any file.\n"
@@ -225,6 +226,9 @@ static const nccmd cmds[] = {
    "  fmt    rewrite a record edited by hand in canonical form\n"
    "  show   print the record, one element a line (--json: as it is)\n"
    "  check  check the record and each file it lists against it\n"
+   "  syn    write a synthetic <file> from its schema in the record (the\n"
+   "         recipe), the same for the same seed, and record it as\n"
+   "         synthetic; never in place of a file not marked synthetic\n"
    "  Exit 0 when every check passes, 1 when one fails, 2 on a usage or\n"
    "  file error.\n"},
   {"schema", ncschema, "pin and check the schema of CSV files",
