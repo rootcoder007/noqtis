@@ -17,6 +17,12 @@ foreach(t ${NQDTST})
   # the test holds nqd's sources itself: in a Windows DLL build nqd.h must
   # not declare them as imported from the DLL
   target_compile_definitions(${name} PRIVATE NQDBUILD)
+  if(WIN32 AND NQSHARED)
+    # Windows looks for noqtis-0.dll beside the program: build the test
+    # where the DLL is
+    set_target_properties(${name} PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+  endif()
   if(IOS)
     # as the tests of the library: simctl spawn starts a program in /, so
     # tests/cwd.c is main, moves to $NQCWD and calls the test's own main

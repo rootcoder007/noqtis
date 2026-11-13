@@ -44,12 +44,6 @@ option(NQSAN "Build with AddressSanitizer and UBSan" OFF)
 option(NQCOV "Build with gcov coverage counters" OFF)
 option(NQTESTS "Build the tests" ON)
 option(NQSHARED "Build a shared library instead of a static one" OFF)
-if(WIN32 AND NQSHARED)
-  # Windows looks for a DLL beside the program: the tool, the tests and
-  # both DLLs (noqtis, nqd) go to one folder, so each runs from the build
-  # tree
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
-endif()
 option(NQCLI "Build the noqtis command-line tool" ON)
 option(NQCT "Build the dudect and TVLA harnesses in ct/" OFF)
 option(NQTVLA "Compile the TVLA leakage hooks (a test build, never a release)" OFF)
