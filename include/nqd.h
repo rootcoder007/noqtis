@@ -133,6 +133,17 @@ NQDAPI int nqdinfer(const char *dir, const char *path, const nqdcsvopt *o,
 NQDAPI int nqdschk(const char *dir, const char *schema, size_t n,
                    nqdrep **rep);
 
+/* ---- differences ---- */
+
+/* What changed from the capsule in a to the one in b: one "file" row
+ * per file added, removed or changed in the manifests (when both are
+ * sealed), and one row per difference of their data records: sources,
+ * schemas (columns added, removed or retyped, rows), stats (counts,
+ * medians, the PSI between the two), env, steps, checks, commits, cite.
+ * Every difference is a failed row. NQOK when nothing differs,
+ * NQEVRFY otherwise, with *rep set. */
+NQDAPI int nqddiff(const char *a, const char *b, nqdrep **rep);
+
 /* ---- checking ---- */
 
 /* Checks the record in dir: that it parses and is canonical, that each

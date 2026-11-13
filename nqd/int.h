@@ -126,6 +126,12 @@ int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...)
     ;
 nqdrep *qdrepnew(void);
 
+/* ---- statistics ---- */
+
+/* PSI and Jensen-Shannon divergence of two count vectors (diff.c) */
+void qdpsi(const double *a, const double *b, size_t k, double *psi,
+           double *js);
+
 /* ---- CSV (csv.c) ---- */
 
 #define QDCSVFIELD ((size_t)1 << 20)  /* bytes in a field */
