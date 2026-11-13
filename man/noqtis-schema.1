@@ -83,6 +83,8 @@ the row count, and each rule
 .Ql incr ,
 .Ql complete ,
 .Ql distinct ,
+.Ql regex ,
+.Ql mad ,
 .Ql rows ,
 .Ql cols
 .Pc .
@@ -100,7 +102,11 @@ fields; a
 .Ql unique
 or
 .Ql distinct
-rule holds at most 2^25 distinct values.
+rule holds at most 2^25 distinct values, a
+.Ql mad
+rule at most 2^23 numbers, a
+.Ql regex
+pattern at most 1,024 bytes.
 .Sh EXIT STATUS
 .Bl -tag -width Ds -compact
 .It 0

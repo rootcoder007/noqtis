@@ -207,10 +207,85 @@ and its arguments:
 .Pq Cm col , Cm share : No at least that share not missing ,
 .Ql distinct
 .Pq Cm col , Cm min No and/or Cm max No distinct values ,
+.Ql regex
+.Pq Cm col , Cm pattern : No each value matches the pattern ,
+.Ql mad
+.Pq Cm col , Cm max : No no value further from the median than Cm max No times the scaled MAD ,
 .Ql rows
 and
 .Ql cols
 .Pq Cm min No and/or Cm max .
+.Pp
+A
+.Ql mad
+rule's scaled MAD is 1.4826 times the median of the absolute
+deviations from the median (R's
+.Fn mad ) ,
+and
+.Cm max
+is above 0; a value that is not a number fails, and when the scaled
+MAD is 0 every value other than the median fails.
+A
+.Ql regex
+rule's
+.Cm pattern
+(at most 1,024 bytes) passes a value when it matches some part of
+it; anchor it with
+.Ql ^
+and
+.Ql $
+to match the whole value.
+Its syntax is this subset, over Unicode code points (a byte that is
+not UTF-8 is one character, matched only by
+.Ql \&.
+and a negated class), and a reader MUST refuse anything else:
+a character stands for itself;
+.Ql \&.
+is any character, a line break too;
+.Ql ^
+and
+.Ql $
+match at the start and the end of the value;
+.Ql [...]
+is a class of characters and ranges
+.Ql a-z ,
+.Ql [^...]
+its complement,
+.Ql -
+first or last is itself, and
+.Ql \e\e ,
+.Ql \e] ,
+.Ql \e- ,
+.Ql \e[
+and
+.Ql \e^
+are those characters in a class;
+.Ql \ed ,
+.Ql \ew
+and
+.Ql \es
+are the ASCII digits, word characters (digits, letters,
+.Ql _ )
+and white space (tab, line feed, vertical tab, form feed, carriage
+return, space), in a class too;
+a backslash before one of
+.Ql \e.[](){}|*+?^$-/
+makes it itself;
+.Ql * ,
+.Ql +
+and
+.Ql \&?
+repeat what is before them zero or more times, once or more and at most
+once;
+.Ql |
+separates alternatives and
+.Ql (...)
+groups, at most 64 deep.
+.Ql { ,
+.Ql }
+and an unescaped
+.Ql \&]
+are refused, as are an empty pattern, group, alternative or class.
 .It Cm stats
 Summaries kept to detect drift later without keeping the data
 .Pq Xr noqtis-drift 1 .

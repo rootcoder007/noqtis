@@ -45,15 +45,27 @@ row count and, with `--ranges`, each number and date range. Rules are
 part of a file's schema element, which `data put` replaces whole: take
 the pinned one (`noqtis data show --json`), add `rules`, and put it
 back. A schema of rules alone, as here, checks only them: that `id` is
-unique and `year` within bounds.
+unique, `year` within bounds, every `code` two capitals, a dash and
+two digits, and no `count` further from the median than 5 robust
+standard deviations (5 times 1.4826 times the median absolute
+deviation).
 
 ```sh
 noqtis data put results schemas - <<'EOF2'
 {"path":"data/crime.csv","kind":"csv","rules":[
  {"kind":"unique","col":"id"},
- {"kind":"range","col":"year","min":1998,"max":2026}]}
+ {"kind":"range","col":"year","min":1998,"max":2026},
+ {"kind":"regex","col":"code","pattern":"^[A-Z][A-Z]-\\d\\d$"},
+ {"kind":"mad","col":"count","max":5}]}
 EOF2
 ```
+
+The other rules are `notnull`, `set`, `incr` (each value at least the
+one before), `complete` (a share not missing), `distinct` (a number of
+distinct values), `rows` and `cols`. A `regex` pattern is a small
+subset (literals, classes, `.`, `^`, `$`, `*`, `+`, `?`, `|`, groups),
+matched anywhere in the value unless anchored, in time linear in the
+value whatever the pattern.
 
 ## Find drift later, without the old data
 
