@@ -31,7 +31,7 @@ JavaScript, R, Rust, Go and Java.
 > An independent audit through OSTIF has been applied for, and is open for
 > [funding](https://app.lfx.dev/crowdfunding/initiatives/noqtis-security-audit-of-a-post-quantum-signing-and-provenance-library-in-c11).
 > How it is tested, and the test-vector results, are on the
-> [security page](https://rootcoder007.github.io/noqtis/security/#test-vectors).
+> [security page](https://noqtis.dev/security/#test-vectors).
 
 
 ```sh
@@ -57,8 +57,8 @@ noqtis check -p me.pub results/         # exit 1: "report.txt: size differs"
 
 It does **not** prove that a result is correct, when it was sealed
 (without a timestamp), or who owns a key: see
-[what a check proves](https://rootcoder007.github.io/noqtis/guides/others/)
-and the [threat model](https://rootcoder007.github.io/noqtis/security/).
+[what a check proves](https://noqtis.dev/guides/others/)
+and the [threat model](https://noqtis.dev/security/).
 
 ## Built to last
 
@@ -82,7 +82,7 @@ and the [threat model](https://rootcoder007.github.io/noqtis/security/).
 ## Install
 
 Every channel, with its status, is on the
-[install page](https://rootcoder007.github.io/noqtis/start/install/).
+[install page](https://noqtis.dev/start/install/).
 In short:
 
 | Platform | From source | Packages |
@@ -133,17 +133,17 @@ nqrepfree(rep);
 
 ## Documentation
 
-- The site: <https://rootcoder007.github.io/noqtis/> (sources in
+- The site: <https://noqtis.dev/> (sources in
   `docs/site`): getting started, guides, a tutorial for
-  [C](https://rootcoder007.github.io/noqtis/guides/c/),
-  [Python](https://rootcoder007.github.io/noqtis/guides/py/),
-  [JavaScript](https://rootcoder007.github.io/noqtis/guides/js/),
-  [R](https://rootcoder007.github.io/noqtis/guides/r/),
-  [Rust](https://rootcoder007.github.io/noqtis/guides/rust/),
-  [Go](https://rootcoder007.github.io/noqtis/guides/go/) and
-  [Java](https://rootcoder007.github.io/noqtis/guides/java/), the capsule format,
+  [C](https://noqtis.dev/guides/c/),
+  [Python](https://noqtis.dev/guides/py/),
+  [JavaScript](https://noqtis.dev/guides/js/),
+  [R](https://noqtis.dev/guides/r/),
+  [Rust](https://noqtis.dev/guides/rust/),
+  [Go](https://noqtis.dev/guides/go/) and
+  [Java](https://noqtis.dev/guides/java/), the capsule format,
   the C, Python, JavaScript and R API references, the command line, and
-  [why post-quantum provenance now](https://rootcoder007.github.io/noqtis/explain/why/).
+  [why post-quantum provenance now](https://noqtis.dev/explain/why/).
 - Manual pages, installed with the library: `man noqtis`, `man noqtis-seal`,
   `man noqtis-inspect`, `man noqtis-timestamp`,
   `man nqsign`, `man noqtis-capsule` (sources in [man/](man/)).

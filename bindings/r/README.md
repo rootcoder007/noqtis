@@ -30,4 +30,4 @@ attr(nqcheck(d, k$pk), "ok")
 ```
 
 The guide, with signatures, KEMs and partial checks:
-https://rootcoder007.github.io/noqtis/guides/r/
+https://noqtis.dev/guides/r/

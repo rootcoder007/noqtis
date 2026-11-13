@@ -405,9 +405,9 @@ Kept in the repository, so it is reviewed and tested like the code.
   change that would break programs compiled against an earlier version
   fails unless the major version changes. Each release publishes the
   report.
-- **Site:** Astro Starlight, built in CI and published on GitHub Pages
-  (`rootcoder007.github.io/noqtis`; a custom domain can be attached
-  later). It is dark unless the reader picks light. It carries getting started per platform,
+- **Site:** Astro Starlight, published at `noqtis.dev`; CI also builds
+  it and publishes the same pages on GitHub Pages
+  (`rootcoder007.github.io/noqtis`). It is dark unless the reader picks light. It carries getting started per platform,
   guides (sealing, checking someone else's capsule, keys, timestamps, CI),
   the versioned capsule format specification, the API reference rendered
   from the man pages, the binding references, the security page (threat

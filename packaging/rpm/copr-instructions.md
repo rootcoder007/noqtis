@@ -7,4 +7,4 @@ sudo dnf install noqtis          # the tool and the library
 sudo dnf install noqtis-devel    # the header, for building against it
 ```
 
-Guides: https://rootcoder007.github.io/noqtis/
+Guides: https://noqtis.dev/

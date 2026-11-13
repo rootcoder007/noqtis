@@ -25,7 +25,7 @@ date-released: 2026-11-01
 license: Apache-2.0
 license-url: "https://github.com/rootcoder007/noqtis/blob/main/LICENSE"
 repository-code: "https://github.com/rootcoder007/noqtis"
-url: "https://rootcoder007.github.io/noqtis/"
+url: "https://noqtis.dev/"
 keywords:
   - post-quantum cryptography
   - digital signatures
