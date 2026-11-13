@@ -1,0 +1,170 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NOQTIS-DATA 1
+.Os
+.Sh NAME
+.Nm noqtis-data
+.Nd make, show and check a capsule's data record
+.Sh SYNOPSIS
+.Nm noqtis data init
+.Op Fl f | Fl -force
+.Ar dir
+.Nm noqtis data add
+.Op Fl u | Fl -url Ar url
+.Op Fl -title Ar text
+.Op Fl -publisher Ar text
+.Op Fl -licence Ar text
+.Op Fl -retrieved Ar time | Cm now
+.Op Fl -etag Ar text
+.Op Fl -modified Ar text
+.Op Fl -archived Ar url
+.Op Fl -mirror Ar url ...
+.Op Fl -synthetic
+.Ar dir file ...
+.Nm noqtis data put
+.Ar dir member json-file | Cm -
+.Nm noqtis data del
+.Ar dir member
+.Op Ar path | name
+.Nm noqtis data fmt
+.Ar dir
+.Nm noqtis data show
+.Op Fl j | Fl -json
+.Ar dir
+.Nm noqtis data check
+.Op Fl j | Fl -json
+.Ar dir
+.Sh DESCRIPTION
+The data record,
+.Pa noqtis.data.json
+in a capsule folder
+.Pq Xr noqtis-data 5 ,
+says where each data file came from, its schema and summaries, and the
+steps and checks made with it.
+It is a file of the capsule like any other: seal the folder
+.Pq Xr noqtis-seal 1
+after changing the record, and the seal covers it.
+Each command that changes the record of a sealed folder says so.
+.Bl -tag -width Ds
+.It Cm init
+Writes a record that holds only its format.
+.Fl f
+replaces a record that is there.
+.It Cm add
+Records the SHA-256 and size of each
+.Ar file
+(a path in
+.Ar dir ,
+.Ql /
+between folders) as a source, keeping what the record already says of
+it, so a file fetched again keeps its URL.
+A folder with no record gets a new one.
+The options describe where one file came from:
+.Fl -url ,
+.Fl -title ,
+.Fl -publisher ,
+.Fl -licence ,
+.Fl -retrieved
+(a UTC time
+.Ql YYYY-MM-DDTHH:MM:SSZ ,
+or
+.Cm now :
+the clock, or
+.Ev SOURCE_DATE_EPOCH
+when set),
+.Fl -etag
+and
+.Fl -modified
+(the server's ETag and Last-Modified),
+.Fl -archived
+(the URL of an archived copy),
+.Fl -mirror
+(another URL with the same bytes, up to 32), and
+.Fl -synthetic
+(the file is a generated stand-in: every report line about it says so).
+.It Cm put
+Adds the element in
+.Ar json-file
+.Pf ( Cm -
+for standard input) to
+.Ar member :
+.Cm sources ,
+.Cm schemas ,
+.Cm stats
+(replacing the element with the same path),
+.Cm checks
+(the same name),
+.Cm steps ,
+.Cm commits
+(appended), or sets
+.Cm env
+or
+.Cm cite .
+The element is checked as the format defines it; a refusal names the
+member and what is wrong.
+.It Cm del
+Removes the element of
+.Ar member
+with that path or name, or the whole member.
+.It Cm fmt
+Reads a record edited by hand (any member order, keyed arrays in any
+order) and writes it in canonical form.
+.It Cm show
+Prints the record, one element a line;
+.Fl j
+prints it as it is.
+.It Cm check
+Checks the record: that it is canonical and of the format, that each
+source file is there with its recorded SHA-256 and size, that each
+schema's file matches it, and that no recorded check failed.
+It prints one row per check and, on standard error, what to do about
+each kind of failure.
+.Fl j
+prints one line of JSON:
+.Bd -literal
+{"folder":"<dir>","ok":<bool>,"checks":[{"check":"<name>",
+ "ok":<bool>,"detail":"<text>"[,"fix":"<text>"]},...]}
+.Ed
+.El
+.Pp
+.Cm noqtis data check
+does not check the seal, and
+.Xr noqtis-check 1
+does not read the record: run both.
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev SOURCE_DATE_EPOCH
+the time
+.Fl -retrieved Cm now
+records, in seconds since 1970
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+success; for
+.Cm check ,
+every check passed
+.It 1
+.Cm check :
+a check failed
+.It 2
+a usage or file error, or a record that is not valid
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis data add --url https://example.org/a.csv \e
+    --retrieved now results data/a.csv
+$ noqtis data check results
+      check   detail
+ok    record  noqtis-data-1, canonical: 1 sources, 0 schemas
+ok    source  data/a.csv: SHA-256 and size match
+results: OK (2 checks passed)
+$ noqtis seal -k key results
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqdchk 3 ,
+.Xr nqdnew 3 ,
+.Xr noqtis-data 5

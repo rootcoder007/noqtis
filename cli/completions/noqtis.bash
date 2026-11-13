@@ -18,7 +18,7 @@ _noqtis() {
   prev=${COMP_WORDS[COMP_CWORD-1]}
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=($(compgen -W "keygen sign verify enc dec hash seal check
-      prove export rotate revoke idcard inspect timestamp ers algs selftest version -V
+      prove export rotate revoke idcard inspect timestamp ers data algs selftest version -V
       --version" -- "$cur"))
     return
   fi
@@ -71,6 +71,13 @@ _noqtis() {
     inspect) opts="-j --json" ;;
     timestamp) opts="--tsa --anchor --force" ;;
     ers) opts="--tsa --anchor --hash" ;;
+    data)
+      if [ "$COMP_CWORD" -eq 2 ]; then
+        COMPREPLY=($(compgen -W "init add put del fmt show check" -- "$cur"))
+        return
+      fi
+      opts="-f --force -u --url --title --publisher --licence --retrieved
+        --etag --modified --archived --mirror --synthetic -j --json" ;;
     *) return ;;
   esac
   if [[ $cur == -* ]]; then
@@ -79,6 +86,7 @@ _noqtis() {
     case $cmd in
       seal | check | inspect | timestamp | ers | export)
         COMPREPLY=($(compgen -d -- "$cur")) ;;
+      data) COMPREPLY=($(compgen -d -- "$cur") $(compgen -f -- "$cur")) ;;
       prove) COMPREPLY=($(compgen -d -- "$cur") $(compgen -f -- "$cur")) ;;
       *) COMPREPLY=($(compgen -f -- "$cur")) ;;
     esac

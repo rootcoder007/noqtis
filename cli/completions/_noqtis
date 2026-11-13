@@ -121,6 +121,22 @@ _noqtis_cmd() {
         '*--anchor[trusted root certificate]:der-file:_files' \
         '--force[replace an existing timestamp]' \
         ':dir:_files -/' ;;
+    data)
+      _arguments \
+        '1:action:(init add put del fmt show check)' \
+        '(-f --force)'{-f,--force}'[replace the record (init)]' \
+        '(-u --url)'{-u,--url=}'[where the file came from]:url:_urls' \
+        '--title=[its title]:text:' \
+        '--publisher=[its publisher]:text:' \
+        '--licence=[its licence]:text:' \
+        '--retrieved=[when, YYYY-MM-DDTHH:MM:SSZ or now]:time:' \
+        '--etag=[the server'"'"'s ETag]:text:' \
+        '--modified=[the server'"'"'s Last-Modified]:text:' \
+        '--archived=[an archived copy]:url:_urls' \
+        '*--mirror=[another URL with the same bytes]:url:_urls' \
+        '--synthetic[a generated stand-in]' \
+        '(-j --json)'{-j,--json}'[JSON output]' \
+        '*:path:_files' ;;
     ers)
       _arguments \
         '*--tsa[RFC 3161 timestamp authority]:url:_urls' \
@@ -141,5 +157,6 @@ _arguments -C \
     idcard\:"make or check an identity card"
     export\:"a capsule as in-toto, DSSE, RO-Crate or BagIt"
     inspect\:"show what a seal says" selftest\:"run the known-answer self-test" timestamp\:"add public timestamps" ers\:"start or renew an evidence record"
+    data\:"make, show and check a data record"
     algs\:"list the algorithms" version\:"print the version"))' \
   '*::arg:_noqtis_cmd'

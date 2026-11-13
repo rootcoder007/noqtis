@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers algs selftest version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -32,6 +32,7 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a inspect -d 'sho
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a selftest -d 'run the known-answer self-test'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a timestamp -d 'add public timestamps'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a ers -d 'start or renew an evidence record'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a data -d 'make, show and check a data record'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a algs -d 'list the algorithms'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a version -d 'print the version'
 
@@ -84,3 +85,19 @@ complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -l reason -x -
 complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s o -l out -r -F -d 'file to write'
 complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s f -l force -d 'replace the file'
 complete -c noqtis -n "__fish_seen_subcommand_from ers" -l hash -x -a 'sha256 sha384 sha512' -d 'the new timestamp\'s hash'
+
+# noqtis data
+complete -c noqtis -n "__fish_seen_subcommand_from data; and not __fish_seen_subcommand_from init add put del fmt show check" -a "init add put del fmt show check"
+complete -c noqtis -n "__fish_seen_subcommand_from data" -F
+complete -c noqtis -n "__fish_seen_subcommand_from data" -s f -l force -d 'replace the record'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -s u -l url -x -d 'where the file came from'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l title -x -d 'its title'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l publisher -x -d 'its publisher'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l licence -x -d 'its licence'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l retrieved -x -d 'when, YYYY-MM-DDTHH:MM:SSZ or now'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l etag -x -d "the server's ETag"
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l modified -x -d "the server's Last-Modified"
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l archived -x -d 'an archived copy'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l mirror -x -d 'another URL with the same bytes'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l synthetic -d 'a generated stand-in'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -s j -l json -d 'JSON output'

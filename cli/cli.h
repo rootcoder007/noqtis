@@ -7,6 +7,7 @@
 #define NQCLI_H
 
 #include <noqtis.h>
+#include <nqd.h>
 
 #include <stddef.h>
 #include <stdint.h>
@@ -197,5 +198,25 @@ int ncts(int argc, char **argv);
 /* the progress bar of long calls on a terminal (prog.c) */
 void ncprog(void);
 int ncers(int argc, char **argv);
+
+/* ---- the data layer (data.c, through nqd.h) ---- */
+
+int ncdata(int argc, char **argv);
+/* the record of dir (a new one when it has none and mk), with the
+ * reason printed on failure; NCOK or NCUSE */
+int ncdload(const char *cmd, const char *dir, int mk, nqdrec **r);
+/* saves r in dir, and says so when dir is sealed */
+int ncdsave(const char *cmd, const char *dir, nqdrec *r);
+/* prints a report of nqd rows as a table (or --json) with what to do for
+ * each failed kind; the exit status for rc */
+int ncdrep(const char *cmd, const char *lab, const nqdrep *rep, int rc,
+           int json);
+/* the same over nr reports, with the exit status ret already known */
+int ncdreps(const char *cmd, const char *lab, const nqdrep *const *rs,
+            size_t nr, int ret, int json);
+
+/* s as a JSON string, to stdout or into a new buffer (free it) */
+void ncjstr(const char *s);
+char *ncjq(const char *s);
 
 #endif /* NQCLI_H */
