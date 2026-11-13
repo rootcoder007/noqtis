@@ -210,6 +210,24 @@ NQDAPI int nqdreveal(const nqdrec *r, const uint8_t *salt, size_t sl,
 NQDAPI int nqdcite(const nqdrec *r, int fmt, char *out, size_t cap,
                    size_t *outlen);
 
+/* ---- reports ---- */
+
+/* A report of the capsule in dir to out (cap bytes, NUL added; *outlen
+ * its length, also with NQEBUF): NQDMD Markdown, NQDTXT plain text. It
+ * says whether every check passed and how many failed, lists the rows
+ * of crep (the capsule's check, from nqchkx; NULL when the folder is
+ * not sealed, which counts as a failed check), then what the data
+ * record says (sources, schemas, drift summaries, environment, steps,
+ * recorded checks, commitments, citation) and the rows of drep (from
+ * nqdchk; NULL to have it run here; no record, no rows). A value never
+ * breaks its line or table cell: a line break is a space, and in
+ * Markdown each character that could be read as markup is escaped with
+ * one backslash. */
+#define NQDMD 1
+#define NQDTXT 2
+NQDAPI int nqdrpt(const char *dir, const nqrep *crep, const nqdrep *drep,
+                  int fmt, char *out, size_t cap, size_t *outlen);
+
 /* ---- differences ---- */
 
 /* What changed from the capsule in a to the one in b: one "file" row
