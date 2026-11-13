@@ -6,12 +6,29 @@
 #ifndef NQDINT_H
 #define NQDINT_H
 
+/* MinGW with the old C runtime (msvcrt, as R 4.1 for Windows uses) prints a
+ * 64-bit count (%llu) only through MinGW's own printf family, which this
+ * asks for; it must come before the first system header. */
+#if defined(__MINGW32__) && !defined(__USE_MINGW_ANSI_STDIO)
+#define __USE_MINGW_ANSI_STDIO 1
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 
 #include "noqtis.h"
 #include "nqd.h"
+
+/* the format a message function is checked against: on MinGW the one its
+ * headers name for the printf family in use */
+#if defined(__MINGW32__) && defined(__MINGW_PRINTF_FORMAT)
+#define QDFMT(f, v) __attribute__((format(__MINGW_PRINTF_FORMAT, f, v)))
+#elif defined(__GNUC__) || defined(__clang__)
+#define QDFMT(f, v) __attribute__((format(printf, f, v)))
+#else
+#define QDFMT(f, v)
+#endif
 
 /* ---- memory ---- */
 
@@ -99,9 +116,7 @@ int qdutf8(const char *s, size_t n);
 /* ---- why ---- */
 
 void qdwhy(char *why, size_t cap, const char *fmt, ...)
-#if defined(__GNUC__) || defined(__clang__)
-    __attribute__((format(printf, 3, 4)))
-#endif
+    QDFMT(3, 4)
     ;
 
 /* ---- the record ---- */
@@ -120,9 +135,7 @@ const djs *qdrectree(const nqdrec *r);
 /* ---- reports ---- */
 
 int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...)
-#if defined(__GNUC__) || defined(__clang__)
-    __attribute__((format(printf, 4, 5)))
-#endif
+    QDFMT(4, 5)
     ;
 nqdrep *qdrepnew(void);
 /* attaches a copy of the JSON text j to the last row */
