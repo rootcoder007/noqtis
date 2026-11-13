@@ -209,6 +209,7 @@ show drift. It is a separate library, `libnqd`, with these boundaries:
 |---|---|---|---|
 | Q1 | record | `noqtis.data.json`: reader, canonical writer, members, `nqdchk`; `noqtis data` | `tdrec` (RFC 8785 appendix B numbers, refusals), `tdcli`, `fdrec` |
 | Q2 | schemas | CSV reader (RFC 4180), schema inference and check, rules; `noqtis schema` | `tdcsv` (the reader's refusals, every type and rule), `tdcli`, `fdcsv` |
+| Q4 | diff | `nqddiff` (manifests through `nqfiles`, records member by member); `noqtis diff`; `seal -r`, `check -r` | `tdcli` (a file added, removed and changed, sources, schemas, env; nested capsules) |
 
 ## Platforms and packaging
 

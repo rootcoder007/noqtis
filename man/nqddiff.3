@@ -1,0 +1,58 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NQDDIFF 3
+.Os
+.Sh NAME
+.Nm nqddiff
+.Nd what changed between two capsules
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Ft int
+.Fn nqddiff "const char *a" "const char *b" "nqdrep **rep"
+.Sh DESCRIPTION
+.Fn nqddiff
+compares the capsule in folder
+.Fa a
+with the one in
+.Fa b
+and reports, as
+.Xr nqdchk 3
+does, one failed row per difference: a
+.Ql manifest
+row (passed) with the file counts, or saying a folder is not sealed;
+.Ql file
+rows for files added, removed or changed between the manifests (read
+with
+.Xr nqfiles 3 ) ;
+and rows named
+.Ql source ,
+.Ql schema ,
+.Ql stats ,
+.Ql check ,
+.Ql env ,
+.Ql cite ,
+.Ql steps
+and
+.Ql commits
+for the differences of the data records, as
+.Xr noqtis-diff 1
+describes.
+Nothing is checked.
+.Sh RETURN VALUES
+.Dv NQOK
+when nothing differs,
+.Dv NQEVRFY
+when something does, with
+.Fa *rep
+set in both cases;
+.Dv NQEARG
+or
+.Dv NQEMEM
+without a report.
+.Sh SEE ALSO
+.Xr noqtis-diff 1 ,
+.Xr nqdchk 3 ,
+.Xr nqfiles 3 ,
+.Xr noqtis-data 5
