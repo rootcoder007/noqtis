@@ -18,7 +18,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # (clang by default, on arm64 and with -mfma) rounds once where the others round
 # twice, and the statistics in a data record came out a few last digits apart
 # between an optimised arm64 build and the rest.
-if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+  if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+    # clang-cl takes the option only through /clang:
+    add_compile_options(/clang:-ffp-contract=off)
+  endif()
+elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(-ffp-contract=off)
 endif()
 
