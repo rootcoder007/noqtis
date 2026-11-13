@@ -177,6 +177,7 @@ void qdhex(const uint8_t *in, size_t n, char *out) {
 typedef struct {
   char *check;
   char *detail;
+  char *json;
   int ok;
 } drow;
 
@@ -229,6 +230,7 @@ int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...) {
     w.detail = qddup(sb, strlen(sb));
   }
   w.ok = ok != 0;
+  w.json = NULL;
   if (w.check == NULL || w.detail == NULL) {
     qdfree(w.check);
     qdfree(w.detail);
@@ -236,6 +238,18 @@ int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...) {
   }
   r->r[r->n++] = w;
   return NQOK;
+}
+
+int qdrepjson(nqdrep *r, const char *j) {
+  if (r->n == 0)
+    return NQEARG;
+  qdfree(r->r[r->n - 1].json);
+  r->r[r->n - 1].json = qddup(j, strlen(j));
+  return r->r[r->n - 1].json != NULL ? NQOK : NQEMEM;
+}
+
+const char *nqdrepj(const nqdrep *r, size_t i) {
+  return r == NULL || i >= r->n ? NULL : r->r[i].json;
 }
 
 size_t nqdrepn(const nqdrep *r) {
@@ -262,6 +276,7 @@ void nqdrepfree(nqdrep *r) {
   for (i = 0; i < r->n; i++) {
     qdfree(r->r[i].check);
     qdfree(r->r[i].detail);
+    qdfree(r->r[i].json);
   }
   qdfree(r->r);
   qdfree(r);

@@ -133,6 +133,40 @@ NQDAPI int nqdinfer(const char *dir, const char *path, const nqdcsvopt *o,
 NQDAPI int nqdschk(const char *dir, const char *schema, size_t n,
                    nqdrep **rep);
 
+/* ---- drift ---- */
+
+/* The summaries of the CSV file path in dir as a "stats" element
+ * (canonical JSON), of a fixed size whatever the file's: per column the
+ * values present and missing ("" and NA), and for a numeric column (every
+ * value a number) a quantile sketch of 1,001 points (every distinct
+ * value when there are at most 1,001), the population stability index's
+ * bins and counts and the first-digit counts; for any other column the
+ * counts of its 1,000 most frequent values and of the rest. o as for
+ * nqdinfer (its ranges unused). noqtis-drift(1) defines each. */
+NQDAPI int nqdstats(const char *dir, const char *path, const nqdcsvopt *o,
+                    char *out, size_t cap, size_t *outlen, char *why,
+                    size_t wcap);
+/* When nqddrift calls a column drifted (NULL: the defaults): PSI at or
+ * over psifail (0.25) fails a column when both samples have at least
+ * minn (1,000) values, and warns below; PSI at or over psiwarn (0.1), or
+ * a KS or chi-square p-value below alpha (0.001), warns; with benford 1,
+ * a Benford p-value below alpha warns too. */
+typedef struct {
+  double psiwarn;
+  double psifail;
+  double alpha;
+  double minn;
+  int benford;
+} nqddopt;
+/* Compares the CSV file at file (any path) with the "stats" element
+ * stats (n bytes): one row per column, "drift" (passed or failed) or
+ * "drift.warn" (passed, with a warning), each with its numbers as JSON
+ * (nqdrepj). A column of the reference that is gone fails; a new one
+ * warns. NQOK when no row failed, NQEVRFY otherwise; *rep is set in
+ * both cases. */
+NQDAPI int nqddrift(const char *stats, size_t n, const char *file,
+                    const nqdcsvopt *o, const nqddopt *d, nqdrep **rep);
+
 /* ---- differences ---- */
 
 /* What changed from the capsule in a to the one in b: one "file" row
@@ -156,6 +190,8 @@ NQDAPI int nqdchk(const char *dir, nqdrep **rep);
 NQDAPI size_t nqdrepn(const nqdrep *r);
 NQDAPI int nqdrepi(const nqdrep *r, size_t i, const char **check, int *ok,
                    const char **detail);
+/* the numbers of row i as canonical JSON, or NULL when it has none */
+NQDAPI const char *nqdrepj(const nqdrep *r, size_t i);
 NQDAPI void nqdrepfree(nqdrep *r);
 
 #ifdef __cplusplus

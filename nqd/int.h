@@ -125,12 +125,27 @@ int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...)
 #endif
     ;
 nqdrep *qdrepnew(void);
+/* attaches a copy of the JSON text j to the last row */
+int qdrepjson(nqdrep *r, const char *j);
 
-/* ---- statistics ---- */
+/* ---- statistics (dft.c) ---- */
 
-/* PSI and Jensen-Shannon divergence of two count vectors (diff.c) */
+/* the upper tail of chi-square with df degrees of freedom at x2 */
+double qdchisq(double x2, double df);
+/* P(K > x) of the Kolmogorov distribution (R's limit, tol 1e-6) */
+double qdkolm(double x);
+/* P(D >= d) exactly, for two samples of m and n with no ties */
+double qdsmir(double d, int m, int n);
+/* PSI and Jensen-Shannon divergence of two count vectors */
 void qdpsi(const double *a, const double *b, size_t k, double *psi,
            double *js);
+/* chi-square homogeneity of the 2 x k table (a; b): p, X^2 and df */
+double qdhomog(const double *a, const double *b, size_t k, double *x2,
+               double *df);
+/* Benford's first-digit test of nine counts: p, X^2 */
+double qdbenf(const double *d, double *x2);
+/* the first significant digit of a number's text, 0 for zero */
+int qdfdig(const char *s, size_t n);
 
 /* ---- CSV (csv.c) ---- */
 
