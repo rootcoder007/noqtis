@@ -14,6 +14,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
 endif()
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# No fused multiply-add: a compiler that contracts a*b+c into one instruction
+# (clang by default, on arm64 and with -mfma) rounds once where the others round
+# twice, and the statistics in a data record came out a few last digits apart
+# between an optimised arm64 build and the rest.
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+  add_compile_options(-ffp-contract=off)
+endif()
+
 # 32-bit x86: do floating point in SSE2, not the x87 stack. x87 keeps 80-bit
 # intermediates, so the statistics a data record holds came out a few last
 # digits away from every other platform's, and a record made elsewhere did
