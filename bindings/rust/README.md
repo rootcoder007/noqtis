@@ -182,6 +182,34 @@ keyfile::write("you", "ML-DSA-65", "sec", &sk, false)?;    // owner-only, no ove
 keyfile::write("you.pub", "ML-DSA-65", "pub", &pk, false)?;
 ```
 
+## Data records
+
+`noqtis::data` reads and writes a capsule's data record
+(`noqtis.data.json`, `noqtis-data(5)`): where each file came from, the
+schemas of its CSV files and summaries for drift checks. Elements go in
+and come out as JSON text, and the record is written in canonical form,
+the same bytes the command line writes; seal the folder afterwards.
+
+```rust
+use noqtis::data;
+
+let s = data::Src { url: Some("https://example.org/a.csv".into()), ..Default::default() };
+data::add("results", &["data/a.csv"], &s)?;
+let sch = data::schema("results", "data/a.csv", &data::Csv::default())?;
+data::put("results", "schemas", &sch)?;
+data::pin("results", &["data/a.csv"], &data::Csv::default())?;
+assert!(data::check("results")?.ok());
+// later: has new.csv drifted from the pinned summaries?
+let cur = vec![std::path::PathBuf::from("new.csv")];
+let r = data::drift("results", &["data/a.csv"], &cur, &data::Csv::default(), &data::Drift::default())?;
+println!("{}", r.level()); // ok, warn or fail
+let d = data::diff("results-v1", "results")?; // d.same(), d.rows
+```
+
+Also `data::text`, `data::canon`, `data::key`, `data::del` and
+`data::schemacheck`. The crate compiles the data layer (`nqd/`) in with
+the library.
+
 ## Errors
 
 Every failure is a `noqtis::Error`: `code()` is the library's `NQE*`

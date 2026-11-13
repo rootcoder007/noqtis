@@ -231,3 +231,7 @@ data.drift("results", ["data/crime.csv"], ["new.csv"]).level
 ```
 
 Both write the same bytes as the command line.
+
+From Rust, Go and Java the same steps are `noqtis::data::{add, schema,
+put, pin, drift}`, `noqtis.DataAdd`, `Schema`, `DataPut`, `Pin` and
+`Drift`, and `Data.add`, `schema`, `put`, `pin` and `drift`.

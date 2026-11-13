@@ -164,6 +164,30 @@ noqtis.WriteKey("you", "ML-DSA-65", "sec", sk, false)      // owner-only, no ove
 noqtis.WriteKey("you.pub", "ML-DSA-65", "pub", pk, false)
 ```
 
+## Data records
+
+`DataAdd`, `DataPut`, `DataDel`, `DataKey`, `DataText`, `DataCanon` and
+`DataCheck` read and write a capsule's data record (`noqtis.data.json`,
+`noqtis-data(5)`): where each file came from, the schemas of its CSV
+files and summaries for drift checks. Elements go in and come out as
+JSON text, and the record is written in canonical form, the same bytes
+the command line writes; seal the folder afterwards.
+
+```go
+err := noqtis.DataAdd("results", []string{"data/a.csv"},
+	&noqtis.Src{URL: "https://example.org/a.csv"})
+s, err := noqtis.Schema("results", "data/a.csv", nil)
+err = noqtis.DataPut("results", "schemas", s)
+err = noqtis.Pin("results", []string{"data/a.csv"}, nil)
+r, err := noqtis.DataCheck("results") // r.OK()
+// later: has new.csv drifted from the pinned summaries?
+d, err := noqtis.Drift("results", []string{"data/a.csv"}, []string{"new.csv"}, nil, nil)
+fmt.Println(d.Level()) // ok, warn or fail
+c, err := noqtis.Diff("results-v1", "results") // c.Same(), c.Rows
+```
+
+`SchemaCheck` gives the schema and rule rows of `DataCheck`.
+
 ## Errors
 
 Every failure is an `*noqtis.Error`: `Code` is the library's `NQE*`

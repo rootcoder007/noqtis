@@ -204,6 +204,34 @@ KeyFile.write(Path.of("you"), "ML-DSA-65", "sec", p.sk(), false);   // owner-onl
 KeyFile.write(Path.of("you.pub"), "ML-DSA-65", "pub", p.pk(), false);
 ```
 
+## Data records
+
+`Data` reads and writes a capsule's data record (`noqtis.data.json`,
+`noqtis-data(5)`): where each file came from, the schemas of its CSV
+files and summaries for drift checks. Elements go in and come out as
+JSON text, and the record is written in canonical form, the same bytes
+the command line writes; seal the folder afterwards. The data layer is a
+library of its own beside libnoqtis (`libnqd`, in `nqd/` of the CMake
+build): `-Dnoqtis.nqd=<path>` or `NOQTIS_NQD`, else the one beside
+`noqtis.library`, else `libnqd` on the library path. The Maven Central
+jar does not carry it yet.
+
+```java
+Path d = Path.of("results");
+Data.add(d, List.of("data/a.csv"),
+    new Data.Src("https://example.org/a.csv", null, null, null, "now", false));
+Data.put(d, "schemas", Data.schema(d, "data/a.csv", null));
+Data.pin(d, List.of("data/a.csv"), null);
+Data.check(d).ok();
+// later: has new.csv drifted from the pinned summaries?
+Data.Report r = Data.drift(d, List.of("data/a.csv"), List.of(Path.of("new.csv")), null, null);
+r.level(); // ok, warn or fail
+Data.diff(Path.of("results-v1"), d).same();
+```
+
+Also `Data.text`, `Data.canon`, `Data.key`, `Data.del` and
+`Data.schemaCheck`.
+
 ## Errors
 
 Every failure is a `NoqtisException` (unchecked): `code()` is the
