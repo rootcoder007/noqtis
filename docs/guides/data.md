@@ -25,12 +25,27 @@ data: every report line about it then says `[synthetic]`.
 what to do about each failure.
 
 Results computed elsewhere (a published total, a falsification test)
-go in as recorded checks; one recorded as `fail` fails `data check`:
+go in as recorded checks, with what was expected, what was observed and
+the tolerance, so that a later reader can recompute them. `data check`
+does: a check recorded as `pass` whose observed number is further from
+the expected one than `tol` fails, as does one recorded as `fail`:
 
 ```sh
-echo '{"name":"total","status":"pass","expected":1204,"observed":1204}' |
+echo '{"name":"total","status":"pass","expected":1204,"observed":1203.5,"tol":0.5}' |
   noqtis data put results checks -
 ```
+
+A step that recodes a column records the digest of its mapping, and
+`data check` checks the mapping file against it:
+
+```sh
+noqtis hash results/map/offence.csv
+echo '{"kind":"recode","from":"offence","to":"group","script":"map/offence.csv","sha256":"<its SHA-256>"}' |
+  noqtis data put results steps -
+```
+
+`data check` also makes each file's drift summaries again and compares
+them with the recorded ones byte for byte.
 
 ## Pin the schema
 

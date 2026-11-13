@@ -293,7 +293,11 @@ Each element:
 .Cm path
 (required),
 .Cm rows
-(count, required) and
+(count, required),
+.Cm delim
+and
+.Cm header
+(how the file was read, as for a schema, when not the default) and
 .Cm columns ,
 each with
 .Cm name
@@ -365,7 +369,11 @@ and the strings
 .Cm script
 (a path) and
 .Cm sha256
-(of a mapping or script).
+(of a mapping or script; with
+.Cm script ,
+the SHA-256 of that file, which
+.Cm noqtis data check
+checks).
 .It Cm checks
 Results of checks made elsewhere (a published total, a falsification
 test): each with
@@ -382,8 +390,16 @@ and
 .Cm observed
 (a number or string),
 .Cm tol
-(a number) and
+(a number, at least 0) and
 .Cm note .
+A reader can recompute the result: with
+.Cm expected
+and
+.Cm observed
+numbers it holds when
+.Ql |observed - expected| <= tol
+.Pq Cm tol No 0 when not given ,
+with strings when they are equal.
 A check recorded as
 .Ql fail
 fails its row in

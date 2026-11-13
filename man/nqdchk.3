@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 12, 2026
+.Dd November 13, 2026
 .Dt NQDCHK 3
 .Os
 .Sh NAME
@@ -44,9 +44,33 @@ in constant time) and size
 .It Ql schema , Ql rule
 one per schema: its file matches the columns, types, missing-value
 codes, ranges and sets; one per rule
+.It Ql stats
+one per summary: made again from its file, read as the element says
+.Pq Cm delim , Cm header ,
+else as the file's schema says, the summaries are the recorded ones
+byte for byte (a calibration,
+.Cm cal ,
+aside); the detail names the first column that differs
+.It Ql step
+one per step with both
+.Cm script
+and
+.Cm sha256 :
+the script or mapping is in the folder with that SHA-256
 .It Ql recorded
 one per recorded check: it fails when the check was recorded as
-.Ql fail
+.Ql fail .
+When
+.Cm expected
+and
+.Cm observed
+are both numbers it is recomputed:
+.Ql |observed - expected| <= tol
+.Pq Cm tol No 0 when not given ;
+when both are strings, they must be equal.
+A check recorded as
+.Ql pass
+that does not hold fails; the detail gives the numbers
 .El
 .Pp
 A row about a file marked

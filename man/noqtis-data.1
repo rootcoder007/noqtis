@@ -116,7 +116,20 @@ prints it as it is.
 .It Cm check
 Checks the record: that it is canonical and of the format, that each
 source file is there with its recorded SHA-256 and size, that each
-schema's file matches it, and that no recorded check failed.
+schema's file matches it, that each file's summaries
+.Pq Xr noqtis-drift 1
+are made again the same from it, that the script or mapping of each
+step that names one with its SHA-256 still has it, and that no
+recorded check failed: one with
+.Cm expected
+and
+.Cm observed
+numbers is recomputed against its
+.Cm tol
+(0 when not given), one with strings must have them equal, and one
+recorded as
+.Ql pass
+that does not hold fails.
 It prints one row per check and, on standard error, what to do about
 each kind of failure.
 .Fl j
