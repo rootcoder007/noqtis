@@ -14,6 +14,18 @@ foreach(t ${NQDTST})
   target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}
                              ${PROJECT_SOURCE_DIR}/tests)
   target_compile_options(${name} PRIVATE ${NQWARN})
+  if(IOS)
+    # as the tests of the library: simctl spawn starts a program in /, so
+    # tests/cwd.c is main, moves to $NQCWD and calls the test's own main
+    target_sources(${name} PRIVATE ${PROJECT_SOURCE_DIR}/tests/cwd.c)
+    set_source_files_properties(${t} PROPERTIES
+      COMPILE_DEFINITIONS main=nqmain
+      COMPILE_OPTIONS -Wno-missing-prototypes)
+    file(STRINGS ${t} nqmv REGEX "^int main\\(void\\)")
+    if(nqmv)
+      target_compile_definitions(${name} PRIVATE NQMAINV)
+    endif()
+  endif()
   add_test(NAME ${name} COMMAND ${name}
            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests)
 endforeach()
