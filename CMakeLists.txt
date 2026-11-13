@@ -19,7 +19,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # digits away from every other platform's, and a record made elsewhere did
 # not recompute to the same numbers here.
 if(CMAKE_SIZEOF_VOID_P EQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|i[3-6]86|x86)$"
-   AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+   AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND NOT EMSCRIPTEN AND NOT CMAKE_SYSTEM_NAME MATCHES "WASI")
   add_compile_options(-msse2 -mfpmath=sse)
 endif()
 set(CMAKE_C_EXTENSIONS OFF)
