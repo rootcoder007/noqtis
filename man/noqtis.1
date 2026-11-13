@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd November 13, 2026
 .Dt NOQTIS 1
 .Os
 .Sh NAME
@@ -72,7 +72,10 @@ Prove that some files are in a format 2 capsule, without the others.
 See
 .Xr noqtis-prove 1 .
 .It Cm export
-The capsule as in-toto (signed in DSSE), RO-Crate or BagIt.
+The capsule as in-toto (signed in DSSE), RO-Crate, BagIt or a bundle
+(one file that
+.Cm check
+reads).
 See
 .Xr noqtis-export 1 .
 .It Cm rotate , revoke

@@ -22,8 +22,9 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a hash -d 'print 
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a seal -d 'seal a folder'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a check -d 'check a sealed folder'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a prove -d 'prove some files of a capsule'
-complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a export -d 'a capsule as in-toto, DSSE, RO-Crate or BagIt'
-complete -c noqtis -n "__fish_seen_subcommand_from export" -l as -x -a "intoto dsse rocrate bagit" -d format
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a export -d 'a capsule as in-toto, DSSE, RO-Crate, BagIt or a bundle'
+complete -c noqtis -n "__fish_seen_subcommand_from export" -l as -x -a "intoto dsse rocrate bagit bundle" -d format
+complete -c noqtis -n "__fish_seen_subcommand_from export" -l no-files -d 'a bundle of the data record alone'
 complete -c noqtis -n "__fish_seen_subcommand_from verify" -l dsse -d 'check a DSSE envelope'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a rotate -d 'say a seal key was replaced'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a revoke -d 'say a seal key is revoked'

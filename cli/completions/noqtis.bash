@@ -38,7 +38,7 @@ _noqtis() {
       --orcid | --email | --url | --affil)
       [ "$prev" = --format ] && COMPREPLY=($(compgen -W "1 2" -- "$cur"))
       [ "$prev" = --as ] &&
-        COMPREPLY=($(compgen -W "intoto dsse rocrate bagit" -- "$cur"))
+        COMPREPLY=($(compgen -W "intoto dsse rocrate bagit bundle" -- "$cur"))
       return ;;
     --input | --lineage)
       COMPREPLY=($(compgen -d -- "$cur"))
@@ -54,7 +54,7 @@ _noqtis() {
     sign) opts="-k --key -o --out -c --ctx -d --det --ph -f --force" ;;
     verify) opts="-p --pub -s --sig -c --ctx --ph -q --quiet --dsse -o
       --out" ;;
-    export) opts="--as -k --key -p --pub -o --out -f --force" ;;
+    export) opts="--as -k --key -p --pub -o --out -f --force --no-files" ;;
     enc) opts="-p --pub -o --out --stdout -f --force" ;;
     dec) opts="-k --key -o --out --stdout -f --force" ;;
     hash) opts="-a --alg -c --check" ;;

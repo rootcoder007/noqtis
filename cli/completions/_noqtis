@@ -91,11 +91,12 @@ _noqtis_cmd() {
         '--verify=[check a card]:card:_files' ;;
     export)
       _arguments \
-        '--as=[format]:format:(intoto dsse rocrate bagit)' \
+        '--as=[format]:format:(intoto dsse rocrate bagit bundle)' \
         '(-k --key)'{-k,--key=}'[secret key (dsse)]:key:_files' \
         '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
         '(-o --out)'{-o,--out=}'[file or bag folder to write]:file:_files' \
         '(-f --force)'{-f,--force}'[replace the file]' \
+        '--no-files[a bundle of the data record alone]' \
         ':dir:_files -/' ;;
     rotate|revoke)
       _arguments \
@@ -204,7 +205,7 @@ _arguments -C \
     prove\:"prove some files of a capsule"
     rotate\:"say a seal key was replaced" revoke\:"say a seal key is revoked"
     idcard\:"make or check an identity card"
-    export\:"a capsule as in-toto, DSSE, RO-Crate or BagIt"
+    export\:"a capsule as in-toto, DSSE, RO-Crate, BagIt or a bundle"
     inspect\:"show what a seal says" selftest\:"run the known-answer self-test" timestamp\:"add public timestamps" ers\:"start or renew an evidence record"
     data\:"make, show and check a data record"
     schema\:"pin and check the schema of CSV files"

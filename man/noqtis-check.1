@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 30, 2026
+.Dd November 13, 2026
 .Dt NOQTIS-CHECK 1
 .Os
 .Sh NAME
@@ -14,7 +14,7 @@
 .Op Fl -lineage Ar input-dir ...
 .Op Fl -keys Ar file ...
 .Op Fl -card Ar file
-.Ar dir | url
+.Ar dir | file | url
 .Nm noqtis check
 .Op Ar options
 .Fl r | Fl -recursive
@@ -86,6 +86,19 @@ Without
 a seal that carries a timestamp fails its
 .Ql timestamp
 row: a timestamp that cannot be checked is never passed silently.
+.Pp
+Given a
+.Ar file ,
+a bundle from
+.Ql noqtis export --as bundle
+.Pq Xr nqdpack 3 ,
+it is read into a new temporary folder, refused whole when it is
+malformed or names a path that would leave that folder (exit 1), checked
+as that folder, and removed again; the report names the file.
+A bundle made with
+.Fl -no-files
+carries the seal, the manifest and the data record alone: those are
+checked, and the report says the check is partial.
 .Pp
 Given a
 .Ar url

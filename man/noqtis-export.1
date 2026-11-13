@@ -1,17 +1,18 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 30, 2026
+.Dd November 13, 2026
 .Dt NOQTIS-EXPORT 1
 .Os
 .Sh NAME
 .Nm noqtis-export
-.Nd a capsule as in-toto, DSSE, RO-Crate or BagIt
+.Nd a capsule as in-toto, DSSE, RO-Crate, BagIt or a bundle
 .Sh SYNOPSIS
 .Nm noqtis export
-.Fl -as Cm intoto | dsse | rocrate | bagit
+.Fl -as Cm intoto | dsse | rocrate | bagit | bundle
 .Op Fl k Ar key
 .Op Fl p Ar key.pub
 .Op Fl o Ar file | dir
 .Op Fl f
+.Op Fl -no-files
 .Ar dir
 .Sh DESCRIPTION
 .Nm noqtis export
@@ -64,6 +65,21 @@ each checked against the manifest's SHA-256 as it is copied, its
 .Pa bagit.txt ,
 and the seal and the manifest as tag files listed in
 .Pa tagmanifest-sha256.txt .
+.It Cm bundle
+The capsule in the one file
+.Fl o
+.Pq Ql noqtis-bundle-1 , Xr nqdpack 3 ,
+to mail or attach: the seal, the manifest, the evidence record when
+there is one, and every listed file, in the byte order of their paths;
+the same capsule gives the same bytes.
+With
+.Fl -no-files ,
+only the data record of the files, which the capsule must list.
+.Xr noqtis-check 1
+checks the file as it is;
+.Ql noqtis pack unpack
+.Pq Xr noqtis-pack 1
+opens it.
 .El
 .Bl -tag -width Ds
 .It Fl -as Ar format
@@ -86,6 +102,10 @@ the bag's folder, which must not exist.
 Replace
 .Ar file
 if it exists.
+.It Fl -no-files
+For
+.Cm bundle :
+leave out every file but the data record.
 .El
 .Sh EXIT STATUS
 .Bl -tag -width 3n -compact
@@ -102,10 +122,13 @@ was copied, or a file or folder that cannot be written.
 $ noqtis export --as dsse -k me -o results.intoto.json results
 $ noqtis verify -p me.pub --dsse results.intoto.json
 $ noqtis export --as bagit -o results-bag results
+$ noqtis export --as bundle -o results.nqb results
+$ noqtis check -p me.pub results.nqb
 .Ed
 .Sh SEE ALSO
 .Xr noqtis 1 ,
 .Xr noqtis-check 1 ,
+.Xr noqtis-pack 1 ,
 .Xr noqtis-verify 1 ,
 .Xr nqdsse 3 ,
 .Xr noqtis-capsule 5

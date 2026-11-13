@@ -501,13 +501,14 @@ static int emit(const char *out, int force, const char *b, size_t n) {
 
 int ncexp(int argc, char **argv) {
   const char *as = NULL, *kp = NULL, *pp = NULL, *out = NULL;
-  int help = 0, force = 0, np, rc;
+  int help = 0, force = 0, nof = 0, np, rc;
   ncopt o[] = {
     {'\0', "as", 1, &as, NULL},
     {'k', "key", 1, &kp, NULL},
     {'p', "pub", 1, &pp, NULL},
     {'o', "out", 1, &out, NULL},
-    {'f', "force", 0, NULL, &force}
+    {'f', "force", 0, NULL, &force},
+    {'\0', "no-files", 0, NULL, &nof}
   };
   cinfo ci;
   tbuf b;
@@ -523,8 +524,14 @@ int ncexp(int argc, char **argv) {
     return NCUSE;
   }
   if (strcmp(as, "intoto") != 0 && strcmp(as, "dsse") != 0 &&
-      strcmp(as, "rocrate") != 0 && strcmp(as, "bagit") != 0) {
-    ncmsg("export", "--as %s: give intoto, dsse, rocrate or bagit", as);
+      strcmp(as, "rocrate") != 0 && strcmp(as, "bagit") != 0 &&
+      strcmp(as, "bundle") != 0) {
+    ncmsg("export", "--as %s: give intoto, dsse, rocrate, bagit or bundle",
+          as);
+    return NCUSE;
+  }
+  if (nof && strcmp(as, "bundle") != 0) {
+    ncmsg("export", "--no-files belongs to --as bundle");
     return NCUSE;
   }
   if ((strcmp(as, "dsse") == 0) != (kp != NULL)) {
@@ -534,6 +541,10 @@ int ncexp(int argc, char **argv) {
   }
   if (strcmp(as, "bagit") == 0 && out == NULL) {
     ncmsg("export", "--as bagit: give the new bag folder with -o");
+    return NCUSE;
+  }
+  if (strcmp(as, "bundle") == 0 && (out == NULL || strcmp(out, "-") == 0)) {
+    ncmsg("export", "--as bundle: give the bundle file with -o");
     return NCUSE;
   }
   if (!ncisdir(argv[0])) {
@@ -550,6 +561,10 @@ int ncexp(int argc, char **argv) {
     rc = bagit(argv[0], out, &ci);
     cdone(&ci);
     return rc;
+  }
+  if (strcmp(as, "bundle") == 0) {
+    cdone(&ci);
+    return ncbwr("export", argv[0], !nof, out, force);
   }
   memset(&b, 0, sizeof b);
   if (strcmp(as, "rocrate") == 0)

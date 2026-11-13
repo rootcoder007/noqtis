@@ -836,6 +836,44 @@ static void jcard(const nqcardf *f) {
          f->utc, nqsname(f->alg), hx);
 }
 
+/* the listed files a bundle unpacked to dir carries, when it carries
+ * some but not all (a bundle made with --no-files): those to check in
+ * *out (free each and the list); NCOK, or NCUSE for every file or none */
+static int carried(const char *dir, char ***out, size_t *nout) {
+  nqrep *r = NULL;
+  size_t i, n, k = 0, all = 0;
+  char **v, p[4200];
+  *out = NULL;
+  *nout = 0;
+  if (nqfiles(dir, &r) != NQOK) {
+    nqrepfree(r);
+    return NCUSE;
+  }
+  n = nqrepn(r);
+  v = (char **)calloc(n + 1, sizeof *v);
+  for (i = 0; v != NULL && i < n; i++) {
+    const char *c = NULL, *d = NULL, *sp;
+    if (nqrepi(r, i, &c, NULL, &d) != NQOK || strcmp(c, "info.file") != 0 ||
+        (sp = strchr(d, ' ')) == NULL || strlen(sp) < 67)
+      continue;
+    all++;
+    sp += 66;
+    snprintf(p, sizeof p, "%s/%s", dir, sp);
+    if (ncisreg(p) && (v[k] = (char *)malloc(strlen(sp) + 1)) != NULL)
+      memcpy(v[k++], sp, strlen(sp) + 1);
+  }
+  nqrepfree(r);
+  if (v == NULL || k == 0 || k == all) {
+    for (i = 0; v != NULL && i < k; i++)
+      free(v[i]);
+    free(v);
+    return NCUSE;
+  }
+  *out = v;
+  *nout = k;
+  return NCOK;
+}
+
 int ncchk(int argc, char **argv) {
   const char *pp = NULL, *anc[NCMAXV], *only[NCMAXV], *lin[NCMAXV],
              *kf[NCMAXV], *pf = NULL, *lab, *cf = NULL;
@@ -862,7 +900,8 @@ int ncchk(int argc, char **argv) {
   size_t stl[NCMAXV];
   ncrem *rm = NULL;
   uint8_t *pb = NULL;
-  size_t n = 0, i, j, w = 5, nf = 0, pn = 0;
+  char bdir[1024], **bo = NULL;
+  size_t n = 0, i, j, w = 5, nf = 0, pn = 0, nbo = 0;
   const char *kn = NULL, *kalg = NULL, *dir = NULL;
 
   if (hasrec(argc, argv))
@@ -910,9 +949,11 @@ int ncchk(int argc, char **argv) {
       return NCUSE;
     }
   }
-  if (np == 1 && !ncisurl(argv[0]) && !ncisdir(argv[0])) {
+  if (np == 1 && !ncisurl(argv[0]) && !ncisdir(argv[0]) &&
+      !ncisbnd(argv[0])) {
     ncmsg("check", "%s: not a folder (give the folder that holds "
-          "noqtis.json and noqtis.sig, or its http:// or https:// URL)",
+          "noqtis.json and noqtis.sig, its bundle from `noqtis export --as "
+          "bundle`, or its http:// or https:// URL)",
           argv[0]);
     return NCUSE;
   }
@@ -986,6 +1027,21 @@ int ncchk(int argc, char **argv) {
       return NCUSE;
     }
     dir = ncremdir(rm);
+  } else if (dir != NULL && !ncisdir(dir)) {
+    /* a bundle: checked as the folder it unpacks to */
+    if ((ret = ncbget("check", dir, bdir, sizeof bdir)) != NCOK) {
+      nckfree(&pk);
+      ancfree(&an);
+      ncfree(pb, pn, 0);
+      for (k = 0; k < nk; k++)
+        ncfree(stb[k], stl[k], 0);
+      return ret;
+    }
+    dir = bdir;
+    if (pf == NULL && no == 0 && carried(bdir, &bo, &nbo) == NCOK) {
+      co.only = (const char *const *)bo;
+      co.nonly = nbo;
+    }
   }
   if (pf != NULL)
     rc = nqchkp((const char *)pb, pn, &co, dir, &r);
@@ -994,6 +1050,11 @@ int ncchk(int argc, char **argv) {
   if (cf != NULL && dir != NULL)
     cok = cardrow(dir, cvr, cwhy, &card, cdet, sizeof cdet);
   ncremfree(rm);
+  if (dir == bdir)
+    ncbdone(argv[0], bdir);
+  for (i = 0; i < nbo; i++)
+    free(bo[i]);
+  free(bo);
   kn = pp != NULL ? pk.a.name : NULL;
   nckfree(&pk);
   ancfree(&an);

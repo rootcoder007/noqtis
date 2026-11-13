@@ -94,13 +94,17 @@ static const nccmd cmds[] = {
   {"check", ncchk, "check a sealed capsule folder",
    "usage: noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
    "                    [--only <path>]... [--lineage <dir>]...\n"
-   "                    [--keys <file>]... [--card <file>] <dir|url>\n"
+   "                    [--keys <file>]... [--card <file>]\n"
+   "                    <dir|file|url>\n"
    "       noqtis check [<options>] -r|--recursive <dir>\n"
    "       noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
    "                    --proof <file|url> [<dir|url>]\n"
    "  Prints every check and its result; exit 0 only if all pass. Without\n"
    "  -p the key inside the seal is trusted, and the report says so.\n"
    "  For each failed check, stderr says what to do.\n"
+   "  <file> a bundle from `noqtis export --as bundle`: checked as the\n"
+   "         folder it holds (a partial check of the files it carries,\n"
+   "         when made with --no-files)\n"
    "  <url>  the http:// (or https://, with TLS) URL of a capsule's\n"
    "         folder: the seal and the manifest are fetched and checked\n"
    "         first, then the listed files (only --only's, when given)\n"
@@ -130,14 +134,18 @@ static const nccmd cmds[] = {
    "  no other digest. Check it with `noqtis check --proof`. The capsule\n"
    "  must check first (against -p when given).\n"
    "  -o  write to <file> (default stdout); -f replaces it\n"},
-  {"export", ncexp, "a capsule as in-toto, DSSE, RO-Crate or BagIt",
-   "usage: noqtis export --as intoto|dsse|rocrate|bagit [-k <key>]\n"
-   "                     [-p <key.pub>] [-o <file|dir>] [-f] <dir>\n"
+  {"export", ncexp, "a capsule as in-toto, DSSE, RO-Crate, BagIt or a bundle",
+   "usage: noqtis export --as intoto|dsse|rocrate|bagit|bundle [-k <key>]\n"
+   "                     [-p <key.pub>] [-o <file|dir>] [-f] [--no-files]\n"
+   "                     <dir>\n"
    "  The capsule must check. intoto: an in-toto Statement v1 of its\n"
    "  files and their SHA-256; dsse: that statement in a DSSE envelope\n"
    "  signed with -k (check it with `noqtis verify --dsse`); rocrate:\n"
    "  RO-Crate 1.1 metadata (ro-crate-metadata.json); bagit: a BagIt 1.0\n"
-   "  bag in the new folder -o, with a checked copy of every file.\n"
+   "  bag in the new folder -o, with a checked copy of every file;\n"
+   "  bundle: the capsule in the one file -o (noqtis-bundle-1), which\n"
+   "  `noqtis check <file>` checks; --no-files leaves out every file but\n"
+   "  the data record.\n"
    "  -o  write to <file> (default stdout); -f replaces it\n"},
   {"rotate", ncrot, "say that a seal key was replaced by a new one",
    "usage: noqtis rotate -k <key> [-p <key.pub>] -n <new> [--new-pub <new.pub>]\n"

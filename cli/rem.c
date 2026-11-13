@@ -146,15 +146,36 @@ static int listed(const char *const *only, size_t nonly, const char *p) {
   return 0;
 }
 
+int nctmp(char *out, size_t cap) {
+  const char *t = getenv("TMPDIR");
+  uint8_t rb[8];
+  char hx[17];
+  int n;
+  if (t == NULL || *t == '\0') t = getenv("TEMP");
+  if (t == NULL || *t == '\0') t = getenv("TMP");
+#ifdef _WIN32
+  if (t == NULL || *t == '\0') t = ".";
+#else
+  if (t == NULL || *t == '\0') t = "/tmp";
+#endif
+  if (nqrand(rb, sizeof rb) != NQOK) return NCUSE;
+  nchexe(rb, sizeof rb, hx);
+  hx[16] = '\0';
+  n = snprintf(out, cap, "%s/noqtis-%s", t, hx);
+  if (n < 0 || (size_t)n >= cap) {
+    ncmsg(NULL, "the temporary folder's path is too long");
+    return NCUSE;
+  }
+  return NCOK;
+}
+
 int ncremget(const char *url, const nqcopt *co, ncrem **out) {
   ncrem *m;
-  const char *t;
-  uint8_t rb[8];
-  char hx[17], err[300];
+  char err[300];
   size_t ul = strlen(url), i, nf = 0;
   nqrep *r = NULL;
   nqcopt pre;
-  int ok, n;
+  int ok;
   *out = NULL;
   if (strchr(url, '?') != NULL || strchr(url, '#') != NULL) {
     ncmsg("check", "%s: give the URL of the capsule's folder, without a "
@@ -174,23 +195,7 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out) {
   }
   memcpy(m->base, url, ul + 1);
   if (ul == 0 || url[ul - 1] != '/') memcpy(m->base + ul, "/", 2);
-  t = getenv("TMPDIR");
-  if (t == NULL || *t == '\0') t = getenv("TEMP");
-  if (t == NULL || *t == '\0') t = getenv("TMP");
-#ifdef _WIN32
-  if (t == NULL || *t == '\0') t = ".";
-#else
-  if (t == NULL || *t == '\0') t = "/tmp";
-#endif
-  if (nqrand(rb, sizeof rb) != NQOK) {
-    free(m);
-    return NCUSE;
-  }
-  nchexe(rb, sizeof rb, hx);
-  hx[16] = '\0';
-  n = snprintf(m->dir, sizeof m->dir, "%s/noqtis-%s", t, hx);
-  if (n < 0 || (size_t)n >= sizeof m->dir) {
-    ncmsg("check", "the temporary folder's path is too long");
+  if (nctmp(m->dir, sizeof m->dir) != NCOK) {
     free(m);
     return NCUSE;
   }
@@ -254,4 +259,48 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out) {
   }
   nqrepfree(r);
   return NCOK;
+}
+
+/* ---- bundles (noqtis-bundle-1, through nqd.h) ---- */
+
+int ncisbnd(const char *path) {
+  char h[16];
+  FILE *f;
+  int yes;
+  if (!ncisreg(path) || (f = ncfopen(path, "rb")) == NULL) return 0;
+  yes = fread(h, 1, 16, f) == 16 && memcmp(h, "noqtis-bundle-1\n", 16) == 0;
+  fclose(f);
+  return yes;
+}
+
+int ncbwr(const char *cmd, const char *dir, int files, const char *out,
+          int force) {
+  int rc;
+  if (ncexist(out)) {
+    if (!force || !ncisreg(out) || ncrmfile(out) != 0)
+      return ncwfail(cmd, out, force);
+  }
+  rc = nqdpack(dir, files, out);
+  if (rc == NQEARG) {
+    ncmsg(cmd, "%s lists no data record (%s): a bundle without the files "
+          "carries the record, so add one (`noqtis data init`) and seal "
+          "again, or bundle the files too", dir, NQDFILE);
+    return NCUSE;
+  }
+  if (rc != NQOK) return nclib(cmd, out, rc);
+  return NCOK;
+}
+
+int ncbget(const char *cmd, const char *file, char *dir, size_t cap) {
+  char why[600];
+  int rc;
+  if (nctmp(dir, cap) != NCOK) return NCUSE;
+  rc = nqdunpack(file, dir, 0, why, sizeof why);
+  if (rc == NQOK) return NCOK;
+  ncmsg(cmd, "%s: %s", file, why[0] ? why : nqerr(rc));
+  return rc == NQEDEC || rc == NQELIM ? NCBAD : NCUSE;
+}
+
+void ncbdone(const char *file, const char *dir) {
+  (void)nqdunpack(file, dir, 1, NULL, 0);
 }

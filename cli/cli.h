@@ -164,6 +164,22 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out);
 const char *ncremdir(const ncrem *m);
 /* Removes everything ncremget wrote, then frees m. */
 void ncremfree(ncrem *m);
+/* a new temporary folder's path (not made) into out: NCOK or NCUSE */
+int nctmp(char *out, size_t cap);
+
+/* ---- bundles (rem.c, through nqd.h) ---- */
+
+/* 1 when path is a regular file that starts as a bundle does */
+int ncisbnd(const char *path);
+/* writes the bundle of the capsule dir (checked by the caller) to out,
+ * replacing a file there when force: NCOK or NCUSE, with why printed */
+int ncbwr(const char *cmd, const char *dir, int files, const char *out,
+          int force);
+/* unpacks the bundle file into a new temporary folder, its path in dir:
+ * NCOK, NCBAD for a file that is not a bundle, NCUSE */
+int ncbget(const char *cmd, const char *file, char *dir, size_t cap);
+/* removes what ncbget wrote */
+void ncbdone(const char *file, const char *dir);
 
 /* ---- algorithms and keys (key.c) ---- */
 

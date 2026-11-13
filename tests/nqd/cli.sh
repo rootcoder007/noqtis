@@ -525,6 +525,63 @@ ok 0 "cite bibtex" "$nq" cite --format bibtex "$e"
 has "$w/out" "@misc{data," "bibtex"
 ok 2 "cite bad format" "$nq" cite --format ris "$e"
 
+# ---- bundles: export --as bundle, check <file>, pack unpack ----
+
+b=$w/bnd
+mkdir -p "$b/data" "$w/tmp"
+printf 'AAAA\n' >"$b/a.txt"
+cp "$v/cap/data/a.csv" "$b/data/"
+ok 0 "bundle: seal without a record" "$nq" seal -k "$w/k" "$b"
+ok 2 "bundle --no-files without a record" "$nq" export --as bundle \
+  --no-files -o "$w/b0.nqb" "$b"
+has "$w/err" "no data record" "--no-files says the record is needed"
+ok 0 "bundle: add a record" "$nq" data add "$b" data/a.csv
+ok 0 "bundle: seal" "$nq" seal -k "$w/k" "$b"
+ok 0 "export --as bundle" "$nq" export --as bundle -o "$w/b.nqb" "$b"
+ok 2 "export --as bundle over a file" "$nq" export --as bundle \
+  -o "$w/b.nqb" "$b"
+has "$w/err" "force" "over a file names --force"
+cp "$w/b.nqb" "$w/b1.nqb"
+ok 0 "export --as bundle -f" "$nq" export --as bundle -f -o "$w/b.nqb" "$b"
+same "$w/b.nqb" "$w/b1.nqb" "a bundle is the same bytes each time"
+ok 2 "export --as bundle to stdout" "$nq" export --as bundle "$b"
+ok 2 "--no-files elsewhere" "$nq" export --as intoto --no-files "$b"
+TMPDIR=$w/tmp
+export TMPDIR
+ok 0 "check a bundle" "$nq" check -p "$w/k.pub" "$w/b.nqb"
+has "$w/out" "b.nqb: OK" "the bundle checks, named as given"
+has "$w/out" "data/a.csv" "its files are checked"
+ok 0 "check a bundle --json" "$nq" check --json -p "$w/k.pub" "$w/b.nqb"
+has "$w/out" '"ok":true' "json"
+ok 0 "export --no-files" "$nq" export --as bundle --no-files \
+  -o "$w/lean.nqb" "$b"
+ok 0 "check a bundle without its files" "$nq" check -p "$w/k.pub" \
+  "$w/lean.nqb"
+has "$w/out" "partial" "a partial check, which the report says"
+has "$w/out" "noqtis.data.json" "the record is checked"
+head -c 100 "$w/b.nqb" >"$w/cut.nqb"
+ok 1 "check a cut bundle" "$nq" check "$w/cut.nqb"
+has "$w/err" "ends" "a cut bundle says where it ends"
+printf 'hello\n' >"$w/junk.nqb"
+ok 2 "check a file that is not a bundle" "$nq" check "$w/junk.nqb"
+has "$w/err" "not a folder" "junk is neither a folder nor a bundle"
+# a.txt is the first entry: its bytes start at 16 + 2 + 5 + 8
+cp "$w/b.nqb" "$w/t.nqb"
+printf 'Z' | dd of="$w/t.nqb" bs=1 seek=31 conv=notrunc 2>/dev/null
+ok 1 "check a bundle with a changed file" "$nq" check -p "$w/k.pub" \
+  "$w/t.nqb"
+has "$w/out" "FAIL  file" "the changed file fails"
+# paths that would leave the folder: ../x, /x, C:x
+for p in '\000\004../x' '\000\002/x' '\000\003C:x'; do
+  { printf 'noqtis-bundle-1\n'; printf "$p"
+    printf '\000\000\000\000\000\000\000\001x\000\000'; } >"$w/evil.nqb"
+  ok 1 "check refuses $p" "$nq" check "$w/evil.nqb"
+  has "$w/err" "not a path a capsule holds" "the path is named as refused"
+done
+ok 1 "nothing left the folder" test -e "$w/tmp/x"
+ok 0 "check leaves nothing in TMPDIR" test -z "$(ls -A "$w/tmp")"
+unset TMPDIR
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"
