@@ -488,12 +488,12 @@ int ncdreps(const char *cmd, const char *lab, const nqdrep *const *rs,
            (unsigned long)nf, (unsigned long)n);
   for (i = 0; i < n; i++) {
     const char *c, *d;
-    int ok, seen = 0;
+    int ok = 0, seen = 0;
     size_t j;
     rowat(rs, nr, i, &c, &ok, &d);
     for (j = 0; j < i && !seen; j++) {
       const char *c2, *d2;
-      int ok2;
+      int ok2 = 0;
       rowat(rs, nr, j, &c2, &ok2, &d2);
       seen = !ok2 && strcmp(c, c2) == 0;
     }
