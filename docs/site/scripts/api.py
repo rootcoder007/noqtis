@@ -14,13 +14,11 @@ import sys
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 OUT = os.path.join("src", "content", "docs", "reference", "api")
-NOTE = ("Generated from {src} by docs/site/scripts/api.py when the site is "
-        "built; edit the source, not this page.")
 
 
 def page(title, desc, src, body):
-    return ("---\ntitle: %s\ndescription: %s\n---\n\n<!-- %s -->\n\n%s"
-            % (title, desc, NOTE.format(src=src), body.rstrip() + "\n"))
+    return ("---\ntitle: %s\ndescription: %s\n---\n\n%s"
+            % (title, desc, body.rstrip() + "\n"))
 
 
 def fence(lang, code):
