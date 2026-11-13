@@ -47,9 +47,11 @@ has() {
   fi
 }
 
+# same <file> <file> <what>: the two files hold the same bytes. Compared by
+# the tool's own digest: a small container image has no cmp.
 same() {
   n=$((n + 1))
-  if ! cmp -s "$1" "$2"; then
+  if [ "$("$nq" hash <"$1")" != "$("$nq" hash <"$2")" ] || [ ! -r "$1" ] || [ ! -r "$2" ]; then
     bad=$((bad + 1))
     echo "FAIL $3: $1 and $2 differ" >&2
   fi

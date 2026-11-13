@@ -1,8 +1,0 @@
-node_modules/
-dist/
-.astro/
-# copied by scripts/wasm.sh
-public/wasm/
-public/sample.json
-# made from the bindings' sources by scripts/api.py
-src/content/docs/reference/api/
