@@ -1,0 +1,48 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Writes src/Makevars (src/Makevars.win when run as "configure win", by
+# configure.win) from its .in file, with the floating-point flags the
+# CMake build of the library uses, each only when R's C compiler takes
+# it: -ffp-contract=off (no fused multiply-add, which rounds once where
+# the others round twice) and, on 32-bit x86 (not WebAssembly),
+# -msse2 -mfpmath=sse (SSE2, not the x87 stack's 80-bit intermediates).
+# With them a data record's statistics come out to the same bits here as
+# from every other build.
+set -eu
+
+mk=src/Makevars
+if test "${1:-}" = win; then
+  mk=src/Makevars.win
+fi
+: "${R_HOME:=$(R RHOME)}"
+r="${R_HOME}/bin${R_ARCH_BIN:-}/R"
+cc=$("$r" CMD config CC)
+cflags=$("$r" CMD config CFLAGS)
+cppflags=$("$r" CMD config CPPFLAGS)
+
+# 0 when the compiler builds nqconf.c with these flags added
+try() {
+  # the words of CC and CFLAGS are split on purpose
+  # shellcheck disable=SC2086
+  $cc $cppflags $cflags "$@" -c nqconf.c -o nqconf.o >/dev/null 2>&1
+}
+
+fl=
+echo "int nqconf;" >nqconf.c
+if try -ffp-contract=off; then
+  fl="$fl -ffp-contract=off"
+fi
+cat >nqconf.c <<'X'
+#if !defined(__i386__) || defined(__EMSCRIPTEN__) || defined(__wasi__)
+#error not 32-bit x86
+#endif
+int nqconf;
+X
+if try -msse2 -mfpmath=sse; then
+  fl="$fl -msse2 -mfpmath=sse"
+fi
+rm -f nqconf.c nqconf.o
+fl=${fl# }
+
+sed "s/@NQCF@/$fl/" "$mk.in" >"$mk"
+echo "configure: C flags for $mk: ${fl:-none}"

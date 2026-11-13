@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# src/Makevars.win from src/Makevars.win.in: see configure
+exec sh ./configure win

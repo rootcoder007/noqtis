@@ -8,3 +8,5 @@
 ^src/.*\.so$
 ^src/.*\.dll$
 ^\.lintr$
+^src/Makevars$
+^src/Makevars\.win$
