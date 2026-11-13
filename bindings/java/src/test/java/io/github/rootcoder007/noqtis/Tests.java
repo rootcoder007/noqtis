@@ -477,6 +477,164 @@ public final class Tests {
     ok(!Capsule.check(d, Capsule.Opts.none().withTrust(k.pk())).ok(), "a card as a seal");
   }
 
+  // ---- the data layer, against the values the C tests check
+  // (tests/nqd/tdrec.c, tdcsv.c, tddft.c on tests/vectors/nqd) ----
+
+  static final Path NQD = REPO.resolve("tests/vectors/nqd");
+
+  // a copy of vectors/nqd/cap (with its record when rec)
+  static Path nqdcap(boolean rec) throws Exception {
+    Path d = mk("nqjdata");
+    Files.createDirectories(d.resolve("data"));
+    List<String> fs = new java.util.ArrayList<>(List.of("data/a.csv", "data/b.csv"));
+    if (rec) {
+      fs.add("noqtis.data.json");
+    }
+    for (String f : fs) {
+      Files.copy(NQD.resolve("cap").resolve(f), d.resolve(f));
+    }
+    return d;
+  }
+
+  // the number after "key": in the JSON text j
+  static double jnum(String j, String key) {
+    String k = "\"" + key + "\":";
+    String s = j.substring(j.indexOf(k) + k.length());
+    int e = s.length();
+    for (char c : new char[] {',', '}'}) {
+      int i = s.indexOf(c);
+      if (i >= 0 && i < e) {
+        e = i;
+      }
+    }
+    return Double.parseDouble(s.substring(0, e));
+  }
+
+  // the value of key in vectors/nqd/drift/expect.txt (written by drift.R)
+  static double dexp(String key) throws Exception {
+    for (String l : Files.readAllLines(NQD.resolve("drift/expect.txt"))) {
+      String[] f = l.split(" ");
+      if (f.length == 2 && f[0].equals(key)) {
+        return Double.parseDouble(f[1]);
+      }
+    }
+    throw new AssertionError("no " + key + " in expect.txt");
+  }
+
+  static void near(double a, double b, double tol, String what) {
+    double d = Math.abs(b) > 1e-300 ? Math.abs(b) : 1;
+    ok(Math.abs(a - b) / d <= tol, what + ": " + a + ", expected " + b);
+  }
+
+  static void dataRecord() throws Exception {
+    String full = Files.readString(NQD.resolve("full.json"));
+    String c = Data.canon(full);
+    eq(Data.canon(c), c, "full.json reads back to its canonical form");
+    eq(fails(() -> Data.canon("{\"format\":\"x\"}")), NoqtisException.Code.DECODE, "format x");
+    Path d = nqdcap(true);
+    eq(Data.text(d), Files.readString(d.resolve("noqtis.data.json")), "text is the record");
+    Data.Report r = Data.check(d);
+    ok(r.ok() && r.rows().size() >= 3, "check " + r);
+    // the same source element, made here
+    Path n = nqdcap(false);
+    Data.add(
+        n,
+        List.of("data/a.csv"),
+        new Data.Src(
+            "https://example.org/a.csv",
+            null,
+            "City of Example",
+            "OGL-Canada-2.0",
+            "2026-01-01T00:00:00Z",
+            false));
+    String e = Data.key(n, "sources", "data/a.csv").orElseThrow();
+    eq(e, Data.key(d, "sources", "data/a.csv").orElseThrow(), "source element");
+    ok(
+        e.contains(
+            "\"sha256\":\"7a1668480cde19db0b76c7a36e6fee9a82afd9937f5d03cec3dae1705ce173e2\",\"size\":89"),
+        "sha256 " + e);
+    eq(fails(() -> Data.add(n, List.of("../x"), null)), NoqtisException.Code.ARG, "../x");
+    // put, key and del
+    Data.put(n, "checks", "{\"name\":\"x\",\"status\":\"fail\"}");
+    ok(!Data.check(n).ok(), "a check recorded as failed");
+    fails(() -> Data.put(n, "checks", "{\"name\":\"x\",\"status\":\"maybe\"}"));
+    Data.del(n, "checks", "x");
+    ok(Data.key(n, "checks", "x").isEmpty(), "del");
+    ok(Data.check(n).ok(), "check after del");
+    eq(fails(() -> Data.text(NQD.resolve("drift"))), NoqtisException.Code.IO, "no record");
+  }
+
+  static void dataSchema() throws Exception {
+    Path d = nqdcap(true);
+    String want =
+        "{\"columns\":[{\"name\":\"id\",\"nulls\":false,\"type\":\"int\"},"
+            + "{\"name\":\"name\",\"nulls\":true,\"type\":\"text\"},"
+            + "{\"name\":\"score\",\"nulls\":true,\"type\":\"real\"},"
+            + "{\"name\":\"when\",\"nulls\":false,\"type\":\"date\"}],"
+            + "\"kind\":\"csv\",\"path\":\"data/a.csv\",\"rows\":{\"max\":3,\"min\":3}}";
+    eq(Data.schema(d, "data/a.csv", null), want, "schema");
+    String s = Data.schema(d, "data/a.csv", new Data.Csv(',', true, true));
+    ok(s.contains("\"max\":4,\"min\":3.5"), "range " + s);
+    ok(s.contains("\"max\":\"2024-03-01\",\"min\":\"2024-01-02\""), "date range " + s);
+    Data.put(d, "schemas", s);
+    ok(Data.schemaCheck(d, List.of()).ok(), "schema check");
+    Files.writeString(d.resolve("data/a.csv"), "id,name,score,when\n1,ann,9.5,2024-01-02\n");
+    Data.Report r = Data.schemaCheck(d, List.of("data/a.csv"));
+    ok(!r.ok() && !r.rows().isEmpty(), "a value out of range " + r);
+    eq(fails(() -> Data.schema(d, "nope.csv", null)), NoqtisException.Code.IO, "nope.csv");
+  }
+
+  static void dataDrift() throws Exception {
+    Path d = mk("nqjdrift");
+    Files.copy(NQD.resolve("drift/ref.csv"), d.resolve("ref.csv"));
+    Data.pin(d, List.of("ref.csv"), null);
+    eq(Data.drift(d, List.of(), List.of(), null, null).level(), "ok", "the same file");
+    Data.Report r =
+        Data.drift(d, List.of("ref.csv"), List.of(NQD.resolve("drift/cur.csv")), null, null);
+    // fewer than 1,000 values: PSI warns, never fails
+    eq(r.level(), "warn", "level " + r);
+    java.util.function.Function<String, String> col =
+        n ->
+            r.rows().stream()
+                .map(Data.Row::stats)
+                .filter(j -> j != null && j.contains("\"name\":\"" + n + "\""))
+                .findFirst()
+                .orElseThrow();
+    String x = col.apply("x");
+    near(jnum(x, "ksd"), dexp("ks.d"), 1e-14, "ks.d");
+    near(jnum(x, "ksp"), dexp("ks.p"), 1e-9, "ks.p");
+    near(jnum(x, "psi"), dexp("psi"), 1e-12, "psi");
+    near(jnum(x, "js"), dexp("js"), 1e-12, "js");
+    String c = col.apply("c");
+    near(jnum(c, "chisq"), dexp("chi.x2"), 1e-12, "chi.x2");
+    near(jnum(c, "df"), dexp("chi.df"), 0, "chi.df");
+    near(jnum(c, "chisqp"), dexp("chi.p"), 1e-10, "chi.p");
+    near(jnum(c, "psi"), dexp("cat.psi"), 1e-12, "cat.psi");
+    try {
+      Data.drift(d, List.of("cur.csv"), List.of(), null, null);
+      throw new AssertionError("no summary of cur.csv");
+    } catch (NoqtisException e) {
+      ok(e.getMessage().contains("no summary of cur.csv"), e.getMessage());
+    }
+  }
+
+  static void dataDiff() throws Exception {
+    Path a = nqdcap(true), b = nqdcap(true);
+    Data.Report r = Data.diff(a, b);
+    // unsealed: one passing "manifest" row says the files were not compared
+    ok(r.same() && r.rows().stream().allMatch(Data.Row::ok), "two copies " + r);
+    Data.add(
+        b,
+        List.of("data/a.csv"),
+        new Data.Src("https://example.org/a2.csv", null, null, null, null, false));
+    r = Data.diff(a, b);
+    ok(!r.same(), "a changed url");
+    ok(
+        r.rows().stream()
+            .anyMatch(x -> x.check().equals("source") && !x.ok() && x.detail().contains("url")),
+        "a source row " + r);
+  }
+
   interface T {
     void run() throws Exception;
   }
@@ -495,6 +653,10 @@ public final class Tests {
     ts.put("seal2", Tests::seal2);
     ts.put("keyFiles", Tests::keyFiles);
     ts.put("card", Tests::card);
+    ts.put("dataRecord", Tests::dataRecord);
+    ts.put("dataSchema", Tests::dataSchema);
+    ts.put("dataDrift", Tests::dataDrift);
+    ts.put("dataDiff", Tests::dataDiff);
     int bad = 0;
     for (var e : ts.entrySet()) {
       long t0 = System.nanoTime();

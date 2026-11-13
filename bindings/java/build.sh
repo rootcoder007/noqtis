@@ -39,6 +39,20 @@ test -n "$lib" || {
   exit 2
 }
 
+# the data layer, beside it (CMake builds it in nqd/)
+nqd=
+for f in "$b/lib/nqd/libnqd.so" "$b/lib/nqd/libnqd.dylib" \
+  "$b/lib/nqd/Release/nqd-0.dll" "$b/lib/nqd/nqd-0.dll" "$b/lib/nqd/libnqd-0.dll"; do
+  if test -f "$f"; then
+    nqd=$f
+    break
+  fi
+done
+test -n "$nqd" || {
+  echo "build.sh: no nqd library in $b/lib/nqd" >&2
+  exit 2
+}
+
 # ';' between class path entries on Windows
 case $(uname -s) in
 MINGW* | MSYS* | CYGWIN*) sep=';' ;;
@@ -54,7 +68,8 @@ jar --create --file "$b/noqtis.jar" -C "$b/classes" .
 echo "build.sh: $b/noqtis.jar and $lib"
 
 run() {
-  java --enable-native-access=ALL-UNNAMED -Dnoqtis.library="$lib" "$@"
+  java --enable-native-access=ALL-UNNAMED -Dnoqtis.library="$lib" \
+    -Dnoqtis.nqd="$nqd" "$@"
 }
 
 for w in "$@"; do
@@ -95,7 +110,8 @@ for w in "$@"; do
       exit 2
     }
     # no -Dnoqtis.library and no NOQTIS_LIBRARY: the jar's own copy
-    env -u NOQTIS_LIBRARY java --enable-native-access=ALL-UNNAMED \
+    # the jar carries no data layer: the tests take the one built here
+    env -u NOQTIS_LIBRARY java --enable-native-access=ALL-UNNAMED -Dnoqtis.nqd="$nqd" \
       -Dnoqtis.repo=../.. -cp "$b/noqtis-bundled.jar$sep$b/tclasses" \
       io.github.rootcoder007.noqtis.Tests
     ;;

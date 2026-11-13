@@ -124,8 +124,12 @@ final class Native {
   }
 
   static MethodHandle fn(String name, MemoryLayout ret, MemoryLayout... args) {
+    return fn(LIB, name, ret, args);
+  }
+
+  static MethodHandle fn(SymbolLookup lib, String name, MemoryLayout ret, MemoryLayout... args) {
     MemorySegment s =
-        LIB.find(name).orElseThrow(() -> new UnsatisfiedLinkError("noqtis: no symbol " + name));
+        lib.find(name).orElseThrow(() -> new UnsatisfiedLinkError("noqtis: no symbol " + name));
     FunctionDescriptor d =
         ret == null ? FunctionDescriptor.ofVoid(args) : FunctionDescriptor.of(ret, args);
     return L.downcallHandle(s, d);
