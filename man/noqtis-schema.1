@@ -1,0 +1,130 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NOQTIS-SCHEMA 1
+.Os
+.Sh NAME
+.Nm noqtis-schema
+.Nd pin and check the schema of CSV files
+.Sh SYNOPSIS
+.Nm noqtis schema infer
+.Op Fl d | Fl -delim Ar c
+.Op Fl -no-header
+.Op Fl -ranges
+.Op Fl -put
+.Ar dir file ...
+.Nm noqtis schema check
+.Op Fl j | Fl -json
+.Ar dir
+.Op Ar file ...
+.Sh DESCRIPTION
+.Cm infer
+reads each CSV
+.Ar file
+in
+.Ar dir
+(RFC 4180: a delimiter byte, LF or CRLF line ends, quoted fields with
+.Ql \&""
+for a quote and line breaks kept inside, a UTF-8 byte order mark
+skipped) and prints its schema, a
+.Cm schemas
+element of the data record
+.Pq Xr noqtis-data 5 ,
+as one line of JSON: the columns in order with their names, the
+narrowest type every value fits
+.Po
+.Ql bool
+.Pq true, false, TRUE, FALSE, True, False ,
+.Ql int
+(an optional minus and at most 18 digits, no leading zero, so codes
+such as
+.Ql 007
+stay text),
+.Ql real
+(a JSON number),
+.Ql date
+.Pq Ql YYYY-MM-DD ,
+else
+.Ql text
+.Pc ,
+whether each has missing values (the empty field and
+.Ql NA ) ,
+and the number of rows, pinned as its minimum and maximum.
+.Bl -tag -width Ds
+.It Fl d , Fl -delim Ar c
+the delimiter, one byte (default
+.Ql \&, ;
+.Cm tab
+for a tab)
+.It Fl -no-header
+the first line is data; the columns are named V1, V2, ...
+.It Fl -ranges
+pin each number and date column's smallest and largest value too
+.It Fl -put
+record the schemas in the data record instead of printing them,
+replacing any for the same file
+.El
+.Pp
+.Cm check
+checks the files against the schemas the record pins (every schema, or
+those of the files named): the header against the column names, the
+number of fields of each line, each value against its column's type,
+missing-value codes,
+.Cm nulls ,
+.Cm min ,
+.Cm max
+and
+.Cm set ,
+the row count, and each rule
+.Po
+.Ql unique ,
+.Ql notnull ,
+.Ql range ,
+.Ql set ,
+.Ql incr ,
+.Ql complete ,
+.Ql distinct ,
+.Ql rows ,
+.Ql cols
+.Pc .
+A file that is not CSV fails its row with the line where it stops
+being CSV.
+It shows the first ten problems of a file and how many there are in
+all, one row per rule, and on standard error what to do.
+.Cm noqtis data check
+runs the same checks with the rest of the record.
+Edit a schema, or add rules, with
+.Cm noqtis data put Ar dir Cm schemas Ar file .
+.Pp
+Limits: a field of at most 1 MiB, a line of at most 16 MiB and 16,384
+fields; a
+.Ql unique
+or
+.Ql distinct
+rule holds at most 2^25 distinct values.
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+success; for
+.Cm check ,
+every check passed
+.It 1
+.Cm check :
+a check failed
+.It 2
+a usage or file error, a file that is not CSV
+.Pq Cm infer ,
+or a folder with no schema to check
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis schema infer --put results data/a.csv
+$ noqtis schema check results
+      check   detail
+ok    schema  data/a.csv: 3 rows, 4 columns as the schema says
+results: OK (1 checks passed)
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-data 1 ,
+.Xr nqdinfer 3 ,
+.Xr noqtis-data 5

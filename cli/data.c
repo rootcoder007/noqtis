@@ -540,6 +540,183 @@ static int dcheck(int argc, char **argv) {
   return ret;
 }
 
+/* the element JSON at e holds "path":<path> as its own member */
+static int haspath(const char *e, const char *path) {
+  char *q = ncjq(path), *k;
+  const char *f;
+  int hit = 0;
+  if (q == NULL)
+    return 0;
+  k = (char *)malloc(strlen(q) + 10);
+  if (k != NULL) {
+    sprintf(k, "\"path\":%s", q);
+    for (f = strstr(e, k); f != NULL && !hit; f = strstr(f + 1, k)) {
+      char a = f[strlen(k)];
+      hit = (f > e && (f[-1] == ',' || f[-1] == '{')) && (a == ',' || a == '}');
+    }
+    free(k);
+  }
+  free(q);
+  return hit;
+}
+
+static int sinfer(int argc, char **argv) {
+  const char *dl = NULL;
+  int np, help, noh = 0, rng = 0, put = 0, i, rc = NCOK;
+  nqdcsvopt co;
+  nqdrec *r = NULL;
+  ncopt o[] = {{'d', "delim", 1, &dl, NULL},
+               {0, "no-header", 0, NULL, &noh},
+               {0, "ranges", 0, NULL, &rng},
+               {0, "put", 0, NULL, &put}};
+  if (ncargs("schema infer", argc, argv, o, 4, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "schema");
+    return NCOK;
+  }
+  if (np < 2) {
+    ncmsg("schema infer", "give the folder and at least one CSV file in it");
+    return NCUSE;
+  }
+  memset(&co, 0, sizeof co);
+  if (dl != NULL) {
+    if (strcmp(dl, "\\t") == 0 || strcmp(dl, "tab") == 0)
+      dl = "\t";
+    if (strlen(dl) != 1) {
+      ncmsg("schema infer", "--delim: one byte, such as , ; | or tab");
+      return NCUSE;
+    }
+    co.delim = dl[0];
+  }
+  co.noheader = noh;
+  co.ranges = rng;
+  if (put && (rc = ncdload("schema infer", argv[0], 1, &r)) != NCOK)
+    return rc;
+  for (i = 1; i < np && rc == NCOK; i++) {
+    char why[600], *b = NULL;
+    size_t n = 0;
+    int e = nqdinfer(argv[0], argv[i], &co, NULL, 0, &n, why, sizeof why);
+    if (e == NQEBUF && (b = (char *)malloc(n + 1)) != NULL)
+      e = nqdinfer(argv[0], argv[i], &co, b, n + 1, &n, why, sizeof why);
+    if (e != NQOK) {
+      ncmsg("schema infer", "%s", why[0] ? why : nqerr(e));
+      rc = NCUSE;
+    } else if (put) {
+      if (nqdput(r, "schemas", b, n, why, sizeof why) != NQOK) {
+        ncmsg("schema infer", "%s", why);
+        rc = NCUSE;
+      }
+    } else {
+      printf("%s\n", b);
+    }
+    free(b);
+  }
+  if (put && rc == NCOK)
+    rc = ncdsave("schema infer", argv[0], r);
+  nqdrfree(r);
+  return rc;
+}
+
+static int scheck(int argc, char **argv) {
+  int np, help, json = 0, rc, ret = NCOK, i;
+  nqdrec *r;
+  size_t k, n, nr = 0;
+  nqdrep **rs;
+  ncopt o[] = {{'j', "json", 0, NULL, &json}};
+  if (ncargs("schema check", argc, argv, o, 1, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "schema");
+    return NCOK;
+  }
+  if (np < 1) {
+    ncmsg("schema check", "give the folder (and, to check only them, "
+          "files in it)");
+    return NCUSE;
+  }
+  if ((rc = ncdload("schema check", argv[0], 0, &r)) != NCOK)
+    return rc;
+  n = nqdlen(r, "schemas");
+  rs = (nqdrep **)calloc(n + 1, sizeof *rs);
+  if (rs == NULL) {
+    nqdrfree(r);
+    return nclib("schema check", "memory", NQEMEM);
+  }
+  for (k = 0; k < n && ret != NCUSE; k++) {
+    size_t l = 0;
+    char *e = NULL;
+    int want = np == 1;
+    if (nqdat(r, "schemas", k, NULL, 0, &l) != NQEBUF ||
+        (e = (char *)malloc(l + 1)) == NULL ||
+        nqdat(r, "schemas", k, e, l + 1, &l) != NQOK) {
+      free(e);
+      ret = nclib("schema check", "memory", NQEMEM);
+      break;
+    }
+    for (i = 1; i < np && !want; i++)
+      want = haspath(e, argv[i]);
+    if (want) {
+      rc = nqdschk(argv[0], e, l, &rs[nr]);
+      if (rs[nr] == NULL)
+        ret = nclib("schema check", argv[0], rc);
+      else {
+        if (rc != NQOK)
+          ret = NCBAD;
+        nr++;
+      }
+    }
+    free(e);
+  }
+  for (i = 1; i < np && ret != NCUSE; i++) {
+    int hit = 0;
+    for (k = 0; k < n && !hit; k++) {
+      size_t l = 0;
+      char *e = NULL;
+      if (nqdat(r, "schemas", k, NULL, 0, &l) == NQEBUF &&
+          (e = (char *)malloc(l + 1)) != NULL &&
+          nqdat(r, "schemas", k, e, l + 1, &l) == NQOK)
+        hit = haspath(e, argv[i]);
+      free(e);
+    }
+    if (!hit) {
+      ncmsg("schema check", "%s has no schema for %s: pin one with `noqtis "
+            "schema infer --put %s %s`", argv[0], argv[i], argv[0], argv[i]);
+      ret = NCUSE;
+    }
+  }
+  if (ret != NCUSE && nr == 0) {
+    ncmsg("schema check", "%s has no schemas: pin one with `noqtis schema "
+          "infer --put %s <file>`", argv[0], argv[0]);
+    ret = NCUSE;
+  }
+  if (ret != NCUSE)
+    ret = ncdreps("schema check", argv[0], (const nqdrep *const *)rs, nr,
+                  ret, json);
+  for (k = 0; k < nr; k++)
+    nqdrepfree(rs[k]);
+  free(rs);
+  nqdrfree(r);
+  return ret;
+}
+
+int ncschema(int argc, char **argv) {
+  if (argc >= 2 && strcmp(argv[1], "infer") == 0)
+    return sinfer(argc - 1, argv + 1);
+  if (argc >= 2 && strcmp(argv[1], "check") == 0)
+    return scheck(argc - 1, argv + 1);
+  if (argc >= 2 && (strcmp(argv[1], "-h") == 0 ||
+                    strcmp(argv[1], "--help") == 0)) {
+    ncuse(stdout, "schema");
+    return NCOK;
+  }
+  if (argc < 2)
+    ncuse(stderr, "schema");
+  else
+    ncmsg("schema", "unknown action %s (infer, check)", argv[1]);
+  return NCUSE;
+}
+
 int ncdata(int argc, char **argv) {
   static const struct {
     const char *v;

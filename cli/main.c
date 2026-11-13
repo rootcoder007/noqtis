@@ -220,6 +220,22 @@ static const nccmd cmds[] = {
    "  check  check the record and each file it lists against it\n"
    "  Exit 0 when every check passes, 1 when one fails, 2 on a usage or\n"
    "  file error.\n"},
+  {"schema", ncschema, "pin and check the schema of CSV files",
+   "usage: noqtis schema infer [-d|--delim <c>] [--no-header] [--ranges]\n"
+   "                           [--put] <dir> <file>...\n"
+   "       noqtis schema check [--json] <dir> [<file>...]\n"
+   "  infer  print each CSV file's schema as JSON: its columns, the\n"
+   "         narrowest type each fits (bool, int, real, date, text),\n"
+   "         whether it has missing values (\"\" or NA) and the number of\n"
+   "         rows; --ranges pins each number and date column's range;\n"
+   "         --put records it in the data record instead\n"
+   "  check  check the files against the schemas the record pins (all,\n"
+   "         or those of the files named): header, types, missing\n"
+   "         values, ranges, sets, row counts and rules\n"
+   "  --delim     the field delimiter (default ,; tab for a tab)\n"
+   "  --no-header the first line is data; columns are named V1, V2, ...\n"
+   "  Exit 0 when every check passes, 1 when one fails, 2 on a usage or\n"
+   "  file error.\n"},
   {"inspect", ncinsp, "show what a capsule says (nothing checked)",
    "usage: noqtis inspect [--json] <dir>\n"
    "  Prints the seal's format, algorithm and key fingerprint (SHA-256 of\n"

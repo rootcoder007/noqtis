@@ -137,6 +137,15 @@ _noqtis_cmd() {
         '--synthetic[a generated stand-in]' \
         '(-j --json)'{-j,--json}'[JSON output]' \
         '*:path:_files' ;;
+    schema)
+      _arguments \
+        '1:action:(infer check)' \
+        '(-d --delim)'{-d,--delim=}'[the delimiter]:c:' \
+        '--no-header[the first line is data]' \
+        '--ranges[pin number and date ranges]' \
+        '--put[record the schema]' \
+        '(-j --json)'{-j,--json}'[JSON output]' \
+        '*:path:_files' ;;
     ers)
       _arguments \
         '*--tsa[RFC 3161 timestamp authority]:url:_urls' \
@@ -158,5 +167,6 @@ _arguments -C \
     export\:"a capsule as in-toto, DSSE, RO-Crate or BagIt"
     inspect\:"show what a seal says" selftest\:"run the known-answer self-test" timestamp\:"add public timestamps" ers\:"start or renew an evidence record"
     data\:"make, show and check a data record"
+    schema\:"pin and check the schema of CSV files"
     algs\:"list the algorithms" version\:"print the version"))' \
   '*::arg:_noqtis_cmd'

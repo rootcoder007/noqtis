@@ -147,6 +147,42 @@ has "$w/err" "seal it again" "sealed folder warns"
 ok 1 "check after a change" "$nq" check -p "$w/k.pub" "$c"
 has "$w/out" "noqtis.data.json" "the seal check names the record"
 
+# ---- schema ----
+
+s=$w/sch
+mkdir -p "$s/data"
+cp "$v/cap/data/a.csv" "$v/cap/data/b.csv" "$s/data/"
+ok 0 "schema infer" "$nq" schema infer "$s" data/a.csv data/b.csv
+has "$w/out" '"name":"score","nulls":true,"type":"real"' "infer types"
+has "$w/out" '"path":"data/b.csv"' "infer second file"
+ok 2 "schema check without a record" "$nq" schema check "$s"
+ok 0 "schema infer --put" "$nq" schema infer --put --ranges "$s" data/a.csv
+ok 0 "schema check" "$nq" schema check "$s"
+has "$w/out" "3 rows, 4 columns as the schema says" "schema check passes"
+ok 2 "schema check, file with no schema" "$nq" schema check "$s" data/b.csv
+has "$w/err" "schema infer --put" "says how to pin one"
+ok 0 "data check with the schema" "$nq" data check "$s"
+printf '4,dan,9,2024-04-01\n' >>"$s/data/a.csv"
+ok 1 "schema check, a changed file" "$nq" schema check "$s" data/a.csv
+has "$w/out" 'line 5: column id: "4" is outside its range' "range row"
+has "$w/out" "4 rows, the schema allows 3 to 3" "row count row"
+has "$w/err" "schema infer" "and what to do"
+ok 1 "schema check --json" "$nq" schema check --json "$s"
+has "$w/out" '"check":"schema","ok":false' "json rows"
+printf 'a;b\n1;x\n' >"$s/data/c.csv"
+ok 0 "schema infer --delim" "$nq" schema infer -d ';' "$s" data/c.csv
+has "$w/out" '"delim":";"' "delim kept"
+printf 'a,"b\n' >"$s/data/d.csv"
+ok 2 "schema infer, bad CSV" "$nq" schema infer "$s" data/d.csv
+has "$w/err" "not closed" "bad CSV says why"
+printf '{"path":"data/c.csv","kind":"csv","delim":";","rules":[{"kind":"unique","col":"a"},{"kind":"range","col":"a","min":2}]}' \
+  >"$w/r.json"
+ok 0 "data put a schema with rules" "$nq" data put "$s" schemas "$w/r.json"
+ok 1 "schema check rules" "$nq" schema check "$s" data/c.csv
+has "$w/out" "ok    rule    data/c.csv: unique(a): holds" "unique holds"
+has "$w/out" "range(a): 1 rows fail, the first at line 2" "range fails"
+ok 2 "schema nothing" "$nq" schema nothing "$s"
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"
