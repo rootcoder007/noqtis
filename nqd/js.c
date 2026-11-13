@@ -339,17 +339,17 @@ int qdnumfmt(double d, char *out) {
     {
       /* the exponent, written by hand: no printf in the library (an R
        * package may not call sprintf) */
-      int e = nexp - 1 < 0 ? 1 - nexp : nexp - 1;
-      char t[4];
-      int nt = 0;
+      int ex = nexp - 1 < 0 ? 1 - nexp : nexp - 1;
+      char xd[4];
+      int nx = 0;
       *o++ = 'e';
       *o++ = nexp - 1 < 0 ? '-' : '+';
       do {
-        t[nt++] = (char)('0' + e % 10);
-        e /= 10;
-      } while (e > 0 && nt < 4);
-      while (nt > 0)
-        *o++ = t[--nt];
+        xd[nx++] = (char)('0' + ex % 10);
+        ex /= 10;
+      } while (ex > 0 && nx < 4);
+      while (nx > 0)
+        *o++ = xd[--nx];
     }
   }
   *o = '\0';
