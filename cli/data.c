@@ -960,9 +960,116 @@ static int dchk(int argc, char **argv) {
   return ret;
 }
 
+/* noqtis drift cal: each <path>=<file> names a file known not to have
+ * drifted from the summary of path; the files of one path calibrate it
+ * together */
+static int dcal(int argc, char **argv) {
+  const char *dl = NULL;
+  int np, help, noh = 0, i, j, rc;
+  nqdcsvopt co;
+  nqdrec *r = NULL;
+  const char **fs;
+  char *done;
+  ncopt o[] = {{'d', "delim", 1, &dl, NULL},
+               {0, "no-header", 0, NULL, &noh}};
+  if (ncargs("drift cal", argc, argv, o, 2, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "drift");
+    return NCOK;
+  }
+  if (np < 2) {
+    ncmsg("drift cal", "give the folder and at least one <file>=<file "
+          "known not to have drifted>");
+    return NCUSE;
+  }
+  for (i = 1; i < np; i++) {
+    char *eq = strchr(argv[i], '=');
+    if (eq == NULL || eq == argv[i] || eq[1] == '\0') {
+      ncmsg("drift cal", "%s: give <file>=<file known not to have drifted "
+            "from it>", argv[i]);
+      return NCUSE;
+    }
+  }
+  memset(&co, 0, sizeof co);
+  if (dl != NULL) {
+    if (strcmp(dl, "tab") == 0)
+      dl = "\t";
+    if (strlen(dl) != 1) {
+      ncmsg("drift cal", "--delim: one byte, such as , ; | or tab");
+      return NCUSE;
+    }
+    co.delim = dl[0];
+  }
+  co.noheader = noh;
+  if ((rc = ncdload("drift cal", argv[0], 0, &r)) != NCOK)
+    return rc;
+  fs = (const char **)calloc((size_t)np, sizeof *fs);
+  done = (char *)calloc((size_t)np, 1);
+  if (fs == NULL || done == NULL) {
+    free(fs);
+    free(done);
+    nqdrfree(r);
+    return nclib("drift cal", "memory", NQEMEM);
+  }
+  /* <path>=<file>: the path, and the file after it */
+  for (i = 1; i < np; i++)
+    *strchr(argv[i], '=') = '\0';
+  for (i = 1; i < np && rc == NCOK; i++) {
+    char why[600], *e = NULL, *b = NULL;
+    size_t l = 0, nf = 0, n = 0;
+    int k;
+    if (done[i])
+      continue;
+    /* every file given for this path, in the order given */
+    for (j = i; j < np; j++) {
+      if (strcmp(argv[j], argv[i]) == 0) {
+        fs[nf++] = argv[j] + strlen(argv[j]) + 1;
+        done[j] = 1;
+      }
+    }
+    k = nqdkey(r, "stats", argv[i], NULL, 0, &l);
+    if (k == NQEIO) {
+      ncmsg("drift cal", "%s has no summary of %s: pin one with `noqtis "
+            "drift pin %s %s`", argv[0], argv[i], argv[0], argv[i]);
+      rc = NCUSE;
+      break;
+    }
+    if (k != NQEBUF || (e = (char *)malloc(l + 1)) == NULL ||
+        nqdkey(r, "stats", argv[i], e, l + 1, &l) != NQOK) {
+      free(e);
+      rc = nclib("drift cal", "memory", NQEMEM);
+      break;
+    }
+    why[0] = '\0';
+    k = nqddcal(e, l, fs, nf, &co, NULL, 0, &n, why, sizeof why);
+    if (k == NQEBUF && (b = (char *)malloc(n + 1)) != NULL)
+      k = nqddcal(e, l, fs, nf, &co, b, n + 1, &n, why, sizeof why);
+    if (k == NQOK)
+      k = nqdput(r, "stats", b, n, why, sizeof why);
+    if (k != NQOK) {
+      ncmsg("drift cal", "%s", why[0] ? why : nqerr(k));
+      rc = NCUSE;
+    } else {
+      printf("%s: calibrated on %lu file%s known not to have drifted\n",
+             ncesc(argv[i]), (unsigned long)nf, nf == 1 ? "" : "s");
+    }
+    free(e);
+    free(b);
+  }
+  free(fs);
+  free(done);
+  if (rc == NCOK)
+    rc = ncdsave("drift cal", argv[0], r);
+  nqdrfree(r);
+  return rc;
+}
+
 int ncdrift(int argc, char **argv) {
   if (argc >= 2 && strcmp(argv[1], "pin") == 0)
     return dpin(argc - 1, argv + 1);
+  if (argc >= 2 && strcmp(argv[1], "cal") == 0)
+    return dcal(argc - 1, argv + 1);
   if (argc >= 2 && strcmp(argv[1], "check") == 0)
     return dchk(argc - 1, argv + 1);
   if (argc >= 2 && (strcmp(argv[1], "-h") == 0 ||
@@ -973,7 +1080,7 @@ int ncdrift(int argc, char **argv) {
   if (argc < 2)
     ncuse(stderr, "drift");
   else
-    ncmsg("drift", "unknown action %s (pin, check)", argv[1]);
+    ncmsg("drift", "unknown action %s (pin, check, cal)", argv[1]);
   return NCUSE;
 }
 

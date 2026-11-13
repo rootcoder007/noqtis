@@ -217,6 +217,23 @@ ok 0 "drift check --alpha 0" "$nq" drift check --alpha 0 "$f" \
   "data/big.csv=$v/drift/bigcur.csv"
 ok 2 "drift check --alpha 2" "$nq" drift check --alpha 2 "$f"
 ok 2 "drift check unknown file" "$nq" drift check "$f" data/none.csv
+ok 2 "drift cal without =" "$nq" drift cal "$f" data/a.csv
+has "$w/err" "give <file>=<file known not to have drifted" "cal says the form"
+ok 2 "drift cal, no summary" "$nq" drift cal "$f" "data/none.csv=$v/drift/cur.csv"
+has "$w/err" "noqtis drift pin" "cal says how to pin"
+ok 2 "drift cal, other columns" "$nq" drift cal "$f" \
+  "data/a.csv=$v/cap/data/a.csv"
+has "$w/err" "has the reference's columns" "cal refuses another file"
+ok 0 "drift cal" "$nq" drift cal "$f" "data/a.csv=$v/drift/ref.csv" \
+  "data/a.csv=$v/drift/cur.csv"
+has "$w/out" "data/a.csv: calibrated on 2 files known not to have drifted" "cal says what it did"
+ok 0 "show: cal recorded" "$nq" data show "$f"
+has "$w/out" '"n":2,"p":0.00008379216300369308,"psi":0.7582422554889341}' "cal in the record"
+ok 0 "drift check calibrated: no warning" "$nq" drift check "$f" \
+  "data/a.csv=$v/drift/cur.csv"
+has "$w/out" "calibrated: PSI 0.7582" "the detail says calibrated"
+ok 3 "drift check calibrated: a larger shift warns" "$nq" drift check "$f" \
+  "data/a.csv=$v/drift/cur2.csv"
 printf 'x,c,b\n1,a\n' >"$w/ragged.csv"
 ok 1 "drift check ragged" "$nq" drift check "$f" "data/a.csv=$w/ragged.csv"
 has "$w/out" "line 2 has 2 fields" "ragged says the line"
