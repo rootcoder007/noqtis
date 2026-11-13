@@ -1,0 +1,147 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 13, 2026
+.Dt NQDPACK 3
+.Os
+.Sh NAME
+.Nm nqdpack ,
+.Nm nqdunpack
+.Nd a capsule in one file, and back
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Ft int
+.Fn nqdpack "const char *dir" "int files" "const char *file"
+.Ft int
+.Fo nqdunpack
+.Fa "const char *file" "const char *dir" "int rm" "char *why" "size_t cap"
+.Fc
+.Sh DESCRIPTION
+.Fn nqdpack
+writes the sealed capsule
+.Fa dir
+to the new
+.Fa file
+as a bundle
+.Pq Ql noqtis-bundle-1 , Xr noqtis-capsule 5 :
+its
+.Pa noqtis.json ,
+.Pa noqtis.sig ,
+.Pa noqtis.ers
+when there is one, and every file its manifest lists
+.Pq Fa files No 1 ,
+or of those only its data record
+.Pa noqtis.data.json
+.Pq Fa files No 0 ,
+in the byte order of their paths.
+The same folder gives the same bytes.
+.Fa file
+must not exist; on any error it is removed again.
+Nothing is checked: check the capsule with
+.Xr nqchk 3
+first.
+.Pp
+.Fn nqdunpack
+reads the bundle
+.Fa file
+into the new folder
+.Fa dir ,
+which it makes.
+The reader is strict, and refuses the bundle whole, removing everything
+it wrote and
+.Fa dir ,
+for: a file that does not start with the format's line; a path that is
+not one a capsule holds (empty, absolute, with
+.Ql \&.
+or
+.Ql \&.. ,
+a backslash, a colon, so no drive letter, a control character, invalid
+UTF-8, a NUL) or that is over 64 folders deep, and on Windows a name the
+system takes for a device
+.Pq Ql CON , Ql NUL , Ql COM1 , ...
+or one ending in a dot or space; paths out of order or given twice;
+no
+.Pa noqtis.json
+or
+.Pa noqtis.sig ;
+a bundle cut short or with bytes after its end; a path over 4096 bytes,
+more than 2,000,003 entries, a file over 2^53 \- 1 bytes, a seal over
+1 MiB or a manifest over 512 MiB.
+Every file is created new, never over one that is there or through a
+link, and every folder is made by
+.Fn nqdunpack
+inside
+.Fa dir ,
+so no path leaves it; two paths that differ only in case on a file
+system that ignores case are refused.
+Check
+.Fa dir
+afterwards with
+.Xr nqchk 3 ;
+when the bundle carries only the data record, check that alone
+.Po
+.Xr nqchkx 3
+with
+.Fa only
+.Pc .
+.Pp
+With
+.Fa rm
+1,
+.Fn nqdunpack
+removes instead what an unpack of the same
+.Fa file
+wrote to
+.Fa dir ,
+then
+.Fa dir
+when it is empty; nothing else is removed.
+.Pp
+.Fa why ,
+when not
+.Dv NULL ,
+gets a sentence
+.Pf ( Fa cap
+bytes) on what was refused.
+.Ss Format
+.Bd -literal -offset indent
+"noqtis-bundle-1\en"                   16 bytes
+then per file: path length   2 bytes, big-endian, 1 to 4096
+               path          UTF-8, a capsule path
+               size          8 bytes, big-endian
+               bytes         size bytes
+then the end:  0x00 0x00
+.Ed
+.Sh RETURN VALUES
+.Dv NQOK ;
+.Dv NQEARG
+for a
+.Dv NULL
+argument,
+.Fa files
+or
+.Fa rm
+not 0 or 1, or
+.Fa files
+0 for a capsule that lists no data record;
+.Dv NQEIO
+when
+.Fa file
+exists
+.Pq Fn nqdpack ,
+.Fa dir
+exists
+.Pq Fn nqdunpack ,
+or a file cannot be read or written;
+.Dv NQEDEC
+and
+.Dv NQELIM
+for a bundle refused as above;
+.Dv NQEMEM .
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-export 1 ,
+.Xr noqtis-pack 1 ,
+.Xr nqchk 3 ,
+.Xr nqfiles 3 ,
+.Xr noqtis-capsule 5

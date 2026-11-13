@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 29, 2026
+.Dd November 13, 2026
 .Dt NOQTIS-CAPSULE 5
 .Os
 .Sh NAME
@@ -391,6 +391,31 @@ wrote it, not that the name is true.
 A checker that also knows the key (pinned, or by the SHA-256 its holder
 published) and finds it is the seal's key may say who sealed the
 capsule.
+.Ss Bundles
+A bundle
+.Pq Ql noqtis-bundle-1 , Xr nqdpack 3
+is a capsule in one file, to mail or attach: the 16 bytes
+.Ql noqtis-bundle-1
+and a line feed; then per file its path's length (2 bytes, big-endian, 1
+to 4096), the path, its size (8 bytes, big-endian) and its bytes; then
+two zero bytes.
+It holds
+.Pa noqtis.json ,
+.Pa noqtis.sig ,
+.Pa noqtis.ers
+when there is one, and the listed files (all, or only the data record),
+in ascending byte order of their paths, each once, so a capsule has one
+bundle.
+A reader MUST refuse the whole bundle for a path that breaks rules 1 to
+4 of
+.Sx Paths
+or is more than 64 folders deep, paths out of order or repeated, no
+manifest or seal, a seal over 1 MiB or a manifest over 512 MiB, a size
+over 2^53 \- 1, a bundle cut short or with bytes after its end; it MUST
+create each file new inside the folder it unpacks to, never through a
+link or over a file.
+The bundle carries no signature of its own: it is checked as the folder
+it unpacks to.
 .Sh FILES
 .Bl -tag -width Ds -compact
 .It Pa noqtis.json
@@ -423,6 +448,7 @@ Its seal:
 .Xr noqtis-seal 1 ,
 .Xr nqchk 3 ,
 .Xr nqchkt 3 ,
+.Xr nqdpack 3 ,
 .Xr nqseal 3
 .Sh STANDARDS
 .Rs

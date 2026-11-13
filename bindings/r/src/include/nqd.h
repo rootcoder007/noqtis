@@ -251,6 +251,31 @@ NQDAPI int nqdrpt(const char *dir, const nqrep *crep, const nqdrep *drep,
  * NQEVRFY otherwise, with *rep set. */
 NQDAPI int nqddiff(const char *a, const char *b, nqdrep **rep);
 
+/* ---- bundles ---- */
+
+/* A capsule in one file (noqtis-bundle-1, noqtis-capsule(5)), to mail or
+ * attach: its seal, manifest and evidence record, and every listed file
+ * (files 1) or only its data record (files 0; NQEARG when it lists
+ * none), in byte order of their paths. The same folder gives the same
+ * bytes. nqdpack writes it to file, which must not exist yet (NQEIO),
+ * and removes it again on any error. Check the capsule (nqchk) first:
+ * nothing here checks a signature. */
+NQDAPI int nqdpack(const char *dir, int files, const char *file);
+/* Reads the bundle in file into the new folder dir (NQEIO when it
+ * exists), refusing it whole, with nothing left behind and a sentence in
+ * why (cap bytes, may be NULL): NQEDEC for a file that is not a bundle,
+ * a path a capsule cannot hold (absolute, "..", a backslash, a colon so
+ * no drive letter, a control character, invalid UTF-8, over 64 folders
+ * deep, and on Windows a device name), paths out of order or twice, no
+ * seal or manifest, a cut or bytes after the end; NQELIM for a path over
+ * 4096 bytes, more than 2,000,003 entries, a seal over 1 MiB or a
+ * manifest over 512 MiB. No path leaves dir: there are no links, and
+ * each file is created new. Check dir after (nqchk). With rm 1 it
+ * removes instead what an unpack of the same file wrote to dir, and
+ * dir. */
+NQDAPI int nqdunpack(const char *file, const char *dir, int rm, char *why,
+                     size_t cap);
+
 /* ---- checking ---- */
 
 /* Checks the record in dir: that it parses and is canonical, that each

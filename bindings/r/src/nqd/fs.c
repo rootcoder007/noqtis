@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* nqd: files (UTF-8 paths, wide on Windows), capsule paths, digests, and
  * the check report. The only platform code of nqd. */
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "int.h"
 
 #include <stdarg.h>
@@ -9,6 +13,13 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <direct.h>
+#include <fcntl.h>
+#include <io.h>
+#include <sys/stat.h>
+#else
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 #ifdef _WIN32
@@ -62,6 +73,45 @@ static int dremove(const char *path) {
   return ok ? 0 : -1;
 #else
   return remove(path);
+#endif
+}
+
+FILE *qdfnew(const char *path) {
+#ifdef _WIN32
+  wchar_t *p = wide(path);
+  int fd = p != NULL ? _wopen(p, _O_CREAT | _O_EXCL | _O_WRONLY | _O_BINARY,
+                              _S_IREAD | _S_IWRITE)
+                     : -1;
+  FILE *f = fd >= 0 ? _fdopen(fd, "wb") : NULL;
+  free(p);
+  if (fd >= 0 && f == NULL)
+    _close(fd);
+  return f;
+#else
+  /* C11's x: never an existing file, nor a link where the file goes */
+  return fopen(path, "wbx");
+#endif
+}
+
+int qdmkdir(const char *path) {
+#ifdef _WIN32
+  wchar_t *p = wide(path);
+  int r = p != NULL && _wmkdir(p) == 0;
+  free(p);
+  return r ? NQOK : NQEIO;
+#else
+  return mkdir(path, 0755) == 0 ? NQOK : NQEIO;
+#endif
+}
+
+int qdrm(const char *path, int isdir) {
+#ifdef _WIN32
+  wchar_t *p = wide(path);
+  int r = p != NULL && (isdir ? _wrmdir(p) : _wunlink(p)) == 0;
+  free(p);
+  return r ? NQOK : NQEIO;
+#else
+  return (isdir ? rmdir(path) : unlink(path)) == 0 ? NQOK : NQEIO;
 #endif
 }
 

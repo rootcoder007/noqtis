@@ -236,5 +236,28 @@ int qdwrite(const char *path, const char *b, size_t len);
 /* SHA-256 and size of a file */
 int qdsha(const char *path, uint8_t h[32], uint64_t *size);
 void qdhex(const uint8_t *in, size_t n, char *out);
+/* a new file for writing, never an existing one or a link (NULL then) */
+FILE *qdfnew(const char *path);
+/* makes a folder; removes a file (isdir 0) or an empty folder */
+int qdmkdir(const char *path);
+int qdrm(const char *path, int isdir);
+
+/* ---- bundles (bnd.c) ---- */
+
+/* The bundle reader's input and output. rd puts up to n bytes at b and
+ * their count in *got, 0 only at the end (NQOK, or NQEIO). put is called
+ * with QDBBEG and an entry's path and size, QDBDAT with each piece of
+ * its bytes, QDBEND when it ends; anything but NQOK stops the reader
+ * with that code. */
+enum { QDBBEG = 1, QDBDAT, QDBEND };
+typedef struct {
+  int (*rd)(void *u, uint8_t *b, size_t n, size_t *got);
+  void *u;
+  int (*put)(void *s, int op, const char *path, uint64_t size,
+             const uint8_t *b, size_t n);
+  void *s;
+} qdbio;
+/* reads one whole noqtis-bundle-1: NQOK, or NQEDEC/NQELIM with why */
+int qdbread(const qdbio *io, char *why, size_t cap);
 
 #endif /* NQDINT_H */

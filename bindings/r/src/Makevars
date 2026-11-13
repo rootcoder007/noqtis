@@ -62,6 +62,7 @@ OBJECTS = \
   tls/rec.o \
   xdh/hyb.o \
   xdh/x25519.o \
+  nqd/bnd.o \
   nqd/chk.o \
   nqd/cmt.o \
   nqd/csv.o \
