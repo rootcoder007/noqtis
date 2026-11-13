@@ -349,6 +349,40 @@ ok 1 "diff --json" "$nq" diff --json "$d1" "$d2"
 has "$w/out" '"same":false' "json same false"
 ok 2 "diff one folder" "$nq" diff "$d1"
 
+# ---- report ----
+
+p=$w/rpt
+mkdir -p "$p/data"
+printf 'id,code\n1,AB\n2,CD\n' >"$p/data/a.csv"
+ok 2 "report: neither sealed nor recorded" "$nq" report "$p"
+has "$w/err" "noqtis seal" "report says to seal"
+ok 2 "report: not a folder" "$nq" report "$w/nope"
+ok 0 "report: data add" "$nq" data add --licence 'CC|BY' "$p" data/a.csv
+printf '{"title":"a\\nb|c*d"}' >"$w/rc.json"
+ok 0 "report: put cite" "$nq" data put "$p" cite "$w/rc.json"
+ok 1 "report: not sealed fails" "$nq" report "$p"
+has "$w/out" "Failed.*: 1 of 3 checks failed (not sealed)" "unsealed counts"
+has "$w/out" '^- title: a b\\|c\\\*d$' "a line break and markup in a value, escaped once"
+has "$w/out" '| CC\\|BY |' "a | in a cell is escaped"
+ok 0 "report: seal" "$nq" seal -k "$w/k" "$p"
+ok 0 "report" "$nq" report -p "$w/k.pub" "$p"
+has "$w/out" "Passed.*: 0 of 24 checks failed" "sealed report passes"
+has "$w/out" "^| ok | data.source | data/a.csv: SHA-256 and size match |$" "data rows"
+ok 0 "report -f txt -o" "$nq" report -p "$w/k.pub" -f txt -o "$w/r.txt" "$p"
+has "$w/r.txt" "^Passed: 0 of 24 checks failed$" "text report to a file"
+has "$w/r.txt" "^    title: a b|c\*d$" "text keeps the value on its line"
+ok 2 "report -f html" "$nq" report -f html "$p"
+has "$w/err" "md or txt" "format refused"
+ok 0 "report --json" "$nq" report --json -p "$w/k.pub" "$p"
+has "$w/out" '"status":"passed","sealed":true,"total":24,"failed":0,"verified":2,"changed":0' "json counts"
+printf '{"name":"50%%\\nx","status":"fail"}' >"$w/rf.json"
+ok 0 "report: a failed check" "$nq" data put "$p" checks "$w/rf.json"
+ok 1 "report --json --github" "$nq" report --json --github -p "$w/k.pub" "$p"
+has "$w/out" '^::error title=noqtis data.recorded::.*/rpt: 50%25%0Ax: fail$' "annotation escaped"
+has "$w/out" '^::error title=noqtis file::.*: noqtis.data.json' "changed file annotated"
+has "$w/out" '"status":"failed","sealed":true,"total":25,"failed":2,"verified":1,"changed":1' "json counts on failure"
+has "$w/out" '"check":"data.recorded","ok":false,"detail":"50%\\u000ax: fail"' "json rows"
+
 # ---- seal -r, check -r ----
 
 t=$w/tree

@@ -242,6 +242,7 @@ int ncdreps(const char *cmd, const char *lab, const nqdrep *const *rs,
             size_t nr, int ret, int json);
 int ncschema(int argc, char **argv);
 int ncdiff(int argc, char **argv);
+int ncrpt(int argc, char **argv);
 int ncdrift(int argc, char **argv);
 int ncenv(int argc, char **argv);
 int nccommit(int argc, char **argv);

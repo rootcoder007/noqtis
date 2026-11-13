@@ -306,6 +306,20 @@ static const nccmd cmds[] = {
    "  checked: run `noqtis check` on each first.\n"
    "  Exit 0 when nothing differs, 1 when something does, 2 on a usage\n"
    "  or file error.\n"},
+  {"report", ncrpt, "check a capsule and write a report of it",
+   "usage: noqtis report [-p <key.pub>] [-f|--format md|txt] [-o <file>]\n"
+   "                     [-j|--json] [--github] <dir>\n"
+   "  Checks the capsule (as `noqtis check`, with -p the key the seal\n"
+   "  must carry) and its data record (as `noqtis data check`) once, and\n"
+   "  writes a report of both: the result, every check, and what the\n"
+   "  record says of the data (sources, schemas, drift summaries,\n"
+   "  environment, steps, recorded checks, commitments, citation), in\n"
+   "  Markdown (default) or plain text, to <file> or standard output.\n"
+   "  --json      print instead one line of JSON: status, the counts\n"
+   "              (total, failed, verified, changed) and every check\n"
+   "  --github    print a GitHub workflow annotation per failed check\n"
+   "  A folder that is not sealed fails. Exit 0 when every check passed,\n"
+   "  1 when one failed, 2 on a usage or file error.\n"},
   {"inspect", ncinsp, "show what a capsule says (nothing checked)",
    "usage: noqtis inspect [--json] <dir>\n"
    "  Prints the seal's format, algorithm and key fingerprint (SHA-256 of\n"
