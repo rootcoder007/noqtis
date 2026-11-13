@@ -360,6 +360,56 @@ The library makes no network request: send the bytes from `nqtsreq` to
 the TSA (HTTP POST, `application/timestamp-query`) and pass its reply to
 `nqtsput`, as `noqtis seal --tsa` does.
 
+## The data layer (nqd.h)
+
+A separate library, `-lnqd -lnoqtis`, on the public API above and
+outside the audited core. Records and elements go in and out as JSON
+text; every function returns `NQOK` or an `NQE*` code.
+
+```c
+#include <nqd.h>
+
+int nqdnew(nqdrec **r);
+int nqdparse(const char *json, size_t n, nqdrec **r, char *why, size_t cap);
+int nqdload(const char *dir, nqdrec **r, char *why, size_t cap);
+int nqdjson(const nqdrec *r, char *out, size_t cap, size_t *outlen);
+int nqdsave(const nqdrec *r, const char *dir);
+void nqdrfree(nqdrec *r);
+size_t nqdlen(const nqdrec *r, const char *member);
+int nqdat(const nqdrec *r, const char *member, size_t i, char *out,
+          size_t cap, size_t *outlen);
+int nqdkey(const nqdrec *r, const char *member, const char *key, char *out,
+           size_t cap, size_t *outlen);
+int nqdput(nqdrec *r, const char *member, const char *json, size_t n,
+           char *why, size_t cap);
+int nqdset(nqdrec *r, const char *member, const char *key,
+           const char *field, const char *json, size_t n, char *why,
+           size_t cap);
+int nqddel(nqdrec *r, const char *member, const char *key);
+int nqdsrc(nqdrec *r, const char *dir, const char *path, char *why,
+           size_t cap);
+int nqdinfer(const char *dir, const char *path, const nqdcsvopt *o,
+             char *out, size_t cap, size_t *outlen, char *why, size_t wcap);
+int nqdschk(const char *dir, const char *schema, size_t n, nqdrep **rep);
+int nqdstats(const char *dir, const char *path, const nqdcsvopt *o,
+             char *out, size_t cap, size_t *outlen, char *why, size_t wcap);
+int nqddrift(const char *stats, size_t n, const char *file,
+             const nqdcsvopt *o, const nqddopt *d, nqdrep **rep);
+int nqddiff(const char *a, const char *b, nqdrep **rep);
+int nqdchk(const char *dir, nqdrep **rep);
+size_t nqdrepn(const nqdrep *r);
+int nqdrepi(const nqdrep *r, size_t i, const char **check, int *ok,
+            const char **detail);
+const char *nqdrepj(const nqdrep *r, size_t i);
+void nqdrepfree(nqdrep *r);
+```
+
+[nqdnew(3)](/noqtis/reference/man/nqdnew-3/),
+[nqdinfer(3)](/noqtis/reference/man/nqdinfer-3/),
+[nqdstats(3)](/noqtis/reference/man/nqdstats-3/),
+[nqddiff(3)](/noqtis/reference/man/nqddiff-3/),
+[nqdchk(3)](/noqtis/reference/man/nqdchk-3/)
+
 ## Shared libraries and Windows
 
 `NQAPI` marks the exported functions; a shared build exports nothing else.

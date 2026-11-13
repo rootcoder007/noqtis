@@ -1,0 +1,120 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis-schema</code> &#x2014;
+    <span class="Nd">pin and check the schema of CSV files</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis schema infer</code></td>
+    <td>[<code class="Fl">-d</code> | <code class="Fl">--delim</code>
+      <var class="Ar">c</var>] [<code class="Fl">--no-header</code>]
+      [<code class="Fl">--ranges</code>] [<code class="Fl">--put</code>]
+      <var class="Ar">dir file ...</var></td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis schema check</code></td>
+    <td>[<code class="Fl">-j</code> | <code class="Fl">--json</code>]
+      <var class="Ar">dir</var> [<var class="Ar">file ...</var>]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Cm">infer</code> reads each CSV
+    <var class="Ar">file</var> in <var class="Ar">dir</var> (RFC 4180: a
+    delimiter byte, LF or CRLF line ends, quoted fields with
+    &#x2018;<code class="Li">&quot;&quot;</code>&#x2019; for a quote and line
+    breaks kept inside, a UTF-8 byte order mark skipped) and prints its schema,
+    a <code class="Cm">schemas</code> element of the data record
+    (<a class="Xr" href="/noqtis/reference/man/noqtis-data-5/">noqtis-data(5)</a>),
+    as one line of JSON: the columns in order with their names, the narrowest
+    type every value fits (&#x2018;<code class="Li">bool</code>&#x2019; (true,
+    false, TRUE, FALSE, True, False),
+    &#x2018;<code class="Li">int</code>&#x2019; (an optional minus and at most
+    18 digits, no leading zero, so codes such as
+    &#x2018;<code class="Li">007</code>&#x2019; stay text),
+    &#x2018;<code class="Li">real</code>&#x2019; (a JSON number),
+    &#x2018;<code class="Li">date</code>&#x2019;
+    (&#x2018;<code class="Li">YYYY-MM-DD</code>&#x2019;), else
+    &#x2018;<code class="Li">text</code>&#x2019;), whether each has missing
+    values (the empty field and &#x2018;<code class="Li">NA</code>&#x2019;), and
+    the number of rows, pinned as its minimum and maximum.</p>
+<dl class="Bl-tag">
+  <dt id="d"><a class="permalink" href="#d"><code class="Fl">-d</code></a>,
+    <code class="Fl">--delim</code> <var class="Ar">c</var></dt>
+  <dd>the delimiter, one byte (default
+      &#x2018;<code class="Li">,</code>&#x2019;; <code class="Cm">tab</code> for
+      a tab)</dd>
+  <dt id="no-header"><a class="permalink" href="#no-header"><code class="Fl">--no-header</code></a></dt>
+  <dd>the first line is data; the columns are named V1, V2, ...</dd>
+  <dt id="ranges"><a class="permalink" href="#ranges"><code class="Fl">--ranges</code></a></dt>
+  <dd>pin each number and date column's smallest and largest value too</dd>
+  <dt id="put"><a class="permalink" href="#put"><code class="Fl">--put</code></a></dt>
+  <dd>record the schemas in the data record instead of printing them, replacing
+      any for the same file</dd>
+</dl>
+<p class="Pp"><code class="Cm">check</code> checks the files against the schemas
+    the record pins (every schema, or those of the files named): the header
+    against the column names, the number of fields of each line, each value
+    against its column's type, missing-value codes,
+    <code class="Cm">nulls</code>, <code class="Cm">min</code>,
+    <code class="Cm">max</code> and <code class="Cm">set</code>, the row count,
+    and each rule (&#x2018;<code class="Li">unique</code>&#x2019;,
+    &#x2018;<code class="Li">notnull</code>&#x2019;,
+    &#x2018;<code class="Li">range</code>&#x2019;,
+    &#x2018;<code class="Li">set</code>&#x2019;,
+    &#x2018;<code class="Li">incr</code>&#x2019;,
+    &#x2018;<code class="Li">complete</code>&#x2019;,
+    &#x2018;<code class="Li">distinct</code>&#x2019;,
+    &#x2018;<code class="Li">rows</code>&#x2019;,
+    &#x2018;<code class="Li">cols</code>&#x2019;). A file that is not CSV fails
+    its row with the line where it stops being CSV. It shows the first ten
+    problems of a file and how many there are in all, one row per rule, and on
+    standard error what to do. <code class="Cm">noqtis data check</code> runs
+    the same checks with the rest of the record. Edit a schema, or add rules,
+    with <code class="Cm">noqtis data put</code> <var class="Ar">dir</var>
+    <code class="Cm">schemas</code> <var class="Ar">file</var>.</p>
+<p class="Pp">Limits: a field of at most 1 MiB, a line of at most 16 MiB and
+    16,384 fields; a &#x2018;<code class="Li">unique</code>&#x2019; or
+    &#x2018;<code class="Li">distinct</code>&#x2019; rule holds at most 2^25
+    distinct values.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt>0</dt>
+  <dd>success; for <code class="Cm">check</code>, every check passed</dd>
+  <dt id="check">1</dt>
+  <dd><a class="permalink" href="#check"><code class="Cm">check</code></a>: a
+      check failed</dd>
+  <dt>2</dt>
+  <dd>a usage or file error, a file that is not CSV
+      (<code class="Cm">infer</code>), or a folder with no schema to check</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>$ noqtis schema infer --put results data/a.csv
+$ noqtis schema check results
+      check   detail
+ok    schema  data/a.csv: 3 rows, 4 columns as the schema says
+results: OK (1 checks passed)</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-1/">noqtis(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-data-1/">noqtis-data(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqdinfer-3/">nqdinfer(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-data-5/">noqtis-data(5)</a></p>
+</section>
+</div>

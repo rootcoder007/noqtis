@@ -1,0 +1,210 @@
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">noqtis-drift</code> &#x2014;
+    <span class="Nd">summarise CSV files, and say later whether they
+    drifted</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis drift pin</code></td>
+    <td>[<code class="Fl">-d</code> | <code class="Fl">--delim</code>
+      <var class="Ar">c</var>] [<code class="Fl">--no-header</code>]
+      <var class="Ar">dir file ...</var></td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">noqtis drift check</code></td>
+    <td>[<code class="Fl">-j</code> | <code class="Fl">--json</code>]
+      [<code class="Fl">--psi-warn</code> <var class="Ar">x</var>]
+      [<code class="Fl">--psi-fail</code> <var class="Ar">x</var>]
+      [<code class="Fl">--alpha</code> <var class="Ar">p</var>]
+      [<code class="Fl">--min-n</code> <var class="Ar">n</var>]
+      [<code class="Fl">--benford</code>] [<code class="Fl">-d</code> |
+      <code class="Fl">--delim</code> <var class="Ar">c</var>]
+      [<code class="Fl">--no-header</code>] <var class="Ar">dir</var>
+      [<var class="Ar">file</var>[=<var class="Ar">current-file</var>] ...]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Cm">pin</code> reads each CSV
+    <var class="Ar">file</var> in <var class="Ar">dir</var> and records its
+    summaries in the data record (<code class="Cm">stats</code>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-data-5/">noqtis-data(5)</a>),
+    of a fixed size whatever the file's, so that a later file can be compared
+    with it without the old data being kept. <code class="Cm">check</code>
+    compares each file (all summarised files, or those named; with
+    <var class="Ar">file</var>=<var class="Ar">current-file</var>, that file
+    instead of the one in <var class="Ar">dir</var>, such as a new download of
+    the same source) with its summary, one row per column.</p>
+<section class="Ss">
+<h2 class="Ss" id="Summaries"><a class="permalink" href="#Summaries">Summaries</a></h2>
+<p class="Pp">Values that are empty or
+    &#x2018;<code class="Li">NA</code>&#x2019; are missing; a column is numeric
+    when every other value is a JSON number, categorical otherwise. Of
+    <var class="Ar">n</var> values of a numeric column, sorted
+    <var class="Va">x</var>(1) &lt;= ... &lt;=
+    <var class="Va">x</var>(<var class="Va">n</var>):</p>
+<dl class="Bl-tag">
+  <dt id="q"><a class="permalink" href="#q"><code class="Cm">q</code></a>,
+    <span class="No">the quantile sketch</span></dt>
+  <dd>pairs (<var class="Va">v</var>, <var class="Va">c</var>): the value
+      <var class="Va">x</var>(<var class="Va">r</var>) and
+      <var class="Va">c</var>, the number of values at most it, for the ranks
+      <var class="Va">r</var> = 1 and <var class="Va">r</var> = ceil(<i>j n</i>
+      / 1000), <var class="Va">j</var> = 1 ... 1000, a value kept once. When
+      <var class="Va">n</var> &lt;= 1,001, every distinct value is kept and the
+      sketch is the exact distribution.</dd>
+  <dt id="edges"><a class="permalink" href="#edges"><code class="Cm">edges</code></a>,
+    <code class="Cm">counts</code></dt>
+  <dd>the bins of the population stability index: with at most ten distinct
+      values, each value is an edge; else the type-1 deciles
+      <var class="Va">x</var>(ceil(<var class="Va">i n</var>
+      <span class="No">/10))</span>, <var class="Va">i</var> = 1 ... 9, equal
+      ones merged. Bins are closed on the right, the last open above; counts are
+      exact.</dd>
+  <dt id="digits"><a class="permalink" href="#digits"><code class="Cm">digits</code></a></dt>
+  <dd>the counts of first significant digits 1 to 9, read from each value's text
+      (so 0.0032 counts as 3).</dd>
+</dl>
+<p class="Pp">Of a categorical column, <code class="Cm">cats</code> counts its
+    1,000 most frequent values (ties broken by their bytes) and
+    <code class="Cm">other</code> the rest.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Tests"><a class="permalink" href="#Tests">Tests</a></h2>
+<p class="Pp">Of a numeric column, with the reference of <var class="Va">n</var>
+    values and the current file of <var class="Va">m</var>:</p>
+<dl class="Bl-tag">
+  <dt id="D">Kolmogorov-Smirnov</dt>
+  <dd><var class="Va">D</var> = sup |<i>F</i>(<i>x</i>) - <i>G</i>(<i>x</i>)|,
+      with <var class="Va">G</var> the current file's distribution function and
+      <var class="Va">F</var> the sketch's step function
+      <var class="Va">F</var>(<var class="Va">x</var>) =
+      <var class="Va">c</var>/<var class="Va">n</var> for the largest kept
+      <var class="Va">v</var> &lt;= <var class="Va">x</var>. From the sketch,
+      <var class="Va">D</var> is within <var class="Va">e</var> = max
+      (<i>c</i>(<i>j</i>+1) - <i>c</i>(<i>j</i>) - 1) / <i>n</i> of the exact
+      statistic, at most about 0.001 (the row and the JSON say
+      <var class="Va">e</var>, 0 when the sketch is exact). The p-value is
+      exact, by the recursion R used for
+      <a class="permalink" href="#ks.test"><code class="Fn" id="ks.test">ks.test</code></a>()
+      without ties, when the sketch is exact, <var class="Va">n m</var> &lt;
+      10,000 and no value is tied; otherwise it is the Kolmogorov limit
+      P(<i>K</i> &gt; sqrt(<i>nm</i>/(<i>n</i>+<i>m</i>)) <i>D</i>), as R
+      computes it (tolerance 1e-6, so p-values below about 1e-6 are not
+      precise). With ties R 4.6 has an exact p-value too; nqd then gives the
+      asymptotic one.</dd>
+  <dt>Population stability index</dt>
+  <dd>PSI = &#x03A3; (<i>p</i> - <i>q</i>) ln(<i>p</i>/<i>q</i>) over the bins,
+      with <var class="Va">p</var> and <var class="Va">q</var> the shares of the
+      reference and the current file and an empty bin counted as 1e-6; the
+      Jensen-Shannon divergence &#x00BD; &#x03A3; <i>p</i> ln(<i>p</i>/<i>m</i>)
+      + &#x00BD; &#x03A3; <i>q</i> ln(<i>q</i>/<i>m</i>),
+      <var class="Va">m</var> = (<i>p</i> + <i>q</i>)/2, in nats, at most ln
+    2.</dd>
+  <dt>Benford</dt>
+  <dd>X^2 of the nine first-digit counts against log10(1 + 1/<i>d</i>), on 8
+      degrees of freedom.</dd>
+</dl>
+<p class="Pp">Of a categorical column, PSI and Jensen-Shannon over the kept
+    categories and <code class="Cm">other</code> (where every value the
+    reference did not keep falls), and the chi-square test of homogeneity of the
+    2 &#x00D7; <i>k</i> table of reference and current counts (no continuity
+    correction; columns empty in both left out), on <i>k</i> - 1 degrees of
+    freedom.</p>
+<p class="Pp">A column fails when its PSI is at least
+    <code class="Fl">--psi-fail</code> (default 0.25) and both samples have at
+    least <code class="Fl">--min-n</code> values (default 1,000: on fewer,
+    binning noise alone can pass 0.25); it warns when its PSI is at least
+    <code class="Fl">--psi-warn</code> (default 0.1) or at least
+    <code class="Fl">--psi-fail</code> on small samples, when a KS or chi-square
+    p-value is below <code class="Fl">--alpha</code> (default 0.001), and with
+    <code class="Fl">--benford</code> when a Benford p-value is below it. A
+    numeric column with values that are not numbers fails; a column of the
+    reference that is gone fails; a new column warns. The PSI bands come from
+    credit-risk monitoring and are heuristics; calibrate them on data known not
+    to have drifted.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Error_of_the_sketch"><a class="permalink" href="#Error_of_the_sketch">Error
+  of the sketch</a></h2>
+<p class="Pp"><span class="Pa">tests/nqd/kserr.c</span> measures the KS
+    statistic from the sketch against the exact one for normal samples of
+    <var class="Va">n</var> and <var class="Va">n</var>/2 values (five runs
+    each): the difference never passed the stated <var class="Va">e</var>; under
+    no shift it reached it (0.0005 at <var class="Va">n</var> = 2,000, 0.00096
+    at 1,000,000), and with a shift of 0.05 or more it stayed under 0.00012 from
+    <var class="Va">n</var> = 100,000 on. Since the exact
+    <var class="Va">D</var> under no drift is about 1/sqrt(<i>n</i>) and so near
+    0.001 for a million values, read the KS p-value of very large files with
+    that error in mind, or rely on the PSI.</p>
+<dl class="Bl-tag">
+  <dt id="j"><a class="permalink" href="#j"><code class="Fl">-j</code></a>,
+    <code class="Fl">--json</code></dt>
+  <dd>One line of JSON: the folder, the level (&#x2018;<code class="Li">ok,
+      &#x2018;<code class="Li">warn,
+      &#x2018;<code class="Li">fail</code>&#x2019;</code>&#x2019;</code>&#x2019;)
+      and the rows, each with its numbers under <code class="Cm">stats</code>:
+      <code class="Cm">nref</code>, <code class="Cm">ncur</code>,
+      <code class="Cm">nullsref</code>, <code class="Cm">nullscur</code>,
+      <code class="Cm">kind</code>, and <code class="Cm">ksd</code>,
+      <code class="Cm">ksp</code>, <code class="Cm">kserr</code>,
+      <code class="Cm">ksexact</code>, <code class="Cm">psi</code>,
+      <code class="Cm">js</code>, <code class="Cm">benfordx2</code>,
+      <code class="Cm">benfordp</code>, <code class="Cm">benfordpref</code>
+      (numeric) or <code class="Cm">psi</code>, <code class="Cm">js</code>,
+      <code class="Cm">chisq</code>, <code class="Cm">df</code>,
+      <code class="Cm">chisqp</code>, <code class="Cm">unseen</code>
+      (categorical), and <code class="Cm">level</code>.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt>0</dt>
+  <dd>nothing drifted</dd>
+  <dt>1</dt>
+  <dd>a column failed</dd>
+  <dt>3</dt>
+  <dd>a column warned, none failed</dd>
+  <dt>2</dt>
+  <dd>a usage or file error, or no summary to compare with</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre>$ noqtis drift pin results data/a.csv
+$ curl -o new.csv https://example.org/a.csv
+$ noqtis drift check results data/a.csv=new.csv</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="/noqtis/reference/man/noqtis-data-1/">noqtis-data(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-schema-1/">noqtis-schema(1)</a>,
+    <a class="Xr" href="/noqtis/reference/man/nqdstats-3/">nqdstats(3)</a>,
+    <a class="Xr" href="/noqtis/reference/man/noqtis-data-5/">noqtis-data(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp"><cite class="Rs"><span class="RsA">F. J. Massey</span>,
+    <span class="RsT">The Kolmogorov-Smirnov test for goodness of fit</span>,
+    <i class="RsJ">Journal of the American Statistical Association</i>,
+    <span class="RsV">46</span>, <span class="RsD">1951</span>.</cite>
+    <cite class="Rs"><span class="RsA">J. Lin</span>,
+    <span class="RsT">Divergence measures based on the Shannon entropy</span>,
+    <i class="RsJ">IEEE Transactions on Information Theory</i>,
+    <span class="RsV">37</span>, <span class="RsD">1991</span>.</cite></p>
+</section>
+</div>

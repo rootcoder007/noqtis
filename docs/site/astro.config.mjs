@@ -61,6 +61,7 @@ export default defineConfig({
             { label: "Keys and key files", slug: "guides/keys" },
             { label: "Timestamps", slug: "guides/timestamps" },
             { label: "Use in CI", slug: "guides/ci" },
+            { label: "Data records, schemas and drift", slug: "guides/data" },
             { label: "Recipes", slug: "recipes" },
           ],
         },
@@ -71,6 +72,7 @@ export default defineConfig({
             { label: "minisign or signify", slug: "from/minisign" },
             { label: "Sigstore", slug: "from/sigstore" },
             { label: "BagIt", slug: "from/bagit" },
+            { label: "rmoriebricklayer", slug: "from/rmoriebricklayer" },
           ],
         },
         {
@@ -94,7 +96,10 @@ export default defineConfig({
         },
         {
           label: "Specification",
-          items: [{ label: "Capsule format v1", slug: "spec/capsule" }],
+          items: [
+            { label: "Capsule format v1", slug: "spec/capsule" },
+            { label: "Data record format", slug: "spec/data" },
+          ],
         },
         {
           label: "Reference",

@@ -17,6 +17,7 @@
       [<var class="Ar">name</var>=]<var class="Ar">dir ...</var>]
       [<code class="Fl">--tsa</code> <var class="Ar">url ...</var>]
       [<code class="Fl">--anchor</code> <var class="Ar">der-file ...</var>]
+      [<code class="Fl">-r</code> | <code class="Fl">--recursive</code>]
       <var class="Ar">dir</var></td>
   </tr>
 </table>
@@ -142,6 +143,16 @@ and the summary line ends in &#x2018;<code class="Li">and a
       <code class="Fl">--anchor</code> checks it. Without it the reply is
       checked, but not whether the TSA is one to trust, and a note on standard
       error says so.</dd>
+  <dt id="r"><a class="permalink" href="#r"><code class="Fl">-r</code></a>,
+    <code class="Fl">--recursive</code></dt>
+  <dd>Seal, with the same options, every folder under <var class="Ar">dir</var>
+      (and <var class="Ar">dir</var> itself) that holds
+      <span class="Pa">noqtis.json</span> (a capsule sealed before) or
+      <span class="Pa">noqtis.data.json</span> (a data record), deepest first,
+      so that a capsule inside another is sealed before the one that holds it.
+      Links are not followed, and the search stops 64 levels down.
+      <var class="Ar">dir</var> comes last. Standard error ends with how many
+      were sealed and failed; the exit status is the worst of them.</dd>
 </dl>
 </section>
 <section class="Sh">

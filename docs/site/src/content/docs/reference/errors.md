@@ -28,6 +28,10 @@ esac
 `noqtis inspect` exits `1` when the seal or the manifest does not parse,
 since it checks nothing else.
 
+`noqtis drift check` adds `3`: a column warned (a PSI between the two
+bands, a small p-value) and none failed. `noqtis diff` exits `1` when
+the two capsules differ.
+
 ## Failed checks
 
 `noqtis check` prints one row per check. After the table, standard error

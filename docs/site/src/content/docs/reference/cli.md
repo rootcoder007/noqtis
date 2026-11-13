@@ -28,6 +28,10 @@ noqtis help [<command>]
 | `ers --tsa <url>... [--anchor <der-file>]... [--hash sha256\|sha384\|sha512] <dir>` | starts or renews the capsule's RFC 4998 evidence record (`noqtis.ers`), which keeps its time provable after a TSA certificate expires or a hash weakens: a timestamp over the last one, or with another `--hash` a new chain over the seal and the record so far; `check --anchor` checks it | [noqtis-ers(1)](/noqtis/reference/man/noqtis-ers-1/) |
 | `selftest` | runs the library's known-answer self-test (every family, about a tenth of a second); exit 1 when an answer differs | [noqtis-selftest(1)](/noqtis/reference/man/noqtis-selftest-1/) |
 | `inspect [-j\|--json] <dir>` | what a capsule says (format, algorithm, key fingerprint, created, files, size, timestamp, meta) without checking anything | [noqtis-inspect(1)](/noqtis/reference/man/noqtis-inspect-1/) |
+| `data init\|add\|put\|del\|fmt\|show\|check <dir> ...` | the capsule's data record (`noqtis.data.json`): sources, members, and a check of every listed file against it | [noqtis-data(1)](/noqtis/reference/man/noqtis-data-1/) |
+| `schema infer [--put] [--ranges] <dir> <file>...`, `schema check <dir> [<file>...]` | pins the schema of CSV files (columns, types, missing values, rows) and checks the files against it and its rules | [noqtis-schema(1)](/noqtis/reference/man/noqtis-schema-1/) |
+| `drift pin <dir> <file>...`, `drift check <dir> [<file>[=<current>]...]` | keeps fixed-size summaries of CSV files, then compares a later file with them (KS, PSI, Jensen-Shannon, chi-square, Benford); exit 3 for a warning | [noqtis-drift(1)](/noqtis/reference/man/noqtis-drift-1/) |
+| `diff [--json] <dir> <dir>` | what changed between two capsules: files, sources, schemas, summaries, environment | [noqtis-diff(1)](/noqtis/reference/man/noqtis-diff-1/) |
 | `algs` | every algorithm and its sizes | [noqtis-algs(1)](/noqtis/reference/man/noqtis-algs-1/) |
 | `version` | `noqtis <version>` (also `--version`, `-V`) | [noqtis-version(1)](/noqtis/reference/man/noqtis-version-1/) |
 
