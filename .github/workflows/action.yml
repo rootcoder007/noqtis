@@ -3,7 +3,8 @@
 # The GitHub Action (action.yml at the repository root), used as users
 # use it but from this checkout (uses: ./): installs noqtis, makes a key
 # pair, seals a sample folder, checks it, then changes one byte of one
-# file and asserts the check fails. On Linux, macOS and Windows.
+# file and asserts the check fails and the report mode says so without
+# failing, with its outputs. On Linux, macOS and Windows.
 name: action
 
 on:
@@ -15,6 +16,7 @@ on:
       - "cmake/**"
       - "include/**"
       - "src/**"
+      - "nqd/**"
       - "cli/**"
       - ".github/workflows/action.yml"
   pull_request:
@@ -24,6 +26,7 @@ on:
       - "cmake/**"
       - "include/**"
       - "src/**"
+      - "nqd/**"
       - "cli/**"
       - ".github/workflows/action.yml"
   schedule:
@@ -110,8 +113,17 @@ jobs:
         env:
           NQOK: ${{ steps.good.outputs.ok }}
           NQJ: ${{ steps.good.outputs.json }}
+          NQST: ${{ steps.good.outputs.status }}
+          NQV: ${{ steps.good.outputs.verified }}
+          NQC: ${{ steps.good.outputs.changed }}
+          NQF: ${{ steps.good.outputs.failed }}
+          NQR: ${{ steps.good.outputs.report }}
         run: |
+          echo "status $NQST, verified $NQV, changed $NQC, failed $NQF"
           test "$NQOK" = true
+          test "$NQST" = passed
+          test "$NQV" = 2 && test "$NQC" = 0 && test "$NQF" = 0
+          grep -q '^\*\*Passed\*\*' "$NQR"
           case "$NQJ" in
             '{"capsule":"sample","ok":true,'*) ;;
             *) echo "json output: $NQJ" >&2; exit 1 ;;
@@ -138,6 +150,30 @@ jobs:
         run: |
           echo "outcome $NQOUT, ok $NQOK"
           test "$NQOUT" = failure
+
+      - name: report (says so, and passes)
+        id: rpt
+        uses: ./
+        with:
+          mode: report
+          dir: sample
+          pub: sample.pub
+
+      - name: the report's outputs
+        env:
+          NQOUT: ${{ steps.rpt.outcome }}
+          NQOK: ${{ steps.rpt.outputs.ok }}
+          NQST: ${{ steps.rpt.outputs.status }}
+          NQV: ${{ steps.rpt.outputs.verified }}
+          NQC: ${{ steps.rpt.outputs.changed }}
+          NQF: ${{ steps.rpt.outputs.failed }}
+          NQR: ${{ steps.rpt.outputs.report }}
+        run: |
+          echo "outcome $NQOUT, status $NQST, verified $NQV, changed $NQC, failed $NQF"
+          test "$NQOUT" = success
+          test "$NQOK" = false && test "$NQST" = failed
+          test "$NQV" = 1 && test "$NQC" = 1 && test "$NQF" = 1
+          grep -q '^| FAIL | file | report.txt' "$NQR"
 
       - name: a seal by another key fails too
         run: |
