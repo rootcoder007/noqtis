@@ -17,12 +17,6 @@ endif()
 target_compile_options(nqcli PRIVATE ${NQWARN})
 if(WIN32)
   target_link_libraries(nqcli PRIVATE shell32 ws2_32)
-  if(NQSHARED)
-    # the DLL beside the tool, so it runs from the build tree
-    add_custom_command(TARGET nqcli POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-              $<TARGET_FILE:noqtis> $<TARGET_FILE_DIR:nqcli>)
-  endif()
 endif()
 install(TARGETS nqcli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # the shell completions (completions/), where bash-completion, zsh and
