@@ -138,6 +138,18 @@ NQDAPI int nqdinfer(const char *dir, const char *path, const nqdcsvopt *o,
 NQDAPI int nqdschk(const char *dir, const char *schema, size_t n,
                    nqdrep **rep);
 
+/* Writes a synthetic stand-in for the CSV file path to dir/path, made
+ * from the record's schema of path (its recipe: the columns' names and
+ * types, ranges, sets and whether missing values occur; the delimiter,
+ * the header, the missing-value code, rows.min), rows rows (0: rows.min,
+ * else 100), the same bytes for the same seed, and records it in r's
+ * "sources" with "synthetic": true. NQEARG with why when there is no
+ * schema with columns, or when path is a source not marked synthetic or
+ * a file the record does not mark synthetic: real data is never
+ * replaced. nqdsyn(3) defines the values. */
+NQDAPI int nqdsyn(nqdrec *r, const char *dir, const char *path,
+                  uint64_t seed, uint64_t rows, char *why, size_t wcap);
+
 /* ---- drift ---- */
 
 /* The summaries of the CSV file path in dir as a "stats" element
