@@ -559,7 +559,7 @@ ok 0 "check a bundle without its files" "$nq" check -p "$w/k.pub" \
   "$w/lean.nqb"
 has "$w/out" "partial" "a partial check, which the report says"
 has "$w/out" "noqtis.data.json" "the record is checked"
-head -c 100 "$w/b.nqb" >"$w/cut.nqb"
+dd if="$w/b.nqb" bs=100 count=1 2>/dev/null >"$w/cut.nqb"
 ok 1 "check a cut bundle" "$nq" check "$w/cut.nqb"
 has "$w/err" "ends" "a cut bundle says where it ends"
 printf 'hello\n' >"$w/junk.nqb"

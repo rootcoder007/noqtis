@@ -127,7 +127,7 @@ serve $c -www -status_file $pki/ocsp-oth.der && check "OCSP staple, wrong respon
 m="-cert $pki/ms.pem -key $pki/ec.key -cert_chain $pki/inter.pem"
 serve $m -www && check "must-staple, no staple" "fail: *must-staple*" localhost $port $r
 serve $m -www -status_file $pki/ocsp-ms.der && check "must-staple, stapled" "ok 1301 *" localhost $port $r
-head -c 300000 /dev/zero | tr '\0' 'x' > "$tmp/big.txt"
+dd if=/dev/zero bs=1000 count=300 2>/dev/null | tr '\0' 'x' > "$tmp/big.txt"
 serve $c -WWW $hg && check "a 300 kB reply" "ok 1301 $hy 0 3000[0-9][0-9]" localhost $port $r /big.txt
 
 # the tool's client: GET over TLS, the system bundle overridden
