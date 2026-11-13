@@ -415,6 +415,9 @@ static const char *dfix(const char *check) {
     return "the file differs from the one recorded: restore it from its "
            "source (the record's url, archived copy or mirrors), or record "
            "the new bytes with `noqtis data add` and seal again";
+  if (strcmp(check, "lock") == 0)
+    return "the lock file differs from the one `noqtis env` recorded: record "
+           "it again with `noqtis env` and seal again";
   if (strcmp(check, "drift") == 0)
     return "the data drifted from its summary: look at the column, and if "
            "the change is expected pin the new data (`noqtis drift pin`) "

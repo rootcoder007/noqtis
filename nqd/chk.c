@@ -214,6 +214,23 @@ static int statrow(nqdrep *rep, const char *dir, const djs *root,
   return rc;
 }
 
+/* a lock file of env against its recorded SHA-256 */
+static int lockrow(nqdrep *rep, const char *dir, const djs *e) {
+  const char *path = qdjget(e, "path")->s;
+  const char *want = qdjget(e, "sha256")->s;
+  char p[4200], hx[65];
+  uint8_t h[32];
+  uint64_t got;
+  if (qdjoin(dir, path, p, sizeof p) != NQOK || qdsha(p, h, &got) != NQOK)
+    return qdrepadd(rep, "lock", 0, "%s: missing or unreadable", path);
+  qdhex(h, 32, hx);
+  if (strcmp(hx, want) != 0)
+    return qdrepadd(rep, "lock", 0,
+                    "%s: SHA-256 is %.16s..., the record says %.16s...",
+                    path, hx, want);
+  return qdrepadd(rep, "lock", 1, "%s: SHA-256 matches", path);
+}
+
 int nqdchk(const char *dir, nqdrep **out) {
   nqdrep *rep;
   nqdrec *r = NULL;
@@ -243,6 +260,9 @@ int nqdchk(const char *dir, nqdrep **out) {
   if ((a = qdjget(root, "sources")) != NULL)
     for (i = 0; i < a->n; i++)
       srcrow(rep, dir, a->k[i]);
+  if ((a = qdjget(root, "env")) != NULL && (a = qdjget(a, "locks")) != NULL)
+    for (i = 0; i < a->n; i++)
+      lockrow(rep, dir, a->k[i]);
   if ((a = qdjget(root, "schemas")) != NULL)
     for (i = 0; i < a->n; i++)
       qdschk(rep, dir, a->k[i], synth(root, qdjget(a->k[i], "path")->s));

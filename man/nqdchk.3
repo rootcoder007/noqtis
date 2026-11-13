@@ -41,6 +41,10 @@ what is wrong when not)
 .It Ql source
 one per source: its file is there, with the recorded SHA-256 (compared
 in constant time) and size
+.It Ql lock
+one per lock file of
+.Cm env :
+its file is there, with the recorded SHA-256
 .It Ql schema , Ql rule
 one per schema: its file matches the columns, types, missing-value
 codes, ranges and sets; one per rule
