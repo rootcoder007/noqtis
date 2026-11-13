@@ -87,3 +87,105 @@ test_that("two capsules are compared", {
   expect_false(attr(r, "same"))
   expect_true(any(r$what == "source" & grepl("url", r$detail)))
 })
+
+# ---- against the values the C tests check (tests/nqd/tdrec.c, tdcsv.c,
+# tddft.c); fixtures/nqd is a copy of the repository's tests/vectors/nqd
+
+fx <- function(...) test_path("fixtures", "nqd", ...)
+
+nqdcopy <- function(rec = TRUE) {
+  d <- tempfile("nqdc")
+  dir.create(file.path(d, "data"), recursive = TRUE)
+  file.copy(fx("cap", "data", c("a.csv", "b.csv")), file.path(d, "data"))
+  if (rec) file.copy(fx("cap", "noqtis.data.json"), d)
+  d
+}
+
+# the value of k in drift/expect.txt (written by tests/nqd/drift.R)
+dexp <- function(k) {
+  l <- readLines(fx("drift", "expect.txt"))
+  as.numeric(sub("^[^ ]+ ", "", l[startsWith(l, paste0(k, " "))]))
+}
+
+# the number after "k": in the JSON text j
+jnum <- function(j, k) {
+  as.numeric(sub(sprintf(".*\"%s\":([^,}]+).*", k), "\\1", j))
+}
+
+test_that("the C tests' record reads, checks and is made again here", {
+  d <- nqdcopy()
+  n <- nqdcopy(FALSE)
+  on.exit(unlink(c(d, n), recursive = TRUE))
+  f <- file.path(d, "noqtis.data.json")
+  j <- readChar(f, file.size(f), useBytes = TRUE)
+  expect_identical(nqdata(d), j)
+  r <- nqdcheck(d)
+  expect_true(attr(r, "ok"))
+  expect_gte(nrow(r), 3L)
+  # its source element of data/a.csv, made from the file and what it says
+  nqdadd(n, "data/a.csv", url = "https://example.org/a.csv",
+         publisher = "City of Example", licence = "OGL-Canada-2.0",
+         retrieved = "2026-01-01T00:00:00Z")
+  expect_identical(nqdata(n),
+                   sub(",\\{\"path\":\"data/b.csv\".*\\]\\}$", "]}", j))
+  expect_match(nqdata(n), paste0("\"sha256\":\"7a1668480cde19db0b76c7a36e6",
+                                 "fee9a82afd9937f5d03cec3dae1705ce173e2\",",
+                                 "\"size\":89"), fixed = TRUE)
+})
+
+test_that("the C tests' schema comes out the same", {
+  d <- nqdcopy()
+  on.exit(unlink(d, recursive = TRUE))
+  want <- paste0(
+    "{\"columns\":[{\"name\":\"id\",\"nulls\":false,\"type\":\"int\"},",
+    "{\"name\":\"name\",\"nulls\":true,\"type\":\"text\"},",
+    "{\"name\":\"score\",\"nulls\":true,\"type\":\"real\"},",
+    "{\"name\":\"when\",\"nulls\":false,\"type\":\"date\"}],",
+    "\"kind\":\"csv\",\"path\":\"data/a.csv\",\"rows\":{\"max\":3,",
+    "\"min\":3}}"
+  )
+  expect_identical(nqschema(d, "data/a.csv"), want)
+  s <- nqschema(d, "data/a.csv", ranges = TRUE)
+  expect_match(s, "\"max\":4,\"min\":3.5", fixed = TRUE)
+  expect_match(s, "\"max\":\"2024-03-01\",\"min\":\"2024-01-02\"",
+               fixed = TRUE)
+})
+
+test_that("the C tests' drift statistics come out the same", {
+  d <- tempfile("nqdd")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE))
+  file.copy(fx("drift", "ref.csv"), d)
+  nqdpin(d, "ref.csv")
+  r <- nqdrift(d, "ref.csv", current = fx("drift", "cur.csv"))
+  # fewer than 1,000 values: PSI warns, never fails
+  expect_equal(attr(r, "level"), "warn")
+  col <- function(n) {
+    r$stats[!is.na(r$stats) & grepl(sprintf("\"name\":\"%s\"", n), r$stats,
+                                    fixed = TRUE)][1]
+  }
+  x <- col("x")
+  near <- function(a, b, tol) {
+    expect_lte(abs(a - b) / if (abs(b) > 1e-300) abs(b) else 1, tol)
+  }
+  near(jnum(x, "ksd"), dexp("ks.d"), 1e-14)
+  near(jnum(x, "ksp"), dexp("ks.p"), 1e-9)
+  near(jnum(x, "psi"), dexp("psi"), 1e-12)
+  near(jnum(x, "js"), dexp("js"), 1e-12)
+  c <- col("c")
+  near(jnum(c, "chisq"), dexp("chi.x2"), 1e-12)
+  near(jnum(c, "df"), dexp("chi.df"), 0)
+  near(jnum(c, "chisqp"), dexp("chi.p"), 1e-10)
+  near(jnum(c, "psi"), dexp("cat.psi"), 1e-12)
+})
+
+test_that("a changed source shows in the diff of the C tests' capsule", {
+  a <- nqdcopy()
+  b <- nqdcopy()
+  on.exit(unlink(c(a, b), recursive = TRUE))
+  expect_true(attr(nqdiff(a, b), "same"))
+  nqdadd(b, "data/a.csv", url = "https://example.org/a2.csv")
+  r <- nqdiff(a, b)
+  expect_false(attr(r, "same"))
+  expect_true(any(r$what == "source" & r$differs & grepl("url", r$detail)))
+})
