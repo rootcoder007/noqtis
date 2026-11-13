@@ -13,6 +13,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
   add_link_options(-Wl,-z,stack-size=8388608)
 endif()
 set(CMAKE_C_STANDARD_REQUIRED ON)
+
+# 32-bit x86: do floating point in SSE2, not the x87 stack. x87 keeps 80-bit
+# intermediates, so the statistics a data record holds came out a few last
+# digits away from every other platform's, and a record made elsewhere did
+# not recompute to the same numbers here.
+if(CMAKE_SIZEOF_VOID_P EQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|i[3-6]86|x86)$"
+   AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+  add_compile_options(-msse2 -mfpmath=sse)
+endif()
 set(CMAKE_C_EXTENSIONS OFF)
 
 option(NQWERROR "Treat warnings as errors" ON)
