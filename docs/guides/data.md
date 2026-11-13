@@ -125,6 +125,20 @@ noqtis check -p me.pub -r archive/      # every capsule under archive/
 `diff` lists the files added, removed or changed, and what changed in
 the data records: sources, columns, summaries, environment, steps.
 
+## A report
+
+```sh
+noqtis report -p me.pub -o report.md results
+noqtis report -f txt results
+```
+
+`report` checks the capsule and its data record in one run and writes
+what it found, with what the record says of the data (sources, schemas,
+drift summaries, environment, steps, recorded checks, commitments,
+citation), as Markdown or plain text. `--json` gives the counts (failed,
+verified, changed) and every check for a machine, and `--github` a
+workflow annotation per failed check.
+
 ## From R and Python
 
 ```r

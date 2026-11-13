@@ -1,0 +1,84 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 13, 2026
+.Dt NQDRPT 3
+.Os
+.Sh NAME
+.Nm nqdrpt
+.Nd a report of a capsule and its data record
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Fd #define NQDMD 1
+.Fd #define NQDTXT 2
+.Ft int
+.Fo nqdrpt
+.Fa "const char *dir" "const nqrep *crep" "const nqdrep *drep" "int fmt"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Sh DESCRIPTION
+.Fn nqdrpt
+writes a report of the capsule in
+.Fa dir
+to
+.Fa out
+.Pf ( Fa cap
+bytes, a NUL added), in Markdown
+.Pq Dv NQDMD
+or plain text
+.Pq Dv NQDTXT :
+a line saying whether every check passed and how many of how many
+failed; the rows of
+.Fa crep ,
+the capsule's check
+.Pq Xr nqchk 3 ,
+or, when
+.Fa crep
+is
+.Dv NULL
+(a folder not sealed), a line saying so, which counts as a failed
+check; then a section on the data record
+.Pq Xr noqtis-data 5 :
+its sources, schemas, drift summaries (and whether they are
+calibrated), environment, steps, recorded checks, commitments and
+citation, and the rows of
+.Fa drep
+.Pq Xr nqdchk 3 ,
+each named
+.Ql data. Ns Ar check ;
+with
+.Fa drep
+.Dv NULL ,
+.Fn nqdchk
+is run here.
+A folder without a record has no data rows.
+.Pp
+A value of the record never breaks its line or its table cell: a line
+break or other control character in it is a space, and in Markdown
+each character Markdown could read as markup
+.Pq Ql "\e \(ga * _ [ ] < > | # ~ & !"
+gets one backslash before it, once.
+.Sh RETURN VALUES
+.Dv NQOK ;
+.Dv NQEBUF
+with
+.Fa *outlen
+set to the report's length when
+.Fa cap
+is too small;
+.Dv NQEARG
+for a
+.Fa dir
+of
+.Dv NULL
+or another
+.Fa fmt ;
+.Dv NQEMEM .
+A record that does not read is a failed
+.Ql data.record
+row, not an error.
+.Sh SEE ALSO
+.Xr noqtis-report 1 ,
+.Xr nqchk 3 ,
+.Xr nqdchk 3 ,
+.Xr noqtis-data 5

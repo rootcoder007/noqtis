@@ -1,0 +1,105 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 13, 2026
+.Dt NOQTIS-REPORT 1
+.Os
+.Sh NAME
+.Nm noqtis-report
+.Nd check a capsule and write a report of it
+.Sh SYNOPSIS
+.Nm noqtis report
+.Op Fl p | Fl -pub Ar key.pub
+.Op Fl f | Fl -format Cm md | txt
+.Op Fl o | Fl -out Ar file
+.Op Fl j | Fl -json
+.Op Fl -github
+.Ar dir
+.Sh DESCRIPTION
+.Nm noqtis report
+checks the capsule in
+.Ar dir
+as
+.Xr noqtis-check 1
+does and its data record as
+.Cm noqtis data check
+does, once, and writes a report of both
+.Pq Xr nqdrpt 3 :
+whether every check passed and how many failed, each check of the
+capsule, then what the record says of the data (sources, schemas, drift
+summaries, environment, steps, recorded checks, commitments, citation)
+and each check of the record, named
+.Ql data. Ns Ar check .
+A folder that is not sealed fails: its report says so in place of the
+capsule's checks.
+.Pp
+In Markdown, a value from the record never breaks its line or its table
+cell: a line break in it is a space, and each character Markdown could
+read as markup
+.Pq Ql "\e \(ga * _ [ ] < > | # ~ & !"
+gets one backslash before it.
+In plain text a line break is a space too, and nothing else changes.
+.Bl -tag -width Ds
+.It Fl p , Fl -pub Ar key.pub
+the key the seal must carry, as for
+.Xr noqtis-check 1 ;
+without it, the key inside the seal is trusted
+.It Fl f , Fl -format Cm md | txt
+Markdown (the default) or plain text
+.It Fl o , Fl -out Ar file
+write the report to
+.Ar file
+instead of standard output
+.It Fl j , Fl -json
+print, instead of the report (which
+.Fl o
+still writes), one line of JSON:
+.Bd -literal
+{"capsule":"<dir>","ok":<bool>,"status":"passed"|"failed",
+ "sealed":<bool>,"total":<n>,"failed":<n>,"verified":<n>,
+ "changed":<n>,"checks":[{"check":"<name>","ok":<bool>,
+ "detail":"<text>"},...]}
+.Ed
+.Pp
+.Cm verified
+counts the sealed files that match, and
+.Cm changed
+those changed or missing and the files added since the seal.
+.It Fl -github
+first print, for each failed check, a GitHub Actions workflow command
+.Pp
+.Dl ::error title=noqtis <check>::<dir>: <detail>
+.Pp
+with
+.Ql % ,
+carriage return and line feed (and in the title
+.Ql \&:
+and
+.Ql \&, )
+written as
+.Ql %25 ,
+.Ql %0D ,
+.Ql %0A ,
+.Ql %3A
+and
+.Ql %2C
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+every check passed
+.It 1
+a check failed, or the folder is not sealed
+.It 2
+a usage or file error, or a folder with neither a seal nor a data record
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis report -p release.pub -o report.md results
+$ noqtis report -f txt results | head -3
+noqtis report: results
+Passed: 0 of 27 checks failed
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-data 1 ,
+.Xr nqdrpt 3 ,
+.Xr noqtis-data 5
