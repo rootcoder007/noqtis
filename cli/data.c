@@ -415,6 +415,10 @@ static const char *dfix(const char *check) {
     return "the file differs from the one recorded: restore it from its "
            "source (the record's url, archived copy or mirrors), or record "
            "the new bytes with `noqtis data add` and seal again";
+  if (strcmp(check, "drift") == 0)
+    return "the data drifted from its summary: look at the column, and if "
+           "the change is expected pin the new data (`noqtis drift pin`) "
+           "and seal again";
   if (strcmp(check, "schema") == 0 || strcmp(check, "rule") == 0)
     return "the file does not match its schema: correct the data, or pin a "
            "new schema with `noqtis schema infer` and seal again";
@@ -714,6 +718,253 @@ int ncschema(int argc, char **argv) {
     ncuse(stderr, "schema");
   else
     ncmsg("schema", "unknown action %s (infer, check)", argv[1]);
+  return NCUSE;
+}
+
+/* a number option in [lo, hi] */
+static int optnum(const char *cmd, const char *name, const char *v,
+                  double lo, double hi, double *out) {
+  char *e;
+  double d;
+  if (v == NULL)
+    return NCOK;
+  d = strtod(v, &e);
+  if (*v == '\0' || *e != '\0' || !(d >= lo && d <= hi)) {
+    ncmsg(cmd, "%s %s: a number from %g to %g", name, v, lo, hi);
+    return NCUSE;
+  }
+  *out = d;
+  return NCOK;
+}
+
+static int dpin(int argc, char **argv) {
+  const char *dl = NULL;
+  int np, help, noh = 0, i, rc;
+  nqdcsvopt co;
+  nqdrec *r = NULL;
+  ncopt o[] = {{'d', "delim", 1, &dl, NULL},
+               {0, "no-header", 0, NULL, &noh}};
+  if (ncargs("drift pin", argc, argv, o, 2, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "drift");
+    return NCOK;
+  }
+  if (np < 2) {
+    ncmsg("drift pin", "give the folder and at least one CSV file in it");
+    return NCUSE;
+  }
+  memset(&co, 0, sizeof co);
+  if (dl != NULL) {
+    if (strcmp(dl, "tab") == 0)
+      dl = "\t";
+    if (strlen(dl) != 1) {
+      ncmsg("drift pin", "--delim: one byte, such as , ; | or tab");
+      return NCUSE;
+    }
+    co.delim = dl[0];
+  }
+  co.noheader = noh;
+  if ((rc = ncdload("drift pin", argv[0], 1, &r)) != NCOK)
+    return rc;
+  for (i = 1; i < np && rc == NCOK; i++) {
+    char why[600], *b = NULL;
+    size_t n = 0;
+    int e = nqdstats(argv[0], argv[i], &co, NULL, 0, &n, why, sizeof why);
+    if (e == NQEBUF && (b = (char *)malloc(n + 1)) != NULL)
+      e = nqdstats(argv[0], argv[i], &co, b, n + 1, &n, why, sizeof why);
+    if (e == NQOK)
+      e = nqdput(r, "stats", b, n, why, sizeof why);
+    if (e != NQOK) {
+      ncmsg("drift pin", "%s", why[0] ? why : nqerr(e));
+      rc = NCUSE;
+    }
+    free(b);
+  }
+  if (rc == NCOK)
+    rc = ncdsave("drift pin", argv[0], r);
+  nqdrfree(r);
+  return rc;
+}
+
+#define NCWARN 3 /* drift: a warning, no failure */
+
+static int dchk(int argc, char **argv) {
+  const char *dl = NULL, *pw = NULL, *pf = NULL, *al = NULL, *mn = NULL;
+  int np, help, noh = 0, json = 0, ben = 0, i, rc, ret = NCOK, warn = 0;
+  nqdcsvopt co;
+  nqddopt d;
+  nqdrec *r;
+  size_t k, n, nr = 0, nh = 0;
+  nqdrep **rs;
+  ncopt o[] = {{'d', "delim", 1, &dl, NULL},
+               {0, "no-header", 0, NULL, &noh},
+               {'j', "json", 0, NULL, &json},
+               {0, "psi-warn", 1, &pw, NULL},
+               {0, "psi-fail", 1, &pf, NULL},
+               {0, "alpha", 1, &al, NULL},
+               {0, "min-n", 1, &mn, NULL},
+               {0, "benford", 0, NULL, &ben}};
+  if (ncargs("drift check", argc, argv, o, 8, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "drift");
+    return NCOK;
+  }
+  if (np < 1) {
+    ncmsg("drift check", "give the folder, and optionally <path> or "
+          "<path>=<current file> for each file to compare");
+    return NCUSE;
+  }
+  memset(&co, 0, sizeof co);
+  if (dl != NULL) {
+    if (strcmp(dl, "tab") == 0)
+      dl = "\t";
+    if (strlen(dl) != 1) {
+      ncmsg("drift check", "--delim: one byte, such as , ; | or tab");
+      return NCUSE;
+    }
+    co.delim = dl[0];
+  }
+  co.noheader = noh;
+  d.psiwarn = 0.1;
+  d.psifail = 0.25;
+  d.alpha = 0.001;
+  d.minn = 1000;
+  d.benford = ben;
+  if (optnum("drift check", "--psi-warn", pw, 0, 1e9, &d.psiwarn) != NCOK ||
+      optnum("drift check", "--psi-fail", pf, 0, 1e9, &d.psifail) != NCOK ||
+      optnum("drift check", "--alpha", al, 0, 1, &d.alpha) != NCOK ||
+      optnum("drift check", "--min-n", mn, 0, 9e15, &d.minn) != NCOK)
+    return NCUSE;
+  if ((rc = ncdload("drift check", argv[0], 0, &r)) != NCOK)
+    return rc;
+  n = nqdlen(r, "stats");
+  rs = (nqdrep **)calloc(n + 1, sizeof *rs);
+  if (rs == NULL) {
+    nqdrfree(r);
+    return nclib("drift check", "memory", NQEMEM);
+  }
+  for (k = 0; k < n && ret != NCUSE; k++) {
+    size_t l = 0;
+    char *e = NULL, cur[4200];
+    const char *alt = NULL;
+    int want = np == 1;
+    if (nqdat(r, "stats", k, NULL, 0, &l) != NQEBUF ||
+        (e = (char *)malloc(l + 1)) == NULL ||
+        nqdat(r, "stats", k, e, l + 1, &l) != NQOK) {
+      free(e);
+      ret = nclib("drift check", "memory", NQEMEM);
+      break;
+    }
+    for (i = 1; i < np && !want; i++) {
+      char *eq = strchr(argv[i], '=');
+      if (eq != NULL) {
+        *eq = '\0';
+        want = haspath(e, argv[i]);
+        *eq = '=';
+        if (want)
+          alt = eq + 1;
+      } else {
+        want = haspath(e, argv[i]);
+      }
+    }
+    if (want) {
+      /* the stats element's path, from its JSON: "path":"..." */
+      const char *pp = strstr(e, ",\"path\":\"");
+      nh++;
+      if (alt != NULL) {
+        snprintf(cur, sizeof cur, "%s", alt);
+      } else if (pp != NULL) {
+        size_t m = 0;
+        pp += 9;
+        m = (size_t)snprintf(cur, sizeof cur, "%s/", argv[0]);
+        /* paths of a record have no quote or backslash escapes but \"
+         * and \\; copy until the closing quote */
+        while (*pp && *pp != '"' && m + 2 < sizeof cur) {
+          if (*pp == '\\' && pp[1])
+            pp++;
+          cur[m++] = *pp++;
+        }
+        cur[m] = '\0';
+      }
+      rc = nqddrift(e, l, cur, &co, &d, &rs[nr]);
+      if (rs[nr] == NULL) {
+        ret = nclib("drift check", cur, rc);
+      } else {
+        size_t q;
+        if (rc != NQOK)
+          ret = NCBAD;
+        for (q = 0; q < nqdrepn(rs[nr]); q++) {
+          const char *c;
+          nqdrepi(rs[nr], q, &c, NULL, NULL);
+          warn |= strcmp(c, "drift.warn") == 0;
+        }
+        nr++;
+      }
+    }
+    free(e);
+  }
+  if (ret != NCUSE && np > 1 && nh < (size_t)np - 1) {
+    ncmsg("drift check", "a file named has no summary in %s: pin one with "
+          "`noqtis drift pin %s <file>`", argv[0], argv[0]);
+    ret = NCUSE;
+  }
+  if (ret != NCUSE && nr == 0) {
+    ncmsg("drift check", "%s has no summaries: pin one with `noqtis drift "
+          "pin %s <file>`", argv[0], argv[0]);
+    ret = NCUSE;
+  }
+  if (ret != NCUSE) {
+    if (json) {
+      size_t q, first = 1;
+      fputs("{\"folder\":", stdout);
+      ncjstr(argv[0]);
+      printf(",\"level\":\"%s\",\"rows\":[",
+             ret == NCBAD ? "fail" : warn ? "warn" : "ok");
+      for (k = 0; k < nr; k++) {
+        for (q = 0; q < nqdrepn(rs[k]); q++) {
+          const char *c, *dt, *j = nqdrepj(rs[k], q);
+          int ok;
+          nqdrepi(rs[k], q, &c, &ok, &dt);
+          fputs(first ? "{\"check\":" : ",{\"check\":", stdout);
+          first = 0;
+          ncjstr(c);
+          printf(",\"ok\":%s,\"detail\":", ok ? "true" : "false");
+          ncjstr(dt);
+          if (j != NULL)
+            printf(",\"stats\":%s", j);
+          putchar('}');
+        }
+      }
+      fputs("]}\n", stdout);
+    } else {
+      ncdreps("drift check", argv[0], (const nqdrep *const *)rs, nr, ret, 0);
+    }
+    if (ret == NCOK && warn)
+      ret = NCWARN;
+  }
+  for (k = 0; k < nr; k++)
+    nqdrepfree(rs[k]);
+  free(rs);
+  nqdrfree(r);
+  return ret;
+}
+
+int ncdrift(int argc, char **argv) {
+  if (argc >= 2 && strcmp(argv[1], "pin") == 0)
+    return dpin(argc - 1, argv + 1);
+  if (argc >= 2 && strcmp(argv[1], "check") == 0)
+    return dchk(argc - 1, argv + 1);
+  if (argc >= 2 && (strcmp(argv[1], "-h") == 0 ||
+                    strcmp(argv[1], "--help") == 0)) {
+    ncuse(stdout, "drift");
+    return NCOK;
+  }
+  if (argc < 2)
+    ncuse(stderr, "drift");
+  else
+    ncmsg("drift", "unknown action %s (pin, check)", argv[1]);
   return NCUSE;
 }
 

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema diff algs selftest version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -35,6 +35,7 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a ers -d 'start o
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a data -d 'make, show and check a data record'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a schema -d 'pin and check the schema of CSV files'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a diff -d 'what changed between two capsules'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a drift -d 'summarise CSV files and check them for drift'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a algs -d 'list the algorithms'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a version -d 'print the version'
 
@@ -117,3 +118,15 @@ complete -c noqtis -n "__fish_seen_subcommand_from schema" -s j -l json -d 'JSON
 complete -c noqtis -n "__fish_seen_subcommand_from diff" -a '(__fish_complete_directories)'
 complete -c noqtis -n "__fish_seen_subcommand_from diff" -s j -l json -d 'JSON output'
 complete -c noqtis -n "__fish_seen_subcommand_from seal check" -s r -l recursive -d 'every capsule under the folder'
+
+# noqtis drift
+complete -c noqtis -n "__fish_seen_subcommand_from drift; and not __fish_seen_subcommand_from pin check" -a "pin check"
+complete -c noqtis -n "__fish_seen_subcommand_from drift" -F
+complete -c noqtis -n "__fish_seen_subcommand_from drift" -s d -l delim -x -d 'the delimiter'
+complete -c noqtis -n "__fish_seen_subcommand_from drift" -l no-header -d 'the first line is data'
+complete -c noqtis -n "__fish_seen_subcommand_from drift" -s j -l json -d 'JSON output'
+complete -c noqtis -n "__fish_seen_subcommand_from drift" -l psi-warn -x -d 'PSI that warns'
+complete -c noqtis -n "__fish_seen_subcommand_from drift" -l psi-fail -x -d 'PSI that fails'
+complete -c noqtis -n "__fish_seen_subcommand_from drift" -l alpha -x -d 'p-value that warns'
+complete -c noqtis -n "__fish_seen_subcommand_from drift" -l min-n -x -d 'values both need before PSI fails'
+complete -c noqtis -n "__fish_seen_subcommand_from drift" -l benford -d 'Benford test warns too'

@@ -137,6 +137,18 @@ _noqtis_cmd() {
         '--synthetic[a generated stand-in]' \
         '(-j --json)'{-j,--json}'[JSON output]' \
         '*:path:_files' ;;
+    drift)
+      _arguments \
+        '1:action:(pin check)' \
+        '(-d --delim)'{-d,--delim=}'[the delimiter]:c:' \
+        '--no-header[the first line is data]' \
+        '(-j --json)'{-j,--json}'[JSON output]' \
+        '--psi-warn=[PSI that warns]:x:' \
+        '--psi-fail=[PSI that fails]:x:' \
+        '--alpha=[p-value that warns]:p:' \
+        '--min-n=[values both need before PSI fails]:n:' \
+        '--benford[Benford test warns too]' \
+        '*:path:_files' ;;
     diff)
       _arguments '(-j --json)'{-j,--json}'[JSON output]' ':dir:_files -/' \
         ':dir:_files -/' ;;
@@ -172,5 +184,6 @@ _arguments -C \
     data\:"make, show and check a data record"
     schema\:"pin and check the schema of CSV files"
     diff\:"what changed between two capsules"
+    drift\:"summarise CSV files and check them for drift"
     algs\:"list the algorithms" version\:"print the version"))' \
   '*::arg:_noqtis_cmd'

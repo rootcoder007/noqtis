@@ -243,6 +243,27 @@ static const nccmd cmds[] = {
    "  --no-header the first line is data; columns are named V1, V2, ...\n"
    "  Exit 0 when every check passes, 1 when one fails, 2 on a usage or\n"
    "  file error.\n"},
+  {"drift", ncdrift, "summarise CSV files, and say later if they drifted",
+   "usage: noqtis drift pin [-d|--delim <c>] [--no-header] <dir> <file>...\n"
+   "       noqtis drift check [--json] [--psi-warn <x>] [--psi-fail <x>]\n"
+   "                          [--alpha <p>] [--min-n <n>] [--benford]\n"
+   "                          [-d <c>] [--no-header]\n"
+   "                          <dir> [<file>[=<current-file>]...]\n"
+   "  pin    record each CSV file's summaries in the data record: a\n"
+   "         quantile sketch, PSI bins and first-digit counts for numeric\n"
+   "         columns, the 1,000 most frequent values of the others; of a\n"
+   "         fixed size, so the data need not be kept\n"
+   "  check  compare each file (or the current file given after =) with\n"
+   "         its summary: Kolmogorov-Smirnov, PSI and Jensen-Shannon for\n"
+   "         numeric columns, chi-square of homogeneity, PSI and JS for the\n"
+   "         others, Benford's first-digit test\n"
+   "  --psi-fail  PSI from which a column fails (default 0.25), when both\n"
+   "              samples have --min-n values (default 1000)\n"
+   "  --psi-warn  PSI from which it warns (default 0.1)\n"
+   "  --alpha     a KS or chi-square p-value below it warns (default\n"
+   "              0.001); with --benford, a Benford one too\n"
+   "  Exit 0 when nothing drifted, 1 when a column failed, 3 when one\n"
+   "  only warned, 2 on a usage or file error.\n"},
   {"diff", ncdiff, "what changed between two capsules",
    "usage: noqtis diff [--json] <dir> <dir>\n"
    "  Lists the files added, removed or changed between the two sealed\n"

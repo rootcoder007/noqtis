@@ -1,0 +1,235 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NOQTIS-DRIFT 1
+.Os
+.Sh NAME
+.Nm noqtis-drift
+.Nd summarise CSV files, and say later whether they drifted
+.Sh SYNOPSIS
+.Nm noqtis drift pin
+.Op Fl d | Fl -delim Ar c
+.Op Fl -no-header
+.Ar dir file ...
+.Nm noqtis drift check
+.Op Fl j | Fl -json
+.Op Fl -psi-warn Ar x
+.Op Fl -psi-fail Ar x
+.Op Fl -alpha Ar p
+.Op Fl -min-n Ar n
+.Op Fl -benford
+.Op Fl d | Fl -delim Ar c
+.Op Fl -no-header
+.Ar dir
+.Op Ar file Ns Oo = Ns Ar current-file Oc ...
+.Sh DESCRIPTION
+.Cm pin
+reads each CSV
+.Ar file
+in
+.Ar dir
+and records its summaries in the data record
+.Pq Cm stats , Xr noqtis-data 5 ,
+of a fixed size whatever the file's, so that a later file can be
+compared with it without the old data being kept.
+.Cm check
+compares each file (all summarised files, or those named; with
+.Ar file Ns = Ns Ar current-file ,
+that file instead of the one in
+.Ar dir ,
+such as a new download of the same source) with its summary, one row
+per column.
+.Ss Summaries
+Values that are empty or
+.Ql NA
+are missing; a column is numeric when every other value is a JSON
+number, categorical otherwise.
+Of
+.Ar n
+values of a numeric column, sorted
+.Va x Ns (1) <= ... <= Va x Ns ( Ns Va n ) :
+.Bl -tag -width Ds
+.It Cm q , No the quantile sketch
+pairs
+.Pq Va v , Va c :
+the value
+.Va x Ns ( Ns Va r )
+and
+.Va c ,
+the number of values at most it, for the ranks
+.Va r
+= 1 and
+.Va r
+= ceil(\fIj n\fR / 1000),
+.Va j
+= 1 ... 1000, a value kept once.
+When
+.Va n
+<= 1,001, every distinct value is kept and the sketch is the exact
+distribution.
+.It Cm edges , Cm counts
+the bins of the population stability index: with at most ten distinct
+values, each value is an edge; else the type-1 deciles
+.Va x Ns (ceil( Ns Va i n No /10)) ,
+.Va i
+= 1 ... 9, equal ones merged.
+Bins are closed on the right, the last open above; counts are exact.
+.It Cm digits
+the counts of first significant digits 1 to 9, read from each value's
+text (so 0.0032 counts as 3).
+.El
+.Pp
+Of a categorical column,
+.Cm cats
+counts its 1,000 most frequent values (ties broken by their bytes) and
+.Cm other
+the rest.
+.Ss Tests
+Of a numeric column, with the reference of
+.Va n
+values and the current file of
+.Va m :
+.Bl -tag -width Ds
+.It Kolmogorov-Smirnov
+.Va D
+= sup |\fIF\fR(\fIx\fR) \- \fIG\fR(\fIx\fR)|, with
+.Va G
+the current file's distribution function and
+.Va F
+the sketch's step function
+.Va F Ns ( Ns Va x )
+=
+.Va c Ns / Ns Va n
+for the largest kept
+.Va v
+<=
+.Va x .
+From the sketch,
+.Va D
+is within
+.Va e
+= max (\fIc\fR(\fIj\fR+1) \- \fIc\fR(\fIj\fR) \- 1) / \fIn\fR
+of the exact statistic, at most about 0.001 (the row and the JSON say
+.Va e ,
+0 when the sketch is exact).
+The p-value is exact, by the recursion R used for
+.Fn ks.test
+without ties, when the sketch is exact,
+.Va n m
+< 10,000 and no value is tied; otherwise it is the Kolmogorov limit
+P(\fIK\fR > sqrt(\fInm\fR/(\fIn\fR+\fIm\fR)) \fID\fR), as R computes it
+(tolerance 1e-6, so p-values below about 1e-6 are not precise).
+With ties R 4.6 has an exact p-value too; nqd then gives the
+asymptotic one.
+.It Population stability index
+PSI = \(*S (\fIp\fR \- \fIq\fR) ln(\fIp\fR/\fIq\fR) over the bins, with
+.Va p
+and
+.Va q
+the shares of the reference and the current file and an empty bin
+counted as 1e-6; the Jensen-Shannon divergence
+\(12 \(*S \fIp\fR ln(\fIp\fR/\fIm\fR) + \(12 \(*S \fIq\fR ln(\fIq\fR/\fIm\fR),
+.Va m
+= (\fIp\fR + \fIq\fR)/2, in nats, at most ln 2.
+.It Benford
+X\(ha2 of the nine first-digit counts against
+log10(1 + 1/\fId\fR), on 8 degrees of freedom.
+.El
+.Pp
+Of a categorical column, PSI and Jensen-Shannon over the kept
+categories and
+.Cm other
+(where every value the reference did not keep falls), and the
+chi-square test of homogeneity of the 2 \(mu \fIk\fR table of reference
+and current counts (no continuity correction; columns empty in both
+left out), on \fIk\fR \- 1 degrees of freedom.
+.Pp
+A column fails when its PSI is at least
+.Fl -psi-fail
+(default 0.25) and both samples have at least
+.Fl -min-n
+values (default 1,000: on fewer, binning noise alone can pass 0.25); it
+warns when its PSI is at least
+.Fl -psi-warn
+(default 0.1) or at least
+.Fl -psi-fail
+on small samples, when a KS or chi-square p-value is below
+.Fl -alpha
+(default 0.001), and with
+.Fl -benford
+when a Benford p-value is below it.
+A numeric column with values that are not numbers fails; a column of
+the reference that is gone fails; a new column warns.
+The PSI bands come from credit-risk monitoring and are heuristics;
+calibrate them on data known not to have drifted.
+.Ss Error of the sketch
+.Pa tests/nqd/kserr.c
+measures the KS statistic from the sketch against the exact one for
+normal samples of
+.Va n
+and
+.Va n Ns /2
+values (five runs each): the difference never passed the stated
+.Va e ;
+under no shift it reached it (0.0005 at
+.Va n
+= 2,000, 0.00096 at 1,000,000), and with a shift of 0.05 or more it
+stayed under 0.00012 from
+.Va n
+= 100,000 on.
+Since the exact
+.Va D
+under no drift is about 1/sqrt(\fIn\fR) and so near 0.001 for a
+million values, read the KS p-value of very large files with that
+error in mind, or rely on the PSI.
+.Bl -tag -width Ds
+.It Fl j , Fl -json
+One line of JSON: the folder, the level
+.Pq Ql ok , Ql warn , Ql fail
+and the rows, each with its numbers under
+.Cm stats :
+.Cm nref , ncur , nullsref , nullscur , kind ,
+and
+.Cm ksd , ksp , kserr , ksexact , psi , js , benfordx2 , benfordp ,
+.Cm benfordpref
+(numeric) or
+.Cm psi , js , chisq , df , chisqp , unseen
+(categorical), and
+.Cm level .
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+nothing drifted
+.It 1
+a column failed
+.It 3
+a column warned, none failed
+.It 2
+a usage or file error, or no summary to compare with
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis drift pin results data/a.csv
+$ curl -o new.csv https://example.org/a.csv
+$ noqtis drift check results data/a.csv=new.csv
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-data 1 ,
+.Xr noqtis-schema 1 ,
+.Xr nqdstats 3 ,
+.Xr noqtis-data 5
+.Sh STANDARDS
+.Rs
+.%A F. J. Massey
+.%T The Kolmogorov-Smirnov test for goodness of fit
+.%J Journal of the American Statistical Association
+.%V 46
+.%D 1951
+.Re
+.Rs
+.%A J. Lin
+.%T Divergence measures based on the Shannon entropy
+.%J IEEE Transactions on Information Theory
+.%V 37
+.%D 1991
+.Re

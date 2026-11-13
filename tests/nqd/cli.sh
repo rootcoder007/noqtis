@@ -183,6 +183,38 @@ has "$w/out" "ok    rule    data/c.csv: unique(a): holds" "unique holds"
 has "$w/out" "range(a): 1 rows fail, the first at line 2" "range fails"
 ok 2 "schema nothing" "$nq" schema nothing "$s"
 
+# ---- drift ----
+
+f=$w/dft
+mkdir -p "$f/data"
+cp "$v/drift/ref.csv" "$f/data/a.csv"
+cp "$v/drift/bigref.csv" "$f/data/big.csv"
+ok 2 "drift check without summaries" "$nq" drift check "$f"
+ok 0 "drift pin" "$nq" drift pin "$f" data/a.csv data/big.csv
+ok 0 "drift check, unchanged" "$nq" drift check "$f"
+has "$w/out" "OK (" "unchanged passes"
+ok 3 "drift check, small sample: warns" "$nq" drift check "$f" \
+  "data/a.csv=$v/drift/cur.csv"
+has "$w/out" "drift.warn  data/a.csv: x: n 60 then 70; KS D 0.3857 (exact" "KS row"
+has "$w/out" "chi-square 19.89 on 4 df" "chi-square row"
+ok 1 "drift check --min-n 1: fails" "$nq" drift check --min-n 1 "$f" \
+  "data/a.csv=$v/drift/cur.csv"
+has "$w/err" "noqtis drift pin" "drift says what to do"
+ok 1 "drift check --json" "$nq" drift check --json --min-n 1 "$f" \
+  "data/a.csv=$v/drift/cur.csv"
+has "$w/out" '"level":"fail"' "json level"
+has "$w/out" '"ksexact":true' "json KS"
+ok 3 "drift check big, --alpha 0.01" "$nq" drift check --alpha 0.01 "$f" \
+  "data/big.csv=$v/drift/bigcur.csv"
+has "$w/out" "from the sketch, D within 0.0010" "sketch error said"
+ok 0 "drift check --alpha 0" "$nq" drift check --alpha 0 "$f" \
+  "data/big.csv=$v/drift/bigcur.csv"
+ok 2 "drift check --alpha 2" "$nq" drift check --alpha 2 "$f"
+ok 2 "drift check unknown file" "$nq" drift check "$f" data/none.csv
+printf 'x,c,b\n1,a\n' >"$w/ragged.csv"
+ok 1 "drift check ragged" "$nq" drift check "$f" "data/a.csv=$w/ragged.csv"
+has "$w/out" "line 2 has 2 fields" "ragged says the line"
+
 # ---- diff ----
 
 d1=$w/d1
