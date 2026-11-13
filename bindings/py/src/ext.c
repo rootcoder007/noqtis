@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "noqtis.h"
+#include "nqd.h"
 
 static PyObject *errmap; /* {code: class}, from setup() */
 
@@ -799,6 +800,308 @@ static PyObject *pfiles(PyObject *self, PyObject *args) {
   return done(rc, r);
 }
 
+/* ---- the data layer (nqd.h): records and elements as JSON text ---- */
+
+/* raises the error class of rc with why as its message, when there is one */
+static PyObject *dfail(int rc, const char *why) {
+  PyObject *cls, *e;
+  if (why == NULL || why[0] == '\0') return fail(rc);
+  if (PyErr_Occurred()) return NULL;
+  cls = ecls(rc);
+  if (cls == NULL) cls = ecls(0);
+  if (cls == NULL) {
+    PyErr_Format(PyExc_RuntimeError, "noqtis: %s (%d)", why, rc);
+    return NULL;
+  }
+  e = PyObject_CallFunction(cls, "is", rc, why);
+  if (e == NULL) return NULL;
+  PyErr_SetObject(cls, e);
+  Py_DECREF(e);
+  return NULL;
+}
+
+/* the record of dir, or a new one when there is none and mk */
+static nqdrec *drec(const char *dir, int mk) {
+  nqdrec *r = NULL;
+  char why[600];
+  int rc;
+  why[0] = '\0';
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdload(dir, &r, why, sizeof why);
+  if (rc == NQEIO && mk) rc = nqdnew(&r);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    dfail(rc, why);
+    return NULL;
+  }
+  return r;
+}
+
+static PyObject *dsave(nqdrec *r, const char *dir) {
+  int rc;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdsave(r, dir);
+  Py_END_ALLOW_THREADS
+  nqdrfree(r);
+  if (rc != NQOK) return fail(rc);
+  Py_RETURN_NONE;
+}
+
+/* a str of what f writes with the two-call size pattern */
+static PyObject *jstr(int (*f)(const nqdrec *, char *, size_t, size_t *),
+                      const nqdrec *r) {
+  size_t n = 0;
+  char *b;
+  PyObject *o;
+  int rc = f(r, NULL, 0, &n);
+  if (rc != NQEBUF) return fail(rc);
+  b = (char *)PyMem_Malloc(n + 1);
+  if (b == NULL) return PyErr_NoMemory();
+  rc = f(r, b, n + 1, &n);
+  o = rc == NQOK ? PyUnicode_FromStringAndSize(b, (Py_ssize_t)n) : fail(rc);
+  PyMem_Free(b);
+  return o;
+}
+
+static PyObject *pdload(PyObject *self, PyObject *args) {
+  const char *dir;
+  nqdrec *r;
+  PyObject *o;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y", &dir)) return NULL;
+  if ((r = drec(dir, 0)) == NULL) return NULL;
+  o = jstr(nqdjson, r);
+  nqdrfree(r);
+  return o;
+}
+
+static PyObject *pdput(PyObject *self, PyObject *args) {
+  const char *dir, *m, *j;
+  char why[600];
+  nqdrec *r;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yss", &dir, &m, &j)) return NULL;
+  if ((r = drec(dir, 1)) == NULL) return NULL;
+  rc = nqdput(r, m, j, strlen(j), why, sizeof why);
+  if (rc != NQOK) {
+    nqdrfree(r);
+    return dfail(rc, why);
+  }
+  return dsave(r, dir);
+}
+
+/* each path a source, then fields[i] set to the JSON vals[i]; all UTF-8
+ * bytes (the limited API of 3.9 has no PyUnicode_AsUTF8AndSize) */
+static PyObject *pdadd(PyObject *self, PyObject *args) {
+  const char *dir;
+  PyObject *paths, *fields, *vals;
+  Py_ssize_t i, k;
+  char why[600];
+  nqdrec *r;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yOOO", &dir, &paths, &fields, &vals))
+    return NULL;
+  if (!PyTuple_Check(paths) || !PyTuple_Check(fields) ||
+      !PyTuple_Check(vals) || PyTuple_Size(fields) != PyTuple_Size(vals)) {
+    PyErr_SetString(PyExc_TypeError, "tuples of paths, fields and values");
+    return NULL;
+  }
+  if ((r = drec(dir, 1)) == NULL) return NULL;
+  for (i = 0; i < PyTuple_Size(paths); i++) {
+    const char *f = PyBytes_AsString(PyTuple_GetItem(paths, i));
+    if (f == NULL) goto bad;
+    if ((rc = nqdsrc(r, dir, f, why, sizeof why)) != NQOK) {
+      dfail(rc, why);
+      goto bad;
+    }
+    for (k = 0; k < PyTuple_Size(fields); k++) {
+      const char *fl = PyBytes_AsString(PyTuple_GetItem(fields, k));
+      const char *v = PyBytes_AsString(PyTuple_GetItem(vals, k));
+      if (fl == NULL || v == NULL) goto bad;
+      if ((rc = nqdset(r, "sources", f, fl, v, strlen(v), why,
+                       sizeof why)) != NQOK) {
+        dfail(rc, why);
+        goto bad;
+      }
+    }
+  }
+  return dsave(r, dir);
+bad:
+  nqdrfree(r);
+  return NULL;
+}
+
+static PyObject *pddel(PyObject *self, PyObject *args) {
+  const char *dir, *m, *k = NULL;
+  nqdrec *r;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ysz", &dir, &m, &k)) return NULL;
+  if ((r = drec(dir, 0)) == NULL) return NULL;
+  rc = nqddel(r, m, k);
+  if (rc != NQOK) {
+    nqdrfree(r);
+    return fail(rc);
+  }
+  return dsave(r, dir);
+}
+
+static PyObject *pdkey(PyObject *self, PyObject *args) {
+  const char *dir, *m, *k;
+  nqdrec *r;
+  size_t n = 0;
+  char *b;
+  PyObject *o;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yss", &dir, &m, &k)) return NULL;
+  if ((r = drec(dir, 0)) == NULL) return NULL;
+  rc = nqdkey(r, m, k, NULL, 0, &n);
+  if (rc == NQEIO) {
+    nqdrfree(r);
+    Py_RETURN_NONE;
+  }
+  if (rc != NQEBUF) {
+    nqdrfree(r);
+    return fail(rc);
+  }
+  b = (char *)PyMem_Malloc(n + 1);
+  if (b == NULL) {
+    nqdrfree(r);
+    return PyErr_NoMemory();
+  }
+  rc = nqdkey(r, m, k, b, n + 1, &n);
+  o = rc == NQOK ? PyUnicode_FromStringAndSize(b, (Py_ssize_t)n) : fail(rc);
+  PyMem_Free(b);
+  nqdrfree(r);
+  return o;
+}
+
+/* (rc, [(check, ok, detail, json or None)]) of a report, freed here */
+static PyObject *ddone(int rc, nqdrep *r) {
+  size_t i, n;
+  PyObject *l;
+  if (r == NULL) return fail(rc == NQOK ? NQESTATE : rc);
+  n = nqdrepn(r);
+  l = PyList_New((Py_ssize_t)n);
+  for (i = 0; l != NULL && i < n; i++) {
+    const char *c = "", *d = "", *j = nqdrepj(r, i);
+    int ok = 0;
+    PyObject *t;
+    nqdrepi(r, i, &c, &ok, &d);
+    t = j != NULL ? Py_BuildValue("(sNss)", c, PyBool_FromLong(ok), d, j)
+                  : Py_BuildValue("(sNsO)", c, PyBool_FromLong(ok), d,
+                                  Py_None);
+    if (t == NULL) {
+      Py_DECREF(l);
+      l = NULL;
+      break;
+    }
+    PyList_SetItem(l, (Py_ssize_t)i, t);
+  }
+  nqdrepfree(r);
+  if (l == NULL) return NULL;
+  return Py_BuildValue("(iN)", rc, l);
+}
+
+static PyObject *pdchk(PyObject *self, PyObject *args) {
+  const char *dir;
+  nqdrep *r = NULL;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y", &dir)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdchk(dir, &r);
+  Py_END_ALLOW_THREADS
+  return ddone(rc, r);
+}
+
+typedef int (*djfn)(const char *, const char *, const nqdcsvopt *, char *,
+                    size_t, size_t *, char *, size_t);
+
+static PyObject *djfile(djfn f, const char *dir, const char *p,
+                        const nqdcsvopt *o) {
+  char why[600], *b;
+  size_t n = 0;
+  int rc;
+  PyObject *s;
+  why[0] = '\0';
+  Py_BEGIN_ALLOW_THREADS
+  rc = f(dir, p, o, NULL, 0, &n, why, sizeof why);
+  Py_END_ALLOW_THREADS
+  if (rc != NQEBUF) return dfail(rc, why);
+  b = (char *)PyMem_Malloc(n + 1);
+  if (b == NULL) return PyErr_NoMemory();
+  Py_BEGIN_ALLOW_THREADS
+  rc = f(dir, p, o, b, n + 1, &n, why, sizeof why);
+  Py_END_ALLOW_THREADS
+  s = rc == NQOK ? PyUnicode_FromStringAndSize(b, (Py_ssize_t)n)
+                 : dfail(rc, why);
+  PyMem_Free(b);
+  return s;
+}
+
+static PyObject *pdinfer(PyObject *self, PyObject *args) {
+  const char *dir, *p;
+  int dl, noh, rng;
+  nqdcsvopt o;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ysCpp", &dir, &p, &dl, &noh, &rng))
+    return NULL;
+  memset(&o, 0, sizeof o);
+  o.delim = (char)dl;
+  o.noheader = noh;
+  o.ranges = rng;
+  return djfile(nqdinfer, dir, p, &o);
+}
+
+static PyObject *pdstats(PyObject *self, PyObject *args) {
+  const char *dir, *p;
+  int dl, noh;
+  nqdcsvopt o;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ysCp", &dir, &p, &dl, &noh)) return NULL;
+  memset(&o, 0, sizeof o);
+  o.delim = (char)dl;
+  o.noheader = noh;
+  return djfile(nqdstats, dir, p, &o);
+}
+
+static PyObject *pddrift(PyObject *self, PyObject *args) {
+  const char *st, *file;
+  int dl, noh, ben;
+  nqdcsvopt o;
+  nqddopt d;
+  nqdrep *r = NULL;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "syCpddddp", &st, &file, &dl, &noh,
+                        &d.psiwarn, &d.psifail, &d.alpha, &d.minn, &ben))
+    return NULL;
+  memset(&o, 0, sizeof o);
+  o.delim = (char)dl;
+  o.noheader = noh;
+  d.benford = ben;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqddrift(st, strlen(st), file, &o, &d, &r);
+  Py_END_ALLOW_THREADS
+  return ddone(rc, r);
+}
+
+static PyObject *pddiff(PyObject *self, PyObject *args) {
+  const char *a, *b;
+  nqdrep *r = NULL;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yy", &a, &b)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqddiff(a, b, &r);
+  Py_END_ALLOW_THREADS
+  return ddone(rc, r);
+}
+
 static PyMethodDef meths[] = {
   {"setup", psetup, METH_O, "register the error classes"},
   {"version", pver, METH_NOARGS, "nqver()"},
@@ -825,6 +1128,16 @@ static PyMethodDef meths[] = {
   {"dssevrfy", pdssevrfy, METH_VARARGS, "nqdssevrfy"},
   {"card", pcard, METH_VARARGS, "nqcard"},
   {"cardvrfy", pcardvrfy, METH_VARARGS, "nqcardvrfy"},
+  {"dload", pdload, METH_VARARGS, "nqdload + nqdjson"},
+  {"dput", pdput, METH_VARARGS, "nqdput + nqdsave"},
+  {"dadd", pdadd, METH_VARARGS, "nqdsrc + nqdset + nqdsave"},
+  {"ddel", pddel, METH_VARARGS, "nqddel + nqdsave"},
+  {"dkey", pdkey, METH_VARARGS, "nqdkey"},
+  {"dchk", pdchk, METH_VARARGS, "nqdchk"},
+  {"dinfer", pdinfer, METH_VARARGS, "nqdinfer"},
+  {"dstats", pdstats, METH_VARARGS, "nqdstats"},
+  {"ddrift", pddrift, METH_VARARGS, "nqddrift"},
+  {"ddiff", pddiff, METH_VARARGS, "nqddiff"},
   {NULL, NULL, 0, NULL}
 };
 

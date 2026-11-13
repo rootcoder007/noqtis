@@ -38,6 +38,10 @@ def vendor():
     for d in ("src", "include"):
         shutil.copytree(os.path.join(ROOT, d), os.path.join(VEN, d),
                         ignore=shutil.ignore_patterns("*.o", "*~"))
+    # the data layer, a library of its own: vendor/src/nqd, built with
+    # the rest
+    shutil.copytree(os.path.join(ROOT, "nqd"), os.path.join(VEN, "src", "nqd"),
+                    ignore=shutil.ignore_patterns("*.o", "*~", "*.txt"))
     for f in ("LICENSE", "NOTICE"):
         shutil.copyfile(os.path.join(ROOT, f), os.path.join(HERE, f))
 
