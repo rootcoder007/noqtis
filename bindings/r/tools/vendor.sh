@@ -1,7 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Copies the noqtis C library (../../src/*/ and ../../include/noqtis.h)
-# into this R package's src/, and writes src/Makevars and src/Makevars.win
+# and its data layer (../../nqd/ and ../../include/nqd.h) into this R
+# package's src/, and writes src/Makevars and src/Makevars.win
 # with the object list, so the package builds on its own (no system
 # libnoqtis). Run from anywhere; rerun after any change to the library.
 set -eu
@@ -29,10 +30,14 @@ for d in "$top"/src/*/; do
   done
   mods="$mods $m"
 done
+# the data layer, a library of its own beside the core
+mkdir "$dst/nqd"
+cp "$top"/nqd/*.c "$top"/nqd/*.h "$dst/nqd/"
+mods="$mods nqd"
 mkdir "$dst/include"
-cp "$top/include/noqtis.h" "$dst/include/"
+cp "$top/include/noqtis.h" "$top/include/nqd.h" "$dst/include/"
 
-objs="rnq.o"
+objs="rnq.o rnqd.o"
 for m in $mods; do
   for f in "$dst/$m"/*.c; do
     test -f "$f" || continue
@@ -62,4 +67,4 @@ write "$dst/Makevars" ""
 write "$dst/Makevars.win" "-lbcrypt"
 
 n=$(printf '%s\n' $objs | wc -l | tr -d ' ')
-echo "vendor.sh: copied$mods and include/noqtis.h; $n objects"
+echo "vendor.sh: copied$mods, include/noqtis.h and nqd.h; $n objects"

@@ -795,6 +795,18 @@ static SEXP Cerr(SEXP rc) {
 
 /* through void (*)(void), the generic function pointer type the compilers
  * accept a cast from without -Wcast-function-type */
+/* the data layer's entry points, in rnqd.c */
+SEXP Cdload(SEXP dir);
+SEXP Cdput(SEXP dir, SEXP member, SEXP json);
+SEXP Cdadd(SEXP dir, SEXP paths, SEXP fields, SEXP vals);
+SEXP Cddel(SEXP dir, SEXP member, SEXP key);
+SEXP Cdkey(SEXP dir, SEXP member, SEXP key);
+SEXP Cdchk(SEXP dir);
+SEXP Cdinfer(SEXP dir, SEXP path, SEXP delim, SEXP noh, SEXP ranges);
+SEXP Cdstats(SEXP dir, SEXP path, SEXP delim, SEXP noh);
+SEXP Cddrift(SEXP stats, SEXP file, SEXP delim, SEXP noh, SEXP lv);
+SEXP Cddiff(SEXP a, SEXP b);
+
 #define CDEF(f, n) {#f, (DL_FUNC)(void (*)(void))&f, n}
 
 static const R_CallMethodDef calls[] = {
@@ -805,6 +817,9 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cseal2, 7), CDEF(Ccapid, 1), CDEF(Cprove, 2), CDEF(Cfiles, 1),
   CDEF(Ckstmt, 8), CDEF(Cdsse, 5), CDEF(Cdssevrfy, 3),
   CDEF(Ccard, 9), CDEF(Ccardvrfy, 2),
+  CDEF(Cdload, 1), CDEF(Cdput, 3), CDEF(Cdadd, 4), CDEF(Cddel, 3),
+  CDEF(Cdkey, 3), CDEF(Cdchk, 1), CDEF(Cdinfer, 5), CDEF(Cdstats, 4),
+  CDEF(Cddrift, 5), CDEF(Cddiff, 2),
   {NULL, NULL, 0}
 };
 

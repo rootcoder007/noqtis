@@ -3,6 +3,7 @@ PKG_CPPFLAGS = -I. -Iinclude
 PKG_LIBS = -lbcrypt
 OBJECTS = \
   rnq.o \
+  rnqd.o \
   aead/aes.o \
   aead/ccp.o \
   aead/gcm.o \
@@ -61,4 +62,13 @@ OBJECTS = \
   tls/ks.o \
   tls/rec.o \
   xdh/hyb.o \
-  xdh/x25519.o
+  xdh/x25519.o \
+  nqd/chk.o \
+  nqd/cmt.o \
+  nqd/csv.o \
+  nqd/dft.o \
+  nqd/diff.o \
+  nqd/fs.o \
+  nqd/js.o \
+  nqd/rec.o \
+  nqd/sch.o
