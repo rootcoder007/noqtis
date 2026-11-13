@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # The NOQTIS GitHub Action: builds noqtis from this checkout of the action
-# (CMake, cached per OS, CPU and source tree), puts it on PATH, and seals
-# or checks a capsule folder. Runs on Linux, macOS and Windows runners.
+# (CMake, cached per OS, CPU and source tree), puts it on PATH, and seals,
+# checks or reports on a capsule folder. Runs on Linux, macOS and Windows
+# runners.
 #
 #   - uses: rootcoder007/noqtis@v0
 #     with:
@@ -18,7 +19,10 @@ branding:
 
 inputs:
   mode:
-    description: "seal, check, or install (only build noqtis and put it on PATH)"
+    description: >-
+      seal; check (fails the step when a check fails); report (the same
+      checks, outputs and annotations, without failing the step); or
+      install (only build noqtis and put it on PATH)
     required: true
   dir:
     description: The capsule folder to seal or check
@@ -43,16 +47,33 @@ inputs:
     required: false
     default: ""
   json:
-    description: check only. "true" also sets the json output to the check --json line.
+    description: >-
+      check and report. "true" also sets the json output to the one-line
+      JSON of noqtis report --json.
     required: false
     default: "false"
 
 outputs:
   ok:
-    description: check only. "true" when every check passed, else "false".
+    description: check and report. "true" when every check passed, else "false".
     value: ${{ steps.run.outputs.ok }}
+  status:
+    description: check and report. "passed" or "failed"; "error" when noqtis could not check (a usage or file error).
+    value: ${{ steps.run.outputs.status }}
+  verified:
+    description: check and report. The number of sealed files that match the seal.
+    value: ${{ steps.run.outputs.verified }}
+  changed:
+    description: check and report. The number of sealed files changed or missing, and of files added since the seal.
+    value: ${{ steps.run.outputs.changed }}
+  failed:
+    description: check and report. The number of failed checks, of the capsule and of its data record.
+    value: ${{ steps.run.outputs.failed }}
+  report:
+    description: check and report. Path to the Markdown report (noqtis report), also added to the job summary.
+    value: ${{ steps.run.outputs.report }}
   json:
-    description: check only, with json "true". The one-line JSON report of noqtis check --json.
+    description: check and report, with json "true". The one-line JSON of noqtis report --json.
     value: ${{ steps.run.outputs.json }}
   bin:
     description: Path to the noqtis program.
@@ -70,7 +91,7 @@ runs:
         cd "$NQSRC"
         if command -v sha256sum > /dev/null 2>&1; then sum="sha256sum"
         else sum="shasum -a 256"; fi
-        d=$(find CMakeLists.txt cmake include src cli -type f | LC_ALL=C sort |
+        d=$(find CMakeLists.txt cmake include src nqd cli -type f | LC_ALL=C sort |
           while IFS= read -r f; do $sum "$f"; done | $sum | cut -c1-32)
         echo "key=noqtis-$RUNNER_OS-$RUNNER_ARCH-$d" >> "$GITHUB_OUTPUT"
 
@@ -124,11 +145,15 @@ runs:
         NQJSON: ${{ inputs.json }}
       run: |
         set -u
-        die() { echo "::error title=noqtis::$*"; exit 2; }
+        die() {
+          echo "status=error" >> "$GITHUB_OUTPUT"
+          echo "::error title=noqtis::$*"
+          exit 2
+        }
         case "$NQMODE" in
           install) exit 0 ;;
-          seal|check) ;;
-          *) die "mode must be seal, check or install, not '$NQMODE'" ;;
+          seal|check|report) ;;
+          *) die "mode must be seal, check, report or install, not '$NQMODE'" ;;
         esac
         [ -n "$NQDIR" ] || die "dir is required for $NQMODE"
         [ -d "$NQDIR" ] || die "$NQDIR: no such folder"
@@ -147,18 +172,34 @@ runs:
         set --
         if [ -n "$NQPUB" ]; then set -- -p "$NQPUB"
         else echo "::warning title=noqtis::no pub given: the key inside the seal is trusted, so any key's seal passes"; fi
-        # one check: ok and json come from the same run, so they cannot
-        # disagree if the folder changes between two
+        # one run of noqtis report gives everything: the workflow
+        # annotations (one ::error line per failed check) and, last, the
+        # JSON line the outputs come from, so they cannot disagree if the
+        # folder changes between two runs
+        md="$RUNNER_TEMP/noqtis-report.md"
         rc=0
-        if [ "$NQJSON" = true ]; then
-          j=$("$NQBIN" check --json "$@" -- "$NQDIR") || rc=$?
-          printf '%s\n' "$j"
-          printf 'json=%s\n' "$j" >> "$GITHUB_OUTPUT"
-        else
-          "$NQBIN" check "$@" -- "$NQDIR" || rc=$?
+        out=$("$NQBIN" report --json --github -o "$md" "$@" -- "$NQDIR") || rc=$?
+        printf '%s\n' "$out"
+        if [ "$rc" -gt 1 ]; then
+          echo "status=error" >> "$GITHUB_OUTPUT"
+          exit "$rc"
         fi
-        if [ "$rc" = 0 ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
-        else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+        j=$(printf '%s\n' "$out" | tail -n 1)
+        num() { printf '%s\n' "$j" | sed -n "s/.*\"$1\":\([0-9][0-9]*\).*/\1/p"; }
+        st=$(printf '%s\n' "$j" | sed -n 's/.*"status":"\([a-z]*\)".*/\1/p')
+        {
+          echo "status=$st"
+          echo "verified=$(num verified)"
+          echo "changed=$(num changed)"
+          echo "failed=$(num failed)"
+          echo "report=$md"
+          if [ "$rc" = 0 ]; then echo "ok=true"; else echo "ok=false"; fi
+          if [ "$NQJSON" = true ]; then printf 'json=%s\n' "$j"; fi
+        } >> "$GITHUB_OUTPUT"
+        cat "$md"
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$md" >> "$GITHUB_STEP_SUMMARY"; fi
+        # report: the outputs say what failed; the step passes
+        if [ "$NQMODE" = report ]; then exit 0; fi
         exit "$rc"
 
     - name: remove the key file
