@@ -28,7 +28,7 @@ set(NQMANAKA
   "nqdnew:nqdparse,nqdload,nqdjson,nqdsave,nqdrfree,nqdlen,nqdat,nqdkey,nqdput,nqdset,nqddel,nqdsrc"
   "nqdchk:nqdrepn,nqdrepi,nqdrepj,nqdrepfree"
   "nqdinfer:nqdschk"
-  "nqdstats:nqddrift"
+  "nqdstats:nqddrift,nqddcal"
   "nqdcommit:nqdreveal,nqdcite")
 foreach(e ${NQMANAKA})
   string(REPLACE ":" ";" e "${e}")

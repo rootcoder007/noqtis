@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 12, 2026
+.Dd November 13, 2026
 .Dt NOQTIS-DRIFT 1
 .Os
 .Sh NAME
@@ -21,6 +21,10 @@
 .Op Fl -no-header
 .Ar dir
 .Op Ar file Ns Oo = Ns Ar current-file Oc ...
+.Nm noqtis drift cal
+.Op Fl d | Fl -delim Ar c
+.Op Fl -no-header
+.Ar dir file Ns = Ns Ar unchanged-file ...
 .Sh DESCRIPTION
 .Cm pin
 reads each CSV
@@ -38,6 +42,28 @@ that file instead of the one in
 .Ar dir ,
 such as a new download of the same source) with its summary, one row
 per column.
+.Cm cal
+calibrates the warnings of the summary of each
+.Ar file
+on the files given after it, which are known not to have drifted from
+it (a re-fetch of unchanged data, the other half of a random split of
+the same data); a
+.Ar file
+may be named more than once.
+Each is compared as
+.Cm check
+would; every column then records, as
+.Cm cal ,
+the number of files and the largest PSI, the smallest KS or chi-square
+p-value and the smallest Benford p-value seen on them.
+A later
+.Cm check
+warns of that column only for a PSI above that largest one or a
+p-value below that smallest one, besides the thresholds below; when a
+column fails does not change.
+A file that lacks a column of the summary, or has text in a numeric
+column, cannot calibrate it and is refused.
+Pinning the file again drops its calibration.
 .Ss Summaries
 Values that are empty or
 .Ql NA
@@ -160,7 +186,8 @@ when a Benford p-value is below it.
 A numeric column with values that are not numbers fails; a column of
 the reference that is gone fails; a new column warns.
 The PSI bands come from credit-risk monitoring and are heuristics;
-calibrate them on data known not to have drifted.
+calibrate them on data known not to have drifted
+.Pq Cm cal .
 .Ss Error of the sketch
 .Pa tests/nqd/kserr.c
 measures the KS statistic from the sketch against the exact one for
@@ -193,7 +220,11 @@ and
 .Cm benfordpref
 (numeric) or
 .Cm psi , js , chisq , df , chisqp , unseen
-(categorical), and
+(categorical),
+.Cm calpsi , calp
+and
+.Cm calbp
+when calibrated, and
 .Cm level .
 .El
 .Sh EXIT STATUS
@@ -207,11 +238,16 @@ a column warned, none failed
 .It 2
 a usage or file error, or no summary to compare with
 .El
+.Pp
+.Cm cal
+exits 0 when the record is written and 2 otherwise.
 .Sh EXAMPLES
 .Bd -literal -offset indent
 $ noqtis drift pin results data/a.csv
 $ curl -o new.csv https://example.org/a.csv
 $ noqtis drift check results data/a.csv=new.csv
+$ noqtis drift cal results data/a.csv=fetch1.csv data/a.csv=fetch2.csv
+data/a.csv: calibrated on 2 files known not to have drifted
 .Ed
 .Sh SEE ALSO
 .Xr noqtis-data 1 ,

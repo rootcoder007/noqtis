@@ -99,7 +99,19 @@ of each other column. `drift check` compares a later file with them:
 Kolmogorov-Smirnov, PSI and Jensen-Shannon for numeric columns,
 chi-square of homogeneity for the others, Benford's first-digit test.
 It exits `0` when nothing drifted, `1` when a column failed and `3`
-when one only warned, for CI. The definitions, the levels and the
+when one only warned, for CI.
+
+How often a column warns when nothing changed depends on the data. To
+set the warnings from data known not to have drifted (two downloads a
+day apart, or two halves of a random split), calibrate:
+
+```sh
+noqtis drift cal results data/crime.csv=copy1.csv data/crime.csv=copy2.csv
+```
+
+Each column then keeps, in the record, the largest PSI and the smallest
+p-values seen on those files, and `drift check` warns of it only beyond
+them. The definitions, the levels and the
 measured error of the sketch are in
 [noqtis-drift(1)](https://noqtis.dev/reference/man/noqtis-drift-1/).
 

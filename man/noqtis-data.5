@@ -316,6 +316,18 @@ and
 edges, bins closed on the right, one count more than edges),
 .Cm digits
 (nine counts of first significant digits 1 to 9);
+for any column
+.Cm cal
+(its calibration on files known not to have drifted: an object with
+.Cm n ,
+the number of files, at least 1,
+.Cm psi ,
+the largest PSI seen, at least 0,
+.Cm p ,
+the smallest KS or chi-square p-value, and for a numeric column
+.Cm bp ,
+the smallest Benford p-value, both from 0 to 1;
+.Xr noqtis-drift 1 ) ;
 for a categorical column
 .Cm cats
 ([value, count] pairs sorted by value) and

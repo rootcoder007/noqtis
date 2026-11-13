@@ -1,11 +1,12 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 12, 2026
+.Dd November 13, 2026
 .Dt NQDSTATS 3
 .Os
 .Sh NAME
 .Nm nqdstats ,
-.Nm nqddrift
-.Nd summarise a CSV file, and compare a later one with the summary
+.Nm nqddrift ,
+.Nm nqddcal
+.Nd summarise a CSV file, compare a later one with the summary, and calibrate it
 .Sh LIBRARY
 libnqd, \-lnqd \-lnoqtis
 .Sh SYNOPSIS
@@ -28,6 +29,12 @@ typedef struct {
 .Fo nqddrift
 .Fa "const char *stats" "size_t n" "const char *file"
 .Fa "const nqdcsvopt *o" "const nqddopt *d" "nqdrep **rep"
+.Fc
+.Ft int
+.Fo nqddcal
+.Fa "const char *stats" "size_t n" "const char *const *files" "size_t nf"
+.Fa "const nqdcsvopt *o" "char *out" "size_t cap" "size_t *outlen"
+.Fa "char *why" "size_t wcap"
 .Fc
 .Sh DESCRIPTION
 .Fn nqdstats
@@ -74,8 +81,45 @@ the defaults above).
 defines the summaries, the tests, the levels and the error of the
 sketch.
 .Pp
-Both hold every number of a column in memory while reading the file,
-8 bytes each.
+.Fn nqddcal
+calibrates the warnings of the
+.Ql stats
+element
+.Fa stats
+.Pf ( Fa n
+bytes) on the
+.Fa nf
+CSV files
+.Fa files ,
+known not to have drifted from it: each is compared with it as
+.Fn nqddrift
+does with the default levels, and every column gets a
+.Cm cal
+object: the number of files
+.Pq Cm n ,
+the largest PSI
+.Pq Cm psi ,
+the smallest KS or chi-square p-value
+.Pq Cm p
+and, for a numeric column, the smallest Benford p-value
+.Pq Cm bp .
+The element with them is written to
+.Fa out
+as
+.Fn nqdstats
+writes one.
+.Fn nqddrift
+then warns of a calibrated column only for a PSI above
+.Cm psi
+or a p-value below
+.Cm p
+.Pq Cm bp No for Benford ,
+besides the levels of
+.Fa d ;
+when a column fails does not change.
+.Pp
+All three hold every number of a column in memory while reading a
+file, 8 bytes each.
 .Sh RETURN VALUES
 .Fn nqdstats
 returns
@@ -102,6 +146,24 @@ when one did (an element that is not
 or a file that cannot be read, is a failed row), with
 .Fa *rep
 set.
+.Fn nqddcal
+returns
+.Dv NQOK ,
+.Dv NQEBUF
+with
+.Fa *outlen
+set when
+.Fa cap
+is too small,
+.Dv NQEDEC
+with a sentence in
+.Fa why
+for an element that is not
+.Ql stats
+or a file that lacks one of its columns, cannot be read or has values
+of another kind,
+.Dv NQEARG
+for no files.
 .Sh SEE ALSO
 .Xr noqtis-drift 1 ,
 .Xr nqdchk 3 ,

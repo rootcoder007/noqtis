@@ -35,7 +35,7 @@ summarises it.
 | `format` | `"noqtis-data-1"` (required) |
 | `sources` | per file: `path`, `sha256`, `size` (required); `url`, `resolver` (`kind`: direct, ckan, socrata, arcgis, wayback; `base`, `id`, `resource`, `format`, `layer`), `retrieved`, `etag`, `modified`, `licence`, `publisher`, `title`, `archived` (`url`, `time`), `mirrors`, `synthetic` |
 | `schemas` | per CSV file: `path`, `kind` (`csv`); `delim`, `header`, `na`, `rows` (`min`, `max`), `columns` (`name`, `type`: int, real, text, date, bool; `nulls`, `min`, `max`, `set`), `rules` (`kind`: unique, notnull, range, set, incr, complete, distinct, regex, mad, rows, cols, with their arguments: `col`, `cols`, `min`, `max`, `set`, `share`, `pattern`) |
-| `stats` | per CSV file: `path`, `rows`, `delim`, `header`, `columns` (`name`, `n`, `nulls`; numeric `q`, `edges`, `counts`, `digits`; categorical `cats`, `other`) |
+| `stats` | per CSV file: `path`, `rows`, `delim`, `header`, `columns` (`name`, `n`, `nulls`; numeric `q`, `edges`, `counts`, `digits`; categorical `cats`, `other`; a calibration `cal`: `n`, `psi`, `p`, `bp`) |
 | `env` | `os`, `arch`, `kernel`, `cpu`, `locale`, `tz`, `noqtis`, `build`, `runtime` (`language`, `version`, `packages`), `locks`, `rng` (`kind`, `seed`) |
 | `steps` | `kind` (recode, filter, derive, script, other), `from`, `to`, `note`, `script`, `sha256` |
 | `checks` | `name`, `status` (pass, warn, fail); `expected`, `observed`, `tol` (at least 0), `note`: with numbers, `\|observed - expected\| <= tol` recomputes the result |
