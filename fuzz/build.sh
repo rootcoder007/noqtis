@@ -56,7 +56,12 @@ done > "$obj/lib.lst"
 for f in b64 key io; do
   printf '%s %s\n' "$top/cli/$f.c" "$obj/cli/$f.o"
 done > "$obj/cli.lst"
-cat "$obj/lib.lst" "$obj/cli.lst" | xargs -P "$NQJ" -n 2 sh -c '
+# the data layer (nqd/), a library of its own
+mkdir -p "$obj/nqd"
+for f in "$top"/nqd/*.c; do
+  printf '%s %s\n' "$f" "$obj/nqd/$(basename "$f" .c).o"
+done > "$obj/nqd.lst"
+cat "$obj/lib.lst" "$obj/cli.lst" "$obj/nqd.lst" | xargs -P "$NQJ" -n 2 sh -c '
   $CC $CFLAGS -std=c11 -DNQTEST -I"$top/include" -I"$top/src" -I"$top/cli" \
     -c "$0" -o "$1"'
 # the whole tool, its main renamed, for fcli (fuzzed arguments)
@@ -65,8 +70,9 @@ for f in "$top"/cli/*.c; do
 done | xargs -P "$NQJ" -n 2 sh -c '
   $CC $CFLAGS -std=c11 -Dmain=nqclimain -I"$top/include" -I"$top/src" \
     -I"$top/cli" -c "$0" -o "$1"'
-rm -f "$obj/libnq.a" "$obj/libnqcli.a"
+rm -f "$obj/libnq.a" "$obj/libnqcli.a" "$obj/libnqd.a"
 ar rcs "$obj/libnq.a" "$obj"/lib/*.o
+ar rcs "$obj/libnqd.a" "$obj"/nqd/*.o
 ar rcs "$obj/libnqcli.a" "$obj"/cli/*.o
 
 for f in "$top"/fuzz/f*.c; do
@@ -74,11 +80,12 @@ for f in "$top"/fuzz/f*.c; do
   $CC $CFLAGS -std=c11 -DNQTEST -I"$top/include" -I"$top/src" -I"$top/cli" \
     -I"$top/fuzz" -c "$f" -o "$obj/$t.o"
   if [ "$t" = fcli ]; then
-    $LD $LDFLAGS "$obj/$t.o" "$obj"/clif/*.o "$obj/libnq.a" -pthread \
+    $LD $LDFLAGS "$obj/$t.o" "$obj"/clif/*.o "$obj/libnqd.a" "$obj/libnq.a" \
+      -pthread -lm \
       $LIB_FUZZING_ENGINE -o "$out/$t"
   else
-    $LD $LDFLAGS "$obj/$t.o" "$obj/libnqcli.a" "$obj/libnq.a" \
-      $LIB_FUZZING_ENGINE -o "$out/$t"
+    $LD $LDFLAGS "$obj/$t.o" "$obj/libnqcli.a" "$obj/libnqd.a" \
+      "$obj/libnq.a" -lm $LIB_FUZZING_ENGINE -o "$out/$t"
   fi
 done
 
