@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema algs selftest version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema diff algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -34,6 +34,7 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a timestamp -d 'a
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a ers -d 'start or renew an evidence record'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a data -d 'make, show and check a data record'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a schema -d 'pin and check the schema of CSV files'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a diff -d 'what changed between two capsules'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a algs -d 'list the algorithms'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a version -d 'print the version'
 
@@ -111,3 +112,8 @@ complete -c noqtis -n "__fish_seen_subcommand_from schema" -l no-header -d 'the 
 complete -c noqtis -n "__fish_seen_subcommand_from schema" -l ranges -d 'pin number and date ranges'
 complete -c noqtis -n "__fish_seen_subcommand_from schema" -l put -d 'record the schema'
 complete -c noqtis -n "__fish_seen_subcommand_from schema" -s j -l json -d 'JSON output'
+
+# noqtis diff, seal -r, check -r
+complete -c noqtis -n "__fish_seen_subcommand_from diff" -a '(__fish_complete_directories)'
+complete -c noqtis -n "__fish_seen_subcommand_from diff" -s j -l json -d 'JSON output'
+complete -c noqtis -n "__fish_seen_subcommand_from seal check" -s r -l recursive -d 'every capsule under the folder'

@@ -16,6 +16,10 @@
 .Op Fl -card Ar file
 .Ar dir | url
 .Nm noqtis check
+.Op Ar options
+.Fl r | Fl -recursive
+.Ar dir
+.Nm noqtis check
 .Op Fl p Ar key.pub
 .Op Fl j | Fl -json
 .Op Fl -anchor Ar der-file ...
@@ -134,6 +138,23 @@ Print one line of JSON instead of the table:
 A failed check also has
 .Ql fix ,
 the text of the line on standard error.
+.It Fl r , Fl -recursive
+Check, with the same options, every folder under
+.Ar dir
+(and
+.Ar dir
+itself) that holds
+.Pa noqtis.sig ,
+deepest first, without following links, 64 levels down at most; each
+prints its report (with
+.Fl j ,
+one JSON line each), and standard error ends with how many passed and
+failed.
+.Ar dir
+comes last.
+The exit status is the worst of the checks; no capsule under
+.Ar dir
+is 2.
 .It Fl -anchor Ar der-file
 A TSA trust anchor: the root or issuing certificate of a time-stamping
 authority, DER-encoded (convert PEM with

@@ -1,0 +1,75 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NOQTIS-DIFF 1
+.Os
+.Sh NAME
+.Nm noqtis-diff
+.Nd what changed between two capsules
+.Sh SYNOPSIS
+.Nm noqtis diff
+.Op Fl j | Fl -json
+.Ar dir dir
+.Sh DESCRIPTION
+.Nm noqtis diff
+compares two capsule folders, the first as before and the second as
+after, and prints one row per difference:
+.Bl -tag -width schema
+.It file
+a file added, removed or changed (size and SHA-256) between the two
+manifests, when both folders are sealed
+.It source
+a source added or removed in the data records
+.Pq Xr noqtis-data 5 ,
+or the fields that changed, old and new
+.It schema
+a column added, removed or changed (its type, missing values, range),
+or another field of a schema (rows, delimiter, rules)
+.It stats
+a summary's row count, or a column's count, median and the population
+stability index between the two summaries (over the same bins, or over
+the categories of either)
+.It env , cite
+fields that changed, or the member added or removed
+.It steps , commits
+how many there are, and the first that differs
+.It check
+a recorded check added, removed or changed
+.El
+.Pp
+Nothing is checked: a seal or record that does not verify is compared
+as it reads.
+Run
+.Xr noqtis-check 1
+and
+.Cm noqtis data check
+on each first.
+.Bl -tag -width Ds
+.It Fl j , Fl -json
+Print one line of JSON:
+.Bd -literal
+{"from":"<dir>","to":"<dir>","same":<bool>,
+ "rows":[{"what":"<kind>","differs":<bool>,"detail":"<text>"},...]}
+.Ed
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+nothing differs
+.It 1
+something does
+.It 2
+a usage error, or a path that is not a folder
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis diff results-2025 results-2026
+      manifest  3 files, then 3
+diff  file      data/a.csv changed: 89 -> 111 bytes, SHA-256 7a16...
+diff  schema    data/a.csv: rows {"max":3,"min":3} -> {"max":4,"min":4}
+results-2025 and results-2026: 2 differences
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-data 1 ,
+.Xr nqddiff 3 ,
+.Xr noqtis-data 5

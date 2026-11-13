@@ -183,6 +183,61 @@ has "$w/out" "ok    rule    data/c.csv: unique(a): holds" "unique holds"
 has "$w/out" "range(a): 1 rows fail, the first at line 2" "range fails"
 ok 2 "schema nothing" "$nq" schema nothing "$s"
 
+# ---- diff ----
+
+d1=$w/d1
+mkdir -p "$d1/data"
+cp "$v/cap/data/a.csv" "$v/cap/data/b.csv" "$d1/data/"
+ok 0 "diff: data add" "$nq" data add --url https://example.org/a.csv "$d1" \
+  data/a.csv
+ok 0 "diff: data add b" "$nq" data add "$d1" data/b.csv
+ok 0 "diff: schema" "$nq" schema infer --put "$d1" data/a.csv
+ok 0 "diff: seal 1" "$nq" seal -k "$w/k" "$d1"
+cp -R "$d1" "$w/d2"
+d2=$w/d2
+ok 0 "diff: same" "$nq" diff "$d1" "$d2"
+has "$w/out" "the same" "diff says the same"
+printf '4,dan,1.5,2024-04-01\r\n' >>"$d2/data/a.csv"
+printf 'new\n' >"$d2/data/c.txt"
+rm "$d2/data/b.csv"
+ok 0 "diff: data add again" "$nq" data add --url https://example.org/a2.csv \
+  "$d2" data/a.csv
+ok 0 "diff: data del b" "$nq" data del "$d2" sources data/b.csv
+ok 0 "diff: schema again" "$nq" schema infer --put "$d2" data/a.csv
+printf '{"os":"linux","arch":"x86_64"}' >"$w/env.json"
+ok 0 "diff: env" "$nq" data put "$d2" env "$w/env.json"
+ok 0 "diff: seal 2" "$nq" seal -k "$w/k" "$d2"
+ok 1 "diff: differs" "$nq" diff "$d1" "$d2"
+has "$w/out" "data/a.csv changed: 89 -> 111 bytes" "file changed"
+has "$w/out" "data/b.csv removed" "file removed"
+has "$w/out" "data/c.txt added" "file added"
+has "$w/out" 'url "https://example.org/a.csv" -> "https://example.org/a2.csv"' "source url"
+has "$w/out" 'rows {"max":3,"min":3} -> {"max":4,"min":4}' "schema rows"
+has "$w/out" "env.*added" "env added"
+ok 1 "diff --json" "$nq" diff --json "$d1" "$d2"
+has "$w/out" '"same":false' "json same false"
+ok 2 "diff one folder" "$nq" diff "$d1"
+
+# ---- seal -r, check -r ----
+
+t=$w/tree
+mkdir -p "$t/a/data" "$t/b/inner" "$t/c"
+cp "$v/cap/data/b.csv" "$t/a/data/"
+ok 0 "-r: data add a" "$nq" data add "$t/a" data/b.csv
+printf 'x\n' >"$t/b/inner/f.txt"
+ok 0 "-r: data init b" "$nq" data init "$t/b/inner"
+printf 'no capsule\n' >"$t/c/g.txt"
+ok 0 "seal -r" "$nq" seal -k "$w/k" -r "$t"
+has "$w/err" "2 capsules, 2 sealed, 0 failed" "seal -r counts"
+ok 1 "c not sealed" test -f "$t/c/noqtis.sig"
+ok 0 "check -r" "$nq" check -p "$w/k.pub" -r "$t"
+has "$w/err" "2 capsules, 2 OK, 0 failed" "check -r counts"
+printf 'y\n' >>"$t/b/inner/f.txt"
+ok 1 "check -r, one changed" "$nq" check -p "$w/k.pub" -r "$t"
+has "$w/err" "2 capsules, 1 OK, 1 failed" "check -r finds it"
+ok 2 "check -r, nothing" "$nq" check -r "$t/c"
+has "$w/err" "no capsule under" "check -r says none"
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"

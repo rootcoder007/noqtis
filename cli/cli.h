@@ -89,6 +89,15 @@ int ncisreg(const char *path);
 int ncgmtime(time_t t, struct tm *tm);
 /* Closes f; removes path when bad or when the close fails. 0 on success. */
 int ncclose(FILE *f, const char *path, int bad);
+/* dir and every folder under it, 64 levels deep at most, without
+ * following links, deepest first (free each and the list); NCUSE over
+ * NCWALKMAX folders or when memory runs out */
+#define NCWALKMAX ((size_t)100000)
+int ncwalk(const char *dir, char ***out, size_t *n);
+/* runs cmd (ncseal or ncchk) on every capsule folder under the folder
+ * that is its last argument: those holding the file mark (seal: a
+ * manifest or a data record), with -r taken out of argv */
+int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv);
 /* Wipes (when sec) and frees. */
 void ncfree(void *p, size_t len, int sec);
 /* stdin/stdout in binary mode (Windows). */
@@ -215,6 +224,7 @@ int ncdrep(const char *cmd, const char *lab, const nqdrep *rep, int rc,
 int ncdreps(const char *cmd, const char *lab, const nqdrep *const *rs,
             size_t nr, int ret, int json);
 int ncschema(int argc, char **argv);
+int ncdiff(int argc, char **argv);
 /* s as a JSON string, to stdout or into a new buffer (free it) */
 void ncjstr(const char *s);
 char *ncjq(const char *s);

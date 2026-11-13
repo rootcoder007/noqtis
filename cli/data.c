@@ -717,6 +717,72 @@ int ncschema(int argc, char **argv) {
   return NCUSE;
 }
 
+int ncdiff(int argc, char **argv) {
+  int np, help, json = 0, rc;
+  nqdrep *rep = NULL;
+  size_t i, n, nd = 0, w = 8;
+  ncopt o[] = {{'j', "json", 0, NULL, &json}};
+  if (ncargs("diff", argc, argv, o, 1, &np, &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "diff");
+    return NCOK;
+  }
+  if (np != 2) {
+    ncmsg("diff", "give two capsule folders (see `noqtis help diff`)");
+    return NCUSE;
+  }
+  for (i = 0; i < 2; i++) {
+    if (!ncisdir(argv[i])) {
+      ncmsg("diff", "%s is not a folder", argv[i]);
+      return NCUSE;
+    }
+  }
+  rc = nqddiff(argv[0], argv[1], &rep);
+  if (rep == NULL)
+    return nclib("diff", "compare", rc);
+  n = nqdrepn(rep);
+  for (i = 0; i < n; i++) {
+    const char *c;
+    int ok;
+    nqdrepi(rep, i, &c, &ok, NULL);
+    nd += !ok;
+    if (strlen(c) > w)
+      w = strlen(c);
+  }
+  if (json) {
+    fputs("{\"from\":", stdout);
+    ncjstr(argv[0]);
+    fputs(",\"to\":", stdout);
+    ncjstr(argv[1]);
+    printf(",\"same\":%s,\"rows\":[", nd ? "false" : "true");
+  }
+  for (i = 0; i < n; i++) {
+    const char *c, *d;
+    int ok;
+    nqdrepi(rep, i, &c, &ok, &d);
+    if (json) {
+      fputs(i ? ",{\"what\":" : "{\"what\":", stdout);
+      ncjstr(c);
+      printf(",\"differs\":%s,\"detail\":", ok ? "false" : "true");
+      ncjstr(d);
+      putchar('}');
+    } else {
+      printf("%-4s  %-*s  %s\n", ok ? "" : "diff", (int)w, ncesc(c),
+             ncesc(d));
+    }
+  }
+  if (json)
+    fputs("]}\n", stdout);
+  else if (nd == 0)
+    printf("%s and %s: the same\n", ncesc(argv[0]), ncesc(argv[1]));
+  else
+    printf("%s and %s: %lu differences\n", ncesc(argv[0]), ncesc(argv[1]),
+           (unsigned long)nd);
+  nqdrepfree(rep);
+  return rc == NQOK ? NCOK : rc == NQEVRFY ? NCBAD : NCUSE;
+}
+
 int ncdata(int argc, char **argv) {
   static const struct {
     const char *v;

@@ -14,6 +14,7 @@
 .Op Fl -input Oo Ar name Ns = Oc Ns Ar dir ...
 .Op Fl -tsa Ar url ...
 .Op Fl -anchor Ar der-file ...
+.Op Fl r | Fl -recursive
 .Ar dir
 .Sh DESCRIPTION
 .Nm noqtis seal
@@ -161,6 +162,22 @@ then also have a certificate path to one of them, checked as
 checks it.
 Without it the reply is checked, but not whether the TSA is one to
 trust, and a note on standard error says so.
+.It Fl r , Fl -recursive
+Seal, with the same options, every folder under
+.Ar dir
+(and
+.Ar dir
+itself) that holds
+.Pa noqtis.json
+(a capsule sealed before) or
+.Pa noqtis.data.json
+(a data record), deepest first, so that a capsule inside another is
+sealed before the one that holds it.
+Links are not followed, and the search stops 64 levels down.
+.Ar dir
+comes last.
+Standard error ends with how many were sealed and failed; the exit
+status is the worst of them.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds

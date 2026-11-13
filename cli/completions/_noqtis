@@ -137,6 +137,9 @@ _noqtis_cmd() {
         '--synthetic[a generated stand-in]' \
         '(-j --json)'{-j,--json}'[JSON output]' \
         '*:path:_files' ;;
+    diff)
+      _arguments '(-j --json)'{-j,--json}'[JSON output]' ':dir:_files -/' \
+        ':dir:_files -/' ;;
     schema)
       _arguments \
         '1:action:(infer check)' \
@@ -168,5 +171,6 @@ _arguments -C \
     inspect\:"show what a seal says" selftest\:"run the known-answer self-test" timestamp\:"add public timestamps" ers\:"start or renew an evidence record"
     data\:"make, show and check a data record"
     schema\:"pin and check the schema of CSV files"
+    diff\:"what changed between two capsules"
     algs\:"list the algorithms" version\:"print the version"))' \
   '*::arg:_noqtis_cmd'

@@ -248,6 +248,92 @@ static void sealwhy(const char *dir, const char *kp, const char *pp) {
   }
 }
 
+/* -r or --recursive before any "--" */
+static int hasrec(int argc, char **argv) {
+  int i;
+  for (i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--") == 0)
+      return 0;
+    if (strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "--recursive") == 0)
+      return 1;
+  }
+  return 0;
+}
+
+int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
+  char **a, **fs = NULL, p[4200];
+  size_t nf = 0, i, nc = 0, nok = 0, nbad = 0;
+  int n = 0, k, ret = NCOK, seal = strcmp(cmd, "seal") == 0;
+  a = (char **)malloc(((size_t)argc + 1) * sizeof *a);
+  if (a == NULL)
+    return nclib(cmd, "memory", NQEMEM);
+  for (k = 0; k < argc; k++)
+    if (k == 0 || (strcmp(argv[k], "-r") != 0 &&
+                   strcmp(argv[k], "--recursive") != 0))
+      a[n++] = argv[k];
+  if (n < 2 || a[n - 1][0] == '-' || !ncisdir(a[n - 1])) {
+    ncmsg(cmd, "-r: give the folder to search last, after the options");
+    free(a);
+    return NCUSE;
+  }
+  if (ncwalk(a[n - 1], &fs, &nf) != NCOK) {
+    ncmsg(cmd, "-r: cannot list the folders under %s (or over %lu)",
+          a[n - 1], (unsigned long)NCWALKMAX);
+    free(a);
+    return NCUSE;
+  }
+  for (i = 0; i < nf; i++) {
+    char **b;
+    int rc;
+    snprintf(p, sizeof p, "%s/noqtis.sig", fs[i]);
+    if (!seal && !ncexist(p))
+      continue;
+    if (seal) {
+      char q[4200];
+      snprintf(p, sizeof p, "%s/noqtis.json", fs[i]);
+      snprintf(q, sizeof q, "%s/" NQDFILE, fs[i]);
+      if (!ncexist(p) && !ncexist(q))
+        continue;
+    }
+    nc++;
+    /* ncargs reorders its argv: a fresh copy for each run */
+    b = (char **)malloc(((size_t)n + 1) * sizeof *b);
+    if (b == NULL) {
+      ret = NCUSE;
+      break;
+    }
+    memcpy(b, a, (size_t)n * sizeof *b);
+    b[n - 1] = fs[i];
+    b[n] = NULL;
+    rc = fn(n, b);
+    free(b);
+    if (rc == NCOK)
+      nok++;
+    else
+      nbad++;
+    if (rc == NCUSE)
+      ret = NCUSE;
+    else if (rc == NCBAD && ret == NCOK)
+      ret = NCBAD;
+  }
+  for (i = 0; i < nf; i++)
+    free(fs[i]);
+  free(fs);
+  if (nc == 0) {
+    ncmsg(cmd, "-r: no capsule under %s (%s)", a[n - 1],
+          seal ? "a folder with noqtis.json or " NQDFILE
+               : "a folder with noqtis.sig");
+    free(a);
+    return NCUSE;
+  }
+  fflush(stdout);
+  fprintf(stderr, "noqtis %s -r: %lu capsules, %lu %s, %lu failed\n", cmd,
+          (unsigned long)nc, (unsigned long)nok, seal ? "sealed" : "OK",
+          (unsigned long)nbad);
+  free(a);
+  return ret;
+}
+
 int ncseal(int argc, char **argv) {
   const char *kp = NULL, *pp = NULL, *mp = NULL, *fv = NULL;
   const char *tsa[NCMAXV], *anc[NCMAXV], *inp[NCMAXV];
@@ -269,6 +355,8 @@ int ncseal(int argc, char **argv) {
   size_t mn = 0;
   char *dp = NULL;
 
+  if (hasrec(argc, argv))
+    return ncrec("seal", ncseal, argc, argv);
   an.k = 0;
   if (ncargs("seal", argc, argv, o, sizeof o / sizeof o[0], &np,
              &help) != NCOK)
@@ -679,6 +767,8 @@ int ncchk(int argc, char **argv) {
   size_t n = 0, i, j, w = 5, nf = 0, pn = 0;
   const char *kn = NULL, *kalg = NULL, *dir = NULL;
 
+  if (hasrec(argc, argv))
+    return ncrec("check", ncchk, argc, argv);
   an.k = 0;
   if (ncargs("check", argc, argv, o, sizeof o / sizeof o[0], &np,
              &help) != NCOK)

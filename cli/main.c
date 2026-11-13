@@ -73,7 +73,8 @@ static const nccmd cmds[] = {
   {"seal", ncseal, "seal a capsule folder",
    "usage: noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>]\n"
    "                   [--format 1|2] [--input [<name>=]<dir>]...\n"
-   "                   [--tsa <url>]... [--anchor <der-file>]... <dir>\n"
+   "                   [--tsa <url>]... [--anchor <der-file>]...\n"
+   "                   [-r|--recursive] <dir>\n"
    "  Writes noqtis.json and noqtis.sig into <dir>, covering every file.\n"
    "  The public key defaults to <key>.pub.\n"
    "  --format  2: a Merkle tree over the files, so that `noqtis prove`\n"
@@ -86,11 +87,15 @@ static const nccmd cmds[] = {
    "            answers with a token that checks. If none does, the\n"
    "            seal is removed and the exit status is 2.\n"
    "  --anchor  the TSA's root or issuing certificate (DER), to check\n"
-   "            the token at seal time too (up to 32)\n"},
+   "            the token at seal time too (up to 32)\n"
+   "  -r        seal every folder under <dir> (and <dir>) that holds\n"
+   "            noqtis.json or noqtis.data.json, deepest first; <dir>\n"
+   "            last\n"},
   {"check", ncchk, "check a sealed capsule folder",
    "usage: noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
    "                    [--only <path>]... [--lineage <dir>]...\n"
    "                    [--keys <file>]... [--card <file>] <dir|url>\n"
+   "       noqtis check [<options>] -r|--recursive <dir>\n"
    "       noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
    "                    --proof <file|url> [<dir|url>]\n"
    "  Prints every check and its result; exit 0 only if all pass. Without\n"
@@ -114,7 +119,9 @@ static const nccmd cmds[] = {
    "  --anchor  a TSA root or issuing certificate (DER), up to 32: the\n"
    "            seal must then carry a timestamp that verifies under one\n"
    "            of them. Without --anchor, a timestamped seal fails its\n"
-   "            timestamp check (it cannot be checked).\n"},
+   "            timestamp check (it cannot be checked).\n"
+   "  -r        check every sealed folder under <dir> (and <dir>), deepest\n"
+   "            first, with the same options; a count goes to stderr\n"},
   {"prove", ncprove, "prove some files of a capsule, without the rest",
    "usage: noqtis prove [-p <key.pub>] [-o <file>] [-f] <dir> <path>...\n"
    "  Writes a proof (JSON) that the named files are in the format 2\n"
@@ -236,6 +243,16 @@ static const nccmd cmds[] = {
    "  --no-header the first line is data; columns are named V1, V2, ...\n"
    "  Exit 0 when every check passes, 1 when one fails, 2 on a usage or\n"
    "  file error.\n"},
+  {"diff", ncdiff, "what changed between two capsules",
+   "usage: noqtis diff [--json] <dir> <dir>\n"
+   "  Lists the files added, removed or changed between the two sealed\n"
+   "  capsules' manifests, and what differs in their data records:\n"
+   "  sources, schemas (columns added, removed or retyped, rows),\n"
+   "  summaries (counts, medians, the PSI between them), the\n"
+   "  environment, steps, checks, commitments and citation. Nothing is\n"
+   "  checked: run `noqtis check` on each first.\n"
+   "  Exit 0 when nothing differs, 1 when something does, 2 on a usage\n"
+   "  or file error.\n"},
   {"inspect", ncinsp, "show what a capsule says (nothing checked)",
    "usage: noqtis inspect [--json] <dir>\n"
    "  Prints the seal's format, algorithm and key fingerprint (SHA-256 of\n"

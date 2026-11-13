@@ -26,6 +26,7 @@
 #include <io.h>
 #include <sys/stat.h>
 #else
+#include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -305,4 +306,116 @@ int ncwfail(const char *cmd, const char *path, int force) {
   else
     ncmsg(cmd, "cannot write %s", path);
   return NCUSE;
+}
+
+/* ---- folders under a folder (noqtis seal -r, check -r) ---- */
+
+static int addf(char ***v, size_t *n, size_t *cap, const char *p) {
+  if (*n == *cap) {
+    size_t nc = *cap ? *cap * 2 : 64, i;
+    char **nv;
+    if (nc > NCWALKMAX * 2)
+      return NCUSE;
+    nv = (char **)malloc(nc * sizeof *nv);
+    if (nv == NULL)
+      return NCUSE;
+    for (i = 0; i < *n; i++)
+      nv[i] = (*v)[i];
+    free(*v);
+    *v = nv;
+    *cap = nc;
+  }
+  if (((*v)[*n] = (char *)malloc(strlen(p) + 1)) == NULL)
+    return NCUSE;
+  strcpy((*v)[(*n)++], p);
+  return NCOK;
+}
+
+/* the folders inside dir (one level), not links, appended to v */
+static int subdirs(const char *dir, char ***v, size_t *n, size_t *cap) {
+#ifdef _WIN32
+  char pat[4200];
+  wchar_t *w;
+  WIN32_FIND_DATAW fd;
+  HANDLE h;
+  int rc = NCOK;
+  snprintf(pat, sizeof pat, "%s/*", dir);
+  if ((w = wide(pat)) == NULL)
+    return NCUSE;
+  h = FindFirstFileW(w, &fd);
+  free(w);
+  if (h == INVALID_HANDLE_VALUE)
+    return NCOK;
+  do {
+    char nm[1024], p[4200];
+    if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+        (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ||
+        wcscmp(fd.cFileName, L".") == 0 || wcscmp(fd.cFileName, L"..") == 0)
+      continue;
+    if (WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, nm, sizeof nm,
+                            NULL, NULL) <= 0)
+      continue;
+    snprintf(p, sizeof p, "%s/%s", dir, nm);
+    rc = addf(v, n, cap, p);
+  } while (rc == NCOK && FindNextFileW(h, &fd));
+  FindClose(h);
+  return rc;
+#else
+  DIR *d = opendir(dir);
+  struct dirent *e;
+  int rc = NCOK;
+  if (d == NULL)
+    return NCOK;
+  while (rc == NCOK && (e = readdir(d)) != NULL) {
+    char p[4200];
+    struct stat st;
+    if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
+      continue;
+    if ((size_t)snprintf(p, sizeof p, "%s/%s", dir, e->d_name) >= sizeof p)
+      continue;
+    if (lstat(p, &st) == 0 && S_ISDIR(st.st_mode))
+      rc = addf(v, n, cap, p);
+  }
+  closedir(d);
+  return rc;
+#endif
+}
+
+static int bydepth(const void *a, const void *b) {
+  const char *x = *(const char *const *)a, *y = *(const char *const *)b;
+  size_t dx = 0, dy = 0;
+  for (; *x; x++)
+    dx += *x == '/';
+  for (; *y; y++)
+    dy += *y == '/';
+  if (dx != dy)
+    return dx < dy ? 1 : -1;
+  return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+int ncwalk(const char *dir, char ***out, size_t *n) {
+  char **v = NULL;
+  size_t nv = 0, cap = 0, i;
+  int rc = addf(&v, &nv, &cap, dir);
+  /* breadth first over a list that grows: no recursion */
+  for (i = 0; rc == NCOK && i < nv; i++) {
+    const char *p;
+    size_t dep = 0;
+    for (p = v[i] + strlen(dir); *p; p++)
+      dep += *p == '/';
+    if (dep < 64)
+      rc = subdirs(v[i], &v, &nv, &cap);
+    if (nv > NCWALKMAX)
+      rc = NCUSE;
+  }
+  if (rc != NCOK) {
+    for (i = 0; i < nv; i++)
+      free(v[i]);
+    free(v);
+    return NCUSE;
+  }
+  qsort(v, nv, sizeof *v, bydepth);
+  *out = v;
+  *n = nv;
+  return NCOK;
 }
