@@ -320,12 +320,13 @@ static void keyedm(nqdrep *rep, const char *m, const djs *a, const djs *b) {
 }
 
 static void recdiff(nqdrep *rep, const djs *a, const djs *b) {
-  static const char *const km[] = {"sources", "schemas", "stats", "checks"};
+  static const char *const km[] = {"sources", "schemas", "stats", "chunks",
+                                   "checks"};
   static const char *const om[] = {"env", "cite"};
   static const char *const sm[] = {"steps", "commits"};
   char det[600];
   size_t i;
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < sizeof km / sizeof km[0]; i++)
     keyedm(rep, km[i], qdjget(a, km[i]), qdjget(b, km[i]));
   for (i = 0; i < 2; i++) {
     const djs *x = qdjget(a, om[i]), *y = qdjget(b, om[i]);

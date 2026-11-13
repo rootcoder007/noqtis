@@ -66,6 +66,7 @@ OBJECTS = \
   nqd/bnd.o \
   nqd/chk.o \
   nqd/cmt.o \
+  nqd/cnk.o \
   nqd/csv.o \
   nqd/dft.o \
   nqd/diff.o \

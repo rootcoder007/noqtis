@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 12, 2026
+.Dd November 13, 2026
 .Dt NQDNEW 3
 .Os
 .Sh NAME
@@ -128,6 +128,7 @@ The members are the arrays
 .Ql sources ,
 .Ql schemas ,
 .Ql stats ,
+.Ql chunks ,
 .Ql steps ,
 .Ql checks ,
 .Ql commits
@@ -152,9 +153,10 @@ does the same for the element of a keyed member with
 .Fn nqdput
 adds an element:
 .Ql sources ,
-.Ql schemas
-and
+.Ql schemas ,
 .Ql stats
+and
+.Ql chunks
 are keyed by
 .Cm path
 and

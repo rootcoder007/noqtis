@@ -221,7 +221,7 @@ static const nccmd cmds[] = {
    "         what the record already says of it; the options describe\n"
    "         where it came from (<time>: YYYY-MM-DDTHH:MM:SSZ, UTC)\n"
    "  put    add an element (JSON) to a member: sources, schemas, stats,\n"
-   "         steps, checks, commits; or set env or cite\n"
+   "         chunks, steps, checks, commits; or set env or cite\n"
    "  del    remove an element by its path or name, or a whole member\n"
    "  fmt    rewrite a record edited by hand in canonical form\n"
    "  show   print the record, one element a line (--json: as it is)\n"

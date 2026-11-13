@@ -11,8 +11,9 @@
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-  static const char *const ms[] = {"sources", "schemas", "stats", "steps",
-                                   "checks", "commits", "env", "cite"};
+  static const char *const ms[] = {"sources", "schemas", "stats", "chunks",
+                                   "steps", "checks", "commits", "env",
+                                   "cite"};
   nqdrec *r = NULL, *r2 = NULL, *r3 = NULL;
   char why[256], *a, *b;
   size_t na = 0, nb = 0, i, k;

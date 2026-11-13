@@ -71,21 +71,21 @@ NQDAPI int nqdjson(const nqdrec *r, char *out, size_t cap, size_t *outlen);
 NQDAPI int nqdsave(const nqdrec *r, const char *dir);
 NQDAPI void nqdrfree(nqdrec *r);
 
-/* Members: "sources", "schemas", "stats", "steps", "checks", "commits"
- * (arrays) and "env", "cite" (objects). nqdlen is the number of
+/* Members: "sources", "schemas", "stats", "chunks", "steps", "checks",
+ * "commits" (arrays) and "env", "cite" (objects). nqdlen is the number of
  * elements of an array member, 1 or 0 for an object member, 0 for an
  * unknown name. */
 NQDAPI size_t nqdlen(const nqdrec *r, const char *member);
 /* Element i of member (i 0 for an object member) as canonical JSON. */
 NQDAPI int nqdat(const nqdrec *r, const char *member, size_t i, char *out,
                   size_t cap, size_t *outlen);
-/* The element of a keyed member ("sources", "schemas", "stats" by path,
- * "checks" by name) with key, as nqdat writes it; NQEIO when there is
+/* The element of a keyed member ("sources", "schemas", "stats", "chunks"
+ * by path, "checks" by name) with key, as nqdat writes it; NQEIO when there is
  * none, NQEARG for a member that is not keyed. */
 NQDAPI int nqdkey(const nqdrec *r, const char *member, const char *key,
                   char *out, size_t cap, size_t *outlen);
 /* Adds the element json (n bytes) to member, checked as nqdparse checks
- * it: "sources", "schemas" and "stats" are keyed by "path" and
+ * it: "sources", "schemas", "stats" and "chunks" are keyed by "path" and
  * "checks" by "name", and an element with the same key is replaced;
  * "steps" and "commits" are appended; "env" and "cite" are set. NQEDEC
  * with why for an element that is not valid. */
@@ -198,6 +198,26 @@ NQDAPI int nqddrift(const char *stats, size_t n, const char *file,
 NQDAPI int nqddcal(const char *stats, size_t n, const char *const *files,
                    size_t nf, const nqdcsvopt *o, char *out, size_t cap,
                    size_t *outlen, char *why, size_t wcap);
+
+/* ---- chunk digests ---- */
+
+/* The SHA-256 of each run of chunk bytes (1,024 to 2^30) of the file path
+ * in dir, the last run short, as a "chunks" element (canonical JSON):
+ * its path, size, chunk and digests. The file is read once and never
+ * split. NQELIM, with why, when the digests would not fit in a record
+ * (64 MiB): take larger chunks. */
+NQDAPI int nqdchunk(const char *dir, const char *path, uint64_t chunk,
+                    char *out, size_t cap, size_t *outlen, char *why,
+                    size_t wcap);
+/* Checks the file piece, which holds the bytes of the element's file from
+ * byte off on (a multiple of its chunk), against the "chunks" element elem
+ * (n bytes): every whole chunk in it, and a short last one when the piece
+ * ends where the file does; the piece is all that is read. "chunk" rows:
+ * one per chunk that differs (20 at most, then a count), or one saying
+ * which chunks and bytes match. NQOK when every chunk read matches and
+ * there was one, NQEVRFY otherwise, *rep set in both cases. */
+NQDAPI int nqdpiece(const char *elem, size_t n, const char *piece,
+                    uint64_t off, nqdrep **rep);
 
 /* ---- commitments and citations ---- */
 

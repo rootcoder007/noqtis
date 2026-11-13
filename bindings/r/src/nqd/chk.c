@@ -266,6 +266,16 @@ int nqdchk(const char *dir, nqdrep **out) {
   if ((a = qdjget(root, "schemas")) != NULL)
     for (i = 0; i < a->n; i++)
       qdschk(rep, dir, a->k[i], synth(root, qdjget(a->k[i], "path")->s));
+  if ((a = qdjget(root, "chunks")) != NULL) {
+    for (i = 0; i < a->n; i++) {
+      char p[4200];
+      const char *path = qdjget(a->k[i], "path")->s;
+      if (qdjoin(dir, path, p, sizeof p) != NQOK)
+        qdrepadd(rep, "chunk", 0, "%s: not a path in the folder", path);
+      else
+        qdpiece(rep, a->k[i], p, 0, 1);
+    }
+  }
   if ((a = qdjget(root, "stats")) != NULL)
     for (i = 0; i < a->n && rc == NQOK; i++)
       rc = statrow(rep, dir, root, a->k[i],

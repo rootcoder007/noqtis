@@ -1,0 +1,108 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 13, 2026
+.Dt NQDCHUNK 3
+.Os
+.Sh NAME
+.Nm nqdchunk ,
+.Nm nqdpiece
+.Nd digests of the chunks of a large file, and a piece checked alone
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Ft int
+.Fo nqdchunk
+.Fa "const char *dir" "const char *path" "uint64_t chunk"
+.Fa "char *out" "size_t cap" "size_t *outlen" "char *why" "size_t wcap"
+.Fc
+.Ft int
+.Fo nqdpiece
+.Fa "const char *elem" "size_t n" "const char *piece" "uint64_t off"
+.Fa "nqdrep **rep"
+.Fc
+.Sh DESCRIPTION
+.Fn nqdchunk
+reads the file
+.Fa path
+in
+.Fa dir
+once and writes to
+.Fa out
+a
+.Ql chunks
+element
+.Pq Xr noqtis-data 5
+in canonical JSON, for
+.Xr nqdput 3 :
+its path, its size, the chunk size
+.Fa chunk
+(1024 to 2^30 bytes) and the SHA-256 of each run of
+.Fa chunk
+bytes, the last run short.
+The file is not split.
+.Fa out
+and
+.Fa outlen
+are as for
+.Xr nqdjson 3 .
+.Pp
+.Fn nqdpiece
+checks the file
+.Fa piece ,
+which holds the bytes of the element's file from byte
+.Fa off
+on (a multiple of the chunk size, at most the size), against the
+.Ql chunks
+element
+.Fa elem
+.Pf ( Fa n
+bytes): each whole chunk in it, and a short last one when the piece ends
+where the file does.
+Only the piece is read.
+The report's
+.Ql chunk
+rows name each chunk that differs, with its bytes (20 at most, then a
+count), or say which chunks and bytes match; a short run at the end of a
+piece that is not the end of the file is not checked, and a row says so.
+.Pp
+A capsule's seal covers the digests through its data record, so
+.Xr nqchkx 3
+with
+.Fa only
+set to
+.Pa noqtis.data.json
+checks them without the file.
+.Xr nqdchk 3
+checks each recorded file whole against its chunks.
+.Sh RETURN VALUES
+.Fn nqdchunk :
+.Dv NQOK ;
+.Dv NQEARG
+for a chunk size out of bounds or a path a capsule cannot hold;
+.Dv NQEIO
+when the file cannot be read;
+.Dv NQELIM
+when the digests would not fit in a record (64 MiB: take larger chunks);
+.Dv NQEBUF
+for a
+.Fa cap
+too small.
+.Pp
+.Fn nqdpiece :
+.Dv NQOK
+when every chunk read matches and there was at least one (or the file is
+empty);
+.Dv NQEVRFY
+otherwise, also for an element that is not valid;
+.Fa *rep
+is set in both cases
+.Pq Xr nqdchk 3 .
+.Dv NQEARG
+for a
+.Dv NULL
+argument.
+.Sh SEE ALSO
+.Xr noqtis-chunk 1 ,
+.Xr nqdchk 3 ,
+.Xr nqdnew 3 ,
+.Xr noqtis-data 5

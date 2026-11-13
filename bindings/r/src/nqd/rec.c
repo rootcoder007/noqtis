@@ -68,6 +68,7 @@ static int xcol(const djs *o, char *why, size_t cap, const char *at);
 static int xst(const djs *o, char *why, size_t cap, const char *at);
 static int xcal(const djs *o, char *why, size_t cap, const char *at);
 static int xchk(const djs *o, char *why, size_t cap, const char *at);
+static int xcnk(const djs *o, char *why, size_t cap, const char *at);
 
 static const dfld frng[] = {{"max", VINT, 0, NULL, NULL, 0},
                             {"min", VINT, 0, NULL, NULL, 0}};
@@ -82,6 +83,11 @@ static const dfld frslv[] = {{"base", VSTR, 0, NULL, NULL, 0},
                              {"layer", VINT, 0, NULL, NULL, 0},
                              {"resource", VSTR, 0, NULL, NULL, 0}};
 static const dkind krslv = {frslv, N(frslv), NULL};
+static const dfld fcnk[] = {{"chunk", VINT, 1, NULL, NULL, 0},
+                            {"digests", VSARR, 1, NULL, NULL, 0},
+                            {"path", VPATH, 1, NULL, NULL, 0},
+                            {"size", VINT, 1, NULL, NULL, 0}};
+static const dkind kcnk = {fcnk, N(fcnk), xcnk};
 static const dfld fsrc[] = {
     {"archived", VOBJ, 0, &karc, NULL, 0},
     {"etag", VSTR, 0, NULL, NULL, 0},
@@ -201,6 +207,7 @@ static const dfld fcite[] = {{"authors", VSARR, 0, NULL, NULL, 0},
                              {"year", VINT, 0, NULL, NULL, 0}};
 static const dkind kcite = {fcite, N(fcite), NULL};
 static const dfld frec[] = {{"checks", VARR, 0, &kchk, "name", 1},
+                            {"chunks", VARR, 0, &kcnk, "path", 1},
                             {"cite", VOBJ, 0, &kcite, NULL, 0},
                             {"commits", VARR, 0, &kcmt, NULL, 0},
                             {"env", VOBJ, 0, &kenv, NULL, 0},
@@ -651,6 +658,31 @@ static int xrule(const djs *o, char *why, size_t cap, const char *at) {
   return NQOK;
 }
 
+static int xcnk(const djs *o, char *why, size_t cap, const char *at) {
+  const djs *d = qdjget(o, "digests");
+  int64_t c = 0, n = 0;
+  size_t i;
+  qdjint(qdjget(o, "chunk"), &c);
+  qdjint(qdjget(o, "size"), &n);
+  if (c < 1024 || c > ((int64_t)1 << 30)) {
+    qdwhy(why, cap, "%s.chunk: from 1024 bytes to 1 GiB", at);
+    return NQEDEC;
+  }
+  if ((uint64_t)d->n != ((uint64_t)n + (uint64_t)c - 1) / (uint64_t)c) {
+    qdwhy(why, cap, "%s.digests: one per chunk of the size, the last one "
+          "short", at);
+    return NQEDEC;
+  }
+  for (i = 0; i < d->n; i++) {
+    if (!hex64(d->k[i])) {
+      qdwhy(why, cap, "%s.digests[%lu]: 64 lower-case hex digits", at,
+            (unsigned long)i);
+      return NQEDEC;
+    }
+  }
+  return NQOK;
+}
+
 static int xstc(const djs *o, char *why, size_t cap, const char *at) {
   const djs *q = qdjget(o, "q"), *e = qdjget(o, "edges");
   const djs *c = qdjget(o, "counts"), *d = qdjget(o, "digits");
@@ -930,8 +962,8 @@ int nqdput(nqdrec *r, const char *m, const char *json, size_t n, char *why,
     return NQEARG;
   if ((f = member(m)) == NULL) {
     qdwhy(why, cap,
-         "%s: not a member (sources, schemas, stats, steps, checks, "
-         "commits, env, cite)",
+         "%s: not a member (sources, schemas, stats, chunks, steps, "
+         "checks, commits, env, cite)",
          m);
     return NQEARG;
   }

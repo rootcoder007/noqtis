@@ -72,7 +72,7 @@ A reader MUST reject a member it does not know, so that a record of a
 later format is refused rather than half-read.
 Arrays keyed by
 .Cm path
-.Pq Cm sources , schemas , stats
+.Pq Cm sources , schemas , stats , chunks
 or
 .Cm name
 .Pq Cm checks
@@ -335,6 +335,21 @@ for a categorical column
 (the count of values beyond those kept).
 .Xr noqtis-drift 1
 defines how they are made and the error of each test made from them.
+.It Cm chunks
+Digests of the runs of one large file, so that a piece of it can be
+checked without the rest
+.Pq Xr noqtis-chunk 1 .
+Each element, every member required:
+.Cm path ;
+.Cm size
+(the file's bytes);
+.Cm chunk
+(the bytes in a run, 1024 to 1073741824);
+.Cm digests
+(the SHA-256 of each run in order, 64 lower-case hex digits each, the
+last run short: exactly
+.Ql ceil(size / chunk)
+of them, none for an empty file).
 .It Cm env
 The environment of the run: strings
 .Cm os ,

@@ -268,8 +268,8 @@ static int dput(int argc, char **argv) {
   }
   if (np != 3) {
     ncmsg("data put", "give the folder, a member (sources, schemas, stats, "
-          "steps, checks, commits, env, cite) and a JSON file (- for "
-          "stdin)");
+          "chunks, steps, checks, commits, env, cite) and a JSON file (- "
+          "for stdin)");
     return NCUSE;
   }
   if (ncrdx(argv[2], 0, NQDMAX, &b, &n) != NQOK) {
@@ -369,8 +369,9 @@ static int dshow(int argc, char **argv) {
   nqdrec *r;
   size_t n = 0, i;
   char *b;
-  static const char *const ms[] = {"sources", "schemas", "stats", "steps",
-                                   "checks", "commits", "env", "cite"};
+  static const char *const ms[] = {"sources", "schemas", "stats", "chunks",
+                                   "steps", "checks", "commits", "env",
+                                   "cite"};
   ncopt o[] = {{'j', "json", 0, NULL, &json}};
   if (ncargs("data show", argc, argv, o, 1, &np, &help) != NCOK)
     return NCUSE;
@@ -415,6 +416,10 @@ static const char *dfix(const char *check) {
     return "the file differs from the one recorded: restore it from its "
            "source (the record's url, archived copy or mirrors), or record "
            "the new bytes with `noqtis data add` and seal again";
+  if (strcmp(check, "chunk") == 0)
+    return "the file, or this piece of it, differs from the chunks recorded: "
+           "fetch the chunks named again, or record the new file (`noqtis "
+           "chunk pin`) and seal again";
   if (strcmp(check, "lock") == 0)
     return "the lock file differs from the one `noqtis env` recorded: record "
            "it again with `noqtis env` and seal again";

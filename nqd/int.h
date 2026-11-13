@@ -242,6 +242,11 @@ FILE *qdfnew(const char *path);
 int qdmkdir(const char *path);
 int qdrm(const char *path, int isdir);
 
+/* the "chunk" rows of the file piece, holding the bytes from off of the
+ * file of the chunks element e; whole 1 when it is the whole file (cnk.c) */
+int qdpiece(nqdrep *rep, const djs *e, const char *piece, uint64_t off,
+            int whole);
+
 /* ---- bundles (bnd.c) ---- */
 
 /* The bundle reader's input and output. rd puts up to n bytes at b and
