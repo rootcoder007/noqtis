@@ -14,6 +14,9 @@ foreach(t ${NQDTST})
   target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}
                              ${PROJECT_SOURCE_DIR}/tests)
   target_compile_options(${name} PRIVATE ${NQWARN})
+  # the test holds nqd's sources itself: in a Windows DLL build nqd.h must
+  # not declare them as imported from the DLL
+  target_compile_definitions(${name} PRIVATE NQDBUILD)
   if(IOS)
     # as the tests of the library: simctl spawn starts a program in /, so
     # tests/cwd.c is main, moves to $NQCWD and calls the test's own main
