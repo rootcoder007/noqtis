@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff env commit reveal cite algs selftest version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -94,7 +94,7 @@ complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s f -l force 
 complete -c noqtis -n "__fish_seen_subcommand_from ers" -l hash -x -a 'sha256 sha384 sha512' -d 'the new timestamp\'s hash'
 
 # noqtis data
-complete -c noqtis -n "__fish_seen_subcommand_from data; and not __fish_seen_subcommand_from init add put del fmt show check" -a "init add put del fmt show check"
+complete -c noqtis -n "__fish_seen_subcommand_from data; and not __fish_seen_subcommand_from init add put del fmt show check syn" -a "init add put del fmt show check syn"
 complete -c noqtis -n "__fish_seen_subcommand_from data" -F
 complete -c noqtis -n "__fish_seen_subcommand_from data" -s f -l force -d 'replace the record'
 complete -c noqtis -n "__fish_seen_subcommand_from data" -s u -l url -x -d 'where the file came from'
@@ -108,6 +108,8 @@ complete -c noqtis -n "__fish_seen_subcommand_from data" -l archived -x -d 'an a
 complete -c noqtis -n "__fish_seen_subcommand_from data" -l mirror -x -d 'another URL with the same bytes'
 complete -c noqtis -n "__fish_seen_subcommand_from data" -l synthetic -d 'a generated stand-in'
 complete -c noqtis -n "__fish_seen_subcommand_from data" -s j -l json -d 'JSON output'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l seed -x -d 'the seed of a synthetic file'
+complete -c noqtis -n "__fish_seen_subcommand_from data" -l rows -x -d 'its rows'
 
 # noqtis schema
 complete -c noqtis -n "__fish_seen_subcommand_from schema; and not __fish_seen_subcommand_from infer check" -a "infer check"
@@ -121,10 +123,17 @@ complete -c noqtis -n "__fish_seen_subcommand_from schema" -s j -l json -d 'JSON
 # noqtis diff, seal -r, check -r
 complete -c noqtis -n "__fish_seen_subcommand_from diff" -a '(__fish_complete_directories)'
 complete -c noqtis -n "__fish_seen_subcommand_from diff" -s j -l json -d 'JSON output'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a report -d 'check a capsule and write a report of it'
+complete -c noqtis -n "__fish_seen_subcommand_from report" -a '(__fish_complete_directories)'
+complete -c noqtis -n "__fish_seen_subcommand_from report" -s p -l pub -r -d 'the key the seal must carry'
+complete -c noqtis -n "__fish_seen_subcommand_from report" -s f -l format -x -a "md txt" -d "the report's format"
+complete -c noqtis -n "__fish_seen_subcommand_from report" -s o -l out -r -d 'write the report to a file'
+complete -c noqtis -n "__fish_seen_subcommand_from report" -s j -l json -d 'a JSON summary instead'
+complete -c noqtis -n "__fish_seen_subcommand_from report" -l github -d 'GitHub workflow annotations'
 complete -c noqtis -n "__fish_seen_subcommand_from seal check" -s r -l recursive -d 'every capsule under the folder'
 
 # noqtis drift
-complete -c noqtis -n "__fish_seen_subcommand_from drift; and not __fish_seen_subcommand_from pin check" -a "pin check"
+complete -c noqtis -n "__fish_seen_subcommand_from drift; and not __fish_seen_subcommand_from pin check cal" -a "pin check cal"
 complete -c noqtis -n "__fish_seen_subcommand_from drift" -F
 complete -c noqtis -n "__fish_seen_subcommand_from drift" -s d -l delim -x -d 'the delimiter'
 complete -c noqtis -n "__fish_seen_subcommand_from drift" -l no-header -d 'the first line is data'

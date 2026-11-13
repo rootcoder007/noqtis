@@ -18,7 +18,7 @@ _noqtis() {
   prev=${COMP_WORDS[COMP_CWORD-1]}
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=($(compgen -W "keygen sign verify enc dec hash seal check
-      prove export rotate revoke idcard inspect timestamp ers data schema drift diff env commit reveal cite algs selftest version -V
+      prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite algs selftest version -V
       --version" -- "$cur"))
     return
   fi
@@ -63,13 +63,14 @@ _noqtis() {
     check) opts="-p --pub -j --json --anchor --only --lineage --proof
       --keys --card -r --recursive" ;;
     diff) opts="-j --json" ;;
+    report) opts="-p --pub -f --format -o --out -j --json --github" ;;
     env) opts="--rng --seed --lock" ;;
     commit) opts="--kind --label --after -o --out -f --force" ;;
     reveal) opts="" ;;
     cite) opts="--format" ;;
     drift)
       if [ "$COMP_CWORD" -eq 2 ]; then
-        COMPREPLY=($(compgen -W "pin check" -- "$cur"))
+        COMPREPLY=($(compgen -W "pin check cal" -- "$cur"))
         return
       fi
       opts="-d --delim --no-header -j --json --psi-warn --psi-fail --alpha
@@ -85,11 +86,12 @@ _noqtis() {
     ers) opts="--tsa --anchor --hash" ;;
     data)
       if [ "$COMP_CWORD" -eq 2 ]; then
-        COMPREPLY=($(compgen -W "init add put del fmt show check" -- "$cur"))
+        COMPREPLY=($(compgen -W "init add put del fmt show check syn" -- "$cur"))
         return
       fi
       opts="-f --force -u --url --title --publisher --licence --retrieved
-        --etag --modified --archived --mirror --synthetic -j --json" ;;
+        --etag --modified --archived --mirror --synthetic -j --json --seed
+        --rows" ;;
     schema)
       if [ "$COMP_CWORD" -eq 2 ]; then
         COMPREPLY=($(compgen -W "infer check" -- "$cur"))
@@ -102,7 +104,7 @@ _noqtis() {
     COMPREPLY=($(compgen -W "$opts" -- "$cur"))
   else
     case $cmd in
-      seal | check | inspect | timestamp | ers | export | diff)
+      seal | check | inspect | timestamp | ers | export | diff | report)
         COMPREPLY=($(compgen -d -- "$cur")) ;;
       data | schema | drift | env | commit | reveal | cite)
         COMPREPLY=($(compgen -d -- "$cur") $(compgen -f -- "$cur")) ;;

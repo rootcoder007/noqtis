@@ -123,7 +123,7 @@ _noqtis_cmd() {
         ':dir:_files -/' ;;
     data)
       _arguments \
-        '1:action:(init add put del fmt show check)' \
+        '1:action:(init add put del fmt show check syn)' \
         '(-f --force)'{-f,--force}'[replace the record (init)]' \
         '(-u --url)'{-u,--url=}'[where the file came from]:url:_urls' \
         '--title=[its title]:text:' \
@@ -136,6 +136,8 @@ _noqtis_cmd() {
         '*--mirror=[another URL with the same bytes]:url:_urls' \
         '--synthetic[a generated stand-in]' \
         '(-j --json)'{-j,--json}'[JSON output]' \
+        '--seed=[the seed of a synthetic file (syn)]:n:' \
+        '--rows=[its rows (syn)]:n:' \
         '*:path:_files' ;;
     env)
       _arguments '--rng=[the random number generator]:kind:' \
@@ -154,7 +156,7 @@ _noqtis_cmd() {
       _arguments '--format=[the format]:format:(cff bibtex)' ':dir:_files -/' ;;
     drift)
       _arguments \
-        '1:action:(pin check)' \
+        '1:action:(pin check cal)' \
         '(-d --delim)'{-d,--delim=}'[the delimiter]:c:' \
         '--no-header[the first line is data]' \
         '(-j --json)'{-j,--json}'[JSON output]' \
@@ -166,6 +168,14 @@ _noqtis_cmd() {
         '*:path:_files' ;;
     diff)
       _arguments '(-j --json)'{-j,--json}'[JSON output]' ':dir:_files -/' \
+        ':dir:_files -/' ;;
+    report)
+      _arguments \
+        '(-p --pub)'{-p,--pub=}'[the key the seal must carry]:pub-file:_files' \
+        '(-f --format)'{-f,--format=}'[the report'"'"'s format]:format:(md txt)' \
+        '(-o --out)'{-o,--out=}'[write the report to a file]:file:_files' \
+        '(-j --json)'{-j,--json}'[a JSON summary instead]' \
+        '--github[GitHub workflow annotations]' \
         ':dir:_files -/' ;;
     schema)
       _arguments \
@@ -199,6 +209,7 @@ _arguments -C \
     data\:"make, show and check a data record"
     schema\:"pin and check the schema of CSV files"
     diff\:"what changed between two capsules"
+    report\:"check a capsule and write a report of it"
     drift\:"summarise CSV files and check them for drift"
     env\:"record the environment"
     commit\:"commit to a file, to reveal it later"
