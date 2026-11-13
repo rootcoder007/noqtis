@@ -447,6 +447,69 @@ who sealed the capsule. Seals (`noqtis-capsule-1`, `-2`), key
 statements (`noqtis-keys-1`) and cards each sign under their own
 context, so none of the three passes for another.
 
+## 14. Bundles
+
+A **bundle** (format `noqtis-bundle-1`; `noqtis export --as bundle`,
+`nqdpack`) is a capsule in one file, to mail or attach. It is not a
+second container: it carries the capsule's own files, and is checked as
+the folder it unpacks to.
+
+```text
+bundle = "noqtis-bundle-1" 0x0A          16 bytes
+         entry*
+         0x00 0x00                       the end mark
+entry  = length                          2 bytes, big-endian, 1 to 4096
+         path                            length bytes of UTF-8
+         size                            8 bytes, big-endian
+         bytes                           size bytes
+```
+
+A writer puts in `noqtis.json`, `noqtis.sig`, `noqtis.ers` when there is
+one, and every file the manifest lists, or of those only the data record
+`noqtis.data.json` (a bundle "without its files"), each once, in
+ascending order of the bytes of their paths. The same capsule therefore
+has one bundle, byte for byte.
+
+A reader MUST refuse the whole bundle, writing nothing it keeps, when:
+
+1. it does not start with the 16 bytes above;
+2. a path breaks rule 1, 2 or 3 of §4 (empty, absolute, `.` or `..`, an
+   empty segment, a backslash, a colon and so a drive letter, a control
+   character, invalid UTF-8, a NUL), is over 4096 bytes, or is more than
+   64 folders deep;
+3. a path is not after the one before it in byte order (out of order or
+   repeated);
+4. a size is over 2^53 − 1, `noqtis.sig` is over 1 MiB, or `noqtis.json`
+   over 512 MiB, or there are more than 2,000,003 entries;
+5. there is no `noqtis.json` or no `noqtis.sig`;
+6. the input ends before the end mark, or has any byte after it.
+
+An unpacker MUST create the folder it unpacks to, MUST make every folder
+on the way to a file itself, inside it, and MUST create each file new,
+never over an existing file or through a link, so that no path leaves
+the folder; on Windows it also refuses a path segment the system takes
+for a device (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`,
+with any extension) or one ending in a dot or space. Two paths that
+differ only in ASCII case fail there on a file system that ignores case,
+and otherwise in the check (§4 rule 6). A checker then checks the folder
+as in §7; for a bundle without its files, only the files it carries
+(§9: a partial check, which the report says).
+
+## 15. Chains
+
+A **chain** is an append-only log of capsules: the first sealed in
+format 2, each next one sealed with the last as its only input (§11.4,
+`noqtis seal --input prev=<last>`), so that the seal of each signs the
+id of the one before. It needs no format of its own. A checker
+(`noqtis chain`, `nqdchain`) given the links oldest first checks each as
+in §7, reads each one's inputs from the head its seal signs (the
+SHA-256 of that head MUST be the link's id), requires each link after
+the first to list exactly one input, the id of the link before it, and
+every link to be sealed by the first link's key. The **head** is the
+last link's id: kept or published, it shows later that the chain was not
+cut back. Unlike `--lineage`, which follows inputs as a tree to 64
+levels, a chain is checked one link at a time, at any length.
+
 ## References
 
 - RFC 8785, JSON Canonicalization Scheme (JCS).

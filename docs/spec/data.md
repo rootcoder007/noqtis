@@ -24,7 +24,7 @@ summarises it.
   than 64 MiB.
 - A reader MUST reject any member it does not know, so a record of a
   later format is never half-read.
-- Arrays keyed by `path` (`sources`, `schemas`, `stats`) or `name`
+- Arrays keyed by `path` (`sources`, `schemas`, `stats`, `chunks`) or `name`
   (`checks`) are sorted by the key's bytes, each key once; `steps` and
   `commits` keep their order; no array of objects is empty.
 
@@ -36,6 +36,7 @@ summarises it.
 | `sources` | per file: `path`, `sha256`, `size` (required); `url`, `resolver` (`kind`: direct, ckan, socrata, arcgis, wayback; `base`, `id`, `resource`, `format`, `layer`), `retrieved`, `etag`, `modified`, `licence`, `publisher`, `title`, `archived` (`url`, `time`), `mirrors`, `synthetic` |
 | `schemas` | per CSV file: `path`, `kind` (`csv`); `delim`, `header`, `na`, `rows` (`min`, `max`), `columns` (`name`, `type`: int, real, text, date, bool; `nulls`, `min`, `max`, `set`), `rules` (`kind`: unique, notnull, range, set, incr, complete, distinct, regex, mad, rows, cols, with their arguments: `col`, `cols`, `min`, `max`, `set`, `share`, `pattern`) |
 | `stats` | per CSV file: `path`, `rows`, `delim`, `header`, `columns` (`name`, `n`, `nulls`; numeric `q`, `edges`, `counts`, `digits`; categorical `cats`, `other`; a calibration `cal`: `n`, `psi`, `p`, `bp`) |
+| `chunks` | per large file: `path`, `size`, `chunk` (1024 to 2^30 bytes), `digests` (the SHA-256 of each run of `chunk` bytes, the last short: exactly ceil(`size` / `chunk`)) |
 | `env` | `os`, `arch`, `kernel`, `cpu`, `locale`, `tz`, `noqtis`, `build`, `runtime` (`language`, `version`, `packages`), `locks`, `rng` (`kind`, `seed`) |
 | `steps` | `kind` (recode, filter, derive, script, other), `from`, `to`, `note`, `script`, `sha256` |
 | `checks` | `name`, `status` (pass, warn, fail); `expected`, `observed`, `tol` (at least 0), `note`: with numbers, `\|observed - expected\| <= tol` recomputes the result |

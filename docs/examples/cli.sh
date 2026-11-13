@@ -195,6 +195,37 @@ if command -v sha256sum > /dev/null 2>&1; then
 fi
 code 2 noqtis hash no-such-file
 
+# ---- noqtis-export(1) --as bundle, noqtis-pack(1), noqtis-chunk(1),
+# noqtis-chain(1)
+mkdir -p ship/data
+printf 'a,b\n' > ship/data/in.csv
+code 0 noqtis seal -k me ship
+code 0 noqtis export --as bundle -o ship.nqb ship
+code 0 noqtis check -p me.pub ship.nqb
+same "study: started from the r template" \
+  "$(noqtis pack init --template r study)"
+printf 'x,y\n1,2\n' > study/data/a.csv
+printf '{}\n' > study/renv.lock
+code 0 noqtis data add --url https://example.org/a.csv study data/a.csv
+code 0 noqtis pack build -k me -o study.nqb study
+same "study.nqb: ready to ship" \
+  "$(noqtis pack check -p me.pub study.nqb | tail -1)"
+i=0
+mkdir -p large
+while [ $i -lt 4096 ]; do echo "row $i"; i=$((i + 1)); done > large/big
+code 0 noqtis chunk pin --size 4096 large big
+code 0 noqtis seal -k me large
+dd if=large/big of=part bs=4096 skip=2 count=2 2> /dev/null
+code 0 noqtis check -p me.pub --only noqtis.data.json large
+code 0 noqtis chunk check --at 8192 large big part
+mkdir -p log/1 log/2 log/3
+for i in 1 2 3; do echo "$i" > log/$i/entry; done
+code 0 noqtis seal --format 2 -k me log/1
+code 0 noqtis seal -k me --input prev=log/1 log/2
+code 0 noqtis seal -k me --input prev=log/2 log/3
+code 0 noqtis chain -p me.pub log/1 log/2 log/3
+code 1 noqtis chain -p me.pub log/1 log/3
+
 # ---- noqtis-algs(1), noqtis-version(1), noqtis(1)
 same "ML-DSA-65              sig     1952    4032    3309    -" \
   "$(noqtis algs | grep '^ML-DSA-65 ')"

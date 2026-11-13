@@ -152,6 +152,67 @@ citation), as Markdown or plain text. `--json` gives the counts (failed,
 verified, changed) and every check for a machine, and `--github` a
 workflow annotation per failed check.
 
+## Check a piece of a large file
+
+```sh
+noqtis chunk pin --size 4194304 results data/big.parquet
+noqtis seal -k me results
+# later, with only bytes 8 MiB to 16 MiB of the file
+noqtis check -p me.pub --only noqtis.data.json results
+noqtis chunk check --at 8388608 results data/big.parquet part
+```
+
+`chunk pin` records the SHA-256 of each run of `--size` bytes; the file
+is read once and never split. `chunk check` reads only the piece it is
+given and checks each whole chunk in it, so a range fetched alone, or the
+part of a file that survived, can be checked without the rest.
+
+## Ship a reproducibility bundle
+
+```sh
+noqtis pack init --template r study
+noqtis data add --url https://example.org/a.csv study data/a.csv
+noqtis pack build -k me -o study.nqb study
+noqtis pack check -p me.pub study.nqb
+noqtis check -p me.pub study.nqb      # what a reader runs
+```
+
+`pack init` lays out `data/`, the code folder and `output/` with a
+README and an empty record. `pack build` records the environment and
+lock files (`noqtis env`), seals the folder and writes it as one file
+(`noqtis export --as bundle`); `pack check` checks the capsule, the
+record and each lock file, and that an environment and a lock file are
+recorded. `noqtis check` reads the bundle file as it is; `noqtis pack
+unpack` opens it into a folder, refusing any path that would leave it.
+The format is in the capsule specification, section 14.
+
+## Keep a chain of capsules
+
+```sh
+noqtis seal --format 2 -k me log/2026-01
+noqtis seal -k me --input prev=log/2026-01 log/2026-02
+noqtis chain -p me.pub log/2026-01 log/2026-02
+```
+
+Each capsule sealed with the last as its only input signs the last
+one's id. `noqtis chain` checks every link, that each follows the one
+before it, with no fork or gap, and that one key sealed them all, and
+prints the head: the last link's id.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `noqtis data init\|add\|put\|del\|fmt\|show\|check` | make, show and check the data record |
+| `noqtis schema infer\|check` | pin and check the schema of CSV files |
+| `noqtis drift pin\|check` | summarise CSV files, and say later if they drifted |
+| `noqtis chunk pin\|check` | chunk digests of a large file; check a piece of it alone |
+| `noqtis env`, `commit`, `reveal`, `cite` | the environment, commitments, citation |
+| `noqtis diff` | what changed between two capsules |
+| `noqtis pack init\|build\|check\|unpack` | start, build and check a reproducibility bundle |
+| `noqtis export --as bundle` | a capsule as one file, which `noqtis check` reads |
+| `noqtis chain` | check an append-only chain of capsules and give its head |
+
 ## From R and Python
 
 ```r
