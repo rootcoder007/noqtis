@@ -79,6 +79,22 @@ and the [threat model](https://noqtis.dev/security/).
 - **Embedded**: `-DNQFREE=ON` builds the algorithms alone, for firmware and
   kernels: no operating system, no allocator, randomness from the caller.
 
+## Data behind a result
+
+A capsule can also say where its data came from and what shape it has,
+in a data record (`noqtis.data.json`) that the seal covers like any
+other file:
+
+```sh
+noqtis data add --url https://example.org/a.csv --retrieved now results data/a.csv
+noqtis seal -k me results/
+noqtis data check results/              # exit 1 when a file no longer matches its record
+```
+
+The data layer (`nqd.h`, `-lnqd`) is a separate library on the public
+API, outside the audited core; see `noqtis-data(1)` and
+`noqtis-data(5)`.
+
 ## Install
 
 Every channel, with its status, is on the

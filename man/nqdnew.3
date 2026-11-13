@@ -1,0 +1,231 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NQDNEW 3
+.Os
+.Sh NAME
+.Nm nqdnew ,
+.Nm nqdparse ,
+.Nm nqdload ,
+.Nm nqdjson ,
+.Nm nqdsave ,
+.Nm nqdrfree ,
+.Nm nqdlen ,
+.Nm nqdat ,
+.Nm nqdput ,
+.Nm nqdset ,
+.Nm nqddel ,
+.Nm nqdsrc
+.Nd make, read and change a data record
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Ft int
+.Fn nqdnew "nqdrec **r"
+.Ft int
+.Fo nqdparse
+.Fa "const char *json" "size_t n" "nqdrec **r" "char *why" "size_t cap"
+.Fc
+.Ft int
+.Fn nqdload "const char *dir" "nqdrec **r" "char *why" "size_t cap"
+.Ft int
+.Fo nqdjson
+.Fa "const nqdrec *r" "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fn nqdsave "const nqdrec *r" "const char *dir"
+.Ft void
+.Fn nqdrfree "nqdrec *r"
+.Ft size_t
+.Fn nqdlen "const nqdrec *r" "const char *member"
+.Ft int
+.Fo nqdat
+.Fa "const nqdrec *r" "const char *member" "size_t i"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqdput
+.Fa "nqdrec *r" "const char *member" "const char *json" "size_t n"
+.Fa "char *why" "size_t cap"
+.Fc
+.Ft int
+.Fo nqdset
+.Fa "nqdrec *r" "const char *member" "const char *key"
+.Fa "const char *field" "const char *json" "size_t n"
+.Fa "char *why" "size_t cap"
+.Fc
+.Ft int
+.Fn nqddel "nqdrec *r" "const char *member" "const char *key"
+.Ft int
+.Fo nqdsrc
+.Fa "nqdrec *r" "const char *dir" "const char *path"
+.Fa "char *why" "size_t cap"
+.Fc
+.Sh DESCRIPTION
+A
+.Vt nqdrec
+holds a data record
+.Pq Xr noqtis-data 5 ;
+its layout is private.
+Elements go in and out as JSON text, so every binding builds the same
+record: the library checks each one against the format and writes the
+whole in canonical form.
+.Pp
+.Fn nqdnew
+makes a record that holds only its format.
+.Fn nqdparse
+reads
+.Fa n
+bytes of JSON text: every member must be one the format defines, of
+its type, every required member present, no key twice; arrays keyed by
+path or name are sorted here.
+.Fn nqdload
+reads
+.Pa noqtis.data.json
+in
+.Fa dir ,
+which must also be in canonical form.
+On failure, both write a sentence to
+.Fa why
+.Pf ( Fa cap
+bytes; it may be
+.Dv NULL )
+that names the member and says what is wrong, such as
+.Ql sources[0].sha256: must be 64 lower-case hex digits .
+.Pp
+.Fn nqdjson
+writes the canonical JSON of the record to
+.Fa out
+.Pf ( Fa cap
+bytes, NUL added) and its length to
+.Fa *outlen ,
+also when it returns
+.Dv NQEBUF
+for a
+.Fa cap
+too small: call it with
+.Fa out
+.Dv NULL
+to learn the size.
+.Fn nqdsave
+writes it to
+.Pa noqtis.data.json
+in
+.Fa dir ,
+through a temporary file and a rename.
+.Fn nqdrfree
+frees a record;
+.Dv NULL
+is fine.
+.Pp
+The members are the arrays
+.Ql sources ,
+.Ql schemas ,
+.Ql stats ,
+.Ql steps ,
+.Ql checks ,
+.Ql commits
+and the objects
+.Ql env
+and
+.Ql cite .
+.Fn nqdlen
+returns the number of elements of an array member, 1 or 0 for an object
+member, 0 for any other name.
+.Fn nqdat
+writes element
+.Fa i
+(0 for an object member) as canonical JSON, as
+.Fn nqdjson
+does.
+.Fn nqdput
+adds an element:
+.Ql sources ,
+.Ql schemas
+and
+.Ql stats
+are keyed by
+.Cm path
+and
+.Ql checks
+by
+.Cm name ,
+and an element with the same key is replaced;
+.Ql steps
+and
+.Ql commits
+are appended;
+.Ql env
+and
+.Ql cite
+are set.
+.Fn nqdset
+sets one
+.Fa field
+of the element with
+.Fa key
+.Pf ( Dv NULL
+for
+.Ql env
+and
+.Ql cite )
+to the JSON value
+.Fa json ,
+or removes it when
+.Fa json
+is
+.Dv NULL ;
+the element must still be valid after it.
+.Fn nqddel
+removes the element with
+.Fa key ,
+or the whole member when
+.Fa key
+is
+.Dv NULL .
+.Pp
+.Fn nqdsrc
+records the SHA-256 and size of the file
+.Fa path
+(relative to
+.Fa dir ,
+.Ql /
+between folders) in its
+.Ql sources
+element, keeping the element's other fields, or adds the element.
+.Sh RETURN VALUES
+.Dv NQOK
+on success;
+.Dv NQEDEC
+for JSON or an element the format does not allow (with
+.Fa why ) ,
+.Dv NQELIM
+over 64 MiB or 32 levels,
+.Dv NQEBUF
+for an output buffer too small,
+.Dv NQEIO
+for a record, element or file that is not there or cannot be read or
+written,
+.Dv NQEARG
+for an unknown member, a key that cannot change
+.Pq Fn nqdset No of Cm path No or Cm name
+or a path a capsule cannot hold,
+.Dv NQEMEM
+when memory runs out.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+#include <nqd.h>
+
+nqdrec *r;
+char why[256];
+if (nqdnew(&r) == NQOK &&
+    nqdsrc(r, "results", "data/a.csv", why, sizeof why) == NQOK &&
+    nqdset(r, "sources", "data/a.csv", "url",
+           "\e"https://example.org/a.csv\e"", 27, why, sizeof why) == NQOK)
+  nqdsave(r, "results");
+nqdrfree(r);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-data 1 ,
+.Xr nqdchk 3 ,
+.Xr noqtis-data 5

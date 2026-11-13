@@ -169,6 +169,45 @@ has none) and check a noqtis capsule with its own code
 and the timestamp with `tsvrf`; not SHA3-256); noqtis checks its
 bundles' attestation signatures and file digests (`blbndl.R`).
 
+## The data layer (nqd)
+
+nqd (`include/nqd.h`, `nqd/`) is the part of noqtis that knows about
+data: where a file came from, the shape of a CSV file, summaries that
+show drift. It is a separate library, `libnqd`, with these boundaries:
+
+- **Public API only.** nqd includes `noqtis.h` and nothing under
+  `src/`: it hashes with `nqhash`/`nqhini`, compares digests with
+  `nqcteq`, and reports through its own `nqdrep`. It has its own JSON
+  reader and canonical writer (`nqd/js.c`), so a change to it never
+  touches the audited core, and the core's reader is not reachable
+  through it. Its internal symbols are prefixed `qd`, so a static link
+  next to the core or a program meets no clash.
+- **Not audited.** The core's audit scope (`src/`) is unchanged; nqd
+  is listed separately in SECURITY.md. A bug in nqd can make a data
+  check wrong, never a seal: the record is an ordinary file of the
+  capsule, listed in the manifest and covered by the seal like any
+  other, so `noqtis check` needs no change and fails when the record
+  changes.
+- **No network.** As with `nqtsreq`/`nqtsput`, where a source must be
+  fetched nqd builds the request and reads the reply; the command-line
+  tool moves the bytes.
+- **The same rules as the core.** C11, no dependencies, no VLAs, no
+  recursion in parsers (the JSON reader keeps an explicit stack of 32
+  levels), every input bounded (a record 64 MiB), every parser fuzzed
+  (`fuzz/fdrec.c`). nqd
+  allocates with `malloc` and `free` and never `realloc`; it does not
+  go through the core's `nqsetal` hook, which is not public.
+- **Format.** `noqtis.data.json` is `noqtis-data-1` (`noqtis-data(5)`,
+  the site's specification): canonical JSON (RFC 8785, numbers as
+  ECMAScript writes doubles), every member known (an unknown one is
+  refused, so a record of a later format is never half-read), arrays
+  keyed by path or name sorted and unique. Elements go in and out of
+  the library as JSON text, so every binding builds the same bytes.
+
+| # | Module | Contents | Must pass |
+|---|---|---|---|
+| Q1 | record | `noqtis.data.json`: reader, canonical writer, members, `nqdchk`; `noqtis data` | `tdrec` (RFC 8785 appendix B numbers, refusals), `tdcli`, `fdrec` |
+
 ## Platforms and packaging
 
 noqtis must build, pass its tests and install on every platform people use,

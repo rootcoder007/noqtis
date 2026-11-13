@@ -1,0 +1,373 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 12, 2026
+.Dt NOQTIS-DATA 5
+.Os
+.Sh NAME
+.Nm noqtis-data
+.Nd the noqtis data record, noqtis-data-1
+.Sh DESCRIPTION
+A data record is the file
+.Pa noqtis.data.json
+at the top of a capsule folder
+.Pq Xr noqtis-capsule 5 .
+It says where each data file of the capsule came from, what shape it
+has, how it was summarised, and what was done and checked with it.
+The record is an ordinary file of the capsule: the manifest lists it
+with its digests and the seal covers it, so
+.Xr noqtis-check 1
+fails when it changes, and
+.Xr noqtis-data 1
+.Pq Cm noqtis data check
+checks the files against what it says.
+.Pp
+The key words MUST, MUST NOT, SHOULD and MAY are to be read as in
+RFC 2119 and RFC 8174.
+.Ss Canonical JSON
+The record MUST be JSON (RFC 8259) in the canonical form of RFC 8785:
+UTF-8, no whitespace outside strings, object members sorted by the
+UTF-16 code units of their names, the minimal string escapes, and
+numbers as IEEE 754 doubles in the shortest form that round-trips, as
+ECMAScript writes them.
+A reader MUST reject a record that is not byte-identical to its own
+canonical form, has a duplicate member name, a string with U+0000 or
+not valid UTF-8, a number that is not finite, objects nested deeper
+than 32 levels, or more than 64 MiB.
+The same record is therefore the same bytes whichever program wrote it.
+.Ss Types
+.Bl -tag -width "count"
+.It string
+at most 65,536 bytes.
+.It path
+a string naming a file of the capsule as the manifest does: relative,
+.Ql /
+between folders, no empty,
+.Ql \&.
+or
+.Ql \&..
+segment, no backslash, colon or control character, at most 4,096
+bytes, and not
+.Pa noqtis.json ,
+.Pa noqtis.sig ,
+.Pa noqtis.ers
+or
+.Pa noqtis.data.json .
+.It hex
+64 lower-case hex digits.
+.It count
+a whole number from 0 to 2^53.
+.It time
+.Ql YYYY-MM-DDTHH:MM:SSZ ,
+a valid UTC time.
+.It date
+.Ql YYYY-MM-DD ,
+a valid date of the proleptic Gregorian calendar.
+.El
+.Ss The record
+An object with
+.Cm format ,
+the string
+.Ql noqtis-data-1 ,
+and any of the members below; no other member.
+A reader MUST reject a member it does not know, so that a record of a
+later format is refused rather than half-read.
+Arrays keyed by
+.Cm path
+.Pq Cm sources , schemas , stats
+or
+.Cm name
+.Pq Cm checks
+MUST be sorted by the bytes of the key, with no key twice;
+.Cm steps
+and
+.Cm commits
+keep the order they were written in.
+An array of objects MUST NOT be empty: a member with nothing in it is
+left out, so that each record has one form.
+.Bl -tag -width "commits"
+.It Cm sources
+Where each file came from.
+Each element:
+.Cm path
+(path, required),
+.Cm sha256
+(hex, required: the file's SHA-256),
+.Cm size
+(count, required: its size in bytes),
+and optionally
+.Cm url
+(where it was fetched),
+.Cm resolver
+(an object:
+.Cm kind ,
+one of
+.Ql direct ,
+.Ql ckan ,
+.Ql socrata ,
+.Ql arcgis ,
+.Ql wayback ,
+required; and the strings
+.Cm base
+(the portal),
+.Cm id
+(the dataset),
+.Cm resource ,
+.Cm format ,
+and the count
+.Cm layer ) ,
+.Cm retrieved
+(time),
+.Cm etag ,
+.Cm modified
+(the server's ETag and Last-Modified, as sent),
+.Cm licence ,
+.Cm publisher ,
+.Cm title
+(strings),
+.Cm archived
+(an object: the archived copy's
+.Cm url ,
+required, and its
+.Cm time ) ,
+.Cm mirrors
+(an array of URLs with the same bytes),
+.Cm synthetic
+(true when the file is a generated stand-in for the real data; every
+report line about it says so).
+.It Cm schemas
+The shape of a CSV file.
+Each element:
+.Cm path
+(required),
+.Cm kind
+(required:
+.Ql csv ) ,
+.Cm delim
+(one byte, not a quote or line break; default
+.Ql \&, ) ,
+.Cm header
+(boolean; default true),
+.Cm na
+(an array of strings that mean a missing value; default
+.Ql ""
+and
+.Ql NA ) ,
+.Cm rows
+(an object with counts
+.Cm min
+and
+.Cm max ) ,
+.Cm columns
+and
+.Cm rules .
+.Pp
+.Cm columns
+lists the columns in file order, each with
+.Cm name
+(required, no name twice),
+.Cm type
+(required:
+.Ql int ,
+.Ql real ,
+.Ql text ,
+.Ql date
+or
+.Ql bool ) ,
+.Cm nulls
+(boolean: whether a missing value is allowed; default true),
+.Cm min
+and
+.Cm max
+(numbers for
+.Ql int
+and
+.Ql real ,
+dates for
+.Ql date ) ,
+and
+.Cm set
+(for
+.Ql text :
+the values allowed).
+.Pp
+.Cm rules
+are checks over a column or the table, each with
+.Cm kind
+and its arguments:
+.Ql unique
+.Pq Cm col No or Cm cols : No no value, or combination, twice ,
+.Ql notnull
+.Pq Cm col ,
+.Ql range
+.Pq Cm col , Cm min No and/or Cm max ,
+.Ql set
+.Pq Cm col , Cm set ,
+.Ql incr
+.Pq Cm col : No each value at least the one before ,
+.Ql complete
+.Pq Cm col , Cm share : No at least that share not missing ,
+.Ql distinct
+.Pq Cm col , Cm min No and/or Cm max No distinct values ,
+.Ql rows
+and
+.Ql cols
+.Pq Cm min No and/or Cm max .
+.It Cm stats
+Summaries kept to detect drift later without keeping the data.
+Each element:
+.Cm path
+(required),
+.Cm rows
+(count, required) and
+.Cm columns ,
+each with
+.Cm name
+and
+.Cm n
+(required: the values not missing),
+.Cm nulls ,
+and for a numeric column
+.Cm q
+(the quantile sketch: [value, count] pairs, value increasing, count
+the number of values at most it),
+.Cm edges
+and
+.Cm counts
+(the binning of the population stability index: increasing interior
+edges, bins closed on the right, one count more than edges),
+.Cm digits
+(nine counts of first significant digits 1 to 9);
+for a categorical column
+.Cm cats
+([value, count] pairs sorted by value) and
+.Cm other
+(the count of values beyond those kept).
+How they are made, and the error of each test made from them, is
+defined with the drift checks.
+.It Cm env
+The environment of the run: strings
+.Cm os ,
+.Cm arch ,
+.Cm kernel ,
+.Cm cpu ,
+.Cm locale ,
+.Cm tz ,
+.Cm noqtis ,
+.Cm build ;
+.Cm runtime
+(an object:
+.Cm language
+required,
+.Cm version ,
+.Cm packages ,
+an array of
+.Brq Cm name , Cm version , Cm source
+sorted by name);
+.Cm locks
+(lock files: an array of
+.Brq Cm path , Cm sha256
+sorted by path);
+.Cm rng
+(an object:
+.Cm kind
+required, and
+.Cm seed ,
+a number or string).
+.It Cm steps
+What was done to the data, in order: each with
+.Cm kind
+(required:
+.Ql recode ,
+.Ql filter ,
+.Ql derive ,
+.Ql script
+or
+.Ql other ) ,
+and the strings
+.Cm from ,
+.Cm to ,
+.Cm note ,
+.Cm script
+(a path) and
+.Cm sha256
+(of a mapping or script).
+.It Cm checks
+Results of checks made elsewhere (a published total, a falsification
+test): each with
+.Cm name
+(required),
+.Cm status
+(required:
+.Ql pass ,
+.Ql warn
+or
+.Ql fail ) ,
+.Cm expected
+and
+.Cm observed
+(a number or string),
+.Cm tol
+(a number) and
+.Cm note .
+A check recorded as
+.Ql fail
+fails its row in
+.Cm noqtis data check .
+.It Cm commits
+Sealed commitments (a randomisation list, a pre-registration): each with
+.Cm kind
+(required:
+.Ql randomisation ,
+.Ql preregistration
+or
+.Ql other ) ,
+.Cm created
+(time, required),
+.Cm alg
+(required:
+.Ql sha3-256 ) ,
+.Cm digest
+(hex, required),
+.Cm after
+(time: not to be revealed before) and
+.Cm label .
+.It Cm cite
+How to cite the data: an object with
+.Cm title
+(required),
+.Cm authors
+(an array of strings),
+.Cm version ,
+.Cm doi ,
+.Cm url ,
+.Cm licence
+and the count
+.Cm year .
+.El
+.Sh EXAMPLES
+.Bd -literal
+{"format":"noqtis-data-1","sources":[{"licence":"OGL-Canada-2.0",
+"path":"data/a.csv","publisher":"City of Example",
+"retrieved":"2026-01-01T00:00:00Z","sha256":"7a1668480cde19db0b76c7a36e6
+fee9a82afd9937f5d03cec3dae1705ce173e2","size":89,
+"url":"https://example.org/a.csv"}]}
+.Ed
+.Pp
+(one line in the file; broken here to fit).
+.Sh SEE ALSO
+.Xr noqtis-data 1 ,
+.Xr nqdchk 3 ,
+.Xr nqdnew 3 ,
+.Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%R RFC 8259
+.%T The JavaScript Object Notation (JSON) Data Interchange Format
+.Re
+.Rs
+.%R RFC 8785
+.%T JSON Canonicalization Scheme (JCS)
+.Re
+.Rs
+.%R RFC 4180
+.%T Common Format and MIME Type for Comma-Separated Values (CSV) Files
+.Re

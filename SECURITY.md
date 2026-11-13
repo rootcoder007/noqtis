@@ -8,6 +8,11 @@ a public issue. We aim to reply within 7 days and to publish a fix and
 advisory within 90 days. Fixed vulnerabilities are listed at
 <https://github.com/rootcoder007/noqtis/security/advisories>.
 
+The data layer, nqd (`nqd/`, `include/nqd.h`: data records, CSV
+schemas, drift statistics), is a separate library on the public API,
+outside the core (`src/`) an audit of noqtis covers. Report its bugs
+the same way.
+
 ## Release signing key
 
 Each release's `SHA256SUMS` is signed with this SSH key (namespace

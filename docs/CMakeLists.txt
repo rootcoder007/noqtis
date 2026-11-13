@@ -24,7 +24,9 @@ set(NQMANAKA
   "nqprove:nqchkp"
   "nqseal2:nqcapid"
   "nqerr:nqver"
-  "nqtlnew:nqtlct,nqtlhs,nqtlwr,nqtlrd,nqtlend,nqtlwhy,nqtlfree")
+  "nqtlnew:nqtlct,nqtlhs,nqtlwr,nqtlrd,nqtlend,nqtlwhy,nqtlfree"
+  "nqdnew:nqdparse,nqdload,nqdjson,nqdsave,nqdrfree,nqdlen,nqdat,nqdput,nqdset,nqddel,nqdsrc"
+  "nqdchk:nqdrepn,nqdrepi,nqdrepfree")
 foreach(e ${NQMANAKA})
   string(REPLACE ":" ";" e "${e}")
   list(GET e 0 page)
