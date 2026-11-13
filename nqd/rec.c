@@ -53,7 +53,7 @@ static const char *const etype[] = {"int", "real", "text", "date", "bool",
                                     NULL};
 static const char *const erule[] = {"unique", "notnull", "range", "set",
                                     "rows", "cols", "incr", "complete",
-                                    "distinct", NULL};
+                                    "distinct", "regex", "mad", NULL};
 static const char *const estep[] = {"recode", "filter", "derive", "script",
                                     "other", NULL};
 static const char *const estat[] = {"pass", "warn", "fail", NULL};
@@ -107,6 +107,7 @@ static const dfld frule[] = {{"col", VSTR, 0, NULL, NULL, 0},
                              {"kind", VENUM, 1, erule, NULL, 0},
                              {"max", VNUM, 0, NULL, NULL, 0},
                              {"min", VNUM, 0, NULL, NULL, 0},
+                             {"pattern", VSTR, 0, NULL, NULL, 0},
                              {"set", VSARR, 0, NULL, NULL, 0},
                              {"share", VNUM, 0, NULL, NULL, 0}};
 static const dkind krule = {frule, N(frule), xrule};
@@ -549,6 +550,7 @@ static int xrule(const djs *o, char *why, size_t cap, const char *at) {
   const djs *col = qdjget(o, "col"), *cols = qdjget(o, "cols");
   const djs *mn = qdjget(o, "min"), *mx = qdjget(o, "max");
   const djs *set = qdjget(o, "set"), *sh = qdjget(o, "share");
+  const djs *pt = qdjget(o, "pattern");
   int tab = strcmp(k, "rows") == 0 || strcmp(k, "cols") == 0;
   if (tab ? (col != NULL || cols != NULL)
           : strcmp(k, "unique") == 0 ? (col == NULL) == (cols == NULL)
@@ -568,6 +570,28 @@ static int xrule(const djs *o, char *why, size_t cap, const char *at) {
   if (mn != NULL && mx != NULL && mn->d > mx->d) {
     qdwhy(why, cap, "%s: min is above max", at);
     return NQEDEC;
+  }
+  if (strcmp(k, "mad") == 0 && (mn != NULL || mx == NULL || !(mx->d > 0))) {
+    qdwhy(why, cap,
+         "%s: a mad rule needs max (the largest robust z-score, above 0) "
+         "and no min",
+         at);
+    return NQEDEC;
+  }
+  if ((strcmp(k, "regex") == 0) != (pt != NULL)) {
+    qdwhy(why, cap, "%s: pattern belongs to a regex rule, which needs it",
+         at);
+    return NQEDEC;
+  }
+  if (pt != NULL) {
+    qdrx *x = NULL;
+    char w[300];
+    int rc = qdrxcomp(pt->s, pt->sl, &x, w, sizeof w);
+    qdrxfree(x);
+    if (rc == NQEDEC)
+      qdwhy(why, cap, "%s.pattern: %s", at, w);
+    if (rc != NQOK)
+      return rc;
   }
   if ((strcmp(k, "set") == 0) != (set != NULL)) {
     qdwhy(why, cap, "%s: set belongs to a set rule, which needs it", at);

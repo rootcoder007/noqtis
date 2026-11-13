@@ -205,6 +205,17 @@ unsigned qdvclass(const char *s, size_t n, double *d);
 /* big-endian 64 bits at p */
 uint64_t qdld64(const uint8_t *p);
 
+/* ---- regular expressions (rx.c) ---- */
+
+typedef struct qdrx qdrx;
+/* compiles the pattern p[0..n) of a regex rule (noqtis-data(5) lists its
+ * syntax): NQOK, NQEDEC with a sentence in why, NQEMEM */
+int qdrxcomp(const char *p, size_t n, qdrx **out, char *why, size_t cap);
+/* 1 when the pattern matches somewhere in s[0..n), else 0; in time
+ * linear in n times the pattern's length */
+int qdrxrun(qdrx *x, const char *s, size_t n);
+void qdrxfree(qdrx *x);
+
 /* the "schema" rows of nqdchk for one schemas element (sch.c); sy is
  * " [synthetic]" or "" */
 int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy);

@@ -166,8 +166,57 @@ typedef struct {
   int prev;
   double pd;
   char *ps;
+  qdrx *rx;     /* regex */
+  double *mv;   /* mad: the numbers, in file order */
+  uint64_t *ml; /* mad: the line of each */
+  size_t mn, mcap;
   int ok; /* 0: the rule cannot run (a column it names is not there) */
 } qdrule;
+
+/* mad: at most this many numbers are kept (24 bytes each) */
+#define QDMADMAX ((size_t)1 << 23)
+
+/* keeps d and its line for a mad rule; 0 when it cannot (too many, or
+ * out of memory) */
+static int madadd(qdrule *u, double d, uint64_t line) {
+  if (u->mn == u->mcap) {
+    size_t nc = u->mcap ? u->mcap * 2 : 1024;
+    double *nv;
+    uint64_t *nl;
+    if (nc > QDMADMAX)
+      return 0;
+    nv = (double *)qdmal(nc * sizeof *nv);
+    nl = (uint64_t *)qdmal(nc * sizeof *nl);
+    if (nv == NULL || nl == NULL) {
+      qdfree(nv);
+      qdfree(nl);
+      return 0;
+    }
+    if (u->mn) {
+      memcpy(nv, u->mv, u->mn * sizeof *nv);
+      memcpy(nl, u->ml, u->mn * sizeof *nl);
+    }
+    qdfree(u->mv);
+    qdfree(u->ml);
+    u->mv = nv;
+    u->ml = nl;
+    u->mcap = nc;
+  }
+  u->mv[u->mn] = d;
+  u->ml[u->mn++] = line;
+  return 1;
+}
+
+static int dcmp(const void *a, const void *b) {
+  double x = *(const double *)a, y = *(const double *)b;
+  return x < y ? -1 : x > y;
+}
+
+/* the median of t[0..n), n > 0, sorting t */
+static double median(double *t, size_t n) {
+  qsort(t, n, sizeof *t, dcmp);
+  return n % 2 ? t[n / 2] : (t[n / 2 - 1] + t[n / 2]) / 2;
+}
 
 #define QDSHOW 10
 
@@ -269,6 +318,16 @@ static void rulestep(qdrule *u, const qdcsv *c, const djs *na,
         break;
     if (i == s->n && u->bad++ == 0)
       u->first = line;
+  } else if (strcmp(u->kind, "regex") == 0) {
+    if (!qdrxrun(u->rx, v, l) && u->bad++ == 0)
+      u->first = line;
+  } else if (strcmp(u->kind, "mad") == 0) {
+    if (!(qdvclass(v, l, &d) & QDTREAL)) {
+      if (u->bad++ == 0)
+        u->first = line;
+    } else if (!madadd(u, d, line)) {
+      u->mcap = (size_t)-1; /* the end says so */
+    }
   } else if (strcmp(u->kind, "incr") == 0) {
     int num = (qdvclass(v, l, &d) & QDTREAL) != 0;
     if (u->prev) {
@@ -318,7 +377,75 @@ static int rulesetup(qdrule *u, const djs *r, const qdcol *cols, size_t nc,
     }
     u->ix[i] = cols[u->ix[i]].at;
   }
+  if (strcmp(u->kind, "regex") == 0) {
+    const djs *p = qdjget(r, "pattern");
+    char w[300];
+    if (qdrxcomp(p->s, p->sl, &u->rx, w, sizeof w) != NQOK) {
+      u->ok = 0;
+      return qdrepadd(x->rep, "rule", 0, "%s%s: regex: %s", x->path, x->sy,
+                      w);
+    }
+  }
   return NQOK;
+}
+
+static void rulefree(qdrule *u) {
+  qdfree(u->hs.k);
+  qdfree(u->ps);
+  qdrxfree(u->rx);
+  qdfree(u->mv);
+  qdfree(u->ml);
+  u->hs.k = NULL;
+  u->ps = NULL;
+  u->rx = NULL;
+  u->mv = NULL;
+  u->ml = NULL;
+}
+
+/* the end of a mad rule: a value fails when it is further from the
+ * median than max times the scaled MAD (1.4826 times the median of the
+ * absolute deviations, as R's mad()) */
+static void madend(qdrule *u, qdctx *x, const char *who) {
+  double k = qdjget(u->r, "max")->d, med = 0, s = 0, *t;
+  size_t i;
+  char a[40], b[40];
+  int ok;
+  if (u->mcap == (size_t)-1) {
+    qdrepadd(x->rep, "rule", 0, "%s: too many values to check", who);
+    return;
+  }
+  if (u->mn > 0) {
+    if ((t = (double *)qdmal(u->mn * sizeof *t)) == NULL) {
+      qdrepadd(x->rep, "rule", 0, "%s: out of memory", who);
+      return;
+    }
+    memcpy(t, u->mv, u->mn * sizeof *t);
+    med = median(t, u->mn);
+    for (i = 0; i < u->mn; i++)
+      t[i] = fabs(u->mv[i] - med);
+    s = 1.4826 * median(t, u->mn);
+    qdfree(t);
+    for (i = 0; i < u->mn; i++) {
+      if (fabs(u->mv[i] - med) > k * s) {
+        if (u->bad++ == 0 || u->ml[i] < u->first)
+          u->first = u->ml[i];
+      }
+    }
+  }
+  if (qdnumfmt(med, a) != NQOK)
+    strcpy(a, "?");
+  if (qdnumfmt(s, b) != NQOK)
+    strcpy(b, "?");
+  ok = u->bad == 0;
+  if (ok)
+    qdrepadd(x->rep, "rule", 1, "%s: holds (median %s, scaled MAD %s)", who,
+             a, b);
+  else
+    qdrepadd(x->rep, "rule", 0,
+             "%s: %llu rows fail, the first at line %llu (median %s, "
+             "scaled MAD %s)",
+             who, (unsigned long long)u->bad, (unsigned long long)u->first,
+             a, b);
 }
 
 static void ruleend(qdrule *u, qdctx *x, uint64_t rows, size_t ncol) {
@@ -330,8 +457,10 @@ static void ruleend(qdrule *u, qdctx *x, uint64_t rows, size_t ncol) {
   m[0] = '\0';
   snprintf(who, sizeof who, "%s%s: %s(%s)", x->path, x->sy, u->kind,
            col != NULL ? col->s : "");
-  if (!u->ok)
+  if (!u->ok) {
+    rulefree(u);
     return;
+  }
   if (u->hs.err) {
     qdrepadd(x->rep, "rule", 0, "%s: too many distinct values to check",
              who);
@@ -348,6 +477,10 @@ static void ruleend(qdrule *u, qdctx *x, uint64_t rows, size_t ncol) {
              ok ? "" : ", outside its bounds");
     goto out;
   }
+  if (strcmp(u->kind, "mad") == 0) {
+    madend(u, x, who);
+    goto out;
+  }
   if (strcmp(u->kind, "complete") == 0) {
     double s = rows ? (double)u->nn / (double)rows : 1;
     double want = qdjget(u->r, "share")->d;
@@ -362,8 +495,7 @@ static void ruleend(qdrule *u, qdctx *x, uint64_t rows, size_t ncol) {
   else
     qdrepadd(x->rep, "rule", 1, "%s: holds", who);
 out:
-  qdfree(u->hs.k);
-  qdfree(u->ps);
+  rulefree(u);
 }
 
 int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy) {
@@ -528,10 +660,8 @@ bad:
            c.why[0] ? c.why : nqerr(rc));
   rc = NQOK;
 done:
-  for (i = 0; i < nr; i++) {
-    qdfree(ru[i].hs.k);
-    qdfree(ru[i].ps);
-  }
+  for (i = 0; i < nr; i++)
+    rulefree(&ru[i]);
   for (i = 0; i < nown; i++)
     qdfree(own[i]);
   qdfree(own);

@@ -71,4 +71,5 @@ OBJECTS = \
   nqd/fs.o \
   nqd/js.o \
   nqd/rec.o \
+  nqd/rx.o \
   nqd/sch.o
