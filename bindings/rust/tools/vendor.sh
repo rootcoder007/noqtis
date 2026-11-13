@@ -1,6 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-# Copies the noqtis C library (../../src/*/ and ../../include/noqtis.h)
+# Copies the noqtis C library (../../src/*/ and ../../include/noqtis.h),
+# its data layer (../../nqd/ and ../../include/nqd.h)
 # and the licence files into this crate, so that `cargo package` ships a
 # crate that builds on its own. build.rs prefers ../../src when it is
 # there; vendor/ is ignored by git. Rerun after any change to the library.
@@ -24,6 +25,12 @@ for d in "$top"/src/*/; do
     n=$((n + 1))
   done
 done
-cp "$top/include/noqtis.h" "$here/vendor/include/"
+# the data layer, a library of its own beside the core
+mkdir "$here/vendor/nqd"
+for f in "$top"/nqd/*.c "$top"/nqd/*.h; do
+  cp "$f" "$here/vendor/nqd/"
+  n=$((n + 1))
+done
+cp "$top/include/noqtis.h" "$top/include/nqd.h" "$here/vendor/include/"
 cp "$top/LICENSE" "$top/NOTICE" "$here/"
-echo "vendor.sh: copied $n files and include/noqtis.h"
+echo "vendor.sh: copied $n files, include/noqtis.h and nqd.h"

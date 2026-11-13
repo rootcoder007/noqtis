@@ -102,7 +102,7 @@ fn cs(s: &[u8], what: &str) -> Result<CString> {
 }
 
 /// A folder as the bytes the library takes (UTF-8 on Windows).
-fn cpath(p: &Path) -> Result<CString> {
+pub(crate) fn cpath(p: &Path) -> Result<CString> {
     #[cfg(unix)]
     {
         use std::os::unix::ffi::OsStrExt;

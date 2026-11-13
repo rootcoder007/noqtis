@@ -255,3 +255,132 @@ extern "C" {
         f: *mut Cardf,
     ) -> c_int;
 }
+
+/// nqdrec: a data record (opaque)
+#[repr(C)]
+pub struct Drec {
+    _p: [u8; 0],
+}
+
+/// nqdrep: a data check's rows (opaque)
+#[repr(C)]
+pub struct Drep {
+    _p: [u8; 0],
+}
+
+/// nqdcsvopt
+#[repr(C)]
+pub struct Csvopt {
+    pub delim: c_char,
+    pub noheader: c_int,
+    pub ranges: c_int,
+}
+
+/// nqddopt
+#[repr(C)]
+pub struct Dopt {
+    pub psiwarn: f64,
+    pub psifail: f64,
+    pub alpha: f64,
+    pub minn: f64,
+    pub benford: c_int,
+}
+
+// include/nqd.h, the data layer
+extern "C" {
+    pub fn nqdnew(r: *mut *mut Drec) -> c_int;
+    pub fn nqdparse(
+        json: *const c_char,
+        n: usize,
+        r: *mut *mut Drec,
+        why: *mut c_char,
+        cap: usize,
+    ) -> c_int;
+    pub fn nqdload(dir: *const c_char, r: *mut *mut Drec, why: *mut c_char, cap: usize) -> c_int;
+    pub fn nqdjson(r: *const Drec, out: *mut c_char, cap: usize, outlen: *mut usize) -> c_int;
+    pub fn nqdsave(r: *const Drec, dir: *const c_char) -> c_int;
+    pub fn nqdrfree(r: *mut Drec);
+    pub fn nqdlen(r: *const Drec, member: *const c_char) -> usize;
+    pub fn nqdat(
+        r: *const Drec,
+        member: *const c_char,
+        i: usize,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqdkey(
+        r: *const Drec,
+        member: *const c_char,
+        key: *const c_char,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqdput(
+        r: *mut Drec,
+        member: *const c_char,
+        json: *const c_char,
+        n: usize,
+        why: *mut c_char,
+        cap: usize,
+    ) -> c_int;
+    pub fn nqddel(r: *mut Drec, member: *const c_char, key: *const c_char) -> c_int;
+    pub fn nqdset(
+        r: *mut Drec,
+        member: *const c_char,
+        key: *const c_char,
+        field: *const c_char,
+        json: *const c_char,
+        n: usize,
+        why: *mut c_char,
+        cap: usize,
+    ) -> c_int;
+    pub fn nqdsrc(
+        r: *mut Drec,
+        dir: *const c_char,
+        path: *const c_char,
+        why: *mut c_char,
+        cap: usize,
+    ) -> c_int;
+    pub fn nqdinfer(
+        dir: *const c_char,
+        path: *const c_char,
+        o: *const Csvopt,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+        why: *mut c_char,
+        wcap: usize,
+    ) -> c_int;
+    pub fn nqdstats(
+        dir: *const c_char,
+        path: *const c_char,
+        o: *const Csvopt,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+        why: *mut c_char,
+        wcap: usize,
+    ) -> c_int;
+    pub fn nqddrift(
+        stats: *const c_char,
+        n: usize,
+        file: *const c_char,
+        o: *const Csvopt,
+        d: *const Dopt,
+        rep: *mut *mut Drep,
+    ) -> c_int;
+    pub fn nqddiff(a: *const c_char, b: *const c_char, rep: *mut *mut Drep) -> c_int;
+    pub fn nqdchk(dir: *const c_char, rep: *mut *mut Drep) -> c_int;
+    pub fn nqdrepn(r: *const Drep) -> usize;
+    pub fn nqdrepi(
+        r: *const Drep,
+        i: usize,
+        check: *mut *const c_char,
+        ok: *mut c_int,
+        detail: *mut *const c_char,
+    ) -> c_int;
+    pub fn nqdrepj(r: *const Drep, i: usize) -> *const c_char;
+    pub fn nqdrepfree(r: *mut Drep);
+}

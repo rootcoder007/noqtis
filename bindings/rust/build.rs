@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //! Compiles the noqtis C library into the crate: every .c file of every
-//! module folder under src/ (the set CMake's src/*/*.c glob takes), from
+//! module folder under src/ (the set CMake's src/*/*.c glob takes) and of
+//! the data layer nqd/, from
 //! the repository when the crate sits in it, else from vendor/ (a copy
 //! made by tools/vendor.sh, which `cargo package` ships).
 
@@ -44,7 +45,16 @@ fn main() {
     let top = root();
     let src = top.join("src");
     let inc = top.join("include");
-    let files = sources(&src);
+    let mut files = sources(&src);
+    // the data layer (include/nqd.h), a library of its own beside the core
+    let nqd = top.join("nqd");
+    let mut d: Vec<PathBuf> = fs::read_dir(&nqd)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "c"))
+        .collect();
+    d.sort();
+    files.extend(d);
     let mut b = cc::Build::new();
     b.include(&inc)
         .include(&src)
@@ -55,6 +65,9 @@ fn main() {
             .define("_CRT_SECURE_NO_WARNINGS", None);
     } else {
         b.flag("-std=c11").flag("-fvisibility=hidden");
+        // no fused multiply-add, as the CMake build: a data record's
+        // statistics come out to the same bits on every platform
+        b.flag_if_supported("-ffp-contract=off");
     }
     // SLH-DSA signs far too slowly unoptimised: a debug build of the
     // crate still gets an optimised library
@@ -69,4 +82,6 @@ fn main() {
     }
     println!("cargo:rerun-if-changed={}", src.display());
     println!("cargo:rerun-if-changed={}", inc.join("noqtis.h").display());
+    println!("cargo:rerun-if-changed={}", nqd.display());
+    println!("cargo:rerun-if-changed={}", inc.join("nqd.h").display());
 }
