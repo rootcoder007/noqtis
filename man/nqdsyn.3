@@ -1,0 +1,138 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 13, 2026
+.Dt NQDSYN 3
+.Os
+.Sh NAME
+.Nm nqdsyn
+.Nd write a synthetic CSV file from its schema, marked synthetic
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Ft int
+.Fo nqdsyn
+.Fa "nqdrec *r" "const char *dir" "const char *path" "uint64_t seed"
+.Fa "uint64_t rows" "char *why" "size_t wcap"
+.Fc
+.Sh DESCRIPTION
+.Fn nqdsyn
+writes a synthetic stand-in for the CSV file
+.Fa path
+to
+.Fa dir Ns / Ns Fa path ,
+made from the record's schema of
+.Fa path
+.Pq Xr noqtis-data 5 ,
+its recipe, and records it in the
+.Cm sources
+of
+.Fa r
+with its SHA-256, size and
+.Cm synthetic
+true, so that every check of it says
+.Ql [synthetic] .
+Save the record with
+.Xr nqdsave 3 .
+It never replaces real data: a
+.Fa path
+whose source is not marked synthetic, or a file there that the record
+does not mark synthetic, is refused.
+.Pp
+The file has the schema's delimiter, a header of the column names
+unless
+.Cm header
+is false, and
+.Fa rows
+rows (0: the schema's
+.Cm rows.min ,
+else 100), each line ended by a line feed; a field that holds the
+delimiter, a quote or a line break is quoted.
+The values are the same for the same
+.Fa seed
+on every platform: they are drawn from the 64-bit big-endian words of
+SHA-256("noqtis-syn-1" || 0x00 ||
+.Fa seed
+|| j), j = 0, 1, ..., each 8 bytes big-endian, four words a block, and
+a whole number from 0 to
+.Va k
+\- 1 is a word
+.Va x
+taken when
+.Va x
+< 2^64 \- (2^64 mod
+.Va k ) ,
+as
+.Va x
+mod
+.Va k
+(a word not taken is skipped).
+Row by row, column by column: when the column's
+.Cm nulls
+is true, a draw from 0 to 9 of 0 makes the value missing (the schema's
+first
+.Cm na
+code, else empty); otherwise
+.Bl -tag -width "text with a set"
+.It Ql int
+.Cm min
++ a draw from 0 to
+.Cm max
+\-
+.Cm min
+(defaults 0 and 1,000; at most 2^53 values)
+.It Ql real
+.Cm min
++
+.Pf ( Cm max
+\-
+.Cm min )
+\(mu
+.Pf ( Va x
+>> 11) / 2^53 (defaults 0 and 1), written as
+.Xr nqdjson 3
+writes numbers
+.It Ql date
+.Cm min
++ a draw of days to
+.Cm max
+(defaults 2000-01-01 and 2025-12-31)
+.It Ql bool
+.Ql true
+for a draw from 0 to 1 of 1, else
+.Ql false
+.It Ql text No with a set
+the element of
+.Cm set
+at a draw from 0 to its size \- 1
+.It Ql text
+eight letters
+.Ql a
+to
+.Ql z ,
+a draw from 0 to 25 each
+.El
+.Pp
+Every value fits its column's type, range and set, so the file passes
+the schema's columns; rules
+.Pq Ql unique , Ql incr , No ...
+are not part of the recipe.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or with a sentence in
+.Fa why :
+.Dv NQEARG
+for no schema with columns,
+.Fa path
+not a capsule path, a source or file not marked synthetic, or an
+.Ql int
+range with no whole number or more than 2^53;
+.Dv NQEIO
+when the file cannot be written (its folder must exist);
+.Dv NQELIM
+over 1 GiB;
+.Dv NQEMEM .
+.Sh SEE ALSO
+.Xr noqtis-data 1 ,
+.Xr nqdinfer 3 ,
+.Xr nqdnew 3 ,
+.Xr noqtis-data 5

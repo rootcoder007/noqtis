@@ -24,6 +24,19 @@ data: every report line about it then says `[synthetic]`.
 `data check` checks every listed file against the record, and says
 what to do about each failure.
 
+A stand-in with the shape of the real data, for tests and examples
+where the real data cannot go, is made from the schema pinned for its
+path, such as the real file's schema put back under the new path with
+`noqtis data put`:
+
+```sh
+noqtis data syn --seed 42 --rows 1000 results data/fake.csv
+```
+
+The same seed gives the same bytes on every platform; the file is
+recorded as a source marked `synthetic`, so it cannot pass for real
+data, and `data syn` never writes over a file not so marked.
+
 Results computed elsewhere (a published total, a falsification test)
 go in as recorded checks, with what was expected, what was observed and
 the tolerance, so that a later reader can recompute them. `data check`

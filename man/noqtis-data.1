@@ -34,6 +34,10 @@
 .Nm noqtis data check
 .Op Fl j | Fl -json
 .Ar dir
+.Nm noqtis data syn
+.Fl -seed Ar n
+.Op Fl -rows Ar n
+.Ar dir file
 .Sh DESCRIPTION
 The data record,
 .Pa noqtis.data.json
@@ -138,6 +142,25 @@ prints one line of JSON:
 {"folder":"<dir>","ok":<bool>,"checks":[{"check":"<name>",
  "ok":<bool>,"detail":"<text>"[,"fix":"<text>"]},...]}
 .Ed
+.It Cm syn
+Writes a synthetic
+.Ar file
+in
+.Ar dir
+from the record's schema of it, the recipe (columns, types, ranges,
+sets, missing values, delimiter, header), with
+.Fl -rows
+rows (default the schema's
+.Cm rows.min ,
+else 100), the same bytes for the same
+.Fl -seed
+(required, from 0 to 2^64 \- 1), and records it as a source marked
+.Cm synthetic ,
+so every check of it says
+.Ql [synthetic] .
+It never writes in place of a file the record does not mark synthetic.
+.Xr nqdsyn 3
+defines the values.
 .El
 .Pp
 .Cm noqtis data check
