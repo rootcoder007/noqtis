@@ -313,7 +313,56 @@ static void full(void) {
   nqdrfree(r2);
 }
 
+/* commitments: a known answer (Python's hashlib.sha3_256 over the
+ * same bytes), the reveal, refusals; citations */
+static void commits(void) {
+  uint8_t salt[32];
+  char hx[65], e[300], why[300], out[2048];
+  nqdrec *r = NULL;
+  size_t i, at = 9, n;
+  for (i = 0; i < 32; i++)
+    salt[i] = (uint8_t)(i + 1);
+  NQTEQI(nqdcommit(salt, 32, (const uint8_t *)"abc", 3, hx), NQOK);
+  NQTCHK(strcmp(hx, "9bcfedbf3e1066cc55fec02efdaec2143b9add18c67d1dce18458"
+                    "9e9d9738023") == 0);
+  NQTEQI(nqdcommit(salt, 15, (const uint8_t *)"abc", 3, hx), NQEARG);
+  NQTEQI(nqdnew(&r), NQOK);
+  NQTEQI(nqdreveal(r, salt, 32, (const uint8_t *)"abc", 3, &at), NQEVRFY);
+  nqdcommit(salt, 32, (const uint8_t *)"abc", 3, hx);
+  snprintf(e, sizeof e,
+           "{\"kind\":\"randomisation\",\"created\":\"2026-01-01T00:00:00Z\","
+           "\"alg\":\"sha3-256\",\"digest\":\"%s\"}",
+           hx);
+  NQTEQI(nqdput(r, "commits", e, strlen(e), why, sizeof why), NQOK);
+  NQTEQI(nqdreveal(r, salt, 32, (const uint8_t *)"abc", 3, &at), NQOK);
+  NQTEQI(at, 0);
+  NQTEQI(nqdreveal(r, salt, 32, (const uint8_t *)"abd", 3, &at), NQEVRFY);
+  salt[0] ^= 1;
+  NQTEQI(nqdreveal(r, salt, 32, (const uint8_t *)"abc", 3, &at), NQEVRFY);
+  NQTEQI(nqdcite(r, NQDCFF, out, sizeof out, &n), NQEIO);
+  NQTEQI(nqdput(r, "cite",
+                "{\"title\":\"Crime \\\"counts\\\" {2026}\",\"authors\":"
+                "[\"A. Author\",\"B. Author\"],\"year\":2026,"
+                "\"doi\":\"10.1234/x\"}",
+                strlen("{\"title\":\"Crime \\\"counts\\\" {2026}\",\"authors\":"
+                       "[\"A. Author\",\"B. Author\"],\"year\":2026,"
+                       "\"doi\":\"10.1234/x\"}"),
+                why, sizeof why),
+         NQOK);
+  NQTEQI(nqdcite(r, NQDCFF, out, sizeof out, &n), NQOK);
+  NQTCHK(strstr(out, "title: \"Crime \\\"counts\\\" {2026}\"\n") != NULL);
+  NQTCHK(strstr(out, "  - name: \"B. Author\"\n") != NULL);
+  NQTCHK(strstr(out, "date-released: \"2026-01-01\"") != NULL);
+  NQTEQI(nqdcite(r, NQDBIB, out, sizeof out, &n), NQOK);
+  NQTCHK(strstr(out, "title = {Crime \"counts\" \\{2026\\}}") != NULL);
+  NQTCHK(strstr(out, "author = {{A. Author} and {B. Author}}") != NULL);
+  NQTCHK(strstr(out, "doi = {10.1234/x}") != NULL);
+  NQTEQI(nqdcite(r, 3, out, sizeof out, &n), NQEARG);
+  nqdrfree(r);
+}
+
 int main(void) {
+  commits();
   full();
   nums();
   json();

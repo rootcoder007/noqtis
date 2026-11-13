@@ -172,6 +172,29 @@ typedef struct {
 NQDAPI int nqddrift(const char *stats, size_t n, const char *file,
                     const nqdcsvopt *o, const nqddopt *d, nqdrep **rep);
 
+/* ---- commitments and citations ---- */
+
+/* A commitment to n bytes at m (a randomisation list, an analysis plan)
+ * under the secret salt (16 to 1,024 bytes, from nqrand): hex gets the
+ * 64 hex digits of SHA3-256("noqtis-commit-1" || 0x00 || the salt's
+ * length, 8 bytes big-endian || salt || m), for a "commits" element.
+ * Without the salt it says nothing of m; with it, anyone can check m. */
+NQDAPI int nqdcommit(const uint8_t *salt, size_t sl, const uint8_t *m,
+                     size_t n, char hex[65]);
+/* NQOK when the record r has a commitment to m under salt (*idx, when
+ * not NULL, gets its index in "commits"), NQEVRFY when none matches;
+ * every recorded digest is compared, in constant time. */
+NQDAPI int nqdreveal(const nqdrec *r, const uint8_t *salt, size_t sl,
+                     const uint8_t *m, size_t n, size_t *idx);
+/* How to cite the data, from the record's "cite": NQDCFF writes a
+ * CITATION.cff (1.2.0), NQDBIB a BibTeX entry, to out (cap bytes, NUL
+ * added; *outlen its length, also with NQEBUF). NQEIO when the record
+ * has no cite. */
+#define NQDCFF 1
+#define NQDBIB 2
+NQDAPI int nqdcite(const nqdrec *r, int fmt, char *out, size_t cap,
+                   size_t *outlen);
+
 /* ---- differences ---- */
 
 /* What changed from the capsule in a to the one in b: one "file" row
