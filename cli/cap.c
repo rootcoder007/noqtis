@@ -1210,6 +1210,67 @@ int ncchk(int argc, char **argv) {
   return ret;
 }
 
+/* noqtis chain: an append-only chain of capsules, oldest first */
+int ncchain(int argc, char **argv) {
+  const char *pp = NULL, *anc[NCMAXV];
+  int json = 0, help = 0, np, na = 0, rc, ret, i;
+  ncopt o[] = {{'p', "pub", 1, &pp, NULL},
+               {'j', "json", 0, NULL, &json},
+               {'\0', "anchor", NCMANY, anc, &na}};
+  nckey pk = {{0, 0, NULL}, 0, NULL, 0};
+  ncanc an;
+  nqcopt co;
+  nqdrep *rep = NULL;
+  uint8_t head[32];
+  an.k = 0;
+  if (ncargs("chain", argc, argv, o, sizeof o / sizeof o[0], &np,
+             &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "chain");
+    return NCOK;
+  }
+  if (np < 1) {
+    ncuse(stderr, "chain");
+    return NCUSE;
+  }
+  for (i = 0; i < np; i++) {
+    if (!ncisdir(argv[i])) {
+      ncmsg("chain", "%s: not a folder (give the chain's capsule folders, "
+            "oldest first)", argv[i]);
+      return NCUSE;
+    }
+  }
+  if (pp != NULL && nckrd("chain", pp, 0, &pk) != NCOK)
+    return NCUSE;
+  if (pk.a.kem) {
+    ncmsg("chain", "%s is a KEM key, not a signature key", pp);
+    nckfree(&pk);
+    return NCUSE;
+  }
+  if (ancrd("chain", anc, na, &an) != NCOK) {
+    nckfree(&pk);
+    return NCUSE;
+  }
+  memset(&co, 0, sizeof co);
+  co.trust = pk.b;
+  co.trustlen = pk.n;
+  co.anc = (const uint8_t *const *)an.b;
+  co.anclen = an.n;
+  co.nanc = an.k;
+  rc = nqdchain((const char *const *)argv, (size_t)np, &co, head, &rep);
+  nckfree(&pk);
+  ancfree(&an);
+  if (rep == NULL)
+    return nclib("chain", "the chain", rc);
+  ret = ncdrep("chain", argv[np - 1], rep, rc, json);
+  nqdrepfree(rep);
+  if (pp == NULL && ret == NCOK && !json)
+    ncmsg("chain", "note: no -p given, so the first link's own key was "
+          "trusted; pass -p <key.pub> to check who sealed the chain");
+  return ret;
+}
+
 /* noqtis prove: a proof of some files of a format 2 capsule */
 int ncprove(int argc, char **argv) {
   const char *pp = NULL, *out = NULL;

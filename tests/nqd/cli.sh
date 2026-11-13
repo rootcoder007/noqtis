@@ -686,6 +686,44 @@ has "$w/out" '"check":"chunk","ok":false' "json rows"
 ok 1 "data check, a changed file" "$nq" data check "$k"
 ok 2 "chunk nothing" "$nq" chunk nothing
 
+# ---- chain ----
+
+ok 0 "chain: second key" "$nq" keygen -a ML-DSA-44 -o "$w/k2"
+for i in 1 2 3 4 5; do
+  mkdir -p "$w/l$i"
+  echo "$i" >"$w/l$i/f"
+done
+ok 0 "chain: start" "$nq" seal --format 2 -k "$w/k" "$w/l1"
+ok 0 "chain: link 2" "$nq" seal -k "$w/k" --input prev="$w/l1" "$w/l2"
+ok 0 "chain: link 3" "$nq" seal -k "$w/k" --input prev="$w/l2" "$w/l3"
+ok 0 "chain" "$nq" chain -p "$w/k.pub" "$w/l1" "$w/l2" "$w/l3"
+has "$w/out" "OK (5 checks passed)" "every link, the key and the head"
+has "$w/out" "head" "the head is given"
+ok 0 "chain --json" "$nq" chain --json "$w/l1" "$w/l2" "$w/l3"
+has "$w/out" '"check":"head","ok":true' "json head"
+ok 0 "chain from the middle" "$nq" chain "$w/l2" "$w/l3"
+has "$w/out" "not part of what is checked" "the first link's inputs"
+ok 1 "chain with a gap" "$nq" chain "$w/l1" "$w/l3"
+has "$w/out" "a fork, or links out of order" "the gap is found"
+ok 1 "chain out of order" "$nq" chain "$w/l2" "$w/l1"
+ok 1 "chain, another key" "$nq" chain -p "$w/k2.pub" "$w/l1" "$w/l2"
+ok 0 "chain: link by another key" "$nq" seal -k "$w/k2" \
+  --input prev="$w/l3" "$w/l4"
+ok 1 "chain with a link by another key" "$nq" chain "$w/l1" "$w/l2" \
+  "$w/l3" "$w/l4"
+has "$w/out" "sealed by another key" "the key row fails"
+ok 0 "chain: two inputs" "$nq" seal -k "$w/k" --input a="$w/l3" \
+  --input b="$w/l2" "$w/l5"
+ok 1 "chain with a link of two inputs" "$nq" chain "$w/l1" "$w/l2" \
+  "$w/l3" "$w/l5"
+has "$w/out" "2 inputs" "two inputs are refused"
+echo changed >"$w/l2/f"
+ok 1 "chain with a changed link" "$nq" chain "$w/l1" "$w/l2" "$w/l3"
+has "$w/out" "does not check" "the changed link fails"
+ok 2 "chain, not a folder" "$nq" chain "$w/none"
+ok 2 "chain, nothing" "$nq" chain
+ok 0 "help chain" "$nq" help chain
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"

@@ -416,6 +416,9 @@ static const char *dfix(const char *check) {
     return "the file differs from the one recorded: restore it from its "
            "source (the record's url, archived copy or mirrors), or record "
            "the new bytes with `noqtis data add` and seal again";
+  if (strcmp(check, "link") == 0 || strcmp(check, "key") == 0)
+    return "give every link of the chain, oldest first, each sealed with "
+           "the key of the first and `--input` naming the one before it";
   if (strcmp(check, "chunk") == 0)
     return "the file, or this piece of it, differs from the chunks recorded: "
            "fetch the chunks named again, or record the new file (`noqtis "

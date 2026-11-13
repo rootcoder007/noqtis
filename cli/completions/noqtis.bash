@@ -18,7 +18,7 @@ _noqtis() {
   prev=${COMP_WORDS[COMP_CWORD-1]}
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=($(compgen -W "keygen sign verify enc dec hash seal check
-      prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite pack chunk algs selftest version -V
+      prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite pack chunk chain algs selftest version -V
       --version" -- "$cur"))
     return
   fi
@@ -110,6 +110,7 @@ _noqtis() {
         return
       fi
       opts="--size --at -j --json" ;;
+    chain) opts="-p --pub --anchor -j --json" ;;
     schema)
       if [ "$COMP_CWORD" -eq 2 ]; then
         COMPREPLY=($(compgen -W "infer check" -- "$cur"))
@@ -124,7 +125,8 @@ _noqtis() {
     case $cmd in
       seal | check | inspect | timestamp | ers | export | diff | report)
         COMPREPLY=($(compgen -d -- "$cur")) ;;
-      data | schema | drift | env | commit | reveal | cite | pack | chunk)
+      data | schema | drift | env | commit | reveal | cite | pack | chunk | \
+        chain)
         COMPREPLY=($(compgen -d -- "$cur") $(compgen -f -- "$cur")) ;;
       prove) COMPREPLY=($(compgen -d -- "$cur") $(compgen -f -- "$cur")) ;;
       *) COMPREPLY=($(compgen -f -- "$cur")) ;;

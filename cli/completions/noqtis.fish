@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite pack chunk algs selftest version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -27,6 +27,7 @@ complete -c noqtis -n "__fish_seen_subcommand_from export" -l as -x -a "intoto d
 complete -c noqtis -n "__fish_seen_subcommand_from export" -l no-files -d 'a bundle of the data record alone'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a pack -d 'start, build and check a reproducibility bundle'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a chunk -d 'chunk digests of a large file, a piece checked'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a chain -d 'check an append-only chain of capsules'
 complete -c noqtis -n "__fish_seen_subcommand_from verify" -l dsse -d 'check a DSSE envelope'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a rotate -d 'say a seal key was replaced'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a revoke -d 'say a seal key is revoked'
@@ -177,3 +178,9 @@ complete -c noqtis -n "__fish_seen_subcommand_from chunk" -F
 complete -c noqtis -n "__fish_seen_subcommand_from chunk" -l size -x -d 'bytes in a chunk'
 complete -c noqtis -n "__fish_seen_subcommand_from chunk" -l at -x -d 'where the piece starts'
 complete -c noqtis -n "__fish_seen_subcommand_from chunk" -s j -l json -d 'JSON output'
+
+# noqtis chain
+complete -c noqtis -n "__fish_seen_subcommand_from chain" -F
+complete -c noqtis -n "__fish_seen_subcommand_from chain" -s p -l pub -r -F -d 'the key of every link'
+complete -c noqtis -n "__fish_seen_subcommand_from chain" -l anchor -r -F -d 'trusted root certificate'
+complete -c noqtis -n "__fish_seen_subcommand_from chain" -s j -l json -d 'JSON output'

@@ -71,6 +71,11 @@ See
 Prove that some files are in a format 2 capsule, without the others.
 See
 .Xr noqtis-prove 1 .
+.It Cm chain
+Check an append-only chain of capsules, each sealed with the one before
+as its input, and give its head.
+See
+.Xr noqtis-chain 1 .
 .It Cm export
 The capsule as in-toto (signed in DSSE), RO-Crate, BagIt or a bundle
 (one file that
@@ -261,6 +266,7 @@ results: FAILED (1 of 22 checks failed)
 .Ed
 .Sh SEE ALSO
 .Xr noqtis-algs 1 ,
+.Xr noqtis-chain 1 ,
 .Xr noqtis-check 1 ,
 .Xr noqtis-chunk 1 ,
 .Xr noqtis-dec 1 ,

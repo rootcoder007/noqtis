@@ -126,6 +126,17 @@ static const nccmd cmds[] = {
    "            timestamp check (it cannot be checked).\n"
    "  -r        check every sealed folder under <dir> (and <dir>), deepest\n"
    "            first, with the same options; a count goes to stderr\n"},
+  {"chain", ncchain, "check an append-only chain of capsules",
+   "usage: noqtis chain [-p <key.pub>] [--anchor <der-file>]... [--json]\n"
+   "                    <dir>...\n"
+   "  Checks the capsules given, oldest first, as a chain: each one checks\n"
+   "  (as `noqtis check` with -p and --anchor), each after the first has\n"
+   "  exactly one input, the one before it, and every one is sealed by\n"
+   "  the same key. The last row is the chain's head: the last link's id.\n"
+   "  Start a chain with `noqtis seal --format 2 <dir>`; add a link with\n"
+   "  `noqtis seal --input prev=<last> <new>`.\n"
+   "  Exit 0 when the chain checks, 1 when it does not, 2 on a usage\n"
+   "  error.\n"},
   {"prove", ncprove, "prove some files of a capsule, without the rest",
    "usage: noqtis prove [-p <key.pub>] [-o <file>] [-f] <dir> <path>...\n"
    "  Writes a proof (JSON) that the named files are in the format 2\n"

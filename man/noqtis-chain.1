@@ -1,0 +1,71 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 13, 2026
+.Dt NOQTIS-CHAIN 1
+.Os
+.Sh NAME
+.Nm noqtis-chain
+.Nd check an append-only chain of capsules
+.Sh SYNOPSIS
+.Nm noqtis chain
+.Op Fl p Ar key.pub
+.Op Fl -anchor Ar der-file ...
+.Op Fl j | Fl -json
+.Ar dir ...
+.Sh DESCRIPTION
+A chain is a log of capsules to which a link is only ever added.
+Start it by sealing the first in format 2, and add each next one with
+the last as its only input:
+.Bd -literal -offset indent
+$ noqtis seal --format 2 -k me log/1
+$ noqtis seal -k me --input prev=log/1 log/2
+$ noqtis seal -k me --input prev=log/2 log/3
+.Ed
+.Pp
+The seal of each link then signs the id of the one before, so a link
+cannot be changed, removed or put in another place without the chain
+failing.
+.Nm noqtis chain
+checks the folders
+.Ar dir ,
+oldest first: each link checks
+.Po
+as
+.Xr noqtis-check 1
+with
+.Fl p
+and
+.Fl -anchor
+.Pc ,
+each after the first names exactly the one before it as its only input
+(a fork, a gap or links out of order fail), and every link is sealed by
+the same key.
+The first link's own inputs are not followed, so a chain can be checked
+from any link on.
+The last row is the chain's head: the last link's id
+.Pq Xr nqcapid 3 ,
+which a reader can keep or publish to notice a chain cut back later.
+.Bl -tag -width Ds
+.It Fl p Ar key.pub
+The key every link must be sealed by.
+Without it, the first link's own key is trusted, and a note says so.
+.It Fl -anchor Ar der-file
+A TSA root or issuing certificate (DER), up to 32, for timestamped
+seals.
+.It Fl j , Fl -json
+The rows as JSON.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds -compact
+.It 0
+The chain checks.
+.It 1
+A link does not check, does not follow the one before it, or is sealed
+by another key.
+.It 2
+A usage error, or a folder that is not there.
+.El
+.Sh SEE ALSO
+.Xr noqtis-check 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqdchain 3 ,
+.Xr noqtis-capsule 5
