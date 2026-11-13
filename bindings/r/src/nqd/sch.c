@@ -89,7 +89,7 @@ static int hsadd(qdhs *h, const uint8_t d[16]) {
     }
     memset(nk, 0, nc * 16);
     for (j = 0; j < h->cap; j++) {
-      static const uint8_t z[16];
+      static const uint8_t z[16] = {0};
       const uint8_t *e = h->k + 16 * j;
       if (memcmp(e, z, 16) == 0)
         continue;
@@ -104,7 +104,7 @@ static int hsadd(qdhs *h, const uint8_t d[16]) {
   }
   m = h->cap - 1;
   for (i = (size_t)qdld64(d) & m;; i = (i + 1) & m) {
-    static const uint8_t z[16];
+    static const uint8_t z[16] = {0};
     uint8_t *e = h->k + 16 * i;
     if (memcmp(e, z, 16) == 0) {
       memcpy(e, d, 16);

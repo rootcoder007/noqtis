@@ -982,7 +982,12 @@ int nqdset(nqdrec *r, const char *m, const char *key, const char *field,
     qdjfree(v);
     return NQEMEM;
   }
-  if (v != NULL ? (rc = qdjset(c, field, v)) != NQOK : (qdjdel(c, field), 0)) {
+  rc = NQOK;
+  if (v != NULL)
+    rc = qdjset(c, field, v);
+  else
+    qdjdel(c, field);
+  if (rc != NQOK) {
     qdjfree(c);
     return rc;
   }
