@@ -284,6 +284,34 @@ NQAPI int nqencd(nqkalg alg, const uint8_t *pk, size_t pklen,
 NQAPI int nqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
                 const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 
+/* One message sealed to an ML-KEM public key (noqtis-kseal-1), for the
+ * hidden list of a commitment: "NQKS", the version 1, the algorithm (1
+ * byte, its nqkalg), the ML-KEM ciphertext, then the message under
+ * ChaCha20-Poly1305 and its 16-byte tag. The AEAD's key and nonce are
+ * HKDF-SHA-256 of the shared secret, with info "noqtis-kseal-1", the
+ * SHA3-256 of the public key, the context's length (1 byte) and bytes,
+ * the 6-byte header and the KEM ciphertext; its associated data is the
+ * header, the KEM ciphertext, the context's length and bytes. ctx (at
+ * most 255 bytes; NULL/0 for none) must be the same to open. alg is
+ * NQMLKEM512, NQMLKEM768 or NQMLKEM1024 (NQENOSUP otherwise). The
+ * output is NQKSOVH + the KEM ciphertext size + n bytes (n at most
+ * NQKSMAX, NQELIM above); *outlen gets it, also with NQEBUF. msg and
+ * out must not overlap. */
+#define NQKSOVH 22u
+#define NQKSMAX ((size_t)1 << 30)
+NQAPI int nqkseal(nqkalg alg, const uint8_t *pk, size_t pklen,
+                  const uint8_t *ctx, size_t ctxlen, const uint8_t *msg,
+                  size_t n, uint8_t *out, size_t cap, size_t *outlen);
+/* Opens what nqkseal wrote (n bytes at in) with the secret key: the
+ * message to msg (cap bytes; *outlen gets its size, also with NQEBUF).
+ * NQEDEC for a header, version or algorithm that is not this one's, or
+ * a size too small to hold one; NQEVRFY when the tag does not verify (a
+ * changed byte anywhere, another key or another ctx: the KEM's implicit
+ * rejection gives another key, so the tag fails); msg is then zeroed. */
+NQAPI int nqkopen(nqkalg alg, const uint8_t *sk, size_t sklen,
+                  const uint8_t *ctx, size_t ctxlen, const uint8_t *in,
+                  size_t n, uint8_t *msg, size_t cap, size_t *outlen);
+
 /* ---- passphrase key files ------------------------------------------- */
 
 /* A secret key under a passphrase (noqtis-pwkey-1): the header, 35

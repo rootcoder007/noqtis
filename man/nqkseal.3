@@ -1,0 +1,137 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NQKSEAL 3
+.Os
+.Sh NAME
+.Nm nqkseal ,
+.Nm nqkopen
+.Nd seal one message to an ML-KEM public key
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqkseal
+.Fa "nqkalg alg"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const uint8_t *ctx" "size_t ctxlen"
+.Fa "const uint8_t *msg" "size_t n"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqkopen
+.Fa "nqkalg alg"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *ctx" "size_t ctxlen"
+.Fa "const uint8_t *in" "size_t n"
+.Fa "uint8_t *msg" "size_t cap" "size_t *outlen"
+.Fc
+.Sh DESCRIPTION
+.Fn nqkseal
+encrypts the
+.Fa n
+bytes at
+.Fa msg
+so that only the holder of the secret key of
+.Fa pk
+can read them, and
+.Fn nqkopen
+reads them back.
+It exists for one use, the hidden list of a commitment, and does
+nothing more: one recipient, one message, no padding.
+.Fa alg
+is
+.Dv NQMLKEM512 ,
+.Dv NQMLKEM768
+or
+.Dv NQMLKEM1024 .
+.Pp
+The format, noqtis-kseal-1, is fixed:
+.Bl -column "ML-KEM ciphertext" "the KEM's size" -offset indent
+.It Sy field Ta Sy bytes
+.It Li NQKS Ta 4
+.It version, 1 Ta 1
+.It Fa alg Ta 1
+.It ML-KEM ciphertext Ta 768, 1088 or 1568
+.It ciphertext of Fa msg Ta Fa n
+.It tag Ta 16
+.El
+.Pp
+A fresh ML-KEM encapsulation to
+.Fa pk
+gives a 32-byte shared secret.
+HKDF-SHA-256 of it (no salt), with info the string
+.Li noqtis-kseal-1 ,
+the SHA3-256 of
+.Fa pk ,
+the context's length (one byte) and bytes, the 6-byte header and the KEM
+ciphertext, gives the 32-byte key and 12-byte nonce of
+ChaCha20-Poly1305, whose associated data is the header, the KEM
+ciphertext and the context's length and bytes.
+The context
+.Fa ctx
+(at most 255 bytes;
+.Dv NULL
+with 0 for none) names what the message is for and must be given again
+to open it.
+.Pp
+The output of
+.Fn nqkseal
+is
+.Dv NQKSOVH
+(22) plus the KEM ciphertext plus
+.Fa n
+bytes, with
+.Fa n
+at most
+.Dv NQKSMAX
+(2^30);
+.Pf * Fa outlen
+gets it, also when
+.Fa cap
+is too small.
+.Fn nqkopen
+writes the message to
+.Fa msg
+(cap bytes) and its size to
+.Pf * Fa outlen .
+Every changed byte, another key, another set or another context is
+refused: ML-KEM's implicit rejection turns a changed KEM ciphertext or
+another key into another shared secret, and the tag fails.
+On any error the message buffer is zeroed.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or
+.Bl -tag -width NQENOSUP
+.It Bq Er NQEARG
+A
+.Dv NULL
+pointer with a nonzero length, a context over 255 bytes, an unknown
+.Fa alg .
+.It Bq Er NQEBUF
+.Fa cap
+is too small.
+.It Bq Er NQEDEC
+A key of the wrong length or a secret key that ML-KEM refuses; for
+.Fn nqkopen ,
+an input that is not noqtis-kseal-1 for
+.Fa alg
+or is shorter than its header, KEM ciphertext and tag.
+.It Bq Er NQEVRFY
+The tag does not verify.
+.It Bq Er NQELIM
+.Fa n
+is over
+.Dv NQKSMAX .
+.It Bq Er NQENOSUP
+.Fa alg
+is HQC.
+.It Bq Er NQERNG
+The random source failed.
+.El
+.Sh SEE ALSO
+.Xr noqtis 3 ,
+.Xr nqenc 3 ,
+.Xr nqrand 3
+.Sh STANDARDS
+FIPS 203 (ML-KEM), RFC 5869 (HKDF), RFC 8439 (ChaCha20-Poly1305).
