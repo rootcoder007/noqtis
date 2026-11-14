@@ -189,3 +189,37 @@ test_that("a changed source shows in the diff of the C tests' capsule", {
   expect_false(attr(r, "same"))
   expect_true(any(r$what == "source" & r$differs & grepl("url", r$detail)))
 })
+
+test_that("sources: addresses in order, bytes checked, resolvers", {
+  d <- file.path(tempdir(), "nqsrc")
+  unlink(d, recursive = TRUE)
+  dir.create(file.path(d, "data"), recursive = TRUE)
+  b <- charToRaw("x,y\n1,a\n")
+  writeBin(b, file.path(d, "data", "a.csv"))
+  nqdadd(d, "data/a.csv", url = "https://example.org/a.csv")
+  e <- regmatches(nqdata(d), regexpr('\\{"path":[^}]*\\}', nqdata(d)))
+  e <- sub("}$", paste0(',"mirrors":["https://m.example.net/a.csv"],',
+                        '"resolver":{"base":"https://data.example.org",',
+                        '"id":"abcd-1234","kind":"socrata"}}'), e)
+  nqdput(d, "sources", e)
+  a <- nqdaddr(d, "data/a.csv")
+  expect_equal(a$kind, c("url", "portal", "mirror"))
+  expect_equal(a$url[2], "https://data.example.org/api/views/abcd-1234.json")
+  expect_true(nqdverify(d, "data/a.csv", b))
+  expect_false(nqdverify(d, "data/a.csv", c(b, as.raw(10))))
+  expect_equal(nqdfield(d, "sources", 0, "url"), "https://example.org/a.csv")
+  expect_null(nqdfield(d, "sources", 0, "title"))
+  expect_error(nqdaddr(d, "none.csv"))
+  rs <- '{"base":"https://example.org/a.csv","kind":"wayback"}'
+  v <- file.path(test_path("..", "..", "..", ".."), "tests", "vectors",
+                 "nqd", "src")
+  skip_if_not(dir.exists(v))
+  r <- nqdreply(rs, readBin(file.path(v, "wb.json"), "raw", 1e5))
+  expect_equal(r, c(paste0("https://web.archive.org/web/20240102030405id_/",
+                           "https://example.org/a.csv"),
+                    "2024-01-02T03:04:05Z"))
+  expect_error(nqdreply(rs, readBin(file.path(v, "wb-none.json"), "raw",
+                                    1e5)), "no copy")
+  expect_error(nqdrslv('{"base":"https://x.org/a","kind":"direct"}'))
+  unlink(d, recursive = TRUE)
+})

@@ -330,3 +330,80 @@ nqdiff <- function(a, b) {
   p <- sub("^\"path\":\"", "", sub("\",\"rows\":[0-9]$", "", p))
   gsub("\\\\(.)", "\\1", p)
 }
+
+#' Sources: where a file can be fetched, and the portals' resolvers
+#'
+#' A source of the data record names where its file came from. These
+#' functions make no network request: they say what to fetch and read
+#' what came back, as the `noqtis src` command does (the C functions are
+#' `nqdaddr(3)`).
+#'
+#' `nqdaddr()` lists the addresses the source `file` can be fetched from,
+#' in the order to try them: its url, its portal (the request to send,
+#' whose reply `nqdreply()` reads), its mirrors, its archived copy (the
+#' raw bytes of a Wayback Machine copy). `nqdverify()` says whether
+#' fetched bytes are the recorded file (its size and SHA-256): only such
+#' bytes may be taken for it. `nqdfield()` reads one field of an element.
+#' `nqdrslv()` builds the request for a source's `resolver` (CKAN,
+#' Socrata, ArcGIS or the Wayback Machine), `nqdreply()` reads the
+#' portal's reply to it, and `nqdwayback()` turns the address of a Wayback
+#' Machine copy into the address of its raw bytes.
+#'
+#' @param dir Path of the capsule folder.
+#' @param file The source's path in `dir`.
+#' @param bytes A raw vector: what was fetched.
+#' @param member,i,field The member, the element's index (from 0) and the
+#'   field's name.
+#' @param resolver A source's resolver, as one string of JSON.
+#' @param reply A raw vector: the portal's reply.
+#' @param url An http:// or https:// address.
+#' @return `nqdaddr()`: a data frame with columns `kind` (`"url"`,
+#'   `"portal"`, `"mirror"`, `"archived"`) and `url`, no rows for a
+#'   synthetic source. `nqdverify()`: `TRUE` or `FALSE`. `nqdfield()`: one
+#'   string, or `NULL`. `nqdrslv()`, `nqdwayback()`: one string.
+#'   `nqdreply()`: a character vector, the file's address and (for the
+#'   Wayback Machine) the copy's time, else `""`.
+#' @seealso [nqdadd()], [nqdata()].
+#' @examples
+#' rs <- '{"base":"https://data.example.org","id":"abcd-1234","kind":"socrata"}'
+#' nqdrslv(rs)
+#' nqdreply(rs, charToRaw('{"id":"abcd-1234","name":"Crimes"}'))
+#' nqdwayback("http://web.archive.org/web/2024/https://example.org/a.csv")
+#' @export
+nqdaddr <- function(dir, file) {
+  r <- .Call(Cdaddr, .dir(dir), enc2utf8(file))
+  data.frame(
+    kind = c("url", "portal", "mirror", "archived")[r[[1]]],
+    url = r[[2]], stringsAsFactors = FALSE
+  )
+}
+
+#' @rdname nqdaddr
+#' @export
+nqdverify <- function(dir, file, bytes) {
+  .Call(Cdvrfy, .dir(dir), enc2utf8(file), as.raw(bytes))
+}
+
+#' @rdname nqdaddr
+#' @export
+nqdfield <- function(dir, member, i, field) {
+  .Call(Cdfld, .dir(dir), member, as.numeric(i), field)
+}
+
+#' @rdname nqdaddr
+#' @export
+nqdrslv <- function(resolver) {
+  .Call(Cdrslv, enc2utf8(resolver))
+}
+
+#' @rdname nqdaddr
+#' @export
+nqdreply <- function(resolver, reply) {
+  .Call(Cdrsp, enc2utf8(resolver), as.raw(reply))
+}
+
+#' @rdname nqdaddr
+#' @export
+nqdwayback <- function(url) {
+  .Call(Cdwb, enc2utf8(url))
+}

@@ -801,6 +801,12 @@ SEXP Cdput(SEXP dir, SEXP member, SEXP json);
 SEXP Cdadd(SEXP dir, SEXP paths, SEXP fields, SEXP vals);
 SEXP Cddel(SEXP dir, SEXP member, SEXP key);
 SEXP Cdkey(SEXP dir, SEXP member, SEXP key);
+SEXP Cdaddr(SEXP dir, SEXP path);
+SEXP Cdvrfy(SEXP dir, SEXP path, SEXP raw);
+SEXP Cdfld(SEXP dir, SEXP member, SEXP i, SEXP field);
+SEXP Cdrslv(SEXP rslv);
+SEXP Cdrsp(SEXP rslv, SEXP reply);
+SEXP Cdwb(SEXP url);
 SEXP Cdchk(SEXP dir);
 SEXP Cdinfer(SEXP dir, SEXP path, SEXP delim, SEXP noh, SEXP ranges);
 SEXP Cdstats(SEXP dir, SEXP path, SEXP delim, SEXP noh);
@@ -818,7 +824,8 @@ static const R_CallMethodDef calls[] = {
   CDEF(Ckstmt, 8), CDEF(Cdsse, 5), CDEF(Cdssevrfy, 3),
   CDEF(Ccard, 9), CDEF(Ccardvrfy, 2),
   CDEF(Cdload, 1), CDEF(Cdput, 3), CDEF(Cdadd, 4), CDEF(Cddel, 3),
-  CDEF(Cdkey, 3), CDEF(Cdchk, 1), CDEF(Cdinfer, 5), CDEF(Cdstats, 4),
+  CDEF(Cdkey, 3), CDEF(Cdaddr, 2), CDEF(Cdvrfy, 3), CDEF(Cdfld, 4),
+  CDEF(Cdrslv, 1), CDEF(Cdrsp, 2), CDEF(Cdwb, 1), CDEF(Cdchk, 1), CDEF(Cdinfer, 5), CDEF(Cdstats, 4),
   CDEF(Cddrift, 5), CDEF(Cddiff, 2),
   {NULL, NULL, 0}
 };

@@ -20,6 +20,12 @@ SEXP Cdinfer(SEXP dir, SEXP path, SEXP delim, SEXP noh, SEXP ranges);
 SEXP Cdstats(SEXP dir, SEXP path, SEXP delim, SEXP noh);
 SEXP Cddrift(SEXP stats, SEXP file, SEXP delim, SEXP noh, SEXP lv);
 SEXP Cddiff(SEXP a, SEXP b);
+SEXP Cdaddr(SEXP dir, SEXP path);
+SEXP Cdvrfy(SEXP dir, SEXP path, SEXP raw);
+SEXP Cdfld(SEXP dir, SEXP member, SEXP i, SEXP field);
+SEXP Cdrslv(SEXP rslv);
+SEXP Cdrsp(SEXP rslv, SEXP reply);
+SEXP Cdwb(SEXP url);
 
 static const char *s1(SEXP x, const char *what) {
   if (TYPEOF(x) != STRSXP || XLENGTH(x) != 1 || STRING_ELT(x, 0) == NA_STRING)
@@ -296,4 +302,111 @@ SEXP Cddiff(SEXP a, SEXP b) {
   const char *x = pth(a, "a"), *y = pth(b, "b");
   int rc = nqddiff(x, y, &r);
   return drep(rc, r);
+}
+
+/* ---- sources (nqdaddr(3)) ---- */
+
+/* list(kind, url) of the source path's addresses; none for a synthetic
+ * one */
+SEXP Cdaddr(SEXP dir, SEXP path) {
+  const char *f = s1(path, "file");
+  SEXP p = holder(), out, k, u;
+  nqdrec *r = rec(pth(dir, "dir"), 0, p);
+  size_t i, c = 0;
+  char b[4400];
+  for (;; c++) {
+    size_t n = 0;
+    int rc = nqdaddr(r, f, c, NULL, b, sizeof b, &n);
+    if (rc == NQEARG || (rc == NQEIO && c > 0)) break;
+    if (rc != NQOK) dfail(rc, f, NULL);
+  }
+  k = PROTECT(Rf_allocVector(INTSXP, (R_xlen_t)c));
+  u = PROTECT(Rf_allocVector(STRSXP, (R_xlen_t)c));
+  for (i = 0; i < c; i++) {
+    size_t n = 0;
+    int kd = 0;
+    if (nqdaddr(r, f, i, &kd, b, sizeof b, &n) != NQOK)
+      dfail(NQEIO, f, NULL);
+    INTEGER(k)[i] = kd;
+    SET_STRING_ELT(u, (R_xlen_t)i, Rf_mkCharLenCE(b, (int)n, CE_UTF8));
+  }
+  out = PROTECT(Rf_allocVector(VECSXP, 2));
+  SET_VECTOR_ELT(out, 0, k);
+  SET_VECTOR_ELT(out, 1, u);
+  recfin(p);
+  UNPROTECT(4);
+  return out;
+}
+
+SEXP Cdvrfy(SEXP dir, SEXP path, SEXP raw) {
+  const char *f = s1(path, "file");
+  SEXP p = holder();
+  nqdrec *r = rec(pth(dir, "dir"), 0, p);
+  int rc;
+  if (TYPEOF(raw) != RAWSXP) Rf_error("'bytes' must be a raw vector");
+  rc = nqdvrfy(r, f, RAW(raw), (size_t)XLENGTH(raw));
+  recfin(p);
+  UNPROTECT(1);
+  if (rc != NQOK && rc != NQEVRFY) dfail(rc, f, NULL);
+  return Rf_ScalarLogical(rc == NQOK);
+}
+
+SEXP Cdfld(SEXP dir, SEXP member, SEXP i, SEXP field) {
+  const char *m = s1(member, "member"), *f = s1(field, "field");
+  SEXP p = holder(), out = R_NilValue;
+  nqdrec *r = rec(pth(dir, "dir"), 0, p);
+  double x = Rf_asReal(i);
+  size_t n = 0;
+  int rc;
+  if (!(x >= 0 && x < 9e15)) Rf_error("'i' must be a count");
+  rc = nqdfld(r, m, (size_t)x, f, NULL, 0, &n);
+  if (rc == NQEBUF) {
+    char *b = R_alloc(n + 1, 1);
+    if ((rc = nqdfld(r, m, (size_t)x, f, b, n + 1, &n)) != NQOK)
+      dfail(rc, m, NULL);
+    out = Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
+  } else if (rc != NQEIO) {
+    dfail(rc, m, NULL);
+  }
+  PROTECT(out);
+  recfin(p);
+  UNPROTECT(2);
+  return out;
+}
+
+SEXP Cdrslv(SEXP rslv) {
+  const char *j = s1(rslv, "resolver");
+  char b[4400], why[600];
+  size_t n = 0;
+  int rc;
+  why[0] = '\0';
+  if ((rc = nqdrslv(j, strlen(j), b, sizeof b, &n, why, sizeof why)) != NQOK)
+    dfail(rc, "the resolver", why);
+  return Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
+}
+
+SEXP Cdrsp(SEXP rslv, SEXP reply) {
+  const char *j = s1(rslv, "resolver");
+  char b[4400], why[600], tm[21];
+  size_t n = 0;
+  int rc;
+  SEXP out;
+  if (TYPEOF(reply) != RAWSXP) Rf_error("'reply' must be a raw vector");
+  why[0] = '\0';
+  rc = nqdrsp(j, strlen(j), (const char *)RAW(reply), (size_t)XLENGTH(reply),
+              b, sizeof b, &n, tm, why, sizeof why);
+  if (rc != NQOK) dfail(rc, "the reply", why);
+  out = PROTECT(Rf_allocVector(STRSXP, 2));
+  SET_STRING_ELT(out, 0, Rf_mkCharLenCE(b, (int)n, CE_UTF8));
+  SET_STRING_ELT(out, 1, Rf_mkChar(tm));
+  UNPROTECT(1);
+  return out;
+}
+
+SEXP Cdwb(SEXP url) {
+  char b[4400];
+  size_t n = 0;
+  int rc = nqdwb(s1(url, "url"), b, sizeof b, &n);
+  if (rc != NQOK) dfail(rc, "the address", NULL);
+  return Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
 }
