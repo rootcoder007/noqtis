@@ -251,7 +251,8 @@ A server returns at most its record limit of features to one query.
 gives each request and how its reply is read.
 An address a portal answers with must be http:// or https://, and
 https:// when the portal is, and its host must not be this machine
-or a local network: localhost, an IPv6 literal, or an IPv4 address
+or a local network: localhost, an address with a user name before the
+host (user@host), an IPv6 literal, or an IPv4 address
 other than a plain dotted quad of a public range are refused (a name
 is not resolved for this check).
 .Ss The network

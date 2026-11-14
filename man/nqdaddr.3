@@ -250,7 +250,8 @@ of RFC 3986.
 An address read from a reply must be http:// or https://, at most 4,096
 bytes, without a space, control character, backslash or fragment, and
 https:// when the portal is, and its host must not be this machine
-or a local network: localhost, an IPv6 literal, or an IPv4 address
+or a local network: localhost, an address with a user name before the
+host (user@host), an IPv6 literal, or an IPv4 address
 other than a plain dotted quad of a public range are refused (a name
 is not resolved for this check).
 .Pp

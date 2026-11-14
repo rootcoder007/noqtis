@@ -263,10 +263,14 @@ static void hosts(void) {
       "169.254.169.254", "100.64.0.1", "0.0.0.0", "224.0.0.1",
       "255.255.255.255", "2130706433", "0x7f000001", "0177.0.0.1",
       "[::1]", "[fe80::1]", "[::ffff:127.0.0.1]", "198.18.0.1",
-      "192.0.0.8", "1.2.3", "1.2.3.4.5"};
+      "192.0.0.8", "1.2.3", "1.2.3.4.5", "x@127.0.0.1",
+      "files.example.org@10.0.0.1", "u:p@localhost", "8.8.8.8@[::1]",
+      "example.7"};
   static const char *const good[] = {"8.8.8.8", "172.32.0.1",
                                      "files.example.org", "100.128.0.1",
-                                     "deadbeef.example.com"};
+                                     "deadbeef.example.com", "cdc.ca",
+                                     "dead.beef.cafe", "0xabc.fed",
+                                     "127.0.0.1.example.com"};
   const char *rs = "{\"base\":\"https://x.org\",\"kind\":\"ckan\","
                    "\"resource\":\"r\"}";
   char rp[300];

@@ -75,9 +75,14 @@ static int urlok(const char *s, size_t n, int noq) {
 static int pubhost(const char *u, size_t n) {
   size_t h = ishttps(u) ? 8 : 7, e = h, i, k = 0, dots = 0;
   unsigned o[4] = {0, 0, 0, 0};
-  int num = 1, dig = 0;
+  int num, dig = 0;
   if (h < n && u[h] == '[')
     return 0;
+  /* user@host: what stands before the @ is not the host, and a reply
+   * has no use for it */
+  for (i = h; i < n && u[i] != '/' && u[i] != '?'; i++)
+    if (u[i] == '@')
+      return 0;
   while (e < n && u[e] != ':' && u[e] != '/' && u[e] != '?')
     e++;
   while (e > h && u[e - 1] == '.')
@@ -86,12 +91,12 @@ static int pubhost(const char *u, size_t n) {
     return 0;
   if (e - h > 10 && caseq(u + e - 10, 10, ".localhost"))
     return 0;
-  for (i = h; i < e; i++) {
-    char c = (char)lc((unsigned char)u[i]);
-    if (!((c >= '0' && c <= '9') || c == '.' || c == 'x' ||
-          (c >= 'a' && c <= 'f')))
-      num = 0;
-  }
+  /* a resolver reads a host as a number only when every part starts
+   * with a digit (decimal, 0x hex, 0 octal), and no name ends in a part
+   * that does: the last part decides */
+  for (i = e; i > h && u[i - 1] != '.'; i--)
+    ;
+  num = i < e && u[i] >= '0' && u[i] <= '9';
   if (!num)
     return 1;
   /* something a resolver may read as a number: only a plain dotted quad
