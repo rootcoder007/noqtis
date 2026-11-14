@@ -62,6 +62,8 @@ typedef size_t iolen;
 #define NCCAMAX ((size_t)16 << 20) /* the largest CA bundle read */
 #define NCCTMAX ((size_t)4 << 20)  /* the largest CT log list read */
 #define NCHOPS 5           /* redirects ncget follows */
+#define NCLENMAX ((uint64_t)1 << 50) /* a Content-Length read at most */
+#define NCREAD ((size_t)1 << 20) /* the most bytes one recv asks for */
 
 static void say(char *err, size_t cap, const char *fmt, ...) {
   va_list ap;
@@ -305,8 +307,8 @@ static const char *hval(const char *h, const char *name, size_t *len) {
   return NULL;
 }
 
-/* decodes a chunked body in place; -1 when it is malformed */
-static long unchunk(uint8_t *b, size_t n) {
+/* decodes a chunked body in place into *len; -1 when it is malformed */
+static int unchunk(uint8_t *b, size_t n, size_t *len) {
   size_t i = 0, o = 0;
   for (;;) {
     size_t v = 0, k = 0;
@@ -328,8 +330,10 @@ static long unchunk(uint8_t *b, size_t n) {
     if (i >= n)
       return -1;
     i++;
-    if (v == 0)
-      return (long)o;
+    if (v == 0) {
+      *len = o;
+      return 0;
+    }
     if (v > n - i || n - i - v < 2 || b[i + v] != '\r' || b[i + v + 1] != '\n')
       return -1;
     memmove(b + o, b + i, v);
@@ -556,23 +560,42 @@ static int whole(const char *b, size_t n) {
            (n - hl == 5 || b[n - 7] == '\r');
   }
   if ((v = hval(b, "content-length:", &vl)) != NULL) {
-    unsigned long cl = 0;
+    uint64_t cl = 0;
     size_t i;
-    for (i = 0; i < vl && v[i] >= '0' && v[i] <= '9' && cl <= NCBODY * 64;
+    for (i = 0; i < vl && v[i] >= '0' && v[i] <= '9' && cl <= NCLENMAX;
          i++) {
-      cl = cl * 10 + (unsigned long)(v[i] - '0');
+      cl = cl * 10 + (uint64_t)(v[i] - '0');
     }
-    return i == vl && i > 0 && n - hl >= cl;
+    return i == vl && i > 0 && (uint64_t)(n - hl) >= cl;
   }
   return 0;
 }
 #endif
 
+/* room for one more byte in *buf (*bc bytes and a NUL), growing it up
+ * to max: 1, 0 when it is full, -1 out of memory */
+static int room(char **buf, size_t *bc, size_t got, size_t max) {
+  size_t nc;
+  char *nb;
+  if (got < *bc) return 1;
+  if (*bc >= max) return 0;
+  nc = *bc > max / 2 ? max : *bc * 2;
+  nb = (char *)realloc(*buf, nc + 1);
+  if (nb == NULL) return -1;
+  *buf = nb;
+  *bc = nc;
+  return 1;
+}
+
 /* sends the request (head of hn bytes, then body) and reads the reply
- * whole into *buf (malloc'd, NUL-terminated, at most max bytes) */
+ * whole into *buf (malloc'd, NUL-terminated, at most max bytes). With
+ * cut not NULL, a reply that stops early (the connection fails or times
+ * out after its first byte) is kept, with *cut 1 and why in err. */
 static int xfer(const ncurl *u, const char *head, size_t hn,
                 const uint8_t *bd, size_t n, size_t max, char **buf,
-                size_t *got, char *err, size_t cap) {
+                size_t *got, int *cut, char *err, size_t cap) {
+  size_t bc = max < 65536 ? max : 65536;
+  int rm;
   struct addrinfo hint, *res = NULL, *a;
   sockt s = NOSOCK;
   int rc = NCUSE, k;
@@ -595,6 +618,7 @@ static int xfer(const ncurl *u, const char *head, size_t hn,
 #endif
   *buf = NULL;
   *got = 0;
+  if (cut != NULL) *cut = 0;
 #ifdef NQTLSON
   if (u->tls && cafile(&ca, &can, err, cap) != NCOK) return NCUSE;
   if (u->tls && ctfile(&ct, &ctn, err, cap) != NCOK) {
@@ -620,7 +644,7 @@ static int xfer(const ncurl *u, const char *head, size_t hn,
         "no answer in %d s)", u->host, u->port, NCWAIT);
     goto out;
   }
-  *buf = (char *)malloc(max + 1);
+  *buf = (char *)malloc(bc + 1);
   if (*buf == NULL) {
     say(err, cap, "out of memory");
     goto out;
@@ -653,17 +677,25 @@ static int xfer(const ncurl *u, const char *head, size_t hn,
     }
     for (;;) {
       size_t r = 0;
-      if (*got == max) {
-        say(err, cap, "the reply is over %lu bytes", (unsigned long)max);
+      if ((rm = room(buf, &bc, *got, max)) <= 0) {
+        if (rm < 0)
+          say(err, cap, "out of memory");
+        else
+          say(err, cap, "the reply is over %lu bytes", (unsigned long)max);
         goto out;
       }
-      k = nqtlrd(t, (uint8_t *)*buf + *got, max - *got, &r);
+      k = nqtlrd(t, (uint8_t *)*buf + *got,
+                 bc - *got > NCREAD ? NCREAD : bc - *got, &r);
       if (k != NQOK) {
         (*buf)[*got] = '\0';
         /* a server that closes without close_notify after a reply
          * complete by its own length is common; anything less is cut */
         if (k == NQEIO && whole(*buf, *got)) break;
         say(err, cap, "TLS with %s: %s", u->host, nqtlwhy(t));
+        if (cut != NULL && *got > 0) {
+          *cut = 1;
+          rc = NCOK;
+        }
         goto out;
       }
       if (r == 0) break;
@@ -681,18 +713,32 @@ static int xfer(const ncurl *u, const char *head, size_t hn,
   }
   for (;;) {
     int r;
-    if (*got == max) {
-      say(err, cap, "the reply is over %lu bytes", (unsigned long)max);
+    if ((rm = room(buf, &bc, *got, max)) <= 0) {
+      if (rm < 0)
+        say(err, cap, "out of memory");
+      else
+        say(err, cap, "the reply is over %lu bytes", (unsigned long)max);
       goto out;
     }
     if (await(s, 1) != 0) {
-      say(err, cap, "no complete reply in %d s (at most %d s per read)",
-          NCALL, NCWAIT);
+      say(err, cap, "no complete reply in time (at most %d s per read)",
+          NCWAIT);
+      if (cut != NULL && *got > 0) {
+        (*buf)[*got] = '\0';
+        *cut = 1;
+        rc = NCOK;
+      }
       goto out;
     }
-    r = (int)recv(s, *buf + *got, (iolen)(max - *got), 0);
+    r = (int)recv(s, *buf + *got,
+                  (iolen)(bc - *got > NCREAD ? NCREAD : bc - *got), 0);
     if (r < 0) {
       neterr(err, cap, "the connection failed while reading the reply");
+      if (cut != NULL && *got > 0) {
+        (*buf)[*got] = '\0';
+        *cut = 1;
+        rc = NCOK;
+      }
       goto out;
     }
     if (r == 0) break;
@@ -736,37 +782,35 @@ static int status(const char *buf, int *code, size_t *hl, char *err,
 static int body(char *buf, size_t got, size_t hl, size_t max,
                 uint8_t **out, size_t *outn, char *err, size_t cap) {
   const char *v;
-  size_t vl = 0;
-  long bl = (long)(got - hl);
+  size_t vl = 0, bl = got - hl;
   if ((v = hval(buf, "transfer-encoding:", &vl)) != NULL &&
       pre(v, "chunked")) {
-    bl = unchunk((uint8_t *)buf + hl, got - hl);
-    if (bl < 0) {
+    if (unchunk((uint8_t *)buf + hl, got - hl, &bl) != 0) {
       say(err, cap, "the chunked reply is malformed or cut short");
       return NCUSE;
     }
   } else if ((v = hval(buf, "content-length:", &vl)) != NULL) {
-    unsigned long cl = 0;
+    uint64_t cl = 0;
     size_t i;
     for (i = 0; i < vl && v[i] >= '0' && v[i] <= '9' && cl <= max; i++)
-      cl = cl * 10 + (unsigned long)(v[i] - '0');
-    if (i != vl || i == 0 || cl > got - hl) {
+      cl = cl * 10 + (uint64_t)(v[i] - '0');
+    if (i != vl || i == 0 || cl > (uint64_t)(got - hl)) {
       say(err, cap, "the reply is shorter than its Content-Length");
       return NCUSE;
     }
-    bl = (long)cl;
+    bl = (size_t)cl;
   }
-  if (bl <= 0) {
+  if (bl == 0) {
     say(err, cap, "the reply is empty");
     return NCUSE;
   }
-  *out = (uint8_t *)malloc((size_t)bl);
+  *out = (uint8_t *)malloc(bl);
   if (*out == NULL) {
     say(err, cap, "out of memory");
     return NCUSE;
   }
-  memcpy(*out, buf + hl, (size_t)bl);
-  *outn = (size_t)bl;
+  memcpy(*out, buf + hl, bl);
+  *outn = bl;
   return NCOK;
 }
 
@@ -814,7 +858,8 @@ int nchttp(const char *url, const uint8_t *body0, size_t n, uint8_t **out,
     return NCUSE;
   }
   dline = time(NULL) + NCALL;
-  if (xfer(&u, head, hn, body0, n, NCHDR + NCBODY, &buf, &got, err, cap) !=
+  if (xfer(&u, head, hn, body0, n, NCHDR + NCBODY, &buf, &got, NULL, err,
+           cap) !=
           NCOK ||
       status(buf, &code, &hl, err, cap) != NCOK) {
     goto out;
@@ -927,7 +972,8 @@ int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
     if (parse(cur, &u, err, cap) != NCOK ||
         mkhead(&u, "GET", "Accept: */*\r\n", head, sizeof head, &hn, err,
                cap) != NCOK ||
-        xfer(&u, head, hn, NULL, 0, NCHDR + max, &buf, &got, err, cap) !=
+        xfer(&u, head, hn, NULL, 0, NCHDR + max, &buf, &got, NULL, err,
+             cap) !=
             NCOK ||
         status(buf, &code, &hl, err, cap) != NCOK) {
       break;
