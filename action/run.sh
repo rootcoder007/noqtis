@@ -151,7 +151,9 @@ bdiff() {
     echo "::notice title=noqtis diff::$NQDIR is new since $NQBASE"
     printf '\n%s is new since %s.\n' "\`$NQDIR\`" "\`$NQBASE\`" > "$sec"
   else
-    git archive "$NQBASE" -- "$NQDIR" | tar -x -C "$t/base" ||
+    # tar is not given the folder's path: with a drive letter (D:\...) GNU tar
+    # reads "D:" as a remote host
+    git archive "$NQBASE" -- "$NQDIR" | (cd "$t/base" && tar -xf -) ||
       die "cannot read $NQDIR at $NQBASE"
     rc=0
     "$NQBIN" diff -- "$t/base/$NQDIR" "$NQDIR" > "$t/out" 2> "$t/err" || rc=$?
