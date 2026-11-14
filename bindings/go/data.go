@@ -641,3 +641,171 @@ func Diff(a, b string) (*DReport, error) {
 	c := C.nqddiff(ac, bc, &r)
 	return dreport(c, r)
 }
+
+// ---- sources (nqdaddr(3)) ----
+
+// An Addr is where a source can be fetched: Kind is "url", "portal" (the
+// request to send, whose reply DataReply reads), "mirror" or "archived"
+// (a Wayback Machine copy's raw bytes).
+type Addr struct {
+	Kind, URL string
+}
+
+// DataAddrs lists the addresses the source file can be fetched from, in
+// the order to try them; none for a synthetic source.
+func DataAddrs(dir, file string) ([]Addr, error) {
+	var m cmem
+	defer m.free()
+	d, err := m.str(dir)
+	if err != nil {
+		return nil, err
+	}
+	f, err := m.str(file)
+	if err != nil {
+		return nil, err
+	}
+	r, err := drec(d, false)
+	if err != nil {
+		return nil, err
+	}
+	defer C.nqdrfree(r)
+	kinds := [...]string{"", "url", "portal", "mirror", "archived"}
+	var out []Addr
+	for i := 0; ; i++ {
+		var k C.int
+		s, c := grow(func(o *C.char, cp C.size_t, n *C.size_t) C.int {
+			return C.nqdaddr(r, f, C.size_t(i), &k, o, cp, n)
+		})
+		if c == -1 || (c == -7 && i > 0) {
+			return out, nil
+		}
+		if c != 0 {
+			return nil, cerr(int(c))
+		}
+		if k < 1 || k > 4 {
+			k = 4
+		}
+		out = append(out, Addr{kinds[k], s})
+	}
+}
+
+// DataVerify says whether b are the source file's recorded bytes (its
+// size and SHA-256): only such bytes may be taken for it.
+func DataVerify(dir, file string, b []byte) (bool, error) {
+	var m cmem
+	defer m.free()
+	d, err := m.str(dir)
+	if err != nil {
+		return false, err
+	}
+	f, err := m.str(file)
+	if err != nil {
+		return false, err
+	}
+	r, err := drec(d, false)
+	if err != nil {
+		return false, err
+	}
+	defer C.nqdrfree(r)
+	switch c := C.nqdvrfy(r, f, m.bytes(b), C.size_t(len(b))); c {
+	case 0:
+		return true, nil
+	case -3:
+		return false, nil
+	default:
+		return false, cerr(int(c))
+	}
+}
+
+// DataField is the field name of element i of member (0 for "env" and
+// "cite"): a string as its text, anything else as canonical JSON; false
+// when there is none.
+func DataField(dir, member string, i int, name string) (string, bool, error) {
+	var m cmem
+	defer m.free()
+	d, err := m.str(dir)
+	if err != nil {
+		return "", false, err
+	}
+	mc, err := m.str(member)
+	if err != nil {
+		return "", false, err
+	}
+	fc, err := m.str(name)
+	if err != nil {
+		return "", false, err
+	}
+	if i < 0 {
+		return "", false, cerr(-1)
+	}
+	r, err := drec(d, false)
+	if err != nil {
+		return "", false, err
+	}
+	defer C.nqdrfree(r)
+	s, c := grow(func(o *C.char, cp C.size_t, n *C.size_t) C.int {
+		return C.nqdfld(r, mc, C.size_t(i), fc, o, cp, n)
+	})
+	if c == -7 {
+		return "", false, nil
+	}
+	if c != 0 {
+		return "", false, cerr(int(c))
+	}
+	return s, true, nil
+}
+
+// DataRequest is the address to ask (a GET) for the file of a source's
+// resolver (JSON: CKAN, Socrata, ArcGIS or the Wayback Machine).
+func DataRequest(resolver string) (string, error) {
+	var m cmem
+	defer m.free()
+	j, err := m.str(resolver)
+	if err != nil {
+		return "", err
+	}
+	var w [600]C.char
+	b := (*C.char)(m.alloc(4400, 1))
+	var n C.size_t
+	if c := C.nqdrslv(j, C.size_t(len(resolver)), b, 4400, &n, &w[0], 600); c != 0 {
+		return "", dfail(c, &w[0])
+	}
+	return C.GoStringN(b, C.int(n)), nil
+}
+
+// DataReply reads the portal's reply to DataRequest: the file's address,
+// and for the Wayback Machine the copy's time ("" otherwise).
+func DataReply(resolver string, reply []byte) (string, string, error) {
+	var m cmem
+	defer m.free()
+	j, err := m.str(resolver)
+	if err != nil {
+		return "", "", err
+	}
+	var w [600]C.char
+	var tm [21]C.char
+	b := (*C.char)(m.alloc(4400, 1))
+	var n C.size_t
+	c := C.nqdrsp(j, C.size_t(len(resolver)), (*C.char)(unsafe.Pointer(m.bytes(reply))),
+		C.size_t(len(reply)), b, 4400, &n, &tm[0], &w[0], 600)
+	if c != 0 {
+		return "", "", dfail(c, &w[0])
+	}
+	return C.GoStringN(b, C.int(n)), C.GoString(&tm[0]), nil
+}
+
+// DataWayback is the raw-bytes address of a Wayback Machine copy (any
+// other http:// or https:// address as it is).
+func DataWayback(url string) (string, error) {
+	var m cmem
+	defer m.free()
+	u, err := m.str(url)
+	if err != nil {
+		return "", err
+	}
+	s, c := grow(func(o *C.char, cp C.size_t, n *C.size_t) C.int { return C.nqdwb(u, o, cp, n) })
+	if c != 0 {
+		return "", cerr(int(c))
+	}
+	return s, nil
+}

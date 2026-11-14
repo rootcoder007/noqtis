@@ -206,3 +206,57 @@ func TestDataDiff(t *testing.T) {
 		t.Errorf("a changed url: %+v", r)
 	}
 }
+
+func TestDataSources(t *testing.T) {
+	v := nqdvec(t)
+	d := nqdcap(t, v, false)
+	if err := DataAdd(d, []string{"data/a.csv"}, &Src{URL: "https://example.org/a.csv"}); err != nil {
+		t.Fatal(err)
+	}
+	e, _, err := DataKey(d, "sources", "data/a.csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e = e[:len(e)-1] + `,"mirrors":["https://m.example.net/a.csv"],"resolver":{"base":"https://data.example.org","id":"abcd-1234","kind":"socrata"}}`
+	if err := DataPut(d, "sources", e); err != nil {
+		t.Fatal(err)
+	}
+	a, err := DataAddrs(d, "data/a.csv")
+	if err != nil || len(a) != 3 || a[0].Kind != "url" || a[1].Kind != "portal" ||
+		a[2].Kind != "mirror" || a[1].URL != "https://data.example.org/api/views/abcd-1234.json" {
+		t.Fatalf("addrs %v %v", a, err)
+	}
+	b, _ := os.ReadFile(filepath.Join(d, "data", "a.csv"))
+	if ok, err := DataVerify(d, "data/a.csv", b); !ok || err != nil {
+		t.Fatalf("verify %v %v", ok, err)
+	}
+	if ok, _ := DataVerify(d, "data/a.csv", b[1:]); ok {
+		t.Fatal("other bytes verified")
+	}
+	if s, ok, _ := DataField(d, "sources", 0, "url"); !ok || s != "https://example.org/a.csv" {
+		t.Fatalf("field %q", s)
+	}
+	if _, ok, _ := DataField(d, "sources", 0, "title"); ok {
+		t.Fatal("a missing field")
+	}
+	if _, err := DataAddrs(d, "none.csv"); err == nil {
+		t.Fatal("no such source")
+	}
+	wb := `{"base":"https://example.org/a.csv","kind":"wayback"}`
+	r, _ := os.ReadFile(filepath.Join(v, "src", "wb.json"))
+	u, tm, err := DataReply(wb, r)
+	if err != nil || u != "https://web.archive.org/web/20240102030405id_/https://example.org/a.csv" ||
+		tm != "2024-01-02T03:04:05Z" {
+		t.Fatalf("reply %q %q %v", u, tm, err)
+	}
+	r, _ = os.ReadFile(filepath.Join(v, "src", "wb-none.json"))
+	if _, _, err := DataReply(wb, r); err == nil {
+		t.Fatal("no copy accepted")
+	}
+	if _, err := DataRequest(`{"base":"https://x.org/a","kind":"direct"}`); err == nil {
+		t.Fatal("a direct resolver")
+	}
+	if s, _ := DataWayback("http://web.archive.org/web/2024/https://x.org/a"); s != "https://web.archive.org/web/2024id_/https://x.org/a" {
+		t.Fatalf("wayback %q", s)
+	}
+}
