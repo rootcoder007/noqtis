@@ -210,6 +210,34 @@ Also `data::text`, `data::canon`, `data::key`, `data::del` and
 `data::schemacheck`. The crate compiles the data layer (`nqd/`) in with
 the library.
 
+## Passphrase keys, streams and sealed files
+
+```rust
+use noqtis::{kem, keyfile, sign};
+use std::fs::File;
+
+let (pk, sk) = sign::keygen("ML-DSA-65", None)?;
+keyfile::writep("me", "ML-DSA-65", "sec", &sk, false, Some(b"a passphrase"))?;
+let o = sign::Opts::default();
+let mut s = sign::Signer::new("ML-DSA-65", &sk, &o)?;
+std::io::copy(&mut File::open("big.csv").unwrap(), &mut s).unwrap();
+let sig = s.finish(&o)?;                      // sign::sign's bytes
+let (kp, _ks) = kem::keygen("ML-KEM-768", None)?;
+kem::enbox("ML-KEM-768", &kp, &mut File::open("big.csv").unwrap(),
+           &mut File::create("big.csv.nqk").unwrap(), b"", 0)?;
+```
+
+`sign::Verifier`, `Hasher`, `kem::Boxer` and `kem::Unboxer` are the
+other streams (`io::Write` where they take bytes); `kem::seal` and
+`kem::open` a message; `sign::mu`, `signmu` and `verifymu` ML-DSA with
+an external mu; `blake2b`, `argon2id`, `cteq` and `wipe` the primitives.
+`cap::sealwhy`, `tsreq`, `tsput`, `ersreq`, `ersput`, `rotate`,
+`revoke` and the `dsse` module reach the rest of the capsule
+functions; `data::checkschema`, `synth`, `calibrate`, `chunks`,
+`piece`, `commit`, `reveal`, `commitment`, `cite`, `report`, `pack`,
+`unpack`, `checkpack`, `chain` and `env` the rest of the data layer
+(`env` reads the packages from the folder's `Cargo.lock`).
+
 ## Errors
 
 Every failure is a `noqtis::Error`: `code()` is the library's `NQE*`

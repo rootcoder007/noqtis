@@ -145,6 +145,8 @@ a card.
 
 ## Notes
 
+- `NewSigner`, `Box` and `ReadKeyPW` stream signatures, seal files to an
+  ML-KEM key and read protected keys; the module README lists the rest.
 - `KEMKeyGen`, `Encap` and `Decap` do key encapsulation; `Hash`,
   `HashN`, `HMAC` and `Random` the rest; `ReadKey` and `WriteKey` read
   and write the CLI's key files.

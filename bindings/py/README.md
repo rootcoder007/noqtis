@@ -168,6 +168,37 @@ assert keyfile.decode(text).key == pk
 `write` never replaces a file unless `force=True`. Python's base64 is not
 constant time: decode secret key files where timing is not observable.
 
+## Passphrase keys, streams and sealed files
+
+```python
+from noqtis import keyfile, kem, sign
+import shutil
+
+keyfile.write("me", "ML-DSA-65", "sec", sk, passphrase="a passphrase")
+sk = keyfile.read("me", "sec", passphrase="a passphrase").key
+
+s = sign.Signer("ML-DSA-65", sk)              # a message of any size
+with open("big.csv", "rb") as f:
+    shutil.copyfileobj(f, s)
+sig = s.finish()                              # sign.sign's bytes
+
+pk, sk = kem.keygen("ML-KEM-768")
+with open("big.csv", "rb") as src, open("big.csv.nqk", "wb") as dst:
+    kem.box("ML-KEM-768", pk, src, dst)       # the noqtis box format
+sealed = kem.seal("ML-KEM-768", pk, b"a hidden list")
+```
+
+`sign.Verifier`, `noqtis.Hasher`, `kem.Boxer` and `kem.Unboxer` are the
+other streams; each holds one piece at a time. `sign.mu`, `sign.signmu`
+and `sign.verifymu` are ML-DSA with an external mu; `noqtis.blake2b`,
+`noqtis.argon2id` and `noqtis.cteq` the primitives under the key files.
+`noqtis.inspect`, `sealwhy`, `tsreq`, `tsput`, `ersreq`, `ersput`,
+`pack`, `unpack`, `checkpack` and `chain` reach the rest of the capsule
+functions, and `noqtis.data` the rest of the data record: `parse`,
+`checkschema`, `synth`, `calibrate`, `chunks`, `piece`, `commit`,
+`reveal`, `commitment`, `cite`, `report` and `env`, which records the
+environment with the Python runtime and its installed distributions.
+
 ## Errors
 
 Every failure raises a subclass of `noqtis.NoqtisError`, one per library

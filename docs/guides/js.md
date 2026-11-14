@@ -193,6 +193,9 @@ Bun imports `noqtis` as Node does.
 
 ## Notes
 
+- `sign.signer`, `kem.box` and `keyfile.decode(text, { passphrase })`
+  stream signatures, seal files to an ML-KEM key and read protected keys;
+  the package README lists the rest.
 - Randomness comes only from `crypto.getRandomValues`; if it is missing
   the call throws, with no fallback.
 - Buffers the package places in WebAssembly memory are wiped before they

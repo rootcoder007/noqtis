@@ -325,6 +325,36 @@ Every binding has its own tests that run the capsule round trip and a
 sample of the ACVP vectors through the binding, on every platform the
 ecosystem supports, before a release is published.
 
+### What the bindings reach
+
+Python, R, Rust, Go, Java and JavaScript reach every public function of
+`noqtis.h` and `nqd.h` but these, for the reasons given:
+
+- `nqsetrng`, `nqsetprog`, `nqsetal`: process-wide hooks that every call
+  from any thread would then enter; the bindings call into the library
+  from many threads (the GIL released, goroutines, Java threads) and
+  cannot make a callback into the runtime safe there. Fixed randomness
+  for tests goes through the functions that take it (`nqskgd`, `nqkkgd`,
+  `nqencd`, `nqsignd`, the `rnd` of `nqsfin` and `nqsignmu`).
+- `nqtlnew` ... `nqtlfree`: the TLS client needs socket callbacks, is
+  built only with `NQTLS`, and every language has its own TLS; the
+  library itself makes no network request.
+- `nqsfind`, `nqkfind`: each binding finds algorithms by name in the
+  table `nqsname` and `nqkname` give.
+- `nqchk`, `nqchkt`: `nqchkx` with fewer options, which every binding
+  calls.
+- `nqdlen`, `nqdat` (Python, R, Go, JavaScript): the record comes back
+  as its JSON text (`nqdjson`), whose elements the language reads.
+- `nqdnew`, `nqdload`, `nqdsave` (JavaScript): there a record is its
+  text and a capsule its files in memory; `nqdparse` and `nqdjson` read
+  and write it.
+
+The command line also has `noqtis export --as intoto|rocrate|bagit`, the
+fetching in `noqtis src`, `noqtis pack init` and the checks of `noqtis
+pack check`, written in the tool and not in the library; a binding gets
+the same results from the library functions under them (DSSE, bundles,
+sources' addresses, the data record's checks).
+
 ### Order
 
 1. Library and CLI on every platform in CI (M11). Done.

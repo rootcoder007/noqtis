@@ -232,6 +232,32 @@ Data.diff(Path.of("results-v1"), d).same();
 Also `Data.text`, `Data.canon`, `Data.key`, `Data.del` and
 `Data.schemaCheck`.
 
+## Passphrase keys, streams and sealed files
+
+```java
+KeyFile.write(Path.of("me"), "ML-DSA-65", "sec", sk, false, pass); // char[] pass
+try (Signer s = new Signer("ML-DSA-65", sk, Sign.Opts.none());
+     InputStream in = Files.newInputStream(Path.of("big.csv"))) {
+  s.update(in);
+  byte[] sig = s.sign(Sign.Opts.none());       // Sign.sign's bytes
+}
+try (InputStream in = Files.newInputStream(Path.of("big.csv"));
+     OutputStream out = Files.newOutputStream(Path.of("big.csv.nqk"))) {
+  Box.box("ML-KEM-768", kemPk, in, out, null, 0);
+}
+```
+
+`Verifier`, `Hasher`, `Box.Sealer` and `Box.Opener` are the other
+streams; `Kem.seal` and `Kem.open` a message; `Sign.mu`, `signmu` and
+`verifymu` ML-DSA with an external mu; `Noqtis.blake2b`, `argon2id`,
+`cteq` and `wipe` the primitives. `Capsule.sealWhy`, `tsreq`, `tsput`,
+`ersreq`, `ersput`, `rotate`, `revoke` and the `Dsse` class reach the
+rest of the capsule functions; `Data.checkSchema`, `synth`,
+`calibrate`, `chunks`, `piece`, `commit`, `reveal`, `commitment`,
+`cite`, `report`, `pack`, `unpack`, `checkPack`, `chain` and `env` the
+rest of the data layer (`env` lists the boot layer's modules and the
+class path's jars).
+
 ## Errors
 
 Every failure is a `NoqtisException` (unchecked): `code()` is the

@@ -97,6 +97,12 @@ existing file unless asked to (`force=True`, `force = TRUE`). See the
 [JavaScript](https://noqtis.dev/reference/api/javascript/) and
 [R](https://noqtis.dev/reference/api/r/) API references.
 
+Every binding reads and writes a secret key kept under a passphrase too
+(Python `passphrase=`, R `pass =`, JavaScript `{ passphrase }`, Rust
+`readp` and `writep`, Go `ReadKeyPW` and `WriteKeyPW`, Java a `char[]`
+argument), in the format `noqtis keygen --pass-fd` writes, and none
+puts the passphrase in an error message.
+
 ## Deterministic keys
 
 `--seed` derives the key pair from the standard's seed, the way the NIST

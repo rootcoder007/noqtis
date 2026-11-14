@@ -120,6 +120,15 @@ changed card does not verify (`NULL`), and an iD with a wrong check
 digit is refused. The card is self-signed, so give `v$key_sha256` where
 people already know you, or let them pin your public key.
 
+## Streams, protected keys and sealed files
+
+`nqsigner()` and `nqupdate()` sign a message given in pieces,
+`nqsignfile()` a file of any size; `nqreadkey(path, pass = ...)` reads
+a key kept under a passphrase; `nqbox()` and `nqunbox()` seal a file to
+an ML-KEM key in the format of `noqtis box`; `nqdenv()` records R and
+its loaded packages in the data record. The package README lists the
+rest.
+
 ## In a reproducible workflow
 
 Seal the output folder as the last step of the analysis script, and

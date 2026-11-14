@@ -268,3 +268,11 @@ Both write the same bytes as the command line.
 From Rust, Go and Java the same steps are `noqtis::data::{add, schema,
 put, pin, drift}`, `noqtis.DataAdd`, `Schema`, `DataPut`, `Pin` and
 `Drift`, and `Data.add`, `schema`, `put`, `pin` and `drift`.
+
+Every binding also has the rest of this page: the environment with its
+own runtime and packages (Python `data.env`, R `nqdenv()`, Rust
+`data::env`, Go `Env`, Java `Data.env`, JavaScript `data.env`),
+commitments and their reveal, the citation, the report, synthetic
+stand-ins, drift calibration, chunk digests and pieces, bundles (packed,
+unpacked and checked in place) and chains. Each binding's README names
+its functions.

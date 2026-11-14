@@ -169,6 +169,37 @@ refuses it. The files are held in memory while they are checked; for
 very large capsules use the `noqtis` command-line tool, which streams.
 The CommonJS `require('noqtis/node')` functions return promises.
 
+## Passphrase keys, streams and sealed files
+
+```js
+import { keyfile, kem, sign } from 'noqtis';
+import { createReadStream } from 'node:fs';
+
+const text = keyfile.encode('ML-DSA-65', 'sec', secretKey,
+  { passphrase: 'a passphrase' });
+const k = keyfile.decode(text, { passphrase: 'a passphrase' }).key;
+
+const s = sign.signer('ML-DSA-65', k);
+for await (const piece of createReadStream('big.csv')) s.update(piece);
+const sig = s.sign();                          // sign.sign's bytes
+
+const sealed = [];
+for await (const p of kem.box('ML-KEM-768', kemPk, createReadStream('big.csv'))) {
+  sealed.push(p);                              // the noqtis box format
+}
+```
+
+`sign.verifier`, `hasher`, `kem.sealer` and `kem.opener` are the other
+streams; `kem.seal` and `kem.open` a message; `sign.mu`, `signmu` and
+`verifymu` ML-DSA with an external mu; `blake2b`, `argon2id` and `cteq`
+the primitives. `capsule.inspect`, `sealWhy`, `tsreq`, `tsput`,
+`ersreq`, `ersput`, `pack`, `unpack` and `chain` reach the rest of the
+capsule functions (on files in memory, returning what changed);
+`data.key`, `del`, `synth`, `calibrate`, `chunks`, `piece`, `commit`,
+`reveal`, `commitment`, `cite`, `report` and `env` the rest of the data
+layer (`noqtis/node`'s `packages()` reads a `package-lock.json` for
+`env`).
+
 ## Security notes
 
 - Randomness comes only from `crypto.getRandomValues`; if it is missing

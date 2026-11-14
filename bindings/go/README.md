@@ -188,6 +188,30 @@ c, err := noqtis.Diff("results-v1", "results") // c.Same(), c.Rows
 
 `SchemaCheck` gives the schema and rule rows of `DataCheck`.
 
+## Passphrase keys, streams and sealed files
+
+```go
+err := noqtis.WriteKeyPW("me", "ML-DSA-65", "sec", sk, false, []byte("a passphrase"))
+s, err := noqtis.NewSigner("ML-DSA-65", sk, nil)
+f, _ := os.Open("big.csv")
+io.Copy(s, f)
+sig, err := s.Sum(nil)                        // Sign's bytes
+in, _ := os.Open("big.csv")
+out, _ := os.Create("big.csv.nqk")
+err = noqtis.Box("ML-KEM-768", kemPK, in, out, nil, 0)
+```
+
+`NewVerifier`, `NewHasher`, `NewBoxer` and `NewUnboxer` are the other
+streams (`io.Writer`s where they take bytes); `KSeal` and `KOpen` a
+message; `Mu`, `SignMu` and `VerifyMu` ML-DSA with an external mu;
+`Blake2b`, `Argon2id`, `CTEq` and `Wipe` the primitives. `SealWhy`,
+`TSReq`, `TSPut`, `ERSReq`, `ERSPut`, `Rotate`, `Revoke`, `DSSE` and
+`DSSEVerify` reach the rest of the capsule functions; `SchemaCheckElem`,
+`Synth`, `Calibrate`, `Chunks`, `Piece`, `Commit`, `Reveal`,
+`Commitment`, `Cite`, `DataReport`, `Pack`, `Unpack`, `CheckPack`,
+`Chain` and `Env` the rest of the data layer (`Env` takes the modules
+from the program's build information).
+
 ## Errors
 
 Every failure is an `*noqtis.Error`: `Code` is the library's `NQE*`

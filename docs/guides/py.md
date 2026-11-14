@@ -122,6 +122,9 @@ pin your public key.
 
 ## Notes
 
+- `sign.Signer`, `kem.box` and `keyfile.read(..., passphrase=...)` stream
+  signatures, seal files to an ML-KEM key and read protected keys; the
+  package README lists the rest.
 - Inputs may be `bytes`, `bytearray` or `memoryview`; outputs are `bytes`.
   Python cannot wipe `bytes`, so a secret key you hold in Python lives
   until the garbage collector frees it. Keep long-term keys in key files

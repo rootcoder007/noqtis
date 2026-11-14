@@ -168,6 +168,9 @@ that is not a card.
 
 ## Notes
 
+- `Signer`, `Box.box` and `KeyFile.read(path, kind, pass)` stream
+  signatures, seal files to an ML-KEM key and read protected keys; the
+  README lists the rest.
 - `Kem` has `keygen`, `encap` and `decap`; `Noqtis` has `hash`, `hmac`,
   `random`, `version` and `algs`; `KeyFile` reads and writes the CLI's
   key files.

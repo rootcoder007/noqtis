@@ -152,6 +152,9 @@ input that is not a card.
 
 ## Notes
 
+- `sign::Signer`, `kem::enbox` and `keyfile::readp` stream signatures, seal
+  files to an ML-KEM key and read protected keys; the crate README lists
+  the rest.
 - `noqtis::kem` has `keygen`, `encap` and `decap`; `noqtis::hash`,
   `noqtis::hmac` and `noqtis::random` the rest; `noqtis::keyfile` reads
   and writes the CLI's key files.

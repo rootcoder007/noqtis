@@ -1,3 +1,25 @@
+# Unreleased
+
+* Secret keys under a passphrase: `nqpwenc()`, `nqpwdec()` and `pass =`
+  for `nqreadkey()` and `nqwritekey()`, in the format `noqtis keygen
+  --pass-fd` writes.
+* Signatures over a message given in pieces: `nqsigner()`,
+  `nqverifier()`, `nqupdate()`, `nqfinish()`, and `nqsignfile()` and
+  `nqverifyfile()` for a file, 64 KiB at a time; each signature is the
+  one `nqsign()` gives.
+* A message or a file sealed to an ML-KEM key: `nqkseal()`, `nqkopen()`,
+  `nqbox()` and `nqunbox()` (the format of `noqtis box`, one chunk in
+  memory).
+* ML-DSA with an external mu (`nqmu()`, `nqsignmu()`, `nqverifymu()`),
+  BLAKE2b (`nqblake2b()`), Argon2id (`nqargon2id()`) and `nqcteq()`.
+* The rest of the capsule functions: `nqinspect()`, `nqsealwhy()`,
+  `nqtsreq()`, `nqtsput()`, `nqersreq()`, `nqersput()`, `nqpack()`,
+  `nqunpack()`, `nqcheckpack()` and `nqchain()`.
+* The rest of the data record: `nqdparse()`, `nqdschk()`, `nqdsyn()`,
+  `nqdcal()`, `nqdchunk()`, `nqdpiece()`, `nqdcommit()`, `nqdreveal()`,
+  `nqdcite()`, `nqdreport()`, and `nqdenv()` with `nqdpkgs()`, which
+  record the environment with R and its loaded packages.
+
 # noqtis 0.1.4
 
 * Built with libnoqtis 0.1.4: Ed25519 signing, SLH-DSA's PRF and HQC
