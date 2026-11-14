@@ -526,6 +526,37 @@ public final class Tests {
     ok(Math.abs(a - b) / d <= tol, what + ": " + a + ", expected " + b);
   }
 
+  static void dataSources() throws Exception {
+    Path d = nqdcap(false);
+    Data.add(d, List.of("data/a.csv"),
+        new Data.Src("https://example.org/a.csv", null, null, null, null, false));
+    String e = Data.key(d, "sources", "data/a.csv").orElseThrow();
+    Data.put(d, "sources", e.substring(0, e.length() - 1)
+        + ",\"mirrors\":[\"https://m.example.net/a.csv\"],\"resolver\":{\"base\":"
+        + "\"https://data.example.org\",\"id\":\"abcd-1234\",\"kind\":\"socrata\"}}");
+    List<Data.Addr> a = Data.addrs(d, "data/a.csv");
+    eq(a.size(), 3, "three addresses");
+    eq(a.get(0).kind() + " " + a.get(1).kind() + " " + a.get(2).kind(), "url portal mirror",
+        "in order");
+    eq(a.get(1).url(), "https://data.example.org/api/views/abcd-1234.json", "the portal");
+    byte[] b = Files.readAllBytes(d.resolve("data/a.csv"));
+    ok(Data.verify(d, "data/a.csv", b), "the recorded bytes");
+    ok(!Data.verify(d, "data/a.csv", Arrays.copyOf(b, b.length - 1)), "other bytes");
+    eq(Data.field(d, "sources", 0, "url").orElseThrow(), "https://example.org/a.csv", "field");
+    ok(Data.field(d, "sources", 0, "title").isEmpty(), "no field");
+    fails(() -> Data.addrs(d, "none.csv"));
+    String wb = "{\"base\":\"https://example.org/a.csv\",\"kind\":\"wayback\"}";
+    Data.Resolved r = Data.reply(wb, Files.readAllBytes(NQD.resolve("src/wb.json")));
+    eq(r.url(), "https://web.archive.org/web/20240102030405id_/https://example.org/a.csv",
+        "the raw copy");
+    eq(r.time(), "2024-01-02T03:04:05Z", "its time");
+    byte[] none = Files.readAllBytes(NQD.resolve("src/wb-none.json"));
+    fails(() -> Data.reply(wb, none));
+    fails(() -> Data.request("{\"base\":\"https://x.org/a\",\"kind\":\"direct\"}"));
+    eq(Data.wayback("http://web.archive.org/web/2024/https://x.org/a"),
+        "https://web.archive.org/web/2024id_/https://x.org/a", "wayback");
+  }
+
   static void dataRecord() throws Exception {
     String full = Files.readString(NQD.resolve("full.json"));
     String c = Data.canon(full);
@@ -657,6 +688,7 @@ public final class Tests {
     ts.put("dataSchema", Tests::dataSchema);
     ts.put("dataDrift", Tests::dataDrift);
     ts.put("dataDiff", Tests::dataDiff);
+    ts.put("dataSources", Tests::dataSources);
     int bad = 0;
     for (var e : ts.entrySet()) {
       long t0 = System.nanoTime();

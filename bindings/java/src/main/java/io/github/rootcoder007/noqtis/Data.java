@@ -172,6 +172,12 @@ public final class Data {
     static final MethodHandle REPI = fn("nqdrepi", I, P, Z, P, P, P);
     static final MethodHandle REPJ = fn("nqdrepj", P, P, Z);
     static final MethodHandle REPFREE = fn("nqdrepfree", null, P);
+    static final MethodHandle ADDR = fn("nqdaddr", I, P, P, Z, P, P, Z, P);
+    static final MethodHandle VRFY = fn("nqdvrfy", I, P, P, P, Z);
+    static final MethodHandle FLD = fn("nqdfld", I, P, P, Z, P, P, Z, P);
+    static final MethodHandle RSLV = fn("nqdrslv", I, P, Z, P, Z, P, P, Z);
+    static final MethodHandle RSP = fn("nqdrsp", I, P, Z, P, Z, P, Z, P, P, P, Z);
+    static final MethodHandle WB = fn("nqdwb", I, P, P, Z, P);
 
     private static MethodHandle fn(
         String name, java.lang.foreign.MemoryLayout ret, java.lang.foreign.MemoryLayout... a) {
@@ -776,6 +782,167 @@ public final class Data {
       MemorySegment rp = m.allocate(ADDRESS);
       int c = (int) N.DIFF.invoke(cs(m, a.toString()), cs(m, b.toString()), rp);
       return report(c, rp);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  // ---- sources (nqdaddr(3)) ----
+
+  /**
+   * Where a source can be fetched.
+   *
+   * @param kind "url", "portal" (the request to send, whose reply {@link #reply} reads), "mirror"
+   *     or "archived" (a Wayback Machine copy's raw bytes)
+   * @param url the address
+   */
+  public record Addr(String kind, String url) {}
+
+  /** The resolved address of a source and, for the Wayback Machine, the copy's time. */
+  public record Resolved(String url, String time) {}
+
+  private static final String[] KINDS = {"", "url", "portal", "mirror", "archived"};
+
+  /**
+   * The addresses the source file can be fetched from, in the order to try them.
+   *
+   * @param dir the capsule folder
+   * @param file the source's path
+   * @return the addresses; none for a synthetic source
+   */
+  public static List<Addr> addrs(Path dir, String file) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment r = rec(m, cs(m, dir.toString()), false), f = cs(m, file);
+      MemorySegment k = m.allocate(JAVA_INT);
+      List<Addr> out = new ArrayList<>();
+      try {
+        for (long i = 0; ; i++) {
+          long ii = i;
+          Object x = grow((o, cap, n) -> (int) N.ADDR.invoke(r, f, ii, k, o, cap, n));
+          if (x instanceof Integer c) {
+            if (c == -1 || (c == -7 && i > 0)) {
+              return out;
+            }
+            throw new NoqtisException(c);
+          }
+          int kd = k.get(JAVA_INT, 0);
+          out.add(new Addr(KINDS[kd >= 1 && kd <= 4 ? kd : 4], (String) x));
+        }
+      } finally {
+        N.RFREE.invoke(r);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * Whether the bytes are the source file's recorded bytes (its size and SHA-256): only such bytes
+   * may be taken for it.
+   *
+   * @param dir the capsule folder
+   * @param file the source's path
+   * @param b what was fetched
+   * @return true when they are
+   */
+  public static boolean verify(Path dir, String file, byte[] b) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment r = rec(m, cs(m, dir.toString()), false);
+      MemorySegment bs = m.allocate(Math.max(1, b.length));
+      MemorySegment.copy(b, 0, bs, JAVA_BYTE, 0, b.length);
+      try {
+        int c = (int) N.VRFY.invoke(r, cs(m, file), bs, (long) b.length);
+        if (c != 0 && c != -3) {
+          throw new NoqtisException(c);
+        }
+        return c == 0;
+      } finally {
+        N.RFREE.invoke(r);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * The field of element i of member (0 for "env" and "cite"): a string as its text, anything
+   * else as canonical JSON.
+   *
+   * @param dir the capsule folder
+   * @param member the member
+   * @param i the element's index, from 0
+   * @param name the field
+   * @return the value, or empty when there is none
+   */
+  public static Optional<String> field(Path dir, String member, long i, String name) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment r = rec(m, cs(m, dir.toString()), false);
+      MemorySegment mc = cs(m, member), fc = cs(m, name);
+      try {
+        Object x = grow((o, cap, n) -> (int) N.FLD.invoke(r, mc, i, fc, o, cap, n));
+        if (x instanceof Integer c) {
+          if (c == -7) {
+            return Optional.empty();
+          }
+          throw new NoqtisException(c);
+        }
+        return Optional.of((String) x);
+      } finally {
+        N.RFREE.invoke(r);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * The address to ask (a GET) for the file of a source's resolver (CKAN, Socrata, ArcGIS or the
+   * Wayback Machine).
+   *
+   * @param resolver the resolver, as JSON
+   * @return the address
+   */
+  public static String request(String resolver) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment why = m.allocate(WHY), j = cs(m, resolver);
+      return text((o, cap, n) -> (int) N.RSLV.invoke(j, blen(resolver), o, cap, n, why,
+          (long) WHY), why);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * Reads the portal's reply to {@link #request}.
+   *
+   * @param resolver the resolver, as JSON
+   * @param reply the reply's bytes
+   * @return the file's address, and for the Wayback Machine the copy's time ("" otherwise)
+   */
+  public static Resolved reply(String resolver, byte[] reply) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment why = m.allocate(WHY), j = cs(m, resolver), tm = m.allocate(21);
+      MemorySegment rp = m.allocate(Math.max(1, reply.length));
+      MemorySegment.copy(reply, 0, rp, JAVA_BYTE, 0, reply.length);
+      String u = text((o, cap, n) -> (int) N.RSP.invoke(j, blen(resolver), rp,
+          (long) reply.length, o, cap, n, tm, why, (long) WHY), why);
+      return new Resolved(u, tm.getString(0));
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * The raw-bytes address of a Wayback Machine copy (any other http:// or https:// address as it
+   * is).
+   *
+   * @param url the address
+   * @return the raw-bytes address
+   */
+  public static String wayback(String url) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment u = cs(m, url);
+      return text((o, cap, n) -> (int) N.WB.invoke(u, o, cap, n), null);
     } catch (Throwable t) {
       throw Native.wrap(t);
     }
