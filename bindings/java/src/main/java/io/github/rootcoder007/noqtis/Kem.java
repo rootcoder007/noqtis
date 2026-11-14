@@ -142,4 +142,65 @@ public final class Kem {
       throw Native.wrap(t);
     }
   }
+
+  /**
+   * msg sealed to the ML-KEM public key pk (noqtis-kseal-1): only the
+   * holder of the secret key opens it, with the same ctx.
+   *
+   * @param alg ML-KEM-512, -768 or -1024
+   * @param pk the public key
+   * @param msg the message
+   * @param ctx the context, at most 255 bytes (null for none)
+   * @return the sealed message
+   */
+  public static byte[] seal(String alg, byte[] pk, byte[] msg, byte[] ctx) {
+    Noqtis.Alg a = Noqtis.find(alg, "kem");
+    byte[] c = ctx == null ? new byte[0] : ctx;
+    try (Arena m = Arena.ofConfined()) {
+      return Native.sized(
+          m,
+          22L + a.ct() + msg.length,
+          (o, cap, n) ->
+              (int)
+                  Native.NQKSEAL.invoke(
+                      a.id(), Native.in(m, pk), (long) pk.length, Native.in(m, c), (long) c.length,
+                      Native.in(m, msg), (long) msg.length, o, cap, n));
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * The message {@link #seal} sealed: {@link NoqtisException.Code#VERIFY}
+   * for a changed byte, another key or another ctx,
+   * {@link NoqtisException.Code#DECODE} for bytes that are not a sealed
+   * message of this algorithm.
+   *
+   * @param alg ML-KEM-512, -768 or -1024
+   * @param sk the secret key
+   * @param data the sealed message
+   * @param ctx the context it was sealed with (null for none)
+   * @return the message
+   */
+  public static byte[] open(String alg, byte[] sk, byte[] data, byte[] ctx) {
+    Noqtis.Alg a = Noqtis.find(alg, "kem");
+    byte[] c = ctx == null ? new byte[0] : ctx;
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment k = Native.in(m, sk);
+      try {
+        return Native.sized(
+            m,
+            Math.max(data.length, 1),
+            (o, cap, n) ->
+                (int)
+                    Native.NQKOPEN.invoke(
+                        a.id(), k, (long) sk.length, Native.in(m, c), (long) c.length,
+                        Native.in(m, data), (long) data.length, o, cap, n));
+      } finally {
+        Native.wipe(k, sk.length);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
 }

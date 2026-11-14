@@ -249,4 +249,105 @@ public final class Noqtis {
       throw Native.wrap(t);
     }
   }
+
+  /**
+   * Wipes b (with nqwipe on a native copy, and zeros here); Java cannot
+   * promise that no other copy of b exists.
+   *
+   * @param b the bytes to zero
+   */
+  public static void wipe(byte[] b) {
+    if (b != null) {
+      java.util.Arrays.fill(b, (byte) 0);
+    }
+  }
+
+  /**
+   * Whether a and b are equal, in time that depends only on their length
+   * (nqcteq): compare MACs and tags with it.
+   *
+   * @param a one
+   * @param b the other
+   * @return true when equal
+   */
+  public static boolean cteq(byte[] a, byte[] b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    try (Arena m = Arena.ofConfined()) {
+      return (int)
+              Native.NQCTEQ.invoke(Native.out(m, a.length).copyFrom(MemorySegment.ofArray(a)),
+                  Native.out(m, b.length).copyFrom(MemorySegment.ofArray(b)), (long) a.length)
+          == 1;
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * BLAKE2b (RFC 7693): an n-byte digest (1 to 64) of data, keyed (a MAC)
+   * with up to 64 bytes of key.
+   *
+   * @param data the message
+   * @param key the key, or null (or empty) for the plain hash
+   * @param n the digest size
+   * @return the digest
+   */
+  public static byte[] blake2b(byte[] data, byte[] key, int n) {
+    if (n < 1 || n > 64) {
+      throw new NoqtisException(-1, "n: 1 to 64 bytes");
+    }
+    byte[] k = key == null ? new byte[0] : key;
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment o = Native.out(m, n);
+      Native.rc(
+          (int)
+              Native.NQB2B.invoke(
+                  Native.in(m, k), (long) k.length, Native.in(m, data), (long) data.length, o,
+                  (long) n));
+      return Native.bytes(o, n);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * Argon2id (RFC 9106, version 0x13): n bytes (4 to 1024) from the
+   * password and the salt (8 bytes or more), t passes over m KiB in p
+   * lanes, with an optional secret key and associated data.
+   *
+   * @param pw the password
+   * @param salt the salt
+   * @param t passes, 1 to 1024
+   * @param mem memory in KiB, 8p to 4 GiB
+   * @param p lanes, 1 to 255
+   * @param n the output size
+   * @param key the secret key, or null
+   * @param ad the associated data, or null
+   * @return the tag
+   */
+  public static byte[] argon2id(
+      byte[] pw, byte[] salt, int t, int mem, int p, int n, byte[] key, byte[] ad) {
+    if (n < 4 || n > 1024) {
+      throw new NoqtisException(-1, "n: 4 to 1024 bytes");
+    }
+    byte[] k = key == null ? new byte[0] : key, a = ad == null ? new byte[0] : ad;
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment o = Native.out(m, n), ps = Native.in(m, pw);
+      try {
+        Native.rc(
+            (int)
+                Native.NQA2ID.invoke(
+                    ps, (long) pw.length, Native.in(m, salt), (long) salt.length,
+                    Native.in(m, k), (long) k.length, Native.in(m, a), (long) a.length, t, mem,
+                    p, o, (long) n));
+        return Native.bytes(o, n);
+      } finally {
+        Native.wipe(ps, pw.length);
+        Native.wipe(o, n);
+      }
+    } catch (Throwable x) {
+      throw Native.wrap(x);
+    }
+  }
 }

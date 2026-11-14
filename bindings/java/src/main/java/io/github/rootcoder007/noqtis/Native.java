@@ -214,4 +214,64 @@ final class Native {
     }
     return new IllegalStateException(t);
   }
+
+  static final MethodHandle NQWIPE = fn("nqwipe", null, P, Z);
+  static final MethodHandle NQCTEQ = fn("nqcteq", I, P, P, Z);
+  static final MethodHandle NQB2B = fn("nqb2b", I, P, Z, P, Z, P, Z);
+  static final MethodHandle NQA2ID = fn("nqa2id", I, P, Z, P, Z, P, Z, P, Z, I, I, I, P, Z);
+  static final MethodHandle NQHINI = fn("nqhini", I, P, I);
+  static final MethodHandle NQHUPD = fn("nqhupd", I, P, P, Z);
+  static final MethodHandle NQHFIN = fn("nqhfin", I, P, P, Z);
+  static final MethodHandle NQPWENC = fn("nqpwenc", I, P, Z, P, Z, I, I, I, P, Z, P, Z, P);
+  static final MethodHandle NQPWDEC = fn("nqpwdec", I, P, Z, P, Z, P, Z, P, Z, P);
+  static final MethodHandle NQSMU = fn("nqsmu", I, I, P, Z, P, Z, P, Z, I, P, Z);
+  static final MethodHandle NQSIGNMU = fn("nqsignmu", I, I, P, Z, P, Z, P, Z, P, Z, P);
+  static final MethodHandle NQVRFYMU = fn("nqvrfymu", I, I, P, Z, P, Z, P, Z);
+  static final MethodHandle NQSINI = fn("nqsini", I, P, I, P, Z, P, Z, I);
+  static final MethodHandle NQVINI = fn("nqvini", I, P, I, P, Z, P, Z, I);
+  static final MethodHandle NQSUPD = fn("nqsupd", I, P, P, Z);
+  static final MethodHandle NQSFIN = fn("nqsfin", I, P, P, Z, P, Z, P, Z, P);
+  static final MethodHandle NQVFIN = fn("nqvfin", I, P, P, Z, P, Z);
+  static final MethodHandle NQKSEAL = fn("nqkseal", I, I, P, Z, P, Z, P, Z, P, Z, P);
+  static final MethodHandle NQKOPEN = fn("nqkopen", I, I, P, Z, P, Z, P, Z, P, Z, P);
+  static final MethodHandle NQKFEINI = fn("nqkfeini", I, P, I, P, Z, P, Z, I, P, Z, P);
+  static final MethodHandle NQKFDINI = fn("nqkfdini", I, P, I, P, Z, P, Z, P, Z, P);
+  static final MethodHandle NQKFEUPD = fn("nqkfeupd", I, P, P, Z, P, Z, P);
+  static final MethodHandle NQKFEFIN = fn("nqkfefin", I, P, P, Z, P, Z, P);
+  static final MethodHandle NQKFDUPD = fn("nqkfdupd", I, P, P, Z, P, Z, P);
+  static final MethodHandle NQKFDFIN = fn("nqkfdfin", I, P, P, Z, P, Z, P);
+
+  /** Wipes n bytes at s (nqwipe). */
+  static void wipe(MemorySegment s, long n) {
+    try {
+      NQWIPE.invoke(s, n);
+    } catch (Throwable t) {
+      throw wrap(t);
+    }
+  }
+
+  /** A call that writes to (out, cap) and its size to *n, NQEBUF with the size when short. */
+  @FunctionalInterface
+  interface Out {
+    int call(MemorySegment out, long cap, MemorySegment n) throws Throwable;
+  }
+
+  /** The bytes f writes: with cap bytes, then once more with the size it asked for. */
+  static byte[] sized(Arena m, long cap, Out f) throws Throwable {
+    MemorySegment n = m.allocate(JAVA_LONG);
+    for (int k = 0; k < 2; k++) {
+      MemorySegment o = out(m, cap);
+      int c = f.call(o, cap, n);
+      long l = n.get(JAVA_LONG, 0);
+      if (c == -2 && l > cap && k == 0) {
+        cap = l + 1;
+        continue;
+      }
+      rc(c);
+      byte[] b = bytes(o, l);
+      wipe(o, cap);
+      return b;
+    }
+    throw new NoqtisException(-2);
+  }
 }

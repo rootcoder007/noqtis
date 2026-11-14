@@ -262,4 +262,95 @@ public final class Sign {
       throw Native.wrap(t);
     }
   }
+
+  /** The randomness of o for alg: null for the hedged signature. */
+  static byte[] rnd(String alg, Opts o) {
+    if (o.deterministic() && o.rnd() != null) {
+      throw new NoqtisException(-1, "deterministic and rnd exclude each other");
+    }
+    return o.deterministic() ? new byte[rndlen(alg)] : o.rnd();
+  }
+
+  /**
+   * The 64-byte message representative mu of FIPS 204 for msg under pk,
+   * as {@link #sign} computes it (ML-DSA only; o's ctx and prehash are
+   * used), so that the message can be hashed away from the key.
+   *
+   * @param alg ML-DSA-44, -65 or -87
+   * @param pk the public key
+   * @param msg the message
+   * @param o the context and pre-hash
+   * @return mu
+   */
+  public static byte[] mu(String alg, byte[] pk, byte[] msg, Opts o) {
+    Noqtis.Alg a = Noqtis.find(alg, "sign");
+    Opts x = o == null ? Opts.none() : o;
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment mu = Native.out(m, 64);
+      byte[] c = x.c();
+      Native.rc(
+          (int)
+              Native.NQSMU.invoke(
+                  a.id(), Native.in(m, pk), (long) pk.length, Native.in(m, msg),
+                  (long) msg.length, Native.in(m, c), (long) c.length, x.ph(), mu, 64L));
+      return Native.bytes(mu, 64);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * The signature of the message whose mu is mu ({@link #mu}): the bytes
+   * {@link #sign} gives for that message with the same randomness.
+   *
+   * @param alg ML-DSA-44, -65 or -87
+   * @param sk the secret key
+   * @param mu the message's mu
+   * @param o its randomness (rnd or deterministic; the rest is not used)
+   * @return the signature
+   */
+  public static byte[] signmu(String alg, byte[] sk, byte[] mu, Opts o) {
+    Noqtis.Alg a = Noqtis.find(alg, "sign");
+    byte[] r = rnd(alg, o == null ? Opts.none() : o);
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment s = Native.out(m, a.sig()), n = m.allocate(JAVA_LONG), k = Native.in(m, sk);
+      int c =
+          (int)
+              Native.NQSIGNMU.invoke(
+                  a.id(), k, (long) sk.length, Native.in(m, mu), (long) mu.length,
+                  Native.in(m, r), r == null ? 0L : (long) r.length, s, (long) a.sig(), n);
+      Native.wipe(k, sk.length);
+      Native.rc(c);
+      return Native.bytes(s, n.get(JAVA_LONG, 0));
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * Whether sig verifies for the message whose mu is mu.
+   *
+   * @param alg ML-DSA-44, -65 or -87
+   * @param pk the public key
+   * @param mu the message's mu
+   * @param sig the signature
+   * @return true when it verifies
+   */
+  public static boolean verifymu(String alg, byte[] pk, byte[] mu, byte[] sig) {
+    Noqtis.Alg a = Noqtis.find(alg, "sign");
+    try (Arena m = Arena.ofConfined()) {
+      int c =
+          (int)
+              Native.NQVRFYMU.invoke(
+                  a.id(), Native.in(m, pk), (long) pk.length, Native.in(m, mu), (long) mu.length,
+                  Native.in(m, sig), (long) sig.length);
+      if (c == -3 || c == -4) {
+        return false;
+      }
+      Native.rc(c);
+      return true;
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
 }

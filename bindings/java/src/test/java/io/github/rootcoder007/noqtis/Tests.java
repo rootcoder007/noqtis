@@ -689,6 +689,10 @@ public final class Tests {
     ts.put("dataDrift", Tests::dataDrift);
     ts.put("dataDiff", Tests::dataDiff);
     ts.put("dataSources", Tests::dataSources);
+    ts.put("pwKeyFiles", More::pw);
+    ts.put("streaming", More::stream);
+    ts.put("sealedStreams", More::box);
+    ts.put("externalMu", More::mu);
     int bad = 0;
     for (var e : ts.entrySet()) {
       long t0 = System.nanoTime();

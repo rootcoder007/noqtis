@@ -4,6 +4,8 @@ package io.github.rootcoder007.noqtis;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
@@ -146,6 +148,106 @@ public final class KeyFile {
    * @return the text
    */
   public static String encode(String alg, String kind, byte[] key) {
+    return encode(alg, kind, key, null);
+  }
+
+  /** The passphrase as UTF-8; the caller wipes it. */
+  private static byte[] utf8(char[] pw) {
+    java.nio.ByteBuffer b = StandardCharsets.UTF_8.encode(java.nio.CharBuffer.wrap(pw));
+    byte[] out = new byte[b.remaining()];
+    b.get(out);
+    if (b.hasArray()) {
+      java.util.Arrays.fill(b.array(), (byte) 0);
+    }
+    if (out.length < 1 || out.length > 4096) {
+      Noqtis.wipe(out);
+      throw new NoqtisException(-1, "a passphrase is 1 to 4096 bytes");
+    }
+    return out;
+  }
+
+  private static byte[] ad(Noqtis.Alg a) {
+    return (MAGIC + " " + a.name() + " sec").getBytes(StandardCharsets.US_ASCII);
+  }
+
+  /**
+   * sk under the passphrase pw (noqtis-pwkey-1): Argon2id with m KiB, t
+   * passes and p lanes (0 for each: 64 MiB, 3, 4) gives the key of
+   * ChaCha20-Poly1305, whose associated data includes ad.
+   *
+   * @param pw the passphrase, 1 to 4096 bytes
+   * @param sk the secret key
+   * @param ad the associated data (null for none)
+   * @param m memory in KiB, or 0
+   * @param t passes, or 0
+   * @param p lanes, or 0
+   * @return the protected key
+   */
+  public static byte[] pwenc(byte[] pw, byte[] sk, byte[] ad, int m, int t, int p) {
+    byte[] x = ad == null ? new byte[0] : ad;
+    try (Arena a = Arena.ofConfined()) {
+      MemorySegment ps = Native.in(a, pw), ks = Native.in(a, sk);
+      try {
+        return Native.sized(
+            a,
+            sk.length + 51L,
+            (o, cap, n) ->
+                (int)
+                    Native.NQPWENC.invoke(
+                        ps, (long) pw.length, Native.in(a, x), (long) x.length, m, t, p, ks,
+                        (long) sk.length, o, cap, n));
+      } finally {
+        Native.wipe(ps, pw.length);
+        Native.wipe(ks, sk.length);
+      }
+    } catch (Throwable e) {
+      throw Native.wrap(e);
+    }
+  }
+
+  /**
+   * The key {@link #pwenc} protected: {@link NoqtisException.Code#VERIFY}
+   * for a wrong passphrase or ad, or any changed byte;
+   * {@link NoqtisException.Code#LIMIT} for parameters over the limits (a
+   * file cannot ask for more memory or time). Wipe it after use.
+   *
+   * @param pw the passphrase
+   * @param data the protected key
+   * @param ad the associated data (null for none)
+   * @return the secret key
+   */
+  public static byte[] pwdec(byte[] pw, byte[] data, byte[] ad) {
+    byte[] x = ad == null ? new byte[0] : ad;
+    try (Arena a = Arena.ofConfined()) {
+      MemorySegment ps = Native.in(a, pw);
+      try {
+        return Native.sized(
+            a,
+            Math.max(data.length - 51L, 1),
+            (o, cap, n) ->
+                (int)
+                    Native.NQPWDEC.invoke(
+                        ps, (long) pw.length, Native.in(a, x), (long) x.length,
+                        Native.in(a, data), (long) data.length, o, cap, n));
+      } finally {
+        Native.wipe(ps, pw.length);
+      }
+    } catch (Throwable e) {
+      throw Native.wrap(e);
+    }
+  }
+
+  /**
+   * The key file text for key, a secret key kept under passphrase when it
+   * is not null (the format {@code noqtis keygen --pass-fd} writes).
+   *
+   * @param alg the algorithm, in any case
+   * @param kind "pub" or "sec"
+   * @param key the key bytes
+   * @param passphrase the passphrase, or null
+   * @return the text
+   */
+  public static String encode(String alg, String kind, byte[] key, char[] passphrase) {
     Noqtis.Alg a = kalg(alg);
     if (!kind.equals("pub") && !kind.equals("sec")) {
       throw new NoqtisException(-1, "kind: \"pub\" or \"sec\"");
@@ -154,6 +256,17 @@ public final class KeyFile {
     if (key.length != want) {
       throw new NoqtisException(
           -1, a.name() + " " + kind + " key: " + want + " bytes, not " + key.length);
+    }
+    if (passphrase != null) {
+      if (!kind.equals("sec")) {
+        throw new NoqtisException(-1, "a passphrase protects a secret key only");
+      }
+      byte[] pw = utf8(passphrase);
+      try {
+        key = pwenc(pw, key, ad(a), 0, 0, 0);
+      } finally {
+        Noqtis.wipe(pw);
+      }
     }
     String b = new String(b64e(key), StandardCharsets.US_ASCII);
     StringBuilder s = new StringBuilder(MAGIC + " " + a.name() + " " + kind + "\n");
@@ -175,6 +288,18 @@ public final class KeyFile {
    * @return the key
    */
   public static Key decode(byte[] text) {
+    return decode(text, null);
+  }
+
+  /**
+   * The algorithm, kind and key of key file text, opening a secret key
+   * kept under passphrase.
+   *
+   * @param text the file's bytes
+   * @param passphrase the passphrase, or null
+   * @return the key
+   */
+  public static Key decode(byte[] text, char[] passphrase) {
     int nl = -1;
     for (int i = 0; i < text.length; i++) {
       if (text[i] == '\n') {
@@ -201,6 +326,22 @@ public final class KeyFile {
       }
     }
     byte[] k = b64d(body, n);
+    if (k != null && f[2].equals("sec") && k.length == want + 51 && k[0] == 'N' && k[1] == 'Q'
+        && k[2] == 'P' && k[3] == 'W') {
+      if (passphrase == null) {
+        throw new NoqtisException(
+            -1, "the key is protected by a passphrase: give it to decode or read");
+      }
+      byte[] pw = utf8(passphrase);
+      try {
+        return new Key(a.name(), f[2], pwdec(pw, k, ad(a)));
+      } finally {
+        Noqtis.wipe(pw);
+      }
+    }
+    if (k != null && k.length == want && passphrase != null && f[2].equals("sec")) {
+      throw new NoqtisException(-1, "the key is not protected by a passphrase");
+    }
     if (k == null || k.length != want) {
       throw new NoqtisException(
           -4,
@@ -221,6 +362,18 @@ public final class KeyFile {
    * @return the key
    */
   public static Key read(Path file, String kind) {
+    return read(file, kind, null);
+  }
+
+  /**
+   * Reads a key file, opening a secret key kept under passphrase.
+   *
+   * @param file the file
+   * @param kind "pub" or "sec" to require that kind, or null for either
+   * @param passphrase the passphrase, or null
+   * @return the key
+   */
+  public static Key read(Path file, String kind, char[] passphrase) {
     if (kind != null && !kind.equals("pub") && !kind.equals("sec")) {
       throw new NoqtisException(-1, "kind: null, \"pub\" or \"sec\"");
     }
@@ -230,7 +383,7 @@ public final class KeyFile {
     } catch (IOException e) {
       throw new NoqtisException(-7, "cannot read key file " + file + ": " + e.getMessage());
     }
-    Key k = decode(t);
+    Key k = decode(t, passphrase);
     if (kind != null && !k.kind().equals(kind)) {
       throw new NoqtisException(
           -1,
@@ -257,7 +410,23 @@ public final class KeyFile {
    * @param force replace an existing file
    */
   public static void write(Path file, String alg, String kind, byte[] key, boolean force) {
-    byte[] t = encode(alg, kind, key).getBytes(StandardCharsets.US_ASCII);
+    write(file, alg, kind, key, force, null);
+  }
+
+  /**
+   * Writes a key file, a secret key kept under passphrase when it is not
+   * null; as {@link #write(Path, String, String, byte[], boolean)}.
+   *
+   * @param file the file
+   * @param alg the algorithm
+   * @param kind "pub" or "sec"
+   * @param key the key bytes
+   * @param force replace an existing file
+   * @param passphrase the passphrase, or null
+   */
+  public static void write(
+      Path file, String alg, String kind, byte[] key, boolean force, char[] passphrase) {
+    byte[] t = encode(alg, kind, key, passphrase).getBytes(StandardCharsets.US_ASCII);
     try {
       if (force) {
         Files.deleteIfExists(file);
