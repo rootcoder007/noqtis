@@ -189,6 +189,8 @@ typedef struct {
 
 /* a reader of the file path, or of n bytes at p (kept, not copied) */
 int qdcsvfile(qdcsv *c, const char *path, char delim);
+/* qdcsvfile of the member rel of the capsule folder dir (qdopen) */
+int qdcsvat(qdcsv *c, const char *dir, const char *rel, char delim);
 int qdcsvmem(qdcsv *c, const char *p, size_t n, char delim);
 /* the next record: NQOK with *got 1, or *got 0 at the end; NQEDEC or
  * NQELIM with c->why on a malformed file, NQEIO, NQEMEM */
@@ -240,14 +242,29 @@ int qdsha(const char *path, uint8_t h[32], uint64_t *size);
 void qdhex(const uint8_t *in, size_t n, char *out);
 /* a new file for writing, never an existing one or a link (NULL then) */
 FILE *qdfnew(const char *path);
+/* The member paths of a capsule (rel under the folder dir): no
+ * component of rel is followed when it is a link (openat with
+ * O_NOFOLLOW from the folder one component at a time; on Windows, no
+ * reparse point on the way). NQEARG for rel not a capsule path, a link
+ * at any component or not a plain file; NQEIO when it is not there.
+ * qdopen reads (the file closes with fclose), qdfnewat makes a new file
+ * (NULL on any failure), qdwriteat writes through rel.tmp and a rename,
+ * qdreadat and qdshaat are qdread and qdsha of rel. */
+int qdopen(const char *dir, const char *rel, FILE **f);
+FILE *qdfnewat(const char *dir, const char *rel);
+int qdwriteat(const char *dir, const char *rel, const char *b, size_t len);
+int qdreadat(const char *dir, const char *rel, size_t max, char **buf,
+             size_t *len);
+int qdshaat(const char *dir, const char *rel, uint8_t h[32],
+            uint64_t *size);
 /* makes a folder; removes a file (isdir 0) or an empty folder */
 int qdmkdir(const char *path);
 int qdrm(const char *path, int isdir);
 
 /* the "chunk" rows of the file piece, holding the bytes from off of the
  * file of the chunks element e; whole 1 when it is the whole file (cnk.c) */
-int qdpiece(nqdrep *rep, const djs *e, const char *piece, uint64_t off,
-            int whole);
+int qdpiece(nqdrep *rep, const djs *e, const char *dir, const char *piece,
+            uint64_t off, int whole);
 
 /* ---- bundles (bnd.c) ---- */
 

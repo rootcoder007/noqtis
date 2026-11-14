@@ -203,7 +203,7 @@ int nqdsyn(nqdrec *r, const char *dir, const char *path, uint64_t seed,
   /* never in place of data that is not marked synthetic */
   if (src != NULL ? (qdjget(src, "synthetic") == NULL ||
                      qdjget(src, "synthetic")->t != DJTRUE)
-                  : qdsha(p, h, &sz) == NQOK) {
+                  : qdshaat(dir, path, h, &sz) == NQOK) {
     qdwhy(why, wcap, "%s: %s; a synthetic file is written only in place "
           "of nothing or of another synthetic one", path,
           src != NULL ? "its source is not marked synthetic"
@@ -255,7 +255,7 @@ int nqdsyn(nqdrec *r, const char *dir, const char *path, uint64_t seed,
     qdwhy(why, wcap, "%s: over %lu bytes", path, (unsigned long)QDSYNMAX);
     rc = b.err;
   }
-  if (rc == NQOK && (rc = qdwrite(p, b.b != NULL ? b.b : "", b.n)) != NQOK)
+  if (rc == NQOK && (rc = qdwriteat(dir, path, b.b != NULL ? b.b : "", b.n)) != NQOK)
     qdwhy(why, wcap, "%s: cannot be written", p);
   qdbfree(&b);
   if (rc == NQOK)

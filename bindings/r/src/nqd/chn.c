@@ -19,7 +19,7 @@ static int inputs(const char *dir, const uint8_t id[32], uint8_t *ids,
   /* the first after the files: a file entry's strings hold no bare
    * quote, and meta comes after the format */
   static const char fe[] = "],\"format\":\"noqtis-capsule-";
-  char p[4200], *m = NULL, *s, *e;
+  char *m = NULL, *s, *e;
   size_t ml = 0, i;
   dbuf h;
   djs *v = NULL;
@@ -28,8 +28,7 @@ static int inputs(const char *dir, const uint8_t id[32], uint8_t *ids,
   int rc;
   *n = 0;
   memset(&h, 0, sizeof h);
-  if (qdjoin(dir, "noqtis.json", p, sizeof p) != NQOK ||
-      qdread(p, (size_t)512 << 20, &m, &ml) != NQOK) {
+  if (qdreadat(dir, "noqtis.json", (size_t)512 << 20, &m, &ml) != NQOK) {
     qdwhy(why, cap, "its manifest cannot be read");
     return NQEIO;
   }

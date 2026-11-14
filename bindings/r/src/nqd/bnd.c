@@ -268,7 +268,7 @@ static int uput(void *v, int op, const char *path, uint64_t size,
       keep(s, 'd', p);
     p[i] = '/';
   }
-  if ((s->f = qdfnew(p)) == NULL) {
+  if ((s->f = qdfnewat(s->dir, path)) == NULL) {
     qdwhy(s->why, s->cap, "%s: cannot be created (two paths that differ "
           "only in case, or a path through a file?)", path);
     return NQEIO;
@@ -353,13 +353,13 @@ static int bent(FILE *out, const char *dir, const char *path) {
   int rc = NQOK;
   if (qdjoin(dir, path, p, sizeof p) != NQOK)
     return NQELIM;
-  if ((rc = qdsha(p, h, &size)) != NQOK)
+  if ((rc = qdshaat(dir, path, h, &size)) != NQOK)
     return rc;
   be(hd, n, 2);
   if (fwrite(hd, 1, 2, out) != 2 || fwrite(path, 1, n, out) != n)
     return NQEIO;
   be(hd, size, 8);
-  if (fwrite(hd, 1, 8, out) != 8 || (f = qdfopen(p, "rb")) == NULL)
+  if (fwrite(hd, 1, 8, out) != 8 || qdopen(dir, path, &f) != NQOK)
     return NQEIO;
   if ((b = (uint8_t *)qdmal(QDBCHUNK)) == NULL) {
     fclose(f);
@@ -380,7 +380,7 @@ static int bent(FILE *out, const char *dir, const char *path) {
 int nqdpack(const char *dir, int files, const char *file) {
   static const char *const top[] = {"noqtis.ers", "noqtis.json",
                                     "noqtis.sig"};
-  char **pv = NULL, p[QDBPATH + 1100];
+  char **pv = NULL;
   size_t np = 0, nr, i;
   nqrep *rep = NULL;
   FILE *out = NULL;
@@ -398,8 +398,7 @@ int nqdpack(const char *dir, int files, const char *file) {
   }
   for (i = 0; i < 3; i++) {
     FILE *f;
-    if (qdjoin(dir, top[i], p, sizeof p) != NQOK ||
-        (f = qdfopen(p, "rb")) == NULL)
+    if (qdopen(dir, top[i], &f) != NQOK)
       continue;
     fclose(f);
     if ((pv[np] = qddup(top[i], strlen(top[i]))) == NULL) {

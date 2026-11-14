@@ -146,8 +146,8 @@ int qdjoin(const char *dir, const char *rel, char *out, size_t cap) {
   return NQOK;
 }
 
-int qdread(const char *path, size_t max, char **buf, size_t *len) {
-  FILE *f = qdfopen(path, "rb");
+/* reads f to its end (and closes it) */
+static int readf(FILE *f, size_t max, char **buf, size_t *len) {
   dbuf b;
   char t[8192];
   size_t k;
@@ -155,8 +155,6 @@ int qdread(const char *path, size_t max, char **buf, size_t *len) {
   b.max = max;
   *buf = NULL;
   *len = 0;
-  if (f == NULL)
-    return NQEIO;
   while ((k = fread(t, 1, sizeof t, f)) > 0) {
     qdbput(&b, t, k);
     if (b.err)
@@ -174,6 +172,15 @@ int qdread(const char *path, size_t max, char **buf, size_t *len) {
   *buf = b.b;
   *len = b.n;
   return NQOK;
+}
+
+int qdread(const char *path, size_t max, char **buf, size_t *len) {
+  FILE *f = qdfopen(path, "rb");
+  *buf = NULL;
+  *len = 0;
+  if (f == NULL)
+    return NQEIO;
+  return readf(f, max, buf, len);
 }
 
 int qdwrite(const char *path, const char *b, size_t len) {
@@ -196,15 +203,13 @@ int qdwrite(const char *path, const char *b, size_t len) {
   return NQOK;
 }
 
-int qdsha(const char *path, uint8_t h[32], uint64_t *size) {
-  FILE *f = qdfopen(path, "rb");
+/* the SHA-256 and size of f's bytes (and closes it) */
+static int shaf(FILE *f, uint8_t h[32], uint64_t *size) {
   nqhctx c;
   uint8_t t[16384];
   size_t k;
   uint64_t n = 0;
   int rc;
-  if (f == NULL)
-    return NQEIO;
   if ((rc = nqhini(&c, NQS256)) != NQOK) {
     fclose(f);
     return rc;
@@ -219,6 +224,13 @@ int qdsha(const char *path, uint8_t h[32], uint64_t *size) {
     rc = nqhfin(&c, h, 32);
   *size = n;
   return rc;
+}
+
+int qdsha(const char *path, uint8_t h[32], uint64_t *size) {
+  FILE *f = qdfopen(path, "rb");
+  if (f == NULL)
+    return NQEIO;
+  return shaf(f, h, size);
 }
 
 void qdhex(const uint8_t *in, size_t n, char *out) {
@@ -339,4 +351,264 @@ void nqdrepfree(nqdrep *r) {
   }
   qdfree(r->r);
   qdfree(r);
+}
+
+/* ---- paths under a capsule folder, never through a link ---- */
+
+#ifndef _WIN32
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
+/* NQEARG when name exists in the folder fd but could not be opened as
+ * asked (a link, or a file where a folder is wanted), NQEIO when it is
+ * not there */
+static int whyat(int fd, const char *name) {
+  struct stat st;
+  return fstatat(fd, name, &st, AT_SYMLINK_NOFOLLOW) == 0 ? NQEARG : NQEIO;
+}
+
+/* The folder that holds rel's last component, opened from dir one
+ * component at a time with O_DIRECTORY | O_NOFOLLOW, so no component of
+ * rel is ever a link followed (as the capsule walk of the core opens
+ * them; dir itself, the folder the caller named, may be a link), and
+ * that last component's name. */
+static int parentat(const char *dir, const char *rel, int *pfd,
+                    const char **last) {
+  int fd = open(dir != NULL && *dir ? dir : ".",
+                O_RDONLY | O_DIRECTORY | O_CLOEXEC), nfd, rc;
+  char nm[256];
+  const char *s = rel, *e;
+  if (fd < 0)
+    return NQEIO;
+  while ((e = strchr(s, '/')) != NULL) {
+    size_t cl = (size_t)(e - s);
+    if (cl == 0 || cl >= sizeof nm) {
+      close(fd);
+      return NQEARG;
+    }
+    memcpy(nm, s, cl);
+    nm[cl] = '\0';
+    nfd = openat(fd, nm, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (nfd < 0) {
+      rc = whyat(fd, nm);
+      close(fd);
+      return rc;
+    }
+    close(fd);
+    fd = nfd;
+    s = e + 1;
+  }
+  if (strlen(s) >= sizeof nm) {
+    close(fd);
+    return NQEARG;
+  }
+  *pfd = fd;
+  *last = s;
+  return NQOK;
+}
+#else
+/* NQEARG when a folder on the way to rel, or rel itself, is a reparse
+ * point (a link or junction), NQEIO when one is missing; mustfile: rel
+ * must exist */
+static int noreparse(const char *dir, const char *rel, int mustfile) {
+  char p[4200];
+  size_t dl = strlen(dir), i;
+  if (dl + 1 + strlen(rel) >= sizeof p)
+    return NQELIM;
+  memcpy(p, dir, dl);
+  p[dl] = '/';
+  for (i = 0;; i++) {
+    char c = rel[i];
+    if (c == '/' || c == '\0') {
+      wchar_t *w;
+      DWORD a;
+      p[dl + 1 + i] = '\0';
+      w = wide(p);
+      a = w != NULL ? GetFileAttributesW(w) : INVALID_FILE_ATTRIBUTES;
+      free(w);
+      if (a == INVALID_FILE_ATTRIBUTES) {
+        if (c == '\0' && !mustfile)
+          return NQOK;
+        return NQEIO;
+      }
+      if ((a & FILE_ATTRIBUTE_REPARSE_POINT) != 0 ||
+          (c == '/' && (a & FILE_ATTRIBUTE_DIRECTORY) == 0) ||
+          (c == '\0' && (a & FILE_ATTRIBUTE_DIRECTORY) != 0))
+        return NQEARG;
+      if (c == '\0')
+        return NQOK;
+    }
+    p[dl + 1 + i] = c;
+  }
+}
+#endif
+
+int qdopen(const char *dir, const char *rel, FILE **f) {
+  char p[4200];
+  int rc;
+  *f = NULL;
+  if ((rc = qdjoin(dir, rel, p, sizeof p)) != NQOK)
+    return rc;
+#ifdef _WIN32
+  {
+    wchar_t *w;
+    HANDLE h;
+    BY_HANDLE_FILE_INFORMATION fi;
+    int fd;
+    if ((rc = noreparse(dir != NULL && *dir ? dir : ".", rel, 1)) != NQOK)
+      return rc;
+    if ((w = wide(p)) == NULL)
+      return NQEIO;
+    /* the path itself, never a reparse point's target, checked on the
+     * open handle */
+    h = CreateFileW(w, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
+                    NULL);
+    free(w);
+    if (h == INVALID_HANDLE_VALUE)
+      return NQEIO;
+    if (!GetFileInformationByHandle(h, &fi) ||
+        (fi.dwFileAttributes &
+         (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY |
+          FILE_ATTRIBUTE_DEVICE)) != 0) {
+      CloseHandle(h);
+      return NQEARG;
+    }
+    fd = _open_osfhandle((intptr_t)h, _O_RDONLY | _O_BINARY);
+    if (fd < 0) {
+      CloseHandle(h);
+      return NQEIO;
+    }
+    if ((*f = _fdopen(fd, "rb")) == NULL) {
+      _close(fd);
+      return NQEIO;
+    }
+    return NQOK;
+  }
+#else
+  {
+    int pfd, fd, fl;
+    const char *last;
+    struct stat st;
+    if ((rc = parentat(dir, rel, &pfd, &last)) != NQOK)
+      return rc;
+    /* O_NONBLOCK keeps a FIFO from blocking the open; cleared after */
+    fd = openat(pfd, last, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+    rc = fd < 0 ? whyat(pfd, last) : NQOK;
+    close(pfd);
+    if (fd < 0)
+      return rc;
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
+        (fl = fcntl(fd, F_GETFL)) < 0 ||
+        fcntl(fd, F_SETFL, fl & ~O_NONBLOCK) != 0) {
+      close(fd);
+      return NQEARG;
+    }
+    if ((*f = fdopen(fd, "rb")) == NULL) {
+      close(fd);
+      return NQEIO;
+    }
+    return NQOK;
+  }
+#endif
+}
+
+FILE *qdfnewat(const char *dir, const char *rel) {
+  char p[4200];
+  if (qdjoin(dir, rel, p, sizeof p) != NQOK)
+    return NULL;
+#ifdef _WIN32
+  if (noreparse(dir != NULL && *dir ? dir : ".", rel, 0) != NQOK)
+    return NULL;
+  return qdfnew(p);
+#else
+  {
+    int pfd, fd;
+    const char *last;
+    FILE *f;
+    if (parentat(dir, rel, &pfd, &last) != NQOK)
+      return NULL;
+    fd = openat(pfd, last, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
+    close(pfd);
+    if (fd < 0)
+      return NULL;
+    if ((f = fdopen(fd, "wb")) == NULL)
+      close(fd);
+    return f;
+  }
+#endif
+}
+
+int qdwriteat(const char *dir, const char *rel, const char *b, size_t len) {
+  char p[4200];
+  int rc;
+  if ((rc = qdjoin(dir, rel, p, sizeof p)) != NQOK)
+    return rc;
+#ifdef _WIN32
+  if ((rc = noreparse(dir != NULL && *dir ? dir : ".", rel, 0)) != NQOK)
+    return rc;
+  return qdwrite(p, b, len);
+#else
+  {
+    int pfd, fd, bad = 0;
+    const char *last;
+    char tmp[300];
+    struct stat st;
+    size_t done = 0;
+    if ((rc = parentat(dir, rel, &pfd, &last)) != NQOK)
+      return rc;
+    /* the file itself may be new or a plain file, never a link */
+    if (fstatat(pfd, last, &st, AT_SYMLINK_NOFOLLOW) == 0 &&
+        !S_ISREG(st.st_mode)) {
+      close(pfd);
+      return NQEARG;
+    }
+    snprintf(tmp, sizeof tmp, "%s.tmp", last);
+    /* a new file, not one left there or a link planted in its place */
+    unlinkat(pfd, tmp, 0);
+    fd = openat(pfd, tmp, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
+    if (fd < 0) {
+      close(pfd);
+      return NQEIO;
+    }
+    while (done < len) {
+      ssize_t k = write(fd, b + done, len - done);
+      if (k <= 0) {
+        bad = 1;
+        break;
+      }
+      done += (size_t)k;
+    }
+    bad |= close(fd) != 0;
+    if (bad || renameat(pfd, tmp, pfd, last) != 0) {
+      unlinkat(pfd, tmp, 0);
+      close(pfd);
+      return NQEIO;
+    }
+    close(pfd);
+    return NQOK;
+  }
+#endif
+}
+
+int qdreadat(const char *dir, const char *rel, size_t max, char **buf,
+             size_t *len) {
+  FILE *f;
+  int rc;
+  *buf = NULL;
+  *len = 0;
+  if ((rc = qdopen(dir, rel, &f)) != NQOK)
+    return rc;
+  return readf(f, max, buf, len);
+}
+
+int qdshaat(const char *dir, const char *rel, uint8_t h[32],
+            uint64_t *size) {
+  FILE *f;
+  int rc;
+  *size = 0;
+  if ((rc = qdopen(dir, rel, &f)) != NQOK)
+    return rc;
+  return shaf(f, h, size);
 }

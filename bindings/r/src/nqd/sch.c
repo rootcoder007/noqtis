@@ -512,7 +512,7 @@ int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy) {
   char p[4200];
   uint64_t rows = 0;
   size_t nf = 0;
-  int rowsbad = 0;
+  int rowsbad = 0, orc;
   char **own = NULL;
   size_t nown = 0, ncr = nc;
   x.rep = rep;
@@ -522,9 +522,10 @@ int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy) {
   if (qdjoin(dir, path, p, sizeof p) != NQOK)
     return qdrepadd(rep, "schema", 0, "%s%s: not a path in the folder", path,
                     sy);
-  if (qdcsvfile(&c, p, dl != NULL ? dl->s[0] : ',') != NQOK)
-    return qdrepadd(rep, "schema", 0, "%s%s: missing or unreadable", path,
-                    sy);
+  if ((orc = qdcsvat(&c, dir, path, dl != NULL ? dl->s[0] : ',')) != NQOK)
+    return qdrepadd(rep, "schema", 0, orc == NQEARG
+                        ? "%s%s: a link or not a plain file, refused"
+                        : "%s%s: missing or unreadable", path, sy);
   cols = (qdcol *)qdmal((nc + 1) * sizeof *cols);
   ru = (qdrule *)qdmal((nr + 1) * sizeof *ru);
   if (cols == NULL || ru == NULL) {
@@ -744,9 +745,10 @@ int nqdinfer(const char *dir, const char *path, const nqdcsvopt *o,
     qdwhy(why, wcap, "%s: not a path a capsule holds", path);
     return rc;
   }
-  if (qdcsvfile(&c, p, delim) != NQOK) {
-    qdwhy(why, wcap, "%s: cannot be read", p);
-    return NQEIO;
+  if ((rc = qdcsvat(&c, dir, path, delim)) != NQOK) {
+    qdwhy(why, wcap, rc == NQEARG ? "%s: a link or not a plain file, refused"
+                                  : "%s: cannot be read", path);
+    return rc == NQEARG ? NQEARG : NQEIO;
   }
   if ((rc = qdcsvnext(&c, &got)) != NQOK)
     goto bad;

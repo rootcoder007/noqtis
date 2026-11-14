@@ -78,6 +78,18 @@ int qdcsvfile(qdcsv *c, const char *path, char delim) {
   return NQOK;
 }
 
+int qdcsvat(qdcsv *c, const char *dir, const char *rel, char delim) {
+  FILE *f;
+  int rc;
+  init(c, delim);
+  if ((rc = qdopen(dir, rel, &f)) != NQOK)
+    return rc;
+  c->rd = frd;
+  c->u = f;
+  c->own = 1;
+  return NQOK;
+}
+
 int qdcsvmem(qdcsv *c, const char *p, size_t n, char delim) {
   qdmem *m;
   init(c, delim);
