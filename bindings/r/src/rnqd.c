@@ -26,6 +26,19 @@ SEXP Cdfld(SEXP dir, SEXP member, SEXP i, SEXP field);
 SEXP Cdrslv(SEXP rslv);
 SEXP Cdrsp(SEXP rslv, SEXP reply);
 SEXP Cdwb(SEXP url);
+SEXP Cdparse(SEXP text);
+SEXP Cdschk(SEXP dir, SEXP schema);
+SEXP Cdsyn(SEXP dir, SEXP path, SEXP seed, SEXP rows);
+SEXP Cdcal(SEXP stats, SEXP files, SEXP delim, SEXP noh);
+SEXP Cdchunk(SEXP dir, SEXP path, SEXP chunk);
+SEXP Cdpiece(SEXP elem, SEXP piece, SEXP off);
+SEXP Cdcommit(SEXP salt, SEXP m);
+SEXP Cdreveal(SEXP dir, SEXP salt, SEXP m);
+SEXP Cdcite(SEXP dir, SEXP fmt);
+SEXP Cdrpt(SEXP dir, SEXP pk, SEXP fmt, SEXP sealed, SEXP hasrec);
+SEXP Cdpack(SEXP dir, SEXP files, SEXP file);
+SEXP Cdunpack(SEXP file, SEXP dir, SEXP rm);
+SEXP Cdchain(SEXP dirs, SEXP pk);
 
 static const char *s1(SEXP x, const char *what) {
   if (TYPEOF(x) != STRSXP || XLENGTH(x) != 1 || STRING_ELT(x, 0) == NA_STRING)
@@ -409,4 +422,264 @@ SEXP Cdwb(SEXP url) {
   int rc = nqdwb(s1(url, "url"), b, sizeof b, &n);
   if (rc != NQOK) dfail(rc, "the address", NULL);
   return Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
+}
+
+/* ---- the rest of nqd.h --------------------------------------------- */
+
+/* the canonical text of a record's JSON text */
+SEXP Cdparse(SEXP text) {
+  const char *t = s1(text, "json");
+  nqdrec *r = NULL;
+  char why[600];
+  SEXP p, out;
+  int rc;
+  why[0] = '\0';
+  rc = nqdparse(t, strlen(t), &r, why, sizeof why);
+  if (rc != NQOK) dfail(rc, "the record", why);
+  p = PROTECT(R_MakeExternalPtr(r, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(p, recfin, TRUE);
+  out = PROTECT(Rf_ScalarString(jout(nqdjson, r)));
+  recfin(p);
+  UNPROTECT(2);
+  return out;
+}
+
+SEXP Cdschk(SEXP dir, SEXP schema) {
+  const char *s = s1(schema, "schema");
+  nqdrep *r = NULL;
+  int rc = nqdschk(pth(dir, "dir"), s, strlen(s), &r);
+  return drep(rc, r);
+}
+
+/* the stand-in written and recorded */
+SEXP Cdsyn(SEXP dir, SEXP path, SEXP seed, SEXP rows) {
+  const char *d = pth(dir, "dir"), *pa = s1(path, "file");
+  char why[600];
+  SEXP p;
+  nqdrec *r;
+  int rc;
+  if (TYPEOF(seed) != REALSXP || TYPEOF(rows) != REALSXP)
+    Rf_error("'seed' and 'rows' must be numbers");
+  p = holder();
+  r = rec(d, 0, p);
+  why[0] = '\0';
+  rc = nqdsyn(r, d, pa, (uint64_t)REAL(seed)[0], (uint64_t)REAL(rows)[0], why,
+              sizeof why);
+  if (rc != NQOK) dfail(rc, pa, why);
+  if ((rc = nqdsave(r, d)) != NQOK) dfail(rc, "the data record", NULL);
+  recfin(p);
+  UNPROTECT(1);
+  return R_NilValue;
+}
+
+SEXP Cdcal(SEXP stats, SEXP files, SEXP delim, SEXP noh) {
+  const char *s = s1(stats, "stats"), **fs;
+  nqdcsvopt o;
+  char why[600], *b;
+  size_t n = 0, k, i;
+  int rc;
+  if (TYPEOF(files) != STRSXP || XLENGTH(files) == 0)
+    Rf_error("'known' must name files");
+  k = (size_t)XLENGTH(files);
+  fs = (const char **)R_alloc(k, sizeof *fs);
+  for (i = 0; i < k; i++) {
+    if (STRING_ELT(files, (R_xlen_t)i) == NA_STRING)
+      Rf_error("'known' must not hold NA");
+#if defined(_WIN32)
+    fs[i] = Rf_translateCharUTF8(STRING_ELT(files, (R_xlen_t)i));
+#else
+    fs[i] = Rf_translateChar(STRING_ELT(files, (R_xlen_t)i));
+#endif
+  }
+  csvo(&o, delim, noh, R_NilValue);
+  why[0] = '\0';
+  rc = nqddcal(s, strlen(s), fs, k, &o, NULL, 0, &n, why, sizeof why);
+  if (rc != NQEBUF) dfail(rc, "calibration", why);
+  b = R_alloc(n + 1, 1);
+  rc = nqddcal(s, strlen(s), fs, k, &o, b, n + 1, &n, why, sizeof why);
+  if (rc != NQOK) dfail(rc, "calibration", why);
+  return Rf_mkString(b);
+}
+
+SEXP Cdchunk(SEXP dir, SEXP path, SEXP chunk) {
+  const char *d = pth(dir, "dir"), *pa = s1(path, "file");
+  char why[600], *b;
+  size_t n = 0;
+  uint64_t ch;
+  int rc;
+  if (TYPEOF(chunk) != REALSXP || XLENGTH(chunk) != 1)
+    Rf_error("'chunk' must be one number");
+  ch = (uint64_t)REAL(chunk)[0];
+  why[0] = '\0';
+  rc = nqdchunk(d, pa, ch, NULL, 0, &n, why, sizeof why);
+  if (rc != NQEBUF) dfail(rc, pa, why);
+  b = R_alloc(n + 1, 1);
+  if ((rc = nqdchunk(d, pa, ch, b, n + 1, &n, why, sizeof why)) != NQOK)
+    dfail(rc, pa, why);
+  return Rf_mkString(b);
+}
+
+SEXP Cdpiece(SEXP elem, SEXP piece, SEXP off) {
+  const char *e = s1(elem, "chunks");
+  nqdrep *r = NULL;
+  int rc;
+  if (TYPEOF(off) != REALSXP || XLENGTH(off) != 1)
+    Rf_error("'off' must be one number");
+  rc = nqdpiece(e, strlen(e), pth(piece, "piece"), (uint64_t)REAL(off)[0],
+                &r);
+  return drep(rc, r);
+}
+
+SEXP Cdcommit(SEXP salt, SEXP m) {
+  char hx[65];
+  int rc;
+  if (TYPEOF(salt) != RAWSXP || TYPEOF(m) != RAWSXP)
+    Rf_error("'salt' and the content must be raw vectors");
+  rc = nqdcommit(XLENGTH(salt) ? RAW(salt) : NULL, (size_t)XLENGTH(salt),
+                 XLENGTH(m) ? RAW(m) : NULL, (size_t)XLENGTH(m), hx);
+  if (rc != NQOK) dfail(rc, "the commitment", NULL);
+  return Rf_mkString(hx);
+}
+
+/* the index (from 0) of the matching commitment, or NA */
+SEXP Cdreveal(SEXP dir, SEXP salt, SEXP m) {
+  SEXP p;
+  nqdrec *r;
+  size_t i = 0;
+  int rc;
+  if (TYPEOF(salt) != RAWSXP || TYPEOF(m) != RAWSXP)
+    Rf_error("'salt' and the content must be raw vectors");
+  p = holder();
+  r = rec(pth(dir, "dir"), 0, p);
+  rc = nqdreveal(r, XLENGTH(salt) ? RAW(salt) : NULL, (size_t)XLENGTH(salt),
+                 XLENGTH(m) ? RAW(m) : NULL, (size_t)XLENGTH(m), &i);
+  recfin(p);
+  UNPROTECT(1);
+  if (rc == NQEVRFY) return Rf_ScalarInteger(NA_INTEGER);
+  if (rc != NQOK) dfail(rc, "the reveal", NULL);
+  return Rf_ScalarInteger((int)i);
+}
+
+SEXP Cdcite(SEXP dir, SEXP fmt) {
+  SEXP p;
+  nqdrec *r;
+  char *b;
+  size_t n = 0;
+  int f = Rf_asInteger(fmt), rc;
+  p = holder();
+  r = rec(pth(dir, "dir"), 0, p);
+  rc = nqdcite(r, f, NULL, 0, &n);
+  if (rc != NQEBUF) dfail(rc, "the citation", NULL);
+  b = R_alloc(n + 1, 1);
+  if ((rc = nqdcite(r, f, b, n + 1, &n)) != NQOK)
+    dfail(rc, "the citation", NULL);
+  recfin(p);
+  UNPROTECT(1);
+  return Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
+}
+
+static void crfin(SEXP p) {
+  nqrep *r = (nqrep *)R_ExternalPtrAddr(p);
+  if (r != NULL) {
+    nqrepfree(r);
+    R_ClearExternalPtr(p);
+  }
+}
+
+/* the report: the capsule checked (nqchkx, with pk) when sealed, the
+ * record (nqdchk) when there is one */
+SEXP Cdrpt(SEXP dir, SEXP pk, SEXP fmt, SEXP sealed, SEXP hasrec) {
+  const char *d = pth(dir, "dir");
+  nqcopt o;
+  nqrep *cr = NULL;
+  nqdrep *dr = NULL;
+  SEXP pc, pd;
+  char *b;
+  size_t n = 0;
+  int f = Rf_asInteger(fmt), rc;
+  memset(&o, 0, sizeof o);
+  if (pk != R_NilValue) {
+    if (TYPEOF(pk) != RAWSXP) Rf_error("'pk' must be a raw vector");
+    o.trust = XLENGTH(pk) ? RAW(pk) : NULL;
+    o.trustlen = (size_t)XLENGTH(pk);
+  }
+  pc = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(pc, crfin, TRUE);
+  pd = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(pd, repfin, TRUE);
+  if (Rf_asLogical(sealed)) {
+    rc = nqchkx(d, &o, &cr);
+    if (cr == NULL) dfail(rc, "the capsule", NULL);
+    R_SetExternalPtrAddr(pc, cr);
+  }
+  if (Rf_asLogical(hasrec)) {
+    rc = nqdchk(d, &dr);
+    if (dr == NULL) dfail(rc, "the data record", NULL);
+    R_SetExternalPtrAddr(pd, dr);
+  }
+  rc = nqdrpt(d, cr, dr, f, NULL, 0, &n);
+  if (rc != NQEBUF) dfail(rc, "the report", NULL);
+  b = R_alloc(n + 1, 1);
+  if ((rc = nqdrpt(d, cr, dr, f, b, n + 1, &n)) != NQOK)
+    dfail(rc, "the report", NULL);
+  crfin(pc);
+  repfin(pd);
+  UNPROTECT(2);
+  return Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
+}
+
+SEXP Cdpack(SEXP dir, SEXP files, SEXP file) {
+  int rc = nqdpack(pth(dir, "dir"), Rf_asLogical(files), pth(file, "file"));
+  if (rc != NQOK) dfail(rc, "the bundle", NULL);
+  return R_NilValue;
+}
+
+SEXP Cdunpack(SEXP file, SEXP dir, SEXP rm) {
+  char why[600];
+  int rc;
+  why[0] = '\0';
+  rc = nqdunpack(pth(file, "file"), pth(dir, "dir"), Rf_asLogical(rm), why,
+                 sizeof why);
+  if (rc != NQOK) dfail(rc, "the bundle", why);
+  return R_NilValue;
+}
+
+/* list(report, head) */
+SEXP Cdchain(SEXP dirs, SEXP pk) {
+  const char **ds;
+  size_t k, i;
+  nqcopt o;
+  uint8_t head[32];
+  nqdrep *r = NULL;
+  SEXP out, rep, h;
+  int rc;
+  if (TYPEOF(dirs) != STRSXP || XLENGTH(dirs) == 0)
+    Rf_error("'dirs' must name capsule folders");
+  k = (size_t)XLENGTH(dirs);
+  ds = (const char **)R_alloc(k, sizeof *ds);
+  for (i = 0; i < k; i++) {
+    if (STRING_ELT(dirs, (R_xlen_t)i) == NA_STRING)
+      Rf_error("'dirs' must not hold NA");
+#if defined(_WIN32)
+    ds[i] = Rf_translateCharUTF8(STRING_ELT(dirs, (R_xlen_t)i));
+#else
+    ds[i] = Rf_translateChar(STRING_ELT(dirs, (R_xlen_t)i));
+#endif
+  }
+  memset(&o, 0, sizeof o);
+  if (pk != R_NilValue) {
+    if (TYPEOF(pk) != RAWSXP) Rf_error("'pk' must be a raw vector");
+    o.trust = XLENGTH(pk) ? RAW(pk) : NULL;
+    o.trustlen = (size_t)XLENGTH(pk);
+  }
+  memset(head, 0, sizeof head);
+  rc = nqdchain(ds, k, &o, head, &r);
+  rep = PROTECT(drep(rc, r));
+  out = PROTECT(Rf_allocVector(VECSXP, 2));
+  SET_VECTOR_ELT(out, 0, rep);
+  h = Rf_allocVector(RAWSXP, 32);
+  SET_VECTOR_ELT(out, 1, h);
+  memcpy(RAW(h), head, 32);
+  UNPROTECT(2);
+  return out;
 }

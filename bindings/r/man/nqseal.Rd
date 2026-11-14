@@ -160,6 +160,9 @@ Transparency Version 2.0}, RFC 9162 (the Merkle tree of format 2).
 Other capsule functions:
 \code{\link[=nqcapid]{nqcapid()}},
 \code{\link[=nqidcard]{nqidcard()}},
-\code{\link[=nqrotate]{nqrotate()}}
+\code{\link[=nqinspect]{nqinspect()}},
+\code{\link[=nqpack]{nqpack()}},
+\code{\link[=nqrotate]{nqrotate()}},
+\code{\link[=nqtsreq]{nqtsreq()}}
 }
 \concept{capsule functions}

@@ -1139,6 +1139,84 @@ static SEXP Ckfupd(SEXP p, SEXP x, SEXP last, SEXP op, SEXP chunk) {
   return r;
 }
 
+/* ---- inspect, why a seal was refused, timestamps ------------------- */
+
+static SEXP Cinsp(SEXP dir) {
+  nqrep *r = NULL;
+  int rc;
+  const char *d = rpath(dir);
+  SEXP p, out;
+  p = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(p, repfin, TRUE);
+  rc = nqinsp(d, &r);
+  R_SetExternalPtrAddr(p, r);
+  out = repout(rc, r, p, "nqinsp");
+  UNPROTECT(1);
+  return out;
+}
+
+/* list(why, path) */
+static SEXP Csealwhy(SEXP dir) {
+  char path[4200];
+  int why = 0, rc;
+  SEXP out;
+  path[0] = '\0';
+  rc = nqsealwhy(rpath(dir), &why, path, sizeof path);
+  if (rc != NQOK) fail(rc, "nqsealwhy");
+  out = PROTECT(Rf_allocVector(VECSXP, 2));
+  SET_VECTOR_ELT(out, 0, Rf_ScalarInteger(why));
+  SET_VECTOR_ELT(out, 1, Rf_ScalarString(Rf_mkCharCE(path, CE_UTF8)));
+  UNPROTECT(1);
+  return out;
+}
+
+static void whyfail(int rc, const char *what, const char *why) {
+  if (why != NULL) Rf_error("noqtis: %s: %s: %s", what, nqerr(rc), why);
+  fail(rc, what);
+}
+
+/* nqtsreq, or nqersreq with ers (h its hash, 0 for the record's) */
+static SEXP Ctsreq(SEXP dir, SEXP nonce, SEXP ers, SEXP h) {
+  uint8_t q[256];
+  size_t n = 0;
+  const char *w = NULL;
+  int e = Rf_asLogical(ers), rc;
+  SEXP out;
+  chkraw(nonce, "nonce", 1);
+  rc = e ? nqersreq(rpath(dir), (nqhalg)ival(h, "hash"), rp(nonce),
+                    rn(nonce), q, sizeof q, &n, &w)
+         : nqtsreq(rpath(dir), rp(nonce), rn(nonce), q, sizeof q, &n);
+  if (rc != NQOK) whyfail(rc, e ? "nqersreq" : "nqtsreq", w);
+  out = PROTECT(rawn(n));
+  memcpy(RAW(out), q, n);
+  UNPROTECT(1);
+  return out;
+}
+
+/* c(genTime, how): nqtsput (how 0), or nqersput with ers */
+static SEXP Ctsput(SEXP dir, SEXP rsp, SEXP nonce, SEXP anc, SEXP ers,
+                   SEXP h) {
+  const uint8_t **ap;
+  size_t *al, na;
+  int64_t gt = 0;
+  int how = 0, e = Rf_asLogical(ers), rc;
+  const char *w = NULL;
+  SEXP out;
+  chkraw(rsp, "reply", 0);
+  chkraw(nonce, "nonce", 1);
+  na = raws(anc, "anchors", 32, &ap, &al);
+  rc = e ? nqersput(rpath(dir), (nqhalg)ival(h, "hash"), rp(rsp), rn(rsp),
+                    rp(nonce), rn(nonce), ap, al, na, &gt, &how, &w)
+         : nqtsput(rpath(dir), rp(rsp), rn(rsp), rp(nonce), rn(nonce), ap, al,
+                   na, &gt, &w);
+  if (rc != NQOK) whyfail(rc, e ? "nqersput" : "nqtsput", w);
+  out = PROTECT(Rf_allocVector(REALSXP, 2));
+  REAL(out)[0] = (double)gt;
+  REAL(out)[1] = how;
+  UNPROTECT(1);
+  return out;
+}
+
 SEXP Cdload(SEXP dir);
 SEXP Cdput(SEXP dir, SEXP member, SEXP json);
 SEXP Cdadd(SEXP dir, SEXP paths, SEXP fields, SEXP vals);
@@ -1155,6 +1233,19 @@ SEXP Cdinfer(SEXP dir, SEXP path, SEXP delim, SEXP noh, SEXP ranges);
 SEXP Cdstats(SEXP dir, SEXP path, SEXP delim, SEXP noh);
 SEXP Cddrift(SEXP stats, SEXP file, SEXP delim, SEXP noh, SEXP lv);
 SEXP Cddiff(SEXP a, SEXP b);
+SEXP Cdparse(SEXP text);
+SEXP Cdschk(SEXP dir, SEXP schema);
+SEXP Cdsyn(SEXP dir, SEXP path, SEXP seed, SEXP rows);
+SEXP Cdcal(SEXP stats, SEXP files, SEXP delim, SEXP noh);
+SEXP Cdchunk(SEXP dir, SEXP path, SEXP chunk);
+SEXP Cdpiece(SEXP elem, SEXP piece, SEXP off);
+SEXP Cdcommit(SEXP salt, SEXP m);
+SEXP Cdreveal(SEXP dir, SEXP salt, SEXP m);
+SEXP Cdcite(SEXP dir, SEXP fmt);
+SEXP Cdrpt(SEXP dir, SEXP pk, SEXP fmt, SEXP sealed, SEXP hasrec);
+SEXP Cdpack(SEXP dir, SEXP files, SEXP file);
+SEXP Cdunpack(SEXP file, SEXP dir, SEXP rm);
+SEXP Cdchain(SEXP dirs, SEXP pk);
 
 #define CDEF(f, n) {#f, (DL_FUNC)(void (*)(void))&f, n}
 
@@ -1174,7 +1265,11 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cpwdec, 3), CDEF(Csmu, 5), CDEF(Csignmu, 4), CDEF(Cvrfymu, 4),
   CDEF(Csini, 5), CDEF(Csupd, 2), CDEF(Csfin, 4), CDEF(Cvfin, 3),
   CDEF(Ckseal, 4), CDEF(Ckopen, 4), CDEF(Ckfeini, 4), CDEF(Ckfdini, 4),
-  CDEF(Ckfupd, 5),
+  CDEF(Ckfupd, 5), CDEF(Cinsp, 1), CDEF(Csealwhy, 1), CDEF(Ctsreq, 4),
+  CDEF(Ctsput, 6), CDEF(Cdparse, 1), CDEF(Cdschk, 2), CDEF(Cdsyn, 4),
+  CDEF(Cdcal, 4), CDEF(Cdchunk, 3), CDEF(Cdpiece, 3), CDEF(Cdcommit, 2),
+  CDEF(Cdreveal, 3), CDEF(Cdcite, 2), CDEF(Cdrpt, 5), CDEF(Cdpack, 3),
+  CDEF(Cdunpack, 3), CDEF(Cdchain, 2),
   {NULL, NULL, 0}
 };
 

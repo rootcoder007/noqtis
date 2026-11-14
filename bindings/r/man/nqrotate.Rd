@@ -64,6 +64,9 @@ substr(rawToChar(r), 1, 60)
 Other capsule functions:
 \code{\link[=nqcapid]{nqcapid()}},
 \code{\link[=nqidcard]{nqidcard()}},
-\code{\link[=nqseal]{nqseal()}}
+\code{\link[=nqinspect]{nqinspect()}},
+\code{\link[=nqpack]{nqpack()}},
+\code{\link[=nqseal]{nqseal()}},
+\code{\link[=nqtsreq]{nqtsreq()}}
 }
 \concept{capsule functions}

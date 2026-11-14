@@ -67,7 +67,10 @@ Transparency Version 2.0}, RFC 9162. \doi{10.17487/RFC9162}
 \seealso{
 Other capsule functions:
 \code{\link[=nqidcard]{nqidcard()}},
+\code{\link[=nqinspect]{nqinspect()}},
+\code{\link[=nqpack]{nqpack()}},
 \code{\link[=nqrotate]{nqrotate()}},
-\code{\link[=nqseal]{nqseal()}}
+\code{\link[=nqseal]{nqseal()}},
+\code{\link[=nqtsreq]{nqtsreq()}}
 }
 \concept{capsule functions}

@@ -91,7 +91,10 @@ is.null(nqidcheck(card, other$pk))
 \seealso{
 Other capsule functions:
 \code{\link[=nqcapid]{nqcapid()}},
+\code{\link[=nqinspect]{nqinspect()}},
+\code{\link[=nqpack]{nqpack()}},
 \code{\link[=nqrotate]{nqrotate()}},
-\code{\link[=nqseal]{nqseal()}}
+\code{\link[=nqseal]{nqseal()}},
+\code{\link[=nqtsreq]{nqtsreq()}}
 }
 \concept{capsule functions}
