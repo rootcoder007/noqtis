@@ -56,3 +56,28 @@ export function sealDir(dir, alg, secretKey, publicKey, opts = {}) {
   writeFileSync(join(dir, 'noqtis.sig'), out['noqtis.sig']);
   return out;
 }
+
+/**
+ * The packages of a Node project, for data.env's opts.packages: those of
+ * dir's package-lock.json (lockfile version 2 or 3: name, version, and
+ * source its resolved address, or "local"), read with no network; [] when
+ * there is none.
+ */
+export function packages(dir = '.') {
+  let lock;
+  try {
+    lock = JSON.parse(readFileSync(join(dir, 'package-lock.json'), 'utf8'));
+  } catch {
+    return [];
+  }
+  const out = new Map();
+  for (const [k, v] of Object.entries(lock.packages || {})) {
+    if (k === '' || !v || typeof v.version !== 'string') continue;
+    const name = v.name || k.slice(k.lastIndexOf('node_modules/') + 13);
+    if (!out.has(name)) {
+      out.set(name, { name, version: v.version,
+        source: typeof v.resolved === 'string' ? v.resolved : 'local' });
+    }
+  }
+  return [...out.values()].sort((a, b) => (a.name < b.name ? -1 : 1));
+}

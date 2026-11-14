@@ -35,6 +35,9 @@ nqdfld nqdrslv nqdrsp nqdwb
 nqcteq nqb2b nqa2id nqhini nqhupd nqhfin nqpwenc nqpwdec
 nqsmu nqsignmu nqvrfymu nqsini nqvini nqsupd nqsfin nqvfin
 nqkseal nqkopen nqkfeini nqkfeupd nqkfefin nqkfdini nqkfdupd nqkfdfin
+nqinsp nqsealwhy nqtsreq nqtsput nqersreq nqersput
+nqdkey nqddel nqdsyn nqddcal nqdchunk nqdpiece nqdcommit nqdreveal
+nqdcite nqdrpt nqdpack nqdunpack nqdchain
 malloc free setenv unsetenv'
 exp=$(printf ' -Wl,--export=%s' $fns)
 

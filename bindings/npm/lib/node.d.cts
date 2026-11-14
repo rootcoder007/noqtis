@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // The CommonJS helpers return promises (they load the ES module lazily).
-import type { Bytes, CheckOptions, CheckResult, Files, SealOptions, SignAlg }
-  from './index.cjs';
+import type { Bytes, CheckOptions, CheckResult, Files, Package, SealOptions,
+  SignAlg } from './index.cjs';
 
 export function readCapsule(dir: string): Promise<Map<string, Bytes>>;
 /** lineage may name folders; dir may be null with opts.proof. */
@@ -11,3 +11,5 @@ export function checkDir(dir: string | null,
 export function sealDir(dir: string, alg: SignAlg, secretKey: Bytes,
   publicKey: Bytes, opts?: SealOptions):
   Promise<{ 'noqtis.json': Bytes; 'noqtis.sig': Bytes }>;
+/** The packages of dir's package-lock.json, for data.env. */
+export function packages(dir?: string): Promise<Package[]>;

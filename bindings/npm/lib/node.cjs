@@ -15,4 +15,5 @@ module.exports = {
   readCapsule: async (...a) => (await load()).readCapsule(...a),
   checkDir: async (...a) => (await load()).checkDir(...a),
   sealDir: async (...a) => (await load()).sealDir(...a),
+  packages: async (...a) => (await load()).packages(...a),
 };

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-import type { Bytes, CheckOptions, CheckResult, Files, SealOptions, SignAlg }
-  from './index.js';
+import type { Bytes, CheckOptions, CheckResult, Files, Package, SealOptions,
+  SignAlg } from './index.js';
 
 /** Every regular file under dir; a link or special file throws (NQEARG). */
 export function readCapsule(dir: string): Map<string, Bytes>;
@@ -12,3 +12,5 @@ export function checkDir(dir: string | null,
 export function sealDir(dir: string, alg: SignAlg, secretKey: Bytes,
   publicKey: Bytes, opts?: SealOptions):
   { 'noqtis.json': Bytes; 'noqtis.sig': Bytes };
+/** The packages of dir's package-lock.json, for data.env. */
+export function packages(dir?: string): Package[];

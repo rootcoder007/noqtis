@@ -2,12 +2,42 @@
 // Compiled with `tsc -p test/tsconfig.json` (no output): the types cover
 // the API as the tests use it.
 import nq, { init, sign, kem, hash, capsule, dsse, idcard, algs,
-  NoqtisError, codes, data }
+  NoqtisError, codes, data, keyfile, hasher, blake2b, argon2id, cteq }
   from 'noqtis';
-import { checkDir } from 'noqtis/node';
+import { checkDir, packages } from 'noqtis/node';
 
 async function main(): Promise<void> {
   await init();
+  const sg = sign.signer('ML-DSA-44', new Uint8Array(2560)).update('m');
+  const sb: Uint8Array = sg.sign({ deterministic: true });
+  const vb: boolean = sign.verifier('ML-DSA-44', sb).update('m').verify(sb);
+  const mu: Uint8Array = sign.mu('ML-DSA-44', sb, 'm');
+  const sm: boolean = sign.verifymu('ML-DSA-44', sb, mu, sign.signmu('ML-DSA-44', sb, mu));
+  const ks: Uint8Array = kem.open('ML-KEM-768', sb, kem.seal('ML-KEM-768', sb, 'm', { ctx: 'c' }));
+  const se = kem.sealer('ML-KEM-768', sb, { chunk: 1024 });
+  const hd: Uint8Array = se.header;
+  const op: Uint8Array = kem.opener('ML-KEM-768', sb, hd).last(se.last('x'));
+  for await (const p of kem.unbox('ML-KEM-768', sb, kem.box('ML-KEM-768', sb, ['a']))) {
+    const q: Uint8Array = p;
+  }
+  const pw: Uint8Array = keyfile.pwdec('p', keyfile.pwenc('p', sb, { m: 8192 }));
+  const kd = keyfile.decode(keyfile.encode('ML-DSA-44', 'sec', sb, { passphrase: 'p' }), { passphrase: 'p' });
+  const hh: Uint8Array = hasher('sha256').update('x').digest();
+  const bb: Uint8Array = blake2b('x', { key: 'k', length: 32 });
+  const aa: Uint8Array = argon2id('pw', 'saltsalt', { t: 1, m: 8, p: 1 });
+  const ce: boolean = cteq(bb, aa);
+  const why = capsule.sealWhy(new Map())?.why;
+  const tq: Uint8Array = capsule.tsreq(new Map());
+  const bu: Map<string, Uint8Array> = capsule.unpack(capsule.pack(new Map()));
+  const chh = capsule.chain([new Map()]).head;
+  const ii = capsule.inspect(new Map()).checks;
+  const cm = data.commit('{}', 'plan');
+  const rv: number | null = data.reveal(cm.record, 'plan', cm.salt);
+  const ct: string = data.cite(cm.record, 'bib') + data.report(new Map()) +
+    data.env('{}', { packages: await Promise.resolve(packages('.')) }) +
+    data.calibrate('{}', ['x']) + data.chunks('x', 'f', 1024);
+  const pc: boolean = data.piece('{}', 'x', 0).ok;
+  const sy: string = data.synth('{}', new Map(), 'f', 7).record;
   const rec: string = data.add(null, new Map([['a.csv', 'x\n1\n']]), 'a.csv');
   const ad: { kind: string; url: string }[] = data.addrs(rec, 'a.csv');
   const rs: { url: string; time: string } = data.reply({ kind: 'socrata' }, '{}');

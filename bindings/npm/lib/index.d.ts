@@ -122,6 +122,12 @@ export interface Opener {
 
 export type Pieces = Iterable<Data> | AsyncIterable<Data>;
 
+export interface Package {
+  name: string;
+  version: string;
+  source: string;
+}
+
 /** true when a and b are equal, in time that depends only on their length. */
 export function cteq(a: Data, b: Data): boolean;
 /** BLAKE2b (RFC 7693), keyed with opts.key; opts.length 1 to 64 (64). */
@@ -254,6 +260,28 @@ export const capsule: {
   /** A key statement (JSON bytes) that the key pair is revoked. */
   revoke(alg: SignAlg, secretKey: Bytes, publicKey: Bytes,
     opts?: KeyOptions): Bytes;
+  /** What the capsule says ("info.*" rows), with nothing checked. */
+  inspect(files: Files): CheckResult;
+  /** Why seal() refused the files, or null. */
+  sealWhy(files: Files): { why: string; path: string } | null;
+  /** The RFC 3161 TimeStampReq for the seal. */
+  tsreq(files: Files, opts?: { nonce?: Bytes }): Bytes;
+  /** The seal with the TSA's reply as its timestamp, once it checks. */
+  tsput(files: Files, reply: Data, opts?: { nonce?: Bytes; anchors?: Bytes[] }):
+    { 'noqtis.sig': Bytes; time: number };
+  /** The TimeStampReq of the evidence record's next archive timestamp. */
+  ersreq(files: Files, opts?: { hash?: HashAlg; nonce?: Bytes }): Bytes;
+  /** The evidence record with the reply added, once both check. */
+  ersput(files: Files, reply: Data,
+    opts?: { hash?: HashAlg; nonce?: Bytes; anchors?: Bytes[] }):
+    { 'noqtis.ers': Bytes; time: number; how: 'new' | 'timestamp' | 'hash-tree' };
+  /** The capsule as one file (noqtis-bundle-1). */
+  pack(files: Files, opts?: { files?: boolean }): Bytes;
+  /** A bundle's files; EDEC for anything a capsule cannot hold. */
+  unpack(bundle: Data): Map<string, Bytes>;
+  /** Checks an append-only chain of capsules, oldest first. */
+  chain(caps: Files[], opts?: { trust?: Bytes; anchors?: Bytes[] }):
+    DReport & { head: Bytes | null };
 };
 
 export const dsse: {
@@ -343,6 +371,21 @@ export const data: {
   request(resolver: Element): string;
   reply(resolver: Element, body: Data): { url: string; time: string };
   wayback(url: string): string;
+  key(record: string, member: string, key: string): string | null;
+  del(record: string, member: string, key?: string | null): string;
+  synth(record: string, files: Files, path: string, seed: number,
+    rows?: number): { record: string; data: Bytes };
+  calibrate(stats: Element, datas: Data[], opts?: CsvOptions): string;
+  chunks(data: Data, path: string, chunk: number): string;
+  piece(element: Element, piece: Data, off?: number): DReport;
+  commitment(salt: Bytes, m: Data): string;
+  commit(record: string, m: Data, opts?: { kind?: string; label?: string;
+    after?: string; time?: number }): { record: string; salt: Bytes };
+  reveal(record: string, m: Data, salt: Bytes): number | null;
+  cite(record: string, fmt?: 'cff' | 'bib' | 'bibtex'): string;
+  report(files: Files, opts?: { trust?: Bytes; format?: 'md' | 'txt' }): string;
+  env(record: string, opts?: { rng?: string; seed?: number | string;
+    locks?: Record<string, Data>; packages?: Package[] }): string;
 };
 
 export const codes: Readonly<{
