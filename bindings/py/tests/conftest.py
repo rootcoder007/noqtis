@@ -47,3 +47,24 @@ def gold(tmp_path):
     d = tmp_path / "sample"
     shutil.copytree(str(GOLD), str(d))
     return d
+
+
+def kv(name):
+    """The records of a key=value vector file under tests/vectors: a list
+    of dicts, one per block between blank lines, comments dropped."""
+    out, cur = [], {}
+    with open(REPO / "tests" / "vectors" / name, encoding="ascii") as f:
+        for ln in f:
+            ln = ln.rstrip("\r\n")
+            if ln.startswith("#"):
+                continue
+            if not ln:
+                if cur:
+                    out.append(cur)
+                cur = {}
+                continue
+            k, v = ln.split("=", 1)
+            cur[k] = v
+    if cur:
+        out.append(cur)
+    return out

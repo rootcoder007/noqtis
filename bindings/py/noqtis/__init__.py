@@ -45,6 +45,7 @@ __all__ = [
     "DecodeError",
     "File",
     "FileError",
+    "Hasher",
     "LimitError",
     "MemError",
     "NoqtisError",
@@ -58,8 +59,11 @@ __all__ = [
     "VerifyError",
     "__version__",
     "algs",
+    "argon2id",
+    "blake2b",
     "capid",
     "check",
+    "cteq",
     "dsse",
     "files",
     "hash",
@@ -70,6 +74,7 @@ __all__ = [
     "kem",
     "keyfile",
     "prove",
+    "rand",
     "revoke",
     "rotate",
     "seal",
@@ -475,3 +480,59 @@ def idcheck(card: Union[Bytes, str, "os.PathLike[str]"],
     aid, kp, fp, _, utc, nm, orc, em, u, af = f
     return Card(nm, orc or None, em or None, u or None, af or None, utc,
                 next(x.name for x in SIGS if x.id == aid), kp, fp.hex())
+
+
+# ---- utilities, BLAKE2b, Argon2id, streaming hashes ----
+
+def rand(n: int) -> bytes:
+    """``n`` bytes from the operating system's CSPRNG (nqrand)."""
+    return _c.rand(int(n))
+
+
+def cteq(a: Bytes, b: Bytes) -> bool:
+    """True when ``a`` and ``b`` are equal, in time that depends only on
+    their length (compare MACs and tags with it)."""
+    return _c.cteq(buf(a, "a"), buf(b, "b"))
+
+
+def blake2b(data: Bytes, key: Bytes = b"", n: int = 64) -> bytes:
+    """BLAKE2b (RFC 7693): an ``n``-byte digest (1 to 64) of ``data``,
+    keyed (a MAC) with up to 64 bytes of ``key``."""
+    return _c.b2b(buf(key, "key"), buf(data, "data"), int(n))
+
+
+def argon2id(pw: Bytes, salt: Bytes, t: int = 3, m: int = 65536, p: int = 4,
+             n: int = 32, key: Bytes = b"", ad: Bytes = b"") -> bytes:
+    """Argon2id (RFC 9106, version 0x13): ``n`` bytes (4 to 1024) from the
+    password and the salt (8 bytes or more), ``t`` passes over ``m`` KiB
+    in ``p`` lanes, with an optional secret ``key`` and associated data
+    ``ad``."""
+    return _c.a2id(buf(pw, "pw"), buf(salt, "salt"), buf(key, "key"),
+                   buf(ad, "ad"), int(t), int(m), int(p), int(n))
+
+
+class Hasher:
+    """A digest of data given in pieces, as ``hash`` gives it for the
+    whole: ``update`` (or ``write``) any number of times, then
+    ``digest``; for SHAKE ``digest(n)`` may be called again to squeeze
+    more output."""
+
+    __slots__ = ("_c", "_n", "_shake")
+
+    def __init__(self, alg: str) -> None:
+        i = hid(alg)
+        self._shake = isshake(i)
+        self._n = _c.hlen(i)
+        self._c = _c.hini(i)
+
+    def update(self, data: Bytes) -> None:
+        _c.hupd(self._c, buf(data, "data"))
+
+    def write(self, data: Bytes) -> int:
+        self.update(data)
+        return len(data)
+
+    def digest(self, n: Optional[int] = None) -> bytes:
+        if n is not None and not self._shake:
+            raise ArgError(-1, "n is for SHAKE")
+        return _c.hfin(self._c, self._n if n is None else int(n))

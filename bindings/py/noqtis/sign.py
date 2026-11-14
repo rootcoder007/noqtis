@@ -14,7 +14,8 @@ from . import _noqtis as _c
 from ._alg import AlgLike, Bytes, buf, find, hid, opt
 from ._err import ArgError, DecodeError
 
-__all__ = ["keygen", "rndlen", "sign", "verify"]
+__all__ = ["Signer", "Verifier", "keygen", "mu", "rndlen", "sign",
+           "signmu", "verify", "verifymu"]
 
 
 def rndlen(alg: AlgLike) -> int:
@@ -71,3 +72,92 @@ def verify(alg: AlgLike, pk: Bytes, msg: Bytes, sig: Bytes, ctx: Bytes = b"",
     rc = _c.vrfy(a.id, p, buf(msg, "msg"), buf(ctx, "ctx"), _ph(prehash),
                  buf(sig, "sig"))
     return rc == 0
+
+
+# ---- ML-DSA with an external mu ----
+
+def mu(alg: AlgLike, pk: Bytes, msg: Bytes, ctx: Bytes = b"",
+       prehash: Optional[str] = None) -> bytes:
+    """The 64-byte message representative mu of FIPS 204 for ``msg``
+    under ``pk``, as ``sign`` computes it (ML-DSA only), so that the
+    message can be hashed away from where the secret key is."""
+    a = find(alg, "sign")
+    return _c.smu(a.id, buf(pk, "pk"), buf(msg, "msg"), buf(ctx, "ctx"),
+                  _ph(prehash))
+
+
+def signmu(alg: AlgLike, sk: Bytes, mu: Bytes, deterministic: bool = False,
+           rnd: Optional[Bytes] = None) -> bytes:
+    """The signature of the message whose mu is ``mu`` (from ``mu``): the
+    same bytes ``sign`` gives for that message with the same ``rnd``."""
+    a = find(alg, "sign")
+    if deterministic and rnd is not None:
+        raise ArgError(-1, "deterministic and rnd exclude each other")
+    r = bytes(32) if deterministic else opt(rnd, "rnd")
+    return _c.signmu(a.id, buf(sk, "sk"), buf(mu, "mu"), r)
+
+
+def verifymu(alg: AlgLike, pk: Bytes, mu: Bytes, sig: Bytes) -> bool:
+    """True when ``sig`` verifies for the message whose mu is ``mu``."""
+    a = find(alg, "sign")
+    return _c.vrfymu(a.id, buf(pk, "pk"), buf(mu, "mu"),
+                     buf(sig, "sig")) == 0
+
+
+# ---- streaming ----
+
+class Signer:
+    """A signature over a message given in pieces: ``update`` (or
+    ``write``, so ``shutil.copyfileobj(f, signer)`` works) any number of
+    times, then ``finish``, which gives the bytes ``sign`` gives for the
+    whole message with the same ``rnd``. Only the piece at hand is held;
+    the secret key is the caller's object, used again at ``finish``.
+    ML-DSA (pure and pre-hash), and HashSLH-DSA, Ed25519ph and the
+    hybrids with ``prehash="SHA-512"``; the others raise
+    UnsupportedError. One use: after ``finish`` it raises StateError."""
+
+    __slots__ = ("_a", "_k", "_c")
+
+    def __init__(self, alg: AlgLike, sk: Bytes, ctx: Bytes = b"",
+                 prehash: Optional[str] = None) -> None:
+        self._a = find(alg, "sign")
+        self._k = buf(sk, "sk")
+        self._c = _c.sini(self._a.id, self._k, buf(ctx, "ctx"), _ph(prehash),
+                          False)
+
+    def update(self, data: Bytes) -> None:
+        _c.supd(self._c, buf(data, "data"))
+
+    def write(self, data: Bytes) -> int:
+        self.update(data)
+        return len(data)
+
+    def finish(self, deterministic: bool = False,
+               rnd: Optional[Bytes] = None) -> bytes:
+        if deterministic and rnd is not None:
+            raise ArgError(-1, "deterministic and rnd exclude each other")
+        r = bytes(rndlen(self._a)) if deterministic else opt(rnd, "rnd")
+        return _c.sfin(self._c, self._a.id, self._k, r)
+
+
+class Verifier:
+    """``verify`` over a message given in pieces: ``update``/``write``,
+    then ``finish(sig)``, True when it verifies. As ``Signer``."""
+
+    __slots__ = ("_k", "_c")
+
+    def __init__(self, alg: AlgLike, pk: Bytes, ctx: Bytes = b"",
+                 prehash: Optional[str] = None) -> None:
+        a = find(alg, "sign")
+        self._k = buf(pk, "pk")
+        self._c = _c.sini(a.id, self._k, buf(ctx, "ctx"), _ph(prehash), True)
+
+    def update(self, data: Bytes) -> None:
+        _c.supd(self._c, buf(data, "data"))
+
+    def write(self, data: Bytes) -> int:
+        self.update(data)
+        return len(data)
+
+    def finish(self, sig: Bytes) -> bool:
+        return _c.vfin(self._c, self._k, buf(sig, "sig")) == 0

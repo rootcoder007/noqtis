@@ -1232,6 +1232,518 @@ static PyObject *pddiff(PyObject *self, PyObject *args) {
   return ddone(rc, r);
 }
 
+/* ---- utilities, BLAKE2b and Argon2id ---- */
+
+/* rand(n) -> n bytes from the OS CSPRNG */
+static PyObject *prand(PyObject *self, PyObject *args) {
+  Py_ssize_t n;
+  PyObject *b;
+  uint8_t *p;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "n", &n)) return NULL;
+  if (n < 0) return fail(NQEARG);
+  if ((b = obuf(SZ(n), &p)) == NULL) return NULL;
+  rc = nqrand(p, SZ(n));
+  if (rc != NQOK) {
+    sdrop(b);
+    return fail(rc);
+  }
+  return b;
+}
+
+/* cteq(a, b) -> bool, in time that depends only on the length */
+static PyObject *pcteq(PyObject *self, PyObject *args) {
+  const char *a, *b;
+  Py_ssize_t al, bl;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#y#", &a, &al, &b, &bl)) return NULL;
+  if (al != bl) Py_RETURN_FALSE;
+  return PyBool_FromLong(nqcteq(a, b, SZ(al)));
+}
+
+/* b2b(key, data, n) -> digest */
+static PyObject *pb2b(PyObject *self, PyObject *args) {
+  const char *k, *d;
+  Py_ssize_t kl, dl, n;
+  PyObject *o;
+  uint8_t *p;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#y#n", &k, &kl, &d, &dl, &n)) return NULL;
+  if (n < 1 || n > 64) return fail(NQEARG);
+  if ((o = obuf(SZ(n), &p)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqb2b(U8(k), SZ(kl), U8(d), SZ(dl), p, SZ(n));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    Py_DECREF(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* a2id(pw, salt, key, ad, t, m, p, n) -> tag (secret) */
+static PyObject *pa2id(PyObject *self, PyObject *args) {
+  const char *pw, *s, *k, *a;
+  Py_ssize_t pl, sl, kl, al, n;
+  unsigned long t, m, p;
+  PyObject *o;
+  uint8_t *q;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#y#y#y#kkkn", &pw, &pl, &s, &sl, &k, &kl, &a,
+                        &al, &t, &m, &p, &n))
+    return NULL;
+  if (n < (Py_ssize_t)NQA2OMIN || n > (Py_ssize_t)NQA2OMAX ||
+      t > 0xffffffffUL || m > 0xffffffffUL || p > 0xffffffffUL)
+    return fail(NQEARG);
+  if ((o = obuf(SZ(n), &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqa2id(U8(pw), SZ(pl), U8(s), SZ(sl), U8(k), SZ(kl), U8(a), SZ(al),
+              (uint32_t)t, (uint32_t)m, (uint32_t)p, q, SZ(n));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* ---- passphrase key files ---- */
+
+/* pwenc(pw, ad, m, t, p, sk) -> bytes */
+static PyObject *ppwenc(PyObject *self, PyObject *args) {
+  const char *pw, *ad, *sk;
+  Py_ssize_t pl, al, kl;
+  unsigned long m, t, p;
+  size_t on = 0;
+  PyObject *o;
+  uint8_t *q;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#y#kkky#", &pw, &pl, &ad, &al, &m, &t, &p,
+                        &sk, &kl))
+    return NULL;
+  if (m > 0xffffffffUL || t > 0xffffffffUL || p > 0xffffffffUL ||
+      SZ(kl) > NQPWMAX)
+    return fail(NQEARG);
+  if ((o = obuf(SZ(kl) + NQPWOVH, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqpwenc(U8(pw), SZ(pl), U8(ad), SZ(al), (uint32_t)m, (uint32_t)t,
+               (uint32_t)p, U8(sk), SZ(kl), q, SZ(kl) + NQPWOVH, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    Py_DECREF(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* pwdec(pw, ad, data) -> the key (secret) */
+static PyObject *ppwdec(PyObject *self, PyObject *args) {
+  const char *pw, *ad, *in;
+  Py_ssize_t pl, al, il;
+  size_t on = 0, cap;
+  PyObject *o, *r;
+  uint8_t *q;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#y#y#", &pw, &pl, &ad, &al, &in, &il))
+    return NULL;
+  cap = SZ(il) > NQPWOVH ? SZ(il) - NQPWOVH : 1;
+  if ((o = obuf(cap, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqpwdec(U8(pw), SZ(pl), U8(ad), SZ(al), U8(in), SZ(il), q, cap, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  if (on == cap) return o;
+  r = PyBytes_FromStringAndSize((const char *)q, (Py_ssize_t)on);
+  sdrop(o);
+  return r;
+}
+
+/* ---- ML-DSA with an external mu ---- */
+
+/* smu(alg, pk, msg, ctx, ph) -> mu */
+static PyObject *psmu(PyObject *self, PyObject *args) {
+  int alg, ph, rc;
+  const char *pk, *msg, *ctx;
+  Py_ssize_t pl, ml, cl;
+  PyObject *o;
+  uint8_t *q;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#y#i", &alg, &pk, &pl, &msg, &ml, &ctx,
+                        &cl, &ph))
+    return NULL;
+  if ((o = obuf(NQMU, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqsmu((nqsalg)alg, U8(pk), SZ(pl), U8(msg), SZ(ml), U8(ctx), SZ(cl),
+             ph, q, NQMU);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    Py_DECREF(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* signmu(alg, sk, mu, rnd or None) -> sig */
+static PyObject *psignmu(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *sk, *mu, *rnd = NULL;
+  Py_ssize_t kl, ml, rl = 0;
+  size_t on = 0;
+  nqssz z;
+  PyObject *o;
+  uint8_t *q;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#z#", &alg, &sk, &kl, &mu, &ml, &rnd, &rl))
+    return NULL;
+  if ((rc = nqssize((nqsalg)alg, &z)) != NQOK) return fail(rc);
+  if ((o = obuf(z.sig, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqsignmu((nqsalg)alg, U8(sk), SZ(kl), U8(mu), SZ(ml), U8(rnd), SZ(rl),
+                q, z.sig, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    Py_DECREF(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* vrfymu(alg, pk, mu, sig) -> NQOK, NQEVRFY or NQEDEC */
+static PyObject *pvrfymu(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *pk, *mu, *sig;
+  Py_ssize_t pl, ml, sl;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#y#", &alg, &pk, &pl, &mu, &ml, &sig, &sl))
+    return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqvrfymu((nqsalg)alg, U8(pk), SZ(pl), U8(mu), SZ(ml), U8(sig), SZ(sl));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK && rc != NQEVRFY && rc != NQEDEC) return fail(rc);
+  return PyLong_FromLong(rc);
+}
+
+/* ---- contexts: streaming hashes, signatures and sealed streams ---- */
+
+/* A context lives in PyMem memory held by a capsule of its name; the
+ * capsule's destructor wipes it. */
+static void cfree(PyObject *c) {
+  const char *n = PyCapsule_GetName(c);
+  void *p = PyCapsule_GetPointer(c, n);
+  size_t sz = (size_t)(uintptr_t)PyCapsule_GetContext(c);
+  if (p != NULL) {
+    nqwipe(p, sz);
+    PyMem_Free(p);
+  }
+}
+
+static PyObject *cnew(const char *name, size_t sz, void **p) {
+  PyObject *c;
+  *p = PyMem_Malloc(sz);
+  if (*p == NULL) return PyErr_NoMemory();
+  memset(*p, 0, sz);
+  c = PyCapsule_New(*p, name, cfree);
+  if (c == NULL) {
+    PyMem_Free(*p);
+    return NULL;
+  }
+  if (PyCapsule_SetContext(c, (void *)(uintptr_t)sz) != 0) {
+    Py_DECREF(c);
+    return NULL;
+  }
+  return c;
+}
+
+static void *cget(PyObject *c, const char *name) {
+  return PyCapsule_GetPointer(c, name);
+}
+
+#define CH "noqtis.hctx"
+#define CS "noqtis.sctx"
+#define CK "noqtis.kfctx"
+
+/* hini(alg) -> context */
+static PyObject *phini(PyObject *self, PyObject *args) {
+  int alg, rc;
+  void *p;
+  PyObject *c;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "i", &alg)) return NULL;
+  if ((c = cnew(CH, sizeof(nqhctx), &p)) == NULL) return NULL;
+  if ((rc = nqhini((nqhctx *)p, (nqhalg)alg)) != NQOK) {
+    Py_DECREF(c);
+    return fail(rc);
+  }
+  return c;
+}
+
+/* hupd(ctx, data) */
+static PyObject *phupd(PyObject *self, PyObject *args) {
+  PyObject *c;
+  const char *d;
+  Py_ssize_t dl;
+  nqhctx *h;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oy#", &c, &d, &dl)) return NULL;
+  if ((h = (nqhctx *)cget(c, CH)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqhupd(h, U8(d), SZ(dl));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  Py_RETURN_NONE;
+}
+
+/* hfin(ctx, n) -> n bytes */
+static PyObject *phfin(PyObject *self, PyObject *args) {
+  PyObject *c, *o;
+  Py_ssize_t n;
+  nqhctx *h;
+  uint8_t *q;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "On", &c, &n)) return NULL;
+  if ((h = (nqhctx *)cget(c, CH)) == NULL) return NULL;
+  if (n < 0) return fail(NQEARG);
+  if ((o = obuf(SZ(n), &q)) == NULL) return NULL;
+  rc = nqhfin(h, q, SZ(n));
+  if (rc != NQOK) {
+    Py_DECREF(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* sini(alg, key, ctx, ph, verify) -> context: nqsini, or nqvini */
+static PyObject *psini(PyObject *self, PyObject *args) {
+  int alg, ph, v, rc;
+  const char *k, *cx;
+  Py_ssize_t kl, cl;
+  void *p;
+  PyObject *c;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#ip", &alg, &k, &kl, &cx, &cl, &ph, &v))
+    return NULL;
+  if ((c = cnew(CS, sizeof(nqsctx), &p)) == NULL) return NULL;
+  if (v)
+    rc = nqvini((nqsctx *)p, (nqsalg)alg, U8(k), SZ(kl), U8(cx), SZ(cl), ph);
+  else
+    rc = nqsini((nqsctx *)p, (nqsalg)alg, U8(k), SZ(kl), U8(cx), SZ(cl), ph);
+  if (rc != NQOK) {
+    Py_DECREF(c);
+    return fail(rc);
+  }
+  return c;
+}
+
+/* supd(ctx, data) */
+static PyObject *psupd(PyObject *self, PyObject *args) {
+  PyObject *c;
+  const char *d;
+  Py_ssize_t dl;
+  nqsctx *s;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oy#", &c, &d, &dl)) return NULL;
+  if ((s = (nqsctx *)cget(c, CS)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqsupd(s, U8(d), SZ(dl));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  Py_RETURN_NONE;
+}
+
+/* sfin(ctx, alg, sk, rnd or None) -> sig */
+static PyObject *psfin(PyObject *self, PyObject *args) {
+  PyObject *c, *o;
+  int alg, rc;
+  const char *sk, *rnd = NULL;
+  Py_ssize_t kl, rl = 0;
+  size_t on = 0;
+  nqssz z;
+  nqsctx *s;
+  uint8_t *q;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oiy#z#", &c, &alg, &sk, &kl, &rnd, &rl))
+    return NULL;
+  if ((s = (nqsctx *)cget(c, CS)) == NULL) return NULL;
+  if ((rc = nqssize((nqsalg)alg, &z)) != NQOK) return fail(rc);
+  if ((o = obuf(z.sig, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqsfin(s, U8(sk), SZ(kl), U8(rnd), SZ(rl), q, z.sig, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    Py_DECREF(o);
+    return fail(rc);
+  }
+  if (on == z.sig) return o;
+  c = PyBytes_FromStringAndSize((const char *)q, (Py_ssize_t)on);
+  Py_DECREF(o);
+  return c;
+}
+
+/* vfin(ctx, pk, sig) -> NQOK, NQEVRFY or NQEDEC */
+static PyObject *pvfin(PyObject *self, PyObject *args) {
+  PyObject *c;
+  const char *pk, *sig;
+  Py_ssize_t pl, sl;
+  nqsctx *s;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oy#y#", &c, &pk, &pl, &sig, &sl)) return NULL;
+  if ((s = (nqsctx *)cget(c, CS)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqvfin(s, U8(pk), SZ(pl), U8(sig), SZ(sl));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK && rc != NQEVRFY && rc != NQEDEC) return fail(rc);
+  return PyLong_FromLong(rc);
+}
+
+/* ---- messages and streams sealed to an ML-KEM key ---- */
+
+/* kseal(alg, pk, ctx, msg) -> bytes */
+static PyObject *pkseal(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *pk, *cx, *m;
+  Py_ssize_t pl, cl, ml;
+  size_t on = 0, cap;
+  nqksz z;
+  PyObject *o;
+  uint8_t *q;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#y#", &alg, &pk, &pl, &cx, &cl, &m, &ml))
+    return NULL;
+  if ((rc = nqksize((nqkalg)alg, &z)) != NQOK) return fail(rc);
+  if (SZ(ml) > NQKSMAX) return fail(NQELIM);
+  cap = NQKSOVH + z.ct + SZ(ml);
+  if ((o = obuf(cap, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqkseal((nqkalg)alg, U8(pk), SZ(pl), U8(cx), SZ(cl), U8(m), SZ(ml), q,
+               cap, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    Py_DECREF(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* kopen(alg, sk, ctx, data) -> the message */
+static PyObject *pkopen(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *sk, *cx, *in;
+  Py_ssize_t kl, cl, il;
+  size_t on = 0, cap;
+  PyObject *o, *r;
+  uint8_t *q;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#y#", &alg, &sk, &kl, &cx, &cl, &in, &il))
+    return NULL;
+  cap = SZ(il) > 0 ? SZ(il) : 1;
+  if ((o = obuf(cap, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqkopen((nqkalg)alg, U8(sk), SZ(kl), U8(cx), SZ(cl), U8(in), SZ(il), q,
+               cap, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  r = PyBytes_FromStringAndSize((const char *)q, (Py_ssize_t)on);
+  sdrop(o);
+  return r;
+}
+
+/* kfeini(alg, pk, ctx, chunk) -> (context, header) */
+static PyObject *pkfeini(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *pk, *cx;
+  Py_ssize_t pl, cl;
+  unsigned long ch;
+  uint8_t h[NQKFHDR + 1568];
+  size_t hl = 0;
+  void *p;
+  PyObject *c;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#k", &alg, &pk, &pl, &cx, &cl, &ch))
+    return NULL;
+  if (ch > 0xffffffffUL) return fail(NQELIM);
+  if ((c = cnew(CK, sizeof(nqkfctx), &p)) == NULL) return NULL;
+  rc = nqkfeini((nqkfctx *)p, (nqkalg)alg, U8(pk), SZ(pl), U8(cx), SZ(cl),
+                (uint32_t)ch, h, sizeof h, &hl);
+  if (rc != NQOK) {
+    Py_DECREF(c);
+    return fail(rc);
+  }
+  return Py_BuildValue("(Ny#)", c, (const char *)h, (Py_ssize_t)hl);
+}
+
+/* kfdini(alg, sk, ctx, header) -> (context, chunk) */
+static PyObject *pkfdini(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *sk, *cx, *h;
+  Py_ssize_t kl, cl, hl;
+  uint32_t ch = 0;
+  void *p;
+  PyObject *c;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#y#", &alg, &sk, &kl, &cx, &cl, &h, &hl))
+    return NULL;
+  if ((c = cnew(CK, sizeof(nqkfctx), &p)) == NULL) return NULL;
+  rc = nqkfdini((nqkfctx *)p, (nqkalg)alg, U8(sk), SZ(kl), U8(cx), SZ(cl),
+                U8(h), SZ(hl), &ch);
+  if (rc != NQOK) {
+    Py_DECREF(c);
+    return fail(rc);
+  }
+  return Py_BuildValue("(Nk)", c, (unsigned long)ch);
+}
+
+/* kfupd(ctx, data, last, open, chunk) -> bytes: one chunk sealed
+ * (nqkfeupd, nqkfefin) or opened (nqkfdupd, nqkfdfin) */
+static PyObject *pkfupd(PyObject *self, PyObject *args) {
+  PyObject *c, *o, *r;
+  const char *d;
+  Py_ssize_t dl;
+  int last, op, rc;
+  unsigned long ch;
+  size_t on = 0, cap;
+  nqkfctx *k;
+  uint8_t *q;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oy#ppk", &c, &d, &dl, &last, &op, &ch))
+    return NULL;
+  if ((k = (nqkfctx *)cget(c, CK)) == NULL) return NULL;
+  cap = op ? (size_t)ch : (size_t)ch + 16;
+  if ((o = obuf(cap > 0 ? cap : 1, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  if (op)
+    rc = last ? nqkfdfin(k, U8(d), SZ(dl), q, cap, &on)
+              : nqkfdupd(k, U8(d), SZ(dl), q, cap, &on);
+  else
+    rc = last ? nqkfefin(k, U8(d), SZ(dl), q, cap, &on)
+              : nqkfeupd(k, U8(d), SZ(dl), q, cap, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  r = PyBytes_FromStringAndSize((const char *)q, (Py_ssize_t)on);
+  if (op)
+    sdrop(o);
+  else
+    Py_DECREF(o);
+  return r;
+}
+
 static PyMethodDef meths[] = {
   {"setup", psetup, METH_O, "register the error classes"},
   {"version", pver, METH_NOARGS, "nqver()"},
@@ -1274,6 +1786,27 @@ static PyMethodDef meths[] = {
   {"drslv", pdrslv, METH_VARARGS, "nqdrslv"},
   {"drsp", pdrsp, METH_VARARGS, "nqdrsp"},
   {"dwb", pdwb, METH_VARARGS, "nqdwb"},
+  {"rand", prand, METH_VARARGS, "nqrand"},
+  {"cteq", pcteq, METH_VARARGS, "nqcteq"},
+  {"b2b", pb2b, METH_VARARGS, "nqb2b"},
+  {"a2id", pa2id, METH_VARARGS, "nqa2id"},
+  {"pwenc", ppwenc, METH_VARARGS, "nqpwenc"},
+  {"pwdec", ppwdec, METH_VARARGS, "nqpwdec"},
+  {"smu", psmu, METH_VARARGS, "nqsmu"},
+  {"signmu", psignmu, METH_VARARGS, "nqsignmu"},
+  {"vrfymu", pvrfymu, METH_VARARGS, "nqvrfymu"},
+  {"hini", phini, METH_VARARGS, "nqhini"},
+  {"hupd", phupd, METH_VARARGS, "nqhupd"},
+  {"hfin", phfin, METH_VARARGS, "nqhfin"},
+  {"sini", psini, METH_VARARGS, "nqsini / nqvini"},
+  {"supd", psupd, METH_VARARGS, "nqsupd"},
+  {"sfin", psfin, METH_VARARGS, "nqsfin"},
+  {"vfin", pvfin, METH_VARARGS, "nqvfin"},
+  {"kseal", pkseal, METH_VARARGS, "nqkseal"},
+  {"kopen", pkopen, METH_VARARGS, "nqkopen"},
+  {"kfeini", pkfeini, METH_VARARGS, "nqkfeini"},
+  {"kfdini", pkfdini, METH_VARARGS, "nqkfdini"},
+  {"kfupd", pkfupd, METH_VARARGS, "nqkfeupd / nqkfefin / nqkfdupd / nqkfdfin"},
   {NULL, NULL, 0, NULL}
 };
 
