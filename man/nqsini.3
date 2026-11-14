@@ -1,0 +1,165 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NQSINI 3
+.Os
+.Sh NAME
+.Nm nqsini ,
+.Nm nqvini ,
+.Nm nqsupd ,
+.Nm nqsfin ,
+.Nm nqvfin
+.Nd sign and verify a message given in pieces
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqsini
+.Fa "nqsctx *c" "nqsalg alg"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *ctx" "size_t ctxlen" "int ph"
+.Fc
+.Ft int
+.Fo nqvini
+.Fa "nqsctx *c" "nqsalg alg"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const uint8_t *ctx" "size_t ctxlen" "int ph"
+.Fc
+.Ft int
+.Fn nqsupd "nqsctx *c" "const uint8_t *msg" "size_t n"
+.Ft int
+.Fo nqsfin
+.Fa "nqsctx *c"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *rnd" "size_t rndlen"
+.Fa "uint8_t *sig" "size_t siglen" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqvfin
+.Fa "nqsctx *c"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const uint8_t *sig" "size_t siglen"
+.Fc
+.Sh DESCRIPTION
+These functions sign or check a message too large to hold in memory.
+.Fn nqsini
+starts a signature with the secret key
+.Fa sk ,
+.Fn nqvini
+a check with the public key
+.Fa pk ;
+.Fa ctx ,
+.Fa ctxlen
+and
+.Fa ph
+are those of
+.Xr nqsign 3 .
+.Fn nqsupd
+adds the next
+.Fa n
+bytes of the message (any number of times; an empty piece is fine).
+.Fn nqsfin
+writes the signature, the bytes
+.Fn nqsignd
+gives for the whole message with the same
+.Fa rnd ,
+or with
+.Fa rnd
+.Dv NULL
+.Pq Fa rndlen No 0
+a hedged one as
+.Fn nqsign
+makes;
+.Fn nqvfin
+returns what
+.Fn nqvrfy
+returns for the whole message.
+Both take the key given at the start again, and refuse another
+.Pq Er NQEARG .
+For Ed25519 alone, any non-NULL
+.Fa rnd
+with
+.Fa rndlen
+0 asks for RFC 8032's deterministic signature.
+.Pp
+.Vt nqsctx
+is sized in the header, so it can live on the stack.
+It holds no pointer and no copy of the key (only its SHA3-256, to check
+the key at the end), is checked on every call, and is wiped by
+.Fn nqsfin
+and
+.Fn nqvfin
+whatever they return; a context used up, never started, used in the
+other direction or changed gives
+.Er NQESTATE .
+.Pp
+What can stream:
+.Bl -bullet
+.It
+ML-DSA, pure and pre-hash: the message representative mu is SHAKE256
+over the hash of the public key, the prefix and the message, one pass;
+the end goes through the external-mu signer of
+.Xr nqsignmu 3 .
+.It
+HashSLH-DSA (any
+.Fa ph ) ,
+Ed25519ph and the ML-DSA + Ed25519 hybrids with
+.Fa ph
+.Dv NQS512 :
+the hash of the message streams, and the end is the one-call signature
+on it.
+.El
+.Pp
+Pure SLH-DSA, pure Ed25519 and Ed25519ctx, Ed25519ph with another hash,
+and the hybrids without SHA-512 return
+.Er NQENOSUP :
+their signers read the message twice (SLH-DSA its randomiser and then
+its digest, Ed25519 its nonce and then its challenge), so the whole
+message would have to be kept.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or
+.Bl -tag -width NQENOSUP
+.It Bq Er NQEARG
+An unknown
+.Fa alg ,
+a
+.Dv NULL
+pointer, a context too long, an unknown
+.Fa ph ,
+an
+.Fa rnd
+of another length, or another key at the end.
+.It Bq Er NQEBUF
+.Fa siglen
+is too small.
+.It Bq Er NQEDEC
+A key or signature of the wrong length.
+.It Bq Er NQEVRFY
+The signature does not verify.
+.It Bq Er NQESTATE
+The context is not one these functions left open in this direction.
+.It Bq Er NQENOSUP
+The algorithm and mode cannot stream (above).
+.It Bq Er NQEFLT , NQERNG
+As
+.Xr nqsign 3 .
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+nqsctx c;
+uint8_t buf[65536], sig[3309];
+size_t n, got;
+int rc = nqsini(&c, NQMLDSA65, sk, sklen, NULL, 0, 0);
+while (rc == NQOK && (n = fread(buf, 1, sizeof buf, f)) > 0)
+  rc = nqsupd(&c, buf, n);
+if (rc == NQOK)
+  rc = nqsfin(&c, sk, sklen, NULL, 0, sig, sizeof sig, &got);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-sign 1 ,
+.Xr noqtis 3 ,
+.Xr nqsign 3 ,
+.Xr nqsignmu 3
+.Sh STANDARDS
+FIPS 204, FIPS 205, RFC 8032.

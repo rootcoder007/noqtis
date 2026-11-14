@@ -552,10 +552,12 @@ int nqedsignz(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
   ge p;
   if (rc != NQOK) return rc;
   if (sk == NULL || sig == NULL) return NQEARG;
-  if (ph) {
+  if (ph == 1) {
     nqs512(msg, msglen, mh);
     m = mh;
     ml = 64;
+  } else if (ph != 0 && msglen != NQEDPH) {
+    return NQEARG;
   }
   rc = split(sk, h, a0, a1);
   if (rc == NQOK) rc = pubm(pk, a0, a1);
@@ -644,10 +646,12 @@ int nqedvrfy(const uint8_t pk[NQEDPK], const uint8_t *msg, size_t msglen,
     if (sig[32 + i] < cl[i]) break;
     if (sig[32 + i] > cl[i] || i == 0) return NQEVRFY;
   }
-  if (ph) {
+  if (ph == 1) {
     nqs512(msg, msglen, mh);
     m = mh;
     ml = 64;
+  } else if (ph != 0 && msglen != NQEDPH) {
+    return NQEARG;
   }
   hdom(k, ph, ctx, ctxlen, sig, 32, pk, 32, m, ml);
   red(k);

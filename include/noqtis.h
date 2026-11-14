@@ -249,6 +249,40 @@ NQAPI int nqvrfymu(nqsalg alg, const uint8_t *pk, size_t pklen,
                    const uint8_t *mu, size_t mulen, const uint8_t *sig,
                    size_t siglen);
 
+/* Streaming signatures: the message in pieces (nqsupd, any number of
+ * times, empty pieces too), the signature or verdict of the one-call
+ * functions at the end. nqsini starts signing with sk, nqvini checking
+ * with pk; nqsfin and nqvfin take the same key again (NQEARG for
+ * another) and end the context, which then gives NQESTATE, as does a
+ * context nqsini or nqvini did not make, or one used in the other
+ * direction. nqsctx holds no pointer and no copy of the key; it is
+ * wiped at the end, also on error. What streams:
+ *   - ML-DSA, pure (ph 0) and pre-hash: mu is one pass over the
+ *     message, finished through the external-mu path; the bytes are
+ *     nqsignd's for the same message, context and rnd, nqsign's
+ *     hedging when rnd is NULL;
+ *   - HashSLH-DSA, Ed25519ph (ph NQS512 only) and the hybrids with ph
+ *     NQS512: the message's hash streams, and the end is the one-call
+ *     signature on it.
+ * Pure SLH-DSA, pure Ed25519 or Ed25519ctx, and the pure hybrids are
+ * NQENOSUP: their signers read the message twice (the randomiser or
+ * the nonce first, then the digest). rnd and rndlen are nqsignd's; NULL
+ * (rndlen 0) is nqsign's hedged signature, and for Ed25519 alone any
+ * non-NULL rnd with rndlen 0 is RFC 8032's deterministic one. */
+typedef struct {
+  uint64_t opq[160];
+} nqsctx;
+NQAPI int nqsini(nqsctx *c, nqsalg alg, const uint8_t *sk, size_t sklen,
+                 const uint8_t *ctx, size_t ctxlen, int ph);
+NQAPI int nqvini(nqsctx *c, nqsalg alg, const uint8_t *pk, size_t pklen,
+                 const uint8_t *ctx, size_t ctxlen, int ph);
+NQAPI int nqsupd(nqsctx *c, const uint8_t *msg, size_t n);
+NQAPI int nqsfin(nqsctx *c, const uint8_t *sk, size_t sklen,
+                 const uint8_t *rnd, size_t rndlen, uint8_t *sig,
+                 size_t siglen, size_t *outlen);
+NQAPI int nqvfin(nqsctx *c, const uint8_t *pk, size_t pklen,
+                 const uint8_t *sig, size_t siglen);
+
 /* ---- key encapsulation ---------------------------------------------- */
 
 typedef enum {
