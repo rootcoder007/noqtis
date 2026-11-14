@@ -99,7 +99,8 @@ typedef void (*nqprogfn)(int stage, uint64_t done, uint64_t total,
                          void *user);
 NQAPI int nqsetprog(nqprogfn fn, void *user);
 
-/* Replaces the allocator the capsule and parser layers use; NULL for both
+/* Replaces the allocator the capsule and parser layers and Argon2id
+ * (nqa2id, nqpwenc, nqpwdec) use; NULL for both
  * restores malloc/free. Not thread safe: call before anything else. */
 typedef void *(*nqmalfn)(size_t size, void *user);
 typedef void (*nqfreefn)(void *ptr, size_t size, void *user);
@@ -133,6 +134,34 @@ NQAPI int nqhfin(nqhctx *ctx, uint8_t *out, size_t outlen);
 
 NQAPI int nqhmac(nqhalg alg, const uint8_t *key, size_t keylen,
                  const uint8_t *in, size_t inlen, uint8_t *out, size_t outlen);
+
+/* BLAKE2b (RFC 7693): an outlen-byte digest (1 to 64) of in, keyed with
+ * keylen bytes of key (0 to 64; key may be NULL when keylen is 0, the
+ * plain hash). The key makes it a MAC: compare tags with nqcteq.
+ * NQEARG for a length out of range or a NULL pointer. */
+NQAPI int nqb2b(const uint8_t *key, size_t keylen, const uint8_t *in,
+                size_t inlen, uint8_t *out, size_t outlen);
+
+/* Argon2id (RFC 9106, version 0x13) on that BLAKE2b: outlen bytes from
+ * the password pw, the salt, the optional secret key and associated
+ * data ad (NULL with length 0 for none), t passes over m KiB of memory
+ * in p lanes. The limits, each NQEARG outside it: */
+#define NQA2TMAX 1024u     /* passes t: 1 to this */
+#define NQA2PMAX 255u      /* lanes p: 1 to this */
+#define NQA2MMAX 4194304u  /* memory m in KiB: 8p to this (4 GiB) */
+#define NQA2SMIN 8u        /* the shortest salt (16 or more is usual) */
+#define NQA2OMIN 4u        /* output: 4 to 1024 bytes */
+#define NQA2OMAX 1024u
+/* pw, salt, key and ad are each under 2^32 bytes (the RFC's limit).
+ * The memory is allocated once, through the nqsetal hook (NQEMEM when
+ * it fails; NQELIM when m KiB does not fit in a size_t), and wiped and
+ * freed before the call returns; the lanes run one after another in the
+ * calling thread. Its second half reads memory at places that depend
+ * on the password, as Argon2id is designed to. */
+NQAPI int nqa2id(const uint8_t *pw, size_t pwlen, const uint8_t *salt,
+                 size_t slen, const uint8_t *key, size_t klen,
+                 const uint8_t *ad, size_t alen, uint32_t t, uint32_t m,
+                 uint32_t p, uint8_t *out, size_t outlen);
 
 /* ---- signatures ----------------------------------------------------- */
 
@@ -196,6 +225,30 @@ NQAPI int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
                  const uint8_t *ctx, size_t ctxlen, int ph,
                  const uint8_t *sig, size_t siglen);
 
+/* ML-DSA with an external mu (FIPS 204, Algorithm 7 line 6 and
+ * Algorithm 8 line 7): the caller supplies the 64-byte message
+ * representative mu instead of the message, so the message can be
+ * hashed somewhere else than where the key is (a token, an HSM).
+ * NQMLDSA44, NQMLDSA65 and NQMLDSA87 only (NQENOSUP for the others).
+ * nqsmu computes mu from the public key as nqsign would (pure with ph 0,
+ * or HashML-DSA with ph an nqhalg; ctx at most 255 bytes); mulen must be
+ * NQMU. A signature from nqsignmu on nqsmu's mu is the one nqsignd
+ * gives with the same rnd, and nqvrfymu accepts what nqvrfy accepts.
+ * rnd is NULL (rndlen 0) for the hedged signature, or 32 bytes (all
+ * zero: deterministic). The signature is checked under the public key
+ * in sk before it is returned (NQEFLT otherwise). */
+#define NQMU 64
+NQAPI int nqsmu(nqsalg alg, const uint8_t *pk, size_t pklen,
+                const uint8_t *msg, size_t msglen, const uint8_t *ctx,
+                size_t ctxlen, int ph, uint8_t *mu, size_t mulen);
+NQAPI int nqsignmu(nqsalg alg, const uint8_t *sk, size_t sklen,
+                   const uint8_t *mu, size_t mulen, const uint8_t *rnd,
+                   size_t rndlen, uint8_t *sig, size_t siglen,
+                   size_t *outlen);
+NQAPI int nqvrfymu(nqsalg alg, const uint8_t *pk, size_t pklen,
+                   const uint8_t *mu, size_t mulen, const uint8_t *sig,
+                   size_t siglen);
+
 /* ---- key encapsulation ---------------------------------------------- */
 
 typedef enum {
@@ -230,6 +283,75 @@ NQAPI int nqencd(nqkalg alg, const uint8_t *pk, size_t pklen,
  * the operating system's random source fails (NQERNG). */
 NQAPI int nqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
                 const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
+
+/* One message sealed to an ML-KEM public key (noqtis-kseal-1), for the
+ * hidden list of a commitment: "NQKS", the version 1, the algorithm (1
+ * byte, its nqkalg), the ML-KEM ciphertext, then the message under
+ * ChaCha20-Poly1305 and its 16-byte tag. The AEAD's key and nonce are
+ * HKDF-SHA-256 of the shared secret, with info "noqtis-kseal-1", the
+ * SHA3-256 of the public key, the context's length (1 byte) and bytes,
+ * the 6-byte header and the KEM ciphertext; its associated data is the
+ * header, the KEM ciphertext, the context's length and bytes. ctx (at
+ * most 255 bytes; NULL/0 for none) must be the same to open. alg is
+ * NQMLKEM512, NQMLKEM768 or NQMLKEM1024 (NQENOSUP otherwise). The
+ * output is NQKSOVH + the KEM ciphertext size + n bytes (n at most
+ * NQKSMAX, NQELIM above); *outlen gets it, also with NQEBUF. msg and
+ * out must not overlap. */
+#define NQKSOVH 22u
+#define NQKSMAX ((size_t)1 << 30)
+NQAPI int nqkseal(nqkalg alg, const uint8_t *pk, size_t pklen,
+                  const uint8_t *ctx, size_t ctxlen, const uint8_t *msg,
+                  size_t n, uint8_t *out, size_t cap, size_t *outlen);
+/* Opens what nqkseal wrote (n bytes at in) with the secret key: the
+ * message to msg (cap bytes; *outlen gets its size, also with NQEBUF).
+ * NQEDEC for a header, version or algorithm that is not this one's, or
+ * a size too small to hold one; NQEVRFY when the tag does not verify (a
+ * changed byte anywhere, another key or another ctx: the KEM's implicit
+ * rejection gives another key, so the tag fails); msg is then zeroed. */
+NQAPI int nqkopen(nqkalg alg, const uint8_t *sk, size_t sklen,
+                  const uint8_t *ctx, size_t ctxlen, const uint8_t *in,
+                  size_t n, uint8_t *msg, size_t cap, size_t *outlen);
+
+/* ---- passphrase key files ------------------------------------------- */
+
+/* A secret key under a passphrase (noqtis-pwkey-1): the header, 35
+ * bytes ("NQPW", the version 1, the KDF 1 (Argon2id, version 0x13), the
+ * AEAD 1 (ChaCha20-Poly1305), m KiB, t and p as 32-bit big-endian
+ * numbers, a random 16-byte salt), then the key under the AEAD and its
+ * 16-byte tag. Argon2id of the passphrase and the salt gives the AEAD's
+ * key and nonce (44 bytes); its associated data is the header and the
+ * caller's ad (at most 1024 bytes: the key file's first line, say), so
+ * no header field or ad changes without the tag failing. Defaults and
+ * the limits both functions enforce: */
+#define NQPWM 65536u       /* memory: 64 MiB */
+#define NQPWT 3u           /* passes */
+#define NQPWP 4u           /* lanes */
+#define NQPWMMIN 8192u     /* memory at least 8 MiB */
+#define NQPWMMAX 1048576u  /* at most 1 GiB */
+#define NQPWTMAX 16u       /* passes 1 to 16 */
+#define NQPWPMAX 16u       /* lanes 1 to 16 */
+#define NQPWWORK 4194304u  /* m * t at most: 4 GiB of passes */
+#define NQPWOVH 51u        /* bytes beyond the key: header and tag */
+#define NQPWMAX 65536u     /* the longest key */
+#define NQPWLEN 4096u      /* the longest passphrase (at least 1 byte) */
+/* nqpwenc writes sklen + NQPWOVH bytes to out (cap; *outlen gets the
+ * size, also with NQEBUF); m, t and p are 0 for the defaults. NQEARG
+ * for a parameter outside the limits, NQERNG when the salt cannot be
+ * drawn. sk and out must not overlap. */
+NQAPI int nqpwenc(const uint8_t *pw, size_t pwlen, const uint8_t *ad,
+                  size_t alen, uint32_t m, uint32_t t, uint32_t p,
+                  const uint8_t *sk, size_t sklen, uint8_t *out, size_t cap,
+                  size_t *outlen);
+/* Reads n bytes from nqpwenc: the key to sk (cap bytes; *sklen gets its
+ * size, also with NQEBUF). Everything that can be checked before the
+ * passphrase is: NQEDEC for a magic, version, KDF or AEAD that is not
+ * this one or a size too small; NQELIM for parameters outside the
+ * limits above (a file cannot ask for more memory or time) or a key
+ * over NQPWMAX. Then NQEVRFY for a wrong passphrase or any changed
+ * byte; sk is zeroed on every error. */
+NQAPI int nqpwdec(const uint8_t *pw, size_t pwlen, const uint8_t *ad,
+                  size_t alen, const uint8_t *in, size_t n, uint8_t *sk,
+                  size_t cap, size_t *sklen);
 
 /* ---- capsules ------------------------------------------------------- */
 

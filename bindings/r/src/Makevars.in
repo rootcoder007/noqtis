@@ -12,6 +12,8 @@ OBJECTS = \
   api/kem.o \
   api/self.o \
   api/sig.o \
+  box/ks.o \
+  box/pw.o \
   cap/chk.o \
   cap/dsse.o \
   cap/ers.o \
@@ -38,6 +40,8 @@ OBJECTS = \
   der/x509.o \
   drbg/drbg.o \
   ed/ed.o \
+  hash/a2.o \
+  hash/b2b.o \
   hash/hash.o \
   hash/hkdf.o \
   hash/hmac.o \

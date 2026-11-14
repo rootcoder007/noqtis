@@ -423,3 +423,66 @@ int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen, const uint8_t *msg,
   /* fail closed: nothing but the module's NQOK is a success */
   return rc == NQOK ? NQOK : (rc < 0 ? rc : NQEVRFY);
 }
+
+/* ---- ML-DSA with an external mu ---- */
+
+/* NQOK for an ML-DSA set, NQENOSUP for another algorithm noqtis has,
+ * NQEARG for one it does not know */
+static int mdonly(nqsalg alg) {
+  nqssz z;
+  if (ismd(alg)) return NQOK;
+  return sizes(alg, &z) == NQOK ? NQENOSUP : NQEARG;
+}
+
+int nqsmu(nqsalg alg, const uint8_t *pk, size_t pklen, const uint8_t *msg,
+          size_t msglen, const uint8_t *ctx, size_t ctxlen, int ph,
+          uint8_t *mu, size_t mulen) {
+  int rc = mdonly(alg);
+  if (rc != NQOK) return rc;
+  if (pk == NULL || mu == NULL || mulen != NQMU ||
+      (msg == NULL && msglen > 0) || (ctx == NULL && ctxlen > 0) ||
+      ctxlen > CTXMAX) {
+    return NQEARG;
+  }
+  rc = nqmdmu((int)alg, pk, pklen, msg, msglen, ctx, ctxlen, ph, mu);
+  if (rc != NQOK) nqwipe(mu, mulen);
+  return rc;
+}
+
+int nqsignmu(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *mu,
+             size_t mulen, const uint8_t *rnd, size_t rndlen, uint8_t *sig,
+             size_t siglen, size_t *outlen) {
+  nqssz sz;
+  size_t n = 0;
+  int rc;
+  if (outlen != NULL) *outlen = 0;
+  rc = mdonly(alg);
+  if (rc != NQOK) return rc;
+  if (sk == NULL || mu == NULL || sig == NULL || mulen != NQMU ||
+      (rnd == NULL && rndlen != 0) || (rnd != NULL && rndlen != NQMDRND)) {
+    return NQEARG;
+  }
+  (void)sizes(alg, &sz);
+  if (siglen < sz.sig) return NQEBUF;
+  /* the masked signer, as nqsign uses; rnd NULL draws it from nqrand */
+  rc = nqmdsmu((int)alg, sk, sklen, mu, rnd, rndlen, NQMDMASK, sig, sz.sig,
+               &n);
+  if (rc != NQOK) {
+    nqwipe(sig, sz.sig);
+    return rc;
+  }
+  if (outlen != NULL) *outlen = n;
+  return NQOK;
+}
+
+int nqvrfymu(nqsalg alg, const uint8_t *pk, size_t pklen, const uint8_t *mu,
+             size_t mulen, const uint8_t *sig, size_t siglen) {
+  int rc = mdonly(alg);
+  if (rc != NQOK) return rc;
+  if (pk == NULL || mu == NULL || sig == NULL || mulen != NQMU) {
+    return NQEARG;
+  }
+  rc = nqmdvmu((int)alg, pk, pklen, mu, sig, siglen);
+  /* fail closed, as nqvrfy */
+  return rc == NQOK ? NQOK : (rc < 0 ? rc : NQEVRFY);
+}
