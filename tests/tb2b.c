@@ -3,7 +3,8 @@
  * self-test over keyed and unkeyed hashes of every listed length
  * (appendix E), keyed known answers of every message length 0 to 255,
  * every output length 1 to 64 with keys of 0, 1, 32 and 64 bytes
- * (vectors/b2b/), incremental input in pieces of every size, and the
+ * (vectors/b2b/kat.txt, from CPython's hashlib), the BLAKE2 reference
+ * implementation's keyed answers (vectors/b2b/blake2b-kat.txt), incremental input in pieces of every size, and the
  * errors of nqb2b. */
 #include <stdint.h>
 #include <stdlib.h>
@@ -66,10 +67,10 @@ static void trfc(void) {
   NQTEQI(seen, 2);
 }
 
-static void tkat(void) {
+static void tkat(const char *file, long need) {
   static uint8_t in[512], key[64], want[64], got[64];
   long n = 0, ok = 0;
-  NQTCHK(tkvopen(&kv, "b2b/kat.txt"));
+  NQTCHK(tkvopen(&kv, file));
   if (kv.f == NULL) return;
   while (tkvnext(&kv)) {
     size_t il = tkvh(&kv, "in", in, sizeof in);
@@ -90,8 +91,9 @@ static void tkat(void) {
     }
   }
   tkvclose(&kv);
-  printf("BLAKE2b known answers: %ld run, %ld passed\n", n, ok);
-  NQTCHK(n >= 256 + 256);
+  printf("BLAKE2b known answers (%s): %ld run, %ld passed\n", file, n,
+         ok);
+  NQTEQI(n, need);
   NQTEQI(ok, n);
 }
 
@@ -132,7 +134,8 @@ static void terr(void) {
 
 int main(void) {
   trfc();
-  tkat();
+  tkat("b2b/kat.txt", 512);
+  tkat("b2b/blake2b-kat.txt", 256);
   tparts();
   terr();
   return nqtdone("tb2b");

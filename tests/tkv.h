@@ -3,7 +3,9 @@
  * vector file of records, each a run of "name=value" lines ended by a
  * blank line or the end of the file; lines starting with '#' (the
  * file's header, which says where its values come from) are skipped.
- * Values are hex or decimal; at most 16 names a record, 16 KiB a line. */
+ * A line may also be "name:" and a tab or space before the value, the
+ * layout of the BLAKE2 reference's KAT files. Values are hex or
+ * decimal; at most 16 names a record, 16 KiB a line. */
 #ifndef NQTKV_H
 #define NQTKV_H
 
@@ -51,6 +53,7 @@ static inline int tkvnext(tkv *k) {
       continue;
     }
     eq = strchr(line, '=');
+    if (eq == NULL) eq = strchr(line, ':');
     if (eq == NULL || k->n == TKVN || (size_t)(eq - line) >= 16 ||
         strlen(eq + 1) >= TKVL) {
       fprintf(stderr, "vector file: bad line %.40s\n", line);
@@ -58,7 +61,9 @@ static inline int tkvnext(tkv *k) {
     }
     *eq = '\0';
     memcpy(k->name[k->n], line, (size_t)(eq - line) + 1);
-    memcpy(k->val[k->n], eq + 1, strlen(eq + 1) + 1);
+    eq++;
+    while (*eq == ' ' || *eq == '\t') eq++;
+    memcpy(k->val[k->n], eq, strlen(eq) + 1);
     k->n++;
   }
   return k->n > 0;
