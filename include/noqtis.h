@@ -134,6 +134,13 @@ NQAPI int nqhfin(nqhctx *ctx, uint8_t *out, size_t outlen);
 NQAPI int nqhmac(nqhalg alg, const uint8_t *key, size_t keylen,
                  const uint8_t *in, size_t inlen, uint8_t *out, size_t outlen);
 
+/* BLAKE2b (RFC 7693): an outlen-byte digest (1 to 64) of in, keyed with
+ * keylen bytes of key (0 to 64; key may be NULL when keylen is 0, the
+ * plain hash). The key makes it a MAC: compare tags with nqcteq.
+ * NQEARG for a length out of range or a NULL pointer. */
+NQAPI int nqb2b(const uint8_t *key, size_t keylen, const uint8_t *in,
+                size_t inlen, uint8_t *out, size_t outlen);
+
 /* ---- signatures ----------------------------------------------------- */
 
 /* NQSLH*: SLH-DSA with SHA-2; NQSLHK*: SLH-DSA with SHAKE.

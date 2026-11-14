@@ -88,7 +88,7 @@ and Wycheproof HMAC vectors and against OpenSSL.
 | # | Module | Contents | Must pass |
 |---|---|---|---|
 | M0 | `core` | error codes, `nqwipe`, constant-time helpers, `nqrand` and the caller's random source (`nqsetrng`), allocator hook, progress hook (`nqsetprog`), strict JSON reader, hex; `api/self.c`: the known-answer self-test (`nqselftest`) | unit tests, ASan/UBSan, valgrind clean |
-| M1 | `hash` | SHA-224/256/384/512, SHA-512/224, SHA-512/256, SHA3-224/256/384/512, SHAKE128/256 (incremental), HMAC | NIST CAVP/ACVP SHA vectors, Wycheproof HMAC, OpenSSL 3.5 differential fuzz |
+| M1 | `hash` | SHA-224/256/384/512, SHA-512/224, SHA-512/256, SHA3-224/256/384/512, SHAKE128/256 (incremental), HMAC; BLAKE2b (RFC 7693, keyed, 1 to 64 bytes) | NIST CAVP/ACVP SHA vectors, Wycheproof HMAC, OpenSSL 3.5 differential fuzz |
 | M2 | `drbg` | HMAC_DRBG (SP 800-90A) with SHA-256 and SHA-512 | CAVP DRBG vectors, reseed and prediction-resistance cases |
 | M3 | `mldsa` | ML-DSA-44/65/87: keygen, sign (pure, with context, HashML-DSA pre-hash), verify; first-order masked signing | ACVP keyGen/sigGen/sigVer, Wycheproof ML-DSA, OpenSSL 3.5 cross-check, ctgrind, dudect, TVLA |
 | M4 | `slh` | SLH-DSA, all 12 parameter sets, pure and HashSLH-DSA; PRF masked (masked SHAKE256, bitsliced masked SHA-256; shared gadgets in `msk`) | ACVP keyGen/sigGen/sigVer, OpenSSL 3.5 cross-check, ctgrind, TVLA |

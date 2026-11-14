@@ -1,0 +1,82 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NQB2B 3
+.Os
+.Sh NAME
+.Nm nqb2b
+.Nd BLAKE2b, keyed and unkeyed
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqb2b
+.Fa "const uint8_t *key" "size_t keylen"
+.Fa "const uint8_t *in" "size_t inlen"
+.Fa "uint8_t *out" "size_t outlen"
+.Fc
+.Sh DESCRIPTION
+.Fn nqb2b
+writes the BLAKE2b digest of the
+.Fa inlen
+bytes at
+.Fa in
+to
+.Fa out ,
+.Fa outlen
+bytes long (1 to 64; the length is part of the hash, so a 32-byte digest
+is not the start of a 64-byte one).
+With
+.Fa keylen
+from 1 to 64 it is the keyed hash of RFC 7693, a MAC: compare tags with
+.Xr nqcteq 3 ,
+never
+.Xr memcmp 3 .
+With
+.Fa keylen
+0,
+.Fa key
+may be
+.Dv NULL .
+.Pp
+The time taken depends only on the lengths, never on the key or the
+data.
+There is no incremental interface; the library's Argon2id
+.Pq Xr nqa2id 3
+uses BLAKE2b inside.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or
+.Bl -tag -width NQEARG
+.It Bq Er NQEARG
+.Fa outlen
+is 0 or over 64,
+.Fa keylen
+is over 64,
+.Fa out
+is
+.Dv NULL ,
+or
+.Fa key
+or
+.Fa in
+is
+.Dv NULL
+with a nonzero length.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+uint8_t d[64];
+int rc = nqb2b(NULL, 0, (const uint8_t *)"abc", 3, d, sizeof d);
+/* d is BLAKE2b-512("abc"), ba 80 a5 3f ... */
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 3 ,
+.Xr nqa2id 3 ,
+.Xr nqcteq 3 ,
+.Xr nqhash 3
+.Sh STANDARDS
+RFC 7693.
+The tests check appendix A, the self-test of appendix E, and keyed and
+unkeyed answers of every message length 0 to 255 and every output
+length.

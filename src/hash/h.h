@@ -145,6 +145,23 @@ void nqs1(const uint8_t *in, size_t len, uint8_t out[20]);
  * NULL out or a NULL in with len > 0. */
 int nqs1hk(void *user, const uint8_t *in, size_t len, uint8_t out[20]);
 
+/* ---- BLAKE2b (RFC 7693) ---- */
+
+typedef struct {
+  uint64_t h[8];
+  uint64_t t[2];    /* bytes compressed, 128 bits */
+  uint8_t buf[128];
+  size_t pos;       /* bytes in buf */
+  size_t olen;      /* digest bytes: 1..64 */
+} nqb2ctx;
+
+/* An olen-byte digest (1..64), keyed with klen bytes of key (0..64; key
+ * may be NULL when klen is 0); NQEARG otherwise. */
+int nqb2ini(nqb2ctx *c, size_t olen, const uint8_t *key, size_t klen);
+void nqb2upd(nqb2ctx *c, const uint8_t *in, size_t len);
+/* Writes c->olen bytes and wipes c. */
+void nqb2fin(nqb2ctx *c, uint8_t *out);
+
 /* ---- HKDF (RFC 5869), on the HMAC above ---- */
 
 /* HKDF-Extract: prk gets nqhlen(alg) bytes; no salt (NULL, 0) is
