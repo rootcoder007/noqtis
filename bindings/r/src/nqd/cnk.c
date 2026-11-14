@@ -116,7 +116,7 @@ int qdpiece(nqdrep *rep, const djs *e, const char *dir, const char *piece,
   uint8_t *b, h[32];
   char hx[65];
   size_t k;
-  FILE *f;
+  FILE *f = NULL;
   nqhctx c;
   int rc = NQOK;
   memset(&c, 0, sizeof c);

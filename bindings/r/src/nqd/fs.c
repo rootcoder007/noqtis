@@ -3,6 +3,9 @@
  * the check report. The only platform code of nqd. */
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE /* O_NOFOLLOW is hidden under plain POSIX */
+#endif
 #endif
 
 #include "int.h"
