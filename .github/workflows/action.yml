@@ -4,7 +4,9 @@
 # use it but from this checkout (uses: ./): installs noqtis, makes a key
 # pair, seals a sample folder, checks it, then changes one byte of one
 # file and asserts the check fails and the report mode says so without
-# failing, with its outputs. On Linux, macOS and Windows.
+# failing, with its outputs; then serves a data file from a local
+# server and checks the drift and refresh modes, base-ref and the
+# comment in dry-run. On Linux, macOS and Windows.
 name: action
 
 on:
