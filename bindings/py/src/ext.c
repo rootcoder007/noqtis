@@ -979,6 +979,136 @@ static PyObject *pdkey(PyObject *self, PyObject *args) {
   return o;
 }
 
+/* ---- sources (nqdaddr(3)) ---- */
+
+/* [(kind, address)] of the source path: [] for a synthetic one */
+static PyObject *pdaddr(PyObject *self, PyObject *args) {
+  const char *dir, *p;
+  nqdrec *r;
+  PyObject *l;
+  size_t i;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ys", &dir, &p)) return NULL;
+  if ((r = drec(dir, 0)) == NULL) return NULL;
+  if ((l = PyList_New(0)) == NULL) {
+    nqdrfree(r);
+    return NULL;
+  }
+  for (i = 0;; i++) {
+    char b[4400];
+    size_t n = 0;
+    int k = 0, rc = nqdaddr(r, p, i, &k, b, sizeof b, &n);
+    PyObject *t;
+    if (rc == NQEIO && i > 0) break;
+    if (rc == NQEARG) break; /* synthetic: no address */
+    if (rc != NQOK) {
+      Py_DECREF(l);
+      nqdrfree(r);
+      return rc == NQEIO ? fail(rc) : fail(rc);
+    }
+    t = Py_BuildValue("(is#)", k, b, (Py_ssize_t)n);
+    if (t == NULL || PyList_Append(l, t) != 0) {
+      Py_XDECREF(t);
+      Py_DECREF(l);
+      nqdrfree(r);
+      return NULL;
+    }
+    Py_DECREF(t);
+  }
+  nqdrfree(r);
+  return l;
+}
+
+static PyObject *pdvrfy(PyObject *self, PyObject *args) {
+  const char *dir, *p, *b;
+  Py_ssize_t bn;
+  nqdrec *r;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ysy#", &dir, &p, &b, &bn)) return NULL;
+  if ((r = drec(dir, 0)) == NULL) return NULL;
+  rc = nqdvrfy(r, p, (const uint8_t *)b, (size_t)bn);
+  nqdrfree(r);
+  if (rc == NQOK) Py_RETURN_TRUE;
+  if (rc == NQEVRFY) Py_RETURN_FALSE;
+  return fail(rc);
+}
+
+static PyObject *pdfld(PyObject *self, PyObject *args) {
+  const char *dir, *m, *f;
+  Py_ssize_t i;
+  nqdrec *r;
+  size_t n = 0;
+  char *b;
+  PyObject *o;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ysns", &dir, &m, &i, &f)) return NULL;
+  if (i < 0) return fail(NQEARG);
+  if ((r = drec(dir, 0)) == NULL) return NULL;
+  rc = nqdfld(r, m, (size_t)i, f, NULL, 0, &n);
+  if (rc == NQEIO) {
+    nqdrfree(r);
+    Py_RETURN_NONE;
+  }
+  if (rc != NQEBUF) {
+    nqdrfree(r);
+    return fail(rc);
+  }
+  if ((b = (char *)PyMem_Malloc(n + 1)) == NULL) {
+    nqdrfree(r);
+    return PyErr_NoMemory();
+  }
+  rc = nqdfld(r, m, (size_t)i, f, b, n + 1, &n);
+  o = rc == NQOK ? PyUnicode_FromStringAndSize(b, (Py_ssize_t)n) : fail(rc);
+  PyMem_Free(b);
+  nqdrfree(r);
+  return o;
+}
+
+static PyObject *pdrslv(PyObject *self, PyObject *args) {
+  const char *rs;
+  Py_ssize_t rl;
+  char b[4400], why[600];
+  size_t n = 0;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "s#", &rs, &rl)) return NULL;
+  why[0] = '\0';
+  rc = nqdrslv(rs, (size_t)rl, b, sizeof b, &n, why, sizeof why);
+  if (rc != NQOK) return dfail(rc, why);
+  return PyUnicode_FromStringAndSize(b, (Py_ssize_t)n);
+}
+
+static PyObject *pdrsp(PyObject *self, PyObject *args) {
+  const char *rs, *rp;
+  Py_ssize_t rl, rpl;
+  char b[4400], why[600], tm[21];
+  size_t n = 0;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "s#y#", &rs, &rl, &rp, &rpl)) return NULL;
+  why[0] = '\0';
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdrsp(rs, (size_t)rl, rp, (size_t)rpl, b, sizeof b, &n, tm, why,
+              sizeof why);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return dfail(rc, why);
+  return Py_BuildValue("(s#s)", b, (Py_ssize_t)n, tm);
+}
+
+static PyObject *pdwb(PyObject *self, PyObject *args) {
+  const char *u;
+  char b[4400];
+  size_t n = 0;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "s", &u)) return NULL;
+  rc = nqdwb(u, b, sizeof b, &n);
+  if (rc != NQOK) return fail(rc);
+  return PyUnicode_FromStringAndSize(b, (Py_ssize_t)n);
+}
+
 /* (rc, [(check, ok, detail, json or None)]) of a report, freed here */
 static PyObject *ddone(int rc, nqdrep *r) {
   size_t i, n;
@@ -1138,6 +1268,12 @@ static PyMethodDef meths[] = {
   {"dstats", pdstats, METH_VARARGS, "nqdstats"},
   {"ddrift", pddrift, METH_VARARGS, "nqddrift"},
   {"ddiff", pddiff, METH_VARARGS, "nqddiff"},
+  {"daddr", pdaddr, METH_VARARGS, "nqdaddr"},
+  {"dvrfy", pdvrfy, METH_VARARGS, "nqdvrfy"},
+  {"dfld", pdfld, METH_VARARGS, "nqdfld"},
+  {"drslv", pdrslv, METH_VARARGS, "nqdrslv"},
+  {"drsp", pdrsp, METH_VARARGS, "nqdrsp"},
+  {"dwb", pdwb, METH_VARARGS, "nqdwb"},
   {NULL, NULL, 0, NULL}
 };
 

@@ -17,7 +17,8 @@ import datetime
 import json
 import os
 import time
-from typing import Any, Iterable, List, Mapping, NamedTuple, Optional, Union
+from typing import (Any, Iterable, List, Mapping, NamedTuple, Optional, Tuple,
+                    Union)
 
 from . import _noqtis as _c
 from ._alg import path
@@ -26,7 +27,8 @@ PathLike = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 Element = Union[str, Mapping[str, Any]]
 
 __all__ = ["DRow", "DReport", "load", "text", "add", "put", "delete",
-           "check", "schema", "schemacheck", "pin", "drift", "diff"]
+           "check", "schema", "schemacheck", "pin", "drift", "diff",
+           "addrs", "verify", "field", "request", "reply", "wayback"]
 
 
 class DRow(NamedTuple):
@@ -215,3 +217,48 @@ def diff(a: PathLike, b: PathLike) -> DReport:
     difference (files, sources, schemas, summaries, env, ...); ok when
     nothing differs."""
     return _rep(_c.ddiff(path(a), path(b)))
+
+
+# ---- sources ----
+
+#: where each address of addrs() comes from (nqdaddr(3))
+KINDS = {1: "url", 2: "portal", 3: "mirror", 4: "archived"}
+
+
+def addrs(dir: PathLike, file: str) -> List[Tuple[str, str]]:
+    """The addresses the source file can be fetched from, in the order to
+    try them, each as (kind, address): "url", "portal" (the request to
+    send; read its reply with reply()), "mirror", "archived" (a Wayback
+    Machine copy's raw bytes). [] for a synthetic source."""
+    return [(KINDS[k], u) for k, u in _c.daddr(path(dir), file)]
+
+
+def verify(dir: PathLike, file: str, b: bytes) -> bool:
+    """True when the bytes b are the source file's recorded bytes (size
+    and SHA-256): only such bytes may be taken for the file."""
+    return _c.dvrfy(path(dir), file, bytes(b))
+
+
+def field(dir: PathLike, member: str, i: int, name: str) -> Optional[str]:
+    """The field name of element i of member (0 for "env" and "cite"): a
+    string as its text, anything else as canonical JSON; None when there
+    is none."""
+    return _c.dfld(path(dir), member, int(i), name)
+
+
+def request(resolver: Element) -> str:
+    """The address to ask (a GET) for the file of a source's resolver
+    (CKAN, Socrata, ArcGIS or the Wayback Machine)."""
+    return _c.drslv(_js(resolver))
+
+
+def reply(resolver: Element, body: bytes) -> Tuple[str, str]:
+    """The file's address read from the portal's reply to request(), and
+    for the Wayback Machine the copy's time ("" otherwise)."""
+    return _c.drsp(_js(resolver), bytes(body))
+
+
+def wayback(url: str) -> str:
+    """The raw-bytes address of a Wayback Machine copy (any other http://
+    or https:// address as it is)."""
+    return _c.dwb(url)

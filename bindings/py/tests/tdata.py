@@ -93,3 +93,44 @@ def test_diff(cap, tmp_path):
     r = data.diff(cap, b)
     assert not r.ok and any(x.check == "source" and "url" in x.detail
                             for x in r.rows)
+
+
+SRC = V / "src"
+SOC = {"base": "https://data.example.org", "id": "abcd-1234",
+       "kind": "socrata"}
+
+
+def test_sources(cap):
+    a = (V / "cap" / "data" / "a.csv").read_bytes()
+    data.add(cap, "data/a.csv", url="https://example.org/a.csv")
+    data.put(cap, "sources", {**data.load(cap)["sources"][0],
+                              "mirrors": ["https://m.example.net/a.csv"],
+                              "resolver": SOC})
+    assert data.addrs(cap, "data/a.csv") == [
+        ("url", "https://example.org/a.csv"),
+        ("portal", "https://data.example.org/api/views/abcd-1234.json"),
+        ("mirror", "https://m.example.net/a.csv")]
+    assert data.verify(cap, "data/a.csv", a)
+    assert not data.verify(cap, "data/a.csv", a + b"\n")
+    assert data.field(cap, "sources", 0, "url") == "https://example.org/a.csv"
+    assert data.field(cap, "sources", 0, "title") is None
+    with pytest.raises(FileError):
+        data.addrs(cap, "none.csv")
+
+
+def test_resolvers():
+    assert data.request(SOC) == \
+        "https://data.example.org/api/views/abcd-1234.json"
+    assert data.reply(SOC, (SRC / "soc.json").read_bytes()) == (
+        "https://data.example.org/api/views/abcd-1234/rows.csv?"
+        "accessType=DOWNLOAD", "")
+    wb = {"base": "https://example.org/a.csv", "kind": "wayback"}
+    assert data.reply(wb, (SRC / "wb.json").read_bytes()) == (
+        "https://web.archive.org/web/20240102030405id_/https://example.org/"
+        "a.csv", "2024-01-02T03:04:05Z")
+    with pytest.raises(DecodeError, match="no copy"):
+        data.reply(wb, (SRC / "wb-none.json").read_bytes())
+    with pytest.raises(ValueError):
+        data.request({"base": "https://x.org/a", "kind": "direct"})
+    assert data.wayback("http://web.archive.org/web/2024/https://x.org/a") \
+        == "https://web.archive.org/web/2024id_/https://x.org/a"
