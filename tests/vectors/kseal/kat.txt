@@ -4,8 +4,9 @@
 # message and out the sealed bytes. Made by noqtis (tks gen); the
 # ML-KEM-768 and ML-KEM-1024 records were opened apart by
 # tests/vectors/kseal/xchk.py with Python's cryptography (ML-KEM, HKDF,
-# ChaCha20-Poly1305), each to its message (cryptography has no
-# ML-KEM-512).
+# ChaCha20-Poly1305), each to its message. cryptography has no
+# ML-KEM-512: the ML-KEM-512 records are checked by noqtis's own known
+# answers alone.
 
 alg=ML-KEM-512
 kseed=404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f
