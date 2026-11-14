@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths:
       - "action.yml"
+      - "action/**"
       - "CMakeLists.txt"
       - "cmake/**"
       - "include/**"
@@ -22,6 +23,7 @@ on:
   pull_request:
     paths:
       - "action.yml"
+      - "action/**"
       - "CMakeLists.txt"
       - "cmake/**"
       - "include/**"
@@ -188,3 +190,133 @@ jobs:
         run: |
           echo "$NQBIN"
           "$NQBIN" version
+
+      - name: a data record, its summaries and a source on a local server
+        run: |
+          w="$RUNNER_TEMP/www"
+          mkdir -p "$w" datacap/data
+          i=0
+          {
+            echo "id,x"
+            while [ $i -lt 1200 ]; do echo "$i,$((i % 10))"; i=$((i + 1)); done
+          } > "$w/in.csv"
+          py=python3
+          command -v python3 > /dev/null 2>&1 || py=python
+          "$py" -m http.server 8731 --bind 127.0.0.1 --directory "$w" \
+            > "$RUNNER_TEMP/www.log" 2>&1 &
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if noqtis src add --url http://127.0.0.1:8731/in.csv \
+              datacap data/in.csv; then break; fi
+            sleep 1
+          done
+          noqtis drift pin datacap data/in.csv
+          noqtis src list datacap
+          git config user.name ci
+          git config user.email ci@example.invalid
+          git add datacap
+          git commit -q -m "the data capsule, for base-ref"
+
+      - name: drift (passes)
+        id: drift
+        uses: ./
+        with:
+          mode: drift
+          dir: datacap
+          base-ref: HEAD
+          comment: dry-run
+
+      - name: the drift outputs
+        env:
+          NQST: ${{ steps.drift.outputs.status }}
+          NQC: ${{ steps.drift.outputs.changed }}
+          NQR: ${{ steps.drift.outputs.report }}
+          NQD: ${{ steps.drift.outputs.differs }}
+          NQCM: ${{ steps.drift.outputs.comment }}
+        run: |
+          echo "status $NQST, changed $NQC, differs $NQD, comment $NQCM"
+          test "$NQST" = passed && test "$NQC" = 0
+          test "$NQD" = false && test "$NQCM" = dry-run
+          grep -q '^\*\*Passed\*\*: noqtis drift' "$NQR"
+          grep -q 'Nothing changed since `HEAD`' "$NQR"
+          grep -q '^<!-- noqtis-sticky:[0-9a-f]* -->' "$RUNNER_TEMP/noqtis-comment.md"
+
+      - name: the source changes
+        run: |
+          w="$RUNNER_TEMP/www"
+          i=0
+          {
+            echo "id,x"
+            while [ $i -lt 1200 ]; do echo "$i,$((i % 10 + 7))"; i=$((i + 1)); done
+          } > "$w/in.csv"
+
+      - name: drift with fetch (must fail)
+        id: drift2
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: drift
+          dir: datacap
+          fetch: "true"
+
+      - name: refresh (must fail)
+        id: ref
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: refresh
+          dir: datacap
+
+      - name: the failures
+        env:
+          NQO1: ${{ steps.drift2.outcome }}
+          NQS1: ${{ steps.drift2.outputs.status }}
+          NQC1: ${{ steps.drift2.outputs.changed }}
+          NQO2: ${{ steps.ref.outcome }}
+          NQS2: ${{ steps.ref.outputs.status }}
+          NQC2: ${{ steps.ref.outputs.changed }}
+          NQR2: ${{ steps.ref.outputs.report }}
+        run: |
+          echo "drift $NQO1 $NQS1 $NQC1, refresh $NQO2 $NQS2 $NQC2"
+          test "$NQO1" = failure && test "$NQS1" = failed
+          test "$NQC1" -ge 2
+          test "$NQO2" = failure && test "$NQS2" = failed && test "$NQC2" = 1
+          grep -q '^| changed | source | data/in.csv' "$NQR2"
+          # nothing was written to the capsule
+          noqtis data check datacap
+
+      - name: refresh, written (fail-on never)
+        id: ref2
+        uses: ./
+        with:
+          mode: refresh
+          dir: datacap
+          write: "true"
+          fail-on: never
+          base-ref: HEAD
+
+      - name: the new bytes are recorded
+        env:
+          NQS: ${{ steps.ref2.outputs.status }}
+          NQD: ${{ steps.ref2.outputs.differs }}
+          NQR: ${{ steps.ref2.outputs.report }}
+        run: |
+          echo "status $NQS, differs $NQD"
+          test "$NQS" = failed && test "$NQD" = true
+          grep -q '^Changes since `HEAD`' "$NQR"
+          noqtis data check datacap
+          cmp datacap/data/in.csv "$RUNNER_TEMP/www/in.csv"
+
+      - name: a bad fail-on is an error
+        id: badf
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: refresh
+          dir: datacap
+          fail-on: sometimes
+
+      - name: it said so
+        env:
+          NQO: ${{ steps.badf.outcome }}
+          NQS: ${{ steps.badf.outputs.status }}
+        run: test "$NQO" = failure && test "$NQS" = error
