@@ -31,7 +31,8 @@ set(NQMANAKA
   "nqdstats:nqddrift,nqddcal"
   "nqdcommit:nqdreveal,nqdcite"
   "nqdpack:nqdunpack"
-  "nqdchunk:nqdpiece")
+  "nqdchunk:nqdpiece"
+  "nqdaddr:nqdvrfy,nqdfld,nqdrslv,nqdrsp,nqdwb")
 foreach(e ${NQMANAKA})
   string(REPLACE ":" ";" e "${e}")
   list(GET e 0 page)

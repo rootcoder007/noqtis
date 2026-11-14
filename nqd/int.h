@@ -126,6 +126,8 @@ void qdwhy(char *why, size_t cap, const char *fmt, ...)
 int qdrecok(const djs *r, char *why, size_t cap);
 /* Validates one element of array member m (or the object m). */
 int qdelemok(const char *m, const djs *e, char *why, size_t cap);
+/* Validates a source's resolver object. */
+int qdrslvok(const djs *e, char *why, size_t cap);
 
 /* 1 when s[0..n) is a valid calendar date YYYY-MM-DD */
 int qddate(const char *s, size_t n);

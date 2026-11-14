@@ -1,0 +1,32 @@
+{
+  "help": "https://data.example.org/api/3/action/help_show?name=package_show",
+  "success": true,
+  "result": {
+    "id": "5f1c0c1e-8f0e-4a6b-9d6a-0d5b2b7e9a11",
+    "name": "library-statistics",
+    "title": "Public library statistics",
+    "license_id": "OGL-ON-1.0",
+    "num_resources": 3,
+    "resources": [
+      {
+        "id": "0a6e7f3c-1111-4c2a-9f00-aa0000000001",
+        "name": "Data dictionary",
+        "format": "JSON",
+        "url": "https://data.example.org/dataset/x/resource/1/download/dict.json"
+      },
+      {
+        "id": "0a6e7f3c-1111-4c2a-9f00-aa0000000002",
+        "name": "2023 statistics",
+        "format": "CSV",
+        "url": "https://files.example.org/lib/2023.csv",
+        "last_modified": "2024-03-01T12:00:00.000000"
+      },
+      {
+        "id": "0a6e7f3c-1111-4c2a-9f00-aa0000000003",
+        "name": "2024 statistics",
+        "format": "csv",
+        "url": "https://files.example.org/lib/2024.csv"
+      }
+    ]
+  }
+}

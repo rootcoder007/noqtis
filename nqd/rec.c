@@ -758,6 +758,14 @@ int qdelemok(const char *m, const djs *e, char *why, size_t cap) {
   return vobj((djs *)(uintptr_t)e, (const dkind *)f->sub, 1, why, cap, m);
 }
 
+int qdrslvok(const djs *e, char *why, size_t cap) {
+  if (e->t != DJOBJ) {
+    qdwhy(why, cap, "resolver: a JSON object");
+    return NQEDEC;
+  }
+  return vobj((djs *)(uintptr_t)e, &krslv, 0, why, cap, "resolver");
+}
+
 /* ---- the API ---- */
 
 struct nqdrec {

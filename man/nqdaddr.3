@@ -1,0 +1,321 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NQDADDR 3
+.Os
+.Sh NAME
+.Nm nqdaddr ,
+.Nm nqdvrfy ,
+.Nm nqdfld ,
+.Nm nqdrslv ,
+.Nm nqdrsp ,
+.Nm nqdwb
+.Nd where a source can be fetched from, the check of what was fetched, and portal resolvers
+.Sh LIBRARY
+libnqd, \-lnqd \-lnoqtis
+.Sh SYNOPSIS
+.In nqd.h
+.Ft int
+.Fo nqdaddr
+.Fa "const nqdrec *r" "const char *path" "size_t i" "int *kind"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqdvrfy
+.Fa "const nqdrec *r" "const char *path" "const uint8_t *b" "size_t n"
+.Fc
+.Ft int
+.Fo nqdfld
+.Fa "const nqdrec *r" "const char *member" "size_t i" "const char *field"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqdrslv
+.Fa "const char *rslv" "size_t n" "char *out" "size_t cap"
+.Fa "size_t *outlen" "char *why" "size_t wcap"
+.Fc
+.Ft int
+.Fo nqdrsp
+.Fa "const char *rslv" "size_t n" "const char *reply" "size_t rn"
+.Fa "char *out" "size_t cap" "size_t *outlen" "char tm[21]"
+.Fa "char *why" "size_t wcap"
+.Fc
+.Ft int
+.Fo nqdwb
+.Fa "const char *url" "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Sh DESCRIPTION
+These functions make no network request: they say what to fetch and
+read what came back, and the caller moves the bytes, as
+.Xr noqtis-src 1
+does.
+In each,
+.Fa out
+gets a NUL-terminated text of at most
+.Fa cap
+bytes and
+.Fa *outlen
+its length, also when
+.Fa cap
+is too small
+.Pq Dv NQEBUF ,
+as for
+.Xr nqdjson 3 .
+.Pp
+.Fn nqdaddr
+gives address
+.Fa i
+(0, 1, ...) from which the source
+.Fa path
+of the record
+.Fa r
+.Pq the Ql sources No member of Xr noqtis-data 5
+can be fetched, in the order to try them, and in
+.Fa *kind
+(which may be
+.Dv NULL )
+where it comes from:
+.Bl -tag -width "NQDAPORT"
+.It Dv NQDAURL
+the source's
+.Cm url ,
+then the
+.Cm base
+of a
+.Ql direct
+resolver when it differs;
+.It Dv NQDAPORT
+the portal of its
+.Cm resolver :
+the address is the request of
+.Fn nqdrslv ,
+whose reply
+.Fn nqdrsp
+reads;
+.It Dv NQDAMIR
+each of its
+.Cm mirrors ,
+in order;
+.It Dv NQDAARC
+its
+.Cm archived
+copy, a Wayback Machine copy in the raw form of
+.Fn nqdwb .
+.El
+.Pp
+Whatever address answers, only bytes that
+.Fn nqdvrfy
+accepts are the file:
+.Fn nqdvrfy
+compares the
+.Fa n
+bytes at
+.Fa b
+with the size and SHA-256 the source records.
+.Pp
+.Fn nqdfld
+writes the value of
+.Fa field
+of element
+.Fa i
+of
+.Fa member
+.Pf ( Fa i
+0 for
+.Ql env
+and
+.Ql cite ) :
+a string as its text, any other value as canonical JSON.
+.Pp
+.Fn nqdrslv
+writes the address to ask (an HTTP GET) for the resolver
+.Fa rslv
+.Pf ( Fa n
+bytes of JSON, a source's
+.Cm resolver
+object), and
+.Fn nqdrsp
+reads the portal's JSON reply
+.Pf ( Fa rn
+bytes, at most 16 MiB) to it and writes the address of the file.
+.Cm base
+is the portal's address, http:// or https://, without a query; trailing
+slashes are dropped.
+Each kind:
+.Bl -tag -width "socrata"
+.It Ql ckan
+with
+.Cm id
+(a dataset's name or id):
+.Ql <base>/api/3/action/package_show?id=<id> ;
+the reply must be a
+.Cm success
+whose
+.Cm result
+lists
+.Cm resources :
+the one whose
+.Cm id ,
+else whose
+.Cm name ,
+is
+.Cm resource
+when it is given, else the first whose
+.Cm format
+is
+.Cm format
+(default CSV, in any case).
+With only
+.Cm resource
+(a resource's id):
+.Ql <base>/api/3/action/resource_show?id=<resource> ,
+whose
+.Cm result
+is that resource.
+The file is the resource's
+.Cm url .
+.It Ql socrata
+with
+.Cm id ,
+the four-by-four id (such as
+.Ql abcd-1234 ) :
+.Ql <base>/api/views/<id>.json ;
+the reply must be that dataset's metadata (its
+.Cm id ) ,
+and the file is
+.Ql <base>/api/views/<id>/rows.csv?accessType=DOWNLOAD
+.Pf ( Cm format
+.Ql json :
+.Ql rows.json ) .
+.It Ql arcgis
+with
+.Cm id ,
+an item id (32 hex digits), of a portal such as
+.Ql https://www.arcgis.com :
+.Ql <base>/sharing/rest/content/items/<id>?f=json ;
+the reply must be that item: a
+.Ql Feature Service
+or
+.Ql Map Service
+gives the query of every feature of its layer
+.Cm layer
+(default 0),
+.Ql <url>/<layer>/query?where=1%3D1&outFields=*&f=geojson
+.Pf ( Cm format
+.Ql json :
+.Ql f=json ) ;
+any other item (a CSV file, a spreadsheet) gives its data,
+.Ql <base>/sharing/rest/content/items/<id>/data .
+Without
+.Cm id ,
+.Cm base
+is a FeatureServer or MapServer:
+.Ql <base>/<layer>?f=json ,
+whose reply must be the layer's metadata (a
+.Cm name ,
+no
+.Cm error ) ,
+and the file is that layer's query.
+A server returns at most its
+.Cm maxRecordCount
+features to one query.
+.It Ql wayback
+with
+.Cm base ,
+the archived address, and optionally
+.Cm id ,
+a time of 1 to 14 digits
+.Pq Ql YYYYMMDDhhmmss No or a prefix of it :
+.Ql https://archive.org/wayback/available?url=<base>[&timestamp=<id>] ;
+the reply's
+.Cm archived_snapshots.closest
+must be
+.Cm available ,
+of an HTTP 200 answer, with a valid
+.Cm timestamp ,
+and the file is that copy's raw bytes,
+.Ql https://web.archive.org/web/<timestamp>id_/<base> ,
+built here: the reply's own address is not followed.
+.Fa tm
+(which may be
+.Dv NULL )
+gets the copy's time,
+.Ql YYYY-MM-DDTHH:MM:SSZ ,
+for the source's
+.Cm archived
+member; it is empty for the other kinds.
+.El
+.Pp
+Values put in a query are percent-encoded but for the unreserved bytes
+of RFC 3986.
+An address read from a reply must be http:// or https://, at most 4,096
+bytes, without a space, control character, backslash or fragment, and
+https:// when the portal is.
+.Pp
+.Fn nqdwb
+writes the address of the raw bytes of a Wayback Machine copy,
+.Ql https://web.archive.org/web/<time>id_/<address> ,
+for the address of one of its copies,
+.Ql web.archive.org/web/<time>[<modifier>]/<address> ;
+any other http:// or https:// address is written as it is.
+.Sh RETURN VALUES
+.Dv NQOK
+on success;
+.Dv NQEBUF
+for a
+.Fa cap
+too small.
+.Fn nqdaddr :
+.Dv NQEIO
+when the record has no source
+.Fa path
+or it has no address
+.Fa i ;
+.Dv NQEARG
+for a source marked
+.Cm synthetic ,
+which has none.
+.Fn nqdvrfy :
+.Dv NQEVRFY
+when the bytes are not those recorded;
+.Dv NQEIO
+when there is no source
+.Fa path .
+.Fn nqdfld :
+.Dv NQEIO
+when there is no such element or field.
+.Fn nqdrslv
+and
+.Fn nqdrsp :
+.Dv NQEARG ,
+with a sentence in
+.Fa why
+.Pf ( Fa wcap
+bytes, may be
+.Dv NULL ) ,
+for a resolver that names no request: a
+.Ql direct
+one, one without its
+.Cm base
+or
+.Cm id ,
+an id of the wrong form, a
+.Cm format
+the portal does not export there;
+.Dv NQEDEC ,
+with
+.Fa why ,
+for a resolver that is not one
+.Pq Xr noqtis-data 5
+or a reply that is not JSON, not the portal's answer, or names no file
+or an address refused above;
+.Dv NQELIM
+for a reply over 16 MiB or a request over 4,096 bytes.
+.Fn nqdwb :
+.Dv NQEARG
+for an address that is not http:// or https://, or a Wayback Machine one
+without the address after its time.
+.Sh SEE ALSO
+.Xr noqtis-src 1 ,
+.Xr nqdnew 3 ,
+.Xr nqdsrc 3 ,
+.Xr noqtis-data 5

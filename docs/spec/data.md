@@ -43,6 +43,14 @@ summarises it.
 | `commits` | `kind` (randomisation, preregistration, other), `created`, `alg` (sha3-256), `digest`; `after`, `label` |
 | `cite` | `title`; `authors`, `version`, `doi`, `url`, `licence`, `year` |
 
+A source's `resolver` names its portal and the dataset there; the
+request each kind makes and how its reply is read are given in
+[nqdaddr(3)](https://noqtis.dev/reference/man/nqdaddr-3/), and the
+order in which a source's addresses are tried (its `url`, its portal,
+its `mirrors`, its `archived` copy) in
+[noqtis-src(1)](https://noqtis.dev/reference/man/noqtis-src-1/). Only bytes
+with the recorded `size` and `sha256` are taken for the file.
+
 A `regex` rule's `pattern` is a small subset of regular expressions
 (literals, classes, `.`, `^`, `$`, `*`, `+`, `?`, `|`, groups; no
 counted repetition or back-references), matched anywhere in the value
