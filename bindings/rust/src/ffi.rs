@@ -425,3 +425,218 @@ extern "C" {
     pub fn nqdrepj(r: *const Drep, i: usize) -> *const c_char;
     pub fn nqdrepfree(r: *mut Drep);
 }
+
+/// nqhctx, nqsctx, nqkfctx: contexts sized as noqtis.h sizes them
+#[repr(C)]
+pub struct Hctx {
+    pub opq: [u64; 52],
+}
+
+#[repr(C)]
+pub struct Sctx {
+    pub opq: [u64; 160],
+}
+
+#[repr(C)]
+pub struct Kfctx {
+    pub opq: [u64; 16],
+}
+
+// the rest of include/noqtis.h a binding reaches
+extern "C" {
+    pub fn nqwipe(p: *mut u8, len: usize);
+    pub fn nqcteq(a: *const u8, b: *const u8, len: usize) -> c_int;
+    pub fn nqhini(c: *mut Hctx, alg: c_int) -> c_int;
+    pub fn nqhupd(c: *mut Hctx, inp: *const u8, n: usize) -> c_int;
+    pub fn nqhfin(c: *mut Hctx, out: *mut u8, n: usize) -> c_int;
+    pub fn nqb2b(
+        key: *const u8,
+        kl: usize,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        ol: usize,
+    ) -> c_int;
+    pub fn nqa2id(
+        pw: *const u8,
+        pwl: usize,
+        salt: *const u8,
+        sl: usize,
+        key: *const u8,
+        kl: usize,
+        ad: *const u8,
+        al: usize,
+        t: u32,
+        m: u32,
+        p: u32,
+        out: *mut u8,
+        ol: usize,
+    ) -> c_int;
+    pub fn nqpwenc(
+        pw: *const u8,
+        pwl: usize,
+        ad: *const u8,
+        al: usize,
+        m: u32,
+        t: u32,
+        p: u32,
+        sk: *const u8,
+        skl: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqpwdec(
+        pw: *const u8,
+        pwl: usize,
+        ad: *const u8,
+        al: usize,
+        inp: *const u8,
+        n: usize,
+        sk: *mut u8,
+        cap: usize,
+        skl: *mut usize,
+    ) -> c_int;
+    pub fn nqsmu(
+        alg: c_int,
+        pk: *const u8,
+        pkl: usize,
+        msg: *const u8,
+        ml: usize,
+        ctx: *const u8,
+        cl: usize,
+        ph: c_int,
+        mu: *mut u8,
+        mul: usize,
+    ) -> c_int;
+    pub fn nqsignmu(
+        alg: c_int,
+        sk: *const u8,
+        skl: usize,
+        mu: *const u8,
+        mul: usize,
+        rnd: *const u8,
+        rl: usize,
+        sig: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqvrfymu(
+        alg: c_int,
+        pk: *const u8,
+        pkl: usize,
+        mu: *const u8,
+        mul: usize,
+        sig: *const u8,
+        sl: usize,
+    ) -> c_int;
+    pub fn nqsini(
+        c: *mut Sctx,
+        alg: c_int,
+        sk: *const u8,
+        skl: usize,
+        ctx: *const u8,
+        cl: usize,
+        ph: c_int,
+    ) -> c_int;
+    pub fn nqvini(
+        c: *mut Sctx,
+        alg: c_int,
+        pk: *const u8,
+        pkl: usize,
+        ctx: *const u8,
+        cl: usize,
+        ph: c_int,
+    ) -> c_int;
+    pub fn nqsupd(c: *mut Sctx, msg: *const u8, n: usize) -> c_int;
+    pub fn nqsfin(
+        c: *mut Sctx,
+        sk: *const u8,
+        skl: usize,
+        rnd: *const u8,
+        rl: usize,
+        sig: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqvfin(c: *mut Sctx, pk: *const u8, pkl: usize, sig: *const u8, sl: usize) -> c_int;
+    pub fn nqkseal(
+        alg: c_int,
+        pk: *const u8,
+        pkl: usize,
+        ctx: *const u8,
+        cl: usize,
+        msg: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqkopen(
+        alg: c_int,
+        sk: *const u8,
+        skl: usize,
+        ctx: *const u8,
+        cl: usize,
+        inp: *const u8,
+        n: usize,
+        msg: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqkfeini(
+        c: *mut Kfctx,
+        alg: c_int,
+        pk: *const u8,
+        pkl: usize,
+        ctx: *const u8,
+        cl: usize,
+        chunk: u32,
+        hdr: *mut u8,
+        cap: usize,
+        hl: *mut usize,
+    ) -> c_int;
+    pub fn nqkfdini(
+        c: *mut Kfctx,
+        alg: c_int,
+        sk: *const u8,
+        skl: usize,
+        ctx: *const u8,
+        cl: usize,
+        hdr: *const u8,
+        hl: usize,
+        chunk: *mut u32,
+    ) -> c_int;
+    pub fn nqkfeupd(
+        c: *mut Kfctx,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        ol: *mut usize,
+    ) -> c_int;
+    pub fn nqkfefin(
+        c: *mut Kfctx,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        ol: *mut usize,
+    ) -> c_int;
+    pub fn nqkfdupd(
+        c: *mut Kfctx,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        ol: *mut usize,
+    ) -> c_int;
+    pub fn nqkfdfin(
+        c: *mut Kfctx,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        ol: *mut usize,
+    ) -> c_int;
+}

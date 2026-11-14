@@ -365,3 +365,169 @@ pub fn random(n: usize) -> Result<Vec<u8>> {
     rc(unsafe { ffi::nqrand(out.as_mut_ptr(), n) })?;
     Ok(out)
 }
+
+/// Wipes `b` (nqwipe): the compiler cannot remove the stores.
+pub fn wipe(b: &mut [u8]) {
+    // SAFETY: b is valid for its length
+    unsafe { ffi::nqwipe(b.as_mut_ptr(), b.len()) }
+}
+
+/// `true` when `a` and `b` are equal, in time that depends only on their
+/// length (nqcteq): compare MACs and tags with it.
+pub fn cteq(a: &[u8], b: &[u8]) -> bool {
+    // SAFETY: both hold len bytes
+    a.len() == b.len() && unsafe { ffi::nqcteq(a.as_ptr(), b.as_ptr(), a.len()) } == 1
+}
+
+/// BLAKE2b (RFC 7693): an `n`-byte digest (1 to 64) of `data`, keyed (a
+/// MAC) with up to 64 bytes of `key` (empty for the plain hash).
+pub fn blake2b(data: &[u8], key: &[u8], n: usize) -> Result<Vec<u8>> {
+    if !(1..=64).contains(&n) {
+        return Err(Error::why(-1, "n: 1 to 64 bytes"));
+    }
+    let mut out = vec![0u8; n];
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        ffi::nqb2b(
+            key.as_ptr(),
+            key.len(),
+            data.as_ptr(),
+            data.len(),
+            out.as_mut_ptr(),
+            n,
+        )
+    })?;
+    Ok(out)
+}
+
+/// The cost of [`argon2id`]: `t` passes over `m` KiB in `p` lanes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Cost {
+    /// Passes, 1 to 1024.
+    pub t: u32,
+    /// Memory in KiB, 8p to 4 GiB.
+    pub m: u32,
+    /// Lanes, 1 to 255.
+    pub p: u32,
+}
+
+impl Default for Cost {
+    /// 3 passes over 64 MiB in 4 lanes, the passphrase key files' cost.
+    fn default() -> Cost {
+        Cost {
+            t: 3,
+            m: 65536,
+            p: 4,
+        }
+    }
+}
+
+/// Argon2id (RFC 9106, version 0x13): `n` bytes (4 to 1024) from the
+/// password and the salt (8 bytes or more), with an optional secret
+/// `key` and associated data `ad` (empty for none).
+pub fn argon2id(
+    pw: &[u8],
+    salt: &[u8],
+    c: Cost,
+    n: usize,
+    key: &[u8],
+    ad: &[u8],
+) -> Result<Vec<u8>> {
+    if !(4..=1024).contains(&n) {
+        return Err(Error::why(-1, "n: 4 to 1024 bytes"));
+    }
+    let mut out = vec![0u8; n];
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        ffi::nqa2id(
+            pw.as_ptr(),
+            pw.len(),
+            salt.as_ptr(),
+            salt.len(),
+            key.as_ptr(),
+            key.len(),
+            ad.as_ptr(),
+            ad.len(),
+            c.t,
+            c.m,
+            c.p,
+            out.as_mut_ptr(),
+            n,
+        )
+    })?;
+    Ok(out)
+}
+
+/// A digest of data given in pieces, as [`hash`] gives it for the whole:
+/// [`update`](Hasher::update) (or `io::Write`) any number of times, then
+/// [`finish`](Hasher::finish); for SHAKE, `finish` may be called again
+/// to squeeze more output.
+pub struct Hasher {
+    c: Box<ffi::Hctx>,
+    n: usize,
+    shake: bool,
+}
+
+impl Hasher {
+    /// A new hash of `alg` ("SHA-256", "SHAKE128", ...).
+    pub fn new(alg: &str) -> Result<Hasher> {
+        let i = hid(alg)?;
+        let mut c = Box::new(ffi::Hctx { opq: [0; 52] });
+        // SAFETY: c is a context of the size noqtis.h gives
+        rc(unsafe { ffi::nqhini(&mut *c, i) })?;
+        // SAFETY: a plain lookup
+        let n = unsafe { ffi::nqhlen(i) };
+        Ok(Hasher {
+            c,
+            n,
+            shake: i >= 11,
+        })
+    }
+
+    /// Adds `data`.
+    pub fn update(&mut self, data: &[u8]) -> Result<()> {
+        // SAFETY: data holds len bytes
+        rc(unsafe { ffi::nqhupd(&mut *self.c, data.as_ptr(), data.len()) })
+    }
+
+    /// The digest; `n` is the output length for SHAKE (None: its default).
+    pub fn finish(&mut self, n: Option<usize>) -> Result<Vec<u8>> {
+        if n.is_some() && !self.shake {
+            return Err(Error::why(-1, "n is for SHAKE"));
+        }
+        let d = n.unwrap_or(self.n);
+        let mut out = vec![0u8; d];
+        // SAFETY: out holds d bytes
+        rc(unsafe { ffi::nqhfin(&mut *self.c, out.as_mut_ptr(), d) })?;
+        Ok(out)
+    }
+}
+
+impl std::io::Write for Hasher {
+    fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+        self.update(b)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        Ok(b.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl fmt::Debug for Hasher {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Hasher")
+    }
+}
+
+impl Drop for Hasher {
+    fn drop(&mut self) {
+        // SAFETY: the context is ours
+        unsafe {
+            ffi::nqwipe(
+                self.c.opq.as_mut_ptr().cast(),
+                std::mem::size_of::<ffi::Hctx>(),
+            )
+        }
+    }
+}

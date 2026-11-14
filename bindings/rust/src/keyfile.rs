@@ -17,7 +17,7 @@
 //! # Ok::<(), noqtis::Error>(())
 //! ```
 
-use crate::{Alg, Error, Result};
+use crate::{ffi, Alg, Error, Result};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -140,8 +140,72 @@ fn b64d(s: &[u8]) -> Option<Vec<u8>> {
     Some(out)
 }
 
+/// `sk` under `passphrase` (noqtis-pwkey-1): Argon2id with `m` KiB, `t`
+/// passes and `p` lanes (0 for each: 64 MiB, 3, 4) gives the key of
+/// ChaCha20-Poly1305, whose associated data includes `ad`.
+pub fn pwenc(passphrase: &[u8], sk: &[u8], ad: &[u8], m: u32, t: u32, p: u32) -> Result<Vec<u8>> {
+    let cap = sk.len() + 51;
+    let mut out = vec![0u8; cap];
+    let mut n = 0usize;
+    // SAFETY: the buffers are valid for the lengths passed
+    crate::rc(unsafe {
+        ffi::nqpwenc(
+            passphrase.as_ptr(),
+            passphrase.len(),
+            ad.as_ptr(),
+            ad.len(),
+            m,
+            t,
+            p,
+            sk.as_ptr(),
+            sk.len(),
+            out.as_mut_ptr(),
+            cap,
+            &mut n,
+        )
+    })?;
+    out.truncate(n);
+    Ok(out)
+}
+
+/// The key [`pwenc`] protected: [`Code::Verify`](crate::Code) for a wrong
+/// passphrase or `ad`, or any changed byte; [`Code::Limit`](crate::Code)
+/// for parameters over the limits (a file cannot ask for more memory or
+/// time). The caller should [`wipe`](crate::wipe) the key after use.
+pub fn pwdec(passphrase: &[u8], data: &[u8], ad: &[u8]) -> Result<Vec<u8>> {
+    let cap = data.len().saturating_sub(51).max(1);
+    let mut sk = vec![0u8; cap];
+    let mut n = 0usize;
+    // SAFETY: the buffers are valid for the lengths passed
+    crate::rc(unsafe {
+        ffi::nqpwdec(
+            passphrase.as_ptr(),
+            passphrase.len(),
+            ad.as_ptr(),
+            ad.len(),
+            data.as_ptr(),
+            data.len(),
+            sk.as_mut_ptr(),
+            cap,
+            &mut n,
+        )
+    })?;
+    sk.truncate(n);
+    Ok(sk)
+}
+
+fn ad(a: &Alg) -> String {
+    format!("{MAGIC} {} sec", a.name)
+}
+
 /// The key file text for `key`: `kind` is "pub" or "sec".
 pub fn encode(alg: &str, kind: &str, key: &[u8]) -> Result<String> {
+    encodep(alg, kind, key, None)
+}
+
+/// [`encode`], with a secret key kept under `passphrase` when given (the
+/// format `noqtis keygen --pass-fd` writes).
+pub fn encodep(alg: &str, kind: &str, key: &[u8], passphrase: Option<&[u8]>) -> Result<String> {
     let a = kalg(alg)?;
     if kind != "pub" && kind != "sec" {
         return Err(Error::why(-1, "kind: \"pub\" or \"sec\""));
@@ -153,7 +217,19 @@ pub fn encode(alg: &str, kind: &str, key: &[u8]) -> Result<String> {
             format!("{} {kind} key: {want} bytes, not {}", a.name, key.len()),
         ));
     }
+    let mut e = Vec::new();
+    let key = match passphrase {
+        None => key,
+        Some(_) if kind != "sec" => {
+            return Err(Error::why(-1, "a passphrase protects a secret key only"));
+        }
+        Some(pw) => {
+            e = pwenc(pw, key, ad(&a).as_bytes(), 0, 0, 0)?;
+            &e[..]
+        }
+    };
     let b = b64e(key);
+    crate::wipe(&mut e);
     let mut s = format!("{MAGIC} {} {kind}\n", a.name);
     for l in b.as_bytes().chunks(64) {
         s.push_str(std::str::from_utf8(l).unwrap());
@@ -171,6 +247,11 @@ fn notkey() -> Error {
 
 /// The algorithm, kind and key of key file text.
 pub fn decode(text: &[u8]) -> Result<Key> {
+    decodep(text, None)
+}
+
+/// [`decode`], opening a secret key kept under `passphrase`.
+pub fn decodep(text: &[u8], passphrase: Option<&[u8]>) -> Result<Key> {
     let nl = text.iter().position(|&c| c == b'\n').ok_or_else(notkey)?;
     if nl >= 96 {
         return Err(notkey());
@@ -191,7 +272,22 @@ pub fn decode(text: &[u8]) -> Result<Key> {
         .copied()
         .filter(|&c| c != b'\r' && c != b'\n')
         .collect();
+    let prot = |k: &Vec<u8>| f[2] == "sec" && k.len() == want + 51 && k.starts_with(b"NQPW");
     match b64d(&body) {
+        Some(k) if prot(&k) => match passphrase {
+            None => Err(Error::why(
+                -1,
+                "the key is protected by a passphrase: give it to decodep or readp",
+            )),
+            Some(pw) => Ok(Key {
+                alg: a.name.clone(),
+                kind: f[2].to_string(),
+                key: pwdec(pw, &k, ad(&a).as_bytes())?,
+            }),
+        },
+        Some(k) if k.len() == want && passphrase.is_some() && f[2] == "sec" => {
+            Err(Error::why(-1, "the key is not protected by a passphrase"))
+        }
         Some(k) if k.len() == want => Ok(Key {
             alg: a.name,
             kind: f[2].to_string(),
@@ -209,6 +305,11 @@ pub fn decode(text: &[u8]) -> Result<Key> {
 
 /// Reads a key file; `kind` "pub" or "sec" requires that kind.
 pub fn read(file: impl AsRef<Path>, kind: Option<&str>) -> Result<Key> {
+    readp(file, kind, None)
+}
+
+/// [`read`], opening a secret key kept under `passphrase`.
+pub fn readp(file: impl AsRef<Path>, kind: Option<&str>, passphrase: Option<&[u8]>) -> Result<Key> {
     let p = file.as_ref();
     if !matches!(kind, None | Some("pub") | Some("sec")) {
         return Err(Error::why(-1, "kind: None, \"pub\" or \"sec\""));
@@ -217,7 +318,7 @@ pub fn read(file: impl AsRef<Path>, kind: Option<&str>) -> Result<Key> {
     fs::File::open(p)
         .and_then(|f| f.take(1 << 20).read_to_end(&mut t))
         .map_err(|e| Error::why(-7, format!("cannot read key file {}: {e}", p.display())))?;
-    let k = decode(&t)?;
+    let k = decodep(&t, passphrase)?;
     if let Some(want) = kind {
         if k.kind != want {
             let w = |s: &str| if s == "sec" { "secret" } else { "public" };
@@ -239,8 +340,20 @@ pub fn read(file: impl AsRef<Path>, kind: Option<&str>) -> Result<Key> {
 /// never through a link; an existing file is kept unless `force`, which
 /// removes it first so the new one never inherits its permissions.
 pub fn write(file: impl AsRef<Path>, alg: &str, kind: &str, key: &[u8], force: bool) -> Result<()> {
+    writep(file, alg, kind, key, force, None)
+}
+
+/// [`write`], with a secret key kept under `passphrase` when given.
+pub fn writep(
+    file: impl AsRef<Path>,
+    alg: &str,
+    kind: &str,
+    key: &[u8],
+    force: bool,
+    passphrase: Option<&[u8]>,
+) -> Result<()> {
     let p = file.as_ref();
-    let text = encode(alg, kind, key)?;
+    let text = encodep(alg, kind, key, passphrase)?;
     if force {
         match fs::remove_file(p) {
             Ok(()) => {}

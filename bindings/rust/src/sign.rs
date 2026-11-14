@@ -174,3 +174,252 @@ pub fn verify(alg: &str, pk: &[u8], msg: &[u8], sig: &[u8], o: &Opts) -> Result<
         _ => Err(Error::new(c)),
     }
 }
+
+/// The 64-byte message representative mu of FIPS 204 for `msg` under
+/// `pk`, as [`sign`] computes it (ML-DSA only; `o.ctx` and `o.prehash`
+/// are used), so that the message can be hashed away from the key.
+pub fn mu(alg: &str, pk: &[u8], msg: &[u8], o: &Opts) -> Result<Vec<u8>> {
+    let a = find(alg, Kind::Sign)?;
+    let p = ph(o)?;
+    let mut m = vec![0u8; 64];
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        ffi::nqsmu(
+            a.id,
+            pk.as_ptr(),
+            pk.len(),
+            msg.as_ptr(),
+            msg.len(),
+            o.ctx.as_ptr(),
+            o.ctx.len(),
+            p,
+            m.as_mut_ptr(),
+            64,
+        )
+    })?;
+    Ok(m)
+}
+
+fn rndof(o: &Opts, n: usize) -> Result<Option<Vec<u8>>> {
+    if o.deterministic && o.rnd.is_some() {
+        return Err(Error::why(-1, "deterministic and rnd exclude each other"));
+    }
+    Ok(if o.deterministic {
+        Some(vec![0u8; n])
+    } else {
+        o.rnd.map(|r| r.to_vec())
+    })
+}
+
+fn rp(r: &Option<Vec<u8>>) -> (*const u8, usize) {
+    match r {
+        None => (ptr::null(), 0),
+        Some(v) if v.is_empty() => (b"".as_ptr(), 0),
+        Some(v) => (v.as_ptr(), v.len()),
+    }
+}
+
+/// The signature of the message whose mu is `mu` ([`mu`]): the bytes
+/// [`sign`] gives for that message with the same randomness (`o.rnd` or
+/// `o.deterministic`; its other options are not used).
+pub fn signmu(alg: &str, sk: &[u8], mu: &[u8], o: &Opts) -> Result<Vec<u8>> {
+    let a = find(alg, Kind::Sign)?;
+    let r = rndof(o, 32)?;
+    let (rptr, rl) = rp(&r);
+    let mut sig = vec![0u8; a.sig];
+    let mut n = 0usize;
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        ffi::nqsignmu(
+            a.id,
+            sk.as_ptr(),
+            sk.len(),
+            mu.as_ptr(),
+            mu.len(),
+            rptr,
+            rl,
+            sig.as_mut_ptr(),
+            a.sig,
+            &mut n,
+        )
+    })?;
+    sig.truncate(n);
+    Ok(sig)
+}
+
+/// `true` when `sig` verifies for the message whose mu is `mu`.
+pub fn verifymu(alg: &str, pk: &[u8], mu: &[u8], sig: &[u8]) -> Result<bool> {
+    let a = find(alg, Kind::Sign)?;
+    // SAFETY: the buffers are valid for the lengths passed
+    match unsafe {
+        ffi::nqvrfymu(
+            a.id,
+            pk.as_ptr(),
+            pk.len(),
+            mu.as_ptr(),
+            mu.len(),
+            sig.as_ptr(),
+            sig.len(),
+        )
+    } {
+        0 => Ok(true),
+        -3 | -4 => Ok(false),
+        c => Err(Error::new(c)),
+    }
+}
+
+fn sctx() -> Box<ffi::Sctx> {
+    Box::new(ffi::Sctx { opq: [0; 160] })
+}
+
+/// A signature over a message given in pieces: [`update`](Signer::update)
+/// (or `io::Write`, so `io::copy` works) any number of times, then
+/// [`finish`](Signer::finish), which gives the bytes [`sign`] gives for
+/// the whole message with the same randomness. Only the piece at hand is
+/// held; the secret key is borrowed, not copied. ML-DSA (pure and
+/// pre-hash), and HashSLH-DSA, Ed25519ph and the hybrids with prehash
+/// "SHA-512"; the others are [`Code::Unsupported`](crate::Code).
+pub struct Signer<'a> {
+    a: &'static crate::Alg,
+    sk: &'a [u8],
+    c: Box<ffi::Sctx>,
+}
+
+impl<'a> Signer<'a> {
+    /// Starts a signature with `sk`; `o.ctx` and `o.prehash` as for
+    /// [`sign`].
+    pub fn new(alg: &str, sk: &'a [u8], o: &Opts) -> Result<Signer<'a>> {
+        let a = find(alg, Kind::Sign)?;
+        let p = ph(o)?;
+        let mut c = sctx();
+        // SAFETY: c is a context of the size noqtis.h gives
+        rc(unsafe {
+            ffi::nqsini(
+                &mut *c,
+                a.id,
+                sk.as_ptr(),
+                sk.len(),
+                o.ctx.as_ptr(),
+                o.ctx.len(),
+                p,
+            )
+        })?;
+        Ok(Signer { a, sk, c })
+    }
+
+    /// Adds `data` to the message.
+    pub fn update(&mut self, data: &[u8]) -> Result<()> {
+        // SAFETY: data holds len bytes
+        rc(unsafe { ffi::nqsupd(&mut *self.c, data.as_ptr(), data.len()) })
+    }
+
+    /// The signature; `o.rnd` or `o.deterministic` as for [`sign`].
+    pub fn finish(mut self, o: &Opts) -> Result<Vec<u8>> {
+        let r = rndof(o, rndlen(&self.a.name)?)?;
+        let (rptr, rl) = rp(&r);
+        let mut sig = vec![0u8; self.a.sig];
+        let mut n = 0usize;
+        // SAFETY: the buffers are valid for the lengths passed
+        rc(unsafe {
+            ffi::nqsfin(
+                &mut *self.c,
+                self.sk.as_ptr(),
+                self.sk.len(),
+                rptr,
+                rl,
+                sig.as_mut_ptr(),
+                self.a.sig,
+                &mut n,
+            )
+        })?;
+        sig.truncate(n);
+        Ok(sig)
+    }
+}
+
+/// [`verify`] over a message given in pieces: as [`Signer`], then
+/// [`finish`](Verifier::finish) with the signature.
+pub struct Verifier<'a> {
+    pk: &'a [u8],
+    c: Box<ffi::Sctx>,
+}
+
+impl<'a> Verifier<'a> {
+    /// Starts checking a signature under `pk`.
+    pub fn new(alg: &str, pk: &'a [u8], o: &Opts) -> Result<Verifier<'a>> {
+        let a = find(alg, Kind::Sign)?;
+        let p = ph(o)?;
+        let mut c = sctx();
+        // SAFETY: c is a context of the size noqtis.h gives
+        rc(unsafe {
+            ffi::nqvini(
+                &mut *c,
+                a.id,
+                pk.as_ptr(),
+                pk.len(),
+                o.ctx.as_ptr(),
+                o.ctx.len(),
+                p,
+            )
+        })?;
+        Ok(Verifier { pk, c })
+    }
+
+    /// Adds `data` to the message.
+    pub fn update(&mut self, data: &[u8]) -> Result<()> {
+        // SAFETY: data holds len bytes
+        rc(unsafe { ffi::nqsupd(&mut *self.c, data.as_ptr(), data.len()) })
+    }
+
+    /// `true` when `sig` is a valid signature of the whole message.
+    pub fn finish(mut self, sig: &[u8]) -> Result<bool> {
+        // SAFETY: the buffers are valid for the lengths passed
+        match unsafe {
+            ffi::nqvfin(
+                &mut *self.c,
+                self.pk.as_ptr(),
+                self.pk.len(),
+                sig.as_ptr(),
+                sig.len(),
+            )
+        } {
+            0 => Ok(true),
+            -3 | -4 => Ok(false),
+            c => Err(Error::new(c)),
+        }
+    }
+}
+
+macro_rules! sink {
+    ($t:ident) => {
+        impl std::io::Write for $t<'_> {
+            fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+                self.update(b)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+                Ok(b.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        impl std::fmt::Debug for $t<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(stringify!($t))
+            }
+        }
+        impl Drop for $t<'_> {
+            fn drop(&mut self) {
+                // SAFETY: the context is ours (the library wipes it at the
+                // end; a dropped unfinished one is wiped here)
+                unsafe {
+                    ffi::nqwipe(
+                        self.c.opq.as_mut_ptr().cast(),
+                        std::mem::size_of::<ffi::Sctx>(),
+                    )
+                }
+            }
+        }
+    };
+}
+sink!(Signer);
+sink!(Verifier);
