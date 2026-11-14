@@ -218,6 +218,7 @@ show drift. It is a separate library, `libnqd`, with these boundaries:
 | Q7 | synthetic data | `nqdsyn` (a CSV file from its schema, deterministic, recorded as synthetic); `noqtis data syn` | `tdcli` (against a file made by a separate Python implementation; refusals) |
 | Q8 | reports | `nqdrpt` (Markdown and text, values escaped once); `noqtis report`; the action's report mode, outputs and annotations | `tdrpt`, `tdcli`, `.github/workflows/action.yml` |
 | Q9 | bundles, chunks | `nqdpack`, `nqdunpack` (`noqtis-bundle-1`); `noqtis export --as bundle`, `check <file>`, `pack`; `nqdchunk`, `nqdpiece` (`chunks`); `noqtis chunk` | `tdbnd` (every refusal of the reader, a bundle cut at every byte, round trips that leave nothing behind), `tdcnk` (digests against SHA-256 computed apart, pieces), `tdcli`, `fdbnd` |
+| Q7b | sources | `nqdaddr`, `nqdvrfy`, `nqdfld`; the portal resolvers `nqdrslv`, `nqdrsp`, `nqdwb` (CKAN, Socrata, ArcGIS, the Wayback Machine), pure; `noqtis src`, its HTTP in `cli/net.c` (`ncfetch`: same-server redirects, limits, resumption) | `tdsrc` (requests, replies as each portal documents them, refusals), `tdcli` (a local server: fallback order, refused bytes, cut and larger replies, redirects, each portal), `fdrsp` |
 | Q4b | chains | `nqdchain` on format 2 lineage; `noqtis chain` | `tdcli` (a gap, a fork, links out of order, two inputs, another key, a changed link) |
 
 ## Platforms and packaging
@@ -544,6 +545,7 @@ prints each command's options.
 | `noqtis prove [-p <key.pub>] [-o <file>] [-f] <dir> <path>...` | a proof (JSON) that the named files are in a format 2 capsule, naming no other file |
 | `noqtis export --as intoto\|dsse\|rocrate\|bagit\|bundle [-k <key>] [-p <key.pub>] [-o <file\|dir>] [-f] [--no-files] <dir>` | the checked capsule as an in-toto Statement v1, a DSSE envelope signed with `-k`, RO-Crate 1.1 metadata, a BagIt 1.0 bag, or a bundle (`noqtis-bundle-1`, one file that `check` reads; `--no-files`: the data record alone) |
 | `noqtis pack init\|build\|check\|unpack` | reproducibility bundles: a template (`init -t plain\|r\|python`), `env` + `seal` + the bundle file (`build`), the capsule, the record, the lock files and the environment checked before shipping (`check`), a bundle opened (`unpack`) |
+| `noqtis src add\|resolve\|fetch\|refresh\|list` | the sources of the data record: recorded by address or portal (CKAN, Socrata, ArcGIS), restored from the first address giving the recorded bytes (url, portal, mirrors, archived copy), fetched again to say whether they changed (`--write` records the new bytes) |
 | `noqtis chunk pin\|check [--size <bytes>] [--at <offset>]` | `nqdchunk`/`nqdpiece`: chunk digests of a large file in the data record; a piece of it checked alone |
 | `noqtis chain [-p <key.pub>] [--anchor <der-file>]... <dir>...` | `nqdchain`: an append-only chain of capsules (each sealed with the last as its only input) checked link by link, with its head |
 | `noqtis rotate -k <key> -n <new> [--at <time>] [--reason <text>] [-o <file>]` | a key statement, signed by both keys, that `<key>` was replaced by `<new>` from `<time>` |

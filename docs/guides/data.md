@@ -60,6 +60,35 @@ echo '{"kind":"recode","from":"offence","to":"group","script":"map/offence.csv",
 `data check` also makes each file's drift summaries again and compares
 them with the recorded ones byte for byte.
 
+## Fetch the sources, and see if they changed
+
+`noqtis src` fetches the files a record names. `src add` records a file
+by its address, or by its portal and dataset (CKAN, Socrata, ArcGIS),
+fetching it when it is not there yet; `--wayback` pins the Wayback
+Machine's copy of it too:
+
+```sh
+noqtis src add --portal ckan --base https://data.ontario.ca \
+  --id ontario-public-library-statistics --wayback \
+  results data/libraries.csv
+```
+
+Later, perhaps on another machine, `src fetch` restores each missing
+file from the first address that gives the recorded bytes: the URL, the
+portal, each mirror, then the archived copy. It says which copy it used,
+and never writes bytes whose SHA-256 or size differ from the record:
+
+```sh
+noqtis src fetch results
+```
+
+`src refresh` fetches each source again from its URL or portal and says
+whether it is unchanged, changed (with the old and the new SHA-256 and
+size) or unreachable, with exit status 0, 1 and 3; `--write` takes the
+new bytes into the capsule and records them, to be sealed again. A
+synthetic source is never fetched, and every line about it says so.
+`src resolve` asks each portal where its file is now.
+
 ## Pin the schema
 
 ```sh
@@ -204,6 +233,7 @@ prints the head: the last link's id.
 | Command | What it does |
 |---|---|
 | `noqtis data init\|add\|put\|del\|fmt\|show\|check` | make, show and check the data record |
+| `noqtis src add\|resolve\|fetch\|refresh\|list` | fetch the sources from their URL, portal, mirrors or archived copy, verified; say whether they changed |
 | `noqtis schema infer\|check` | pin and check the schema of CSV files |
 | `noqtis drift pin\|check` | summarise CSV files, and say later if they drifted |
 | `noqtis chunk pin\|check` | chunk digests of a large file; check a piece of it alone |
