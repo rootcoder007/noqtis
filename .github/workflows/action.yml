@@ -303,6 +303,8 @@ jobs:
           echo "status $NQS, differs $NQD"
           test "$NQS" = failed && test "$NQD" = true
           grep -q '^Changes since `HEAD`' "$NQR"
+          # the summaries pinned earlier describe the old bytes
+          noqtis drift pin datacap data/in.csv
           noqtis data check datacap
           cmp datacap/data/in.csv "$RUNNER_TEMP/www/in.csv"
 

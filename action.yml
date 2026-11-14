@@ -83,8 +83,9 @@ inputs:
   write:
     description: >-
       refresh. "true": write each changed source's new bytes into dir and
-      record them (noqtis src refresh --write); a later step must seal and
-      commit them.
+      record them (noqtis src refresh --write); a later step must pin the
+      summaries of a changed file again where they were pinned (noqtis
+      drift pin), then seal and commit.
     required: false
     default: "false"
   base-ref:
