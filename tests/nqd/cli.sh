@@ -882,27 +882,32 @@ if [ -n "$tsad" ]; then
   ok 2 "src add --synthetic --url" "$nq" src add --synthetic --url "$U/a" \
     "$s" syn.csv
 
-  # portals: CKAN, Socrata, ArcGIS
+  # portals: CKAN, Socrata, ArcGIS. A reply naming an address on this
+  # machine is refused, so CKAN (whose reply names the file) is refused
+  # here; the replies of each portal are read in tdsrc
   sed "s|https://files.example.org/lib/2023.csv|$U/a.csv|" \
     "$v/src/ckan-pkg.json" >"$ww/api/3/action/package_show?id=lib"
-  ok 0 "src add --portal ckan" "$nq" src add --portal ckan --base "$U/" \
-    --id lib "$s" p/ckan.csv
-  same "$s/p/ckan.csv" "$ww/a.csv" "the CKAN resource is fetched"
-  ok 0 "src resolve, the same" "$nq" src resolve "$s" p/ckan.csv
-  has "$w/out" "same        p/ckan.csv from portal $U/a.csv" "resolve: same"
-  sed "s|https://files.example.org/lib/2023.csv|$U/m/a.csv|" \
-    "$v/src/ckan-pkg.json" >"$ww/api/3/action/package_show?id=lib"
-  ok 0 "src resolve, moved" "$nq" src resolve --json "$s" p/ckan.csv
-  has "$w/out" '"status":"moved"' "resolve: moved"
-  ok 0 "src resolve -w" "$nq" src resolve -w "$s" p/ckan.csv
-  has "$w/err" "url recorded: $U/m/a.csv" "resolve -w says what it records"
-  rm "$s/p/ckan.csv"
-  ok 0 "src fetch through the url resolved" "$nq" src fetch "$s" p/ckan.csv
+  ok 2 "src add --portal ckan, a loopback file" "$nq" src add --portal ckan \
+    --base "$U/" --id lib "$s" p/ckan.csv
+  has "$w/err" "local network" "a reply cannot point at this machine"
+  ok 1 "and nothing was fetched" test -f "$s/p/ckan.csv"
   cp "$v/src/soc.json" "$ww/api/views/abcd-1234.json"
   cp "$ww/a.csv" "$ww/api/views/abcd-1234/rows.csv?accessType=DOWNLOAD"
   ok 0 "src add --portal socrata" "$nq" src add --portal socrata \
     --base "$U" --id abcd-1234 "$s" p/soc.csv
   same "$s/p/soc.csv" "$ww/a.csv" "the Socrata export is fetched"
+  ok 0 "src resolve, the same" "$nq" src resolve "$s" p/soc.csv
+  has "$w/out" "same        p/soc.csv from portal $U/api/views/abcd-1234/rows.csv" \
+    "resolve: same"
+  ok 0 "data add: another url" "$nq" data add --url "$U/old.csv" "$s" p/soc.csv
+  ok 0 "src resolve, moved" "$nq" src resolve --json "$s" p/soc.csv
+  has "$w/out" '"status":"moved"' "resolve: moved"
+  ok 0 "src resolve -w" "$nq" src resolve -w "$s" p/soc.csv
+  has "$w/err" "url recorded: $U/api/views/abcd-1234/rows.csv" \
+    "resolve -w says what it records"
+  rm "$s/p/soc.csv"
+  ok 0 "src fetch through the url resolved" "$nq" src fetch "$s" p/soc.csv
+  same "$s/p/soc.csv" "$ww/a.csv" "the resolved url gives the file"
   cp "$v/src/arc-layer.json" "$ww/fs/FeatureServer/0?f=json"
   cp "$ww/a.csv" "$ww/fs/FeatureServer/0/query?where=1=1&outFields=*&f=geojson"
   ok 0 "src add --portal arcgis" "$nq" src add --portal arcgis \

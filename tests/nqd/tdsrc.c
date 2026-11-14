@@ -255,6 +255,37 @@ static void replies(void) {
   }
 }
 
+/* a reply may not name this machine or a local network */
+static void hosts(void) {
+  static const char *const bad[] = {
+      "localhost", "LocalHost.", "a.localhost", "127.0.0.1", "127.1",
+      "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.1.1",
+      "169.254.169.254", "100.64.0.1", "0.0.0.0", "224.0.0.1",
+      "255.255.255.255", "2130706433", "0x7f000001", "0177.0.0.1",
+      "[::1]", "[fe80::1]", "[::ffff:127.0.0.1]", "198.18.0.1",
+      "192.0.0.8", "1.2.3", "1.2.3.4.5"};
+  static const char *const good[] = {"8.8.8.8", "172.32.0.1",
+                                     "files.example.org", "100.128.0.1",
+                                     "deadbeef.example.com"};
+  const char *rs = "{\"base\":\"https://x.org\",\"kind\":\"ckan\","
+                   "\"resource\":\"r\"}";
+  char rp[300];
+  size_t i;
+  for (i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+    qdwhy(rp, sizeof rp, "{\"success\":true,\"result\":{\"id\":\"r\","
+          "\"url\":\"https://%s:8443/a.csv\"}}", bad[i]);
+    NQTEQI(nqdrsp(rs, strlen(rs), rp, strlen(rp), out, sizeof out, &n, NULL,
+                  why, sizeof why), NQEDEC);
+  }
+  NQTCHK(strstr(why, "local network") != NULL);
+  for (i = 0; i < sizeof good / sizeof good[0]; i++) {
+    qdwhy(rp, sizeof rp, "{\"success\":true,\"result\":{\"id\":\"r\","
+          "\"url\":\"https://%s/a.csv\"}}", good[i]);
+    NQTEQI(nqdrsp(rs, strlen(rs), rp, strlen(rp), out, sizeof out, &n, NULL,
+                  why, sizeof why), NQOK);
+  }
+}
+
 static void wb(void) {
   NQTEQI(nqdwb("http://web.archive.org/web/20240102030405/https://"
                "example.org/a.csv", out, sizeof out, &n), NQOK);
@@ -363,6 +394,7 @@ static void sources(void) {
 int main(void) {
   requests();
   replies();
+  hosts();
   wb();
   sources();
   return nqtdone("tdsrc");

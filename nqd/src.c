@@ -67,6 +67,65 @@ static int urlok(const char *s, size_t n, int noq) {
   return 1;
 }
 
+/* 1 when the host of the address u (n bytes, checked by urlok) may be
+ * named by a reply: not localhost, no IPv6 literal, and no IPv4 one
+ * but a plain dotted quad outside the loopback, private, link-local,
+ * shared, multicast and reserved ranges. A reply must not steer the
+ * fetch at this machine or its network; a name is not resolved here. */
+static int pubhost(const char *u, size_t n) {
+  size_t h = ishttps(u) ? 8 : 7, e = h, i, k = 0, dots = 0;
+  unsigned o[4] = {0, 0, 0, 0};
+  int num = 1, dig = 0;
+  if (h < n && u[h] == '[')
+    return 0;
+  while (e < n && u[e] != ':' && u[e] != '/' && u[e] != '?')
+    e++;
+  while (e > h && u[e - 1] == '.')
+    e--; /* "localhost." is localhost */
+  if (e - h == 9 && caseq(u + h, 9, "localhost"))
+    return 0;
+  if (e - h > 10 && caseq(u + e - 10, 10, ".localhost"))
+    return 0;
+  for (i = h; i < e; i++) {
+    char c = (char)lc((unsigned char)u[i]);
+    if (!((c >= '0' && c <= '9') || c == '.' || c == 'x' ||
+          (c >= 'a' && c <= 'f')))
+      num = 0;
+  }
+  if (!num)
+    return 1;
+  /* something a resolver may read as a number: only a plain dotted quad
+   * of public octets passes */
+  for (i = h; i < e; i++) {
+    if (u[i] == '.') {
+      if (!dig || ++dots > 3)
+        return 0;
+      k++;
+      dig = 0;
+    } else if (u[i] >= '0' && u[i] <= '9') {
+      if (dig && o[k] == 0)
+        return 0; /* a leading zero: octal to some resolvers */
+      o[k] = o[k] * 10 + (unsigned)(u[i] - '0');
+      if (o[k] > 255)
+        return 0;
+      dig = 1;
+    } else {
+      return 0;
+    }
+  }
+  if (dots != 3 || !dig)
+    return 0;
+  if (o[0] == 0 || o[0] == 10 || o[0] == 127 || o[0] >= 224 ||
+      (o[0] == 100 && o[1] >= 64 && o[1] < 128) ||
+      (o[0] == 169 && o[1] == 254) || (o[0] == 172 && o[1] >= 16 &&
+                                       o[1] < 32) ||
+      (o[0] == 192 && o[1] == 168) || (o[0] == 192 && o[1] == 0 &&
+                                       o[2] == 0) ||
+      (o[0] == 198 && (o[1] == 18 || o[1] == 19)))
+    return 0;
+  return 1;
+}
+
 /* s percent-encoded but for RFC 3986 unreserved bytes */
 static void pct(dbuf *b, const char *s, size_t n) {
   static const char hx[] = "0123456789ABCDEF";
@@ -330,6 +389,12 @@ static int answer(const char *u, size_t n, int tls, dbuf *b, char *why,
           "http:// address: refused");
     return NQEDEC;
   }
+  if (!pubhost(u, n)) {
+    qdwhy(why, cap, "the reply names an address on this machine or a "
+          "local network (localhost, a private, loopback or link-local "
+          "address, or an address in another form): refused");
+    return NQEDEC;
+  }
   qdbput(b, u, n);
   return NQOK;
 }
@@ -459,9 +524,10 @@ static int arcgis(const djs *rs, const djs *rp, int tls, dbuf *b,
     }
     while (un > 0 && u[un - 1] == '/')
       un--;
-    if (!urlok(u, un, 1) || (tls && !ishttps(u))) {
+    if (!urlok(u, un, 1) || (tls && !ishttps(u)) || !pubhost(u, un)) {
       qdwhy(why, cap, "the ArcGIS item's url is not an %s address without "
-            "a query", tls ? "https://" : "http:// or https://");
+            "a query on a public host", tls ? "https://" : "http:// or "
+            "https://");
       return NQEDEC;
     }
     arcq(b, u, un, layer, fmt);

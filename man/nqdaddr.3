@@ -249,7 +249,10 @@ Values put in a query are percent-encoded but for the unreserved bytes
 of RFC 3986.
 An address read from a reply must be http:// or https://, at most 4,096
 bytes, without a space, control character, backslash or fragment, and
-https:// when the portal is.
+https:// when the portal is, and its host must not be this machine
+or a local network: localhost, an IPv6 literal, or an IPv4 address
+other than a plain dotted quad of a public range are refused (a name
+is not resolved for this check).
 .Pp
 .Fn nqdwb
 writes the address of the raw bytes of a Wayback Machine copy,

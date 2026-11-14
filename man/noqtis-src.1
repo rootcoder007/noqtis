@@ -250,7 +250,10 @@ A server returns at most its record limit of features to one query.
 .Xr nqdaddr 3
 gives each request and how its reply is read.
 An address a portal answers with must be http:// or https://, and
-https:// when the portal is.
+https:// when the portal is, and its host must not be this machine
+or a local network: localhost, an IPv6 literal, or an IPv4 address
+other than a plain dotted quad of a public range are refused (a name
+is not resolved for this check).
 .Ss The network
 The requests are HTTP/1.1 GETs, over https:// with the tool's TLS 1.3
 client
