@@ -36,9 +36,10 @@ int nqdchunk(const char *dir, const char *path, uint64_t chunk, char *out,
     qdwhy(why, wcap, "%s: not a path a capsule holds", path);
     return rc;
   }
-  if ((f = qdfopen(p, "rb")) == NULL) {
-    qdwhy(why, wcap, "%s: cannot be read", p);
-    return NQEIO;
+  if ((rc = qdopen(dir, path, &f)) != NQOK) {
+    qdwhy(why, wcap, rc == NQEARG ? "%s: a link or not a plain file, refused"
+                                  : "%s: cannot be read", path);
+    return rc;
   }
   e = qdjnew(DJOBJ);
   dg = qdjnew(DJARR);
@@ -106,8 +107,8 @@ out:
 
 /* the rows of a piece (the file piece, from byte off of the file) against
  * the chunks element e; whole: the piece is the whole file */
-int qdpiece(nqdrep *rep, const djs *e, const char *piece, uint64_t off,
-            int whole) {
+int qdpiece(nqdrep *rep, const djs *e, const char *dir, const char *piece,
+            uint64_t off, int whole) {
   const djs *dg = qdjget(e, "digests");
   const char *path = qdjget(e, "path")->s;
   int64_t ci = 0, si = 0;
@@ -128,7 +129,12 @@ int qdpiece(nqdrep *rep, const djs *e, const char *piece, uint64_t off,
                     "starts (every %llu bytes, up to %llu)", path,
                     (unsigned long long)off, (unsigned long long)chunk,
                     (unsigned long long)size);
-  if ((f = qdfopen(piece, "rb")) == NULL)
+  /* a member of the folder dir, or with dir NULL any file the caller
+   * names */
+  if (dir != NULL && (rc = qdopen(dir, piece, &f)) == NQEARG)
+    return qdrepadd(rep, "chunk", 0, "%s: a link or not a plain file, "
+                    "refused", piece);
+  if (dir != NULL ? rc != NQOK : (f = qdfopen(piece, "rb")) == NULL)
     return qdrepadd(rep, "chunk", 0, "%s: missing or unreadable", piece);
   if ((b = (uint8_t *)qdmal(65536)) == NULL || nqhini(&c, NQS256) != NQOK) {
     fclose(f);
@@ -225,7 +231,7 @@ int nqdpiece(const char *elem, size_t n, const char *piece, uint64_t off,
     *rep = r;
     return NQEVRFY;
   }
-  rc = qdpiece(r, e, piece, off, 0);
+  rc = qdpiece(r, e, NULL, piece, off, 0);
   qdjfree(e);
   if (rc == NQEMEM) {
     nqdrepfree(r);

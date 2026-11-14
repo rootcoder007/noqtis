@@ -34,7 +34,10 @@ static int srcrow(nqdrep *rep, const char *dir, const djs *e) {
   if (qdjoin(dir, path, p, sizeof p) != NQOK)
     return qdrepadd(rep, "source", 0, "%s%s: not a path in the folder", path,
                    sy);
-  rc = qdsha(p, h, &got);
+  rc = qdshaat(dir, path, h, &got);
+  if (rc == NQEARG)
+    return qdrepadd(rep, "source", 0, "%s%s: a link or not a plain file, "
+                    "refused", path, sy);
   if (rc != NQOK)
     return qdrepadd(rep, "source", 0, "%s%s: missing or unreadable", path, sy);
   for (i = 0; i < 32; i++) {
@@ -98,9 +101,10 @@ static int chkrow(nqdrep *rep, const djs *e) {
 /* a step with a script (a mapping, a program) in the folder and its
  * SHA-256: the file must still have it */
 static int steprow(nqdrep *rep, const char *dir, const djs *e, size_t i) {
+  int rc;
   const djs *sc = qdjget(e, "script"), *h = qdjget(e, "sha256");
   const djs *fr = qdjget(e, "from"), *to = qdjget(e, "to");
-  char p[4200], hx[65], who[400];
+  char hx[65], who[400];
   uint8_t d[32];
   uint64_t n;
   if (sc == NULL || h == NULL)
@@ -108,9 +112,10 @@ static int steprow(nqdrep *rep, const char *dir, const djs *e, size_t i) {
   qdwhy(who, sizeof who, "step %lu (%s%s%.80s%s%.80s)", (unsigned long)i + 1,
         qdjget(e, "kind")->s, fr != NULL ? " " : "", fr != NULL ? fr->s : "",
         to != NULL ? " -> " : "", to != NULL ? to->s : "");
-  if (qdjoin(dir, sc->s, p, sizeof p) != NQOK || qdsha(p, d, &n) != NQOK)
-    return qdrepadd(rep, "step", 0, "%s: %s missing or unreadable", who,
-                    sc->s);
+  if ((rc = qdshaat(dir, sc->s, d, &n)) != NQOK)
+    return qdrepadd(rep, "step", 0, rc == NQEARG
+                        ? "%s: %s is a link or not a plain file, refused"
+                        : "%s: %s missing or unreadable", who, sc->s);
   qdhex(d, 32, hx);
   if (strcmp(hx, h->s) != 0)
     return qdrepadd(rep, "step", 0,
@@ -218,11 +223,14 @@ static int statrow(nqdrep *rep, const char *dir, const djs *root,
 static int lockrow(nqdrep *rep, const char *dir, const djs *e) {
   const char *path = qdjget(e, "path")->s;
   const char *want = qdjget(e, "sha256")->s;
-  char p[4200], hx[65];
+  char hx[65];
   uint8_t h[32];
   uint64_t got;
-  if (qdjoin(dir, path, p, sizeof p) != NQOK || qdsha(p, h, &got) != NQOK)
-    return qdrepadd(rep, "lock", 0, "%s: missing or unreadable", path);
+  int rc = qdshaat(dir, path, h, &got);
+  if (rc != NQOK)
+    return qdrepadd(rep, "lock", 0, rc == NQEARG
+                        ? "%s: a link or not a plain file, refused"
+                        : "%s: missing or unreadable", path);
   qdhex(h, 32, hx);
   if (strcmp(hx, want) != 0)
     return qdrepadd(rep, "lock", 0,
@@ -273,7 +281,7 @@ int nqdchk(const char *dir, nqdrep **out) {
       if (qdjoin(dir, path, p, sizeof p) != NQOK)
         qdrepadd(rep, "chunk", 0, "%s: not a path in the folder", path);
       else
-        qdpiece(rep, a->k[i], p, 0, 1);
+        qdpiece(rep, a->k[i], dir, path, 0, 1);
     }
   }
   if ((a = qdjget(root, "stats")) != NULL)

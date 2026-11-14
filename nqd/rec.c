@@ -864,9 +864,13 @@ int nqdload(const char *dir, nqdrec **r, char *why, size_t cap) {
   *r = NULL;
   if ((size_t)snprintf(p, sizeof p, "%s/%s", dir, NQDFILE) >= sizeof p)
     return NQELIM;
-  if ((rc = qdread(p, NQDMAX, &buf, &n)) != NQOK) {
-    qdwhy(why, cap, rc == NQELIM ? NQDFILE " is over 64 MiB"
-                                : NQDFILE " is missing or unreadable");
+  if ((rc = qdreadat(dir, NQDFILE, NQDMAX, &buf, &n)) != NQOK) {
+    qdwhy(why, cap, rc == NQELIM   ? NQDFILE " is over 64 MiB"
+                    : rc == NQEARG ? NQDFILE " is a link or not a plain "
+                                     "file, refused"
+                                   : NQDFILE " is missing or unreadable");
+    if (rc == NQEARG)
+      rc = NQEDEC;
     return rc;
   }
   rc = parse(buf, n, 0, r, why, cap);
@@ -897,7 +901,7 @@ int nqdsave(const nqdrec *r, const char *dir) {
     return NQELIM;
   memset(&b, 0, sizeof b);
   qdjwrite(r->root, &b);
-  rc = b.err ? b.err : qdwrite(p, b.b, b.n);
+  rc = b.err ? b.err : qdwriteat(dir, NQDFILE, b.b, b.n);
   qdbfree(&b);
   return rc;
 }
@@ -1132,9 +1136,10 @@ int nqdsrc(nqdrec *r, const char *dir, const char *path, char *why,
          path);
     return rc;
   }
-  if ((rc = qdsha(p, h, &size)) != NQOK) {
-    qdwhy(why, cap, "%s: cannot be read", p);
-    return rc;
+  if ((rc = qdshaat(dir, path, h, &size)) != NQOK) {
+    qdwhy(why, cap, rc == NQEARG ? "%s: a link or not a plain file, refused"
+                                 : "%s: cannot be read", path);
+    return rc == NQEARG ? NQEARG : NQEIO;
   }
   qdhex(h, 32, hx);
   o = find(r, "sources", path, &at);

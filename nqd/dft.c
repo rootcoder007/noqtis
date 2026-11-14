@@ -309,8 +309,9 @@ static int dcmp(const void *a, const void *b) {
  * category and, while the column stays numeric, kept as a number.
  * ponytail: holds every number of the file in memory (8 bytes each)
  * to sort it; a merging quantile sketch (KLL) would bound that. */
-static int readcols(const char *p, const nqdcsvopt *o, qdccol **out,
-                    size_t *nc, uint64_t *rows, char *why, size_t wcap) {
+static int readcols(const char *dir, const char *p, const nqdcsvopt *o,
+                    qdccol **out, size_t *nc, uint64_t *rows, char *why,
+                    size_t wcap) {
   qdcsv c;
   int rc, got, header = o == NULL || !o->noheader;
   char delim = o != NULL && o->delim ? o->delim : ',';
@@ -318,9 +319,12 @@ static int readcols(const char *p, const nqdcsvopt *o, qdccol **out,
   size_t n = 0, i;
   *out = NULL;
   *rows = 0;
-  if (qdcsvfile(&c, p, delim) != NQOK) {
-    qdwhy(why, wcap, "%s: cannot be read", p);
-    return NQEIO;
+  /* a member of the folder dir, or with dir NULL any file named */
+  if ((rc = dir != NULL ? qdcsvat(&c, dir, p, delim)
+                        : qdcsvfile(&c, p, delim)) != NQOK) {
+    qdwhy(why, wcap, rc == NQEARG ? "%s: a link or not a plain file, refused"
+                                  : "%s: cannot be read", p);
+    return rc == NQEARG ? NQEARG : NQEIO;
   }
   if ((rc = qdcsvnext(&c, &got)) != NQOK)
     goto bad;
@@ -586,7 +590,7 @@ int nqdstats(const char *dir, const char *path, const nqdcsvopt *o,
     qdwhy(why, wcap, "%s: not a path a capsule holds", path);
     return rc;
   }
-  if ((rc = readcols(p, o, &cs, &nc, &rows, why, wcap)) != NQOK)
+  if ((rc = readcols(dir, path, o, &cs, &nc, &rows, why, wcap)) != NQOK)
     return rc;
   e = qdjnew(DJOBJ);
   cols = qdjnew(DJARR);
@@ -966,7 +970,7 @@ int nqddrift(const char *stats, size_t n, const char *file,
     if (hd != NULL && hd->t == DJFALSE)
       co.noheader = 1;
   }
-  rc = readcols(file, &co, &cs, &nc, &rows, why, sizeof why);
+  rc = readcols(NULL, file, &co, &cs, &nc, &rows, why, sizeof why);
   if (rc != NQOK) {
     qdjfree(st);
     if (rc == NQEMEM) {

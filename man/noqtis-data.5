@@ -51,6 +51,14 @@ bytes, and not
 .Pa noqtis.ers
 or
 .Pa noqtis.data.json .
+A path is opened under the capsule folder one component at a time
+without following a symbolic link (on Windows, a reparse point): a
+link at any component is refused, also one that points inside the
+folder, as a capsule refuses links, and so is anything but a plain
+file.
+The record itself,
+.Pa noqtis.data.json ,
+is opened the same way.
 .It hex
 64 lower-case hex digits.
 .It count

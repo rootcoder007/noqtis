@@ -996,6 +996,68 @@ MINGW* | MSYS* | CYGWIN*) ;;
   ;;
 esac
 
+# ---- record paths never follow a link, at any component ----
+
+lnok=0
+ln -s "$w" "$w/lntry" 2>/dev/null && lnok=1
+rm -f "$w/lntry"
+if [ "$lnok" = 1 ]; then
+  l=$w/lnk
+  o=$w/outside
+  mkdir -p "$l/data" "$o/data"
+  cp "$v/cap/data/a.csv" "$l/data/"
+  cp "$v/cap/data/a.csv" "$o/data/"
+  ok 0 "links: the record" "$nq" data add "$l" data/a.csv
+  ok 0 "links: schema" "$nq" schema infer --put "$l" data/a.csv
+  ok 0 "links: drift pin" "$nq" drift pin "$l" data/a.csv
+  ok 0 "links: without a link, data check" "$nq" data check "$l"
+  mv "$l/data/a.csv" "$l/a.csv"
+  ln -s "$o/data/a.csv" "$l/data/a.csv"
+  ok 1 "links: a link to a file outside" "$nq" data check "$l"
+  has "$w/out" "data/a.csv: a link or not a plain file, refused" \
+    "the link outside is refused, by its path"
+  ok 2 "links: drift pin through a link" "$nq" drift pin "$l" data/a.csv
+  has "$w/err" "refused" "pin says the link is refused"
+  ok 2 "links: schema infer through a link" "$nq" schema infer "$l" \
+    data/a.csv
+  rm "$l/data/a.csv"
+  ln -s ../a.csv "$l/data/a.csv"
+  ok 1 "links: a link inside the folder" "$nq" data check "$l"
+  has "$w/out" "refused" "a link inside is refused too"
+  rm "$l/data/a.csv"
+  ln -s "$w/none.csv" "$l/data/a.csv"
+  ok 1 "links: a dangling link" "$nq" data check "$l"
+  has "$w/out" "refused" "a dangling link is refused"
+  rm "$l/data/a.csv"
+  mv "$l/data" "$l/data.real"
+  ln -s "$o/data" "$l/data"
+  ok 1 "links: a folder link on the way" "$nq" data check "$l"
+  has "$w/out" "refused" "a linked folder on the way is refused"
+  ok 2 "links: chunk pin through a linked folder" "$nq" chunk pin "$l" \
+    data/a.csv
+  ok 0 "links: a schema to make a stand-in from" "$nq" data put "$l" \
+    schemas "$v/syn/schema.json"
+  ok 2 "links: a stand-in written through a linked folder" "$nq" data syn \
+    --seed 7 "$l" data/s.csv
+  n=$((n + 1))
+  if [ -e "$o/data/s.csv" ]; then
+    bad=$((bad + 1))
+    echo "FAIL a stand-in was written through the link" >&2
+  fi
+  ok 0 "links: the schema removed" "$nq" data del "$l" schemas data/s.csv
+  rm "$l/data"
+  mv "$l/data.real" "$l/data"
+  mv "$l/a.csv" "$l/data/a.csv"
+  ok 0 "links: the same capsule without links" "$nq" data check "$l"
+  mv "$l/noqtis.data.json" "$o/rec.json"
+  ln -s "$o/rec.json" "$l/noqtis.data.json"
+  ok 1 "links: the record a link" "$nq" data check "$l"
+  has "$w/out" "noqtis.data.json is a link" "the record as a link is refused"
+  rm "$l/noqtis.data.json"
+  mv "$o/rec.json" "$l/noqtis.data.json"
+  ok 0 "links: and back" "$nq" data check "$l"
+fi
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"
