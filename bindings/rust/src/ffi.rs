@@ -336,6 +336,47 @@ extern "C" {
         why: *mut c_char,
         cap: usize,
     ) -> c_int;
+    pub fn nqdaddr(
+        r: *const Drec,
+        path: *const c_char,
+        i: usize,
+        kind: *mut c_int,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqdvrfy(r: *const Drec, path: *const c_char, b: *const u8, n: usize) -> c_int;
+    pub fn nqdfld(
+        r: *const Drec,
+        member: *const c_char,
+        i: usize,
+        field: *const c_char,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqdrslv(
+        rslv: *const c_char,
+        n: usize,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+        why: *mut c_char,
+        wcap: usize,
+    ) -> c_int;
+    pub fn nqdrsp(
+        rslv: *const c_char,
+        n: usize,
+        reply: *const c_char,
+        rn: usize,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+        tm: *mut c_char,
+        why: *mut c_char,
+        wcap: usize,
+    ) -> c_int;
+    pub fn nqdwb(url: *const c_char, out: *mut c_char, cap: usize, outlen: *mut usize) -> c_int;
     pub fn nqdsrc(
         r: *mut Drec,
         dir: *const c_char,

@@ -212,3 +212,57 @@ fn diff() {
         "{r:?}"
     );
 }
+
+#[test]
+fn sources() {
+    let Some(v) = vec() else { return };
+    let d = cap(&v, false);
+    data::add(
+        &d,
+        &["data/a.csv"],
+        &data::Src {
+            url: Some("https://example.org/a.csv".into()),
+            title: None,
+            publisher: None,
+            licence: None,
+            retrieved: None,
+            synthetic: false,
+        },
+    )
+    .unwrap();
+    let e = data::key(&d, "sources", "data/a.csv").unwrap().unwrap();
+    let e = format!(
+        "{},\"mirrors\":[\"https://m.example.net/a.csv\"],\"resolver\":{{\"base\":\"https://data.example.org\",\"id\":\"abcd-1234\",\"kind\":\"socrata\"}}}}",
+        &e[..e.len() - 1]
+    );
+    data::put(&d, "sources", &e).unwrap();
+    let a = data::addrs(&d, "data/a.csv").unwrap();
+    assert_eq!(
+        a.iter().map(|x| x.0).collect::<Vec<_>>(),
+        [data::Kind::Url, data::Kind::Portal, data::Kind::Mirror]
+    );
+    assert_eq!(a[1].1, "https://data.example.org/api/views/abcd-1234.json");
+    let b = fs::read(d.join("data/a.csv")).unwrap();
+    assert!(data::verify(&d, "data/a.csv", &b).unwrap());
+    assert!(!data::verify(&d, "data/a.csv", &b[1..]).unwrap());
+    assert_eq!(
+        data::field(&d, "sources", 0, "url").unwrap().as_deref(),
+        Some("https://example.org/a.csv")
+    );
+    assert_eq!(data::field(&d, "sources", 0, "title").unwrap(), None);
+    assert!(data::addrs(&d, "none.csv").is_err());
+    let wb = r#"{"base":"https://example.org/a.csv","kind":"wayback"}"#;
+    let (u, t) = data::reply(wb, &fs::read(v.join("src/wb.json")).unwrap()).unwrap();
+    assert_eq!(
+        u,
+        "https://web.archive.org/web/20240102030405id_/https://example.org/a.csv"
+    );
+    assert_eq!(t, "2024-01-02T03:04:05Z");
+    assert!(data::reply(wb, &fs::read(v.join("src/wb-none.json")).unwrap()).is_err());
+    assert!(data::request(r#"{"base":"https://x.org/a","kind":"direct"}"#).is_err());
+    assert_eq!(
+        data::wayback("http://web.archive.org/web/2024/https://x.org/a").unwrap(),
+        "https://web.archive.org/web/2024id_/https://x.org/a"
+    );
+    let _ = fs::remove_dir_all(&d);
+}

@@ -668,3 +668,140 @@ mod t {
         assert_eq!(super::pathof(r#"{"x":{"path":"no"}}"#), None);
     }
 }
+
+// ---- sources (nqdaddr(3)) ----
+
+/// Where an address of [`addrs`] comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    /// The source's url.
+    Url,
+    /// The portal: the request to send, whose reply [`reply`] reads.
+    Portal,
+    /// A mirror.
+    Mirror,
+    /// The archived copy (a Wayback Machine copy's raw bytes).
+    Archived,
+}
+
+/// The addresses the source `file` can be fetched from, in the order to
+/// try them; none for a synthetic source.
+pub fn addrs(dir: impl AsRef<Path>, file: &str) -> Result<Vec<(Kind, String)>> {
+    let r = Rec::load(&cpath(dir.as_ref())?, false)?;
+    let f = cs(file)?;
+    let mut out = Vec::new();
+    for i in 0.. {
+        let mut k: c_int = 0;
+        // SAFETY: valid record and string; out has cap bytes
+        match grow(|o, c, n| unsafe { ffi::nqdaddr(r.0, f.as_ptr(), i, &mut k, o, c, n) }) {
+            Ok(u) => out.push((
+                match k {
+                    1 => Kind::Url,
+                    2 => Kind::Portal,
+                    3 => Kind::Mirror,
+                    _ => Kind::Archived,
+                },
+                u,
+            )),
+            Err(-1) => break,
+            Err(-7) if i > 0 => break,
+            Err(c) => return Err(Error::new(c)),
+        }
+    }
+    Ok(out)
+}
+
+/// Whether `bytes` are the source file's recorded bytes (its size and
+/// SHA-256): only such bytes may be taken for it.
+pub fn verify(dir: impl AsRef<Path>, file: &str, bytes: &[u8]) -> Result<bool> {
+    let r = Rec::load(&cpath(dir.as_ref())?, false)?;
+    let f = cs(file)?;
+    // SAFETY: valid record and string; bytes is len bytes
+    match unsafe { ffi::nqdvrfy(r.0, f.as_ptr(), bytes.as_ptr(), bytes.len()) } {
+        0 => Ok(true),
+        -3 => Ok(false),
+        c => Err(Error::new(c)),
+    }
+}
+
+/// The field `name` of element `i` of `member` (0 for "env" and "cite"):
+/// a string as its text, anything else as canonical JSON; None when there
+/// is none.
+pub fn field(dir: impl AsRef<Path>, member: &str, i: usize, name: &str) -> Result<Option<String>> {
+    let r = Rec::load(&cpath(dir.as_ref())?, false)?;
+    let (m, f) = (cs(member)?, cs(name)?);
+    // SAFETY: valid record and strings; out has cap bytes
+    match grow(|o, c, n| unsafe { ffi::nqdfld(r.0, m.as_ptr(), i, f.as_ptr(), o, c, n) }) {
+        Ok(s) => Ok(Some(s)),
+        Err(-7) => Ok(None),
+        Err(c) => Err(Error::new(c)),
+    }
+}
+
+/// The address to ask (a GET) for the file of a source's resolver (JSON:
+/// CKAN, Socrata, ArcGIS or the Wayback Machine).
+pub fn request(resolver: &str) -> Result<String> {
+    let j = cs(resolver)?;
+    let mut why = [0 as c_char; WHY];
+    let mut b = vec![0u8; 4400];
+    let mut n = 0usize;
+    // SAFETY: valid string of len bytes; b and why have their sizes
+    let c = unsafe {
+        ffi::nqdrslv(
+            j.as_ptr(),
+            resolver.len(),
+            b.as_mut_ptr().cast(),
+            b.len(),
+            &mut n,
+            why.as_mut_ptr(),
+            WHY,
+        )
+    };
+    if c != 0 {
+        return Err(fail(c, &why));
+    }
+    b.truncate(n);
+    Ok(String::from_utf8_lossy(&b).into_owned())
+}
+
+/// The file's address read from the portal's reply to [`request`], and
+/// for the Wayback Machine the copy's time ("" otherwise).
+pub fn reply(resolver: &str, body: &[u8]) -> Result<(String, String)> {
+    let j = cs(resolver)?;
+    let mut why = [0 as c_char; WHY];
+    let mut b = vec![0u8; 4400];
+    let mut tm = [0 as c_char; 21];
+    let mut n = 0usize;
+    // SAFETY: valid string; body is len bytes; buffers have their sizes
+    let c = unsafe {
+        ffi::nqdrsp(
+            j.as_ptr(),
+            resolver.len(),
+            body.as_ptr().cast(),
+            body.len(),
+            b.as_mut_ptr().cast(),
+            b.len(),
+            &mut n,
+            tm.as_mut_ptr(),
+            why.as_mut_ptr(),
+            WHY,
+        )
+    };
+    if c != 0 {
+        return Err(fail(c, &why));
+    }
+    b.truncate(n);
+    // SAFETY: the library NUL-terminates tm
+    let t = unsafe { CStr::from_ptr(tm.as_ptr()) }
+        .to_string_lossy()
+        .into_owned();
+    Ok((String::from_utf8_lossy(&b).into_owned(), t))
+}
+
+/// The raw-bytes address of a Wayback Machine copy (any other http:// or
+/// https:// address as it is).
+pub fn wayback(url: &str) -> Result<String> {
+    let u = cs(url)?;
+    // SAFETY: valid string; out has cap bytes
+    grow(|o, c, n| unsafe { ffi::nqdwb(u.as_ptr(), o, c, n) }).map_err(Error::new)
+}
