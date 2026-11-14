@@ -180,6 +180,22 @@ _noqtis_cmd() {
       _arguments ':dir:_files -/' ':file:_files' ':salt:_files' ;;
     cite)
       _arguments '--format=[the format]:format:(cff bibtex)' ':dir:_files -/' ;;
+    src)
+      _arguments \
+        '1:action:(add resolve fetch refresh list)' \
+        '(-u --url)'{-u,--url=}'[the address of the file]:url:' \
+        '--portal=[the portal]:portal:(ckan socrata arcgis)' \
+        '--base=[the portal address]:url:' '--id=[the dataset]:id:' \
+        '--resource=[the resource]:id:' '--format=[the format]:format:' \
+        '--layer=[the layer]:n:' '*--mirror=[a copy]:url:' \
+        '--archived=[an archived copy]:url:' \
+        '--wayback[pin the Wayback Machine copy]' \
+        '--synthetic[a generated stand-in]' \
+        '--max=[the largest file]:bytes:' '--timeout=[seconds per file]:s:' \
+        '(-j --json)'{-j,--json}'[JSON output]' \
+        '(-w --write)'{-w,--write}'[record what changed]' \
+        '(-f --force)'{-f,--force}'[replace a file that differs]' \
+        '*:path:_files' ;;
     drift)
       _arguments \
         '1:action:(pin check cal)' \
@@ -239,6 +255,7 @@ _arguments -C \
     schema\:"pin and check the schema of CSV files"
     diff\:"what changed between two capsules"
     report\:"check a capsule and write a report of it"
+    src\:"fetch the sources and say if they changed"
     drift\:"summarise CSV files and check them for drift"
     env\:"record the environment"
     commit\:"commit to a file, to reveal it later"

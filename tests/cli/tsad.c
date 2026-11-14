@@ -20,7 +20,11 @@
  *   http <code>   answers with that status and no body (a Location for 3xx)
  *   junk          answers with bytes that are not HTTP
  *   www <dir>     answers a GET of /<path> with <dir>/<path> (404 when it
- *                 is missing, or the path has a ".." segment)
+ *                 is missing, or the path has a ".." segment), with an
+ *                 ETag and a Last-Modified, and a Range request with 206;
+ *                 a path ending in ".loop" redirects to itself, one in
+ *                 ".away" to another server, and the first GET of one in
+ *                 ".cut" (one without Range) stops half way
  */
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
@@ -61,6 +65,7 @@ typedef size_t iolen;
 static const char *mode, *arg;
 static int nserved;
 static char line1[2048]; /* the request line */
+static char hdrs[8192];  /* the request's header lines */
 
 /* the file p in a new buffer, NUL-terminated (it may be a command) */
 static unsigned char *slurp(const char *p, size_t *n) {
@@ -120,6 +125,9 @@ static int request(sockt s) {
       memcpy(line1, b, ln);
       line1[ln] = '\0';
       hl = (size_t)(e - b) + 4;
+      ln = hl < sizeof hdrs ? hl : sizeof hdrs - 1;
+      memcpy(hdrs, b, ln);
+      hdrs[ln] = '\0';
       c = strstr(b, "Content-Length: ");
       /* a GET has no body */
       if (c == NULL || c > e) {
@@ -201,6 +209,55 @@ static int wwwpath(char *p, size_t cap) {
          strcmp(p + k - (k >= 3 ? 3 : k), "/..") != 0;
 }
 
+/* 1 when the path p ends with suffix x */
+static int ends(const char *p, const char *x) {
+  size_t a = strlen(p), b = strlen(x);
+  return a >= b && strcmp(p + a - b, x) == 0;
+}
+
+/* www mode: the file at p (n bytes at b) for the request in hdrs */
+static void wwwreply(sockt s, const char *p, const unsigned char *b,
+                     size_t n) {
+  char h[512];
+  const char *rg = strstr(hdrs, "\r\nRange: bytes=");
+  const char *u = line1 + 4, *e = strchr(u, ' ');
+  if (ends(p, ".loop") || ends(p, ".away")) {
+    snprintf(h, sizeof h, "HTTP/1.1 302 Found\r\nLocation: %s%.*s\r\n"
+             "Content-Length: 0\r\nConnection: close\r\n\r\n",
+             ends(p, ".away") ? "http://elsewhere.example" : "",
+             (int)(e - u), u);
+    puts2(s, h);
+    return;
+  }
+  if (ends(p, ".trunc")) {
+    snprintf(h, sizeof h, "HTTP/1.1 200 OK\r\nContent-Length: %lu\r\n"
+             "Connection: close\r\n\r\n", (unsigned long)n);
+    puts2(s, h);
+    put(s, b, n / 2);
+    return;
+  }
+  if (rg != NULL) {
+    unsigned long at = strtoul(rg + 15, NULL, 10);
+    if (at > n)
+      at = (unsigned long)n;
+    snprintf(h, sizeof h, "HTTP/1.1 206 Partial Content\r\n"
+             "Content-Range: bytes %lu-%lu/%lu\r\nContent-Length: %lu\r\n"
+             "ETag: \"e%lu\"\r\nAccept-Ranges: bytes\r\n"
+             "Connection: close\r\n\r\n", at, (unsigned long)n - 1,
+             (unsigned long)n, (unsigned long)n - at, (unsigned long)n);
+    puts2(s, h);
+    put(s, b + at, n - at);
+    return;
+  }
+  snprintf(h, sizeof h, "HTTP/1.1 200 OK\r\nContent-Type: "
+           "application/octet-stream\r\nContent-Length: %lu\r\n"
+           "ETag: \"e%lu\"\r\nLast-Modified: Tue, 02 Jan 2024 03:04:05 "
+           "GMT\r\nAccept-Ranges: bytes\r\nConnection: close\r\n\r\n",
+           (unsigned long)n, (unsigned long)n);
+  puts2(s, h);
+  put(s, b, ends(p, ".cut") ? n / 2 : n);
+}
+
 static void serve(sockt s) {
   unsigned char *b = NULL;
   size_t n = 0;
@@ -210,7 +267,7 @@ static void serve(sockt s) {
   if (strcmp(mode, "www") == 0) {
     char p[2200];
     if (wwwpath(p, sizeof p) && (b = slurp(p, &n)) != NULL)
-      reply(s, b, n, 0, 0, "application/octet-stream");
+      wwwreply(s, p, b, n);
     else
       puts2(s, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n"
                "Connection: close\r\n\r\n");

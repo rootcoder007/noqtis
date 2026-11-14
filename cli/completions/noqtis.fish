@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data schema drift diff report env commit reveal cite pack chunk chain algs selftest version
+set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -39,6 +39,7 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a ers -d 'start o
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a data -d 'make, show and check a data record'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a schema -d 'pin and check the schema of CSV files'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a diff -d 'what changed between two capsules'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a src -d 'fetch the sources and say if they changed'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a drift -d 'summarise CSV files and check them for drift'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a env -d 'record the environment'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a commit -d 'commit to a file, to reveal it later'
@@ -135,6 +136,26 @@ complete -c noqtis -n "__fish_seen_subcommand_from report" -s o -l out -r -d 'wr
 complete -c noqtis -n "__fish_seen_subcommand_from report" -s j -l json -d 'a JSON summary instead'
 complete -c noqtis -n "__fish_seen_subcommand_from report" -l github -d 'GitHub workflow annotations'
 complete -c noqtis -n "__fish_seen_subcommand_from seal check" -s r -l recursive -d 'every capsule under the folder'
+
+# noqtis src
+complete -c noqtis -n "__fish_seen_subcommand_from src; and not __fish_seen_subcommand_from add resolve fetch refresh list" -a "add resolve fetch refresh list"
+complete -c noqtis -n "__fish_seen_subcommand_from src" -F
+complete -c noqtis -n "__fish_seen_subcommand_from src" -s u -l url -x -d 'the address of the file'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l portal -x -a 'ckan socrata arcgis' -d 'the portal'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l base -x -d 'the portal address'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l id -x -d 'the dataset'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l resource -x -d 'the resource'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l format -x -d 'the format'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l layer -x -d 'the layer'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l mirror -x -d 'a copy'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l archived -x -d 'an archived copy'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l wayback -d 'pin the Wayback Machine copy'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l synthetic -d 'a generated stand-in'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l max -x -d 'the largest file'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -l timeout -x -d 'seconds per file'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -s j -l json -d 'JSON output'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -s w -l write -d 'record what changed'
+complete -c noqtis -n "__fish_seen_subcommand_from src" -s f -l force -d 'replace a file that differs'
 
 # noqtis drift
 complete -c noqtis -n "__fish_seen_subcommand_from drift; and not __fish_seen_subcommand_from pin check cal" -a "pin check cal"

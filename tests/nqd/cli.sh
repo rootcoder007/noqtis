@@ -3,14 +3,17 @@
 # The tool's data-layer commands, as a user runs them: exit codes,
 # outputs, the files written, and every refusal saying what to do.
 # POSIX sh only (runs under busybox).
-#   tests/nqd/cli.sh <noqtis> <tests dir> [<noqtis built with NQTEST>]
+#   tests/nqd/cli.sh <noqtis> <tests dir> [<noqtis built with NQTEST>
+#                    [<tsad, the local server of tests/cli>]]
 set -u
 nq=$1
 td=$2
 nqt=${3:-}
+tsad=${4:-}
 # absolute, as one test runs the tool from another folder
 case $nq in /*) ;; *) nq=$(pwd)/$nq ;; esac
 case $nqt in /* | "") ;; *) nqt=$(pwd)/$nqt ;; esac
+case $tsad in /* | "") ;; *) tsad=$(pwd)/$tsad ;; esac
 v=$td/vectors/nqd
 w=${TMPDIR:-/tmp}/nqdcli.$$
 rm -rf "$w"
@@ -723,6 +726,241 @@ has "$w/out" "does not check" "the changed link fails"
 ok 2 "chain, not a folder" "$nq" chain "$w/none"
 ok 2 "chain, nothing" "$nq" chain
 ok 0 "help chain" "$nq" help chain
+
+# ---- src: sources fetched from a local server (tests/cli/tsad, www) ----
+
+if [ -n "$tsad" ]; then
+  s=$w/src
+  ww=$w/www
+  mkdir -p "$s" "$ww/m" "$ww/arc" "$ww/fs/FeatureServer/0" \
+    "$ww/api/3/action" "$ww/api/views/abcd-1234"
+  printf 'id,v\n1,2\n3,4\n' >"$ww/a.csv"
+  cp "$ww/a.csv" "$ww/m/a.csv"
+  cp "$ww/a.csv" "$ww/arc/a.csv"
+  printf 'id,v\n1,2\n3,5\n' >"$ww/bad.csv"
+  printf 'id,v\n1,2\n3,4\n5,6\n' >"$ww/big.csv"
+  i=0
+  while [ $i -lt 400 ]; do
+    printf 'row,%s\n' "$i" >>"$ww/long.csv"
+    i=$((i + 1))
+  done
+  cp "$ww/long.csv" "$ww/long.csv.cut"
+  cp "$ww/long.csv" "$ww/long.csv.trunc"
+  printf 'x' >"$ww/x.loop"
+  printf 'x' >"$ww/x.away"
+  printf 'c,1\n' >"$ww/c.csv"
+  printf 'echo @PORT@ >"%s/port"; while [ ! -f "%s/stop" ]; do sleep 1; done' \
+    "$w" "$w" >"$w/q.cmd"
+  "$tsad" "$w/q.cmd" www "$ww" >"$w/tsad.log" 2>&1 &
+  srv=$!
+  i=0
+  while [ ! -s "$w/port" ] && [ $i -lt 30 ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  P=$(cat "$w/port")
+  U=http://127.0.0.1:$P
+
+  ok 0 "src add --url fetches the file" "$nq" src add --url "$U/a.csv" \
+    "$s" data/a.csv
+  same "$s/data/a.csv" "$ww/a.csv" "src add wrote the bytes served"
+  has "$w/err" "fetched 13 bytes from $U/a.csv" "src add says from where"
+  ok 0 "src add: show" "$nq" data show "$s"
+  has "$w/out" "\"etag\":\"\\\\\"e13\\\\\"\"" "the ETag is recorded"
+  has "$w/out" '"modified":"Tue, 02 Jan 2024 03:04:05 GMT"' \
+    "Last-Modified is recorded"
+  has "$w/out" '"retrieved":"2026-01-01T00:00:00Z"' "the time is recorded"
+  ok 0 "data check after src add" "$nq" data check "$s"
+  ok 0 "src fetch, present" "$nq" src fetch "$s"
+  has "$w/out" "present     data/a.csv" "a file there is not fetched"
+  rm "$s/data/a.csv"
+  ok 0 "src fetch, missing" "$nq" src fetch "$s"
+  has "$w/out" "fetched     data/a.csv from url $U/a.csv" "fetched from url"
+  same "$s/data/a.csv" "$ww/a.csv" "src fetch wrote the bytes"
+
+  # the order: url, mirrors (one with other bytes), the archived copy
+  ok 0 "data add: url gone, two mirrors, an archive" "$nq" data add \
+    --url "$U/gone.csv" --mirror "$U/bad.csv" --mirror "$U/m/a.csv" \
+    --archived "$U/arc/a.csv" "$s" data/a.csv
+  ok 0 "src list" "$nq" src list "$s"
+  has "$w/out" "1. url      $U/gone.csv" "list: the url first"
+  has "$w/out" "3. mirror   $U/m/a.csv" "list: the mirrors next"
+  has "$w/out" "4. archived $U/arc/a.csv" "list: the archive last"
+  ok 0 "src list --json" "$nq" src list --json "$s"
+  has "$w/out" '"sources":\[{"archived":' "list --json gives the elements"
+  rm "$s/data/a.csv"
+  ok 0 "src fetch falls back to a mirror" "$nq" src fetch "$s"
+  has "$w/out" "fetched     data/a.csv from mirror $U/m/a.csv" \
+    "the mirror with the recorded bytes"
+  has "$w/err" "HTTP 404" "the url's failure is said"
+  has "$w/err" "bad.csv: not the recorded bytes" "other bytes are refused"
+  ok 0 "data del, mirrors" "$nq" data del "$s" sources data/a.csv
+  ok 0 "data add again: url gone, the archive only" "$nq" data add \
+    --url "$U/gone.csv" --archived "$U/arc/a.csv" "$s" data/a.csv
+  rm "$s/data/a.csv"
+  ok 0 "src fetch --json from the archive" "$nq" src fetch --json "$s"
+  has "$w/out" '"status":"fetched","from":"archived"' "the archived copy"
+  has "$w/out" '"ok":true' "fetch --json ok"
+  # nothing gives the recorded bytes: nothing is written
+  cp "$ww/bad.csv" "$ww/arc/a.csv"
+  rm "$s/data/a.csv"
+  ok 1 "src fetch, every copy differs" "$nq" src fetch "$s"
+  has "$w/out" "unreachable data/a.csv: archived: the bytes differ" \
+    "the last reason is given"
+  ok 1 "and nothing was written" test -f "$s/data/a.csv"
+  cp "$ww/a.csv" "$ww/arc/a.csv"
+  # a file there that differs is kept, unless --force
+  printf 'other\n' >"$s/data/a.csv"
+  ok 1 "src fetch, a different file there" "$nq" src fetch "$s"
+  has "$w/out" "differs" "a different file is reported"
+  ok 0 "src fetch --force" "$nq" src fetch --force "$s"
+  same "$s/data/a.csv" "$ww/a.csv" "--force restored the recorded bytes"
+
+  # larger than recorded, cut short, redirects
+  ok 0 "data del a.csv" "$nq" data del "$s" sources data/a.csv
+  ok 0 "data add: a url with more bytes" "$nq" data add --url "$U/big.csv" \
+    "$s" data/a.csv
+  rm "$s/data/a.csv"
+  ok 1 "src fetch, larger than recorded" "$nq" src fetch "$s" data/a.csv
+  has "$w/err" "over 13 bytes" "a larger file is refused early"
+  cp "$ww/a.csv" "$s/data/a.csv"
+  ok 0 "src add, resumed" "$nq" src add --url "$U/long.csv.cut" "$s" l.csv
+  has "$w/err" "(resumed)" "a cut transfer is resumed"
+  same "$s/l.csv" "$ww/long.csv" "the resumed file is whole"
+  ok 2 "src add, cut short" "$nq" src add --url "$U/long.csv.trunc" "$s" t.csv
+  has "$w/err" "stopped after" "a cut reply that cannot resume is refused"
+  ok 1 "and not written" test -f "$s/t.csv"
+  ok 2 "src add, a redirect loop" "$nq" src add --url "$U/x.loop" "$s" x
+  has "$w/err" "more than 5 redirects" "a loop stops"
+  ok 2 "src add, a redirect away" "$nq" src add --url "$U/x.away" "$s" x
+  has "$w/err" "another server refused" "a redirect to another server"
+  ok 2 "src add --max" "$nq" src add --max 10 --url "$U/a.csv" "$s" y.csv
+  has "$w/err" "over 10 bytes" "--max limits the file"
+  ok 2 "src add, no address" "$nq" src add "$s" y.csv
+  ok 2 "src add, a bad path" "$nq" src add --url "$U/a.csv" "$s" ../y.csv
+  ok 2 "src add, a noqtis file" "$nq" src add --url "$U/a.csv" "$s" \
+    noqtis.json
+  ok 2 "src add, an ftp url" "$nq" src add --url ftp://x/a "$s" y.csv
+  ok 2 "src add --timeout 0" "$nq" src add --timeout 0 --url "$U/a.csv" \
+    "$s" y.csv
+  ok 2 "src add, a dead port" "$nq" src add --url "http://127.0.0.1:1/a" \
+    "$s" y.csv
+
+  # refresh: unchanged, changed (and written), unreachable
+  ok 0 "src add c" "$nq" src add --url "$U/c.csv" "$s" c.csv
+  ok 0 "src refresh, unchanged" "$nq" src refresh "$s" c.csv
+  has "$w/out" "unchanged   c.csv from url" "unchanged"
+  printf 'c,2\nc,3\n' >"$ww/c.csv"
+  ok 1 "src refresh, changed" "$nq" src refresh "$s" c.csv
+  has "$w/out" "changed     c.csv" "changed"
+  has "$w/out" "was 4 bytes, SHA-256" "the old digest and size"
+  has "$w/out" "now 8 bytes, SHA-256" "the new digest and size"
+  has "$w/err" "--write records" "refresh says how to record it"
+  ok 0 "refresh wrote nothing" "$nq" data check "$s"
+  ok 1 "src refresh --json" "$nq" src refresh --json "$s" c.csv
+  has "$w/out" '"status":"changed"' "json: changed"
+  has "$w/out" '"old":{"sha256":"' "json: old"
+  has "$w/out" '"new":{"sha256":"' "json: new"
+  has "$w/out" '"written":false' "json: nothing written"
+  ok 1 "src refresh --write" "$nq" src refresh --write "$s" c.csv
+  has "$w/err" "wrote the new bytes" "refresh --write says so"
+  same "$s/c.csv" "$ww/c.csv" "the new bytes are in the capsule"
+  ok 0 "the record holds them" "$nq" data check "$s"
+  ok 0 "src refresh again, unchanged" "$nq" src refresh "$s" c.csv
+  ok 0 "data add: c gone" "$nq" data add --url "$U/gone.csv" "$s" c.csv
+  ok 3 "src refresh, unreachable" "$nq" src refresh "$s" c.csv
+  has "$w/out" "unreachable c.csv" "unreachable"
+  ok 2 "src refresh, not a source" "$nq" src refresh "$s" nope.csv
+  # synthetic
+  printf 'id\n1\n' >"$s/syn.csv"
+  ok 0 "src add --synthetic" "$nq" src add --synthetic "$s" syn.csv
+  ok 0 "src refresh, synthetic" "$nq" src refresh "$s" syn.csv
+  has "$w/out" "synthetic   syn.csv \[synthetic\]" "synthetic is said"
+  ok 0 "src list, synthetic" "$nq" src list "$s"
+  has "$w/out" "syn.csv  5 bytes  sha256 [0-9a-f]*  \[synthetic\]" \
+    "list says synthetic"
+  ok 2 "src add --synthetic --url" "$nq" src add --synthetic --url "$U/a" \
+    "$s" syn.csv
+
+  # portals: CKAN, Socrata, ArcGIS
+  sed "s|https://files.example.org/lib/2023.csv|$U/a.csv|" \
+    "$v/src/ckan-pkg.json" >"$ww/api/3/action/package_show?id=lib"
+  ok 0 "src add --portal ckan" "$nq" src add --portal ckan --base "$U/" \
+    --id lib "$s" p/ckan.csv
+  same "$s/p/ckan.csv" "$ww/a.csv" "the CKAN resource is fetched"
+  ok 0 "src resolve, the same" "$nq" src resolve "$s" p/ckan.csv
+  has "$w/out" "same        p/ckan.csv from portal $U/a.csv" "resolve: same"
+  sed "s|https://files.example.org/lib/2023.csv|$U/m/a.csv|" \
+    "$v/src/ckan-pkg.json" >"$ww/api/3/action/package_show?id=lib"
+  ok 0 "src resolve, moved" "$nq" src resolve --json "$s" p/ckan.csv
+  has "$w/out" '"status":"moved"' "resolve: moved"
+  ok 0 "src resolve -w" "$nq" src resolve -w "$s" p/ckan.csv
+  has "$w/err" "url recorded: $U/m/a.csv" "resolve -w says what it records"
+  rm "$s/p/ckan.csv"
+  ok 0 "src fetch through the url resolved" "$nq" src fetch "$s" p/ckan.csv
+  cp "$v/src/soc.json" "$ww/api/views/abcd-1234.json"
+  cp "$ww/a.csv" "$ww/api/views/abcd-1234/rows.csv?accessType=DOWNLOAD"
+  ok 0 "src add --portal socrata" "$nq" src add --portal socrata \
+    --base "$U" --id abcd-1234 "$s" p/soc.csv
+  same "$s/p/soc.csv" "$ww/a.csv" "the Socrata export is fetched"
+  cp "$v/src/arc-layer.json" "$ww/fs/FeatureServer/0?f=json"
+  cp "$ww/a.csv" "$ww/fs/FeatureServer/0/query?where=1=1&outFields=*&f=geojson"
+  ok 0 "src add --portal arcgis" "$nq" src add --portal arcgis \
+    --base "$U/fs/FeatureServer" --layer 0 "$s" p/arc.json
+  same "$s/p/arc.json" "$ww/a.csv" "the ArcGIS layer is fetched"
+  ok 0 "show the resolver" "$nq" data show "$s"
+  has "$w/out" '"resolver":{"base":"http://127.0.0.1:[0-9]*/fs/FeatureServer","kind":"arcgis","layer":0}' \
+    "the resolver is recorded"
+  # the portal is tried when the url fails
+  ok 0 "data add: the url gone" "$nq" data add --url "$U/gone.csv" "$s" \
+    p/soc.csv
+  rm "$s/p/soc.csv"
+  ok 0 "src fetch through the portal" "$nq" src fetch "$s" p/soc.csv
+  has "$w/out" "from portal" "the portal after the url"
+  ok 2 "src add --portal, a bad id" "$nq" src add --portal socrata \
+    --base "$U" --id x "$s" p/x.csv
+  has "$w/err" "four-by-four" "a bad Socrata id is refused before asking"
+  ok 2 "src add --portal, unknown" "$nq" src add --portal dkan --base "$U" \
+    --id x "$s" p/x.csv
+  ok 2 "src add --id without --portal" "$nq" src add --id x "$s" p/x.csv
+  ok 2 "src add --portal ckan, no such dataset" "$nq" src add \
+    --portal ckan --base "$U" --id none "$s" p/x.csv
+  has "$w/err" "HTTP 404" "a missing dataset is said"
+
+  # the Wayback Machine (the test hook serves it locally)
+  if [ -n "$nqt" ]; then
+    export NQTESTWB=$U
+    a="$ww/wayback/available?url=$U/gone/w.csv"
+    mkdir -p "$(dirname "$a")" "$ww/web/20240102030405id_/$U/gone"
+    printf '{"url":"x","archived_snapshots":{"closest":{"status":"200",' >"$a"
+    printf '"available":true,"url":"http://web.archive.org/web/' >>"$a"
+    printf '20240102030405/x","timestamp":"20240102030405"}}}' >>"$a"
+    cp "$ww/a.csv" "$ww/web/20240102030405id_/$U/gone/w.csv"
+    cp "$ww/a.csv" "$s/w.csv"
+    ok 0 "src add --wayback" "$nqt" src add --url "$U/gone/w.csv" \
+      --wayback "$s" w.csv
+    has "$w/err" "archived copy of 2024-01-02T03:04:05Z" "the copy's time"
+    ok 0 "show the archived copy" "$nq" data show "$s"
+    has "$w/out" "\"archived\":{\"time\":\"2024-01-02T03:04:05Z\",\"url\":\"https://web.archive.org/web/20240102030405id_/$U/gone/w.csv\"}" \
+      "the raw copy is pinned"
+    rm "$s/w.csv"
+    ok 0 "src fetch from the Wayback Machine" "$nqt" src fetch "$s" w.csv
+    has "$w/out" "from archived" "the Wayback copy is used"
+    same "$s/w.csv" "$ww/a.csv" "with the recorded bytes"
+    ok 0 "src resolve --wayback" "$nqt" src resolve --wayback "$s" w.csv
+    has "$w/out" "archived    w.csv" "resolve --wayback"
+    rm "$a"
+    ok 1 "src resolve --wayback, no copy" "$nqt" src resolve --wayback \
+      "$s" w.csv
+    unset NQTESTWB
+  fi
+  ok 0 "data check at the end" "$nq" data check "$s"
+  ok 0 "help src" "$nq" help src
+  has "$w/out" "noqtis src refresh" "help lists refresh"
+  ok 2 "src nothing" "$nq" src nothing "$s"
+  touch "$w/stop"
+  wait "$srv"
+fi
 
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"

@@ -64,6 +64,7 @@ typedef size_t iolen;
 #define NCHOPS 5           /* redirects ncget follows */
 #define NCLENMAX ((uint64_t)1 << 50) /* a Content-Length read at most */
 #define NCREAD ((size_t)1 << 20) /* the most bytes one recv asks for */
+#define NCRESUME 3         /* times ncfetch resumes a cut transfer */
 
 static void say(char *err, size_t cap, const char *fmt, ...) {
   va_list ap;
@@ -1021,5 +1022,226 @@ int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
     break;
   }
   free(buf);
+  return rc;
+}
+
+/* ---- a file from its source (ncfetch) ---- */
+
+/* a header's value (vl bytes) into out, cut to cap - 1 bytes and kept
+ * printable */
+static void hcopy(const char *v, size_t vl, char *out, size_t cap) {
+  size_t i, k = 0;
+  for (i = 0; i < vl && k + 1 < cap; i++) {
+    unsigned char c = (unsigned char)v[i];
+    out[k++] = c < 0x20 || c == 0x7f ? '?' : (char)c;
+  }
+  out[k] = '\0';
+}
+
+/* the decimal at v (vl bytes, digits only, at most NCLENMAX): 0 when
+ * it is not one */
+static int dec64(const char *v, size_t vl, uint64_t *x) {
+  size_t i;
+  *x = 0;
+  if (vl == 0 || vl > 16) return 0;
+  for (i = 0; i < vl; i++) {
+    if (v[i] < '0' || v[i] > '9') return 0;
+    *x = *x * 10 + (uint64_t)(v[i] - '0');
+  }
+  return *x <= NCLENMAX;
+}
+
+/* Content-Range: bytes <a>-<b>/<total>, for a resume from at of a file
+ * of total bytes */
+static int crange(const char *buf, uint64_t at, uint64_t total) {
+  size_t vl = 0, i;
+  const char *v = hval(buf, "content-range:", &vl), *d, *sl;
+  uint64_t a, b, t;
+  if (v == NULL || vl < 6 || !pre(v, "bytes ")) return 0;
+  v += 6;
+  vl -= 6;
+  d = memchr(v, '-', vl);
+  sl = memchr(v, '/', vl);
+  if (d == NULL || sl == NULL || sl < d) return 0;
+  i = (size_t)(d - v);
+  if (!dec64(v, i, &a) || !dec64(d + 1, (size_t)(sl - d - 1), &b) ||
+      !dec64(sl + 1, vl - (size_t)(sl - v) - 1, &t))
+    return 0;
+  return a == at && t == total && b + 1 == total;
+}
+
+/* x in decimal; out holds 21 bytes */
+static void u64s(uint64_t x, char *out) {
+  char t[21];
+  size_t k = 0, i;
+  do {
+    t[k++] = (char)('0' + (int)(x % 10));
+    x /= 10;
+  } while (x > 0);
+  for (i = 0; i < k; i++) out[i] = t[k - 1 - i];
+  out[k] = '\0';
+}
+
+void ncresfree(ncres *r) {
+  if (r == NULL) return;
+  free(r->b);
+  r->b = NULL;
+  r->n = 0;
+}
+
+int ncfetch(const char *url, size_t max, int secs, ncres *r, char *err,
+            size_t cap) {
+  char head[4600], cur[2048], nx[2048], rest[900];
+  char *buf = NULL;
+  size_t got = 0, hl = 0, hn = 0, vl = 0;
+  const char *v;
+  int rc = NCUSE, code = 0, hop = 0, cut = 0, tries = 0;
+  uint64_t total = 0;
+  ncurl u, o, t;
+  memset(r, 0, sizeof *r);
+  memset(&o, 0, sizeof o);
+  err[0] = '\0';
+  if (strlen(url) >= sizeof cur) {
+    say(err, cap, "the URL is too long");
+    return NCUSE;
+  }
+  if (max > (size_t)-1 - NCHDR - 1) max = (size_t)-1 - NCHDR - 1;
+  snprintf(cur, sizeof cur, "%s", url);
+  dline = time(NULL) + (secs > 0 ? secs : NCALL);
+  rest[0] = '\0';
+  for (;;) {
+    snprintf(rest + strlen(rest), sizeof rest - strlen(rest),
+             "Accept: */*\r\n");
+    if (parse(cur, &u, err, cap) != NCOK ||
+        mkhead(&u, "GET", rest, head, sizeof head, &hn, err, cap) !=
+            NCOK ||
+        xfer(&u, head, hn, NULL, 0, NCHDR + max, &buf, &got, &cut, err,
+             cap) != NCOK) {
+      break;
+    }
+    if (status(buf, &code, &hl, err, cap) != NCOK) break;
+    if (hop == 0 && r->n == 0) o = u;
+    if (r->n == 0 && (code == 301 || code == 302 || code == 303 ||
+                      code == 307 || code == 308)) {
+      int was = u.tls;
+      v = hval(buf, "location:", &vl);
+      if (v == NULL || vl == 0 || vl >= sizeof nx) {
+        say(err, cap, "HTTP %d without a usable Location", code);
+        break;
+      }
+      if (++hop > NCHOPS) {
+        say(err, cap, "more than %d redirects", NCHOPS);
+        break;
+      }
+      if (redir(cur, &u, v, vl, nx, sizeof nx) != NCOK) {
+        say(err, cap, "the redirect's URL is too long");
+        break;
+      }
+      if (was && !pre(nx, "https://")) {
+        say(err, cap, "a redirect from https:// to %.100s refused", nx);
+        break;
+      }
+      if (parse(nx, &t, err, cap) != NCOK) break;
+      if (!samehost(&o, &t)) {
+        say(err, cap, "a redirect to another server refused: %.100s (give "
+            "that URL if you trust it)", nx);
+        break;
+      }
+      snprintf(cur, sizeof cur, "%s", nx);
+      free(buf);
+      buf = NULL;
+      rest[0] = '\0';
+      continue;
+    }
+    if (code == 200 || (code == 206 && r->n > 0)) {
+      size_t have = got - hl;
+      uint64_t cl = 0;
+      int chunked = (v = hval(buf, "transfer-encoding:", &vl)) != NULL &&
+                    pre(v, "chunked");
+      if (code == 206 && !crange(buf, r->n, total)) {
+        say(err, cap, "the server resumed with another range than the one "
+            "asked for");
+        break;
+      }
+      if (code == 200 && r->n > 0) {
+        /* the file changed since the first part: start again */
+        free(r->b);
+        r->b = NULL;
+        r->n = 0;
+      }
+      if (chunked) {
+        if (cut || unchunk((uint8_t *)buf + hl, have, &have) != 0) {
+          say(err, cap, "the chunked reply is malformed or cut short");
+          break;
+        }
+        cl = have;
+      } else if ((v = hval(buf, "content-length:", &vl)) != NULL) {
+        if (!dec64(v, vl, &cl)) {
+          say(err, cap, "the reply's Content-Length is not a number");
+          break;
+        }
+        if (cl > (uint64_t)max - r->n) {
+          say(err, cap, "the file is over %lu bytes", (unsigned long)max);
+          break;
+        }
+        if (have > cl) have = (size_t)cl;
+      } else {
+        if (cut) break; /* no length: a cut reply cannot be told apart */
+        cl = have;
+      }
+      if (code == 200) {
+        total = cl;
+        v = hval(buf, "etag:", &vl);
+        if (v != NULL) hcopy(v, vl, r->etag, sizeof r->etag);
+        v = hval(buf, "last-modified:", &vl);
+        if (v != NULL) hcopy(v, vl, r->mod, sizeof r->mod);
+      }
+      {
+        size_t nn = r->n + have;
+        uint8_t *nb = (uint8_t *)realloc(r->b, nn ? nn : 1);
+        if (nb == NULL) {
+          say(err, cap, "out of memory");
+          break;
+        }
+        memcpy(nb + r->n, buf + hl, have);
+        r->b = nb;
+        r->n = nn;
+      }
+      if ((uint64_t)r->n == total) {
+        snprintf(r->url, sizeof r->url, "%s", cur);
+        rc = NCOK;
+        break;
+      }
+      /* short: resume where the server allows it, from the same file */
+      v = hval(buf, "accept-ranges:", &vl);
+      if (v == NULL || !pre(v, "bytes") || ++tries > NCRESUME ||
+          (r->etag[0] == '\0' && r->mod[0] == '\0') ||
+          (r->etag[0] == 'W' && r->mod[0] == '\0')) {
+        say(err, cap, "the reply stopped after %lu of its %lu bytes%s",
+            (unsigned long)r->n, (unsigned long)total,
+            tries > NCRESUME ? ", and resuming did not finish it" : "");
+        break;
+      }
+      r->resumed++;
+      {
+        char at[21];
+        u64s((uint64_t)r->n, at);
+        snprintf(rest, sizeof rest, "Range: bytes=%s-\r\nIf-Range: %s\r\n",
+                 at, r->etag[0] != '\0' && r->etag[0] != 'W' ? r->etag
+                                                            : r->mod);
+      }
+      free(buf);
+      buf = NULL;
+      continue;
+    }
+    {
+      const char *e = strstr(buf, "\r\n");
+      say(err, cap, "HTTP %.*s", (int)(e - buf - 9 > 80 ? 80 : e - buf - 9),
+          buf + 9);
+    }
+    break;
+  }
+  free(buf);
+  if (rc != NCOK) ncresfree(r);
   return rc;
 }

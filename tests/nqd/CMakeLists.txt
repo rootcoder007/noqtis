@@ -51,7 +51,7 @@ if(NQCLI AND NOT WIN32 AND NOT EMSCRIPTEN)
   target_compile_options(nqclit PRIVATE ${NQWARN})
   add_test(NAME tdcli COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/cli.sh
            $<TARGET_FILE:nqcli> ${PROJECT_SOURCE_DIR}/tests
-           $<TARGET_FILE:nqclit>)
+           $<TARGET_FILE:nqclit> $<TARGET_FILE:tsad>)
   set_tests_properties(tdcli PROPERTIES
     ENVIRONMENT
     "ASAN_OPTIONS=exitcode=86;UBSAN_OPTIONS=exitcode=86:print_stacktrace=1"

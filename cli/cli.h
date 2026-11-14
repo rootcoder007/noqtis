@@ -146,6 +146,25 @@ int nchttp(const char *url, const uint8_t *body, size_t n, uint8_t **out,
  * anything else. Within 120 s in all. */
 int ncget(const char *url, size_t max, uint8_t **out, size_t *outn,
           char *err, size_t cap);
+/* what ncfetch fetched: the bytes, the server's ETag and Last-Modified
+ * (as sent, "" when none), the URL they came from after redirects, and
+ * how many times the transfer was resumed */
+typedef struct {
+  uint8_t *b;
+  size_t n;
+  char etag[256];
+  char mod[64];
+  char url[2048];
+  int resumed;
+} ncres;
+/* GETs url as ncget does (the same redirect rules) for a file of at
+ * most max bytes, within secs seconds in all (0: 120), resuming a
+ * transfer cut short with a Range request when the server takes one
+ * and names the file (ETag or Last-Modified), at most 3 times. NCOK
+ * with *r set (free with ncresfree), or NCUSE and why in err. */
+int ncfetch(const char *url, size_t max, int secs, ncres *r, char *err,
+            size_t cap);
+void ncresfree(ncres *r);
 /* NCOK when url is one nchttp can send to (http://host[:port][/path],
  * or https:// with NQTLS); else NCUSE and why in err. No network. */
 int ncurlok(const char *url, char *err, size_t cap);
@@ -267,6 +286,7 @@ int ncenv(int argc, char **argv);
 int nccommit(int argc, char **argv);
 int ncreveal(int argc, char **argv);
 int nccite(int argc, char **argv);
+int ncsrc(int argc, char **argv);
 /* s as a JSON string, to stdout or into a new buffer (free it) */
 void ncjstr(const char *s);
 char *ncjq(const char *s);

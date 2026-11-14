@@ -1,0 +1,301 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NOQTIS-SRC 1
+.Os
+.Sh NAME
+.Nm noqtis src
+.Nd fetch the sources of a capsule's data record, and say if they changed
+.Sh SYNOPSIS
+.Nm noqtis
+.Cm src add
+.Op Fl u Ar url | Fl -url Ar url
+.Op Fl -portal Cm ckan | socrata | arcgis
+.Op Fl -base Ar url
+.Op Fl -id Ar id
+.Op Fl -resource Ar id
+.Op Fl -format Ar fmt
+.Op Fl -layer Ar n
+.Op Fl -mirror Ar url ...
+.Op Fl -archived Ar url
+.Op Fl -wayback
+.Op Fl -synthetic
+.Op Fl -max Ar bytes
+.Op Fl -timeout Ar s
+.Ar dir file
+.Nm noqtis
+.Cm src resolve
+.Op Fl j | Fl -json
+.Op Fl w | Fl -write
+.Op Fl -wayback
+.Ar dir
+.Op Ar file ...
+.Nm noqtis
+.Cm src fetch
+.Op Fl j | Fl -json
+.Op Fl f | Fl -force
+.Op Fl -max Ar bytes
+.Op Fl -timeout Ar s
+.Ar dir
+.Op Ar file ...
+.Nm noqtis
+.Cm src refresh
+.Op Fl j | Fl -json
+.Op Fl w | Fl -write
+.Op Fl -max Ar bytes
+.Op Fl -timeout Ar s
+.Ar dir
+.Op Ar file ...
+.Nm noqtis
+.Cm src list
+.Op Fl j | Fl -json
+.Ar dir
+.Sh DESCRIPTION
+Each source of the data record of the capsule folder
+.Ar dir
+.Pq the Cm sources No of Xr noqtis-data 5
+records a file's SHA-256 and size and where it came from: its
+.Cm url ,
+the portal and dataset it was found through
+.Pq Cm resolver ,
+copies with the same bytes
+.Pq Cm mirrors
+and an archived copy
+.Pq Cm archived .
+These commands fetch from those addresses.
+Bytes are only ever taken for a file when their size and SHA-256 are
+those recorded
+.Pq Cm fetch
+or when
+.Fl -write
+asks for them to be recorded
+.Pq Cm refresh ;
+nothing fetched passes for the file otherwise.
+A changed record must be sealed again
+.Pq Xr noqtis-seal 1 ,
+as each command says.
+.Bl -tag -width "refresh"
+.It Cm add
+records
+.Ar file ,
+a path in
+.Ar dir ,
+as a source.
+With
+.Fl -url ,
+that is its address; with
+.Fl -portal ,
+the portal at
+.Fl -base
+is asked where its dataset's file is (below), and both the resolver and
+the address it gives are recorded.
+When
+.Ar file
+is not there yet it is fetched from that address first, and the
+server's ETag and Last-Modified and the time are recorded with it; a file
+already there is recorded as it is.
+.Fl -mirror
+(up to 32) and
+.Fl -archived
+record copies;
+.Fl -wayback
+asks the Wayback Machine for its copy of the address closest to now and
+records it as
+.Cm archived ,
+with its time.
+.Fl -synthetic
+marks a generated stand-in, which has no address
+.Pq Xr noqtis-data 1 , Cm data syn .
+.It Cm resolve
+asks the portal of each source with one where its file is now, and says
+whether that is the recorded
+.Cm url
+.Pq Ql same
+or not
+.Pq Ql moved ;
+.Fl w
+records the new address.
+With
+.Fl -wayback
+it asks the Wayback Machine for a copy of each source's
+.Cm url
+instead, and records it as
+.Cm archived .
+.It Cm fetch
+restores each file that is missing: it tries the source's addresses in
+order, its
+.Cm url ,
+its portal, each mirror, then its archived copy (the raw bytes of a
+Wayback Machine copy), and writes the first answer whose size and
+SHA-256 are those recorded.
+Every address tried and why it failed is said on standard error; each
+file gets a line saying which copy was used
+.Pq Ql fetched No ... Ql from url , portal , mirror No or Ql archived ,
+or that it was already there
+.Pq Ql present ,
+or that no address gave the recorded bytes
+.Pq Ql unreachable .
+A file there with other bytes is kept
+.Pq Ql differs
+unless
+.Fl f
+replaces it with a copy that checks.
+A synthetic source is never fetched.
+.It Cm refresh
+fetches each source again from its
+.Cm url ,
+or from its portal when it has no url, and says whether it is
+.Ql unchanged ,
+.Ql changed
+(with the old and the new SHA-256 and size) or
+.Ql unreachable ;
+a synthetic source is said as such and not fetched.
+Mirrors and archived copies hold the recorded bytes, so they are not
+asked.
+Nothing is written unless
+.Fl w :
+then each changed file is replaced by the new bytes and its source
+records them (size, SHA-256, time, ETag, Last-Modified, and the address
+a portal gave), its archived copy and mirrors, which held the old bytes,
+are dropped from the record, and each such change is said.
+.It Cm list
+prints each source, its size and SHA-256, and its addresses in the order
+.Cm fetch
+tries them;
+.Fl j
+prints the record's
+.Cm sources
+as they are.
+.El
+.Pp
+Without
+.Ar file
+arguments
+.Cm resolve , fetch
+and
+.Cm refresh
+act on every source; each
+.Ar file
+named must be one.
+.Fl j
+prints one JSON object: the folder, and per source its
+.Cm path , status ,
+.Cm synthetic
+when it is, where it was fetched
+.Pq Cm from , url
+and a
+.Cm detail ;
+for a changed source
+.Cm refresh
+adds
+.Cm old
+and
+.Cm new ,
+each with
+.Cm sha256
+and
+.Cm size ,
+and ends with
+.Cm changed , unreachable
+and
+.Cm written .
+.Ss Portals
+.Bl -tag -width "socrata"
+.It Cm ckan
+.Fl -base
+is the portal (such as
+.Ql https://data.ontario.ca ) ,
+.Fl -id
+the dataset's name or id: its
+.Ql package_show
+lists the resources, and the file is the one whose id or name is
+.Fl -resource ,
+else the first in
+.Fl -format
+(CSV when not given).
+With
+.Fl -resource
+alone, a resource id, its
+.Ql resource_show
+names the file.
+.It Cm socrata
+.Fl -base
+is the portal (such as
+.Ql https://data.cityofchicago.org ) ,
+.Fl -id
+the dataset's four-by-four id; the file is its export of every row, CSV
+or with
+.Fl -format Cm json
+JSON.
+.It Cm arcgis
+with
+.Fl -id ,
+an item id, of the portal
+.Fl -base
+(such as
+.Ql https://www.arcgis.com ) :
+a feature service item gives the query of every feature of its layer
+.Fl -layer
+(0 when not given) as GeoJSON
+.Pf ( Fl -format Cm json :
+Esri JSON), any other item its data.
+Without
+.Fl -id ,
+.Fl -base
+is a FeatureServer or MapServer and
+.Fl -layer
+its layer.
+A server returns at most its record limit of features to one query.
+.El
+.Pp
+.Xr nqdaddr 3
+gives each request and how its reply is read.
+An address a portal answers with must be http:// or https://, and
+https:// when the portal is.
+.Ss The network
+The requests are HTTP/1.1 GETs, over https:// with the tool's TLS 1.3
+client
+.Pq Xr noqtis-check 1 No says which trust anchors it uses .
+At most 5 redirects are followed, each to the same server (or from http
+on port 80 to https on 443) and never from https:// to http://; a
+redirect elsewhere is refused and says where, so that address can be
+given instead.
+A transfer cut short is resumed with a range request, up to 3 times,
+when the server takes them and names the file by an ETag or
+Last-Modified (an If-Range); otherwise it fails.
+A file may be at most
+.Fl -max
+bytes (1 GiB when not given; with
+.Cm fetch ,
+its recorded size), and each takes at most
+.Fl -timeout
+seconds (600), with at most 30 seconds' wait for any read; a portal's
+reply may be at most 16 MiB and take 120 seconds.
+.Sh EXIT STATUS
+0 when every file was there or fetched
+.Pq Cm refresh : No every source unchanged ;
+1 when a file could not be fetched with its recorded bytes, or
+.Pq Cm refresh
+a source changed;
+3 when
+.Cm refresh
+found nothing changed but a source unreachable;
+2 on a usage, file or network error of
+.Cm add .
+.Sh EXAMPLES
+Record a CSV file of an open-data portal, restore it later, and see
+whether the portal's copy changed:
+.Bd -literal -offset indent
+noqtis data init results
+noqtis src add --portal ckan --base https://data.ontario.ca \e
+  --id ontario-public-library-statistics --wayback \e
+  results data/libraries.csv
+noqtis seal -k key results
+noqtis src fetch results
+noqtis src refresh results
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-data 1 ,
+.Xr noqtis-drift 1 ,
+.Xr noqtis-seal 1 ,
+.Xr nqdaddr 3 ,
+.Xr noqtis-data 5
