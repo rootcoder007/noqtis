@@ -427,4 +427,237 @@ public final class Capsule {
       throw Native.wrap(t);
     }
   }
+
+  /**
+   * Why {@link #seal} refused dir (an ARG error): the first thing in it a
+   * capsule cannot hold.
+   *
+   * @param why "link", "odd" (not a file or folder), "name", "case" (a
+   *     path equal to another but for ASCII case) or "key" (a noqtis secret
+   *     key file)
+   * @param path its path in the folder
+   */
+  public record Why(String why, String path) {}
+
+  /**
+   * Why {@link #seal} refused dir, or empty when nothing in it stops a
+   * seal (the keys given were then not one pair).
+   *
+   * @param dir the folder
+   * @return the reason
+   */
+  public static java.util.Optional<Why> sealWhy(Path dir) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment w = m.allocate(JAVA_INT), p = m.allocate(4200);
+      Native.rc((int) Native.NQSEALWHY.invoke(dir(m, dir), w, p, 4200L));
+      int k = w.get(JAVA_INT, 0);
+      if (k == 0) {
+        return java.util.Optional.empty();
+      }
+      String[] n = {"link", "odd", "name", "case", "key"};
+      return java.util.Optional.of(
+          new Why(k <= n.length ? n[k - 1] : Integer.toString(k), p.getString(0)));
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  private static NoqtisException whyf(int c, MemorySegment w) {
+    MemorySegment s = w.get(ADDRESS, 0);
+    return new NoqtisException(c, s.equals(MemorySegment.NULL) ? null : Native.str(s));
+  }
+
+  /**
+   * The RFC 3161 TimeStampReq for the seal in dir: send it to a TSA (the
+   * library makes no network request) and give its reply to
+   * {@link #tsput}.
+   *
+   * @param dir the sealed capsule
+   * @param nonce at most 32 bytes, or null
+   * @return the request
+   */
+  public static byte[] tsreq(Path dir, byte[] nonce) {
+    byte[] nc = nonce == null ? new byte[0] : nonce;
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment q = m.allocate(256), n = m.allocate(JAVA_LONG);
+      Native.rc(
+          (int) Native.NQTSREQ.invoke(dir(m, dir), Native.in(m, nc), (long) nc.length, q, 256L, n));
+      return Native.bytes(q, n.get(JAVA_LONG, 0));
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  private static MemorySegment anc(Arena m, List<byte[]> a) {
+    MemorySegment x = m.allocate(24, 8);
+    blobs(m, x, 0, a);
+    return x;
+  }
+
+  /**
+   * Stores the TSA's reply as the seal's timestamp once it checks (with
+   * anchors, DER certificates, its TSA must chain to one). VERIFY, with
+   * what failed, when it does not check.
+   *
+   * @param dir the sealed capsule
+   * @param reply the TSA's reply
+   * @param nonce the request's nonce, or null
+   * @param anchors TSA trust anchors, or null
+   * @return the time it gives, in seconds since 1970
+   */
+  public static long tsput(Path dir, byte[] reply, byte[] nonce, List<byte[]> anchors) {
+    byte[] nc = nonce == null ? new byte[0] : nonce;
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment a = anc(m, anchors), gt = m.allocate(JAVA_LONG), w = m.allocate(ADDRESS);
+      int c =
+          (int)
+              Native.NQTSPUT.invoke(
+                  dir(m, dir), Native.out(m, reply.length).copyFrom(MemorySegment.ofArray(reply)),
+                  (long) reply.length, Native.in(m, nc), (long) nc.length, a.get(ADDRESS, 0),
+                  a.get(ADDRESS, 8), a.get(JAVA_LONG, 16), gt, w);
+      if (c != 0) {
+        throw whyf(c, w);
+      }
+      return gt.get(JAVA_LONG, 0);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * The TimeStampReq of the next archive timestamp of the capsule's
+   * evidence record (RFC 4998).
+   *
+   * @param dir the sealed capsule
+   * @param hash "SHA-256", "SHA-384" or "SHA-512" for a hash-tree renewal,
+   *     null to keep the record's
+   * @param nonce at most 32 bytes, or null
+   * @return the request
+   */
+  public static byte[] ersreq(Path dir, String hash, byte[] nonce) {
+    byte[] nc = nonce == null ? new byte[0] : nonce;
+    int h = hash == null ? 0 : Noqtis.hid(hash);
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment q = m.allocate(256), n = m.allocate(JAVA_LONG), w = m.allocate(ADDRESS);
+      int c =
+          (int)
+              Native.NQERSREQ.invoke(
+                  dir(m, dir), h, Native.in(m, nc), (long) nc.length, q, 256L, n, w);
+      if (c != 0) {
+        throw whyf(c, w);
+      }
+      return Native.bytes(q, n.get(JAVA_LONG, 0));
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * What {@link #ersput} did.
+   *
+   * @param time the new archive timestamp's time, in seconds since 1970
+   * @param how "new", "timestamp" or "hash-tree": the kind of renewal
+   */
+  public record Renewal(long time, String how) {}
+
+  /**
+   * Adds the reply to {@link #ersreq} to the evidence record (noqtis.ers)
+   * once it and the record check.
+   *
+   * @param dir the sealed capsule
+   * @param hash as for {@link #ersreq}
+   * @param reply the TSA's reply
+   * @param nonce the request's nonce, or null
+   * @param anchors TSA trust anchors, or null
+   * @return what was done
+   */
+  public static Renewal ersput(
+      Path dir, String hash, byte[] reply, byte[] nonce, List<byte[]> anchors) {
+    byte[] nc = nonce == null ? new byte[0] : nonce;
+    int h = hash == null ? 0 : Noqtis.hid(hash);
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment a = anc(m, anchors), gt = m.allocate(JAVA_LONG), how = m.allocate(JAVA_INT);
+      MemorySegment w = m.allocate(ADDRESS);
+      int c =
+          (int)
+              Native.NQERSPUT.invoke(
+                  dir(m, dir), h,
+                  Native.out(m, reply.length).copyFrom(MemorySegment.ofArray(reply)),
+                  (long) reply.length, Native.in(m, nc), (long) nc.length, a.get(ADDRESS, 0),
+                  a.get(ADDRESS, 8), a.get(JAVA_LONG, 16), gt, how, w);
+      if (c != 0) {
+        throw whyf(c, w);
+      }
+      String[] k = {"new", "timestamp", "hash-tree"};
+      return new Renewal(gt.get(JAVA_LONG, 0), k[Math.min(how.get(JAVA_INT, 0), 2)]);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  private static byte[] kstmt(
+      String alg, byte[] sk, byte[] pk, String nalg, byte[] nsk, byte[] npk, long at,
+      String reason) {
+    Noqtis.Alg a = Noqtis.find(alg, "sign");
+    Noqtis.Alg na = nalg == null ? a : Noqtis.find(nalg, "sign");
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment r = reason == null ? MemorySegment.NULL : cs(m, reason);
+      MemorySegment k = Native.in(m, sk), nk = nsk == null ? MemorySegment.NULL : Native.in(m, nsk);
+      try {
+        return Native.sized(
+            m,
+            65536,
+            (o, cap, n) ->
+                (int)
+                    Native.NQKSTMT.invoke(
+                        a.id(), k, (long) sk.length, Native.in(m, pk), (long) pk.length, na.id(),
+                        nk, nsk == null ? 0L : (long) nsk.length,
+                        npk == null ? MemorySegment.NULL : Native.in(m, npk),
+                        npk == null ? 0L : (long) npk.length, at, r, o, cap, n));
+      } finally {
+        Native.wipe(k, sk.length);
+        if (nsk != null) {
+          Native.wipe(nk, nsk.length);
+        }
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * A key statement (noqtis-keys-1, JSON) that the key pair (sk, pk) of
+   * alg is replaced by (nsk, npk) of nalg from at, signed by both keys;
+   * give it to {@link #check} in {@link Opts#withStmts}.
+   *
+   * @param alg the old pair's algorithm
+   * @param sk the old secret key
+   * @param pk the old public key
+   * @param nalg the new pair's algorithm
+   * @param nsk the new secret key
+   * @param npk the new public key
+   * @param at when, in seconds since 1970
+   * @param reason up to 255 bytes of text, or null
+   * @return the statement
+   */
+  public static byte[] rotate(
+      String alg, byte[] sk, byte[] pk, String nalg, byte[] nsk, byte[] npk, long at,
+      String reason) {
+    return kstmt(alg, sk, pk, nalg, nsk, npk, at, reason);
+  }
+
+  /**
+   * A key statement that the key pair (sk, pk) is revoked from at, signed
+   * by it.
+   *
+   * @param alg the pair's algorithm
+   * @param sk the secret key
+   * @param pk the public key
+   * @param at when, in seconds since 1970
+   * @param reason up to 255 bytes of text, or null
+   * @return the statement
+   */
+  public static byte[] revoke(String alg, byte[] sk, byte[] pk, long at, String reason) {
+    return kstmt(alg, sk, pk, null, null, null, at, reason);
+  }
 }

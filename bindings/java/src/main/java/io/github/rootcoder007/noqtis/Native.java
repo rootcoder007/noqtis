@@ -274,4 +274,14 @@ final class Native {
     }
     throw new NoqtisException(-2);
   }
+
+  static final MethodHandle NQSEALWHY = fn("nqsealwhy", I, P, P, P, Z);
+  static final MethodHandle NQTSREQ = fn("nqtsreq", I, P, P, Z, P, Z, P);
+  static final MethodHandle NQTSPUT = fn("nqtsput", I, P, P, Z, P, Z, P, P, Z, P, P);
+  static final MethodHandle NQERSREQ = fn("nqersreq", I, P, I, P, Z, P, Z, P, P);
+  static final MethodHandle NQERSPUT = fn("nqersput", I, P, I, P, Z, P, Z, P, P, Z, P, P, P);
+  static final MethodHandle NQKSTMT =
+      fn("nqkstmt", I, I, P, Z, P, Z, I, P, Z, P, Z, JAVA_LONG, P, P, Z, P);
+  static final MethodHandle NQDSSE = fn("nqdsse", I, I, P, Z, P, Z, P, P, Z, P, Z, P);
+  static final MethodHandle NQDSSEVRFY = fn("nqdssevrfy", I, I, P, Z, P, Z, P, Z, P, P);
 }

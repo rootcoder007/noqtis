@@ -693,6 +693,10 @@ public final class Tests {
     ts.put("streaming", More::stream);
     ts.put("sealedStreams", More::box);
     ts.put("externalMu", More::mu);
+    ts.put("capsuleMore", More2::capsule);
+    ts.put("bundlesChains", More2::bundle);
+    ts.put("envCommitCite", More2::record);
+    ts.put("synthChunks", More2::more);
     int bad = 0;
     for (var e : ts.entrySet()) {
       long t0 = System.nanoTime();

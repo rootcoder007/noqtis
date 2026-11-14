@@ -179,6 +179,19 @@ public final class Data {
     static final MethodHandle RSP = fn("nqdrsp", I, P, Z, P, Z, P, Z, P, P, P, Z);
     static final MethodHandle WB = fn("nqdwb", I, P, P, Z, P);
 
+    static final MethodHandle SCHK = fn("nqdschk", I, P, P, Z, P);
+    static final MethodHandle SYN = fn("nqdsyn", I, P, P, P, Z, Z, P, Z);
+    static final MethodHandle CAL = fn("nqddcal", I, P, Z, P, Z, P, P, Z, P, P, Z);
+    static final MethodHandle CHUNK = fn("nqdchunk", I, P, P, Z, P, Z, P, P, Z);
+    static final MethodHandle PIECE = fn("nqdpiece", I, P, Z, P, Z, P);
+    static final MethodHandle COMMIT = fn("nqdcommit", I, P, Z, P, Z, P);
+    static final MethodHandle REVEAL = fn("nqdreveal", I, P, P, Z, P, Z, P);
+    static final MethodHandle CITE = fn("nqdcite", I, P, I, P, Z, P);
+    static final MethodHandle RPT = fn("nqdrpt", I, P, P, P, I, P, Z, P);
+    static final MethodHandle PACK = fn("nqdpack", I, P, I, P);
+    static final MethodHandle UNPACK = fn("nqdunpack", I, P, P, I, P, Z);
+    static final MethodHandle CHAIN = fn("nqdchain", I, P, Z, P, P, P);
+
     private static MethodHandle fn(
         String name, java.lang.foreign.MemoryLayout ret, java.lang.foreign.MemoryLayout... a) {
       return Native.fn(LIB, name, ret, a);
@@ -946,5 +959,581 @@ public final class Data {
     } catch (Throwable t) {
       throw Native.wrap(t);
     }
+  }
+
+  /**
+   * Checks the CSV file of the "schemas" element schema (JSON text) in dir
+   * against it: header, types, missing values, ranges, sets, rows and rules.
+   *
+   * @param dir the capsule folder
+   * @param schema the element
+   * @return the rows
+   */
+  public static Report checkSchema(Path dir, String schema) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment rp = m.allocate(ADDRESS);
+      int c = (int) N.SCHK.invoke(cs(m, dir.toString()), cs(m, schema), blen(schema), rp);
+      return report(c, rp);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  @FunctionalInterface
+  private interface Edit {
+    void on(Arena m, MemorySegment d, MemorySegment r) throws Throwable;
+  }
+
+  /** Runs f on the record of dir, then saves it. */
+  private static void edit(Path dir, boolean mk, Edit f) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment d = cs(m, dir.toString()), r = rec(m, d, mk);
+      try {
+        f.on(m, d, r);
+        Native.rc((int) N.SAVE.invoke(r, d));
+      } finally {
+        N.RFREE.invoke(r);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * Writes a synthetic stand-in for the CSV file from its recorded schema
+   * and records it as a synthetic source. Real data is never replaced
+   * (ARG).
+   *
+   * @param dir the capsule folder
+   * @param file the file's path in it
+   * @param seed the same bytes for the same seed
+   * @param rows rows to write, 0 for the schema's minimum (else 100)
+   */
+  public static void synth(Path dir, String file, long seed, long rows) {
+    edit(
+        dir,
+        false,
+        (m, d, r) -> {
+          MemorySegment why = m.allocate(WHY);
+          int c = (int) N.SYN.invoke(r, d, cs(m, file), seed, rows, why, (long) WHY);
+          if (c != 0) {
+            throw fail(c, why);
+          }
+        });
+  }
+
+  /**
+   * Calibrates the drift warnings of file's summary on files, CSV files
+   * known not to have drifted from it, and records the result:
+   * {@link #drift} then warns only beyond what they showed.
+   *
+   * @param dir the capsule folder
+   * @param file the summarised file
+   * @param files files known not to have drifted
+   * @param o how they are read (null: the defaults)
+   * @return the calibrated element
+   */
+  public static String calibrate(Path dir, String file, List<Path> files, Csv o) {
+    String[] out = new String[1];
+    edit(
+        dir,
+        false,
+        (m, d, r) -> {
+          String s =
+              key(m, r, "stats", file)
+                  .orElseThrow(
+                      () -> new NoqtisException(-7, "no summary of " + file + ": pin one first"));
+          MemorySegment fs = m.allocate(ADDRESS, Math.max(files.size(), 1));
+          for (int i = 0; i < files.size(); i++) {
+            fs.setAtIndex(ADDRESS, i, cs(m, files.get(i).toString()));
+          }
+          MemorySegment sc = cs(m, s), co = csv(m, o), why = m.allocate(WHY);
+          out[0] =
+              text(
+                  (x, cap, n) ->
+                      (int)
+                          N.CAL.invoke(
+                              sc, blen(s), fs, (long) files.size(), co, x, cap, n, why,
+                              (long) WHY),
+                  why);
+          put(m, r, "stats", out[0]);
+        });
+    return out[0];
+  }
+
+  /**
+   * Records the SHA-256 of each chunk bytes (1,024 to 2^30) of the large
+   * file, so that a piece of it can be checked alone ({@link #piece}).
+   *
+   * @param dir the capsule folder
+   * @param file the file's path in it
+   * @param chunk the run size
+   * @return the "chunks" element
+   */
+  public static String chunks(Path dir, String file, long chunk) {
+    String[] out = new String[1];
+    edit(
+        dir,
+        true,
+        (m, d, r) -> {
+          MemorySegment f = cs(m, file), why = m.allocate(WHY);
+          out[0] =
+              text((x, cap, n) -> (int) N.CHUNK.invoke(d, f, chunk, x, cap, n, why, (long) WHY), why);
+          put(m, r, "chunks", out[0]);
+        });
+    return out[0];
+  }
+
+  /**
+   * Checks the file piece, the bytes of file from byte off on (a multiple
+   * of its chunk), against its recorded chunk digests.
+   *
+   * @param dir the capsule folder
+   * @param file the large file's path in it
+   * @param piece the piece, a file
+   * @param off where it starts
+   * @return the "chunk" rows
+   */
+  public static Report piece(Path dir, String file, Path piece, long off) {
+    String e =
+        key(dir, "chunks", file)
+            .orElseThrow(
+                () -> new NoqtisException(-7, "no chunk digests of " + file + ": record them first"));
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment rp = m.allocate(ADDRESS);
+      int c = (int) N.PIECE.invoke(cs(m, e), blen(e), cs(m, piece.toString()), off, rp);
+      return report(c, rp);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * The commitment to msg under salt: 64 hex digits of SHA3-256
+   * (nqdcommit(3)).
+   *
+   * @param salt 16 to 1,024 secret bytes
+   * @param msg what is committed to
+   * @return the digest
+   */
+  public static String commitment(byte[] salt, byte[] msg) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment hx = m.allocate(65);
+      Native.rc(
+          (int)
+              N.COMMIT.invoke(
+                  Native.in(m, salt), (long) salt.length, Native.in(m, msg), (long) msg.length, hx));
+      return hx.getString(0);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  private static String js(String s) {
+    StringBuilder b = new StringBuilder("\"");
+    for (char ch : s.toCharArray()) {
+      if (ch == '"' || ch == '\\') {
+        b.append('\\').append(ch);
+      } else if (ch < 0x20) {
+        b.append(String.format("\\u%04x", (int) ch));
+      } else {
+        b.append(ch);
+      }
+    }
+    return b.append('"').toString();
+  }
+
+  /**
+   * Commits to msg (a randomisation list, an analysis plan) in the record
+   * as {@code noqtis commit} does: keep the returned salt outside the
+   * capsule until the reveal.
+   *
+   * @param dir the capsule folder
+   * @param msg what is committed to
+   * @param kind "randomisation", "preregistration" or "other" (null: other)
+   * @param label a label, or null
+   * @param after a UTC time YYYY-MM-DDTHH:MM:SSZ before which it is not to
+   *     be revealed, or null
+   * @return the 32-byte secret salt
+   */
+  public static byte[] commit(Path dir, byte[] msg, String kind, String label, String after) {
+    byte[] salt = Noqtis.random(32);
+    StringBuilder e =
+        new StringBuilder("{\"kind\":" + js(kind == null ? "other" : kind))
+            .append(",\"created\":\"")
+            .append(now())
+            .append("\",\"alg\":\"sha3-256\",\"digest\":\"")
+            .append(commitment(salt, msg))
+            .append('"');
+    if (label != null) {
+      e.append(",\"label\":").append(js(label));
+    }
+    if (after != null) {
+      e.append(",\"after\":").append(js(after));
+    }
+    put(dir, "commits", e.append('}').toString());
+    return salt;
+  }
+
+  /**
+   * The index in "commits" of the commitment to msg under salt, or -1 when
+   * the record has none (every digest compared in constant time).
+   *
+   * @param dir the capsule folder
+   * @param msg what was committed to
+   * @param salt its salt
+   * @return the index, or -1
+   */
+  public static int reveal(Path dir, byte[] msg, byte[] salt) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment r = rec(m, cs(m, dir.toString()), false);
+      try {
+        MemorySegment i = m.allocate(JAVA_LONG);
+        int c =
+            (int)
+                N.REVEAL.invoke(
+                    r, Native.in(m, salt), (long) salt.length, Native.in(m, msg), (long) msg.length, i);
+        if (c == -3) {
+          return -1;
+        }
+        Native.rc(c);
+        return (int) i.get(JAVA_LONG, 0);
+      } finally {
+        N.RFREE.invoke(r);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * How to cite the data, from the record's "cite".
+   *
+   * @param dir the capsule folder
+   * @param bib a BibTeX entry, else a CITATION.cff
+   * @return the text
+   */
+  public static String cite(Path dir, boolean bib) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment r = rec(m, cs(m, dir.toString()), false);
+      try {
+        return text((o, cap, n) -> (int) N.CITE.invoke(r, bib ? 2 : 1, o, cap, n), null);
+      } finally {
+        N.RFREE.invoke(r);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * A report of the capsule, as {@code noqtis report} writes it: whether
+   * every check passed, the capsule's check (with pk the seal must be by
+   * that key), what the data record says and its check.
+   *
+   * @param dir the capsule folder
+   * @param pk the trusted key, or null
+   * @param txt plain text, else Markdown
+   * @return the report
+   */
+  public static String report(Path dir, byte[] pk, boolean txt) {
+    boolean sealed = Files.exists(dir.resolve("noqtis.sig"));
+    boolean hasrec = Files.exists(dir.resolve("noqtis.data.json"));
+    if (!sealed && !hasrec) {
+      throw new NoqtisException(-7, dir + " holds neither a seal nor a data record");
+    }
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment d = cs(m, dir.toString()), cp = m.allocate(ADDRESS), dp = m.allocate(ADDRESS);
+      MemorySegment o = m.allocate(96, 8);
+      if (pk != null) {
+        o.set(ADDRESS, 0, Native.in(m, pk));
+        o.set(JAVA_LONG, 8, pk.length);
+      }
+      try {
+        if (sealed) {
+          int c = (int) Native.NQCHKX.invoke(d, o, cp);
+          if (cp.get(ADDRESS, 0).equals(MemorySegment.NULL)) {
+            throw new NoqtisException(c);
+          }
+        }
+        if (hasrec) {
+          int c = (int) N.CHK.invoke(d, dp);
+          if (dp.get(ADDRESS, 0).equals(MemorySegment.NULL)) {
+            throw new NoqtisException(c);
+          }
+        }
+        MemorySegment cr = cp.get(ADDRESS, 0), dr = dp.get(ADDRESS, 0);
+        return text((x, cap, n) -> (int) N.RPT.invoke(d, cr, dr, txt ? 2 : 1, x, cap, n), null);
+      } finally {
+        if (!cp.get(ADDRESS, 0).equals(MemorySegment.NULL)) {
+          Native.NQREPFREE.invoke(cp.get(ADDRESS, 0));
+        }
+        if (!dp.get(ADDRESS, 0).equals(MemorySegment.NULL)) {
+          N.REPFREE.invoke(dp.get(ADDRESS, 0));
+        }
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * The capsule in dir as one file (noqtis-bundle-1), as {@code noqtis
+   * pack} writes it. Check the capsule first.
+   *
+   * @param dir the capsule folder
+   * @param file the bundle, which must not exist
+   * @param files every listed file, else only the data record
+   */
+  public static void pack(Path dir, Path file, boolean files) {
+    try (Arena m = Arena.ofConfined()) {
+      Native.rc(
+          (int) N.PACK.invoke(cs(m, dir.toString()), files ? 1 : 0, cs(m, file.toString())));
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  private static void unpack(Path file, Path dir, boolean rm) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment why = m.allocate(WHY);
+      int c =
+          (int)
+              N.UNPACK.invoke(
+                  cs(m, file.toString()), cs(m, dir.toString()), rm ? 1 : 0, why, (long) WHY);
+      if (c != 0) {
+        throw fail(c, why);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * Reads a bundle into the new folder dir, refusing it whole (DECODE with
+   * what is wrong) when any path or size is not one a capsule holds.
+   * Check dir after.
+   *
+   * @param file the bundle
+   * @param dir the folder to make
+   */
+  public static void unpack(Path file, Path dir) {
+    unpack(file, dir, false);
+  }
+
+  /**
+   * {@link Capsule#check} of the capsule in the bundle file, read in
+   * place: unpacked to a new temporary folder, checked and removed.
+   *
+   * @param file the bundle
+   * @param o what to check
+   * @return the report
+   */
+  public static Capsule.Report checkPack(Path file, Capsule.Opts o) {
+    try {
+      Path t = Files.createTempDirectory("noqtis");
+      Path d = t.resolve("c");
+      try {
+        unpack(file, d, false);
+        try {
+          return Capsule.check(d, o);
+        } finally {
+          unpack(file, d, true);
+        }
+      } finally {
+        Files.deleteIfExists(t);
+      }
+    } catch (java.io.IOException e) {
+      throw new NoqtisException(-7, e.getMessage());
+    }
+  }
+
+  /**
+   * What {@link #chain} found.
+   *
+   * @param report the "link", "key" and "head" rows
+   * @param head the last capsule's id when every row passed, else null
+   */
+  public record Chain(Report report, byte[] head) {}
+
+  /**
+   * Checks an append-only chain of capsules, oldest first (each sealed in
+   * format 2 with the one before as its only input, all by the first
+   * one's key).
+   *
+   * @param dirs the capsule folders
+   * @param pk the key the first must carry, or null
+   * @return the report and head
+   */
+  public static Chain chain(List<Path> dirs, byte[] pk) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment ds = m.allocate(ADDRESS, Math.max(dirs.size(), 1));
+      for (int i = 0; i < dirs.size(); i++) {
+        ds.setAtIndex(ADDRESS, i, cs(m, dirs.get(i).toString()));
+      }
+      MemorySegment o = m.allocate(96, 8), h = m.allocate(32), rp = m.allocate(ADDRESS);
+      if (pk != null) {
+        o.set(ADDRESS, 0, Native.in(m, pk));
+        o.set(JAVA_LONG, 8, pk.length);
+      }
+      int c = (int) N.CHAIN.invoke(ds, (long) dirs.size(), o, h, rp);
+      Report r = report(c, rp);
+      return new Chain(r, r.ok() ? Native.bytes(h, 32) : null);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * One package of the record's runtime.
+   *
+   * @param name its name
+   * @param version its version
+   * @param source where it came from
+   */
+  public record Pkg(String name, String version, String source) {}
+
+  /**
+   * The packages of this Java process, with no network: each module of the
+   * boot layer that has a version (source "jdk" for the platform's own
+   * modules, else "module"), and each jar on the class path with an
+   * Implementation-Title and -Version in its manifest (source "classpath").
+   *
+   * @return them, sorted by name
+   */
+  public static List<Pkg> packages() {
+    java.util.TreeMap<String, Pkg> out = new java.util.TreeMap<>();
+    for (Module md : ModuleLayer.boot().modules()) {
+      var v = md.getDescriptor().rawVersion();
+      if (v.isPresent()) {
+        String n = md.getName();
+        boolean jdk = n.startsWith("java.") || n.startsWith("jdk.");
+        out.putIfAbsent(n, new Pkg(n, v.get(), jdk ? "jdk" : "module"));
+      }
+    }
+    String cp = System.getProperty("java.class.path", "");
+    for (String e : cp.split(java.io.File.pathSeparator)) {
+      if (!e.endsWith(".jar")) {
+        continue;
+      }
+      try (java.util.jar.JarFile j = new java.util.jar.JarFile(e)) {
+        var mf = j.getManifest();
+        if (mf == null) {
+          continue;
+        }
+        var a = mf.getMainAttributes();
+        String n = a.getValue("Implementation-Title"), v = a.getValue("Implementation-Version");
+        if (n != null && v != null) {
+          out.putIfAbsent(n, new Pkg(n, v, "classpath"));
+        }
+      } catch (java.io.IOException x) {
+        // a jar that cannot be read names no package
+      }
+    }
+    return List.copyOf(out.values());
+  }
+
+  /** The lock files {@link #env} records when they are at the top of the folder. */
+  public static final List<String> LOCKS =
+      List.of(
+          "renv.lock", "uv.lock", "poetry.lock", "Pipfile.lock", "requirements.txt", "Cargo.lock",
+          "go.sum", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "environment.yml",
+          "Manifest.toml");
+
+  private static String osname() {
+    String o = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
+    return o.startsWith("windows")
+        ? "windows"
+        : o.startsWith("mac")
+            ? "macos"
+            : o.startsWith("linux") ? "linux" : o.startsWith("freebsd") ? "freebsd" : "other";
+  }
+
+  private static String archname() {
+    String a = System.getProperty("os.arch", "").toLowerCase(java.util.Locale.ROOT);
+    return switch (a) {
+      case "amd64", "x86_64" -> "x86_64";
+      case "aarch64", "arm64" -> "aarch64";
+      case "x86", "i386", "i686" -> "i686";
+      default -> a.isEmpty() ? "other" : a;
+    };
+  }
+
+  /**
+   * Records the environment in the record's "env", as {@code noqtis env}
+   * does (os, arch, noqtis, locale, tz, the lock files at the top of dir
+   * with their SHA-256, the rng and its seed), with the Java runtime: its
+   * version and the packages.
+   *
+   * @param dir the capsule folder
+   * @param rng the random number generator's kind, or null
+   * @param seed its seed, or null
+   * @param locks the lock files to record, or null for the known ones
+   * @param pkgs the packages, or null for {@link #packages()}
+   * @return the element
+   */
+  public static String env(
+      Path dir, String rng, String seed, List<String> locks, List<Pkg> pkgs) {
+    if (seed != null && rng == null) {
+      throw new NoqtisException(-1, "seed needs rng, the generator it seeds");
+    }
+    StringBuilder e =
+        new StringBuilder("{\"os\":" + js(osname()) + ",\"arch\":" + js(archname()))
+            .append(",\"noqtis\":")
+            .append(js(Noqtis.version()));
+    String l = System.getenv("LC_ALL");
+    if (l == null || l.isEmpty()) {
+      l = System.getenv("LANG");
+    }
+    if (l != null && !l.isEmpty()) {
+      e.append(",\"locale\":").append(js(l));
+    }
+    String tz = System.getenv("TZ");
+    if (tz != null && !tz.isEmpty()) {
+      e.append(",\"tz\":").append(js(tz));
+    }
+    List<Pkg> p = new ArrayList<>(pkgs == null ? packages() : pkgs);
+    p.sort(java.util.Comparator.comparing(Pkg::name));
+    e.append(",\"runtime\":{\"language\":\"java\",\"version\":")
+        .append(js(System.getProperty("java.version", "")))
+        .append(",\"packages\":[");
+    for (int i = 0; i < p.size(); i++) {
+      Pkg k = p.get(i);
+      e.append(i > 0 ? "," : "")
+          .append("{\"name\":" + js(k.name()) + ",\"version\":" + js(k.version()))
+          .append(",\"source\":" + js(k.source()) + "}");
+    }
+    e.append("]}");
+    List<String> want = new ArrayList<>(locks == null ? LOCKS : locks);
+    java.util.Collections.sort(want);
+    List<String> lk = new ArrayList<>();
+    for (String f : want) {
+      Path fp = dir.resolve(f);
+      if (!Files.isRegularFile(fp)) {
+        if (locks != null) {
+          throw new NoqtisException(-1, f + ": not a file in " + dir);
+        }
+        continue;
+      }
+      try {
+        String h = java.util.HexFormat.of().formatHex(Noqtis.hash("SHA-256", Files.readAllBytes(fp)));
+        lk.add("{\"path\":" + js(f) + ",\"sha256\":\"" + h + "\"}");
+      } catch (java.io.IOException x) {
+        throw new NoqtisException(-7, fp + ": " + x.getMessage());
+      }
+    }
+    if (!lk.isEmpty()) {
+      e.append(",\"locks\":[").append(String.join(",", lk)).append(']');
+    }
+    if (rng != null) {
+      e.append(",\"rng\":{\"kind\":").append(js(rng));
+      if (seed != null) {
+        e.append(",\"seed\":").append(js(seed));
+      }
+      e.append('}');
+    }
+    String s = e.append('}').toString();
+    put(dir, "env", s);
+    return s;
   }
 }
