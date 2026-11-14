@@ -102,12 +102,19 @@ steps:
 
 | Input | For | Meaning |
 |---|---|---|
-| `mode` | all | `seal`, `check` (fails the step when a check fails), `report` (the same, without failing), or `install` (only build and put `noqtis` on `PATH`) |
-| `dir` | seal, check, report | the capsule folder |
+| `mode` | all | `seal`, `check` (fails the step when a check fails), `report` (the same, without failing), `drift`, `refresh` (below), or `install` (only build and put `noqtis` on `PATH`) |
+| `dir` | seal, check, report, drift, refresh | the capsule folder |
 | `key` | seal | the secret key file's text, from a secret; written to an owner-only temporary file for the one command, then deleted, never printed |
 | `pub` | seal, check, report | the public key file; for `check` and `report`, the key the seal must carry (leave it out and any key's seal passes, with a warning) |
 | `meta` | seal | a JSON file kept in the manifest as `meta` |
 | `json` | check, report | `"true"` sets the `json` output |
+| `fail-on` | drift, refresh | when the step fails: `error` (only when noqtis cannot check), `drift` (the default: also when a column drifted past `psi-fail` or a source changed), `warn` (also on a drift warning or an unreachable source), `never` |
+| `psi-warn`, `psi-fail` | drift | the population stability index from which a column warns (0.1) and fails (0.25) |
+| `fetch` | drift | `"true"`: fetch each source again, into a copy of the folder, and check those files |
+| `write` | refresh | `"true"`: write the changed sources' new bytes into `dir` and record them, for a later step to seal and commit |
+| `base-ref` | check, report, drift, refresh | a branch, tag or commit to compare the capsule with, at the same path (`noqtis diff`); needs `fetch-depth: 0` |
+| `comment` | check, report, drift, refresh | `"true"`: on a pull request, the report as one comment, updated by each run; `dry-run`: written to `$RUNNER_TEMP/noqtis-comment.md` instead |
+| `token` | comment | the token the comment is posted with (`github.token` by default) |
 
 `check` and `report` run `noqtis report` once, on the capsule and its
 data record. Each failed check becomes an error annotation on the run,
@@ -119,9 +126,56 @@ noqtis could not check at all), `verified` (sealed files that match),
 path of the Markdown report) and `json` (the `noqtis report --json` line,
 when asked for); every mode has `bin` (the path to `noqtis`). A failing
 `check` fails its step; use `report`, or `continue-on-error: true`, to
-decide yourself. There is no pull-request comment: that needs the
-GitHub API and a token. After the action has run once
-in a job, later `run:` steps can call `noqtis` directly.
+decide yourself. After the action has run once in a job, later `run:`
+steps can call `noqtis` directly.
+
+### Drift, refresh, the base branch and a pull-request comment
+
+`drift` compares the files of `dir` with the summaries pinned in its
+data record (`noqtis drift check`); with `fetch: "true"` it first
+fetches each source again (`noqtis src refresh`, in a copy of the
+folder) and compares those. `refresh` fetches each source again and says
+whether it changed. Each drifted column, changed source and unreachable
+source is an annotation (an error when `fail-on` fails the step on it,
+else a warning), the report is a table of every row, and the outputs are
+`status` (`passed`, `warned`, `failed` or `error`), `changed` (columns
+that drifted, sources that changed), `ok` and `report`.
+
+`base-ref` compares the capsule with its copy at another commit, such
+as the pull request's base: each difference is a notice and a section
+of the report, and `differs` says whether there was one. `comment:
+"true"` posts the report on the pull request as one comment, found again
+by a marker and updated on each run rather than repeated; the output
+`comment` says `created`, `updated`, `skipped` (not a pull request),
+`failed` or `off`. The job needs only these permissions:
+
+```yaml
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write   # only for comment: "true"
+
+steps:
+  - uses: actions/checkout@v7   # pin by commit SHA
+    with:
+      fetch-depth: 0             # for base-ref
+  - id: drift
+    uses: rootcoder007/noqtis@v0
+    with:
+      mode: drift
+      dir: results
+      fetch: "true"
+      fail-on: drift
+      psi-fail: "0.25"
+      base-ref: origin/${{ github.base_ref }}
+      comment: "true"
+  - if: always()
+    run: echo "${{ steps.drift.outputs.status }}, ${{ steps.drift.outputs.changed }} changed"
+```
+
+A scheduled workflow with `mode: refresh` and `write: "true"`, then a
+seal and a commit or pull request of its own, keeps a capsule's data in
+step with its sources; `fail-on: never` lets it run to the end.
 
 For a reproducible manifest, set `SOURCE_DATE_EPOCH` for the seal step
 (for example `echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >>
@@ -129,7 +183,11 @@ For a reproducible manifest, set `SOURCE_DATE_EPOCH` for the seal step
 `.github/workflows/action.yml` uses the action this way on all three
 systems: it seals a sample folder, checks it, changes one byte and
 asserts that the check fails, and that `report` passes with outputs
-that say what changed.
+that say what changed; then it serves a data file from a local server,
+records it as a source with summaries, and checks `drift` (passing, then
+failing after the source changes, with `fetch`), `refresh` (failing,
+then written with `fail-on: never`), `base-ref` and the comment in
+`dry-run`.
 
 ## Checksums alongside
 
