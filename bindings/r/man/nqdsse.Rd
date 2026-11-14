@@ -68,6 +68,8 @@ version 1. \url{https://github.com/dsse-lf/dsse}
 \code{\link[=nqsign]{nqsign()}} for bare signatures.
 
 Other signature functions:
-\code{\link[=nqsign]{nqsign()}}
+\code{\link[=nqmu]{nqmu()}},
+\code{\link[=nqsign]{nqsign()}},
+\code{\link[=nqsigner]{nqsigner()}}
 }
 \concept{signature functions}

@@ -78,5 +78,8 @@ for Message Authentication}, RFC 2104. \doi{10.17487/RFC2104}
 \seealso{
 \code{\link[=nqsign]{nqsign()}} can sign a hash (\code{ph}); \code{\link[=nqfiles]{nqfiles()}} lists the
 SHA-256 of every file of a capsule.
+
+Other hash functions:
+\code{\link[=nqblake2b]{nqblake2b()}}
 }
 \concept{hash functions}

@@ -76,5 +76,8 @@ specification version 5.0.0 of 2025-08-22.
 \seealso{
 \code{\link[=nqkeygen]{nqkeygen()}} makes the key pairs; \code{\link[=nqhash]{nqhash()}} can derive keys
 from the shared secret.
+
+Other key encapsulation functions:
+\code{\link[=nqkseal]{nqkseal()}}
 }
 \concept{key encapsulation functions}

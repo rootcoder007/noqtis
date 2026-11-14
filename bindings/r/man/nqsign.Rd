@@ -121,6 +121,8 @@ Signature Algorithm (EdDSA)}, RFC 8032. \doi{10.17487/RFC8032}
 DSSE envelope; \code{\link[=nqseal]{nqseal()}} signs a whole folder.
 
 Other signature functions:
-\code{\link[=nqdsse]{nqdsse()}}
+\code{\link[=nqdsse]{nqdsse()}},
+\code{\link[=nqmu]{nqmu()}},
+\code{\link[=nqsigner]{nqsigner()}}
 }
 \concept{signature functions}

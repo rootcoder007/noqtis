@@ -9,7 +9,12 @@
 #' exact header line `noqtis-key-1 <algorithm> <pub|sec>`, then the key as
 #' padded base64 (RFC 4648) with LF or CRLF line ends and no other
 #' character, canonical padding, and exactly the algorithm's key size.
-#' `nqwritekey()` writes one.
+#' `nqwritekey()` writes one. With `pass`, a secret key file is kept
+#' under a passphrase (noqtis-pwkey-1, as `noqtis keygen --pass-fd`
+#' writes it: Argon2id of the passphrase, 64 MiB and 3 passes, then
+#' ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read it.
+#' `nqpwenc()` and `nqpwdec()` are that protection on its own, for a key
+#' kept elsewhere.
 #'
 #' @param path The key file.
 #' @param key The key, a raw vector (`$pk` or `$sk` of [nqkeygen()]).
@@ -17,10 +22,19 @@
 #' @param kind `"pub"` for a public key, `"sec"` for a secret key.
 #' @param force `TRUE` to replace an existing file; it is removed first,
 #'   so the new file never inherits its permissions.
+#' @param pass `NULL`, or the passphrase (1 to 4096 bytes): a raw vector
+#'   or one string. Never written or shown anywhere; an error never
+#'   repeats it.
+#' @param sk The secret key, a raw vector.
+#' @param x What `nqpwenc()` returned, a raw vector.
+#' @param ad `NULL`, or associated data (a raw vector) bound to it.
+#' @param m,t,p Argon2id's memory in KiB (8192 to 1048576), passes (1 to
+#'   16) and lanes (1 to 16); 0 for the defaults 65536, 3 and 4.
 #'
 #' @return `nqreadkey()`: a list with `alg` (the algorithm name as the
 #'   library spells it), `kind` (`"pub"` or `"sec"`) and `key` (a raw
-#'   vector). `nqwritekey()`: `path`, invisibly.
+#'   vector). `nqwritekey()`: `path`, invisibly. `nqpwenc()`: the
+#'   protected key, 51 bytes longer. `nqpwdec()`: the key.
 #'
 #' @details A secret key file is created readable by its owner only (on
 #'   Windows it takes the folder's permissions). An existing file is never
@@ -30,7 +44,8 @@
 #'
 #' @section Errors:
 #' `nqreadkey()`: a file that is not a key file (a wrong header, a
-#' non-canonical or cut-short body, a key of the wrong size).
+#' non-canonical or cut-short body, a key of the wrong size); a key under
+#' a passphrase without `pass`, a wrong passphrase or a changed file.
 #' `nqwritekey()`: an unknown algorithm, a key of the wrong size for it,
 #' or an existing file without `force = TRUE`.
 #'
@@ -51,8 +66,15 @@
 #' nqwritekey(g, k$pk, "ML-DSA-44", "pub")
 #' nqreadkey(g)$kind
 #' unlink(c(f, g))
+#' # under a passphrase (light Argon2id parameters for the example)
+#' x <- nqpwenc(k$sk, "a passphrase", m = 8192, t = 1, p = 1)
+#' identical(nqpwdec(x, "a passphrase"), k$sk)
+#' h <- tempfile()
+#' nqwritekey(h, k$sk, "ML-DSA-44", "sec", pass = "a passphrase")
+#' identical(nqreadkey(h, pass = "a passphrase")$key, k$sk)
+#' unlink(h)
 #' @export
-nqreadkey <- function(path) {
+nqreadkey <- function(path, pass = NULL) {
   if (!.file1(path)) {
     stop("'path' must be one existing key file", call. = FALSE)
   }
@@ -69,6 +91,21 @@ nqreadkey <- function(path) {
   a <- .kalg(f[2L])
   want <- if (f[3L] == "pub") a$pk else a$sk
   k <- .kfbody(b[-seq_len(nl[1L])])
+  ad <- charToRaw(sprintf("noqtis-key-1 %s sec", a$name))
+  prot <- f[3L] == "sec" && !is.null(k) && length(k) == want + 51L &&
+    identical(k[1:4], charToRaw("NQPW"))
+  if (prot && is.null(pass)) {
+    stop(sprintf("%s is protected by a passphrase: give 'pass'", path),
+      call. = FALSE
+    )
+  }
+  if (prot) {
+    k <- nqpwdec(k, pass, ad)
+  } else if (!is.null(pass) && f[3L] == "sec" && length(k) == want) {
+    stop(sprintf("%s is not protected by a passphrase", path),
+      call. = FALSE
+    )
+  }
   if (is.null(k) || length(k) != want) {
     stop(sprintf(paste0(
       "%s: the key is not %d bytes of base64 for %s (the ",
@@ -81,7 +118,7 @@ nqreadkey <- function(path) {
 #' @rdname nqreadkey
 #' @export
 nqwritekey <- function(path, key, alg, kind = c("sec", "pub"),
-                       force = FALSE) {
+                       force = FALSE, pass = NULL) {
   kind <- match.arg(kind)
   if (!.is1(path)) {
     stop("'path' must be one file path", call. = FALSE)
@@ -101,6 +138,12 @@ nqwritekey <- function(path, key, alg, kind = c("sec", "pub"),
       length(key)
     ), call. = FALSE)
   }
+  if (!is.null(pass)) {
+    if (kind != "sec") {
+      stop("a passphrase protects a secret key only", call. = FALSE)
+    }
+    key <- nqpwenc(key, pass, charToRaw(sprintf("noqtis-key-1 %s sec", a$name)))
+  }
   .kfclear(path, force)
   txt <- c(sprintf("noqtis-key-1 %s %s", a$name, kind), .b64enc(key))
   old <- Sys.umask(if (kind == "sec") "077" else "022")
@@ -112,6 +155,39 @@ nqwritekey <- function(path, key, alg, kind = c("sec", "pub"),
     Sys.chmod(path, "0600", use_umask = FALSE)
   }
   invisible(path)
+}
+
+#' @rdname nqreadkey
+#' @export
+nqpwenc <- function(sk, pass, ad = NULL, m = 0, t = 0, p = 0) {
+  .rawarg(sk, "sk")
+  if (!is.null(ad)) .rawarg(ad, "ad")
+  for (v in list(m, t, p)) {
+    if (!.count1(v)) stop("'m', 't' and 'p' must be whole numbers",
+                          call. = FALSE)
+  }
+  .Call(Cpwenc, .pass(pass), ad, as.double(c(m, t, p)), sk)
+}
+
+#' @rdname nqreadkey
+#' @export
+nqpwdec <- function(x, pass, ad = NULL) {
+  .rawarg(x, "x")
+  if (!is.null(ad)) .rawarg(ad, "ad")
+  .Call(Cpwdec, .pass(pass), ad, x)
+}
+
+# The passphrase's bytes, checked without showing it.
+.pass <- function(pass) {
+  b <- if (is.raw(pass)) pass else if (.is1(pass)) {
+    charToRaw(enc2utf8(pass))
+  } else {
+    stop("'pass' must be a raw vector or one string", call. = FALSE)
+  }
+  if (length(b) < 1L || length(b) > 4096L) {
+    stop("'pass' must be 1 to 4096 bytes", call. = FALSE)
+  }
+  b
 }
 
 .b64a <- c(LETTERS, letters, as.character(0:9), "+", "/")

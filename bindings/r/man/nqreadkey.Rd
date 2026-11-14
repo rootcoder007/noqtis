@@ -3,14 +3,24 @@
 \name{nqreadkey}
 \alias{nqreadkey}
 \alias{nqwritekey}
+\alias{nqpwenc}
+\alias{nqpwdec}
 \title{Read and write the command-line tool's key files}
 \usage{
-nqreadkey(path)
+nqreadkey(path, pass = NULL)
 
-nqwritekey(path, key, alg, kind = c("sec", "pub"), force = FALSE)
+nqwritekey(path, key, alg, kind = c("sec", "pub"), force = FALSE, pass = NULL)
+
+nqpwenc(sk, pass, ad = NULL, m = 0, t = 0, p = 0)
+
+nqpwdec(x, pass, ad = NULL)
 }
 \arguments{
 \item{path}{The key file.}
+
+\item{pass}{\code{NULL}, or the passphrase (1 to 4096 bytes): a raw vector
+or one string. Never written or shown anywhere; an error never
+repeats it.}
 
 \item{key}{The key, a raw vector (\verb{$pk} or \verb{$sk} of \code{\link[=nqkeygen]{nqkeygen()}}).}
 
@@ -20,11 +30,21 @@ nqwritekey(path, key, alg, kind = c("sec", "pub"), force = FALSE)
 
 \item{force}{\code{TRUE} to replace an existing file; it is removed first,
 so the new file never inherits its permissions.}
+
+\item{sk}{The secret key, a raw vector.}
+
+\item{ad}{\code{NULL}, or associated data (a raw vector) bound to it.}
+
+\item{m, t, p}{Argon2id's memory in KiB (8192 to 1048576), passes (1 to
+16) and lanes (1 to 16); 0 for the defaults 65536, 3 and 4.}
+
+\item{x}{What \code{nqpwenc()} returned, a raw vector.}
 }
 \value{
 \code{nqreadkey()}: a list with \code{alg} (the algorithm name as the
 library spells it), \code{kind} (\code{"pub"} or \code{"sec"}) and \code{key} (a raw
-vector). \code{nqwritekey()}: \code{path}, invisibly.
+vector). \code{nqwritekey()}: \code{path}, invisibly. \code{nqpwenc()}: the
+protected key, 51 bytes longer. \code{nqpwdec()}: the key.
 }
 \description{
 \code{nqreadkey()} reads a key file written by \verb{noqtis keygen} (or by
@@ -32,7 +52,12 @@ vector). \code{nqwritekey()}: \code{path}, invisibly.
 exact header line \verb{noqtis-key-1 <algorithm> <pub|sec>}, then the key as
 padded base64 (RFC 4648) with LF or CRLF line ends and no other
 character, canonical padding, and exactly the algorithm's key size.
-\code{nqwritekey()} writes one.
+\code{nqwritekey()} writes one. With \code{pass}, a secret key file is kept
+under a passphrase (noqtis-pwkey-1, as \verb{noqtis keygen --pass-fd}
+writes it: Argon2id of the passphrase, 64 MiB and 3 passes, then
+ChaCha20-Poly1305); \code{nqreadkey()} needs the same \code{pass} to read it.
+\code{nqpwenc()} and \code{nqpwdec()} are that protection on its own, for a key
+kept elsewhere.
 }
 \details{
 A secret key file is created readable by its owner only (on
@@ -44,7 +69,8 @@ secret key files where timing cannot be observed.
 \section{Errors}{
 
 \code{nqreadkey()}: a file that is not a key file (a wrong header, a
-non-canonical or cut-short body, a key of the wrong size).
+non-canonical or cut-short body, a key of the wrong size); a key under
+a passphrase without \code{pass}, a wrong passphrase or a changed file.
 \code{nqwritekey()}: an unknown algorithm, a key of the wrong size for it,
 or an existing file without \code{force = TRUE}.
 }
@@ -59,6 +85,13 @@ g <- tempfile()
 nqwritekey(g, k$pk, "ML-DSA-44", "pub")
 nqreadkey(g)$kind
 unlink(c(f, g))
+# under a passphrase (light Argon2id parameters for the example)
+x <- nqpwenc(k$sk, "a passphrase", m = 8192, t = 1, p = 1)
+identical(nqpwdec(x, "a passphrase"), k$sk)
+h <- tempfile()
+nqwritekey(h, k$sk, "ML-DSA-44", "sec", pass = "a passphrase")
+identical(nqreadkey(h, pass = "a passphrase")$key, k$sk)
+unlink(h)
 }
 \references{
 Josefsson, S. (2006). \emph{The Base16, Base32, and Base64 Data Encodings},

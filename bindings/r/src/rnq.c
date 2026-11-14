@@ -796,6 +796,349 @@ static SEXP Cerr(SEXP rc) {
 /* through void (*)(void), the generic function pointer type the compilers
  * accept a cast from without -Wcast-function-type */
 /* the data layer's entry points, in rnqd.c */
+/* ---- BLAKE2b, Argon2id, constant-time comparison ------------------- */
+
+static SEXP Cb2b(SEXP key, SEXP x, SEXP len) {
+  int n = ival(len, "n"), rc;
+  SEXP out;
+  chkraw(key, "key", 1);
+  chkraw(x, "x", 0);
+  if (n < 1 || n > 64) Rf_error("'n' must be 1 to 64");
+  out = PROTECT(rawn((size_t)n));
+  rc = nqb2b(rp(key), rn(key), rp(x), rn(x), RAW(out), (size_t)n);
+  if (rc != NQOK) fail(rc, "nqb2b");
+  UNPROTECT(1);
+  return out;
+}
+
+/* tmp: c(t, m, p) */
+static SEXP Ca2id(SEXP pw, SEXP salt, SEXP key, SEXP ad, SEXP tmp,
+                  SEXP len) {
+  int n = ival(len, "n"), rc;
+  SEXP out;
+  chkraw(pw, "pw", 0);
+  chkraw(salt, "salt", 0);
+  chkraw(key, "key", 1);
+  chkraw(ad, "ad", 1);
+  if (TYPEOF(tmp) != REALSXP || XLENGTH(tmp) != 3)
+    Rf_error("the cost must be three numbers");
+  if (n < 4 || n > 1024) Rf_error("'n' must be 4 to 1024");
+  out = PROTECT(rawn((size_t)n));
+  rc = nqa2id(rp(pw), rn(pw), rp(salt), rn(salt), rp(key), rn(key), rp(ad),
+              rn(ad), (uint32_t)REAL(tmp)[0], (uint32_t)REAL(tmp)[1],
+              (uint32_t)REAL(tmp)[2], RAW(out), (size_t)n);
+  if (rc != NQOK) {
+    nqwipe(RAW(out), (size_t)n);
+    fail(rc, "nqa2id");
+  }
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Ccteq(SEXP a, SEXP b) {
+  chkraw(a, "a", 0);
+  chkraw(b, "b", 0);
+  if (rn(a) != rn(b)) return Rf_ScalarLogical(0);
+  if (rn(a) == 0) return Rf_ScalarLogical(1);
+  return Rf_ScalarLogical(nqcteq(RAW(a), RAW(b), rn(a)));
+}
+
+/* ---- passphrase key files ------------------------------------------ */
+
+/* mtp: c(m, t, p), 0 for the defaults */
+static SEXP Cpwenc(SEXP pw, SEXP ad, SEXP mtp, SEXP sk) {
+  SEXP out;
+  size_t n = 0;
+  int rc;
+  chkraw(pw, "pass", 0);
+  chkraw(ad, "ad", 1);
+  chkraw(sk, "sk", 0);
+  if (TYPEOF(mtp) != REALSXP || XLENGTH(mtp) != 3)
+    Rf_error("the cost must be three numbers");
+  if (rn(sk) > NQPWMAX) Rf_error("'sk' is over %u bytes", NQPWMAX);
+  out = PROTECT(rawn(rn(sk) + NQPWOVH));
+  rc = nqpwenc(rp(pw), rn(pw), rp(ad), rn(ad), (uint32_t)REAL(mtp)[0],
+               (uint32_t)REAL(mtp)[1], (uint32_t)REAL(mtp)[2], rp(sk),
+               rn(sk), RAW(out), rn(sk) + NQPWOVH, &n);
+  if (rc != NQOK) fail(rc, "nqpwenc");
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Cpwdec(SEXP pw, SEXP ad, SEXP in) {
+  SEXP out, r;
+  size_t cap, n = 0;
+  int rc;
+  chkraw(pw, "pass", 0);
+  chkraw(ad, "ad", 1);
+  chkraw(in, "data", 0);
+  cap = rn(in) > NQPWOVH ? rn(in) - NQPWOVH : 1;
+  out = PROTECT(rawn(cap));
+  rc = nqpwdec(rp(pw), rn(pw), rp(ad), rn(ad), rp(in), rn(in), RAW(out), cap,
+               &n);
+  if (rc != NQOK) fail(rc, "the passphrase-protected key");
+  if (n == cap) {
+    UNPROTECT(1);
+    return out;
+  }
+  r = PROTECT(rawn(n));
+  memcpy(RAW(r), RAW(out), n);
+  nqwipe(RAW(out), cap);
+  UNPROTECT(2);
+  return r;
+}
+
+/* ---- ML-DSA with an external mu ------------------------------------ */
+
+static SEXP Csmu(SEXP alg, SEXP pk, SEXP msg, SEXP ctx, SEXP ph) {
+  int a = ival(alg, "alg"), rc;
+  SEXP out;
+  chkraw(pk, "pk", 0);
+  chkraw(msg, "msg", 0);
+  chkraw(ctx, "ctx", 1);
+  out = PROTECT(rawn(NQMU));
+  rc = nqsmu((nqsalg)a, rp(pk), rn(pk), rp(msg), rn(msg), rp(ctx), rn(ctx),
+             ival(ph, "ph"), RAW(out), NQMU);
+  if (rc != NQOK) fail(rc, "nqsmu");
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Csignmu(SEXP alg, SEXP sk, SEXP mu, SEXP rnd) {
+  int a = ival(alg, "alg"), rc;
+  nqssz z = ssz(a);
+  size_t n = 0;
+  SEXP out, r;
+  chkraw(sk, "sk", 0);
+  chkraw(mu, "mu", 0);
+  chkraw(rnd, "rnd", 1);
+  out = PROTECT(rawn(z.sig));
+  rc = nqsignmu((nqsalg)a, rp(sk), rn(sk), rp(mu), rn(mu), rp(rnd), rn(rnd),
+                RAW(out), z.sig, &n);
+  if (rc != NQOK) fail(rc, "nqsignmu");
+  r = PROTECT(rawn(n));
+  memcpy(RAW(r), RAW(out), n);
+  UNPROTECT(2);
+  return r;
+}
+
+static SEXP Cvrfymu(SEXP alg, SEXP pk, SEXP mu, SEXP sig) {
+  int rc;
+  chkraw(pk, "pk", 0);
+  chkraw(mu, "mu", 0);
+  chkraw(sig, "sig", 0);
+  rc = nqvrfymu((nqsalg)ival(alg, "alg"), rp(pk), rn(pk), rp(mu), rn(mu),
+                rp(sig), rn(sig));
+  if (rc != NQOK && rc != NQEVRFY && rc != NQEDEC) fail(rc, "nqvrfymu");
+  return Rf_ScalarLogical(rc == NQOK);
+}
+
+/* ---- contexts: streaming signatures and sealed streams ------------- */
+
+/* A context in R_Calloc memory held by an external pointer whose tag is
+ * its size; the finalizer (and the end of the stream) wipes and frees it. */
+static void ctxfin(SEXP p) {
+  void *c = R_ExternalPtrAddr(p);
+  if (c != NULL) {
+    nqwipe(c, (size_t)Rf_asInteger(R_ExternalPtrTag(p)));
+    R_Free(c);
+    R_ClearExternalPtr(p);
+  }
+}
+
+static SEXP ctxnew(size_t n, void **c) {
+  SEXP p;
+  *c = R_Calloc(n, char);
+  p = PROTECT(R_MakeExternalPtr(*c, Rf_ScalarInteger((int)n), R_NilValue));
+  R_RegisterCFinalizerEx(p, ctxfin, TRUE);
+  UNPROTECT(1);
+  return p;
+}
+
+static void *ctxget(SEXP p) {
+  void *c;
+  if (TYPEOF(p) != EXTPTRSXP) Rf_error("not a noqtis stream");
+  c = R_ExternalPtrAddr(p);
+  if (c == NULL) Rf_error("noqtis: %s", nqerr(NQESTATE));
+  return c;
+}
+
+static SEXP Csini(SEXP alg, SEXP key, SEXP ctx, SEXP ph, SEXP vrfy) {
+  int a = ival(alg, "alg"), v = Rf_asLogical(vrfy), rc;
+  void *c;
+  SEXP p;
+  chkraw(key, "key", 0);
+  chkraw(ctx, "ctx", 1);
+  p = PROTECT(ctxnew(sizeof(nqsctx), &c));
+  rc = v ? nqvini((nqsctx *)c, (nqsalg)a, rp(key), rn(key), rp(ctx), rn(ctx),
+                  ival(ph, "ph"))
+         : nqsini((nqsctx *)c, (nqsalg)a, rp(key), rn(key), rp(ctx), rn(ctx),
+                  ival(ph, "ph"));
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, v ? "nqvini" : "nqsini");
+  }
+  UNPROTECT(1);
+  return p;
+}
+
+static SEXP Csupd(SEXP p, SEXP x) {
+  int rc;
+  chkraw(x, "x", 0);
+  rc = nqsupd((nqsctx *)ctxget(p), rp(x), rn(x));
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, "nqsupd");
+  }
+  return R_NilValue;
+}
+
+static SEXP Csfin(SEXP p, SEXP alg, SEXP sk, SEXP rnd) {
+  int a = ival(alg, "alg"), rc;
+  nqssz z = ssz(a);
+  size_t n = 0;
+  SEXP out, r;
+  static const uint8_t none[1] = {0};
+  nqsctx *c = (nqsctx *)ctxget(p);
+  chkraw(sk, "sk", 0);
+  chkraw(rnd, "rnd", 1);
+  out = PROTECT(rawn(z.sig));
+  /* a present but empty rnd is not NULL: Ed25519's deterministic one */
+  rc = nqsfin(c, rp(sk), rn(sk),
+              rnd == R_NilValue ? NULL : rn(rnd) == 0 ? none : RAW(rnd),
+              rn(rnd), RAW(out), z.sig, &n);
+  ctxfin(p);
+  if (rc != NQOK) fail(rc, "nqsfin");
+  r = PROTECT(rawn(n));
+  memcpy(RAW(r), RAW(out), n);
+  UNPROTECT(2);
+  return r;
+}
+
+static SEXP Cvfin(SEXP p, SEXP pk, SEXP sig) {
+  int rc;
+  nqsctx *c = (nqsctx *)ctxget(p);
+  chkraw(pk, "pk", 0);
+  chkraw(sig, "sig", 0);
+  rc = nqvfin(c, rp(pk), rn(pk), rp(sig), rn(sig));
+  ctxfin(p);
+  if (rc != NQOK && rc != NQEVRFY && rc != NQEDEC) fail(rc, "nqvfin");
+  return Rf_ScalarLogical(rc == NQOK);
+}
+
+static SEXP Ckseal(SEXP alg, SEXP pk, SEXP ctx, SEXP msg) {
+  int a = ival(alg, "alg"), rc;
+  nqksz z = ksz(a);
+  size_t n = 0, cap;
+  SEXP out;
+  chkraw(pk, "pk", 0);
+  chkraw(ctx, "ctx", 1);
+  chkraw(msg, "msg", 0);
+  if (rn(msg) > NQKSMAX) fail(NQELIM, "nqkseal");
+  cap = NQKSOVH + z.ct + rn(msg);
+  out = PROTECT(rawn(cap));
+  rc = nqkseal((nqkalg)a, rp(pk), rn(pk), rp(ctx), rn(ctx), rp(msg), rn(msg),
+               RAW(out), cap, &n);
+  if (rc != NQOK) fail(rc, "nqkseal");
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Ckopen(SEXP alg, SEXP sk, SEXP ctx, SEXP in) {
+  int a = ival(alg, "alg"), rc;
+  size_t n = 0, cap;
+  SEXP out, r;
+  chkraw(sk, "sk", 0);
+  chkraw(ctx, "ctx", 1);
+  chkraw(in, "data", 0);
+  cap = rn(in) > 0 ? rn(in) : 1;
+  out = PROTECT(rawn(cap));
+  rc = nqkopen((nqkalg)a, rp(sk), rn(sk), rp(ctx), rn(ctx), rp(in), rn(in),
+               RAW(out), cap, &n);
+  if (rc != NQOK) fail(rc, "nqkopen");
+  r = PROTECT(rawn(n));
+  if (n > 0) memcpy(RAW(r), RAW(out), n);
+  nqwipe(RAW(out), cap);
+  UNPROTECT(2);
+  return r;
+}
+
+/* list(context, header) */
+static SEXP Ckfeini(SEXP alg, SEXP pk, SEXP ctx, SEXP chunk) {
+  int a = ival(alg, "alg"), ch = ival(chunk, "chunk"), rc;
+  uint8_t h[NQKFHDR + 1568];
+  size_t hl = 0;
+  void *c;
+  SEXP p, out, hd;
+  chkraw(pk, "pk", 0);
+  chkraw(ctx, "ctx", 1);
+  if (ch < 0) Rf_error("'chunk' must not be negative");
+  p = PROTECT(ctxnew(sizeof(nqkfctx), &c));
+  rc = nqkfeini((nqkfctx *)c, (nqkalg)a, rp(pk), rn(pk), rp(ctx), rn(ctx),
+                (uint32_t)ch, h, sizeof h, &hl);
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, "nqkfeini");
+  }
+  out = PROTECT(Rf_allocVector(VECSXP, 2));
+  SET_VECTOR_ELT(out, 0, p);
+  hd = rawn(hl);
+  SET_VECTOR_ELT(out, 1, hd);
+  memcpy(RAW(hd), h, hl);
+  UNPROTECT(2);
+  return out;
+}
+
+/* list(context, chunk) */
+static SEXP Ckfdini(SEXP alg, SEXP sk, SEXP ctx, SEXP hdr) {
+  int a = ival(alg, "alg"), rc;
+  uint32_t ch = 0;
+  void *c;
+  SEXP p, out;
+  chkraw(sk, "sk", 0);
+  chkraw(ctx, "ctx", 1);
+  chkraw(hdr, "header", 0);
+  p = PROTECT(ctxnew(sizeof(nqkfctx), &c));
+  rc = nqkfdini((nqkfctx *)c, (nqkalg)a, rp(sk), rn(sk), rp(ctx), rn(ctx),
+                rp(hdr), rn(hdr), &ch);
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, "the stream's header");
+  }
+  out = PROTECT(Rf_allocVector(VECSXP, 2));
+  SET_VECTOR_ELT(out, 0, p);
+  SET_VECTOR_ELT(out, 1, Rf_ScalarInteger((int)ch));
+  UNPROTECT(2);
+  return out;
+}
+
+/* one chunk, sealed (op 0) or opened (op 1); last for the stream's end */
+static SEXP Ckfupd(SEXP p, SEXP x, SEXP last, SEXP op, SEXP chunk) {
+  int l = Rf_asLogical(last), o = Rf_asLogical(op),
+      ch = ival(chunk, "chunk"), rc;
+  size_t cap = o ? (size_t)ch : (size_t)ch + 16, n = 0;
+  nqkfctx *c = (nqkfctx *)ctxget(p);
+  SEXP out, r;
+  chkraw(x, "x", 0);
+  out = PROTECT(rawn(cap > 0 ? cap : 1));
+  if (o)
+    rc = l ? nqkfdfin(c, rp(x), rn(x), RAW(out), cap, &n)
+           : nqkfdupd(c, rp(x), rn(x), RAW(out), cap, &n);
+  else
+    rc = l ? nqkfefin(c, rp(x), rn(x), RAW(out), cap, &n)
+           : nqkfeupd(c, rp(x), rn(x), RAW(out), cap, &n);
+  if (l || rc != NQOK) ctxfin(p);
+  if (rc != NQOK)
+    fail(rc, rc == NQEVRFY ? "the sealed stream (changed, cut or not for "
+                             "this key or context)"
+                           : "the sealed stream");
+  r = PROTECT(rawn(n));
+  if (n > 0) memcpy(RAW(r), RAW(out), n);
+  if (o) nqwipe(RAW(out), cap);
+  UNPROTECT(2);
+  return r;
+}
+
 SEXP Cdload(SEXP dir);
 SEXP Cdput(SEXP dir, SEXP member, SEXP json);
 SEXP Cdadd(SEXP dir, SEXP paths, SEXP fields, SEXP vals);
@@ -827,6 +1170,11 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cdkey, 3), CDEF(Cdaddr, 2), CDEF(Cdvrfy, 3), CDEF(Cdfld, 4),
   CDEF(Cdrslv, 1), CDEF(Cdrsp, 2), CDEF(Cdwb, 1), CDEF(Cdchk, 1), CDEF(Cdinfer, 5), CDEF(Cdstats, 4),
   CDEF(Cddrift, 5), CDEF(Cddiff, 2),
+  CDEF(Cb2b, 3), CDEF(Ca2id, 6), CDEF(Ccteq, 2), CDEF(Cpwenc, 4),
+  CDEF(Cpwdec, 3), CDEF(Csmu, 5), CDEF(Csignmu, 4), CDEF(Cvrfymu, 4),
+  CDEF(Csini, 5), CDEF(Csupd, 2), CDEF(Csfin, 4), CDEF(Cvfin, 3),
+  CDEF(Ckseal, 4), CDEF(Ckopen, 4), CDEF(Ckfeini, 4), CDEF(Ckfdini, 4),
+  CDEF(Ckfupd, 5),
   {NULL, NULL, 0}
 };
 
