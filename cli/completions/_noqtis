@@ -48,6 +48,23 @@ _noqtis_cmd() {
         '--stdout[print the shared secret]' \
         '(-f --force)'{-f,--force}'[replace existing files]' \
         '::ss:_files' ;;
+    box)
+      _arguments \
+        '(-p --pub)'{-p,--pub=}'[ML-KEM public key]:key.pub:_files' \
+        '(-o --out)'{-o,--out=}'[output]:out:_files' \
+        '(-c --ctx)'{-c,--ctx=}'[context string]:ctx:' \
+        '--chunk=[chunk size in bytes]:bytes:' \
+        '(-f --force)'{-f,--force}'[replace an existing file]' \
+        ':file:_files' ;;
+    unbox)
+      _arguments \
+        '(-k --key)'{-k,--key=}'[ML-KEM secret key]:key:_files' \
+        '(-o --out)'{-o,--out=}'[output]:out:_files' \
+        '(-c --ctx)'{-c,--ctx=}'[context string]:ctx:' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
+        '(-f --force)'{-f,--force}'[replace an existing file]' \
+        ':file:_files' ;;
     dec)
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
@@ -245,7 +262,7 @@ _noqtis_cmd() {
 
 _arguments -C \
   '(- :)'{-V,--version}'[print the version]' \
-  '1:command:((keygen\:"make a key pair" sign\:"sign a file"
+  '1:command:((keygen\:"make a key pair" sign\:"sign a file" box\:"seal a file to an ML-KEM key" unbox\:"open a boxed file"
     verify\:"verify a signature" enc\:"encapsulate a shared secret"
     dec\:"decapsulate a shared secret" hash\:"print or check digests"
     seal\:"seal a folder" check\:"check a sealed folder"

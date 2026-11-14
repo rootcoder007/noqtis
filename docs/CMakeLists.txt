@@ -20,6 +20,7 @@ set(NQMANAKA
   "nqsini:nqvini,nqsupd,nqsfin,nqvfin"
   "nqpwenc:nqpwdec"
   "nqkseal:nqkopen"
+  "nqkfeini:nqkfeupd,nqkfefin,nqkfdini,nqkfdupd,nqkfdfin"
   "nqrep:nqrepn,nqrepi,nqrepfree"
   "nqtsput:nqtsreq"
   "nqinsp:nqfiles"

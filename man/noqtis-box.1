@@ -1,0 +1,65 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NOQTIS-BOX 1
+.Os
+.Sh NAME
+.Nm noqtis-box
+.Nd seal a file of any size to an ML-KEM public key
+.Sh SYNOPSIS
+.Nm noqtis box
+.Fl p Ar key.pub
+.Fl o Ar out
+.Op Fl c Ar ctx
+.Op Fl -chunk Ar bytes
+.Op Fl f | Fl -force
+.Ar file
+.Sh DESCRIPTION
+.Nm noqtis box
+encrypts
+.Ar file
+(or standard input for
+.Ar - )
+so that only the holder of the secret key of
+.Ar key.pub ,
+an ML-KEM-512, -768 or -1024 key, can read it with
+.Xr noqtis-unbox 1 ,
+and writes the result to
+.Ar out
+(or standard output for
+.Ar - ) .
+The format is noqtis-kstream-1
+.Pq Xr nqkfeini 3 :
+a header holding an ML-KEM ciphertext, then the file in chunks, each
+under ChaCha20-Poly1305 with its own nonce, so that changed, moved,
+repeated or dropped chunks and a cut stream are all detected.
+It reads and writes one chunk at a time, whatever the file's size.
+.Bl -tag -width Ds
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+The recipient's ML-KEM public key file.
+.It Fl o Ar out , Fl -out Ns = Ns Ar out
+The output file, or
+.Ar -
+for standard output.
+.It Fl c Ar ctx , Fl -ctx Ns = Ns Ar ctx
+A context string (at most 255 bytes) that
+.Xr noqtis-unbox 1
+must be given too.
+.It Fl -chunk Ar bytes
+The chunk size, 1024 to 16777216 (default 65536).
+.It Fl f , Fl -force
+Replace an existing output file.
+.El
+.Sh EXIT STATUS
+0 on success, 2 on a usage, key or file error; an output file is
+removed when the command fails.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis keygen -a ML-KEM-768 -o box
+$ noqtis box -p box.pub -o data.nqk data.csv
+$ noqtis unbox -k box -o data.csv data.nqk
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr noqtis-unbox 1 ,
+.Xr nqkfeini 3

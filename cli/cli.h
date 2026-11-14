@@ -258,6 +258,8 @@ int ncsign(int argc, char **argv);
 int ncvrfy(int argc, char **argv);
 int ncenc(int argc, char **argv);
 int ncdec(int argc, char **argv);
+int ncbox(int argc, char **argv);
+int ncunbox(int argc, char **argv);
 int nchash(int argc, char **argv);
 int ncseal(int argc, char **argv);
 int ncchk(int argc, char **argv);

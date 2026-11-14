@@ -50,6 +50,15 @@ See
 Decapsulate a shared secret with a KEM secret key.
 See
 .Xr noqtis-dec 1 .
+.It Cm box
+Seal a file of any size to an ML-KEM public key, in chunks.
+See
+.Xr noqtis-box 1 .
+.It Cm unbox
+Open a file sealed with
+.Cm box .
+See
+.Xr noqtis-unbox 1 .
 .It Cm hash
 Print or check file digests in the format of
 .Xr sha256sum 1 .
@@ -266,6 +275,7 @@ results: FAILED (1 of 22 checks failed)
 .Ed
 .Sh SEE ALSO
 .Xr noqtis-algs 1 ,
+.Xr noqtis-box 1 ,
 .Xr noqtis-chain 1 ,
 .Xr noqtis-check 1 ,
 .Xr noqtis-chunk 1 ,
@@ -285,6 +295,7 @@ results: FAILED (1 of 22 checks failed)
 .Xr noqtis-selftest 1 ,
 .Xr noqtis-sign 1 ,
 .Xr noqtis-timestamp 1 ,
+.Xr noqtis-unbox 1 ,
 .Xr noqtis-verify 1 ,
 .Xr noqtis-version 1 ,
 .Xr noqtis 3 ,

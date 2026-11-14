@@ -1,0 +1,60 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NOQTIS-UNBOX 1
+.Os
+.Sh NAME
+.Nm noqtis-unbox
+.Nd open a file sealed with noqtis box
+.Sh SYNOPSIS
+.Nm noqtis unbox
+.Fl k Ar key
+.Fl o Ar out
+.Op Fl c Ar ctx
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Op Fl f | Fl -force
+.Ar file
+.Sh DESCRIPTION
+.Nm noqtis unbox
+decrypts what
+.Xr noqtis-box 1
+wrote,
+.Ar file
+or standard input for
+.Ar - ,
+with the ML-KEM secret key in
+.Ar key ,
+to
+.Ar out
+(created owner-only, mode 0600) or standard output for
+.Ar - .
+Each chunk is written only after its tag has verified.
+When a chunk does not verify (the file was changed, cut, reordered or
+lengthened, or is not for this key or context), the command stops with
+exit status 2 and removes
+.Ar out ;
+on standard output, what was written had verified but the data is cut
+short, so check the exit status before using it.
+A header that names a chunk size outside 1024 to 16777216 bytes is
+refused before anything is allocated.
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+The ML-KEM secret key file.
+.It Fl o Ar out , Fl -out Ns = Ns Ar out
+The output file, or
+.Ar - .
+.It Fl c Ar ctx , Fl -ctx Ns = Ns Ar ctx
+The context string given to
+.Xr noqtis-box 1 .
+.It Fl -pass-fd Ar n , Fl -pass-env Ar name
+The passphrase of a protected key, as in
+.Xr noqtis-dec 1 .
+.It Fl f , Fl -force
+Replace an existing output file.
+.El
+.Sh EXIT STATUS
+0 when every chunk verified; 2 otherwise, or on a usage, key or file
+error.
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-box 1 ,
+.Xr nqkfeini 3

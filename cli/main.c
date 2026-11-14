@@ -71,6 +71,19 @@ static const nccmd cmds[] = {
    "  with --stdout. A tampered ciphertext gives an unrelated secret\n"
    "  (implicit rejection), not an error. --pass-fd and --pass-env give\n"
    "  the passphrase of a protected key.\n"},
+  {"box", ncbox, "seal a file to an ML-KEM key, in chunks",
+   "usage: noqtis box -p <key.pub> -o <out> [-c <ctx>] [--chunk <bytes>]\n"
+   "                  [--force] <file>\n"
+   "  Encrypts <file> (- for stdin) to the ML-KEM key in <key.pub> as\n"
+   "  noqtis-kstream-1 and writes it to <out> (- for stdout), one chunk\n"
+   "  at a time (64 KiB, or 1024 to 16777216 bytes with --chunk).\n"
+   "  -c      context string, needed again to unbox (at most 255 bytes)\n"},
+  {"unbox", ncunbox, "open a file sealed with noqtis box",
+   "usage: noqtis unbox -k <key> -o <out> [-c <ctx>]\n"
+   "                    [--pass-fd <n> | --pass-env <name>] [--force] <file>\n"
+   "  Decrypts <file> (- for stdin) to <out> (owner-only; - for stdout),\n"
+   "  writing each chunk only once it verifies. When one does not, exit 2\n"
+   "  and <out> is removed.\n"},
   {"hash", nchash, "print or check file digests",
    "usage: noqtis hash [-a <hash>] [-c|--check] [<file>...]\n"
    "  Prints `<hex>  <file>` lines like sha256sum (- or no file: stdin).\n"

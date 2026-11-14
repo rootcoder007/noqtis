@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec hash seal check prove export rotate revoke idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
+set -l cmds keygen sign verify enc dec box unbox hash seal check prove export rotate revoke idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -14,6 +14,9 @@ set -l hashes sha224 sha256 sha384 sha512 sha512-224 sha512-256 sha3-224 \
 complete -c noqtis -f
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -s V -l version -d 'print the version'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a keygen -d 'make a key pair'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a box -d 'seal a file to an ML-KEM key'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a unbox -d 'open a boxed file'
+complete -c noqtis -n "__fish_seen_subcommand_from box" -l chunk -x -d 'chunk size in bytes'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a sign -d 'sign a file'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a verify -d 'verify a signature'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a enc -d 'encapsulate a shared secret'

@@ -1,0 +1,150 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NQKFEINI 3
+.Os
+.Sh NAME
+.Nm nqkfeini ,
+.Nm nqkfeupd ,
+.Nm nqkfefin ,
+.Nm nqkfdini ,
+.Nm nqkfdupd ,
+.Nm nqkfdfin
+.Nd seal a stream to an ML-KEM public key, chunk by chunk
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqkfeini
+.Fa "nqkfctx *c" "nqkalg alg" "const uint8_t *pk" "size_t pklen"
+.Fa "const uint8_t *ctx" "size_t ctxlen" "uint32_t chunk"
+.Fa "uint8_t *hdr" "size_t cap" "size_t *hlen"
+.Fc
+.Ft int
+.Fo nqkfeupd
+.Fa "nqkfctx *c" "const uint8_t *in" "size_t n"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqkfefin
+.Fa "nqkfctx *c" "const uint8_t *in" "size_t n"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqkfdini
+.Fa "nqkfctx *c" "nqkalg alg" "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *ctx" "size_t ctxlen"
+.Fa "const uint8_t *hdr" "size_t hlen" "uint32_t *chunk"
+.Fc
+.Ft int
+.Fo nqkfdupd
+.Fa "nqkfctx *c" "const uint8_t *in" "size_t n"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqkfdfin
+.Fa "nqkfctx *c" "const uint8_t *in" "size_t n"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Sh DESCRIPTION
+These functions write and read noqtis-kstream-1, a stream sealed to an
+ML-KEM public key in chunks (the STREAM construction of Hoang,
+Reyhanitabar, Rogaway and Vizar on ChaCha20-Poly1305), so that a file
+of any size is encrypted and checked in the memory of one chunk.
+.Pp
+The header is
+.Dv NQKFHDR
+(17) bytes and the ML-KEM ciphertext:
+.Li NQKF ,
+the version 1, the algorithm (one byte, its
+.Vt nqkalg ) ,
+the chunk size (32 bits, big-endian) and a random 7-byte nonce prefix.
+The key is HKDF-SHA-256 of the shared secret, with info
+.Li noqtis-kstream-1 ,
+the SHA3-256 of the public key, the context's length (one byte) and
+bytes, and the whole header: a changed header gives another key and
+the first tag fails.
+Chunk
+.Va i
+is its plaintext under ChaCha20-Poly1305 and a 16-byte tag, with the
+nonce prefix,
+.Va i
+(32 bits, big-endian) and a byte that is 1 for the last chunk and 0
+before it.
+Every chunk but the last holds exactly the chunk size; the last holds 0
+to the chunk size, so an empty stream is one empty last chunk.
+.Pp
+.Fn nqkfeini
+writes the header to
+.Fa hdr ;
+.Fn nqkfeupd
+seals one full chunk and
+.Fn nqkfefin
+the last, each to
+.Fa out
+with its tag.
+.Fn nqkfdini
+reads the header
+.Fa ( hlen
+exactly 17 plus the KEM ciphertext's size) and gives the chunk size;
+.Fn nqkfdupd
+opens a chunk of the chunk size plus 16 bytes and
+.Fn nqkfdfin
+the last, which the caller knows as the one the input ends with.
+Plaintext reaches
+.Fa out
+only when the chunk's tag verifies.
+The chunk size is
+.Dv NQKFCMIN
+(1024) to
+.Dv NQKFCMAX
+(16 MiB), 0 for
+.Dv NQKFCHUNK
+(64 KiB); a header with another is refused
+.Pq Er NQELIM
+before anything is derived.
+At most 2^32 chunks: the next would repeat a nonce
+.Pq Er NQELIM .
+The last call, and any error but
+.Er NQEBUF ,
+ends the stream: the context is wiped and then gives
+.Er NQESTATE .
+.Sh RETURN VALUES
+.Dv NQOK ,
+or
+.Bl -tag -width NQENOSUP
+.It Bq Er NQEARG
+A
+.Dv NULL
+pointer, a context over 255 bytes, a chunk size out of range for
+.Fn nqkfeini ,
+or a piece of the wrong size to seal.
+.It Bq Er NQEBUF
+.Fa cap
+is too small;
+.Pf * Fa hlen
+or
+.Pf * Fa outlen
+gets the size needed.
+.It Bq Er NQEDEC
+A key of the wrong length, a header that is not noqtis-kstream-1 for
+.Fa alg ,
+or a chunk of the wrong size to open.
+.It Bq Er NQELIM
+A chunk size out of range in a header, or the chunk counter's end.
+.It Bq Er NQEVRFY
+A chunk's tag does not verify;
+.Fa out
+is zeroed.
+.It Bq Er NQESTATE
+The context is not open in this direction.
+.It Bq Er NQENOSUP
+.Fa alg
+is HQC.
+.El
+.Sh SEE ALSO
+.Xr noqtis-box 1 ,
+.Xr noqtis-unbox 1 ,
+.Xr nqkseal 3
+.Sh STANDARDS
+FIPS 203, RFC 5869, RFC 8439.

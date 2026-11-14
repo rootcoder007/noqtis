@@ -346,6 +346,58 @@ NQAPI int nqkopen(nqkalg alg, const uint8_t *sk, size_t sklen,
                   const uint8_t *ctx, size_t ctxlen, const uint8_t *in,
                   size_t n, uint8_t *msg, size_t cap, size_t *outlen);
 
+/* A stream sealed to an ML-KEM public key (noqtis-kstream-1), for files
+ * of any size in bounded memory: the STREAM construction on
+ * ChaCha20-Poly1305. The header, NQKFHDR bytes then the KEM ciphertext:
+ * "NQKF", the version 1, the algorithm (its nqkalg), the chunk size (32
+ * bits, big-endian), a random 7-byte nonce prefix. The key is
+ * HKDF-SHA-256 of the shared secret with info "noqtis-kstream-1", the
+ * SHA3-256 of the public key, the context's length and bytes and the
+ * whole header, so a changed header gives another key. Then the chunks,
+ * each its plaintext under the AEAD and a 16-byte tag, with the nonce
+ * prefix || the chunk's number (32 bits, big-endian) || 1 for the last
+ * chunk, 0 before it; every chunk but the last holds exactly the chunk
+ * size, the last 0 to the chunk size (an empty stream is one empty last
+ * chunk). Moved, repeated or dropped chunks, a stream cut at a chunk's
+ * end, bytes after the last chunk and a changed header all fail a tag.
+ * The chunk size is NQKFCMIN to NQKFCMAX (0 for NQKFCHUNK); a reader
+ * refuses another (NQELIM) before deriving anything; at most 2^32
+ * chunks (NQELIM for more: a nonce would repeat).
+ *
+ * nqkfeini writes the header to hdr (cap bytes; *hlen its size, also
+ * with NQEBUF); nqkfeupd seals one full chunk (n the chunk size),
+ * nqkfefin the last (n at most the chunk size), each to out with its
+ * tag (*outlen). nqkfdini reads the header (hlen exactly NQKFHDR + the
+ * KEM ciphertext's size) and gives the chunk size; nqkfdupd opens one
+ * chunk of the chunk size plus 16 bytes and nqkfdfin the last (16 bytes
+ * to the chunk size plus 16), each plaintext to out only when its tag
+ * verifies (NQEVRFY otherwise, out zeroed). The caller decides which
+ * chunk is the last: the one the input ends with. The last call, and
+ * any error but NQEBUF, ends the stream: the context is wiped and then
+ * gives NQESTATE. alg is an ML-KEM set (NQENOSUP for HQC); ctx (at most
+ * 255 bytes) must be the same to open. */
+#define NQKFHDR 17u
+#define NQKFCHUNK 65536u
+#define NQKFCMIN 1024u
+#define NQKFCMAX 16777216u
+typedef struct {
+  uint64_t opq[16];
+} nqkfctx;
+NQAPI int nqkfeini(nqkfctx *c, nqkalg alg, const uint8_t *pk, size_t pklen,
+                   const uint8_t *ctx, size_t ctxlen, uint32_t chunk,
+                   uint8_t *hdr, size_t cap, size_t *hlen);
+NQAPI int nqkfeupd(nqkfctx *c, const uint8_t *in, size_t n, uint8_t *out,
+                   size_t cap, size_t *outlen);
+NQAPI int nqkfefin(nqkfctx *c, const uint8_t *in, size_t n, uint8_t *out,
+                   size_t cap, size_t *outlen);
+NQAPI int nqkfdini(nqkfctx *c, nqkalg alg, const uint8_t *sk, size_t sklen,
+                   const uint8_t *ctx, size_t ctxlen, const uint8_t *hdr,
+                   size_t hlen, uint32_t *chunk);
+NQAPI int nqkfdupd(nqkfctx *c, const uint8_t *in, size_t n, uint8_t *out,
+                   size_t cap, size_t *outlen);
+NQAPI int nqkfdfin(nqkfctx *c, const uint8_t *in, size_t n, uint8_t *out,
+                   size_t cap, size_t *outlen);
+
 /* ---- passphrase key files ------------------------------------------- */
 
 /* A secret key under a passphrase (noqtis-pwkey-1): the header, 35

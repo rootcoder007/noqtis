@@ -2236,6 +2236,41 @@ static void tstream(void) {
   tenv("NQTESTSTREAM", NULL);
 }
 
+/* box and unbox: files and stdin, empty and chunk-multiple sizes, the
+ * output removed when a stream does not verify */
+static void tbox(void) {
+  static char b[4097];
+  size_t i;
+  for (i = 0; i < sizeof b - 1; i++)
+    b[i] = (char)('A' + i % 23);
+  b[sizeof b - 1] = 0;
+  remove("q.kk");
+  remove("q.kk.pub");
+  want(0, "keygen -a ML-KEM-768 -o q.kk", NULL);
+  wrs("q.b0", "");
+  wrs("q.b4", b);
+  wrs("q.b1", "hello, stream\n");
+  want(0, "box -p q.kk.pub -o q.x0 q.b0", NULL);
+  want(0, "unbox -k q.kk -o q.y0 q.x0", NULL);
+  ok(same("q.b0", "q.y0"), "an empty file round trip");
+  want(0, "box -p q.kk.pub --chunk 1024 -c ctx -o q.x4 q.b4", NULL);
+  want(0, "unbox -k q.kk -c ctx -o q.y4 q.x4", NULL);
+  ok(same("q.b4", "q.y4"), "four full chunks round trip");
+  want(0, "box -p q.kk.pub --chunk 1024 -o - -", "q.b1");
+  ok(has("q.out", "NQKF"), "box writes the stream to stdout");
+  cp("q.out", "q.x1");
+  want(0, "unbox -k q.kk -o - q.x1", NULL);
+  ok(same("q.out", "q.b1"), "unbox to stdout");
+  want(2, "unbox -k q.kk -o q.y5 q.x4", NULL);
+  ok(!exists("q.y5"), "another context: nothing kept");
+  flip("q.x4", 3000);
+  want(2, "unbox -k q.kk -c ctx -o q.y6 q.x4", NULL);
+  ok(!exists("q.y6"), "a changed chunk: the output is removed");
+  want(2, "box -p q.kk.pub --chunk 10 -o q.x7 q.b1", NULL);
+  want(2, "box -p q.kk -o q.x7 q.b1", NULL);
+  want(2, "unbox -k q.kk.pub -o q.y7 q.x1", NULL);
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -2294,6 +2329,7 @@ int main(int argc, char **argv) {
   tdet();
   tpass();
   tstream();
+  tbox();
   for (i = 0; i < sizeof kems / sizeof kems[0]; i++)
     tkem(kems[i]);
   thash();
