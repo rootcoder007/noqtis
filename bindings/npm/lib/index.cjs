@@ -71,6 +71,9 @@ module.exports = {
     encode: fwd('keyfile', 'encode'),
     decode: fwd('keyfile', 'decode'),
   }),
+  data: Object.freeze(Object.fromEntries(['canon', 'add', 'put', 'check',
+    'schema', 'schemaCheck', 'pin', 'drift', 'diff', 'addrs', 'verify',
+    'field', 'request', 'reply', 'wayback'].map((n) => [n, fwd('data', n)]))),
   codes: Object.freeze({
     OK: 0, EARG: -1, EBUF: -2, EVRFY: -3, EDEC: -4, ERNG: -5, EMEM: -6,
     EIO: -7, ENOSUP: -8, ELIM: -9, ESTATE: -10,

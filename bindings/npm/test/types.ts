@@ -2,12 +2,16 @@
 // Compiled with `tsc -p test/tsconfig.json` (no output): the types cover
 // the API as the tests use it.
 import nq, { init, sign, kem, hash, capsule, dsse, idcard, algs,
-  NoqtisError, codes }
+  NoqtisError, codes, data }
   from 'noqtis';
 import { checkDir } from 'noqtis/node';
 
 async function main(): Promise<void> {
   await init();
+  const rec: string = data.add(null, new Map([['a.csv', 'x\n1\n']]), 'a.csv');
+  const ad: { kind: string; url: string }[] = data.addrs(rec, 'a.csv');
+  const rs: { url: string; time: string } = data.reply({ kind: 'socrata' }, '{}');
+  const dr: boolean = data.drift(data.pin(new Map([['a.csv', 'x\n1\n']]), 'a.csv'), 'x\n1\n').ok;
   const k = sign.keygen('ML-DSA-65', { seed: new Uint8Array(32) });
   const s: Uint8Array = sign.sign('ML-DSA-65', k.secretKey, 'm',
     { ctx: 'c', deterministic: true, prehash: 'sha256' });

@@ -88,7 +88,7 @@
   },
   "scripts": {
     "build": "sh build.sh",
-    "test": "node --experimental-vm-modules --test test/api.test.js test/acvp.test.js test/cap.test.js test/cap2.test.js test/card.test.js test/cjs.test.cjs test/cli.test.js test/wasi.test.js test/web.test.js",
+    "test": "node --experimental-vm-modules --test test/api.test.js test/acvp.test.js test/cap.test.js test/cap2.test.js test/card.test.js test/cjs.test.cjs test/cli.test.js test/data.test.js test/wasi.test.js test/web.test.js",
     "types": "tsc -p test/tsconfig.json",
     "prepack": "test -f dist/noqtis.wasm"
   },

@@ -228,6 +228,41 @@ export const keyfile: {
     { alg: string; kind: 'pub' | 'sec'; key: Bytes };
 };
 
+/** A row of a data check; stats holds a drift row's numbers. */
+export interface DRow {
+  check: string; ok: boolean; detail: string;
+  stats: Record<string, unknown> | null;
+}
+export interface DReport { ok: boolean; code: number; rows: DRow[] }
+export interface CsvOptions { delim?: string; header?: boolean; ranges?: boolean }
+export interface DriftOptions extends CsvOptions {
+  psiwarn?: number; psifail?: number; alpha?: number; minn?: number;
+  benford?: boolean;
+}
+export type Element = string | Record<string, unknown>;
+
+/** The data layer (noqtis-data(5)): records are their JSON text. */
+export const data: {
+  canon(record: string): string;
+  add(record: string | null, files: Files, paths: string | string[],
+    fields?: Record<string, string>): string;
+  put(record: string, member: string, element: Element): string;
+  check(files: Files): DReport;
+  schema(files: Files, path: string, opts?: CsvOptions): string;
+  schemaCheck(files: Files, schema: Element): DReport;
+  pin(files: Files, path: string, opts?: CsvOptions): string;
+  drift(stats: Element, data: Data, opts?: DriftOptions): DReport;
+  diff(a: Files, b: Files): DReport;
+  addrs(record: string, path: string):
+    { kind: 'url' | 'portal' | 'mirror' | 'archived'; url: string }[];
+  verify(record: string, path: string, bytes: Data): boolean;
+  field(record: string, member: string, i: number, name: string):
+    string | null;
+  request(resolver: Element): string;
+  reply(resolver: Element, body: Data): { url: string; time: string };
+  wayback(url: string): string;
+};
+
 export const codes: Readonly<{
   OK: 0; EARG: -1; EBUF: -2; EVRFY: -3; EDEC: -4; ERNG: -5; EMEM: -6;
   EIO: -7; ENOSUP: -8; ELIM: -9; ESTATE: -10;

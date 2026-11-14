@@ -1089,7 +1089,320 @@ export function _heap() {
   return M.HEAPU8;
 }
 
+// ---- the data layer (nqd.h) ---------------------------------------------
+
+const dec8 = new TextDecoder();
+
+// nqdrec from JSON text (a record), freed by fn's end
+function withrec(h, text, fn) {
+  if (typeof text !== 'string') {
+    throw new TypeError('noqtis: a record is its JSON text');
+  }
+  const b = enc.encode(text);
+  const rp = h.alloc(4);
+  const why = h.alloc(600);
+  M.HEAPU8[why] = 0;
+  check(M._nqdparse(h.put(b), b.length, rp, why, 600), M.UTF8ToString(why));
+  const r = h.u32(rp);
+  try {
+    return fn(r);
+  } finally {
+    M._nqdrfree(r);
+  }
+}
+
+function rtext(h, r) {
+  return dec8.decode(sized(h, (o, c, n) => M._nqdjson(r, o, c, n), 4096));
+}
+
+// the rows of an nqd report: [{ check, ok, detail, stats }]
+function drows(h, rp) {
+  const r = h.u32(rp);
+  const rows = [];
+  if (r === 0) return rows;
+  try {
+    const n = M._nqdrepn(r);
+    const pc = h.alloc(4);
+    const po = h.alloc(4);
+    const pd = h.alloc(4);
+    for (let i = 0; i < n; i++) {
+      check(M._nqdrepi(r, i, pc, po, pd));
+      const j = M._nqdrepj(r, i);
+      rows.push({
+        check: M.UTF8ToString(h.u32(pc)),
+        ok: h.u32(po) !== 0,
+        detail: M.UTF8ToString(h.u32(pd)),
+        stats: j === 0 ? null : JSON.parse(M.UTF8ToString(j)),
+      });
+    }
+  } finally {
+    M._nqdrepfree(r);
+  }
+  return rows;
+}
+
+function dreport(h, rc, rp) {
+  const rows = drows(h, rp);
+  if (rc !== CODES.OK && rc !== CODES.EVRFY) throw new NoqtisError(rc);
+  return { ok: rc === CODES.OK, code: rc, rows };
+}
+
+// nqdcsvopt: char delim, int noheader, int ranges (12 bytes)
+function csvopt(h, o = {}) {
+  const p = h.alloc(12);
+  const d = o.delim === undefined ? ',' : o.delim;
+  if (typeof d !== 'string' || enc.encode(d).length !== 1) {
+    throw new NoqtisError(CODES.EARG, 'delim is one byte');
+  }
+  const v = new DataView(M.HEAPU8.buffer, p, 12);
+  v.setUint8(0, enc.encode(d)[0]);
+  v.setInt32(4, o.header === false ? 1 : 0, true);
+  v.setInt32(8, o.ranges ? 1 : 0, true);
+  return p;
+}
+
+function elem(x) {
+  return typeof x === 'string' ? x : JSON.stringify(x);
+}
+
+export const data = Object.freeze({
+  /** The record (JSON text) in canonical form; throws when it is not one. */
+  canon(record) {
+    return run((h) => withrec(h, record, (r) => rtext(h, r)));
+  },
+
+  /**
+   * A record with each of paths (files of the capsule given as files)
+   * recorded as a source, its SHA-256 and size, keeping what record (JSON
+   * text, or null for a new one) says of it; fields (url, title, ...) set
+   * as strings. Returns the new record's text.
+   */
+  add(record, files, paths, fields = {}) {
+    return withdir(files, (dir) => run((h) => {
+      const rec = record === null || record === undefined
+        ? `{"format":"noqtis-data-1"}` : record;
+      return withrec(h, rec, (r) => {
+        const why = h.alloc(600);
+        for (const p of Array.isArray(paths) ? paths : [paths]) {
+          M.HEAPU8[why] = 0;
+          check(M._nqdsrc(r, h.str(dir), h.str(p), why, 600),
+            M.UTF8ToString(why));
+          for (const [k, v] of Object.entries(fields)) {
+            const j = JSON.stringify(v);
+            M.HEAPU8[why] = 0;
+            check(M._nqdset(r, h.str('sources'), h.str(p), h.str(k),
+              h.str(j), enc.encode(j).length, why, 600),
+            M.UTF8ToString(why));
+          }
+        }
+        return rtext(h, r);
+      });
+    }));
+  },
+
+  /** record with element (JSON text or a value) put in member. */
+  put(record, member, element) {
+    return run((h) => withrec(h, record, (r) => {
+      const j = elem(element);
+      const why = h.alloc(600);
+      M.HEAPU8[why] = 0;
+      check(M._nqdput(r, h.str(member), h.str(j), enc.encode(j).length, why,
+        600), M.UTF8ToString(why));
+      return rtext(h, r);
+    }));
+  },
+
+  /** Checks the capsule given as files against its noqtis.data.json. */
+  check(files) {
+    return withdir(files, (dir) => run((h) => {
+      const rp = h.alloc(4);
+      M.HEAPU32[rp >>> 2] = 0;
+      return dreport(h, M._nqdchk(h.str(dir), rp), rp);
+    }));
+  },
+
+  /** The schema of the CSV file path of files, a "schemas" element. */
+  schema(files, path, opts = {}) {
+    return withdir(files, (dir) => run((h) => {
+      const why = h.alloc(600);
+      M.HEAPU8[why] = 0;
+      const o = csvopt(h, opts);
+      const pn = h.alloc(4);
+      let cap = 65536;
+      for (;;) {
+        const po = h.alloc(cap);
+        const rc = M._nqdinfer(h.str(dir), h.str(path), o, po, cap, pn, why,
+          600);
+        if (rc === CODES.EBUF && h.u32(pn) >= cap) {
+          cap = h.u32(pn) + 1;
+          continue;
+        }
+        check(rc, M.UTF8ToString(why));
+        return dec8.decode(h.get(po, h.u32(pn)));
+      }
+    }));
+  },
+
+  /** Checks the CSV file of a "schemas" element against it. */
+  schemaCheck(files, schema) {
+    return withdir(files, (dir) => run((h) => {
+      const j = elem(schema);
+      const rp = h.alloc(4);
+      M.HEAPU32[rp >>> 2] = 0;
+      return dreport(h, M._nqdschk(h.str(dir), h.str(j), enc.encode(j).length,
+        rp), rp);
+    }));
+  },
+
+  /** The drift summaries of the CSV file path of files, a "stats" element. */
+  pin(files, path, opts = {}) {
+    return withdir(files, (dir) => run((h) => {
+      const why = h.alloc(600);
+      M.HEAPU8[why] = 0;
+      const o = csvopt(h, opts);
+      const pn = h.alloc(4);
+      let cap = 1 << 20;
+      for (;;) {
+        const po = h.alloc(cap);
+        const rc = M._nqdstats(h.str(dir), h.str(path), o, po, cap, pn, why,
+          600);
+        if (rc === CODES.EBUF && h.u32(pn) >= cap) {
+          cap = h.u32(pn) + 1;
+          continue;
+        }
+        check(rc, M.UTF8ToString(why));
+        return dec8.decode(h.get(po, h.u32(pn)));
+      }
+    }));
+  },
+
+  /**
+   * Compares the CSV file data (bytes or text) with the "stats" element
+   * stats: { ok, code, rows } with a "drift" or "drift.warn" row per
+   * column. Options: psiwarn, psifail, alpha, minn, benford, delim, header.
+   */
+  drift(stats, data, opts = {}) {
+    return withdir(new Map([['f.csv', data]]), (dir) => run((h) => {
+      const j = elem(stats);
+      const o = csvopt(h, opts);
+      const d = h.alloc(40);
+      const v = new DataView(M.HEAPU8.buffer, d, 40);
+      v.setFloat64(0, opts.psiwarn === undefined ? 0.1 : opts.psiwarn, true);
+      v.setFloat64(8, opts.psifail === undefined ? 0.25 : opts.psifail, true);
+      v.setFloat64(16, opts.alpha === undefined ? 0.001 : opts.alpha, true);
+      v.setFloat64(24, opts.minn === undefined ? 1000 : opts.minn, true);
+      v.setInt32(32, opts.benford ? 1 : 0, true);
+      const rp = h.alloc(4);
+      M.HEAPU32[rp >>> 2] = 0;
+      return dreport(h, M._nqddrift(h.str(j), enc.encode(j).length,
+        h.str(`${dir}/f.csv`), o, d, rp), rp);
+    }));
+  },
+
+  /** What changed from capsule a to capsule b (each as files). */
+  diff(a, b) {
+    return withdirs([a, b], (dirs) => run((h) => {
+      const rp = h.alloc(4);
+      M.HEAPU32[rp >>> 2] = 0;
+      return dreport(h, M._nqddiff(h.str(dirs[0]), h.str(dirs[1]), rp), rp);
+    }));
+  },
+
+  /**
+   * The addresses the source path of record can be fetched from, in the
+   * order to try them: [{ kind: 'url' | 'portal' | 'mirror' | 'archived',
+   * url }]; none for a synthetic source.
+   */
+  addrs(record, path) {
+    const kinds = ['', 'url', 'portal', 'mirror', 'archived'];
+    return run((h) => withrec(h, record, (r) => {
+      const out = [];
+      const pk = h.alloc(4);
+      const pp = h.str(path);
+      for (let i = 0; ; i++) {
+        const po = h.alloc(4400);
+        const pn = h.alloc(4);
+        const rc = M._nqdaddr(r, pp, i, pk, po, 4400, pn);
+        if (rc === CODES.EARG || (rc === CODES.EIO && i > 0)) return out;
+        check(rc);
+        out.push({ kind: kinds[h.u32(pk)] || 'archived',
+          url: dec8.decode(h.get(po, h.u32(pn))) });
+      }
+    }));
+  },
+
+  /** Whether bytes are the source path's recorded bytes (size, SHA-256). */
+  verify(record, path, b) {
+    const x = bytes(b, 'bytes');
+    return run((h) => withrec(h, record, (r) => {
+      const rc = M._nqdvrfy(r, h.str(path), h.put(x), x.length);
+      if (rc !== CODES.OK && rc !== CODES.EVRFY) throw new NoqtisError(rc);
+      return rc === CODES.OK;
+    }));
+  },
+
+  /** Field name of element i of member, as text; null when there is none. */
+  field(record, member, i, name) {
+    if (!Number.isSafeInteger(i) || i < 0) {
+      throw new NoqtisError(CODES.EARG, 'i');
+    }
+    return run((h) => withrec(h, record, (r) => {
+      const pn = h.alloc(4);
+      const m = h.str(member);
+      const f = h.str(name);
+      let rc = M._nqdfld(r, m, i, f, 0, 0, pn);
+      if (rc === CODES.EIO) return null;
+      if (rc !== CODES.EBUF) check(rc);
+      const n = h.u32(pn);
+      const po = h.alloc(n + 1);
+      rc = M._nqdfld(r, m, i, f, po, n + 1, pn);
+      check(rc);
+      return dec8.decode(h.get(po, n));
+    }));
+  },
+
+  /** The request (a GET address) for a source's resolver (JSON). */
+  request(resolver) {
+    return run((h) => {
+      const j = elem(resolver);
+      const why = h.alloc(600);
+      M.HEAPU8[why] = 0;
+      const po = h.alloc(4400);
+      const pn = h.alloc(4);
+      check(M._nqdrslv(h.str(j), enc.encode(j).length, po, 4400, pn, why,
+        600), M.UTF8ToString(why));
+      return dec8.decode(h.get(po, h.u32(pn)));
+    });
+  },
+
+  /**
+   * Reads the portal's reply to request(): { url, time }, time the
+   * Wayback Machine copy's ("" for the other portals).
+   */
+  reply(resolver, body) {
+    const b = bytes(body, 'reply');
+    return run((h) => {
+      const j = elem(resolver);
+      const why = h.alloc(600);
+      M.HEAPU8[why] = 0;
+      const po = h.alloc(4400);
+      const pn = h.alloc(4);
+      const tm = h.alloc(21);
+      check(M._nqdrsp(h.str(j), enc.encode(j).length, h.put(b), b.length, po,
+        4400, pn, tm, why, 600), M.UTF8ToString(why));
+      return { url: dec8.decode(h.get(po, h.u32(pn))),
+        time: M.UTF8ToString(tm) };
+    });
+  },
+
+  /** The raw-bytes address of a Wayback Machine copy. */
+  wayback(url) {
+    return run((h) => dec8.decode(sized(h,
+      (o, c, n) => M._nqdwb(h.str(url), o, c, n), 4400)));
+  },
+});
+
 export default {
   init, version, selftest, algs, random, hash, hmac, sign, kem, capsule, dsse,
-  idcard, keyfile, NoqtisError, codes, errmsg,
+  idcard, keyfile, data, NoqtisError, codes, errmsg,
 };

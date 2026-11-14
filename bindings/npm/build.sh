@@ -29,6 +29,9 @@ nqssize nqsname nqskg nqskgd nqsign nqsignd nqvrfy
 nqksize nqkname nqkkg nqkkgd nqenc nqencd nqdec
 nqseal nqseal2 nqcapid nqchkt nqchkx nqchkp nqprove nqfiles
 nqkstmt nqdsse nqdssevrfy nqcard nqcardvrfy nqrepn nqrepi nqrepfree
+nqdparse nqdjson nqdrfree nqdput nqdset nqdsrc nqdchk nqdinfer nqdschk
+nqdstats nqddrift nqddiff nqdrepn nqdrepi nqdrepj nqdrepfree nqdaddr nqdvrfy
+nqdfld nqdrslv nqdrsp nqdwb
 malloc free setenv unsetenv'
 exp=$(printf ' -Wl,--export=%s' $fns)
 
@@ -36,7 +39,7 @@ mkdir -p "$out"
 rm -f "$out/noqtis.js" "$out/noqtis.wasm"
 
 # every module folder, as the CMake glob takes them
-srcs=$(ls "$root"/src/*/*.c)
+srcs=$(ls "$root"/src/*/*.c "$root"/nqd/*.c)
 
 # 8 MiB of stack, as the WASI CMake build gives its programs: masked
 # ML-DSA and HQC need more than wasm-ld's default 64 KiB
