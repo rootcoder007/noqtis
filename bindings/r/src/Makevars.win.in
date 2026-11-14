@@ -13,6 +13,8 @@ OBJECTS = \
   api/kem.o \
   api/self.o \
   api/sig.o \
+  api/stm.o \
+  box/kf.o \
   box/ks.o \
   box/pw.o \
   cap/chk.o \

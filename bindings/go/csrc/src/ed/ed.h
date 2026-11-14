@@ -9,7 +9,8 @@
  *
  * The variant follows ctx and ph: no context and ph 0 is Ed25519; a
  * context of 1 to 255 bytes with ph 0 is Ed25519ctx; ph 1 is Ed25519ph
- * (msg is hashed here with SHA-512), with or without a context.
+ * (msg is hashed here with SHA-512), with or without a context; ph 2 is
+ * Ed25519ph with msg already its SHA-512 (NQEDPH bytes), for streaming.
  *
  * Signing runs in constant time in the secret key and the secret nonce,
  * and is first-order masked against power and electromagnetic analysis:
@@ -43,6 +44,7 @@
 #define NQEDPK 32
 #define NQEDSK 32
 #define NQEDSIG 64
+#define NQEDPH 64  /* the SHA-512 Ed25519ph signs */
 
 int nqedkg(const uint8_t sk[NQEDSK], uint8_t pk[NQEDPK]);
 int nqedsign(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,

@@ -9,27 +9,50 @@
 
 #include "aead/aead.h"
 #include "core/int.h"
+#include "box/box.h"
 #include "hash/h.h"
 
 #define HDR 6
 #define LAB "noqtis-kseal-1"
-#define LABL (sizeof LAB - 1)
-#define CTMAX 1568 /* ML-KEM-1024's ciphertext */
-#define CTXMAX 255
+#define CTMAX NQBXCT
+#define CTXMAX NQBXCTX
 #define KN 44
 
-static int iskem(nqkalg alg) {
+int nqbxkem(nqkalg alg) {
   return alg == NQMLKEM512 || alg == NQMLKEM768 || alg == NQMLKEM1024;
 }
 
 /* the checks both directions make; z gets alg's sizes */
 static int args(nqkalg alg, const uint8_t *key, const uint8_t *ctx,
                 size_t ctxlen, nqksz *z) {
-  if (!iskem(alg)) return nqksize(alg, z) == NQOK ? NQENOSUP : NQEARG;
+  if (!nqbxkem(alg)) return nqksize(alg, z) == NQOK ? NQENOSUP : NQEARG;
   if (key == NULL || (ctx == NULL && ctxlen > 0) || ctxlen > CTXMAX) {
     return NQEARG;
   }
   return nqksize(alg, z);
+}
+
+int nqbxkd(const char *lab, const uint8_t *ss, const uint8_t hek[32],
+           const uint8_t *ctx, size_t ctxlen, const uint8_t *hdr, size_t hl,
+           const uint8_t *ct, size_t cl, uint8_t *okm, size_t on) {
+  uint8_t info[16 + 32 + 1 + CTXMAX + 17 + CTMAX], prk[32];
+  size_t i = strlen(lab);
+  int rc;
+  if (i > 16 || ctxlen > CTXMAX || hl + cl > 17 + CTMAX) return NQEARG;
+  memcpy(info, lab, i);
+  memcpy(info + i, hek, 32);
+  i += 32;
+  info[i++] = (uint8_t)ctxlen;
+  if (ctxlen > 0) memcpy(info + i, ctx, ctxlen);
+  i += ctxlen;
+  memcpy(info + i, hdr, hl);
+  i += hl;
+  if (cl > 0) memcpy(info + i, ct, cl);
+  i += cl;
+  rc = nqhkx(NQS256, NULL, 0, ss, 32, prk);
+  if (rc == NQOK) rc = nqhke(NQS256, prk, sizeof prk, info, i, okm, on);
+  nqwipe(prk, sizeof prk);
+  return rc;
 }
 
 /* the AEAD's key and nonce, and its associated data (aad, *alen) */
@@ -37,23 +60,7 @@ static int derive(const uint8_t *ss, const uint8_t hek[32],
                   const uint8_t *ctx, size_t ctxlen, const uint8_t *hdr,
                   const uint8_t *ct, size_t ctlen, uint8_t *kn,
                   uint8_t *aad, size_t *alen) {
-  uint8_t info[LABL + 32 + 1 + CTXMAX + HDR + CTMAX], prk[32];
-  size_t i = 0;
-  int rc;
-  memcpy(info, LAB, LABL);
-  i += LABL;
-  memcpy(info + i, hek, 32);
-  i += 32;
-  info[i++] = (uint8_t)ctxlen;
-  if (ctxlen > 0) memcpy(info + i, ctx, ctxlen);
-  i += ctxlen;
-  memcpy(info + i, hdr, HDR);
-  i += HDR;
-  memcpy(info + i, ct, ctlen);
-  i += ctlen;
-  rc = nqhkx(NQS256, NULL, 0, ss, 32, prk);
-  if (rc == NQOK) rc = nqhke(NQS256, prk, sizeof prk, info, i, kn, KN);
-  nqwipe(prk, sizeof prk);
+  int rc = nqbxkd(LAB, ss, hek, ctx, ctxlen, hdr, HDR, ct, ctlen, kn, KN);
   /* header || KEM ciphertext || ctxlen || ctx */
   memcpy(aad, hdr, HDR);
   memcpy(aad + HDR, ct, ctlen);
