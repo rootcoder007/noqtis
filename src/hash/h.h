@@ -162,6 +162,17 @@ void nqb2upd(nqb2ctx *c, const uint8_t *in, size_t len);
 /* Writes c->olen bytes and wipes c. */
 void nqb2fin(nqb2ctx *c, uint8_t *out);
 
+/* ---- Argon2 (RFC 9106), on BLAKE2b ---- */
+
+/* y: 0 Argon2d, 1 Argon2i, 2 Argon2id. The arguments and limits of
+ * nqa2id (noqtis.h); the memory, m KiB, is allocated once with nqmal
+ * and wiped and freed before return. Argon2d and Argon2i are here for
+ * the RFC's test vectors only. */
+int nqa2(int y, const uint8_t *pw, size_t pwlen, const uint8_t *salt,
+         size_t slen, const uint8_t *key, size_t klen, const uint8_t *ad,
+         size_t alen, uint32_t t, uint32_t m, uint32_t p, uint8_t *out,
+         size_t outlen);
+
 /* ---- HKDF (RFC 5869), on the HMAC above ---- */
 
 /* HKDF-Extract: prk gets nqhlen(alg) bytes; no salt (NULL, 0) is

@@ -1,0 +1,120 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NQA2ID 3
+.Os
+.Sh NAME
+.Nm nqa2id
+.Nd Argon2id password hashing and key derivation
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqa2id
+.Fa "const uint8_t *pw" "size_t pwlen"
+.Fa "const uint8_t *salt" "size_t slen"
+.Fa "const uint8_t *key" "size_t klen"
+.Fa "const uint8_t *ad" "size_t alen"
+.Fa "uint32_t t" "uint32_t m" "uint32_t p"
+.Fa "uint8_t *out" "size_t outlen"
+.Fc
+.Sh DESCRIPTION
+.Fn nqa2id
+computes Argon2id, version 0x13 (RFC 9106), of the password
+.Fa pw
+with
+.Fa salt ,
+the optional secret
+.Fa key
+and associated data
+.Fa ad
+.Dv ( NULL
+with length 0 for none), making
+.Fa t
+passes over
+.Fa m
+KiB of memory in
+.Fa p
+lanes, and writes
+.Fa outlen
+bytes to
+.Fa out .
+.Pp
+The limits, each refused with
+.Dv NQEARG :
+.Bl -bullet -compact
+.It
+.Fa t
+from 1 to
+.Dv NQA2TMAX
+(1024);
+.It
+.Fa p
+from 1 to
+.Dv NQA2PMAX
+(255);
+.It
+.Fa m
+from 8
+.Fa p
+to
+.Dv NQA2MMAX
+(4194304 KiB, 4 GiB); it is rounded down to a multiple of 4
+.Fa p
+blocks, as the RFC says, while the given value is what is hashed;
+.It
+a salt of at least
+.Dv NQA2SMIN
+(8) bytes;
+.It
+an output of
+.Dv NQA2OMIN
+(4) to
+.Dv NQA2OMAX
+(1024) bytes;
+.It
+each input under 2^32 bytes.
+.El
+.Pp
+The memory is allocated once, through the allocator of
+.Xr nqsetal 3 ,
+and is wiped and freed before the call returns, on every path.
+The lanes are filled one after another in the calling thread; the
+result is the one the RFC's parallel order gives.
+The second half of the first pass and all later passes read memory at
+places that depend on the password, as Argon2id is designed to; a
+process that shares a cache with an attacker can leak timing there.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or
+.Bl -tag -width NQEMEM
+.It Bq Er NQEARG
+A parameter is outside the limits above, or a pointer is
+.Dv NULL
+with a nonzero length.
+.It Bq Er NQELIM
+.Fa m
+KiB does not fit in a
+.Vt size_t
+(a 32-bit platform).
+.It Bq Er NQEMEM
+The allocation failed.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+uint8_t salt[16], k[32];
+int rc = nqrand(salt, sizeof salt);
+if (rc == NQOK)
+  rc = nqa2id(pw, pwlen, salt, sizeof salt, NULL, 0, NULL, 0,
+              3, 65536, 4, k, sizeof k);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 3 ,
+.Xr nqb2b 3 ,
+.Xr nqpwenc 3 ,
+.Xr nqsetal 3
+.Sh STANDARDS
+RFC 9106.
+The tests check its Argon2d, Argon2i and Argon2id vectors (Argon2d and
+Argon2i are internal, for those vectors only) and answers of OpenSSL
+3.5's ARGON2ID with more memory, lanes and output.

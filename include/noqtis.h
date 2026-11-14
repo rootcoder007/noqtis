@@ -99,7 +99,8 @@ typedef void (*nqprogfn)(int stage, uint64_t done, uint64_t total,
                          void *user);
 NQAPI int nqsetprog(nqprogfn fn, void *user);
 
-/* Replaces the allocator the capsule and parser layers use; NULL for both
+/* Replaces the allocator the capsule and parser layers and Argon2id
+ * (nqa2id) use; NULL for both
  * restores malloc/free. Not thread safe: call before anything else. */
 typedef void *(*nqmalfn)(size_t size, void *user);
 typedef void (*nqfreefn)(void *ptr, size_t size, void *user);
@@ -140,6 +141,27 @@ NQAPI int nqhmac(nqhalg alg, const uint8_t *key, size_t keylen,
  * NQEARG for a length out of range or a NULL pointer. */
 NQAPI int nqb2b(const uint8_t *key, size_t keylen, const uint8_t *in,
                 size_t inlen, uint8_t *out, size_t outlen);
+
+/* Argon2id (RFC 9106, version 0x13) on that BLAKE2b: outlen bytes from
+ * the password pw, the salt, the optional secret key and associated
+ * data ad (NULL with length 0 for none), t passes over m KiB of memory
+ * in p lanes. The limits, each NQEARG outside it: */
+#define NQA2TMAX 1024u     /* passes t: 1 to this */
+#define NQA2PMAX 255u      /* lanes p: 1 to this */
+#define NQA2MMAX 4194304u  /* memory m in KiB: 8p to this (4 GiB) */
+#define NQA2SMIN 8u        /* the shortest salt (16 or more is usual) */
+#define NQA2OMIN 4u        /* output: 4 to 1024 bytes */
+#define NQA2OMAX 1024u
+/* pw, salt, key and ad are each under 2^32 bytes (the RFC's limit).
+ * The memory is allocated once, through the nqsetal hook (NQEMEM when
+ * it fails; NQELIM when m KiB does not fit in a size_t), and wiped and
+ * freed before the call returns; the lanes run one after another in the
+ * calling thread. Its second half reads memory at places that depend
+ * on the password, as Argon2id is designed to. */
+NQAPI int nqa2id(const uint8_t *pw, size_t pwlen, const uint8_t *salt,
+                 size_t slen, const uint8_t *key, size_t klen,
+                 const uint8_t *ad, size_t alen, uint32_t t, uint32_t m,
+                 uint32_t p, uint8_t *out, size_t outlen);
 
 /* ---- signatures ----------------------------------------------------- */
 

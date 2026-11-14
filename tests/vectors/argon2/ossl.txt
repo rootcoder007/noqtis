@@ -1,0 +1,68 @@
+# Argon2id known answers from OpenSSL's ARGON2ID KDF (OpenSSL 3.5.9),
+# an implementation independent of noqtis's: openssl kdf -keylen
+# <bytes> -kdfopt hexpass:<pw> -kdfopt hexsalt:<salt> [-kdfopt
+# hexsecret:<key> -kdfopt hexad:<ad>] -kdfopt iter:<t> -kdfopt
+# memcost:<m> -kdfopt lanes:<p> ARGON2ID, written by
+# tests/vectors/argon2/ossl.sh. y 2 is Argon2id, m KiB, t passes,
+# p lanes.
+
+y=2
+m=8
+t=1
+p=1
+pw=70617373776f7264
+salt=000102030405060708090a0b0c0d0e0f
+key=
+ad=
+tag=3a008963c65f7ffa7331a90babd1fd17ea9f03bd05356b857ceb43f7b7080adc
+
+y=2
+m=35
+t=2
+p=2
+pw=70617373776f7264
+salt=000102030405060708090a0b0c0d0e0f
+key=
+ad=
+tag=638919276a3d30582a457a5ff5ed5eb79df0df377ad5d289d3fc44b44152718934992b91cee5380969be318e582fe14c07b72b2e75bda16e7df31b4ce51bbc760dbd15879758bab8c87c0e936759878bef9c3f1544944287ca553b65834294c271d7e636
+
+y=2
+m=2048
+t=2
+p=1
+pw=6e6f71746973
+salt=000102030405060708090a0b0c0d0e0f
+key=
+ad=
+tag=175bc16c1a929aeff4b5795fb659abdf3dd1a35ead53e246a1979f594f3a9231fb69eb1e13c4177cd093c4c8
+
+y=2
+m=4100
+t=1
+p=4
+pw=6e6f71746973
+salt=000102030405060708090a0b0c0d0e0f
+key=a1a2a3a4
+ad=b1b2b3
+tag=dc443b3e0b597ca2ad2ddaaeec4fcabe511d15d8e13df0374471fc8dee6f7717c23fe18c486a54e66d5fb0aaec60443dc493de40f5a86f21d732a656c7420eba
+
+y=2
+m=8192
+t=3
+p=4
+pw=
+salt=000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f
+key=
+ad=
+tag=2a6bd3ea2bfafb07be1ede5d7ef3b12b58811bb54448222937fab8b04119bb7c3399cb4d6239a78a4a3ce684a6e67e2e9d95afe27f768ede8d15f5c78f777eae1d
+
+y=2
+m=65536
+t=3
+p=4
+pw=636f727265637420686f727365
+salt=000102030405060708090a0b0c0d0e0f
+key=
+ad=
+tag=d88a615a80e3bc295a8113ba1012ebcd981f35e84c7768630efd3ebcdaefb2f9f3590a3da21d969f3845ae3f
+
