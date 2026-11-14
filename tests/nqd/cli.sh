@@ -967,6 +967,35 @@ if [ -n "$tsad" ]; then
   wait "$srv"
 fi
 
+# ---- new files: not writable by everyone, never through a planted link ----
+
+case $(uname -s 2>/dev/null) in
+MINGW* | MSYS* | CYGWIN*) ;;
+*)
+  m=$w/mode
+  mkdir -p "$m/data"
+  cp "$v/cap/data/a.csv" "$m/data/"
+  ok 0 "data add under umask 000" sh -c 'umask 000 && exec "$@"' sh \
+    "$nq" data add "$m" data/a.csv
+  ok 0 "a bundle under umask 000" sh -c 'umask 000 && exec "$@"' sh \
+    "$nq" export --as bundle -o "$w/m.nqb" "$b"
+  for f in "$m/noqtis.data.json" "$w/m.nqb"; do
+    n=$((n + 1))
+    if [ "$(ls -l "$f" | cut -c9)" = w ]; then
+      bad=$((bad + 1))
+      echo "FAIL $f is writable by everyone: $(ls -l "$f")" >&2
+    fi
+  done
+  printf 'keep\n' >"$w/victim"
+  cp "$w/victim" "$w/victim0"
+  ln -s "$w/victim" "$m/noqtis.data.json.tmp"
+  printf '{"name":"x","status":"pass"}\n' >"$w/x.json"
+  ok 0 "data put beside a planted link" "$nq" data put "$m" checks "$w/x.json"
+  same "$w/victim" "$w/victim0" "the link's target is not written"
+  has "$m/noqtis.data.json" '"name":"x"' "the record is"
+  ;;
+esac
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"

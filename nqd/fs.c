@@ -18,6 +18,7 @@
 #include <io.h>
 #include <sys/stat.h>
 #else
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -88,8 +89,14 @@ FILE *qdfnew(const char *path) {
     _close(fd);
   return f;
 #else
-  /* C11's x: never an existing file, nor a link where the file goes */
-  return fopen(path, "wbx");
+  /* never an existing file, nor a link where the file goes (O_EXCL), and
+   * rw-r--r-- before the umask: fopen's rw-rw-rw- leaves a new file
+   * writable by everyone under a umask of 0 */
+  int fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0644);
+  FILE *f = fd >= 0 ? fdopen(fd, "wb") : NULL;
+  if (fd >= 0 && f == NULL)
+    close(fd);
+  return f;
 #endif
 }
 
@@ -175,7 +182,9 @@ int qdwrite(const char *path, const char *b, size_t len) {
   int bad;
   if ((size_t)snprintf(tmp, sizeof tmp, "%s.tmp", path) >= sizeof tmp)
     return NQELIM;
-  f = qdfopen(tmp, "wb");
+  /* a new file, not one left there or a link planted in its place */
+  dremove(tmp);
+  f = qdfnew(tmp);
   if (f == NULL)
     return NQEIO;
   bad = fwrite(b, 1, len, f) != len;
