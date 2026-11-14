@@ -312,6 +312,56 @@ NQDAPI int nqdunpack(const char *file, const char *dir, int rm, char *why,
 NQDAPI int nqdchain(const char *const *dirs, size_t n, const nqcopt *o,
                     uint8_t head[32], nqdrep **rep);
 
+/* ---- sources ---- */
+
+/* The value of field of element i of member (i 0 for "env" or "cite"),
+ * to out (cap bytes, NUL added; *outlen its length, also with NQEBUF):
+ * a string as its text, any other value as canonical JSON. NQEIO when
+ * there is no such element or field. */
+NQDAPI int nqdfld(const nqdrec *r, const char *member, size_t i,
+                  const char *field, char *out, size_t cap, size_t *outlen);
+
+/* where the addresses nqdaddr gives come from */
+#define NQDAURL 1  /* the source's url (or a direct resolver's base) */
+#define NQDAPORT 2 /* a portal: the request of nqdrslv, to read with nqdrsp */
+#define NQDAMIR 3  /* a mirror */
+#define NQDAARC 4  /* the archived copy (nqdwb's raw form) */
+/* Address i (0, 1, ...) to fetch the source path from, in the order to
+ * try them: its url, its portal, its mirrors in order, its archived copy;
+ * *kind (may be NULL) says which, out (cap bytes, NUL added; *outlen
+ * its length, also with NQEBUF) gets it. NQEIO when there is no source
+ * path or no address i; NQEARG for a synthetic source, which has none. */
+NQDAPI int nqdaddr(const nqdrec *r, const char *path, size_t i, int *kind,
+                   char *out, size_t cap, size_t *outlen);
+/* NQOK when the n bytes at b are the file the source path records (its
+ * size and SHA-256), NQEVRFY when they are not, NQEIO when the record
+ * has no source path. */
+NQDAPI int nqdvrfy(const nqdrec *r, const char *path, const uint8_t *b,
+                   size_t n);
+
+/* Portal resolvers. rslv (n bytes) is a source's "resolver" object:
+ * nqdrslv writes the address to ask (a GET) to out (cap bytes, NUL
+ * added; *outlen its length, also with NQEBUF), and nqdrsp reads the
+ * portal's JSON reply (rn bytes, at most 16 MiB) and writes the address
+ * of the file to out. For kind wayback the address is that of the
+ * archived copy's raw bytes and tm (may be NULL) gets its time
+ * (YYYY-MM-DDTHH:MM:SSZ; "" for the other kinds). An address read from a
+ * reply is http:// or https://, and https:// when the portal is. NQEARG
+ * with why for a resolver that names no request (a direct one, a
+ * missing base or id), NQEDEC with why for a reply that is not one or
+ * names no file. noqtis-src(1) gives each portal's requests. */
+NQDAPI int nqdrslv(const char *rslv, size_t n, char *out, size_t cap,
+                   size_t *outlen, char *why, size_t wcap);
+NQDAPI int nqdrsp(const char *rslv, size_t n, const char *reply, size_t rn,
+                  char *out, size_t cap, size_t *outlen, char tm[21],
+                  char *why, size_t wcap);
+/* The address of the raw bytes of a Wayback Machine copy
+ * (https://web.archive.org/web/<time>id_/<address>) from one of its
+ * copy's addresses (web.archive.org/web/<time>[<modifier>]/<address>);
+ * any other http:// or https:// address as it is. NQEARG for one that
+ * is neither. */
+NQDAPI int nqdwb(const char *url, char *out, size_t cap, size_t *outlen);
+
 /* ---- checking ---- */
 
 /* Checks the record in dir: that it parses and is canonical, that each
