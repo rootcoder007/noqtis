@@ -79,4 +79,5 @@ OBJECTS = \
   nqd/rpt.o \
   nqd/rx.o \
   nqd/sch.o \
+  nqd/src.o \
   nqd/syn.o
