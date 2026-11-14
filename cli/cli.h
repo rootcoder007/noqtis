@@ -279,6 +279,10 @@ int ncinsp(int argc, char **argv);
 int ncts(int argc, char **argv);
 /* the progress bar of long calls on a terminal (prog.c) */
 void ncprog(void);
+/* the bytes of a message read so far, of total (0 when unknown, as for
+ * stdin), on the same bar; ncpdone clears it */
+void ncpread(uint64_t done, uint64_t total);
+void ncpdone(void);
 int ncers(int argc, char **argv);
 
 /* ---- the data layer (data.c, through nqd.h) ---- */

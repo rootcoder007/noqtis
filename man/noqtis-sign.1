@@ -98,6 +98,16 @@ is signed as given, with a warning: a plain signature is never a seal
 .Pq seals are made with their own context ; see Xr noqtis-capsule 5 ,
 so to seal a folder use
 .Xr noqtis-seal 1 .
+.Pp
+The message is read in pieces of 64 KiB, never whole, for ML-DSA (pure
+and pre-hash), and with
+.Fl -ph
+for SLH-DSA, or
+.Fl -ph Cm sha512
+for Ed25519 and the hybrids; a long message then shows a progress bar
+on a terminal.
+Pure SLH-DSA and Ed25519 read the message whole, at most 1 GiB; a
+larger one is refused with the pre-hash option that signs it.
 .Sh EXIT STATUS
 0 on success; 2 on a usage error, a context over 255 bytes, an unknown
 pre-hash, a key that is not a secret signature key, an existing

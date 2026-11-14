@@ -68,6 +68,12 @@ With
 write the envelope's payload to
 .Ar payload .
 .El
+.Pp
+The message is read in pieces, as
+.Xr noqtis-sign 1
+reads it, wherever the algorithm and
+.Fl -ph
+allow.
 .Sh EXIT STATUS
 .Bl -tag -width 3n -compact
 .It 0

@@ -34,7 +34,7 @@ static uint64_t ms(void) {
 }
 
 static uint64_t t0, last;
-static int drawn, spin, prevst;
+static int drawn, spin, prevst, on;
 static size_t width; /* of the line drawn, to clear it */
 
 /* n bytes as "512 B", "3.4 MiB", ... */
@@ -85,7 +85,11 @@ static void draw(int stage, uint64_t done, uint64_t total, void *user) {
     bar[k] = k < pct / 5 ? '#' : '.';
   bar[20] = 0;
   spin = (spin + 1) & 3;
-  if (stage == NQPHASH) {
+  if (stage == NQPHASH && total == 0) {
+    /* a stream of unknown length: what was read */
+    human(done, a, sizeof a);
+    n = snprintf(line, sizeof line, "noqtis: %c hashing  %s", wheel[spin], a);
+  } else if (stage == NQPHASH) {
     human(done, a, sizeof a);
     human(total, b, sizeof b);
     n = snprintf(line, sizeof line, "noqtis: %c hashing  [%s] %3d%%  %s of %s",
@@ -121,5 +125,18 @@ void ncprog(void) {
    * tests' pseudo-terminal does not need it) */
   if (!tty && !(e != NULL && strcmp(e, "1") == 0))
     return;
+  on = 1;
   nqsetprog(draw, NULL);
+}
+
+void ncpread(uint64_t done, uint64_t total) {
+  if (on)
+    draw(NQPHASH, done, total, NULL);
+}
+
+void ncpdone(void) {
+  if (on) {
+    clear();
+    prevst = 0;
+  }
 }

@@ -2165,6 +2165,77 @@ static void tpass(void) {
   penv("NQTPW2", NULL);
 }
 
+/* the test-only cap on a message read whole, or unset with NULL */
+static void tenv(const char *name, const char *v) {
+#ifdef _WIN32
+  _putenv_s(name, v != NULL ? v : "");
+#else
+  if (v != NULL)
+    setenv(name, v, 1);
+  else
+    unsetenv(name);
+#endif
+}
+
+/* sign and verify read the message in pieces where the algorithm can:
+ * past a cap on messages read whole, from stdin too, and the same
+ * signature as the whole-file path under -d. The cap and the switch to
+ * the whole-file path are test hooks, in the tool built with NQTEST
+ * alone, which $NQCLIT names (not on Windows: then this is skipped) */
+static void tstream(void) {
+  static char big[5000];
+  const char *t = getenv("NQCLIT"), *rel = exe;
+  size_t i;
+  if (t == NULL || *t == '\0') {
+    printf("tcli: no NQCLIT, the streaming checks are skipped\n");
+    return;
+  }
+  exe = t;
+  for (i = 0; i < sizeof big - 1; i++)
+    big[i] = (char)('a' + i % 26);
+  big[sizeof big - 1] = 0;
+  wrs("q.big", big);
+  remove("q.sk");
+  remove("q.sk.pub");
+  want(0, "keygen -a ML-DSA-44 -o q.sk", NULL);
+  want(0, "sign -k q.sk -d -o q.whole q.big", NULL);
+  tenv("NQTESTRDMAX", "1000");
+  want(0, "sign -k q.sk -d -o q.part q.big", NULL);
+  ok(same("q.whole", "q.part"), "ML-DSA streams past the cap, same bytes");
+  want(0, "verify -p q.sk.pub -s q.part q.big", NULL);
+  want(0, "sign -k q.sk -d -o q.pin -", "q.big");
+  ok(same("q.whole", "q.pin"), "a message on stdin streams too");
+  want(0, "sign -k q.sk -d --ph sha512 -c x -o q.ph q.big", NULL);
+  want(0, "verify -p q.sk.pub -s q.ph --ph sha512 -c x q.big", NULL);
+  want(1, "verify -p q.sk.pub -s q.ph --ph sha512 q.big", NULL);
+  tenv("NQTESTSTREAM", "0");
+  want(2, "sign -k q.sk -d -o q.no q.big", NULL);
+  ok(has("q.err", "--ph"), "over the cap, the whole-file path names --ph");
+  tenv("NQTESTRDMAX", NULL);
+  want(0, "sign -k q.sk -d -o q.no --force q.big", NULL);
+  ok(same("q.whole", "q.no"), "the whole-file path gives the same bytes");
+  tenv("NQTESTSTREAM", NULL);
+  /* SLH-DSA: pure is whole-file only, pre-hash streams */
+  remove("q.sl");
+  remove("q.sl.pub");
+  want(0, "keygen -a SLH-DSA-SHAKE-128f -o q.sl", NULL);
+  tenv("NQTESTRDMAX", "1000");
+  want(2, "sign -k q.sl -o q.sls q.big", NULL);
+  ok(has("q.err", "--ph sha256"), "pure SLH-DSA over the cap names --ph");
+  want(0, "sign -k q.sl --ph sha256 -o q.sls --force q.big", NULL);
+  want(0, "verify -p q.sl.pub -s q.sls --ph sha256 q.big", NULL);
+  tenv("NQTESTRDMAX", NULL);
+  want(0, "verify -p q.sl.pub -s q.sls --ph sha256 q.big", NULL);
+  exe = rel;
+  /* the release tool has no hooks: the cap does not reach it */
+  tenv("NQTESTRDMAX", "1000");
+  tenv("NQTESTSTREAM", "0");
+  want(0, "sign -k q.sl -o q.sls --force q.big", NULL);
+  want(0, "verify -p q.sl.pub -s q.sls q.big", NULL);
+  tenv("NQTESTRDMAX", NULL);
+  tenv("NQTESTSTREAM", NULL);
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -2222,6 +2293,7 @@ int main(int argc, char **argv) {
   }
   tdet();
   tpass();
+  tstream();
   for (i = 0; i < sizeof kems / sizeof kems[0]; i++)
     tkem(kems[i]);
   thash();

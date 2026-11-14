@@ -19,10 +19,16 @@ if(NOT WIN32)
   add_test(NAME comp COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/comp.sh
            ${PROJECT_SOURCE_DIR})
 endif()
-# a sanitizer report must not pass for the "invalid" exit status 1
+# a sanitizer report must not pass for the "invalid" exit status 1;
+# NQCLIT: the tool with its test hooks (tests/nqd), for the checks that
+# need them
+set(NQCLIT "")
+if(NOT WIN32)
+  set(NQCLIT ";NQCLIT=$<TARGET_FILE:nqclit>")
+endif()
 set_tests_properties(tcli PROPERTIES
   ENVIRONMENT
-  "ASAN_OPTIONS=exitcode=86;UBSAN_OPTIONS=exitcode=86:print_stacktrace=1"
+  "ASAN_OPTIONS=exitcode=86;UBSAN_OPTIONS=exitcode=86:print_stacktrace=1${NQCLIT}"
   TIMEOUT 900)
 # tbl: interop with rmoriebricklayer, live, both ways (tests/interop/
 # run.sh); skipped (exit 77) without Rscript and the R package
