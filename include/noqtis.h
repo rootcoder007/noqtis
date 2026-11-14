@@ -225,6 +225,30 @@ NQAPI int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
                  const uint8_t *ctx, size_t ctxlen, int ph,
                  const uint8_t *sig, size_t siglen);
 
+/* ML-DSA with an external mu (FIPS 204, Algorithm 7 line 6 and
+ * Algorithm 8 line 7): the caller supplies the 64-byte message
+ * representative mu instead of the message, so the message can be
+ * hashed somewhere else than where the key is (a token, an HSM).
+ * NQMLDSA44, NQMLDSA65 and NQMLDSA87 only (NQENOSUP for the others).
+ * nqsmu computes mu from the public key as nqsign would (pure with ph 0,
+ * or HashML-DSA with ph an nqhalg; ctx at most 255 bytes); mulen must be
+ * NQMU. A signature from nqsignmu on nqsmu's mu is the one nqsignd
+ * gives with the same rnd, and nqvrfymu accepts what nqvrfy accepts.
+ * rnd is NULL (rndlen 0) for the hedged signature, or 32 bytes (all
+ * zero: deterministic). The signature is checked under the public key
+ * in sk before it is returned (NQEFLT otherwise). */
+#define NQMU 64
+NQAPI int nqsmu(nqsalg alg, const uint8_t *pk, size_t pklen,
+                const uint8_t *msg, size_t msglen, const uint8_t *ctx,
+                size_t ctxlen, int ph, uint8_t *mu, size_t mulen);
+NQAPI int nqsignmu(nqsalg alg, const uint8_t *sk, size_t sklen,
+                   const uint8_t *mu, size_t mulen, const uint8_t *rnd,
+                   size_t rndlen, uint8_t *sig, size_t siglen,
+                   size_t *outlen);
+NQAPI int nqvrfymu(nqsalg alg, const uint8_t *pk, size_t pklen,
+                   const uint8_t *mu, size_t mulen, const uint8_t *sig,
+                   size_t siglen);
+
 /* ---- key encapsulation ---------------------------------------------- */
 
 typedef enum {

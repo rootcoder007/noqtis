@@ -1,0 +1,169 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NQSIGNMU 3
+.Os
+.Sh NAME
+.Nm nqsmu ,
+.Nm nqsignmu ,
+.Nm nqvrfymu
+.Nd ML-DSA with an external message representative
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqsmu
+.Fa "nqsalg alg"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const uint8_t *msg" "size_t msglen"
+.Fa "const uint8_t *ctx" "size_t ctxlen" "int ph"
+.Fa "uint8_t *mu" "size_t mulen"
+.Fc
+.Ft int
+.Fo nqsignmu
+.Fa "nqsalg alg"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *mu" "size_t mulen"
+.Fa "const uint8_t *rnd" "size_t rndlen"
+.Fa "uint8_t *sig" "size_t siglen" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqvrfymu
+.Fa "nqsalg alg"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const uint8_t *mu" "size_t mulen"
+.Fa "const uint8_t *sig" "size_t siglen"
+.Fc
+.Sh DESCRIPTION
+FIPS 204 lets the message representative
+.Em mu ,
+64 bytes of SHAKE256 over the hash of the public key, the domain and
+context prefix and the message, be computed apart from the signer
+(Algorithm 7, line 6, and Algorithm 8, line 7): a message can be hashed
+where it is, and only
+.Em mu
+travel to the key.
+These functions are that interface, for
+.Dv NQMLDSA44 ,
+.Dv NQMLDSA65
+and
+.Dv NQMLDSA87
+only; SLH-DSA, Ed25519 and the hybrids have none
+.Pq Dv NQENOSUP .
+.Pp
+.Fn nqsmu
+writes
+.Em mu
+for the public key
+.Fa pk ,
+the message and the context
+.Fa ctx
+(at most 255 bytes) to
+.Fa mu ,
+.Fa mulen
+being
+.Dv NQMU
+(64): pure ML-DSA with
+.Fa ph
+0, HashML-DSA with
+.Fa ph
+an
+.Vt nqhalg ,
+as in
+.Xr nqsign 3 .
+.Pp
+.Fn nqsignmu
+signs
+.Em mu
+with the secret key
+.Fa sk
+(first-order masked, as
+.Fn nqsign ) .
+.Fa rnd
+is
+.Dv NULL
+with
+.Fa rndlen
+0 for the hedged signature (32 fresh bytes from
+.Xr nqrand 3 ) ,
+or 32 bytes (all zero for the deterministic variant).
+The signature on the
+.Em mu
+of
+.Fn nqsmu
+is the one
+.Fn nqsignd
+gives for the same message, context, pre-hash and
+.Fa rnd ,
+byte for byte, and is checked under the public key held in
+.Fa sk
+before it is returned.
+.Pp
+.Fn nqvrfymu
+checks
+.Fa sig
+against
+.Em mu
+and
+.Fa pk ;
+it accepts exactly the signatures
+.Fn nqvrfy
+accepts for the message
+.Em mu
+came from.
+.Pp
+Nothing ties
+.Em mu
+to a message: whoever hands
+.Em mu
+to the signer decides what is signed.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or
+.Bl -tag -width NQENOSUP
+.It Bq Er NQEARG
+An unknown
+.Fa alg ,
+a
+.Dv NULL
+pointer, a
+.Fa mulen
+other than 64, a context over 255 bytes, an unknown
+.Fa ph ,
+or an
+.Fa rnd
+of another length.
+.It Bq Er NQEBUF
+.Fa siglen
+is smaller than the signature.
+.It Bq Er NQEDEC
+A key or signature of the wrong length, or a malformed one.
+.It Bq Er NQEVRFY
+The signature does not verify.
+.It Bq Er NQEFLT
+The new signature failed the check made after signing; it was wiped.
+.It Bq Er NQENOSUP
+.Fa alg
+is not an ML-DSA set.
+.It Bq Er NQERNG
+The random source failed.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+uint8_t mu[NQMU], sig[3309];
+size_t n;
+int rc = nqsmu(NQMLDSA65, pk, pklen, msg, msglen, NULL, 0, 0,
+               mu, sizeof mu);
+if (rc == NQOK)  /* elsewhere: only mu reaches the key */
+  rc = nqsignmu(NQMLDSA65, sk, sklen, mu, sizeof mu, NULL, 0,
+                sig, sizeof sig, &n);
+if (rc == NQOK)
+  rc = nqvrfy(NQMLDSA65, pk, pklen, msg, msglen, NULL, 0, 0, sig, n);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 3 ,
+.Xr nqsign 3
+.Sh STANDARDS
+FIPS 204.
+The tests run every NIST ACVP ML-DSA sigGen and sigVer test with an
+external mu through these functions.
