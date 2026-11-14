@@ -136,6 +136,16 @@ func b64d(s []byte) []byte {
 
 // EncodeKey is the key file text for key: kind is "pub" or "sec".
 func EncodeKey(alg, kind string, key []byte) (string, error) {
+	return EncodeKeyPW(alg, kind, key, nil)
+}
+
+// keyad is the first line of a secret key file of a, the associated data
+// of its passphrase.
+func keyad(a Alg) []byte { return []byte(KeyMagic + " " + a.Name + " sec") }
+
+// EncodeKeyPW is EncodeKey with a secret key kept under the passphrase
+// pw when pw is not nil (the format noqtis keygen --pass-fd writes).
+func EncodeKeyPW(alg, kind string, key, pw []byte) (string, error) {
 	a, err := kalg(alg)
 	if err != nil {
 		return "", err
@@ -145,6 +155,16 @@ func EncodeKey(alg, kind string, key []byte) (string, error) {
 	}
 	if want := ksize(a, kind); len(key) != want {
 		return "", why(-1, "%s %s key: %d bytes, not %d", a.Name, kind, want, len(key))
+	}
+	if pw != nil {
+		if kind != "sec" {
+			return "", why(-1, "a passphrase protects a secret key only")
+		}
+		e, err := PWEnc(pw, key, keyad(a), 0, 0, 0)
+		if err != nil {
+			return "", err
+		}
+		key = e
 	}
 	b := b64e(key)
 	var s strings.Builder
@@ -166,6 +186,12 @@ func notkey() error {
 // ends and nothing else outside the base64 alphabet, canonical padding,
 // and the algorithm's exact key size.
 func DecodeKey(text []byte) (*Key, error) {
+	return DecodeKeyPW(text, nil)
+}
+
+// DecodeKeyPW is DecodeKey, opening a secret key kept under the
+// passphrase pw.
+func DecodeKeyPW(text, pw []byte) (*Key, error) {
 	nl := bytes.IndexByte(text, '\n')
 	if nl < 0 || nl >= 96 {
 		return nil, notkey()
@@ -187,6 +213,19 @@ func DecodeKey(text []byte) (*Key, error) {
 		}
 	}
 	k := b64d(body)
+	if k != nil && f[2] == "sec" && len(k) == want+51 && bytes.HasPrefix(k, []byte("NQPW")) {
+		if pw == nil {
+			return nil, why(-1, "the key is protected by a passphrase: give it to DecodeKeyPW or ReadKeyPW")
+		}
+		sk, err := PWDec(pw, k, keyad(a))
+		if err != nil {
+			return nil, err
+		}
+		return &Key{Alg: a.Name, Kind: f[2], Key: sk}, nil
+	}
+	if k != nil && len(k) == want && pw != nil && f[2] == "sec" {
+		return nil, why(-1, "the key is not protected by a passphrase")
+	}
 	if k == nil || len(k) != want {
 		return nil, why(-4, "the key is not %d bytes of base64 for %s (the file is damaged or cut short)", want, a.Name)
 	}
@@ -196,6 +235,11 @@ func DecodeKey(text []byte) (*Key, error) {
 // ReadKey reads a key file; kind "pub" or "sec" requires that kind, ""
 // takes either.
 func ReadKey(path, kind string) (*Key, error) {
+	return ReadKeyPW(path, kind, nil)
+}
+
+// ReadKeyPW is ReadKey, opening a secret key kept under the passphrase pw.
+func ReadKeyPW(path, kind string, pw []byte) (*Key, error) {
 	if kind != "" && kind != "pub" && kind != "sec" {
 		return nil, why(-1, `kind: "", "pub" or "sec"`)
 	}
@@ -208,7 +252,7 @@ func ReadKey(path, kind string) (*Key, error) {
 	if err != nil {
 		return nil, why(-7, "cannot read key file %s: %v", path, err)
 	}
-	k, err := DecodeKey(t)
+	k, err := DecodeKeyPW(t, pw)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +268,13 @@ func ReadKey(path, kind string) (*Key, error) {
 // force, which removes it first so the new one never inherits its
 // permissions.
 func WriteKey(path, alg, kind string, key []byte, force bool) error {
-	t, err := EncodeKey(alg, kind, key)
+	return WriteKeyPW(path, alg, kind, key, force, nil)
+}
+
+// WriteKeyPW is WriteKey with a secret key kept under the passphrase pw
+// when pw is not nil.
+func WriteKeyPW(path, alg, kind string, key []byte, force bool, pw []byte) error {
+	t, err := EncodeKeyPW(alg, kind, key, pw)
 	if err != nil {
 		return err
 	}
