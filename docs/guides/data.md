@@ -243,6 +243,9 @@ prints the head: the last link's id.
 | `noqtis export --as bundle` | a capsule as one file, which `noqtis check` reads |
 | `noqtis chain` | check an append-only chain of capsules and give its head |
 
+Coming from rmoriebricklayer: [the table of its functions and their
+noqtis counterparts](bricklayer.md).
+
 ## From R and Python
 
 ```r
