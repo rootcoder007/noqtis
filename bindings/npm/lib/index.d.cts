@@ -80,6 +80,58 @@ export interface VerifyOptions {
   prehash?: HashAlg;
 }
 
+export interface Signer {
+  update(data: Data): Signer;
+  sign(opts?: SignOptions): Bytes;
+  end(): void;
+}
+
+export interface Verifier {
+  update(data: Data): Verifier;
+  verify(sig: Bytes): boolean;
+  end(): void;
+}
+
+export interface Hasher {
+  update(data: Data): Hasher;
+  /** For SHAKE, len bytes more each call. */
+  digest(len?: number): Bytes;
+  end(): void;
+}
+
+export interface StreamOptions {
+  ctx?: Data;
+  /** 1024 to 16777216 bytes; 65536. */
+  chunk?: number;
+}
+
+export interface Sealer {
+  readonly header: Bytes;
+  readonly chunk: number;
+  update(chunk: Data): Bytes;
+  last(chunk: Data): Bytes;
+  end(): void;
+}
+
+export interface Opener {
+  readonly chunk: number;
+  update(chunk: Data): Bytes;
+  last(chunk: Data): Bytes;
+  end(): void;
+}
+
+export type Pieces = Iterable<Data> | AsyncIterable<Data>;
+
+/** true when a and b are equal, in time that depends only on their length. */
+export function cteq(a: Data, b: Data): boolean;
+/** BLAKE2b (RFC 7693), keyed with opts.key; opts.length 1 to 64 (64). */
+export function blake2b(data: Data, opts?: { key?: Data; length?: number }): Bytes;
+/** Argon2id (RFC 9106): opts t (3), m KiB (65536), p (4), length (32). */
+export function argon2id(pw: Data, salt: Data, opts?: { t?: number; m?: number;
+  p?: number; length?: number; key?: Data; ad?: Data }): Bytes;
+/** A digest of data given in pieces. */
+export function hasher(alg: HashAlg): Hasher;
+
 export const sign: {
   /**
    * seed: xi (32 bytes) for ML-DSA, SK.seed||SK.prf||PK.seed for SLH-DSA,
@@ -89,6 +141,15 @@ export const sign: {
   keygen(alg: SignAlg, opts?: { seed?: Bytes }): KeyPair;
   sign(alg: SignAlg, secretKey: Bytes, msg: Data, opts?: SignOptions): Bytes;
   /** false when the signature does not verify or is malformed. */
+  /** The 64-byte message representative mu of FIPS 204 (ML-DSA). */
+  mu(alg: SignAlg, publicKey: Bytes, msg: Data, opts?: SignOptions): Bytes;
+  /** The signature of the message whose mu is mu; opts.rnd or deterministic. */
+  signmu(alg: SignAlg, secretKey: Bytes, mu: Bytes, opts?: SignOptions): Bytes;
+  verifymu(alg: SignAlg, publicKey: Bytes, mu: Bytes, sig: Bytes): boolean;
+  /** A signature over a message given in pieces. */
+  signer(alg: SignAlg, secretKey: Bytes, opts?: SignOptions): Signer;
+  /** verify() over a message given in pieces. */
+  verifier(alg: SignAlg, publicKey: Bytes, opts?: SignOptions): Verifier;
   verify(alg: SignAlg, publicKey: Bytes, msg: Data, sig: Bytes,
     opts?: VerifyOptions): boolean;
 };
@@ -99,6 +160,21 @@ export const kem: {
     { ciphertext: Bytes; sharedSecret: Bytes };
   /** Implicit rejection: a bad ciphertext gives an unrelated secret. */
   decap(alg: KemAlg, secretKey: Bytes, ciphertext: Bytes): Bytes;
+  /** msg sealed to the ML-KEM public key (noqtis-kseal-1). */
+  seal(alg: KemAlg, publicKey: Bytes, msg: Data, opts?: { ctx?: Data }): Bytes;
+  /** The message seal() sealed; EVRFY for any change, key or ctx. */
+  open(alg: KemAlg, secretKey: Bytes, data: Data, opts?: { ctx?: Data }): Bytes;
+  /** A stream sealed to an ML-KEM key (noqtis-kstream-1), chunk by chunk. */
+  sealer(alg: KemAlg, publicKey: Bytes, opts?: StreamOptions): Sealer;
+  /** Opens what sealer() wrote, chunk by chunk. */
+  opener(alg: KemAlg, secretKey: Bytes, header: Bytes, opts?: { ctx?: Data }):
+    Opener;
+  /** Seals source to the sealed stream's pieces, one chunk held at a time. */
+  box(alg: KemAlg, publicKey: Bytes, source: Pieces, opts?: StreamOptions):
+    AsyncGenerator<Bytes, void, undefined>;
+  /** Opens a sealed stream to its plaintext pieces, each once it verified. */
+  unbox(alg: KemAlg, secretKey: Bytes, source: Pieces, opts?: { ctx?: Data }):
+    AsyncGenerator<Bytes, void, undefined>;
 };
 
 /** Capsule files: '/'-separated relative paths to contents. */
@@ -223,8 +299,14 @@ export const idcard: {
 };
 
 export const keyfile: {
-  encode(alg: SignAlg | KemAlg, kind: 'pub' | 'sec', key: Bytes): string;
-  decode(text: string | Bytes):
+  encode(alg: SignAlg | KemAlg, kind: 'pub' | 'sec', key: Bytes,
+    opts?: { passphrase?: Data }): string;
+  /** sk under a passphrase (noqtis-pwkey-1). */
+  pwenc(passphrase: Data, sk: Bytes,
+    opts?: { ad?: Data; m?: number; t?: number; p?: number }): Bytes;
+  /** The key pwenc() protected; EVRFY for a wrong passphrase. */
+  pwdec(passphrase: Data, data: Bytes, opts?: { ad?: Data }): Bytes;
+  decode(text: string | Bytes, opts?: { passphrase?: Data }):
     { alg: string; kind: 'pub' | 'sec'; key: Bytes };
 };
 

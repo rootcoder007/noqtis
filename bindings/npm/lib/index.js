@@ -376,7 +376,332 @@ export const sign = Object.freeze({
       throw new NoqtisError(rc);
     });
   },
+  /**
+   * The 64-byte message representative mu of FIPS 204 for msg under
+   * publicKey, as sign() computes it (ML-DSA; opts ctx and prehash), so
+   * the message can be hashed away from the key.
+   */
+  mu(alg, publicKey, msg, opts = {}) {
+    const a = salg(alg);
+    const pk = key(publicKey, 'publicKey');
+    const m = bytes(msg, 'msg');
+    const c = ctxof(opts);
+    return run((h) => {
+      const o = h.alloc(64);
+      check(M._nqsmu(a.id, h.put(pk), pk.length, h.put(m), m.length, h.put(c),
+        c.length, phid(opts.prehash), o, 64));
+      return h.get(o, 64);
+    });
+  },
+
+  /**
+   * The signature of the message whose mu is mu: the bytes sign() gives for
+   * it with the same randomness (opts rnd or deterministic).
+   */
+  signmu(alg, secretKey, mu, opts = {}) {
+    const a = salg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const u = key(mu, 'mu');
+    return run((h) => {
+      const r = opts.rnd !== undefined ? key(opts.rnd, 'rnd')
+        : opts.deterministic ? new Uint8Array(32) : null;
+      const ps = h.alloc(a.sig);
+      const pn = h.alloc(4);
+      check(M._nqsignmu(a.id, h.put(sk), sk.length, h.put(u), u.length,
+        r === null ? 0 : h.put(r), r === null ? 0 : r.length, ps, a.sig, pn));
+      return h.get(ps, h.u32(pn));
+    });
+  },
+
+  /** true when sig verifies for the message whose mu is mu. */
+  verifymu(alg, publicKey, mu, sig) {
+    const a = salg(alg);
+    const pk = key(publicKey, 'publicKey');
+    const u = key(mu, 'mu');
+    const s = key(sig, 'sig');
+    return run((h) => {
+      const rc = M._nqvrfymu(a.id, h.put(pk), pk.length, h.put(u), u.length,
+        h.put(s), s.length);
+      if (rc === CODES.OK) return true;
+      if (rc === CODES.EVRFY || rc === CODES.EDEC) return false;
+      throw new NoqtisError(rc);
+    });
+  },
+
+  /**
+   * A signature over a message given in pieces: update() any number of
+   * times, then sign(), the bytes sign() gives for the whole message with
+   * the same randomness. Only the piece at hand is held; secretKey is the
+   * caller's array, not a copy. ML-DSA (pure and pre-hash), and
+   * HashSLH-DSA, Ed25519ph and the hybrids with prehash 'sha512'; the
+   * others throw ENOSUP. One use: then ESTATE.
+   */
+  signer(alg, secretKey, opts = {}) {
+    const a = salg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const c = new Ctx(160 * 8);
+    try {
+      run((h) => {
+        const x = ctxof(opts);
+        check(M._nqsini(c.p, a.id, h.put(sk), sk.length, h.put(x), x.length,
+          phid(opts.prehash)));
+      });
+    } catch (e) {
+      c.end();
+      throw e;
+    }
+    return Object.freeze({
+      update(data) {
+        const d = bytes(data, 'data');
+        run((h) => check(M._nqsupd(c.live(), h.put(d), d.length)));
+        return this;
+      },
+      sign(o = {}) {
+        try {
+          return run((h) => {
+            const n = a.name === 'Ed25519' ? 0
+              : a.name.startsWith('ML-DSA') ? 32 : a.pk / 2;
+            const r = o.rnd !== undefined ? key(o.rnd, 'rnd')
+              : o.deterministic ? new Uint8Array(n) : null;
+            const ps = h.alloc(a.sig);
+            const pn = h.alloc(4);
+            // a present but empty rnd: a pointer that is not NULL
+            const pr = r === null ? 0 : r.length === 0 ? h.alloc(1) : h.put(r);
+            check(M._nqsfin(c.live(), h.put(sk), sk.length, pr,
+              r === null ? 0 : r.length, ps, a.sig, pn));
+            return h.get(ps, h.u32(pn));
+          });
+        } finally {
+          c.end();
+        }
+      },
+      /** Wipes and frees the context without signing. */
+      end() {
+        c.end();
+      },
+    });
+  },
+
+  /** verify() over a message given in pieces: update(), then verify(sig). */
+  verifier(alg, publicKey, opts = {}) {
+    const a = salg(alg);
+    const pk = key(publicKey, 'publicKey');
+    const c = new Ctx(160 * 8);
+    try {
+      run((h) => {
+        const x = ctxof(opts);
+        check(M._nqvini(c.p, a.id, h.put(pk), pk.length, h.put(x), x.length,
+          phid(opts.prehash)));
+      });
+    } catch (e) {
+      c.end();
+      throw e;
+    }
+    return Object.freeze({
+      update(data) {
+        const d = bytes(data, 'data');
+        run((h) => check(M._nqsupd(c.live(), h.put(d), d.length)));
+        return this;
+      },
+      verify(sig) {
+        const s = key(sig, 'sig');
+        try {
+          return run((h) => {
+            const rc = M._nqvfin(c.live(), h.put(pk), pk.length, h.put(s),
+              s.length);
+            if (rc === CODES.OK) return true;
+            if (rc === CODES.EVRFY || rc === CODES.EDEC) return false;
+            throw new NoqtisError(rc);
+          });
+        } finally {
+          c.end();
+        }
+      },
+      end() {
+        c.end();
+      },
+    });
+  },
 });
+
+// ---- contexts, BLAKE2b, Argon2id, streaming hashes -----------------------
+
+// A context in WebAssembly memory that outlives one call: wiped and freed
+// by end(), or by the garbage collector when it is dropped unfinished.
+const lost = typeof FinalizationRegistry === 'function'
+  ? new FinalizationRegistry(([p, n]) => {
+    if (M !== null) {
+      M._nqwipe(p, n);
+      M._free(p);
+    }
+  }) : null;
+
+class Ctx {
+  constructor(n) {
+    need();
+    this.n = n;
+    this.p = M._malloc(n);
+    if (this.p === 0) throw new NoqtisError(CODES.EMEM);
+    M.HEAPU8.fill(0, this.p, this.p + n);
+    if (lost) lost.register(this, [this.p, n], this);
+  }
+  live() {
+    if (this.p === 0) throw new NoqtisError(CODES.ESTATE);
+    return this.p;
+  }
+  end() {
+    if (this.p !== 0) {
+      M._nqwipe(this.p, this.n);
+      M._free(this.p);
+      if (lost) lost.unregister(this);
+      this.p = 0;
+    }
+  }
+}
+
+/** true when a and b are equal, in time that depends only on their length. */
+export function cteq(a, b) {
+  const x = bytes(a, 'a');
+  const y = bytes(b, 'b');
+  if (x.length !== y.length) return false;
+  return run((h) => M._nqcteq(h.put(x), h.put(y), x.length) === 1);
+}
+
+/**
+ * BLAKE2b (RFC 7693): an `opts.length`-byte digest (1 to 64, default 64)
+ * of data, keyed (a MAC) with `opts.key` (up to 64 bytes).
+ */
+export function blake2b(data, opts = {}) {
+  const d = bytes(data, 'data');
+  const k = opts.key === undefined ? new Uint8Array(0) : bytes(opts.key, 'key');
+  const n = opts.length === undefined ? 64 : opts.length;
+  if (!Number.isInteger(n) || n < 1 || n > 64) {
+    throw new NoqtisError(CODES.EARG, 'length: 1 to 64');
+  }
+  return run((h) => {
+    const o = h.alloc(n);
+    check(M._nqb2b(h.put(k), k.length, h.put(d), d.length, o, n));
+    return h.get(o, n);
+  });
+}
+
+/**
+ * Argon2id (RFC 9106, version 0x13): `opts.length` bytes (4 to 1024,
+ * default 32) from the password and the salt (8 bytes or more), `opts.t`
+ * passes (3) over `opts.m` KiB (65536) in `opts.p` lanes (4), with an
+ * optional secret `opts.key` and associated data `opts.ad`.
+ */
+export function argon2id(pw, salt, opts = {}) {
+  const p = bytes(pw, 'pw');
+  const s = bytes(salt, 'salt');
+  const k = opts.key === undefined ? new Uint8Array(0) : bytes(opts.key, 'key');
+  const a = opts.ad === undefined ? new Uint8Array(0) : bytes(opts.ad, 'ad');
+  const n = opts.length === undefined ? 32 : opts.length;
+  const num = (x, d) => (x === undefined ? d : x);
+  const t = num(opts.t, 3);
+  const m = num(opts.m, 65536);
+  const l = num(opts.p, 4);
+  for (const v of [n, t, m, l]) {
+    if (!Number.isInteger(v) || v < 0 || v > 0xffffffff) {
+      throw new NoqtisError(CODES.EARG, 'a cost or length');
+    }
+  }
+  return run((h) => {
+    const o = h.alloc(n);
+    check(M._nqa2id(h.put(p), p.length, h.put(s), s.length, h.put(k),
+      k.length, h.put(a), a.length, t, m, l, o, n));
+    return h.get(o, n);
+  });
+}
+
+/**
+ * A digest of data given in pieces, as hash() gives it for the whole:
+ * update() any number of times, then digest(); for SHAKE, digest(n) may
+ * be called again to squeeze more output.
+ */
+export function hasher(alg) {
+  const i = halg(alg);
+  const c = new Ctx(52 * 8);
+  check(M._nqhini(c.p, i));
+  const n = M._nqhlen(i);
+  const shake = i >= 11;
+  return Object.freeze({
+    update(data) {
+      const d = bytes(data, 'data');
+      run((h) => check(M._nqhupd(c.live(), h.put(d), d.length)));
+      return this;
+    },
+    digest(len) {
+      if (len !== undefined && !shake) {
+        throw new NoqtisError(CODES.EARG, 'a length is for SHAKE');
+      }
+      const k = len === undefined ? n : len;
+      return run((h) => {
+        const o = h.alloc(k);
+        check(M._nqhfin(c.live(), o, k));
+        return h.get(o, k);
+      });
+    },
+    /** Wipes and frees the context. */
+    end() {
+      c.end();
+    },
+  });
+}
+
+// ---- sealed streams: a chunk at a time, from an (async) iterable ---------
+
+// Re-chunks src into pieces of n bytes and gives each to f with a flag
+// true for the last (the one no byte follows), holding at most one piece
+// and the incoming one.
+async function* rechunk(src, n, f) {
+  let b = new Uint8Array(n);
+  let have = 0;
+  for await (const x of src) {
+    let d = bytes(x, 'chunk');
+    while (d.length > 0) {
+      if (have === n) {
+        yield f(b, false);
+        have = 0;
+      }
+      const k = Math.min(n - have, d.length);
+      b.set(d.subarray(0, k), have);
+      have += k;
+      d = d.subarray(k);
+    }
+  }
+  const out = f(b.subarray(0, have), true);
+  b.fill(0);
+  b = null;
+  yield out;
+}
+
+// the chunk calls of a sealed stream's context c
+function kfstep(c, header, chunk, cap, upd, fin) {
+  const step = (data, f, last) => {
+    const d = bytes(data, 'chunk');
+    try {
+      return run((h) => {
+        const o = h.alloc(cap);
+        const pn = h.alloc(4);
+        const rc = f(c.live(), h.put(d), d.length, o, cap, pn);
+        if (rc !== CODES.OK && rc !== CODES.EBUF) c.end();
+        check(rc);
+        return h.get(o, h.u32(pn));
+      });
+    } finally {
+      if (last) c.end();
+    }
+  };
+  const o = {
+    chunk,
+    update: (d) => step(d, upd, false),
+    last: (d) => step(d, fin, true),
+    end: () => c.end(),
+  };
+  if (header !== null) o.header = header;
+  return Object.freeze(o);
+}
 
 // ---- key encapsulation --------------------------------------------------
 
@@ -430,6 +755,149 @@ export const kem = Object.freeze({
         a.ss));
       return h.get(ss, a.ss);
     });
+  },
+  /**
+   * msg sealed to the ML-KEM public key (noqtis-kseal-1): only the holder
+   * of the secret key opens it, with the same `opts.ctx`.
+   */
+  seal(alg, publicKey, msg, opts = {}) {
+    const a = kalg(alg);
+    const pk = key(publicKey, 'publicKey');
+    const m = bytes(msg, 'msg');
+    const c = ctxof(opts);
+    return run((h) => sized(h, (o, cap, n) => M._nqkseal(a.id, h.put(pk),
+      pk.length, h.put(c), c.length, h.put(m), m.length, o, cap, n),
+    22 + a.ct + m.length));
+  },
+
+  /**
+   * The message seal() sealed: EVRFY for a changed byte, another key or
+   * another ctx, EDEC for bytes that are not a sealed message of alg.
+   */
+  open(alg, secretKey, data, opts = {}) {
+    const a = kalg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const d = bytes(data, 'data');
+    const c = ctxof(opts);
+    return run((h) => sized(h, (o, cap, n) => M._nqkopen(a.id, h.put(sk),
+      sk.length, h.put(c), c.length, h.put(d), d.length, o, cap, n),
+    Math.max(d.length, 1)));
+  },
+
+  /**
+   * A stream sealed to an ML-KEM public key (noqtis-kstream-1), the format
+   * of `noqtis box`: { header, chunk, update(full chunk), last(0 to chunk
+   * bytes) }. `opts.ctx`, `opts.chunk` (1024 to 16777216; 65536).
+   */
+  sealer(alg, publicKey, opts = {}) {
+    const a = kalg(alg);
+    const pk = key(publicKey, 'publicKey');
+    const chunk = opts.chunk === undefined ? 65536 : opts.chunk;
+    if (!Number.isInteger(chunk) || chunk < 0 || chunk > 0xffffffff) {
+      throw new NoqtisError(CODES.EARG, 'chunk');
+    }
+    const c = new Ctx(128);
+    let header;
+    try {
+      header = run((h) => {
+        const x = ctxof(opts);
+        const hd = h.alloc(17 + a.ct);
+        const pn = h.alloc(4);
+        check(M._nqkfeini(c.p, a.id, h.put(pk), pk.length, h.put(x), x.length,
+          chunk, hd, 17 + a.ct, pn));
+        return h.get(hd, h.u32(pn));
+      });
+    } catch (e) {
+      c.end();
+      throw e;
+    }
+    return kfstep(c, header, chunk, chunk + 16, M._nqkfeupd, M._nqkfefin);
+  },
+
+  /**
+   * Opens what sealer() wrote: { chunk, update(chunk + 16 bytes), last(16
+   * to chunk + 16 bytes) }; a chunk comes back only when its tag verifies
+   * (EVRFY otherwise: a changed, moved, dropped or cut chunk).
+   */
+  opener(alg, secretKey, header, opts = {}) {
+    const a = kalg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const hd = key(header, 'header');
+    const c = new Ctx(128);
+    let chunk;
+    try {
+      chunk = run((h) => {
+        const x = ctxof(opts);
+        const pc = h.alloc(4);
+        check(M._nqkfdini(c.p, a.id, h.put(sk), sk.length, h.put(x), x.length,
+          h.put(hd), hd.length, pc));
+        return h.u32(pc);
+      });
+    } catch (e) {
+      c.end();
+      throw e;
+    }
+    return kfstep(c, null, chunk, chunk, M._nqkfdupd, M._nqkfdfin);
+  },
+
+  /**
+   * Seals source, an iterable or async iterable of byte pieces (a Node
+   * readable stream, a ReadableStream, an array), to an async iterable of
+   * the sealed stream's pieces: the header, then each sealed chunk. One
+   * chunk is held at a time.
+   */
+  async* box(alg, publicKey, source, opts = {}) {
+    const s = kem.sealer(alg, publicKey, opts);
+    try {
+      yield s.header;
+      yield* rechunk(source, s.chunk, (b, last) => (last ? s.last(b)
+        : s.update(b)));
+    } finally {
+      s.end();
+    }
+  },
+
+  /**
+   * Opens a sealed stream from source (as box()) to an async iterable of
+   * plaintext pieces, each given only once it verified; on an error what
+   * came before had verified, but the stream is incomplete.
+   */
+  async* unbox(alg, secretKey, source, opts = {}) {
+    const a = kalg(alg);
+    const hn = 17 + a.ct;
+    let hd = new Uint8Array(0);
+    let u = null;
+    async function* rest() {
+      for await (const x of source) {
+        let d = bytes(x, 'chunk');
+        if (u === null) {
+          const k = Math.min(hn - hd.length, d.length);
+          const t = new Uint8Array(hd.length + k);
+          t.set(hd);
+          t.set(d.subarray(0, k), hd.length);
+          hd = t;
+          d = d.subarray(k);
+          if (hd.length < hn) continue;
+          u = kem.opener(alg, secretKey, hd, opts);
+        }
+        if (d.length > 0) yield d;
+      }
+      if (u === null) u = kem.opener(alg, secretKey, hd, opts);
+    }
+    const it = rest();
+    // the header first, so the chunk size is known
+    const first = await it.next();
+    if (u === null) u = kem.opener(alg, secretKey, hd, opts);
+    async function* again() {
+      if (!first.done) yield first.value;
+      yield* it;
+    }
+    try {
+      yield* rechunk(again(), u.chunk + 16, (b, last) => (last ? u.last(b)
+        : u.update(b)));
+    } finally {
+      u.end();
+    }
   },
 });
 
@@ -1036,8 +1504,12 @@ function b64d(s) {
 }
 
 export const keyfile = Object.freeze({
-  /** The CLI's key file text for a key: kind is 'pub' or 'sec'. */
-  encode(alg, kind, keyBytes) {
+  /**
+   * The CLI's key file text for a key: kind is 'pub' or 'sec'; a secret
+   * key with `opts.passphrase` (bytes or text) is kept under it, as
+   * `noqtis keygen --pass-fd` writes it.
+   */
+  encode(alg, kind, keyBytes, opts = {}) {
     need();
     const a = sigs.get(String(alg).toUpperCase()) ||
       kems.get(String(alg).toUpperCase());
@@ -1049,14 +1521,26 @@ export const keyfile = Object.freeze({
     if (k.length !== (kind === 'pub' ? a.pk : a.sk)) {
       throw new NoqtisError(CODES.EARG, 'key length');
     }
-    const b = b64e(k);
+    let body = k;
+    if (opts.passphrase !== undefined) {
+      if (kind !== 'sec') {
+        throw new NoqtisError(CODES.EARG, 'a passphrase protects a secret key only');
+      }
+      body = keyfile.pwenc(opts.passphrase, k,
+        { ad: `noqtis-key-1 ${a.name} sec` });
+    }
+    const b = b64e(body);
+    if (body !== k) body.fill(0);
     let s = `noqtis-key-1 ${a.name} ${kind}\n`;
     for (let i = 0; i < b.length; i += 64) s += `${b.slice(i, i + 64)}\n`;
     return s;
   },
 
-  /** { alg, kind, key } from key file text, strictly as the CLI reads it. */
-  decode(text) {
+  /**
+   * { alg, kind, key } from key file text, strictly as the CLI reads it;
+   * a secret key under a passphrase needs `opts.passphrase`.
+   */
+  decode(text, opts = {}) {
     need();
     if (typeof text !== 'string') text = new TextDecoder().decode(bytes(text));
     const lines = text.split('\n').map((l) => (l.endsWith('\r')
@@ -1073,12 +1557,54 @@ export const keyfile = Object.freeze({
       throw new NoqtisError(CODES.ENOSUP, `algorithm ${f[1]}`);
     }
     const body = lines.join('');
-    const k = b64d(body);
-    if (k.length !== (f[2] === 'pub' ? a.pk : a.sk)) {
+    let k = b64d(body);
+    const want = f[2] === 'pub' ? a.pk : a.sk;
+    const prot = f[2] === 'sec' && k.length === want + 51 &&
+      k[0] === 0x4e && k[1] === 0x51 && k[2] === 0x50 && k[3] === 0x57;
+    if (prot) {
+      if (opts.passphrase === undefined) {
+        throw new NoqtisError(CODES.EARG,
+          'the key is protected by a passphrase: give opts.passphrase');
+      }
+      const e = k;
+      k = keyfile.pwdec(opts.passphrase, e, { ad: `noqtis-key-1 ${a.name} sec` });
+      e.fill(0);
+    } else if (opts.passphrase !== undefined && f[2] === 'sec' &&
+        k.length === want) {
+      k.fill(0);
+      throw new NoqtisError(CODES.EARG, 'the key is not protected by a passphrase');
+    }
+    if (k.length !== want) {
       k.fill(0);
       throw new NoqtisError(CODES.EDEC, 'key length');
     }
     return { alg: a.name, kind: f[2], key: k };
+  },
+  /**
+   * sk under passphrase (noqtis-pwkey-1): Argon2id (opts m KiB, t passes,
+   * p lanes; 0 or absent: 64 MiB, 3, 4) gives the key of
+   * ChaCha20-Poly1305, whose associated data includes opts.ad.
+   */
+  pwenc(passphrase, sk, opts = {}) {
+    const pw = bytes(passphrase, 'passphrase');
+    const k = key(sk, 'sk');
+    const ad = opts.ad === undefined ? new Uint8Array(0) : bytes(opts.ad, 'ad');
+    return run((h) => sized(h, (o, cap, n) => M._nqpwenc(h.put(pw), pw.length,
+      h.put(ad), ad.length, opts.m || 0, opts.t || 0, opts.p || 0, h.put(k),
+      k.length, o, cap, n), k.length + 51));
+  },
+
+  /**
+   * The key pwenc() protected: EVRFY for a wrong passphrase or ad, or any
+   * changed byte; ELIM for parameters over the limits.
+   */
+  pwdec(passphrase, data, opts = {}) {
+    const pw = bytes(passphrase, 'passphrase');
+    const d = key(data, 'data');
+    const ad = opts.ad === undefined ? new Uint8Array(0) : bytes(opts.ad, 'ad');
+    return run((h) => sized(h, (o, cap, n) => M._nqpwdec(h.put(pw), pw.length,
+      h.put(ad), ad.length, h.put(d), d.length, o, cap, n),
+    Math.max(d.length - 51, 1)));
   },
 });
 
@@ -1404,5 +1930,6 @@ export const data = Object.freeze({
 
 export default {
   init, version, selftest, algs, random, hash, hmac, sign, kem, capsule, dsse,
-  idcard, keyfile, data, NoqtisError, codes, errmsg,
+  idcard, keyfile, data, NoqtisError, codes, errmsg, cteq, blake2b, argon2id,
+  hasher,
 };
