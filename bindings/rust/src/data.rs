@@ -250,7 +250,7 @@ impl Rec {
 
 /// The report the library made (freed here), or the error when it made
 /// none.
-fn report(code: c_int, r: *mut ffi::Drep) -> Result<Report> {
+fn drep(code: c_int, r: *mut ffi::Drep) -> Result<Report> {
     if r.is_null() {
         return Err(Error::new(if code == 0 { -10 } else { code }));
     }
@@ -476,7 +476,7 @@ pub fn check(dir: impl AsRef<Path>) -> Result<Report> {
     let mut r = ptr::null_mut();
     // SAFETY: valid string; r receives the report
     let c = unsafe { ffi::nqdchk(d.as_ptr(), &mut r) };
-    report(c, r)
+    drep(c, r)
 }
 
 /// The schema of the CSV file `file` in `dir` as a "schemas" element:
@@ -632,7 +632,7 @@ pub fn drift(
         // SAFETY: s is s.len() bytes; valid options; rp receives the report
         let c =
             unsafe { ffi::nqddrift(s.as_ptr().cast(), s.len(), p.as_ptr(), &co, &dop, &mut rp) };
-        let x = report(c, rp)?;
+        let x = drep(c, rp)?;
         if out.code == 0 {
             out.code = x.code;
         }
@@ -649,7 +649,7 @@ pub fn diff(a: impl AsRef<Path>, b: impl AsRef<Path>) -> Result<Report> {
     let mut r = ptr::null_mut();
     // SAFETY: valid strings; r receives the report
     let c = unsafe { ffi::nqddiff(a.as_ptr(), b.as_ptr(), &mut r) };
-    report(c, r)
+    drep(c, r)
 }
 
 #[cfg(test)]
@@ -804,4 +804,521 @@ pub fn wayback(url: &str) -> Result<String> {
     let u = cs(url)?;
     // SAFETY: valid string; out has cap bytes
     grow(|o, c, n| unsafe { ffi::nqdwb(u.as_ptr(), o, c, n) }).map_err(Error::new)
+}
+
+/// Checks the CSV file of the "schemas" element `schema` (JSON text) in
+/// `dir` against it: header, types, missing values, ranges, sets, rows
+/// and rules.
+pub fn checkschema(dir: impl AsRef<Path>, schema: &str) -> Result<Report> {
+    let d = cpath(dir.as_ref())?;
+    let s = cs(schema)?;
+    let mut r = ptr::null_mut();
+    // SAFETY: valid strings; schema is its length
+    let c = unsafe { ffi::nqdschk(d.as_ptr(), s.as_ptr(), schema.len(), &mut r) };
+    drep(c, r)
+}
+
+/// Writes a synthetic stand-in for the CSV file from its recorded schema
+/// (`rows` rows, 0: the schema's minimum, else 100; the same bytes for
+/// the same `seed`) and records it as a synthetic source. Real data is
+/// never replaced ([`Code::Arg`](crate::Code)).
+pub fn synth(dir: impl AsRef<Path>, file: &str, seed: u64, rows: u64) -> Result<()> {
+    let d = cpath(dir.as_ref())?;
+    let rec = Rec::load(&d, false)?;
+    let f = cs(file)?;
+    let mut why = [0 as c_char; WHY];
+    // SAFETY: valid record, strings and buffer
+    let c = unsafe {
+        ffi::nqdsyn(
+            rec.0,
+            d.as_ptr(),
+            f.as_ptr(),
+            seed,
+            rows,
+            why.as_mut_ptr(),
+            WHY,
+        )
+    };
+    if c != 0 {
+        return Err(fail(c, &why));
+    }
+    rec.save(&d)
+}
+
+/// Text from a call that also writes a sentence to why.
+fn wgrow(
+    mut f: impl FnMut(*mut c_char, usize, &mut usize, *mut c_char) -> c_int,
+) -> Result<String> {
+    let mut why = [0 as c_char; WHY];
+    let w = why.as_mut_ptr();
+    grow(|o, c, n| f(o, c, n, w)).map_err(|c| fail(c, &why))
+}
+
+/// Calibrates the drift warnings of `file`'s summary on `files`, CSV
+/// files known not to have drifted from it, and records the result:
+/// [`drift`] then warns only beyond what they showed. The element.
+pub fn calibrate(dir: impl AsRef<Path>, file: &str, files: &[&Path], o: &Csv) -> Result<String> {
+    let d = cpath(dir.as_ref())?;
+    let mut rec = Rec::load(&d, false)?;
+    let s = rec
+        .key("stats", file)?
+        .ok_or_else(|| Error::why(-7, format!("no summary of {file}: pin one first")))?;
+    let fc = files.iter().map(|p| cpath(p)).collect::<Result<Vec<_>>>()?;
+    let fp: Vec<*const c_char> = fc.iter().map(|c| c.as_ptr()).collect();
+    let co = csvopt(o)?;
+    let sc = cs(&s)?;
+    // SAFETY: valid strings, arrays and buffers
+    let e = wgrow(|out, c, n, w| unsafe {
+        ffi::nqddcal(
+            sc.as_ptr(),
+            s.len(),
+            fp.as_ptr(),
+            fp.len(),
+            &co,
+            out,
+            c,
+            n,
+            w,
+            WHY,
+        )
+    })?;
+    rec.put("stats", &e)?;
+    rec.save(&d)?;
+    Ok(e)
+}
+
+/// Records the SHA-256 of each `chunk` bytes (1,024 to 2^30) of the large
+/// `file`, so that a piece of it can be checked alone ([`piece`]). The
+/// element.
+pub fn chunks(dir: impl AsRef<Path>, file: &str, chunk: u64) -> Result<String> {
+    let d = cpath(dir.as_ref())?;
+    let f = cs(file)?;
+    // SAFETY: valid strings and buffers
+    let e = wgrow(|o, c, n, w| unsafe {
+        ffi::nqdchunk(d.as_ptr(), f.as_ptr(), chunk, o, c, n, w, WHY)
+    })?;
+    let mut rec = Rec::load(&d, true)?;
+    rec.put("chunks", &e)?;
+    rec.save(&d)?;
+    Ok(e)
+}
+
+/// Checks the file `piece`, the bytes of `file` from byte `off` on (a
+/// multiple of its chunk), against its recorded chunk digests.
+pub fn piece(
+    dir: impl AsRef<Path>,
+    file: &str,
+    piece: impl AsRef<Path>,
+    off: u64,
+) -> Result<Report> {
+    let e = key(dir, "chunks", file)?
+        .ok_or_else(|| Error::why(-7, format!("no chunk digests of {file}: record them first")))?;
+    let (ec, p) = (cs(&e)?, cpath(piece.as_ref())?);
+    let mut r = ptr::null_mut();
+    // SAFETY: valid strings
+    let c = unsafe { ffi::nqdpiece(ec.as_ptr(), e.len(), p.as_ptr(), off, &mut r) };
+    drep(c, r)
+}
+
+/// The commitment to `m` under `salt` (16 to 1,024 bytes): 64 hex digits
+/// of SHA3-256 (nqdcommit(3)).
+pub fn commitment(salt: &[u8], m: &[u8]) -> Result<String> {
+    let mut hx = [0 as c_char; 65];
+    // SAFETY: hx holds 65 bytes
+    crate::rc(unsafe {
+        ffi::nqdcommit(
+            salt.as_ptr(),
+            salt.len(),
+            m.as_ptr(),
+            m.len(),
+            hx.as_mut_ptr(),
+        )
+    })?;
+    // SAFETY: NUL-terminated by the library
+    Ok(unsafe { CStr::from_ptr(hx.as_ptr()) }
+        .to_string_lossy()
+        .into_owned())
+}
+
+/// What [`commit`] records besides the digest.
+#[derive(Debug, Clone, Default)]
+pub struct Commit {
+    /// "randomisation", "preregistration" or "other" (None: "other").
+    pub kind: Option<String>,
+    /// A label.
+    pub label: Option<String>,
+    /// A UTC time YYYY-MM-DDTHH:MM:SSZ before which not to reveal it.
+    pub after: Option<String>,
+}
+
+/// Commits to `m` (a randomisation list, an analysis plan) in the record
+/// as `noqtis commit` does, and returns the 32-byte secret salt: keep it
+/// outside the capsule until the reveal, and [`wipe`](crate::wipe) it.
+pub fn commit(dir: impl AsRef<Path>, m: &[u8], o: &Commit) -> Result<Vec<u8>> {
+    let salt = crate::random(32)?;
+    let mut e = format!(
+        "{{\"kind\":{},\"created\":\"{}\",\"alg\":\"sha3-256\",\"digest\":\"{}\"",
+        jstr(o.kind.as_deref().unwrap_or("other")),
+        now(),
+        commitment(&salt, m)?
+    );
+    if let Some(l) = &o.label {
+        e += &format!(",\"label\":{}", jstr(l));
+    }
+    if let Some(a) = &o.after {
+        e += &format!(",\"after\":{}", jstr(a));
+    }
+    e.push('}');
+    put(dir, "commits", &e)?;
+    Ok(salt)
+}
+
+/// The index in "commits" of the commitment to `m` under `salt`, or None
+/// (every digest compared in constant time).
+pub fn reveal(dir: impl AsRef<Path>, m: &[u8], salt: &[u8]) -> Result<Option<usize>> {
+    let rec = Rec::load(&cpath(dir.as_ref())?, false)?;
+    let mut i = 0usize;
+    // SAFETY: valid record and buffers
+    match unsafe {
+        ffi::nqdreveal(
+            rec.0,
+            salt.as_ptr(),
+            salt.len(),
+            m.as_ptr(),
+            m.len(),
+            &mut i,
+        )
+    } {
+        0 => Ok(Some(i)),
+        -3 => Ok(None),
+        c => Err(Error::new(c)),
+    }
+}
+
+/// How to cite the data, from the record's "cite": a CITATION.cff
+/// (`bib` false) or a BibTeX entry.
+pub fn cite(dir: impl AsRef<Path>, bib: bool) -> Result<String> {
+    let rec = Rec::load(&cpath(dir.as_ref())?, false)?;
+    let f = if bib { 2 } else { 1 };
+    // SAFETY: out has cap bytes
+    grow(|o, c, n| unsafe { ffi::nqdcite(rec.0, f, o, c, n) }).map_err(Error::new)
+}
+
+/// A report of the capsule, as `noqtis report` writes it: whether every
+/// check passed, the capsule's check (with `pk` the seal must be by that
+/// key), what the data record says and its check; Markdown, or plain
+/// text with `txt`.
+pub fn report(dir: impl AsRef<Path>, pk: Option<&[u8]>, txt: bool) -> Result<String> {
+    let dp = dir.as_ref();
+    let sealed = dp.join("noqtis.sig").exists();
+    let hasrec = dp.join("noqtis.data.json").exists();
+    if !sealed && !hasrec {
+        return Err(Error::why(
+            -7,
+            format!("{} holds neither a seal nor a data record", dp.display()),
+        ));
+    }
+    let d = cpath(dp)?;
+    let o = ffi::Copt {
+        trust: pk.map_or(ptr::null(), |k| k.as_ptr()),
+        trustlen: pk.map_or(0, |k| k.len()),
+        anc: ptr::null(),
+        anclen: ptr::null(),
+        nanc: 0,
+        only: ptr::null(),
+        nonly: 0,
+        lin: ptr::null(),
+        nlin: 0,
+        stmt: ptr::null(),
+        stmtlen: ptr::null(),
+        nstmt: 0,
+    };
+    let (mut cr, mut dr) = (ptr::null_mut(), ptr::null_mut());
+    // SAFETY: valid folder and options; the reports are freed below
+    unsafe {
+        if sealed {
+            let c = ffi::nqchkx(d.as_ptr(), &o, &mut cr);
+            if cr.is_null() {
+                return Err(Error::new(c));
+            }
+        }
+        if hasrec {
+            let c = ffi::nqdchk(d.as_ptr(), &mut dr);
+            if dr.is_null() {
+                ffi::nqrepfree(cr);
+                return Err(Error::new(c));
+            }
+        }
+    }
+    let f = if txt { 2 } else { 1 };
+    // SAFETY: out has cap bytes
+    let r = grow(|out, c, n| unsafe { ffi::nqdrpt(d.as_ptr(), cr, dr, f, out, c, n) })
+        .map_err(Error::new);
+    // SAFETY: freed once
+    unsafe {
+        ffi::nqrepfree(cr);
+        ffi::nqdrepfree(dr);
+    }
+    r
+}
+
+// ---- bundles and chains ----
+
+/// The capsule in `dir` as one file (noqtis-bundle-1), as `noqtis pack`
+/// writes it: its seal, manifest, evidence record and every listed file
+/// (`files` false: only its data record). `file` must not exist. Check
+/// the capsule first.
+pub fn pack(dir: impl AsRef<Path>, file: impl AsRef<Path>, files: bool) -> Result<()> {
+    let (d, f) = (cpath(dir.as_ref())?, cpath(file.as_ref())?);
+    // SAFETY: valid strings
+    crate::rc(unsafe { ffi::nqdpack(d.as_ptr(), files as c_int, f.as_ptr()) })
+}
+
+fn unpk(f: &CString, d: &CString, rm: bool) -> Result<()> {
+    let mut why = [0 as c_char; WHY];
+    // SAFETY: valid strings and buffer
+    let c = unsafe { ffi::nqdunpack(f.as_ptr(), d.as_ptr(), rm as c_int, why.as_mut_ptr(), WHY) };
+    if c != 0 {
+        return Err(fail(c, &why));
+    }
+    Ok(())
+}
+
+/// Reads a bundle into the new folder `dir`, refusing it whole
+/// ([`Code::Decode`](crate::Code) with what is wrong) when any path or
+/// size is not one a capsule holds. Check `dir` after.
+pub fn unpack(file: impl AsRef<Path>, dir: impl AsRef<Path>) -> Result<()> {
+    unpk(&cpath(file.as_ref())?, &cpath(dir.as_ref())?, false)
+}
+
+/// [`check`](crate::cap::check) of the capsule in the bundle `file`, read
+/// in place: unpacked to a new folder under the system's temporary
+/// folder, checked and removed.
+pub fn checkpack(file: impl AsRef<Path>, o: &crate::cap::Opts) -> Result<crate::cap::Report> {
+    let t = std::env::temp_dir().join(format!(
+        "noqtis-{}-{}",
+        std::process::id(),
+        crate::random(8)?
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    ));
+    let (f, d) = (cpath(file.as_ref())?, cpath(&t)?);
+    unpk(&f, &d, false)?;
+    let r = crate::cap::check(&t, o);
+    unpk(&f, &d, true)?;
+    r
+}
+
+/// Checks an append-only chain of capsules, oldest first (each sealed in
+/// format 2 with the one before as its only input, all by the first
+/// one's key, `pk` when given): the report ("link", "key" and "head"
+/// rows) and the last capsule's id when every row passed.
+pub fn chain(
+    dirs: &[&Path],
+    pk: Option<&[u8]>,
+    anchors: &[&[u8]],
+) -> Result<(Report, Option<[u8; 32]>)> {
+    let dc = dirs.iter().map(|p| cpath(p)).collect::<Result<Vec<_>>>()?;
+    let dp: Vec<*const c_char> = dc.iter().map(|c| c.as_ptr()).collect();
+    let a: Vec<*const u8> = anchors.iter().map(|x| x.as_ptr()).collect();
+    let al: Vec<usize> = anchors.iter().map(|x| x.len()).collect();
+    let nul = |n: usize| n == 0;
+    let o = ffi::Copt {
+        trust: pk.map_or(ptr::null(), |k| k.as_ptr()),
+        trustlen: pk.map_or(0, |k| k.len()),
+        anc: if nul(a.len()) {
+            ptr::null()
+        } else {
+            a.as_ptr()
+        },
+        anclen: if nul(a.len()) {
+            ptr::null()
+        } else {
+            al.as_ptr()
+        },
+        nanc: a.len(),
+        only: ptr::null(),
+        nonly: 0,
+        lin: ptr::null(),
+        nlin: 0,
+        stmt: ptr::null(),
+        stmtlen: ptr::null(),
+        nstmt: 0,
+    };
+    let mut head = [0u8; 32];
+    let mut r = ptr::null_mut();
+    // SAFETY: the arrays and options are alive across the call
+    let c = unsafe { ffi::nqdchain(dp.as_ptr(), dp.len(), &o, head.as_mut_ptr(), &mut r) };
+    let rep = drep(c, r)?;
+    let ok = rep.ok();
+    Ok((rep, if ok { Some(head) } else { None }))
+}
+
+// ---- the environment ----
+
+/// One package of the record's runtime.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pkg {
+    /// Its name.
+    pub name: String,
+    /// Its version.
+    pub version: String,
+    /// Where it came from ("crates.io", a git URL, "local", ...).
+    pub source: String,
+}
+
+/// What [`env`] records besides the platform.
+#[derive(Debug, Clone, Default)]
+pub struct Env {
+    /// The random number generator (its kind) and its seed.
+    pub rng: Option<(String, Option<String>)>,
+    /// The lock files to record (None: the known ones at the top of dir).
+    pub locks: Option<Vec<String>>,
+    /// The packages (None: [`packages`] of dir).
+    pub packages: Option<Vec<Pkg>>,
+}
+
+/// The lock files [`env`] records when they are at the top of the folder.
+pub const LOCKS: [&str; 12] = [
+    "renv.lock",
+    "uv.lock",
+    "poetry.lock",
+    "Pipfile.lock",
+    "requirements.txt",
+    "Cargo.lock",
+    "go.sum",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "environment.yml",
+    "Manifest.toml",
+];
+
+/// The packages of the Rust build: those of `Cargo.lock` at the top of
+/// `dir` (name, version, source, or "local" for a path package), read
+/// with no network, else this crate alone. A Rust program does not know
+/// its dependencies at run time; the lock file does.
+pub fn packages(dir: impl AsRef<Path>) -> Vec<Pkg> {
+    let mut out = Vec::new();
+    if let Ok(t) = std::fs::read_to_string(dir.as_ref().join("Cargo.lock")) {
+        for b in t.split("[[package]]").skip(1) {
+            let v = |k: &str| {
+                b.lines()
+                    .find_map(|l| l.strip_prefix(k).and_then(|r| r.trim().strip_prefix('=')))
+                    .map(|r| r.trim().trim_matches('"').to_string())
+            };
+            if let (Some(n), Some(ver)) = (v("name "), v("version ")) {
+                let src = v("source ").unwrap_or_else(|| "local".into());
+                out.push(Pkg {
+                    name: n,
+                    version: ver,
+                    source: src,
+                });
+            }
+        }
+    }
+    if out.is_empty() {
+        out.push(Pkg {
+            name: "noqtis".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
+            source: "crates.io".into(),
+        });
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name).then(a.version.cmp(&b.version)));
+    out.dedup_by(|a, b| a.name == b.name);
+    out
+}
+
+fn osname() -> &'static str {
+    match std::env::consts::OS {
+        "windows" => "windows",
+        "macos" => "macos",
+        "linux" => "linux",
+        "freebsd" => "freebsd",
+        "openbsd" => "openbsd",
+        "netbsd" => "netbsd",
+        _ => "other",
+    }
+}
+
+/// Records the environment in the record's "env", as `noqtis env` does
+/// (os, arch, noqtis, locale, tz, the lock files at the top of `dir` with
+/// their SHA-256, the rng and its seed), with the Rust runtime: the
+/// compiler version this crate was built with and the packages. The
+/// element.
+pub fn env(dir: impl AsRef<Path>, o: &Env) -> Result<String> {
+    let dp = dir.as_ref();
+    let var = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+    let mut e = format!(
+        "{{\"os\":{},\"arch\":{},\"noqtis\":{}",
+        jstr(osname()),
+        jstr(std::env::consts::ARCH),
+        jstr(&crate::version())
+    );
+    if let Some(l) = var("LC_ALL").or_else(|| var("LANG")) {
+        e += &format!(",\"locale\":{}", jstr(&l));
+    }
+    if let Some(t) = var("TZ") {
+        e += &format!(",\"tz\":{}", jstr(&t));
+    }
+    let mut p = o.packages.clone().unwrap_or_else(|| packages(dp));
+    p.sort_by(|a, b| a.name.cmp(&b.name));
+    let ps: Vec<String> = p
+        .iter()
+        .map(|k| {
+            format!(
+                "{{\"name\":{},\"version\":{},\"source\":{}}}",
+                jstr(&k.name),
+                jstr(&k.version),
+                jstr(&k.source)
+            )
+        })
+        .collect();
+    e += &format!(
+        ",\"runtime\":{{\"language\":\"rust\",\"version\":{},\"packages\":[{}]}}",
+        jstr(env!("NQRUSTC")),
+        ps.join(",")
+    );
+    let want: Vec<String> = match &o.locks {
+        Some(l) => l.clone(),
+        None => LOCKS.iter().map(|s| s.to_string()).collect(),
+    };
+    let mut lk = Vec::new();
+    for f in &want {
+        let fp = dp.join(f);
+        if !fp.is_file() {
+            if o.locks.is_some() {
+                return Err(Error::why(
+                    -1,
+                    format!("{f}: not a file in {}", dp.display()),
+                ));
+            }
+            continue;
+        }
+        let b = std::fs::read(&fp).map_err(|x| Error::why(-7, format!("{}: {x}", fp.display())))?;
+        let h: String = crate::hash("SHA-256", &b, None)?
+            .iter()
+            .map(|x| format!("{x:02x}"))
+            .collect();
+        lk.push((f.clone(), h));
+    }
+    lk.sort();
+    if !lk.is_empty() {
+        let l: Vec<String> = lk
+            .iter()
+            .map(|(p, h)| format!("{{\"path\":{},\"sha256\":\"{h}\"}}", jstr(p)))
+            .collect();
+        e += &format!(",\"locks\":[{}]", l.join(","));
+    }
+    if let Some((k, s)) = &o.rng {
+        e += &format!(",\"rng\":{{\"kind\":{}", jstr(k));
+        if let Some(s) = s {
+            e += &format!(",\"seed\":{}", jstr(s));
+        }
+        e.push('}');
+    }
+    e.push('}');
+    put(dp, "env", &e)?;
+    Ok(e)
 }

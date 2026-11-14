@@ -397,3 +397,271 @@ pub fn checkp(proof: &[u8], o: &Opts, dir: Option<&Path>) -> Result<Report> {
     };
     report(code, r)
 }
+
+/// What [`sealwhy`] names (nqsealwhy(3)).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Why {
+    /// A symbolic link or reparse point.
+    Link,
+    /// Not a regular file or folder (a device, a FIFO, a socket).
+    Odd,
+    /// A name noqtis refuses.
+    Name,
+    /// A path equal to another but for ASCII case.
+    Case,
+    /// A file that starts like a noqtis secret key.
+    Key,
+}
+
+/// Why [`seal`] refused `dir` (an [`Code::Arg`](crate::Code) error): the
+/// first thing in it a capsule cannot hold and its path; `None` when
+/// nothing in it stops a seal (the keys given were then not one pair).
+pub fn sealwhy(dir: impl AsRef<Path>) -> Result<Option<(Why, String)>> {
+    let d = cpath(dir.as_ref())?;
+    let mut w: c_int = 0;
+    let mut p = vec![0 as c_char; 4200];
+    // SAFETY: p holds its length
+    rc(unsafe { ffi::nqsealwhy(d.as_ptr(), &mut w, p.as_mut_ptr(), p.len()) })?;
+    let why = match w {
+        0 => return Ok(None),
+        1 => Why::Link,
+        2 => Why::Odd,
+        3 => Why::Name,
+        4 => Why::Case,
+        _ => Why::Key,
+    };
+    Ok(Some((why, text(p.as_ptr()))))
+}
+
+fn nonce(n: Option<&[u8]>) -> (*const u8, usize) {
+    n.map_or((ptr::null(), 0), |n| (n.as_ptr(), n.len()))
+}
+
+fn wfail(c: c_int, w: *const c_char) -> Error {
+    if w.is_null() {
+        Error::new(c)
+    } else {
+        Error::why(c, text(w))
+    }
+}
+
+/// The RFC 3161 TimeStampReq for the seal in `dir`: send it to a TSA (the
+/// library makes no network request) and give its reply to [`tsput`].
+pub fn tsreq(dir: impl AsRef<Path>, nonce_: Option<&[u8]>) -> Result<Vec<u8>> {
+    let d = cpath(dir.as_ref())?;
+    let (np, nl) = nonce(nonce_);
+    let mut q = vec![0u8; 256];
+    let mut n = 0usize;
+    // SAFETY: q holds its length
+    rc(unsafe { ffi::nqtsreq(d.as_ptr(), np, nl, q.as_mut_ptr(), q.len(), &mut n) })?;
+    q.truncate(n);
+    Ok(q)
+}
+
+/// Stores the TSA's reply as the seal's timestamp once it checks (with
+/// `anchors`, DER certificates, its TSA must chain to one): the time it
+/// gives, in seconds since 1970. [`Code::Verify`](crate::Code), with what
+/// failed, when it does not check.
+pub fn tsput(
+    dir: impl AsRef<Path>,
+    reply: &[u8],
+    nonce_: Option<&[u8]>,
+    anchors: &[&[u8]],
+) -> Result<i64> {
+    let d = cpath(dir.as_ref())?;
+    let (np, nl) = nonce(nonce_);
+    let a: Vec<*const u8> = anchors.iter().map(|x| x.as_ptr()).collect();
+    let al: Vec<usize> = anchors.iter().map(|x| x.len()).collect();
+    let (mut gt, mut w) = (0i64, ptr::null());
+    // SAFETY: the arrays hold nanc entries
+    let c = unsafe {
+        ffi::nqtsput(
+            d.as_ptr(),
+            reply.as_ptr(),
+            reply.len(),
+            np,
+            nl,
+            nul(&a),
+            nul(&al),
+            a.len(),
+            &mut gt,
+            &mut w,
+        )
+    };
+    if c != 0 {
+        return Err(wfail(c, w));
+    }
+    Ok(gt)
+}
+
+/// The TimeStampReq of the next archive timestamp of the capsule's
+/// evidence record (RFC 4998): `hash` "SHA-256", "SHA-384" or "SHA-512"
+/// for a hash-tree renewal, `None` to keep the record's.
+pub fn ersreq(dir: impl AsRef<Path>, hash: Option<&str>, nonce_: Option<&[u8]>) -> Result<Vec<u8>> {
+    let d = cpath(dir.as_ref())?;
+    let h = hash.map(crate::hid).transpose()?.unwrap_or(0);
+    let (np, nl) = nonce(nonce_);
+    let mut q = vec![0u8; 256];
+    let (mut n, mut w) = (0usize, ptr::null());
+    // SAFETY: q holds its length
+    let c = unsafe {
+        ffi::nqersreq(
+            d.as_ptr(),
+            h,
+            np,
+            nl,
+            q.as_mut_ptr(),
+            q.len(),
+            &mut n,
+            &mut w,
+        )
+    };
+    if c != 0 {
+        return Err(wfail(c, w));
+    }
+    q.truncate(n);
+    Ok(q)
+}
+
+/// How [`ersput`] renewed the evidence record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Renewal {
+    /// A new record.
+    New,
+    /// A timestamp renewal.
+    Timestamp,
+    /// A hash-tree renewal.
+    HashTree,
+}
+
+/// Adds the reply to [`ersreq`] to the evidence record (noqtis.ers) once
+/// it and the record check: its time and the kind of renewal.
+pub fn ersput(
+    dir: impl AsRef<Path>,
+    reply: &[u8],
+    hash: Option<&str>,
+    nonce_: Option<&[u8]>,
+    anchors: &[&[u8]],
+) -> Result<(i64, Renewal)> {
+    let d = cpath(dir.as_ref())?;
+    let h = hash.map(crate::hid).transpose()?.unwrap_or(0);
+    let (np, nl) = nonce(nonce_);
+    let a: Vec<*const u8> = anchors.iter().map(|x| x.as_ptr()).collect();
+    let al: Vec<usize> = anchors.iter().map(|x| x.len()).collect();
+    let (mut gt, mut how, mut w) = (0i64, 0 as c_int, ptr::null());
+    // SAFETY: the arrays hold nanc entries
+    let c = unsafe {
+        ffi::nqersput(
+            d.as_ptr(),
+            h,
+            reply.as_ptr(),
+            reply.len(),
+            np,
+            nl,
+            nul(&a),
+            nul(&al),
+            a.len(),
+            &mut gt,
+            &mut how,
+            &mut w,
+        )
+    };
+    if c != 0 {
+        return Err(wfail(c, w));
+    }
+    let r = match how {
+        0 => Renewal::New,
+        1 => Renewal::Timestamp,
+        _ => Renewal::HashTree,
+    };
+    Ok((gt, r))
+}
+
+/// Calls f with room of cap bytes, then once more with the size it asked
+/// for (NQEBUF with *outlen).
+pub(crate) fn sized(
+    mut f: impl FnMut(*mut u8, usize, &mut usize) -> c_int,
+    cap: usize,
+) -> Result<Vec<u8>> {
+    let mut cap = cap;
+    for _ in 0..2 {
+        let mut b = vec![0u8; cap];
+        let mut n = 0usize;
+        let c = f(b.as_mut_ptr(), cap, &mut n);
+        if c == -2 && n > cap {
+            cap = n + 1;
+            continue;
+        }
+        rc(c)?;
+        b.truncate(n);
+        return Ok(b);
+    }
+    Err(Error::new(-2))
+}
+
+fn kstmt(
+    a: &crate::Alg,
+    sk: &[u8],
+    pk: &[u8],
+    n: Option<(&crate::Alg, &[u8], &[u8])>,
+    at: i64,
+    reason: Option<&str>,
+) -> Result<Vec<u8>> {
+    let r = reason.map(|s| cs(s.as_bytes(), "reason")).transpose()?;
+    let (na, nsk, npk) = match n {
+        Some((x, s, p)) => (x.id, s, p),
+        None => (a.id, &[][..], &[][..]),
+    };
+    let none = n.is_none();
+    // SAFETY: the buffers are valid for the lengths passed
+    sized(
+        |o, c, l| unsafe {
+            ffi::nqkstmt(
+                a.id,
+                sk.as_ptr(),
+                sk.len(),
+                pk.as_ptr(),
+                pk.len(),
+                na,
+                if none { ptr::null() } else { nsk.as_ptr() },
+                nsk.len(),
+                if none { ptr::null() } else { npk.as_ptr() },
+                npk.len(),
+                at,
+                r.as_ref().map_or(ptr::null(), |s| s.as_ptr()),
+                o.cast(),
+                c,
+                l,
+            )
+        },
+        65536,
+    )
+}
+
+/// A key statement (noqtis-keys-1, JSON) that the key pair (`sk`, `pk`)
+/// of `alg` is replaced by (`nsk`, `npk`) of `nalg` from `at` (seconds
+/// since 1970), signed by both keys; `reason` is up to 255 bytes. Both
+/// algorithms must be post-quantum. Give it to [`check`] in
+/// [`Opts::stmts`].
+#[allow(clippy::too_many_arguments)]
+pub fn rotate(
+    alg: &str,
+    sk: &[u8],
+    pk: &[u8],
+    nalg: &str,
+    nsk: &[u8],
+    npk: &[u8],
+    at: i64,
+    reason: Option<&str>,
+) -> Result<Vec<u8>> {
+    let a = crate::find(alg, crate::Kind::Sign)?;
+    let n = crate::find(nalg, crate::Kind::Sign)?;
+    kstmt(a, sk, pk, Some((n, nsk, npk)), at, reason)
+}
+
+/// A key statement that the key pair (`sk`, `pk`) is revoked from `at`,
+/// signed by it; as [`rotate`].
+pub fn revoke(alg: &str, sk: &[u8], pk: &[u8], at: i64, reason: Option<&str>) -> Result<Vec<u8>> {
+    let a = crate::find(alg, crate::Kind::Sign)?;
+    kstmt(a, sk, pk, None, at, reason)
+}

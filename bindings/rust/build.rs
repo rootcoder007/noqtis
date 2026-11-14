@@ -42,6 +42,16 @@ fn sources(src: &Path) -> Vec<PathBuf> {
 }
 
 fn main() {
+    // the compiler's version, for data::env's runtime
+    let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
+    let v = std::process::Command::new(rustc)
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .and_then(|s| s.split_whitespace().nth(1).map(str::to_string))
+        .unwrap_or_default();
+    println!("cargo:rustc-env=NQRUSTC={v}");
     let top = root();
     let src = top.join("src");
     let inc = top.join("include");

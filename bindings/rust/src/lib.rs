@@ -25,6 +25,7 @@ mod ffi;
 pub mod cap;
 pub mod card;
 pub mod data;
+pub mod dsse;
 pub mod kem;
 pub mod keyfile;
 pub mod sign;

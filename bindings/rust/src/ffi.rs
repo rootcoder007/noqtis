@@ -639,4 +639,179 @@ extern "C" {
         cap: usize,
         ol: *mut usize,
     ) -> c_int;
+    pub fn nqsealwhy(dir: *const c_char, why: *mut c_int, path: *mut c_char, cap: usize) -> c_int;
+    pub fn nqtsreq(
+        dir: *const c_char,
+        nonce: *const u8,
+        nl: usize,
+        req: *mut u8,
+        rl: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqtsput(
+        dir: *const c_char,
+        rsp: *const u8,
+        rl: usize,
+        nonce: *const u8,
+        nl: usize,
+        anc: *const *const u8,
+        anclen: *const usize,
+        nanc: usize,
+        gt: *mut i64,
+        why: *mut *const c_char,
+    ) -> c_int;
+    pub fn nqersreq(
+        dir: *const c_char,
+        h: c_int,
+        nonce: *const u8,
+        nl: usize,
+        req: *mut u8,
+        rl: usize,
+        outlen: *mut usize,
+        why: *mut *const c_char,
+    ) -> c_int;
+    pub fn nqersput(
+        dir: *const c_char,
+        h: c_int,
+        rsp: *const u8,
+        rl: usize,
+        nonce: *const u8,
+        nl: usize,
+        anc: *const *const u8,
+        anclen: *const usize,
+        nanc: usize,
+        gt: *mut i64,
+        how: *mut c_int,
+        why: *mut *const c_char,
+    ) -> c_int;
+    pub fn nqkstmt(
+        alg: c_int,
+        sk: *const u8,
+        skl: usize,
+        pk: *const u8,
+        pkl: usize,
+        nalg: c_int,
+        nsk: *const u8,
+        nskl: usize,
+        npk: *const u8,
+        npkl: usize,
+        at: i64,
+        reason: *const c_char,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqdsse(
+        alg: c_int,
+        sk: *const u8,
+        skl: usize,
+        pk: *const u8,
+        pkl: usize,
+        typ: *const c_char,
+        payload: *const u8,
+        n: usize,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqdssevrfy(
+        alg: c_int,
+        pk: *const u8,
+        pkl: usize,
+        env: *const c_char,
+        n: usize,
+        payload: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+        typ: *mut c_char,
+    ) -> c_int;
+}
+
+// the rest of include/nqd.h
+extern "C" {
+    pub fn nqdschk(
+        dir: *const c_char,
+        schema: *const c_char,
+        n: usize,
+        rep: *mut *mut Drep,
+    ) -> c_int;
+    pub fn nqdsyn(
+        r: *mut Drec,
+        dir: *const c_char,
+        path: *const c_char,
+        seed: u64,
+        rows: u64,
+        why: *mut c_char,
+        wcap: usize,
+    ) -> c_int;
+    pub fn nqddcal(
+        stats: *const c_char,
+        n: usize,
+        files: *const *const c_char,
+        nf: usize,
+        o: *const Csvopt,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+        why: *mut c_char,
+        wcap: usize,
+    ) -> c_int;
+    pub fn nqdchunk(
+        dir: *const c_char,
+        path: *const c_char,
+        chunk: u64,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+        why: *mut c_char,
+        wcap: usize,
+    ) -> c_int;
+    pub fn nqdpiece(
+        elem: *const c_char,
+        n: usize,
+        piece: *const c_char,
+        off: u64,
+        rep: *mut *mut Drep,
+    ) -> c_int;
+    pub fn nqdcommit(salt: *const u8, sl: usize, m: *const u8, n: usize, hex: *mut c_char)
+        -> c_int;
+    pub fn nqdreveal(
+        r: *const Drec,
+        salt: *const u8,
+        sl: usize,
+        m: *const u8,
+        n: usize,
+        idx: *mut usize,
+    ) -> c_int;
+    pub fn nqdcite(
+        r: *const Drec,
+        fmt: c_int,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqdrpt(
+        dir: *const c_char,
+        crep: *const Rep,
+        drep: *const Drep,
+        fmt: c_int,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqdpack(dir: *const c_char, files: c_int, file: *const c_char) -> c_int;
+    pub fn nqdunpack(
+        file: *const c_char,
+        dir: *const c_char,
+        rm: c_int,
+        why: *mut c_char,
+        cap: usize,
+    ) -> c_int;
+    pub fn nqdchain(
+        dirs: *const *const c_char,
+        n: usize,
+        o: *const Copt,
+        head: *mut u8,
+        rep: *mut *mut Drep,
+    ) -> c_int;
 }
