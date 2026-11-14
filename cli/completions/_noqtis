@@ -19,6 +19,8 @@ _noqtis_cmd() {
         '(-a --alg)'{-a,--alg=}'[algorithm]:algorithm:($algs)' \
         '(-o --out)'{-o,--out=}'[key file to write]:key:_files' \
         '--seed[seed as hex or a seed file]:seed:_files' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '(-f --force)'{-f,--force}'[replace existing files]' ;;
     sign)
       _arguments \
@@ -27,6 +29,8 @@ _noqtis_cmd() {
         '(-c --ctx)'{-c,--ctx=}'[context string]:ctx:' \
         '(-d --det)'{-d,--det}'[deterministic signature]' \
         '--ph[pre-hash with]:hash:($hashes)' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '(-f --force)'{-f,--force}'[replace an existing signature]' \
         ':file:_files' ;;
     verify)
@@ -48,6 +52,8 @@ _noqtis_cmd() {
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
         '(-o --out)'{-o,--out=}'[shared secret file]:ss:_files' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '--stdout[print the shared secret]' \
         '(-f --force)'{-f,--force}'[replace an existing file]' \
         ':ct:_files' ;;

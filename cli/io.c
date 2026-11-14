@@ -163,6 +163,39 @@ void ncfree(void *p, size_t len, int sec) {
   free(p);
 }
 
+/* Reads from descriptor fd into b (cap bytes) up to a newline (not
+ * kept, nor a carriage return before it) or the end; one byte at a
+ * time, so nothing past the line is taken from a shared pipe. NQELIM
+ * when the line is longer than cap, NQEIO when fd cannot be read. */
+int ncrdfd(int fd, uint8_t *b, size_t cap, size_t *n) {
+  size_t k = 0;
+  *n = 0;
+  for (;;) {
+    unsigned char c;
+#ifdef _WIN32
+    int r = _read(fd, &c, 1);
+#else
+    ssize_t r = read(fd, &c, 1);
+    if (r < 0 && errno == EINTR)
+      continue;
+#endif
+    if (r < 0)
+      return NQEIO;
+    if (r == 0 || c == '\n')
+      break;
+    if (k == cap) {
+      nqwipe(&c, 1);
+      return NQELIM;
+    }
+    b[k++] = c;
+    nqwipe(&c, 1);
+  }
+  if (k > 0 && b[k - 1] == '\r')
+    k--;
+  *n = k;
+  return NQOK;
+}
+
 int ncrd(const char *path, int sec, uint8_t **buf, size_t *len) {
   return ncrdx(path, sec, NCRDMAX, buf, len);
 }

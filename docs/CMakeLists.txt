@@ -16,6 +16,7 @@ set(NQMANAKA
   "nqsign:nqsignd,nqvrfy,nqskg,nqskgd,nqssize,nqsname,nqsfind"
   "nqenc:nqencd,nqdec,nqkkg,nqkkgd,nqksize,nqkname,nqkfind"
   "nqhash:nqhini,nqhupd,nqhfin,nqhlen,nqhmac"
+  "nqpwenc:nqpwdec"
   "nqrep:nqrepn,nqrepi,nqrepfree"
   "nqtsput:nqtsreq"
   "nqinsp:nqfiles"

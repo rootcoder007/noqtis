@@ -96,12 +96,17 @@ done:
 int ncdec(int argc, char **argv) {
   const char *kp = NULL, *sp = NULL;
   int force = 0, sout = 0, help = 0, np, rc, ret = NCUSE;
+  ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
     {'o', "out", 1, &sp, NULL},
     {'\0', "stdout", 0, NULL, &sout},
+    {'\0', "pass-fd", 1, &pwo.fd, NULL},
+    {'\0', "pass-env", 1, &pwo.env, NULL},
     {'f', "force", 0, NULL, &force}
   };
+  uint8_t *pw = NULL;
+  size_t pwn = 0;
   nckey k = {{0, 0, NULL}, 0, NULL, 0};
   nqksz z = {0, 0, 0, 0};
   uint8_t *ct = NULL, *ss = NULL;
@@ -122,7 +127,16 @@ int ncdec(int argc, char **argv) {
   }
   if (sp != NULL && !force && ncexist(sp))
     return ncwfail("dec", sp, force);
-  if (nckrd("dec", kp, 1, &k) != NCOK)
+  if (pwo.fd != NULL && strcmp(pwo.fd, "0") == 0 &&
+      strcmp(argv[0], "-") == 0) {
+    ncmsg("dec", "--pass-fd 0 and a ciphertext on stdin cannot share it");
+    return NCUSE;
+  }
+  if (ncpwget("dec", &pwo, &pw, &pwn) != NCOK)
+    return NCUSE;
+  rc = nckrdp("dec", kp, 1, pw, pwn, &k);
+  ncfree(pw, NQPWLEN, 1);
+  if (rc != NCOK)
     return NCUSE;
   if (!k.a.kem) {
     ncmsg("dec", "%s is a %s (signature) key, not a KEM key", kp,

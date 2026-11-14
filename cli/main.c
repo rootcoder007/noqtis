@@ -32,17 +32,24 @@ static int nchelp(int argc, char **argv);
 
 static const nccmd cmds[] = {
   {"keygen", nckeygen, "make a key pair",
-   "usage: noqtis keygen -a <alg> -o <key> [--seed <hex|file>] [--force]\n"
+   "usage: noqtis keygen -a <alg> -o <key> [--seed <hex|file>]\n"
+   "                     [--pass-fd <n> | --pass-env <name>] [--force]\n"
    "  Writes the secret key to <key> (owner-only) and the public key to\n"
    "  <key>.pub. <alg> is a signature or KEM name from `noqtis algs`.\n"
    "  --seed  deterministic key generation from the standard's seed\n"
    "          (hex digits, or a file holding the raw seed bytes)\n"
+   "  --pass-fd, --pass-env  keep the secret key under a passphrase\n"
+   "          (Argon2id, 64 MiB, 3 passes), read from descriptor <n> up\n"
+   "          to a newline, or from the variable named <name>; never\n"
+   "          from the command line\n"
    "  --force replace existing files\n"},
   {"sign", ncsign, "sign a file",
    "usage: noqtis sign -k <key> [-o <sig>] [-c <ctx>] [-d] [--ph <hash>]\n"
-   "                   [--force] <file>\n"
+   "                   [--pass-fd <n> | --pass-env <name>] [--force]\n"
+   "                   <file>\n"
    "  Writes the raw signature to <sig> (default <file>.sig); <file> may\n"
    "  be - for stdin (then -o is required).\n"
+   "  --pass-fd, --pass-env  the passphrase of a protected key\n"
    "  -c      context string (at most 255 bytes)\n"
    "  -d      deterministic signature (no per-signature randomness)\n"
    "  --ph    pre-hash variant (HashML-DSA, HashSLH-DSA) with <hash>\n"},
@@ -58,10 +65,12 @@ static const nccmd cmds[] = {
    "  Writes the ciphertext to <ct> and the shared secret to <ss>\n"
    "  (owner-only). --stdout prints the secret in hex instead.\n"},
   {"dec", ncdec, "decapsulate a shared secret (KEM)",
-   "usage: noqtis dec -k <key> (-o <ss> | --stdout) [--force] <ct>\n"
+   "usage: noqtis dec -k <key> (-o <ss> | --stdout)\n"
+   "                  [--pass-fd <n> | --pass-env <name>] [--force] <ct>\n"
    "  Writes the shared secret to <ss> (owner-only), or prints it in hex\n"
    "  with --stdout. A tampered ciphertext gives an unrelated secret\n"
-   "  (implicit rejection), not an error.\n"},
+   "  (implicit rejection), not an error. --pass-fd and --pass-env give\n"
+   "  the passphrase of a protected key.\n"},
   {"hash", nchash, "print or check file digests",
    "usage: noqtis hash [-a <hash>] [-c|--check] [<file>...]\n"
    "  Prints `<hex>  <file>` lines like sha256sum (- or no file: stdin).\n"

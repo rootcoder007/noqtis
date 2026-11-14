@@ -102,10 +102,11 @@ and Wycheproof HMAC vectors and against OpenSSL.
 | M11 | `port` | platform layer for files and paths (Windows wide-char), symbol visibility, shared-library versioning, `noqtis.pc` and CMake package config | the full suite passes on every platform in the CI matrix |
 | M12 | `bind` | WebAssembly (npm), Python, R, Rust, Go and Java bindings (done); .NET, Swift, Android and Ruby next | each binding's own tests on every platform it supports |
 | M13 | `tls` | TLS 1.3 client (RFC 8446) with X25519MLKEM768 and X25519 key shares (`xdh`), AES-GCM and ChaCha20-Poly1305 (`aead`), certificate path, OCSP and CT checks; behind `NQTLS` | `taead`, `tecdh`, `thyb`, `thkdf` and `tests/tls` (a local test server through the `NQTEST` hooks); not yet reviewed |
+| M14 | `box` | a secret key under a passphrase (noqtis-pwkey-1: Argon2id and ChaCha20-Poly1305, the header bound as associated data, parameter limits checked before any memory is taken; `nqpwenc`, `nqpwdec`, `noqtis keygen/sign/dec --pass-fd/--pass-env`) | `tpw` (known answers checked against OpenSSL's ARGON2ID and Python's `cryptography`, every byte tampered, the limits), `tcli`, `fpw` |
 
 Dependencies: M1 needs M0; M2-M7 need M0-M1; M8 needs M1 and M7; M9 needs
 M1-M5 and M8; M10 needs everything; M11 runs alongside; M12 needs M9;
-M13 needs M1, M3e, M5, M7 and M8.
+M13 needs M1, M3e, M5, M7 and M8; M14 needs M1 and the AEAD of M13.
 
 ## Capsule format, version 1
 

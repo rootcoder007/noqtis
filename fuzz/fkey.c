@@ -21,6 +21,10 @@ void ncmsg(const char *cmd, const char *fmt, ...) {
   (void)fmt;
 }
 
+const char *ncesc(const char *s) {
+  return s;
+}
+
 int nclib(const char *cmd, const char *what, int rc) {
   (void)cmd;
   (void)what;

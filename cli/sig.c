@@ -52,15 +52,18 @@ static int seedrd(const char *cmd, const char *arg, uint8_t *seed,
 int nckeygen(int argc, char **argv) {
   const char *an = NULL, *out = NULL, *sd = NULL;
   int force = 0, help = 0, np, rc;
+  ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'a', "alg", 1, &an, NULL},
     {'o', "out", 1, &out, NULL},
     {'\0', "seed", 1, &sd, NULL},
+    {'\0', "pass-fd", 1, &pwo.fd, NULL},
+    {'\0', "pass-env", 1, &pwo.env, NULL},
     {'f', "force", 0, NULL, &force}
   };
   ncalg a = {0, 0, NULL};
-  uint8_t seed[NCSEEDX], *pk = NULL, *sk = NULL;
-  size_t sn = 0, pkn, skn, pl;
+  uint8_t seed[NCSEEDX], *pk = NULL, *sk = NULL, *pw = NULL;
+  size_t sn = 0, pkn, skn, pl, pwn = 0;
   char *pp = NULL;
   FILE *fs = NULL, *fp = NULL;
   int ret = NCUSE;
@@ -84,6 +87,10 @@ int nckeygen(int argc, char **argv) {
     return nclib("keygen", a.name, NQENOSUP);
   if (sd != NULL && seedrd("keygen", sd, seed, &sn) != NCOK)
     return NCUSE;
+  if (ncpwget("keygen", &pwo, &pw, &pwn) != NCOK) {
+    nqwipe(seed, sizeof seed);
+    return NCUSE;
+  }
   pl = strlen(out);
   pp = (char *)malloc(pl + 5);
   pk = (uint8_t *)malloc(pkn);
@@ -117,7 +124,8 @@ int nckeygen(int argc, char **argv) {
     fs = NULL;
     goto done;
   }
-  rc = nckwr(fs, &a, 1, sk, skn);
+  rc = pw != NULL ? nckwrp(fs, &a, pw, pwn, sk, skn)
+                  : nckwr(fs, &a, 1, sk, skn);
   rc = ncclose(fs, out, rc != NQOK);
   fs = NULL;
   if (rc != NQOK) {
@@ -130,10 +138,12 @@ int nckeygen(int argc, char **argv) {
     ncmsg("keygen", "cannot write %s", pp);
     goto done;
   }
-  printf("%s key pair: %s (secret), %s (public)\n", a.name, out, pp);
+  printf("%s key pair: %s (secret%s), %s (public)\n", a.name, out,
+         pw != NULL ? ", under the passphrase" : "", pp);
   ret = NCOK;
 done:
   nqwipe(seed, sizeof seed);
+  ncfree(pw, NQPWLEN, 1);
   ncfree(sk, skn, 1);
   free(pk);
   free(pp);
@@ -208,14 +218,19 @@ done:
 int ncsign(int argc, char **argv) {
   const char *kp = NULL, *out = NULL, *ctx = NULL, *ph = NULL;
   int det = 0, force = 0, help = 0, np, rc, phv, ret = NCUSE;
+  ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
     {'o', "out", 1, &out, NULL},
     {'c', "ctx", 1, &ctx, NULL},
     {'d', "det", 0, NULL, &det},
     {'\0', "ph", 1, &ph, NULL},
+    {'\0', "pass-fd", 1, &pwo.fd, NULL},
+    {'\0', "pass-env", 1, &pwo.env, NULL},
     {'f', "force", 0, NULL, &force}
   };
+  uint8_t *pw = NULL;
+  size_t pwn = 0;
   nckey k = {{0, 0, NULL}, 0, NULL, 0};
   nqssz z = {0, 0, 0};
   uint8_t *msg = NULL, *sig = NULL, rnd[64];
@@ -239,7 +254,16 @@ int ncsign(int argc, char **argv) {
   }
   if (phopt("sign", ph, &phv) != NCOK || ctxopt("sign", ctx, &cn) != NCOK)
     return NCUSE;
-  if (nckrd("sign", kp, 1, &k) != NCOK)
+  if (pwo.fd != NULL && strcmp(pwo.fd, "0") == 0 &&
+      strcmp(argv[0], "-") == 0) {
+    ncmsg("sign", "--pass-fd 0 and a message on stdin cannot share it");
+    return NCUSE;
+  }
+  if (ncpwget("sign", &pwo, &pw, &pwn) != NCOK)
+    return NCUSE;
+  rc = nckrdp("sign", kp, 1, pw, pwn, &k);
+  ncfree(pw, NQPWLEN, 1);
+  if (rc != NCOK)
     return NCUSE;
   if (k.a.kem) {
     ncmsg("sign", "%s is a %s (KEM) key, not a signature key", kp,

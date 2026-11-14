@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd November 14, 2026
 .Dt NOQTIS-KEYGEN 1
 .Os
 .Sh NAME
@@ -10,6 +10,7 @@
 .Fl a Ar alg
 .Fl o Ar key
 .Op Fl -seed Ar hex | file
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl f | Fl -force
 .Sh DESCRIPTION
 .Nm noqtis keygen
@@ -45,6 +46,26 @@ A seed given as hex digits on the command line can be read by other users
 mode 0600.
 .Nm noqtis keygen
 prints a warning when given one.
+.It Fl -pass-fd Ar n
+Keep the secret key under a passphrase, read from the open file descriptor
+.Ar n
+(0 for standard input), up to a newline or the end; neither the newline
+nor a carriage return before it is part of it.
+.It Fl -pass-env Ar name
+Keep the secret key under the passphrase from the environment variable called
+.Ar name
+(the option names the variable; its value is never given on the command
+line).
+With either, the secret key file holds the key under ChaCha20-Poly1305
+with a key from Argon2id of the passphrase (64 MiB, 3 passes, 4 lanes,
+a random 16-byte salt; noqtis-pwkey-1, see
+.Xr nqpwenc 3 ) ,
+behind the same first line as an unprotected key, which is bound to it.
+.Xr noqtis-sign 1
+and
+.Xr noqtis-dec 1
+read it with the same options; the passphrase is at most 4096 bytes and
+never empty, and is never echoed or printed.
 .It Fl f , Fl -force
 Replace existing files.
 The old files are removed first.
@@ -79,10 +100,18 @@ A KEM key:
 $ noqtis keygen -a ML-KEM-768 -o box
 ML-KEM-768 key pair: box (secret), box.pub (public)
 .Ed
+.Pp
+A key under a passphrase kept in a file of mode 0600, given on descriptor
+3:
+.Bd -literal -offset indent
+$ noqtis keygen -a ML-DSA-65 -o me --pass-fd 3 3<pass.txt
+ML-DSA-65 key pair: me (secret, under the passphrase), me.pub (public)
+.Ed
 .Sh SEE ALSO
 .Xr noqtis 1 ,
 .Xr noqtis-algs 1 ,
 .Xr noqtis-enc 1 ,
 .Xr noqtis-sign 1 ,
 .Xr nqenc 3 ,
+.Xr nqpwenc 3 ,
 .Xr nqsign 3

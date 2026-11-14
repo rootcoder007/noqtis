@@ -100,7 +100,7 @@ typedef void (*nqprogfn)(int stage, uint64_t done, uint64_t total,
 NQAPI int nqsetprog(nqprogfn fn, void *user);
 
 /* Replaces the allocator the capsule and parser layers and Argon2id
- * (nqa2id) use; NULL for both
+ * (nqa2id, nqpwenc, nqpwdec) use; NULL for both
  * restores malloc/free. Not thread safe: call before anything else. */
 typedef void *(*nqmalfn)(size_t size, void *user);
 typedef void (*nqfreefn)(void *ptr, size_t size, void *user);
@@ -259,6 +259,47 @@ NQAPI int nqencd(nqkalg alg, const uint8_t *pk, size_t pklen,
  * the operating system's random source fails (NQERNG). */
 NQAPI int nqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
                 const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
+
+/* ---- passphrase key files ------------------------------------------- */
+
+/* A secret key under a passphrase (noqtis-pwkey-1): the header, 35
+ * bytes ("NQPW", the version 1, the KDF 1 (Argon2id, version 0x13), the
+ * AEAD 1 (ChaCha20-Poly1305), m KiB, t and p as 32-bit big-endian
+ * numbers, a random 16-byte salt), then the key under the AEAD and its
+ * 16-byte tag. Argon2id of the passphrase and the salt gives the AEAD's
+ * key and nonce (44 bytes); its associated data is the header and the
+ * caller's ad (at most 1024 bytes: the key file's first line, say), so
+ * no header field or ad changes without the tag failing. Defaults and
+ * the limits both functions enforce: */
+#define NQPWM 65536u       /* memory: 64 MiB */
+#define NQPWT 3u           /* passes */
+#define NQPWP 4u           /* lanes */
+#define NQPWMMIN 8192u     /* memory at least 8 MiB */
+#define NQPWMMAX 1048576u  /* at most 1 GiB */
+#define NQPWTMAX 16u       /* passes 1 to 16 */
+#define NQPWPMAX 16u       /* lanes 1 to 16 */
+#define NQPWWORK 4194304u  /* m * t at most: 4 GiB of passes */
+#define NQPWOVH 51u        /* bytes beyond the key: header and tag */
+#define NQPWMAX 65536u     /* the longest key */
+#define NQPWLEN 4096u      /* the longest passphrase (at least 1 byte) */
+/* nqpwenc writes sklen + NQPWOVH bytes to out (cap; *outlen gets the
+ * size, also with NQEBUF); m, t and p are 0 for the defaults. NQEARG
+ * for a parameter outside the limits, NQERNG when the salt cannot be
+ * drawn. sk and out must not overlap. */
+NQAPI int nqpwenc(const uint8_t *pw, size_t pwlen, const uint8_t *ad,
+                  size_t alen, uint32_t m, uint32_t t, uint32_t p,
+                  const uint8_t *sk, size_t sklen, uint8_t *out, size_t cap,
+                  size_t *outlen);
+/* Reads n bytes from nqpwenc: the key to sk (cap bytes; *sklen gets its
+ * size, also with NQEBUF). Everything that can be checked before the
+ * passphrase is: NQEDEC for a magic, version, KDF or AEAD that is not
+ * this one or a size too small; NQELIM for parameters outside the
+ * limits above (a file cannot ask for more memory or time) or a key
+ * over NQPWMAX. Then NQEVRFY for a wrong passphrase or any changed
+ * byte; sk is zeroed on every error. */
+NQAPI int nqpwdec(const uint8_t *pw, size_t pwlen, const uint8_t *ad,
+                  size_t alen, const uint8_t *in, size_t n, uint8_t *sk,
+                  size_t cap, size_t *sklen);
 
 /* ---- capsules ------------------------------------------------------- */
 

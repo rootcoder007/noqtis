@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd November 14, 2026
 .Dt NOQTIS-DEC 1
 .Os
 .Sh NAME
@@ -9,6 +9,7 @@
 .Nm noqtis dec
 .Fl k Ar key
 .Fl o Ar ss | Fl -stdout
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl f | Fl -force
 .Ar ct
 .Sh DESCRIPTION
@@ -36,6 +37,19 @@ A secret KEM key file.
 The shared-secret file.
 .It Fl -stdout
 Print the secret in hex instead.
+.It Fl -pass-fd Ar n
+Read the passphrase from the open file descriptor
+.Ar n
+(0 for standard input), up to a newline or the end; neither the newline
+nor a carriage return before it is part of it.
+.It Fl -pass-env Ar name
+Take the passphrase from the environment variable called
+.Ar name
+(the option names the variable; its value is never given on the command
+line).
+Either is needed for a key file under a passphrase
+.Pf ( Xr noqtis-keygen 1 ) ;
+a wrong passphrase, or a changed key file, is exit 2.
 .It Fl f , Fl -force
 Replace an existing
 .Ar ss .

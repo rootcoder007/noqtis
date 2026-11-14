@@ -61,6 +61,8 @@ FILE *ncfopen(const char *path, const char *mode);
 int ncrd(const char *path, int sec, uint8_t **buf, size_t *len);
 /* whether path is a folder (following links) */
 int ncisdir(const char *path);
+/* Reads descriptor fd up to a newline (not kept) into b, cap bytes. */
+int ncrdfd(int fd, uint8_t *b, size_t cap, size_t *n);
 /* ncrd that refuses (NQELIM) an input over max bytes, so /dev/zero or a
  * huge file cannot fill memory or run forever */
 int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
@@ -225,6 +227,25 @@ int nckrd(const char *cmd, const char *path, int sec, nckey *k);
 void nckfree(nckey *k);
 /* Writes a key file to an already opened f. */
 int nckwr(FILE *f, const ncalg *a, int sec, const uint8_t *b, size_t n);
+
+/* A passphrase from --pass-fd <n> (read from that descriptor up to a
+ * newline) or --pass-env <name> (the variable's value), never from the
+ * command line; at most NQPWLEN bytes, at least one. */
+typedef struct {
+  const char *fd;
+  const char *env;
+} ncpw;
+/* *b NULL when neither option was given; else a new buffer of
+ * NQPWLEN bytes (free with ncfree(*b, NQPWLEN, 1)) holding *n bytes.
+ * NCOK, or NCUSE with a message. */
+int ncpwget(const char *cmd, const ncpw *o, uint8_t **b, size_t *n);
+/* nckrd, and a secret key file under a passphrase (noqtis-pwkey-1)
+ * opened with pw (pwn bytes; NULL when none was given). */
+int nckrdp(const char *cmd, const char *path, int sec, const uint8_t *pw,
+           size_t pwn, nckey *k);
+/* Writes a secret key file under the passphrase pw. */
+int nckwrp(FILE *f, const ncalg *a, const uint8_t *pw, size_t pwn,
+           const uint8_t *b, size_t n);
 
 /* A hash by its command-line name (sha256, sha3-256, ...). */
 int nchalg(const char *name, nqhalg *h);

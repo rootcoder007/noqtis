@@ -1,0 +1,167 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 14, 2026
+.Dt NQPWENC 3
+.Os
+.Sh NAME
+.Nm nqpwenc ,
+.Nm nqpwdec
+.Nd keep a secret key under a passphrase
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqpwenc
+.Fa "const uint8_t *pw" "size_t pwlen"
+.Fa "const uint8_t *ad" "size_t alen"
+.Fa "uint32_t m" "uint32_t t" "uint32_t p"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqpwdec
+.Fa "const uint8_t *pw" "size_t pwlen"
+.Fa "const uint8_t *ad" "size_t alen"
+.Fa "const uint8_t *in" "size_t n"
+.Fa "uint8_t *sk" "size_t cap" "size_t *sklen"
+.Fc
+.Sh DESCRIPTION
+.Fn nqpwenc
+encrypts the secret key
+.Fa sk
+(1 to
+.Dv NQPWMAX ,
+65536, bytes) under the passphrase
+.Fa pw
+(1 to
+.Dv NQPWLEN ,
+4096, bytes) in the format noqtis-pwkey-1, and
+.Fn nqpwdec
+decrypts it.
+.Xr noqtis-keygen 1
+writes such keys, and
+.Xr noqtis-sign 1
+and
+.Xr noqtis-dec 1
+read them, with the key file's first line as
+.Fa ad .
+.Pp
+The format, all numbers big-endian:
+.Bl -column "ciphertext of sk" "sklen" -offset indent
+.It Sy field Ta Sy bytes
+.It Li NQPW Ta 4
+.It version, 1 Ta 1
+.It KDF, 1: Argon2id 0x13 Ta 1
+.It AEAD, 1: ChaCha20-Poly1305 Ta 1
+.It Fa m , No KiB Ta 4
+.It Fa t , No passes Ta 4
+.It Fa p , No lanes Ta 4
+.It salt, random Ta 16
+.It ciphertext of Fa sk Ta Fa sklen
+.It tag Ta 16
+.El
+.Pp
+Argon2id
+.Pq Xr nqa2id 3
+of the passphrase and the salt with
+.Fa t ,
+.Fa m
+and
+.Fa p
+gives 44 bytes: the AEAD's key and its nonce.
+The associated data is the 35-byte header followed by
+.Fa ad
+(at most 1024 bytes;
+.Dv NULL
+with 0 for none), so no field of the header and no byte of
+.Fa ad
+can change without the tag failing.
+The output is
+.Fa sklen
++
+.Dv NQPWOVH
+(51) bytes.
+.Pp
+.Fa m ,
+.Fa t
+and
+.Fa p
+are 0 for the defaults
+.Dv NQPWM
+(65536 KiB, 64 MiB),
+.Dv NQPWT
+(3) and
+.Dv NQPWP
+(4).
+Both functions enforce the same limits: memory
+.Dv NQPWMMIN
+(8 MiB) to
+.Dv NQPWMMAX
+(1 GiB), 1 to
+.Dv NQPWTMAX
+(16) passes, 1 to
+.Dv NQPWPMAX
+(16) lanes, and
+.Fa m
+\(mu
+.Fa t
+at most
+.Dv NQPWWORK
+(4194304, 4 GiB of passes).
+.Fn nqpwdec
+checks the magic, version, algorithms, parameters and size before it
+derives anything, so a file cannot make it take more than 1 GiB or more
+than 4 GiB of passes; then a wrong passphrase, a changed byte or
+another
+.Fa ad
+fails the tag.
+On any error
+.Fa sk
+is zeroed, and
+.Fn nqpwenc
+leaves nothing in
+.Fa out .
+.Sh RETURN VALUES
+.Dv NQOK ,
+or
+.Bl -tag -width NQEMEM
+.It Bq Er NQEARG
+A passphrase that is empty or too long, an
+.Fa ad
+over 1024 bytes, a key that is empty or too long, parameters outside
+the limits (for
+.Fn nqpwenc ) ,
+or a
+.Dv NULL
+pointer.
+.It Bq Er NQEBUF
+.Fa cap
+is too small;
+.Pf * Fa outlen
+or
+.Pf * Fa sklen
+gets the size needed.
+.It Bq Er NQEDEC
+.Fa in
+is not noqtis-pwkey-1 (magic, version, KDF or AEAD), or is too short.
+.It Bq Er NQELIM
+.Fa in
+asks for parameters outside the limits, or holds a key over
+.Dv NQPWMAX .
+.It Bq Er NQEVRFY
+The passphrase is wrong, or a byte of
+.Fa in
+or
+.Fa ad
+differs.
+.It Bq Er NQEMEM
+Argon2id's memory could not be allocated.
+.It Bq Er NQERNG
+The salt could not be drawn.
+.El
+.Sh SEE ALSO
+.Xr noqtis-keygen 1 ,
+.Xr noqtis 3 ,
+.Xr nqa2id 3
+.Sh STANDARDS
+RFC 9106 (Argon2id), RFC 8439 (ChaCha20-Poly1305).

@@ -114,6 +114,36 @@ The seed **is** the secret key: anyone who has it can derive the key.
 A seed on the command line also lands in shell history and process
 listings; prefer a seed file.
 
+## Keys under a passphrase
+
+`--pass-fd <n>` or `--pass-env <name>` keeps a secret key under a
+passphrase:
+
+```sh
+$ noqtis keygen -a ML-DSA-65 -o me --pass-fd 3 3<pass.txt
+ML-DSA-65 key pair: me (secret, under the passphrase), me.pub (public)
+$ NQPASS=$(cat pass.txt) noqtis sign -k me --pass-env NQPASS report.pdf
+```
+
+The passphrase is read from the open descriptor `<n>` up to a newline,
+or taken from the environment variable whose name the option gives; it
+is never an argument (other users can read the process list), never
+echoed, and at most 4096 bytes. `noqtis sign` and `noqtis dec` take the
+same options; the other commands that read a secret key refuse a
+protected one and say so.
+
+The file keeps the first line of an unprotected secret key
+(`noqtis-key-1 <alg> sec`); its base64 body is the format
+noqtis-pwkey-1 (`nqpwenc(3)`): `NQPW`, the version, Argon2id and
+ChaCha20-Poly1305 as one byte each, the memory, passes and lanes, a
+random 16-byte salt, then the key under ChaCha20-Poly1305 and its tag.
+Argon2id of the passphrase gives the cipher's key and nonce (64 MiB, 3
+passes and 4 lanes when it is written); the header and the first line
+are its associated data, so changing either fails like a wrong
+passphrase. A reader refuses parameters outside 8 MiB to 1 GiB of
+memory, 1 to 16 passes and 1 to 16 lanes, or memory times passes over
+4 GiB, before it derives anything: a file cannot make it take more.
+
 ## Keeping the secret key safe
 
 - Keep it off shared machines and out of repositories; in CI, store it as

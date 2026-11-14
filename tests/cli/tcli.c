@@ -2096,6 +2096,75 @@ static void tidc(void) {
   rmdirs("qic");
 }
 
+/* the passphrase in the environment, or unset with NULL */
+static void penv(const char *name, const char *v) {
+#ifdef _WIN32
+  _putenv_s(name, v != NULL ? v : "");
+#else
+  if (v != NULL)
+    setenv(name, v, 1);
+  else
+    unsetenv(name);
+#endif
+}
+
+/* secret keys under a passphrase: keygen, sign and dec with --pass-env
+ * and --pass-fd, the refusals, and the passphrase never printed */
+static void tpass(void) {
+  static const char *pw = "a long pass phrase 1";
+  remove("q.pk");
+  remove("q.pk.pub");
+  remove("q.ek");
+  remove("q.ek.pub");
+  remove("q.psig");
+  wrs("q.m", "hello\n");
+  penv("NQTPW", pw);
+  penv("NQTPW2", "another pass phrase");
+  penv("NQTPWE", NULL);
+  want(0, "keygen -a ML-DSA-44 -o q.pk --pass-env NQTPW", NULL);
+  ok(has("q.out", "under the passphrase"), "keygen says the key is protected");
+  ok(has("q.pk", "noqtis-key-1 ML-DSA-44 sec"),
+     "a protected key keeps the key file's first line");
+  want(2, "sign -k q.pk -o q.psig q.m", NULL);
+  ok(has("q.err", "protected by a passphrase"),
+     "sign without a passphrase says the key needs one");
+  ok(!exists("q.psig"), "nothing signed without the passphrase");
+  want(2, "sign -k q.pk -o q.psig --pass-env NQTPW2 q.m", NULL);
+  ok(has("q.err", "wrong passphrase"), "a wrong passphrase is named");
+  want(2, "sign -k q.pk -o q.psig --pass-env NQTPWE q.m", NULL);
+  want(2, "sign -k q.pk -o q.psig --pass-env NQTPW --pass-fd 0 q.m", NULL);
+  want(2, "sign -k q.pk -o q.psig --pass-fd 0 -", "q.m");
+  want(2, "sign -k q.pk -o q.psig --pass-fd x q.m", NULL);
+  want(2, "seal -k q.pk q.m", NULL);
+  want(0, "sign -k q.pk -o q.psig --pass-env NQTPW q.m", NULL);
+  ok(!has("q.out", pw) && !has("q.err", pw), "the passphrase is not printed");
+  want(0, "verify -p q.pk.pub -s q.psig q.m", NULL);
+#ifndef _WIN32
+  wrs("q.pw", "a long pass phrase 1\n");
+  want(0, "sign -k q.pk -o q.psig --force --pass-fd 3 q.m 3<q.pw", NULL);
+  want(0, "verify -p q.pk.pub -s q.psig q.m", NULL);
+  wrs("q.pw", "a long pass phrase 1\r\n");
+  want(0, "sign -k q.pk -o q.psig --force --pass-fd 3 q.m 3<q.pw", NULL);
+  wrs("q.pw", "\n");
+  want(2, "sign -k q.pk -o q.psig --force --pass-fd 3 q.m 3<q.pw", NULL);
+  want(2, "sign -k q.pk -o q.psig --force --pass-fd 9 q.m", NULL);
+  remove("q.pw");
+#endif
+  /* a KEM key under a passphrase */
+  want(0, "keygen -a ML-KEM-512 -o q.ek --pass-env NQTPW", NULL);
+  want(0, "enc -p q.ek.pub -o q.ect --force q.ess", NULL);
+  want(2, "dec -k q.ek -o q.ess2 --force q.ect", NULL);
+  want(0, "dec -k q.ek -o q.ess2 --force --pass-env NQTPW q.ect", NULL);
+  ok(same("q.ess", "q.ess2"), "dec of a protected key gives the secret");
+  /* a passphrase for an unprotected key: a warning */
+  want(0, "keygen -a ML-DSA-44 -o q.pk --force", NULL);
+  want(0, "sign -k q.pk -o q.psig --force --pass-env NQTPW q.m", NULL);
+  ok(has("q.err", "not protected by a passphrase"),
+     "a passphrase for a plain key is a warning");
+  penv("NQTPW", NULL);
+  penv("NQTPW2", NULL);
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -2152,6 +2221,7 @@ int main(int argc, char **argv) {
       tsig(slh[i], 0);
   }
   tdet();
+  tpass();
   for (i = 0; i < sizeof kems / sizeof kems[0]; i++)
     tkem(kems[i]);
   thash();

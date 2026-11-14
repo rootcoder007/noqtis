@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd November 14, 2026
 .Dt NOQTIS-SIGN 1
 .Os
 .Sh NAME
@@ -12,6 +12,7 @@
 .Op Fl c Ar ctx
 .Op Fl d
 .Op Fl -ph Ar hash
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl f | Fl -force
 .Ar file
 .Sh DESCRIPTION
@@ -70,6 +71,22 @@ is one of
 .Cm sha3-224 sha3-256 sha3-384 sha3-512 shake128 shake256 .
 A pre-hash signature verifies only with the same
 .Fl -ph .
+.It Fl -pass-fd Ar n
+Read the passphrase from the open file descriptor
+.Ar n
+(0 for standard input), up to a newline or the end; neither the newline
+nor a carriage return before it is part of it.
+.It Fl -pass-env Ar name
+Take the passphrase from the environment variable called
+.Ar name
+(the option names the variable; its value is never given on the command
+line).
+Either is needed for a key file under a passphrase
+.Pf ( Xr noqtis-keygen 1 ) ;
+a wrong passphrase, or a changed key file, is exit 2.
+With
+.Fl -pass-fd Cm 0 ,
+the message cannot be read from standard input.
 .It Fl f , Fl -force
 Replace an existing signature file.
 .El

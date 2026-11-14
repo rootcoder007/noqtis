@@ -55,13 +55,14 @@ _noqtis() {
       return ;;
   esac
   case $cmd in
-    keygen) opts="-a --alg -o --out --seed -f --force" ;;
-    sign) opts="-k --key -o --out -c --ctx -d --det --ph -f --force" ;;
+    keygen) opts="-a --alg -o --out --seed --pass-fd --pass-env -f --force" ;;
+    sign) opts="-k --key -o --out -c --ctx -d --det --ph --pass-fd --pass-env
+      -f --force" ;;
     verify) opts="-p --pub -s --sig -c --ctx --ph -q --quiet --dsse -o
       --out" ;;
     export) opts="--as -k --key -p --pub -o --out -f --force --no-files" ;;
     enc) opts="-p --pub -o --out --stdout -f --force" ;;
-    dec) opts="-k --key -o --out --stdout -f --force" ;;
+    dec) opts="-k --key -o --out --stdout --pass-fd --pass-env -f --force" ;;
     hash) opts="-a --alg -c --check" ;;
     seal) opts="-k --key -p --pub -m --meta --format --input --tsa
       --anchor -r --recursive" ;;
