@@ -2,8 +2,9 @@
 #
 # The NOQTIS GitHub Action: builds noqtis from this checkout of the action
 # (CMake, cached per OS, CPU and source tree), puts it on PATH, and seals,
-# checks or reports on a capsule folder. Runs on Linux, macOS and Windows
-# runners.
+# checks or reports on a capsule folder, or checks its data for drift or
+# its sources for changes (the data steps are action/run.sh). Runs on
+# Linux, macOS and Windows runners.
 #
 #   - uses: rootcoder007/noqtis@v0
 #     with:
@@ -21,8 +22,12 @@ inputs:
   mode:
     description: >-
       seal; check (fails the step when a check fails); report (the same
-      checks, outputs and annotations, without failing the step); or
-      install (only build noqtis and put it on PATH)
+      checks, outputs and annotations, without failing the step); drift
+      (compares the data with the summaries pinned in the data record,
+      noqtis drift check, after fetching each source again with fetch
+      "true"); refresh (fetches each source again and says whether it
+      changed, noqtis src refresh); or install (only build noqtis and put
+      it on PATH)
     required: true
   dir:
     description: The capsule folder to seal or check
@@ -52,26 +57,92 @@ inputs:
       JSON of noqtis report --json.
     required: false
     default: "false"
+  fail-on:
+    description: >-
+      drift and refresh: when the step fails. error (only when noqtis
+      cannot check); drift (also when a column drifted past psi-fail, or a
+      source changed); warn (also on a drift warning or a source that
+      cannot be reached); never.
+    required: false
+    default: drift
+  psi-warn:
+    description: drift. The population stability index from which a column warns.
+    required: false
+    default: "0.1"
+  psi-fail:
+    description: drift. The population stability index from which a column fails.
+    required: false
+    default: "0.25"
+  fetch:
+    description: >-
+      drift. "true": fetch each source again (into a copy of the folder)
+      and compare those files with the summaries, instead of the files in
+      dir.
+    required: false
+    default: "false"
+  write:
+    description: >-
+      refresh. "true": write each changed source's new bytes into dir and
+      record them (noqtis src refresh --write); a later step must seal and
+      commit them.
+    required: false
+    default: "false"
+  base-ref:
+    description: >-
+      check, report, drift and refresh, optional. A branch, tag or commit
+      (such as origin/main, or github.base_ref after fetching it): the
+      capsule is compared with the same path there (noqtis diff), each
+      difference becomes a notice and a section of the report. Check out
+      with fetch-depth 0 so the ref is there.
+    required: false
+    default: ""
+  comment:
+    description: >-
+      check, report, drift and refresh, on a pull request. "true": post
+      the report as one comment, updated on every run rather than
+      repeated (needs pull-requests: write); dry-run: write it to
+      $RUNNER_TEMP/noqtis-comment.md instead; false.
+    required: false
+    default: "false"
+  token:
+    description: comment. The token the comment is posted with.
+    required: false
+    default: ${{ github.token }}
 
 outputs:
   ok:
-    description: check and report. "true" when every check passed, else "false".
-    value: ${{ steps.run.outputs.ok }}
+    description: check, report, drift and refresh. "true" when every check passed, else "false".
+    value: ${{ steps.run.outputs.ok || steps.data.outputs.ok }}
   status:
-    description: check and report. "passed" or "failed"; "error" when noqtis could not check (a usage or file error).
-    value: ${{ steps.run.outputs.status }}
+    description: >-
+      check, report, drift and refresh. "passed" or "failed"; drift and
+      refresh also "warned" (passed with warnings); "error" when noqtis
+      could not check (a usage or file error).
+    value: ${{ steps.run.outputs.status || steps.data.outputs.status }}
   verified:
     description: check and report. The number of sealed files that match the seal.
     value: ${{ steps.run.outputs.verified }}
   changed:
-    description: check and report. The number of sealed files changed or missing, and of files added since the seal.
-    value: ${{ steps.run.outputs.changed }}
+    description: >-
+      check and report: the number of sealed files changed or missing, and
+      of files added since the seal; drift: of columns that drifted (and
+      sources that changed, with fetch); refresh: of sources that changed.
+    value: ${{ steps.run.outputs.changed || steps.data.outputs.changed }}
   failed:
     description: check and report. The number of failed checks, of the capsule and of its data record.
     value: ${{ steps.run.outputs.failed }}
   report:
-    description: check and report. Path to the Markdown report (noqtis report), also added to the job summary.
-    value: ${{ steps.run.outputs.report }}
+    description: >-
+      check, report, drift and refresh. Path to the Markdown report (noqtis
+      report; for drift and refresh a table of each row), also added to
+      the job summary, with the base-ref differences after it.
+    value: ${{ steps.run.outputs.report || steps.data.outputs.report }}
+  differs:
+    description: with base-ref. "true" when the capsule differs from its copy at base-ref.
+    value: ${{ steps.diff.outputs.differs }}
+  comment:
+    description: off, dry-run, skipped (not a pull request), created, updated or failed.
+    value: ${{ steps.comment.outputs.comment }}
   json:
     description: check and report, with json "true". The one-line JSON of noqtis report --json.
     value: ${{ steps.run.outputs.json }}
@@ -151,9 +222,9 @@ runs:
           exit 2
         }
         case "$NQMODE" in
-          install) exit 0 ;;
+          install|drift|refresh) exit 0 ;;
           seal|check|report) ;;
-          *) die "mode must be seal, check, report or install, not '$NQMODE'" ;;
+          *) die "mode must be seal, check, report, drift, refresh or install, not '$NQMODE'" ;;
         esac
         [ -n "$NQDIR" ] || die "dir is required for $NQMODE"
         [ -d "$NQDIR" ] || die "$NQDIR: no such folder"
@@ -201,6 +272,47 @@ runs:
         # report: the outputs say what failed; the step passes
         if [ "$NQMODE" = report ]; then exit 0; fi
         exit "$rc"
+
+    - name: noqtis ${{ inputs.mode }} (the data record)
+      id: data
+      if: inputs.mode == 'drift' || inputs.mode == 'refresh'
+      shell: bash
+      env:
+        NQBIN: ${{ runner.temp }}/noqtis/bin/noqtis
+        NQMODE: ${{ inputs.mode }}
+        NQDIR: ${{ inputs.dir }}
+        NQFAILON: ${{ inputs.fail-on }}
+        NQPSIW: ${{ inputs.psi-warn }}
+        NQPSIF: ${{ inputs.psi-fail }}
+        NQFETCH: ${{ inputs.fetch }}
+        NQWRITE: ${{ inputs.write }}
+        NQREPORT: ${{ runner.temp }}/noqtis-report.md
+      run: sh "$GITHUB_ACTION_PATH/action/run.sh" data
+
+    - name: compare with ${{ inputs.base-ref }}
+      id: diff
+      if: always() && inputs.base-ref != '' && inputs.mode != 'seal' && inputs.mode != 'install'
+      shell: bash
+      env:
+        NQBIN: ${{ runner.temp }}/noqtis/bin/noqtis
+        NQMODE: diff
+        NQDIR: ${{ inputs.dir }}
+        NQBASE: ${{ inputs.base-ref }}
+        NQREPORT: ${{ runner.temp }}/noqtis-report.md
+      run: sh "$GITHUB_ACTION_PATH/action/run.sh" diff
+
+    - name: the pull-request comment
+      id: comment
+      if: always() && inputs.comment != 'false' && inputs.mode != 'seal' && inputs.mode != 'install'
+      shell: bash
+      env:
+        NQBIN: ${{ runner.temp }}/noqtis/bin/noqtis
+        NQMODE: comment
+        NQDIR: ${{ inputs.dir }}
+        NQCOMMENT: ${{ inputs.comment }}
+        NQTOKEN: ${{ inputs.token }}
+        NQREPORT: ${{ runner.temp }}/noqtis-report.md
+      run: sh "$GITHUB_ACTION_PATH/action/run.sh" comment
 
     - name: remove the key file
       if: always() && inputs.mode == 'seal'
