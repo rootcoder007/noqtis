@@ -28,7 +28,10 @@ Element = Union[str, Mapping[str, Any]]
 
 __all__ = ["DRow", "DReport", "load", "text", "add", "put", "delete",
            "check", "schema", "schemacheck", "pin", "drift", "diff",
-           "addrs", "verify", "field", "request", "reply", "wayback"]
+           "addrs", "verify", "field", "request", "reply", "wayback",
+           "parse", "checkschema", "synth", "calibrate", "chunks", "piece",
+           "commitment", "commit", "reveal", "cite", "report", "packages",
+           "env"]
 
 
 class DRow(NamedTuple):
@@ -262,3 +265,203 @@ def wayback(url: str) -> str:
     """The raw-bytes address of a Wayback Machine copy (any other http://
     or https:// address as it is)."""
     return _c.dwb(url)
+
+
+def parse(text: str) -> str:
+    """The record in ``text`` checked as ``noqtis data check`` reads one
+    and written in canonical form; DecodeError says what is wrong."""
+    return _c.dparse(text)
+
+
+def checkschema(dir: PathLike, schema: Element) -> DReport:
+    """Checks the CSV file of the "schemas" element ``schema`` (a dict or
+    its JSON) in ``dir`` against it: header, types, missing values,
+    ranges, sets, rows and rules."""
+    return _rep(_c.dschk(path(dir), _js(schema)))
+
+
+def synth(dir: PathLike, file: str, seed: int = 0, rows: int = 0) -> None:
+    """Writes a synthetic stand-in for the CSV file from its recorded
+    schema (``rows`` rows, 0: the schema's minimum, else 100; the same
+    bytes for the same seed) and records it as a synthetic source. Real
+    data is never replaced (ArgError)."""
+    _c.dsyn(path(dir), file, int(seed), int(rows))
+
+
+def calibrate(dir: PathLike, file: str, files: Iterable[PathLike],
+              delim: str = ",", header: bool = True) -> dict:
+    """Calibrates the drift warnings of the file's summary on ``files``,
+    CSV files known not to have drifted from it, and records the result:
+    drift() then warns only beyond what they showed."""
+    d = path(dir)
+    s = _c.dkey(d, "stats", file)
+    if s is None:
+        raise ValueError("no summary of %s: pin one first" % file)
+    e = _c.dcal(s, tuple(path(f) for f in files), _dl(delim), not header)
+    _c.dput(d, "stats", e)
+    return json.loads(e)
+
+
+def chunks(dir: PathLike, file: str, chunk: int = 1 << 20) -> dict:
+    """Records the SHA-256 of each ``chunk`` bytes (1,024 to 2^30) of the
+    large file, so that a piece of it can be checked alone (piece())."""
+    d = path(dir)
+    e = _c.dchunk(d, file, int(chunk))
+    _c.dput(d, "chunks", e)
+    return json.loads(e)
+
+
+def piece(dir: PathLike, file: str, piece: PathLike, off: int = 0
+          ) -> DReport:
+    """Checks the file ``piece``, the bytes of ``file`` from byte ``off``
+    on (a multiple of its chunk), against its recorded chunk digests."""
+    e = _c.dkey(path(dir), "chunks", file)
+    if e is None:
+        raise ValueError("no chunk digests of %s: record them first" % file)
+    return _rep(_c.dpiece(e, path(piece), int(off)))
+
+
+def commitment(salt: bytes, m: bytes) -> str:
+    """The commitment to ``m`` under ``salt`` (16 to 1,024 bytes): 64 hex
+    digits of SHA3-256 (nqdcommit(3))."""
+    return _c.dcommit(bytes(salt), bytes(m))
+
+
+def commit(dir: PathLike, m: bytes, kind: str = "other",
+           label: Optional[str] = None, after: Optional[str] = None) -> bytes:
+    """Commits to ``m`` (a randomisation list, an analysis plan) in the
+    record, as ``noqtis commit`` does, and returns the 32-byte secret
+    salt: keep it outside the capsule until the reveal. ``kind`` is
+    "randomisation", "preregistration" or "other"; ``after`` a UTC time
+    YYYY-MM-DDTHH:MM:SSZ before which it is not to be revealed."""
+    s = _c.rand(32)
+    e = {"kind": kind, "created": _now(), "alg": "sha3-256",
+         "digest": _c.dcommit(s, bytes(m))}
+    if label is not None:
+        e["label"] = label
+    if after is not None:
+        e["after"] = after
+    _c.dput(path(dir), "commits", _js(e))
+    return s
+
+
+def reveal(dir: PathLike, m: bytes, salt: bytes) -> Optional[int]:
+    """The index in "commits" of the commitment to ``m`` under ``salt``,
+    or None when the record has none (every digest compared in constant
+    time)."""
+    return _c.dreveal(path(dir), bytes(salt), bytes(m))
+
+
+def cite(dir: PathLike, fmt: str = "cff") -> str:
+    """How to cite the data, from the record's "cite": a CITATION.cff
+    ("cff") or a BibTeX entry ("bib")."""
+    f = {"cff": 1, "bib": 2, "bibtex": 2}.get(fmt)
+    if f is None:
+        raise ValueError("fmt: 'cff' or 'bib'")
+    return _c.dcite(path(dir), f)
+
+
+def report(dir: PathLike, fmt: str = "md", pk: Optional[bytes] = None) -> str:
+    """A report of the capsule, as ``noqtis report`` writes it: whether
+    every check passed, the capsule's check (with ``pk`` the seal must be
+    by that key), what the data record says and its check. ``fmt`` "md"
+    (Markdown) or "txt"."""
+    f = {"md": 1, "markdown": 1, "txt": 2, "text": 2}.get(fmt)
+    if f is None:
+        raise ValueError("fmt: 'md' or 'txt'")
+    d = os.fsdecode(path(dir))
+    sealed = os.path.exists(os.path.join(d, "noqtis.sig"))
+    rec = os.path.exists(os.path.join(d, "noqtis.data.json"))
+    if not sealed and not rec:
+        raise ValueError("%s holds neither a seal nor a data record" % d)
+    return _c.drpt(path(dir), None if pk is None else bytes(pk), f, sealed,
+                   rec)
+
+
+# ---- the environment ----
+
+#: lock files env() records when they are at the top of the folder
+LOCKS = ("renv.lock", "uv.lock", "poetry.lock", "Pipfile.lock",
+         "requirements.txt", "Cargo.lock", "go.sum", "package-lock.json",
+         "pnpm-lock.yaml", "yarn.lock", "environment.yml", "Manifest.toml")
+
+
+def _osname() -> str:
+    import sys
+    p = sys.platform
+    for k, v in (("win", "windows"), ("darwin", "macos"), ("linux", "linux"),
+                 ("freebsd", "freebsd"), ("openbsd", "openbsd"),
+                 ("netbsd", "netbsd")):
+        if p.startswith(k):
+            return v
+    return "other"
+
+
+def _arch() -> str:
+    import platform
+    m = platform.machine().lower()
+    return {"amd64": "x86_64", "x64": "x86_64", "arm64": "aarch64",
+            "x86": "i686", "i386": "i686"}.get(m, m or "other")
+
+
+def packages() -> List[dict]:
+    """The installed distributions, as the record's runtime packages:
+    name, version and source ("pypi", or the URL a direct install names),
+    sorted by name. Read from the installed metadata, no network."""
+    from importlib import metadata
+    out = {}
+    for d in metadata.distributions():
+        n = d.metadata["Name"]
+        if not n or n in out:
+            continue
+        src = "pypi"
+        u = d.read_text("direct_url.json")
+        if u:
+            try:
+                src = json.loads(u).get("url") or src
+            except ValueError:
+                pass
+        out[n] = {"name": n, "version": d.version or "", "source": src}
+    return [out[k] for k in sorted(out)]
+
+
+def env(dir: PathLike, rng: Optional[str] = None,
+        seed: Union[None, int, str] = None,
+        locks: Optional[Iterable[str]] = None,
+        pkgs: Optional[Iterable[Mapping[str, str]]] = None) -> dict:
+    """Records the environment in the record's "env", as ``noqtis env``
+    does (os, arch, noqtis, locale, tz, the lock files at the top of
+    ``dir`` with their SHA-256, ``rng`` and its ``seed``), with the
+    Python runtime: its version and ``pkgs`` (default: packages())."""
+    import platform
+    from . import hash as _h
+    if seed is not None and rng is None:
+        raise ValueError("seed needs rng, the generator it seeds")
+    d = os.fsdecode(path(dir))
+    e: dict = {"os": _osname(), "arch": _arch(), "noqtis": _c.version()}
+    loc = os.environ.get("LC_ALL") or os.environ.get("LANG")
+    if loc:
+        e["locale"] = loc
+    if os.environ.get("TZ"):
+        e["tz"] = os.environ["TZ"]
+    p = packages() if pkgs is None else [dict(x) for x in pkgs]
+    e["runtime"] = {"language": "python",
+                    "version": platform.python_version(),
+                    "packages": sorted(p, key=lambda x: x["name"])}
+    lk = []
+    for f in (LOCKS if locks is None else list(locks)):
+        fp = os.path.join(d, f)
+        if not os.path.isfile(fp):
+            if locks is not None:
+                raise ValueError("%s: not a file in %s" % (f, d))
+            continue
+        with open(fp, "rb") as fh:
+            lk.append({"path": f, "sha256": _h("SHA-256", fh.read()).hex()})
+    if lk:
+        e["locks"] = sorted(lk, key=lambda x: x["path"])
+    if rng is not None:
+        e["rng"] = {"kind": rng}
+        if seed is not None:
+            e["rng"]["seed"] = seed
+    _c.dput(path(dir), "env", _js(e))
+    return e

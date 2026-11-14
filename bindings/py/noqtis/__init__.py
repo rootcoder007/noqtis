@@ -62,24 +62,34 @@ __all__ = [
     "argon2id",
     "blake2b",
     "capid",
+    "chain",
     "check",
+    "checkpack",
     "cteq",
     "dsse",
+    "ersput",
+    "ersreq",
     "files",
     "hash",
     "hashes",
     "hmac",
     "idcard",
     "idcheck",
+    "inspect",
     "kem",
     "keyfile",
+    "pack",
     "prove",
     "rand",
     "revoke",
     "rotate",
     "seal",
+    "sealwhy",
     "selftest",
     "sign",
+    "tsput",
+    "tsreq",
+    "unpack",
 ]
 
 
@@ -536,3 +546,115 @@ class Hasher:
         if n is not None and not self._shake:
             raise ArgError(-1, "n is for SHAKE")
         return _c.hfin(self._c, self._n if n is None else int(n))
+
+
+# ---- what a capsule says, why a seal is refused, timestamps ----
+
+def inspect(dir: PathLike) -> Report:
+    """What the capsule in ``dir`` says (format, algorithm, key, time,
+    files, bytes, timestamp, meta: "info.*" rows), with nothing checked."""
+    code, rows = _c.insp(path(dir))
+    return Report(code, (Row(*r) for r in rows))
+
+
+#: what ``sealwhy`` names (nqsealwhy(3))
+WHY = {1: "link", 2: "odd", 3: "name", 4: "case", 5: "key"}
+
+
+def sealwhy(dir: PathLike) -> Optional[Tuple[str, str]]:
+    """Why ``seal`` refused ``dir`` (ArgError): the first thing in it a
+    capsule cannot hold, as (what, path): "link", "odd" (not a file or
+    folder), "name", "case" (a path equal to another but for case) or
+    "key" (a noqtis secret key file); None when nothing in it stops a
+    seal (the keys given were then not one pair)."""
+    w, p = _c.sealwhy(path(dir))
+    return (WHY.get(w, str(w)), p) if w else None
+
+
+def _nonce(nonce: Optional[Bytes]) -> Optional[bytes]:
+    return None if nonce is None else buf(nonce, "nonce")
+
+
+def tsreq(dir: PathLike, nonce: Optional[Bytes] = None) -> bytes:
+    """The RFC 3161 TimeStampReq for the seal in ``dir``: send it to a
+    TSA (the library makes no network request) and give its reply to
+    ``tsput``."""
+    return _c.tsreq(path(dir), _nonce(nonce), False, 0)
+
+
+def tsput(dir: PathLike, reply: Bytes, nonce: Optional[Bytes] = None,
+          anchors: Optional[Iterable[Bytes]] = None) -> int:
+    """Stores the TSA's reply as the seal's timestamp once it checks
+    (with ``anchors``, DER certificates, its TSA must chain to one); the
+    time it gives, in seconds since 1970. VerifyError, with what failed,
+    when it does not check."""
+    anc = tuple(buf(x, "anchor") for x in (anchors or ()))
+    return _c.tsput(path(dir), buf(reply, "reply"), _nonce(nonce), anc,
+                    False, 0)[0]
+
+
+def ersreq(dir: PathLike, hash: Optional[str] = None,
+           nonce: Optional[Bytes] = None) -> bytes:
+    """The TimeStampReq of the next archive timestamp of the capsule's
+    evidence record (RFC 4998): ``hash`` 'SHA-256', 'SHA-384' or
+    'SHA-512' for a hash-tree renewal; None keeps the record's."""
+    return _c.tsreq(path(dir), _nonce(nonce), True,
+                    0 if hash is None else hid(hash))
+
+
+def ersput(dir: PathLike, reply: Bytes, hash: Optional[str] = None,
+           nonce: Optional[Bytes] = None,
+           anchors: Optional[Iterable[Bytes]] = None) -> Tuple[int, str]:
+    """Adds the reply to ``ersreq`` to the evidence record (noqtis.ers),
+    once it and the record check: (its time, "new", "timestamp" or
+    "hash-tree", the kind of renewal)."""
+    anc = tuple(buf(x, "anchor") for x in (anchors or ()))
+    gt, how = _c.tsput(path(dir), buf(reply, "reply"), _nonce(nonce), anc,
+                       True, 0 if hash is None else hid(hash))
+    return gt, ("new", "timestamp", "hash-tree")[how]
+
+
+# ---- bundles and chains ----
+
+def pack(dir: PathLike, file: PathLike, files: bool = True) -> None:
+    """The capsule in ``dir`` as one file (noqtis-bundle-1), as ``noqtis
+    pack`` writes it: its seal, manifest, evidence record and every
+    listed file (``files=False``: only its data record). ``file`` must
+    not exist. Check the capsule first."""
+    _c.dpack(path(dir), bool(files), path(file))
+
+
+def unpack(file: PathLike, dir: PathLike) -> None:
+    """Reads a bundle into the new folder ``dir``, refusing it whole
+    (DecodeError with what is wrong) when any path or size is not one a
+    capsule holds. Check ``dir`` after."""
+    _c.dunpack(path(file), path(dir), False)
+
+
+def checkpack(file: PathLike, pk: Optional[Bytes] = None,
+              anchors: Optional[Iterable[Bytes]] = None) -> Report:
+    """``check`` of the capsule in the bundle ``file``, read in place:
+    it is unpacked to a new temporary folder, checked and removed."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as t:
+        d = os.path.join(t, "c")
+        unpack(file, d)
+        try:
+            return check(d, pk, anchors=anchors)
+        finally:
+            _c.dunpack(path(file), path(d), True)
+
+
+def chain(dirs: Iterable[PathLike], pk: Optional[Bytes] = None,
+          anchors: Optional[Iterable[Bytes]] = None
+          ) -> Tuple[Report, Optional[bytes]]:
+    """Checks an append-only chain of capsules, oldest first (each sealed
+    in format 2 with the one before as its only input, all by the first
+    one's key): the report ("link", "key" and "head" rows) and the last
+    capsule's id when every row passed, else None."""
+    anc = tuple(buf(x, "anchor") for x in (anchors or ()))
+    (code, rows), head = _c.dchain(_dirs(list(dirs), "dirs"),
+                                   None if pk is None else buf(pk, "pk"),
+                                   anc)
+    r = Report(code, (Row(c, ok, d) for c, ok, d, _ in rows))
+    return r, (head if r.ok else None)

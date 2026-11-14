@@ -1744,6 +1744,430 @@ static PyObject *pkfupd(PyObject *self, PyObject *args) {
   return r;
 }
 
+/* ---- capsules: inspect, why a seal was refused, timestamps ---- */
+
+static PyObject *pinsp(PyObject *self, PyObject *args) {
+  const char *dir;
+  nqrep *r = NULL;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y", &dir)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqinsp(dir, &r);
+  Py_END_ALLOW_THREADS
+  return done(rc, r);
+}
+
+/* sealwhy(dir) -> (why, path) */
+static PyObject *psealwhy(PyObject *self, PyObject *args) {
+  const char *dir;
+  char p[4200];
+  int why = 0, rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y", &dir)) return NULL;
+  p[0] = '\0';
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqsealwhy(dir, &why, p, sizeof p);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  return Py_BuildValue("(is)", why, p);
+}
+
+/* tsreq(dir, nonce or None, ers, h) -> the TimeStampReq: nqtsreq, or
+ * nqersreq with ers */
+static PyObject *ptsreq(PyObject *self, PyObject *args) {
+  const char *dir, *nc = NULL, *w = NULL;
+  Py_ssize_t nl = 0;
+  int ers, h, rc;
+  uint8_t q[256];
+  size_t on = 0;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yz#pi", &dir, &nc, &nl, &ers, &h)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  if (ers)
+    rc = nqersreq(dir, (nqhalg)h, U8(nc), SZ(nl), q, sizeof q, &on, &w);
+  else
+    rc = nqtsreq(dir, U8(nc), SZ(nl), q, sizeof q, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return dfail(rc, w);
+  return PyBytes_FromStringAndSize((const char *)q, (Py_ssize_t)on);
+}
+
+/* tsput(dir, reply, nonce or None, anchors, ers, h) -> (gt, how): nqtsput
+ * (how 0), or nqersput with ers */
+static PyObject *ptsput(PyObject *self, PyObject *args) {
+  const char *dir, *rsp, *nc = NULL, *w = NULL, **ap = NULL;
+  Py_ssize_t rl, nl = 0;
+  PyObject *anc;
+  size_t *al = NULL, na = 0;
+  int ers, h, how = 0, rc;
+  int64_t gt = 0;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yy#z#O!pi", &dir, &rsp, &rl, &nc, &nl,
+                        &PyTuple_Type, &anc, &ers, &h))
+    return NULL;
+  if (blist(anc, NANC, &ap, &al, &na) != 0) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  if (ers)
+    rc = nqersput(dir, (nqhalg)h, U8(rsp), SZ(rl), U8(nc), SZ(nl),
+                  (const uint8_t *const *)ap, al, na, &gt, &how, &w);
+  else
+    rc = nqtsput(dir, U8(rsp), SZ(rl), U8(nc), SZ(nl),
+                 (const uint8_t *const *)ap, al, na, &gt, &w);
+  Py_END_ALLOW_THREADS
+  PyMem_Free((void *)ap);
+  PyMem_Free(al);
+  if (rc != NQOK) return dfail(rc, w);
+  return Py_BuildValue("(Li)", (long long)gt, how);
+}
+
+/* ---- the data layer: the rest of nqd.h ---- */
+
+/* a str of what f writes with the two-call size pattern, why for errors */
+typedef int (*sfn)(void *u, char *out, size_t cap, size_t *n, char *why,
+                   size_t wc);
+
+static PyObject *wgrow(sfn f, void *u) {
+  char why[600], *b;
+  size_t n = 0;
+  int rc;
+  PyObject *s;
+  why[0] = '\0';
+  Py_BEGIN_ALLOW_THREADS
+  rc = f(u, NULL, 0, &n, why, sizeof why);
+  Py_END_ALLOW_THREADS
+  if (rc != NQEBUF) return dfail(rc == NQOK ? NQESTATE : rc, why);
+  b = (char *)PyMem_Malloc(n + 1);
+  if (b == NULL) return PyErr_NoMemory();
+  Py_BEGIN_ALLOW_THREADS
+  rc = f(u, b, n + 1, &n, why, sizeof why);
+  Py_END_ALLOW_THREADS
+  s = rc == NQOK ? PyUnicode_FromStringAndSize(b, (Py_ssize_t)n)
+                 : dfail(rc, why);
+  PyMem_Free(b);
+  return s;
+}
+
+/* parse(text) -> canonical text */
+typedef struct {
+  const char *s;
+  size_t n;
+} dtext;
+
+static int fparse(void *u, char *out, size_t cap, size_t *n, char *why,
+                  size_t wc) {
+  dtext *t = (dtext *)u;
+  nqdrec *r = NULL;
+  int rc = nqdparse(t->s, t->n, &r, why, wc);
+  if (rc != NQOK) return rc;
+  rc = nqdjson(r, out, cap, n);
+  nqdrfree(r);
+  return rc;
+}
+
+static PyObject *pdparse(PyObject *self, PyObject *args) {
+  dtext t;
+  Py_ssize_t n;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "s#", &t.s, &n)) return NULL;
+  t.n = SZ(n);
+  return wgrow(fparse, &t);
+}
+
+/* dschk(dir, schema) -> rows */
+static PyObject *pdschk(PyObject *self, PyObject *args) {
+  const char *dir, *s;
+  Py_ssize_t sl;
+  nqdrep *r = NULL;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ys#", &dir, &s, &sl)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdschk(dir, s, SZ(sl), &r);
+  Py_END_ALLOW_THREADS
+  return ddone(rc, r);
+}
+
+/* dsyn(dir, path, seed, rows): the stand-in, recorded */
+static PyObject *pdsyn(PyObject *self, PyObject *args) {
+  const char *dir, *p;
+  unsigned long long seed, rows;
+  char why[600];
+  nqdrec *r;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ysKK", &dir, &p, &seed, &rows)) return NULL;
+  if ((r = drec(dir, 0)) == NULL) return NULL;
+  why[0] = '\0';
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdsyn(r, dir, p, (uint64_t)seed, (uint64_t)rows, why, sizeof why);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    nqdrfree(r);
+    return dfail(rc, why);
+  }
+  return dsave(r, dir);
+}
+
+/* dcal(stats, files, delim, noheader) -> the calibrated element */
+typedef struct {
+  const char *s;
+  size_t n;
+  const char **f;
+  size_t nf;
+  nqdcsvopt o;
+} dcal;
+
+static int fcal(void *u, char *out, size_t cap, size_t *n, char *why,
+                size_t wc) {
+  dcal *c = (dcal *)u;
+  return nqddcal(c->s, c->n, c->f, c->nf, &c->o, out, cap, n, why, wc);
+}
+
+static PyObject *pdcal(PyObject *self, PyObject *args) {
+  dcal c;
+  Py_ssize_t sl;
+  PyObject *fs, *o;
+  size_t *fl = NULL;
+  int dl, noh;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "s#O!Cp", &c.s, &sl, &PyTuple_Type, &fs, &dl,
+                        &noh))
+    return NULL;
+  c.n = SZ(sl);
+  memset(&c.o, 0, sizeof c.o);
+  c.o.delim = (char)dl;
+  c.o.noheader = noh;
+  if (blist(fs, 100000, &c.f, &fl, &c.nf) != 0) return NULL;
+  o = wgrow(fcal, &c);
+  PyMem_Free((void *)c.f);
+  PyMem_Free(fl);
+  return o;
+}
+
+/* dchunk(dir, path, chunk) -> a "chunks" element */
+typedef struct {
+  const char *d, *p;
+  uint64_t ch;
+} dcnk;
+
+static int fchunk(void *u, char *out, size_t cap, size_t *n, char *why,
+                  size_t wc) {
+  dcnk *c = (dcnk *)u;
+  return nqdchunk(c->d, c->p, c->ch, out, cap, n, why, wc);
+}
+
+static PyObject *pdchunk(PyObject *self, PyObject *args) {
+  dcnk c;
+  unsigned long long ch;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ysK", &c.d, &c.p, &ch)) return NULL;
+  c.ch = (uint64_t)ch;
+  return wgrow(fchunk, &c);
+}
+
+/* dpiece(elem, piece, off) -> rows */
+static PyObject *pdpiece(PyObject *self, PyObject *args) {
+  const char *e, *p;
+  Py_ssize_t el;
+  unsigned long long off;
+  nqdrep *r = NULL;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "s#yK", &e, &el, &p, &off)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdpiece(e, SZ(el), p, (uint64_t)off, &r);
+  Py_END_ALLOW_THREADS
+  return ddone(rc, r);
+}
+
+/* dcommit(salt, m) -> 64 hex digits */
+static PyObject *pdcommit(PyObject *self, PyObject *args) {
+  const char *s, *m;
+  Py_ssize_t sl, ml;
+  char hx[65];
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#y#", &s, &sl, &m, &ml)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdcommit(U8(s), SZ(sl), U8(m), SZ(ml), hx);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  return PyUnicode_FromStringAndSize(hx, 64);
+}
+
+/* dreveal(dir, salt, m) -> the index of the commitment, or None */
+static PyObject *pdreveal(PyObject *self, PyObject *args) {
+  const char *dir, *s, *m;
+  Py_ssize_t sl, ml;
+  size_t i = 0;
+  nqdrec *r;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yy#y#", &dir, &s, &sl, &m, &ml)) return NULL;
+  if ((r = drec(dir, 0)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdreveal(r, U8(s), SZ(sl), U8(m), SZ(ml), &i);
+  Py_END_ALLOW_THREADS
+  nqdrfree(r);
+  if (rc == NQEVRFY) Py_RETURN_NONE;
+  if (rc != NQOK) return fail(rc);
+  return PyLong_FromSize_t(i);
+}
+
+/* dcite(dir, fmt) -> text */
+static PyObject *pdcite(PyObject *self, PyObject *args) {
+  const char *dir;
+  int fmt, rc;
+  nqdrec *r;
+  size_t n = 0;
+  char *b;
+  PyObject *o;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yi", &dir, &fmt)) return NULL;
+  if ((r = drec(dir, 0)) == NULL) return NULL;
+  rc = nqdcite(r, fmt, NULL, 0, &n);
+  if (rc != NQEBUF) {
+    nqdrfree(r);
+    return fail(rc == NQOK ? NQESTATE : rc);
+  }
+  b = (char *)PyMem_Malloc(n + 1);
+  if (b == NULL) {
+    nqdrfree(r);
+    return PyErr_NoMemory();
+  }
+  rc = nqdcite(r, fmt, b, n + 1, &n);
+  o = rc == NQOK ? PyUnicode_FromStringAndSize(b, (Py_ssize_t)n) : fail(rc);
+  PyMem_Free(b);
+  nqdrfree(r);
+  return o;
+}
+
+/* drpt(dir, pk or None, fmt, sealed, hasrec) -> text: the capsule checked
+ * (nqchkx with pk) when sealed, the record (nqdchk) when it has one */
+typedef struct {
+  const char *d;
+  const nqrep *c;
+  const nqdrep *r;
+  int fmt;
+} drpt;
+
+static int frpt(void *u, char *out, size_t cap, size_t *n, char *why,
+                size_t wc) {
+  drpt *x = (drpt *)u;
+  (void)why;
+  (void)wc;
+  return nqdrpt(x->d, x->c, x->r, x->fmt, out, cap, n);
+}
+
+static PyObject *pdrpt(PyObject *self, PyObject *args) {
+  const char *dir, *pk = NULL;
+  Py_ssize_t pl = 0;
+  int fmt, sealed, hasrec, rc = NQOK;
+  nqrep *cr = NULL;
+  nqdrep *dr = NULL;
+  nqcopt co;
+  drpt x;
+  PyObject *o;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yz#ipp", &dir, &pk, &pl, &fmt, &sealed,
+                        &hasrec))
+    return NULL;
+  memset(&co, 0, sizeof co);
+  co.trust = U8(pk);
+  co.trustlen = SZ(pl);
+  Py_BEGIN_ALLOW_THREADS
+  if (sealed) rc = nqchkx(dir, &co, &cr);
+  if (cr != NULL || !sealed) {
+    rc = NQOK;
+    if (hasrec) {
+      rc = nqdchk(dir, &dr);
+      if (dr != NULL) rc = NQOK;
+    }
+  }
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK || (sealed && cr == NULL)) {
+    nqrepfree(cr);
+    nqdrepfree(dr);
+    return fail(rc != NQOK ? rc : NQESTATE);
+  }
+  x.d = dir;
+  x.c = cr;
+  x.r = dr;
+  x.fmt = fmt;
+  o = wgrow(frpt, &x);
+  nqrepfree(cr);
+  nqdrepfree(dr);
+  return o;
+}
+
+/* dpack(dir, files, file) */
+static PyObject *pdpack(PyObject *self, PyObject *args) {
+  const char *dir, *f;
+  int files, rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ypy", &dir, &files, &f)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdpack(dir, files, f);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  Py_RETURN_NONE;
+}
+
+/* dunpack(file, dir, rm) */
+static PyObject *pdunpack(PyObject *self, PyObject *args) {
+  const char *f, *dir;
+  int rm, rc;
+  char why[600];
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yyp", &f, &dir, &rm)) return NULL;
+  why[0] = '\0';
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdunpack(f, dir, rm, why, sizeof why);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return dfail(rc, why);
+  Py_RETURN_NONE;
+}
+
+/* dchain(dirs, pk or None, anchors) -> (code, head, rows) */
+static PyObject *pdchain(PyObject *self, PyObject *args) {
+  PyObject *ds, *anc, *rr;
+  const char *pk = NULL, **dp = NULL, **ap = NULL;
+  Py_ssize_t pl = 0;
+  size_t *dl = NULL, *al = NULL, nd = 0, na = 0;
+  uint8_t head[32];
+  nqcopt co;
+  nqdrep *r = NULL;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "O!z#O!", &PyTuple_Type, &ds, &pk, &pl,
+                        &PyTuple_Type, &anc))
+    return NULL;
+  if (blist(ds, 1000000, &dp, &dl, &nd) != 0) return NULL;
+  if (blist(anc, NANC, &ap, &al, &na) != 0) {
+    PyMem_Free((void *)dp);
+    PyMem_Free(dl);
+    return NULL;
+  }
+  memset(&co, 0, sizeof co);
+  co.trust = U8(pk);
+  co.trustlen = SZ(pl);
+  co.anc = (const uint8_t *const *)ap;
+  co.anclen = al;
+  co.nanc = na;
+  memset(head, 0, sizeof head);
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdchain(dp, nd, &co, head, &r);
+  Py_END_ALLOW_THREADS
+  PyMem_Free((void *)dp);
+  PyMem_Free(dl);
+  PyMem_Free((void *)ap);
+  PyMem_Free(al);
+  rr = ddone(rc, r);
+  if (rr == NULL) return NULL;
+  return Py_BuildValue("(Ny#)", rr, (const char *)head, (Py_ssize_t)32);
+}
+
 static PyMethodDef meths[] = {
   {"setup", psetup, METH_O, "register the error classes"},
   {"version", pver, METH_NOARGS, "nqver()"},
@@ -1807,6 +2231,23 @@ static PyMethodDef meths[] = {
   {"kfeini", pkfeini, METH_VARARGS, "nqkfeini"},
   {"kfdini", pkfdini, METH_VARARGS, "nqkfdini"},
   {"kfupd", pkfupd, METH_VARARGS, "nqkfeupd / nqkfefin / nqkfdupd / nqkfdfin"},
+  {"insp", pinsp, METH_VARARGS, "nqinsp"},
+  {"sealwhy", psealwhy, METH_VARARGS, "nqsealwhy"},
+  {"tsreq", ptsreq, METH_VARARGS, "nqtsreq / nqersreq"},
+  {"tsput", ptsput, METH_VARARGS, "nqtsput / nqersput"},
+  {"dparse", pdparse, METH_VARARGS, "nqdparse + nqdjson"},
+  {"dschk", pdschk, METH_VARARGS, "nqdschk"},
+  {"dsyn", pdsyn, METH_VARARGS, "nqdsyn + nqdsave"},
+  {"dcal", pdcal, METH_VARARGS, "nqddcal"},
+  {"dchunk", pdchunk, METH_VARARGS, "nqdchunk"},
+  {"dpiece", pdpiece, METH_VARARGS, "nqdpiece"},
+  {"dcommit", pdcommit, METH_VARARGS, "nqdcommit"},
+  {"dreveal", pdreveal, METH_VARARGS, "nqdreveal"},
+  {"dcite", pdcite, METH_VARARGS, "nqdcite"},
+  {"drpt", pdrpt, METH_VARARGS, "nqdrpt"},
+  {"dpack", pdpack, METH_VARARGS, "nqdpack"},
+  {"dunpack", pdunpack, METH_VARARGS, "nqdunpack"},
+  {"dchain", pdchain, METH_VARARGS, "nqdchain"},
   {NULL, NULL, 0, NULL}
 };
 
