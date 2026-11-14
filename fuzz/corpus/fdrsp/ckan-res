@@ -1,0 +1,1 @@
+{"help":"https://data.example.org/api/3/action/help_show?name=resource_show","success":true,"result":{"id":"0a6e7f3c-1111-4c2a-9f00-aa0000000003","name":"2024 statistics","format":"CSV","package_id":"5f1c0c1e-8f0e-4a6b-9d6a-0d5b2b7e9a11","url":"https://files.example.org/lib/2024.csv","size":20481}}

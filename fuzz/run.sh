@@ -20,7 +20,7 @@ shift 3
 
 case $t in
   fder | fx509 | focsp | ftsp | fcls | fers) dict=der.dict ;;
-  fjson | fcap | fproof | fcard | fdrec | fddft) dict=json.dict ;;
+  fjson | fcap | fproof | fcard | fdrec | fddft | fdrsp) dict=json.dict ;;
   fkey) dict=key.dict ;;
   *) dict= ;;
 esac

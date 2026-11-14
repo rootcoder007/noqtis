@@ -1,0 +1,16 @@
+{
+  "id" : "abcd-1234",
+  "name" : "Crimes - 2001 to Present",
+  "assetType" : "dataset",
+  "createdAt" : 1316554003,
+  "displayType" : "table",
+  "rowsUpdatedAt" : 1731400000,
+  "viewType" : "tabular",
+  "columns" : [ {
+    "id" : 1,
+    "name" : "ID",
+    "dataTypeName" : "number",
+    "fieldName" : "id",
+    "position" : 1
+  } ]
+}
