@@ -1723,6 +1723,24 @@ static void trefuse(void) {
   pristine();
   wrs("qref/new.txt", "added\n");
   ref1("extra", "an added file", 1, CHK);
+  ok(has("q.err", "a file was added after sealing") &&
+     !has("q.err", "temporary files"),
+     "an added file: the advice is to remove it or seal again");
+  /* a file under a name of noqtis's temporary files fails like any other
+   * unlisted file; the advice says what it most likely is */
+  pristine();
+  wrs("qref/sub/.noqtis.0123456789abcdef.tmp", "half\n");
+  ref1("extra", "a leftover temporary file", 1, CHK);
+  ok(has("q.out", "sub/.noqtis.0123456789abcdef.tmp: not in the manifest") &&
+     has("q.err", "left from a run that was interrupted") &&
+     !has("q.err", "a file was added after sealing"),
+     "a leftover temporary file: fails as extra, with its own advice");
+  wrs("qref/.noqtis.json.4242.0.tmp", "half\n");
+  wrs("qref/notes.tmp", "added\n");
+  ref1("extra", "a leftover of seal beside an added file", 1, CHK);
+  ok(has("q.err", "left from a run that was interrupted") &&
+     has("q.err", "a file was added after sealing"),
+     "both kinds of unlisted file: both pieces of advice");
   /* timestamps */
   pristine();
   {

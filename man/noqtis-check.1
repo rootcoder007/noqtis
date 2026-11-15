@@ -465,6 +465,14 @@ noqtis check: extra: a file was added after sealing: remove it, or seal the fold
 1
 .Ed
 .Pp
+An unlisted file fails the check whatever its name.
+For one named as noqtis names its temporary files
+.Pq Pa .noqtis. No ... Ns Pa .tmp ,
+which a run that was interrupted can leave behind, the advice reads:
+.Bd -literal -offset indent
+noqtis check: extra: the file has a name noqtis gives its temporary files, so it is most likely left from a run that was interrupted: it is not part of the seal; delete it and check again
+.Ed
+.Pp
 A timestamped capsule, against the TSA's root certificate:
 .Bd -literal -offset indent
 $ noqtis check -p me.pub --anchor digicert.der results

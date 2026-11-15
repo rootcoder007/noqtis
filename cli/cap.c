@@ -765,8 +765,29 @@ static const ncfix fixes[] = {
 
 #define NCNFIX (sizeof fixes / sizeof fixes[0])
 
+/* Whether the file of an "extra" row (det: "<path>: not in the manifest")
+ * has a name noqtis gives its temporary files: the last part of the path
+ * starts ".noqtis." and ends ".tmp". The row fails either way, as any
+ * unlisted file does; only the advice differs. */
+static int tmpleft(const char *det) {
+  static const char tail[] = ": not in the manifest";
+  size_t l = det != NULL ? strlen(det) : 0, t = sizeof tail - 1;
+  const char *e, *b;
+  if (l <= t || strcmp(det + l - t, tail) != 0)
+    return 0;
+  e = det + l - t;
+  for (b = e; b > det && b[-1] != '/'; b--)
+    ;
+  return e - b > 12 && memcmp(b, ".noqtis.", 8) == 0 &&
+         memcmp(e - 4, ".tmp", 4) == 0;
+}
+
 static const char *fixfor(const char *chk, const char *det) {
   size_t i;
+  if (strcmp(chk, "extra") == 0 && tmpleft(det))
+    return "the file has a name noqtis gives its temporary files, so it "
+           "is most likely left from a run that was interrupted: it is "
+           "not part of the seal; delete it and check again";
   for (i = 0; i < NCNFIX; i++) {
     if (strcmp(fixes[i].chk, chk) == 0 &&
         (fixes[i].sub == NULL ||
