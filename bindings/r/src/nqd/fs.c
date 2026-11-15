@@ -28,36 +28,25 @@
 #endif
 
 #ifdef _WIN32
-static wchar_t *wide(const char *s) {
-  int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, NULL, 0);
-  wchar_t *w;
-  if (n <= 0)
-    return NULL;
-  w = (wchar_t *)qdmal((size_t)n * sizeof *w);
-  if (w != NULL &&
-      MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, w, n) != n) {
-    qdfree(w, (size_t)n * sizeof *w);
-    w = NULL;
-  }
-  return w;
-}
+#define WMAX 4200 /* as the joined paths below: a longer path is not opened */
 
-/* frees what wide returned: its length and the NUL */
-static void wfree(wchar_t *w) {
-  if (w != NULL)
-    qdfree(w, (wcslen(w) + 1) * sizeof *w);
+/* the path as UTF-16 in w, which holds WMAX wide characters and is the
+ * caller's own array: nothing is allocated, so a path cannot fail for
+ * want of memory and be taken for a file that is not there. 0 when the
+ * text is not UTF-8 or does not fit */
+static int wide(const char *s, wchar_t *w) {
+  return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, w, WMAX) >
+         0;
 }
 #endif
 
 FILE *qdfopen(const char *path, const char *mode) {
 #ifdef _WIN32
-  wchar_t *p = wide(path), *m = wide(mode);
-  FILE *f = NULL;
-  if (p != NULL && m != NULL)
-    f = _wfopen(p, m);
-  wfree(p);
-  wfree(m);
-  return f;
+  wchar_t p[WMAX], m[16];
+  if (!wide(path, p) ||
+      MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, mode, -1, m, 16) <= 0)
+    return NULL;
+  return _wfopen(p, m);
 #else
   return fopen(path, mode);
 #endif
@@ -65,11 +54,9 @@ FILE *qdfopen(const char *path, const char *mode) {
 
 static int drename(const char *from, const char *to) {
 #ifdef _WIN32
-  wchar_t *a = wide(from), *b = wide(to);
-  int ok = a != NULL && b != NULL &&
+  wchar_t a[WMAX], b[WMAX];
+  int ok = wide(from, a) && wide(to, b) &&
            MoveFileExW(a, b, MOVEFILE_REPLACE_EXISTING) != 0;
-  wfree(a);
-  wfree(b);
   return ok ? 0 : -1;
 #else
   return rename(from, to);
@@ -78,9 +65,8 @@ static int drename(const char *from, const char *to) {
 
 static int dremove(const char *path) {
 #ifdef _WIN32
-  wchar_t *a = wide(path);
-  int ok = a != NULL && DeleteFileW(a) != 0;
-  wfree(a);
+  wchar_t a[WMAX];
+  int ok = wide(path, a) && DeleteFileW(a) != 0;
   return ok ? 0 : -1;
 #else
   return remove(path);
@@ -89,12 +75,11 @@ static int dremove(const char *path) {
 
 FILE *qdfnew(const char *path) {
 #ifdef _WIN32
-  wchar_t *p = wide(path);
-  int fd = p != NULL ? _wopen(p, _O_CREAT | _O_EXCL | _O_WRONLY | _O_BINARY,
-                              _S_IREAD | _S_IWRITE)
-                     : -1;
+  wchar_t p[WMAX];
+  int fd = wide(path, p) ? _wopen(p, _O_CREAT | _O_EXCL | _O_WRONLY | _O_BINARY,
+                                  _S_IREAD | _S_IWRITE)
+                         : -1;
   FILE *f = fd >= 0 ? _fdopen(fd, "wb") : NULL;
-  wfree(p);
   if (fd >= 0 && f == NULL)
     _close(fd);
   return f;
@@ -112,9 +97,8 @@ FILE *qdfnew(const char *path) {
 
 int qdmkdir(const char *path) {
 #ifdef _WIN32
-  wchar_t *p = wide(path);
-  int r = p != NULL && _wmkdir(p) == 0;
-  wfree(p);
+  wchar_t p[WMAX];
+  int r = wide(path, p) && _wmkdir(p) == 0;
   return r ? NQOK : NQEIO;
 #else
   return mkdir(path, 0755) == 0 ? NQOK : NQEIO;
@@ -123,9 +107,8 @@ int qdmkdir(const char *path) {
 
 int qdrm(const char *path, int isdir) {
 #ifdef _WIN32
-  wchar_t *p = wide(path);
-  int r = p != NULL && (isdir ? _wrmdir(p) : _wunlink(p)) == 0;
-  wfree(p);
+  wchar_t p[WMAX];
+  int r = wide(path, p) && (isdir ? _wrmdir(p) : _wunlink(p)) == 0;
   return r ? NQOK : NQEIO;
 #else
   return (isdir ? rmdir(path) : unlink(path)) == 0 ? NQOK : NQEIO;
@@ -452,12 +435,10 @@ static int noreparse(const char *dir, const char *rel, int mustfile) {
   for (i = 0;; i++) {
     char c = rel[i];
     if (c == '/' || c == '\0') {
-      wchar_t *w;
+      wchar_t w[WMAX];
       DWORD a;
       p[dl + 1 + i] = '\0';
-      w = wide(p);
-      a = w != NULL ? GetFileAttributesW(w) : INVALID_FILE_ATTRIBUTES;
-      wfree(w);
+      a = wide(p, w) ? GetFileAttributesW(w) : INVALID_FILE_ATTRIBUTES;
       if (a == INVALID_FILE_ATTRIBUTES) {
         if (c == '\0' && !mustfile)
           return NQOK;
@@ -483,20 +464,19 @@ int qdopen(const char *dir, const char *rel, FILE **f) {
     return rc;
 #ifdef _WIN32
   {
-    wchar_t *w;
+    wchar_t w[WMAX];
     HANDLE h;
     BY_HANDLE_FILE_INFORMATION fi;
     int fd;
     if ((rc = noreparse(dir != NULL && *dir ? dir : ".", rel, 1)) != NQOK)
       return rc;
-    if ((w = wide(p)) == NULL)
+    if (!wide(p, w))
       return NQEIO;
     /* the path itself, never a reparse point's target, checked on the
      * open handle */
     h = CreateFileW(w, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                     FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
                     NULL);
-    wfree(w);
     if (h == INVALID_HANDLE_VALUE)
       return NQEIO;
     if (!GetFileInformationByHandle(h, &fi) ||
