@@ -280,6 +280,13 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
  * ignored when the first was armed stays ignored. Only SIGKILL or a
  * power cut can leave a temporary name behind (and on Windows a signal,
  * as an open file cannot be removed there). */
+/* FreeBSD, OpenBSD and DragonFly show SIGXFSZ only to XSI or BSD code,
+ * not under the plain POSIX this file asks for; its number is 25 on
+ * each of them */
+#if !defined(SIGXFSZ) && (defined(__FreeBSD__) || defined(__OpenBSD__) || \
+                          defined(__DragonFly__))
+#define SIGXFSZ 25
+#endif
 #define NCPEND 8
 static char pnd[NCPEND][4200];
 static volatile sig_atomic_t pon[NCPEND];
