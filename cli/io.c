@@ -429,17 +429,32 @@ FILE *ncopen(const char *path, int force, int sec) {
   char t[4200];
   int fd = -1, tries, i;
   FILE *f;
+#ifndef _WIN32
+  sigset_t bs, os;
+  size_t k;
+  int held = 0;
+#endif
   /* refused at once, not after the output is written */
   if (!force && ncexist(path))
     return NULL;
+  /* The file is made and its name noted for removal with the signals
+   * held back: one that arrived between the two would end the process
+   * with the temporary file there and nothing to remove it. Held back,
+   * it is delivered once the name is noted. */
+#ifndef _WIN32
+  sigemptyset(&bs);
+  for (k = 0; k < NPSIG; k++)
+    sigaddset(&bs, psig[k]);
+  held = sigprocmask(SIG_BLOCK, &bs, &os) == 0;
+#endif
   for (tries = 0; tries < 4 && fd < 0; tries++) {
     if (tmpnm(path, t, sizeof t) != NCOK)
-      return NULL;
+      break;
 #ifdef _WIN32
     {
       wchar_t *p = wide(t);
       if (p == NULL)
-        return NULL;
+        break;
       /* owner-only on Windows comes from the folder's ACL */
       fd = _wopen(p, _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY,
                   _S_IREAD | _S_IWRITE);
@@ -450,11 +465,16 @@ FILE *ncopen(const char *path, int force, int sec) {
               sec ? (mode_t)0600 : (mode_t)0666);
 #endif
     if (fd < 0 && errno != EEXIST)
-      return NULL;
+      break;
   }
+  i = fd >= 0 ? ncpend(t) : -1;
+#ifndef _WIN32
+  if (held)
+    (void)sigprocmask(SIG_SETMASK, &os, NULL);
+#endif
   if (fd < 0)
     return NULL;
-  if ((i = ncpend(t)) < 0) {
+  if (i < 0) {
 #ifdef _WIN32
     _close(fd);
 #else
