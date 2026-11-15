@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 13, 2026
+.Dd November 15, 2026
 .Dt NOQTIS 1
 .Os
 .Sh NAME
@@ -209,9 +209,31 @@ with
 on POSIX; on Windows they inherit the folder's ACL) through unbuffered
 streams.
 No command overwrites an existing file unless given
-.Fl -force ;
-with it the old file is removed first, so the new one never inherits its
-permissions or follows a link.
+.Fl -force .
+A file a command writes (a key, a signature, a shared secret, the output
+of
+.Cm box ,
+.Cm unbox
+and the rest) is written first to a new temporary name in the same
+folder,
+.Pa .<name>.<16 hex digits>.tmp ,
+created with
+.Dv O_EXCL | O_NOFOLLOW ,
+and given its name only once it is whole: with
+.Fl -force
+the new file replaces the old one (and a link there, never its target),
+so it never inherits the old one's permissions; without it, a file that
+appeared under the name meanwhile is not replaced.
+When the command fails, or is stopped by
+.Dv SIGINT ,
+.Dv SIGTERM
+or
+.Dv SIGHUP ,
+the temporary file is removed, so a cut output never stands under the
+name asked for; only
+.Dv SIGKILL
+or a power cut can leave a temporary name behind (on Windows, a signal
+too, as an open file cannot be removed there).
 Every buffer that held a secret key, seed or shared secret is wiped before
 it is freed.
 No secret is printed: a shared secret reaches standard output only with

@@ -30,6 +30,16 @@ set_tests_properties(tcli PROPERTIES
   ENVIRONMENT
   "ASAN_OPTIONS=exitcode=86;UBSAN_OPTIONS=exitcode=86:print_stacktrace=1${NQCLIT}"
   TIMEOUT 900)
+# outputs cut by a signal, and standard output that cannot be written
+# (tests/cli/out.sh, POSIX sh)
+if(NOT WIN32)
+  add_test(NAME tout COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/out.sh
+           $<TARGET_FILE:nqcli> ${PROJECT_SOURCE_DIR}/tests)
+  set_tests_properties(tout PROPERTIES
+    ENVIRONMENT
+    "ASAN_OPTIONS=exitcode=86;UBSAN_OPTIONS=exitcode=86:print_stacktrace=1"
+    TIMEOUT 300)
+endif()
 # tbl: interop with rmoriebricklayer, live, both ways (tests/interop/
 # run.sh); skipped (exit 77) without Rscript and the R package
 if(NOT WIN32)

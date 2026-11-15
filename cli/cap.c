@@ -6,7 +6,6 @@
 /* the longest input name nqseal2 takes */
 #define NQCNAMEMAXC 255
 
-#include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,42 +14,32 @@
 
 /* While seal --tsa waits for a TSA, an interrupt (Ctrl-C, SIGTERM,
  * SIGHUP) removes the new noqtis.json and noqtis.sig before the process
- * ends, so the folder is not left sealed without the timestamp asked
- * for. Only SIGKILL (or a power cut) can still leave it so. */
-static char pend[2][4200];
-static volatile sig_atomic_t armed = 0;
+ * ends (ncpend, cli/io.c), so the folder is not left sealed without the
+ * timestamp asked for. Only SIGKILL (or a power cut) can still leave it
+ * so. */
+static int pslot[2] = {-1, -1};
 
-static void onsig(int s) {
-  if (armed) {
-    remove(pend[0]);
-    remove(pend[1]);
-  }
-  signal(s, SIG_DFL);
-  raise(s);
-}
+static void disarm(void);
 
 static int arm(const char *dir) {
-  if (snprintf(pend[0], sizeof pend[0], "%s/noqtis.sig", dir) >=
-          (int)sizeof pend[0] ||
-      snprintf(pend[1], sizeof pend[1], "%s/noqtis.json", dir) >=
-          (int)sizeof pend[1])
+  char p[2][4200];
+  if (snprintf(p[0], sizeof p[0], "%s/noqtis.sig", dir) >=
+          (int)sizeof p[0] ||
+      snprintf(p[1], sizeof p[1], "%s/noqtis.json", dir) >=
+          (int)sizeof p[1])
     return 0;
-  armed = 1;
-  signal(SIGINT, onsig);
-  signal(SIGTERM, onsig);
-#ifdef SIGHUP
-  signal(SIGHUP, onsig);
-#endif
-  return 1;
+  pslot[0] = ncpend(p[0]);
+  pslot[1] = ncpend(p[1]);
+  if (pslot[0] >= 0 && pslot[1] >= 0)
+    return 1;
+  disarm();
+  return 0;
 }
 
 static void disarm(void) {
-  armed = 0;
-  signal(SIGINT, SIG_DFL);
-  signal(SIGTERM, SIG_DFL);
-#ifdef SIGHUP
-  signal(SIGHUP, SIG_DFL);
-#endif
+  ncunpend(pslot[0]);
+  ncunpend(pslot[1]);
+  pslot[0] = pslot[1] = -1;
 }
 
 /* ---- TSA anchors (--anchor, DER certificates) ---- */

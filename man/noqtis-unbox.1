@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 14, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-UNBOX 1
 .Os
 .Sh NAME
@@ -31,7 +31,16 @@ Each chunk is written only after its tag has verified.
 When a chunk does not verify (the file was changed, cut, reordered or
 lengthened, or is not for this key or context), the command stops with
 exit status 2 and removes
-.Ar out ;
+.Ar out ,
+as it does when stopped by
+.Dv SIGINT ,
+.Dv SIGTERM
+or
+.Dv SIGHUP :
+the plaintext is written under a temporary name beside
+.Ar out
+and renamed only once whole
+.Pq Xr noqtis 1 ;
 on standard output, what was written had verified but the data is cut
 short, so check the exit status before using it.
 A header that names a chunk size outside 1024 to 16777216 bytes is

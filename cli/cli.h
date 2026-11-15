@@ -70,8 +70,15 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
 #define NCRDMAX ((size_t)1 << 30) /* a message or list: 1 GiB */
 #define NCRDSMALL ((size_t)1 << 20) /* a key, signature, anchor: 1 MiB */
 /* Creates path for writing: refuses an existing file unless force; sec
- * gives owner-only permissions (0600 on POSIX). */
+ * gives owner-only permissions (0600 on POSIX). The bytes go to a new
+ * temporary name beside path (".<name>.<16 hex>.tmp"), which ncclose
+ * renames to path once the file is whole and removes otherwise; a
+ * signal (SIGINT, SIGTERM, SIGHUP) removes it too. */
 FILE *ncopen(const char *path, int force, int sec);
+/* path is removed on SIGINT, SIGTERM or SIGHUP until ncunpend(slot):
+ * the slot, or -1 when all 8 are taken or path is too long */
+int ncpend(const char *path);
+void ncunpend(int slot);
 /* Writes len bytes to a new file (see ncopen); removes it on failure. */
 int ncwr(const char *path, const uint8_t *b, size_t len, int force,
          int sec);
@@ -89,7 +96,9 @@ int ncisreg(const char *path);
 /* The UTC calendar time of t into *tm (gmtime_r, gmtime_s on Windows;
  * gmtime itself is not thread-safe). NCOK or NCUSE. */
 int ncgmtime(time_t t, struct tm *tm);
-/* Closes f; removes path when bad or when the close fails. 0 on success. */
+/* Closes f; for a file from ncopen, gives it its name when whole, and
+ * removes it when bad or when the close or the rename fails (any other
+ * f: removes path then). 0 on success. */
 int ncclose(FILE *f, const char *path, int bad);
 /* dir and every folder under it, 64 levels deep at most, without
  * following links, deepest first (free each and the list); NCUSE over

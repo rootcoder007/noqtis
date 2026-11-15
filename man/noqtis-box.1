@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 14, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-BOX 1
 .Os
 .Sh NAME
@@ -51,7 +51,9 @@ Replace an existing output file.
 .El
 .Sh EXIT STATUS
 0 on success, 2 on a usage, key or file error; an output file is
-removed when the command fails.
+removed when the command fails or is stopped by a signal (it is written
+under a temporary name and renamed once whole,
+.Xr noqtis 1 ) .
 .Sh EXAMPLES
 .Bd -literal -offset indent
 $ noqtis keygen -a ML-KEM-768 -o box

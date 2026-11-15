@@ -15,6 +15,7 @@
 #include "cli.h"
 
 #include <errno.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -266,36 +267,174 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
   return NQOK;
 }
 
-FILE *ncopen(const char *path, int force, int sec) {
-  int fd = -1, tries;
-  FILE *f;
-  for (tries = 0; tries < 2; tries++) {
+/* ---- outputs under a temporary name ----
+ *
+ * A file the tool writes (ncopen, ncwr) is written to a new temporary
+ * name in the same folder, ".<name>.<16 hex digits>.tmp", created with
+ * O_EXCL and O_NOFOLLOW, so never through a link; ncclose gives it its
+ * name only once it is whole, so an output cut short by a failure or a
+ * signal never stands under the name asked for. The paths in pnd are
+ * removed on SIGINT, SIGTERM and SIGHUP (and, for an output still open,
+ * at exit) before the process ends; a signal the process ignored when
+ * the first was armed stays ignored. Only SIGKILL or a power cut can
+ * leave a temporary name behind (and on Windows a signal, as an open
+ * file cannot be removed there). */
+#define NCPEND 8
+static char pnd[NCPEND][4200];
+static volatile sig_atomic_t pon[NCPEND];
+static FILE *pfh[NCPEND];      /* the output written to pnd[i], or NULL */
+static int pfrc[NCPEND];       /* its force */
+static char pfin[NCPEND][4200]; /* the name it gets */
+static int npon = 0, pexit = 0;
+static const int psig[] = {SIGINT, SIGTERM
+#ifdef SIGHUP
+                           , SIGHUP
+#endif
+};
+#define NPSIG (sizeof psig / sizeof psig[0])
+static void (*pold[NPSIG])(int);
+
+static void onpend(int s) {
+  int i;
+  for (i = 0; i < NCPEND; i++)
+    if (pon[i])
+      remove(pnd[i]);
+  signal(s, SIG_DFL);
+  raise(s);
+}
+
+static void atpend(void) {
+  int i;
+  for (i = 0; i < NCPEND; i++)
+    if (pon[i] && pfh[i] != NULL)
+      (void)rmpath(pnd[i]);
+}
+
+int ncpend(const char *path) {
+  size_t k;
+  int i;
+  if (strlen(path) >= sizeof pnd[0])
+    return -1;
+  for (i = 0; i < NCPEND && pon[i]; i++)
+    ;
+  if (i == NCPEND)
+    return -1;
+  strcpy(pnd[i], path);
+  pfh[i] = NULL;
+  if (npon++ == 0) {
+    for (k = 0; k < NPSIG; k++) {
+      pold[k] = signal(psig[k], onpend);
+      if (pold[k] == SIG_IGN)
+        signal(psig[k], SIG_IGN);
+    }
+  }
+  pon[i] = 1;
+  return i;
+}
+
+void ncunpend(int i) {
+  size_t k;
+  if (i < 0 || i >= NCPEND || !pon[i])
+    return;
+  pon[i] = 0;
+  pfh[i] = NULL;
+  if (--npon == 0) {
+    for (k = 0; k < NPSIG; k++)
+      signal(psig[k], pold[k] == SIG_ERR ? SIG_DFL : pold[k]);
+  }
+}
+
+/* the temporary name of path into t: ".<name>.<16 hex>.tmp" beside it */
+static int tmpnm(const char *path, char *t, size_t cap) {
+  const char *b = strrchr(path, '/');
+  uint8_t rb[8];
+  char hx[17];
+  int n;
 #ifdef _WIN32
-    wchar_t *p = wide(path);
-    if (p == NULL)
-      return NULL;
-    /* owner-only on Windows comes from the folder's ACL */
-    fd = _wopen(p, _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY,
-                _S_IREAD | _S_IWRITE);
-    free(p);
+  const char *b2 = strrchr(path, '\\');
+  if (b2 != NULL && (b == NULL || b2 > b))
+    b = b2;
+#endif
+  b = b != NULL ? b + 1 : path;
+  if (*b == '\0' || nqrand(rb, sizeof rb) != NQOK)
+    return NCUSE;
+  nchexe(rb, sizeof rb, hx);
+  hx[16] = '\0';
+  n = snprintf(t, cap, "%.*s.%s.%s.tmp", (int)(b - path), path, b, hx);
+  return n < 0 || (size_t)n >= cap ? NCUSE : NCOK;
+}
+
+/* gives the whole temporary file t its name p: over a file there only
+ * with force, and never through a link at p */
+static int place(const char *t, const char *p, int force) {
+#ifdef _WIN32
+  wchar_t *wt = wide(t), *wp = wide(p);
+  int ok = wt != NULL && wp != NULL &&
+           MoveFileExW(wt, wp, force ? MOVEFILE_REPLACE_EXISTING : 0);
+  free(wt);
+  free(wp);
+  return ok ? NCOK : NCUSE;
 #else
-    fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
+  struct stat st;
+  if (force)
+    return rename(t, p) == 0 ? NCOK : NCUSE;
+  /* a hard link fails on a name that is there (even a link); a file
+   * system without hard links gets the rename, after a last look */
+  if (link(t, p) == 0) {
+    (void)unlink(t);
+    return NCOK;
+  }
+  if (errno == EEXIST || lstat(p, &st) == 0)
+    return NCUSE;
+  return rename(t, p) == 0 ? NCOK : NCUSE;
+#endif
+}
+
+FILE *ncopen(const char *path, int force, int sec) {
+  char t[4200];
+  int fd = -1, tries, i;
+  FILE *f;
+  /* refused at once, not after the output is written */
+  if (!force && ncexist(path))
+    return NULL;
+  for (tries = 0; tries < 4 && fd < 0; tries++) {
+    if (tmpnm(path, t, sizeof t) != NCOK)
+      return NULL;
+#ifdef _WIN32
+    {
+      wchar_t *p = wide(t);
+      if (p == NULL)
+        return NULL;
+      /* owner-only on Windows comes from the folder's ACL */
+      fd = _wopen(p, _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY,
+                  _S_IREAD | _S_IWRITE);
+      free(p);
+    }
+#else
+    fd = open(t, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
               sec ? (mode_t)0600 : (mode_t)0666);
 #endif
-    if (fd >= 0 || errno != EEXIST || !force)
-      break;
-    /* replace: remove first, so the new file never inherits the old
-     * one's permissions or follows a link */
-    if (rmpath(path) != 0)
+    if (fd < 0 && errno != EEXIST)
       return NULL;
   }
   if (fd < 0)
     return NULL;
+  if ((i = ncpend(t)) < 0) {
+#ifdef _WIN32
+    _close(fd);
+#else
+    close(fd);
+#endif
+    (void)rmpath(t);
+    return NULL;
+  }
 #ifndef _WIN32
   /* the mode whatever the umask: a public key or signature 0644, never
    * group- or world-writable (a .pub is a trust anchor), a secret 0600 */
   if (fchmod(fd, sec ? (mode_t)0600 : (mode_t)0644) != 0) {
     close(fd);
+    (void)rmpath(t);
+    ncunpend(i);
     return NULL;
   }
 #endif
@@ -308,21 +447,40 @@ FILE *ncopen(const char *path, int force, int sec) {
   if (f == NULL)
     close(fd);
 #endif
-  if (f != NULL && sec)
+  if (f == NULL) {
+    (void)rmpath(t);
+    ncunpend(i);
+    return NULL;
+  }
+  if (sec)
     setvbuf(f, NULL, _IONBF, 0);
+  if (!pexit)
+    pexit = atexit(atpend) == 0;
+  strcpy(pfin[i], path);
+  pfrc[i] = force;
+  pfh[i] = f;
   return f;
 }
 
 int ncclose(FILE *f, const char *path, int bad) {
+  int i;
+  for (i = 0; i < NCPEND && !(pon[i] && pfh[i] == f); i++)
+    ;
   if (fflush(f) != 0 || ferror(f))
     bad = 1;
   if (fclose(f) != 0)
     bad = 1;
-  if (bad) {
-    (void)rmpath(path);
-    return NQEIO;
+  if (i == NCPEND) { /* not from ncopen */
+    if (bad)
+      (void)rmpath(path);
+    return bad ? NQEIO : NQOK;
   }
-  return NQOK;
+  if (!bad && place(pnd[i], pfin[i], pfrc[i]) != NCOK)
+    bad = 1;
+  if (bad)
+    (void)rmpath(pnd[i]);
+  ncunpend(i);
+  return bad ? NQEIO : NQOK;
 }
 
 int ncwr(const char *path, const uint8_t *b, size_t len, int force,
