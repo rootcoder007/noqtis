@@ -184,12 +184,17 @@ static void statcol(nqdrep *rep, const char *path, const djs *a,
   size_t o;
   if (same(a, b))
     return;
-  o = (size_t)snprintf(m, sizeof m, "%s: %s: n %.0f -> %.0f", path, name,
-                       na, nb);
+  /* the path (up to 4096 bytes) goes in the row, not in m; o stays
+   * inside m, so every later write gets a size of 1 or more */
+  o = (size_t)snprintf(m, sizeof m, "%s: n %.0f -> %.0f", name, na, nb);
+  if (o >= sizeof m)
+    o = sizeof m - 1;
   if (qdjget(a, "q") != NULL && qdjget(b, "q") != NULL)
     o += (size_t)snprintf(m + o, sizeof m - o, ", median %.6g -> %.6g",
                           median(qdjget(a, "q"), na),
                           median(qdjget(b, "q"), nb));
+  if (o >= sizeof m)
+    o = sizeof m - 1;
   if (ea != NULL && eb != NULL && same(ea, eb)) {
     const djs *ka = qdjget(a, "counts"), *kb = qdjget(b, "counts");
     size_t i, k = ka->n;
@@ -233,7 +238,7 @@ static void statcol(nqdrep *rep, const char *path, const djs *a,
     qdfree(x, cap * sizeof *x);
     qdfree(y, cap * sizeof *y);
   }
-  qdrepadd(rep, "stats", 0, "%s", m);
+  qdrepadd(rep, "stats", 0, "%s: %s", path, m);
 }
 
 static void schcols(nqdrep *rep, const char *path, const djs *a,

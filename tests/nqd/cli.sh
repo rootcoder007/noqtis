@@ -356,6 +356,16 @@ has "$w/out" "env.*added" "env added"
 ok 1 "diff --json" "$nq" diff --json "$d1" "$d2"
 has "$w/out" '"same":false' "json same false"
 ok 2 "diff one folder" "$nq" diff "$d1"
+# a summary whose path is longer than the message it is described in
+l=$(aa 200)
+for lp in ref cur; do
+  mkdir -p "$w/lp$lp/data/$l"
+  cp "$v/drift/$lp.csv" "$w/lp$lp/data/$l/$l.csv"
+  ok 0 "diff: drift pin a long path ($lp)" "$nq" drift pin "$w/lp$lp" \
+    "data/$l/$l.csv"
+done
+ok 1 "diff: a long summary path" "$nq" diff "$w/lpref" "$w/lpcur"
+has "$w/out" "$l.csv: x: n 60 -> 70" "diff: the long path in full"
 
 # ---- report ----
 
