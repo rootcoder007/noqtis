@@ -1142,8 +1142,9 @@ static int jadd(char *b, size_t cap, const char *k, const char *v) {
     return NCOK;
   if ((q = ncjq(v)) == NULL)
     return NCUSE;
+  /* - 1: room for the closing brace the caller adds */
   if ((size_t)snprintf(b + n, cap - n, "%s\"%s\":%s", n > 1 ? "," : "", k,
-                       q) >= cap - n) {
+                       q) >= cap - n - 1) {
     free(q);
     return NCUSE;
   }
@@ -1198,9 +1199,12 @@ static int denv(int argc, char **argv) {
   }
   if (rng != NULL) {
     char g[1024] = "{";
-    jadd(g, sizeof g, "kind", rng);
-    if (seed != NULL)
-      jadd(g, sizeof g, "seed", seed);
+    if (jadd(g, sizeof g, "kind", rng) != NCOK ||
+        (seed != NULL && jadd(g, sizeof g, "seed", seed) != NCOK)) {
+      ncmsg("env", "--rng and --seed: too long");
+      nqdrfree(r);
+      return NCUSE;
+    }
     strcat(g, "}");
     if (nqdset(r, "env", NULL, "rng", g, strlen(g), why, sizeof why) !=
         NQOK) {
@@ -1268,7 +1272,8 @@ int ncenv(int argc, char **argv) {
 
 int nccommit(int argc, char **argv) {
   const char *kind = "other", *lab = NULL, *after = NULL, *out = NULL;
-  int np, help, force = 0, rc;
+  int np, help, force = 0, rc, k;
+  char *q = NULL;
   uint8_t *m, salt[32];
   size_t n;
   char hx[65], e[2048], t[21], why[600], sp[4200];
@@ -1303,28 +1308,29 @@ int nccommit(int argc, char **argv) {
     nqwipe(salt, sizeof salt);
     return NCUSE;
   }
-  snprintf(e, sizeof e,
-           "{\"kind\":\"%s\",\"created\":\"%s\",\"alg\":\"sha3-256\","
-           "\"digest\":\"%s\"",
-           strchr(kind, '"') == NULL ? kind : "?", t, hx);
-  if (lab != NULL) {
-    char *q = ncjq(lab);
-    if (q != NULL && strlen(e) + strlen(q) + 12 < sizeof e) {
-      strcat(e, ",\"label\":");
-      strcat(e, q);
-    }
-    free(q);
-  }
-  if (after != NULL && strlen(after) == 20 && strchr(after, '"') == NULL) {
-    strcat(e, ",\"after\":\"");
-    strcat(e, after);
-    strcat(e, "\"");
-  } else if (after != NULL) {
+  if (after != NULL && (strlen(after) != 20 || strchr(after, '"') != NULL)) {
     ncmsg("commit", "--after: a UTC time YYYY-MM-DDTHH:MM:SSZ");
     nqwipe(salt, sizeof salt);
     return NCUSE;
   }
-  strcat(e, "}");
+  if (lab != NULL && (q = ncjq(lab)) == NULL) {
+    nqwipe(salt, sizeof salt);
+    return nclib("commit", "memory", NQEMEM);
+  }
+  /* one bounded write: the entry fits whole or is refused */
+  k = snprintf(e, sizeof e,
+               "{\"kind\":\"%s\",\"created\":\"%s\",\"alg\":\"sha3-256\","
+               "\"digest\":\"%s\"%s%s%s%s%s}",
+               strchr(kind, '"') == NULL ? kind : "?", t, hx,
+               q != NULL ? ",\"label\":" : "", q != NULL ? q : "",
+               after != NULL ? ",\"after\":\"" : "", after != NULL ? after : "",
+               after != NULL ? "\"" : "");
+  free(q);
+  if (k < 0 || (size_t)k >= sizeof e) {
+    ncmsg("commit", "--kind and --label: too long");
+    nqwipe(salt, sizeof salt);
+    return NCUSE;
+  }
   snprintf(sp, sizeof sp, "%s.salt", argv[1]);
   if (out == NULL)
     out = sp;

@@ -60,6 +60,11 @@ same() {
   fi
 }
 
+# aa <n>: n bytes of the letter a
+aa() {
+  printf "%${1}s" "" | tr " " a
+}
+
 # ---- data: init, add, show, check ----
 
 c=$w/cap
@@ -511,6 +516,14 @@ has "$w/err" "keep it secret" "commit says to keep the salt"
 ok 0 "commit: salt written" test -f "$w/list.csv.salt"
 ok 2 "commit again: salt exists" "$nq" commit "$e" "$w/list.csv"
 ok 2 "commit: bad kind" "$nq" commit -f --kind lottery "$e" "$w/list.csv"
+# lengths that fit one part of the entry but not the whole: refused
+# whole, never written past the end
+ok 2 "env: --rng of 1013 bytes" "$nq" env --rng "$(aa 1013)" "$e"
+has "$w/err" "too long" "env says the rng is too long"
+ok 2 "commit: --label and --after over the entry" "$nq" commit -f \
+  --kind randomisation --label "$(aa 1870)" --after 2026-01-01T00:00:00Z \
+  "$e" "$w/list.csv"
+has "$w/err" "too long" "commit says the label is too long"
 ok 0 "reveal" "$nq" reveal "$e" "$w/list.csv" "$w/list.csv.salt"
 has "$w/out" "matches commitment 1" "reveal matches"
 printf 'arm,id\nB,1\nA,2\n' >"$w/list2.csv"
