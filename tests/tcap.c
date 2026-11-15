@@ -1073,7 +1073,7 @@ static size_t alslot(const void *p) {
 }
 
 static void *tmal(size_t n, void *u) {
-  void *p;
+  void *p = NULL;
   (void)u;
   if (alfail >= 0 && alcount++ == alfail) return NULL;
   if (allive >= ALSZ / 2 || (p = malloc(n)) == NULL) return NULL;

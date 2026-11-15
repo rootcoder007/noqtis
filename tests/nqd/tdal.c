@@ -18,7 +18,7 @@
 
 static void *tp[TSZ];
 static size_t ts[TSZ];
-static size_t live, nmal;
+static size_t live;
 static long left = -1; /* allocations before the one that fails */
 static int failed, badfree;
 
@@ -30,7 +30,7 @@ static size_t slot(const void *p) {
 }
 
 static void *tmal(size_t n, void *u) {
-  void *p;
+  void *p = NULL;
   (void)u;
   if (left == 0) {
     left = -1;
@@ -44,7 +44,6 @@ static void *tmal(size_t n, void *u) {
   tp[slot(p)] = p;
   ts[slot(p)] = n;
   live++;
-  nmal++;
   return p;
 }
 
@@ -90,7 +89,6 @@ static void sweep(const char *name, int (*f)(void), void (*tidy)(void)) {
   int rc0, rc;
   long n;
   left = -1;
-  nmal = 0;
   rc0 = f();
   if (tidy != NULL)
     tidy();
