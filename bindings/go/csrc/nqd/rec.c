@@ -412,8 +412,10 @@ static int vfield(djs *v, const dfld *f, int fix, char *why, size_t cap,
     break;
   }
   case VOBJ:
-    if (v->t != DJOBJ)
+    if (v->t != DJOBJ) {
+      ok = 0;
       break;
+    }
     return vobj(v, (const dkind *)f->sub, fix, why, cap, at);
   case VARR:
     if (v->t != DJARR) {

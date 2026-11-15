@@ -748,14 +748,13 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
   const djs *cn = qdjget(st, "counts"), *dg = qdjget(st, "digits");
   const djs *cats = qdjget(st, "cats"), *oth = qdjget(st, "other");
   const djs *nn = qdjget(st, "n"), *nu = qdjget(st, "nulls");
-  const djs *cal = qdjget(st, "cal");
+  const djs *cal = qdjget(st, "cal"), *kps = qdjget(cal, "psi");
+  const djs *kp = qdjget(cal, "p"), *kbp = qdjget(cal, "bp");
   /* calibrated on files that had not drifted: a warning needs a PSI
    * above the largest and a p-value below the smallest seen there */
-  double cpsi = cal != NULL ? qdjget(cal, "psi")->d : -1;
-  double cp = cal != NULL ? qdjget(cal, "p")->d : 2;
-  double cbp = cal != NULL && qdjget(cal, "bp") != NULL
-                   ? qdjget(cal, "bp")->d
-                   : 2;
+  double cpsi = kps != NULL ? kps->d : -1;
+  double cp = kp != NULL ? kp->d : 2;
+  double cbp = kbp != NULL ? kbp->d : 2;
   double nref = nn->d, psi = 0, js = 0, x2 = 0, df = 0, pc = 1, bp = 1;
   double bx = 0, bref = 1, bxr = 0;
   double nulr = nu != NULL ? nu->d / (nref + nu->d) : 0;
@@ -767,6 +766,10 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
   dbuf b;
   char det[400], ps[64];
   (void)ncur;
+  /* a calibration that is not of the format (qdelemok refuses it) is
+   * refused here too, never read through */
+  if (cal != NULL && (kps == NULL || kp == NULL))
+    return NQEDEC;
   memset(&b, 0, sizeof b);
   memset(&ks, 0, sizeof ks);
   minn = nref >= d->minn && (double)c->n >= d->minn;

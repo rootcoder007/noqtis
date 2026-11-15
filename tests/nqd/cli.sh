@@ -1137,6 +1137,38 @@ if [ "$lnok" = 1 ]; then
   ok 0 "links: and back" "$nq" data check "$l"
 fi
 
+# ---- members that must be objects: refused whatever else they are ----
+# (data check fails its record row; a command that needs the record
+# refuses it)
+
+o=$w/vobj
+mkdir -p "$o/data"
+printf 'a\n1\n2\n3\n' >"$o/data/a.csv"
+st='"counts":[1,1,1,0],"digits":[1,1,1,0,0,0,0,0,0],"edges":[1,2,3],"n":3,"name":"a","nulls":0,"q":[[1,1],[2,2],[3,3]]'
+hx=0000000000000000000000000000000000000000000000000000000000000000
+for x in 5 '"x"' '[1]' true null; do
+  printf '{"format":"noqtis-data-1","stats":[{"columns":[{"cal":%s,%s}],"path":"data/a.csv","rows":3}]}' \
+    "$x" "$st" >"$o/noqtis.data.json"
+  ok 1 "data check, cal $x" "$nq" data check "$o"
+  has "$w/out" "must be an object" "cal $x: the reason"
+  ok 2 "drift check, cal $x" "$nq" drift check "$o"
+  printf '{"cite":%s,"format":"noqtis-data-1"}' "$x" >"$o/noqtis.data.json"
+  ok 1 "data check, cite $x" "$nq" data check "$o"
+  ok 2 "cite, cite $x" "$nq" cite "$o"
+  printf '{"env":%s,"format":"noqtis-data-1"}' "$x" >"$o/noqtis.data.json"
+  ok 1 "data check, env $x" "$nq" data check "$o"
+  for m in archived resolver; do
+    if [ $m = archived ]; then
+      el="\"archived\":$x,\"path\":\"data/a.csv\",\"sha256\":\"$hx\",\"size\":8"
+    else
+      el="\"path\":\"data/a.csv\",\"resolver\":$x,\"sha256\":\"$hx\",\"size\":8"
+    fi
+    printf '{"format":"noqtis-data-1","sources":[{%s}]}' "$el" \
+      >"$o/noqtis.data.json"
+    ok 1 "data check, $m $x" "$nq" data check "$o"
+  done
+done
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"

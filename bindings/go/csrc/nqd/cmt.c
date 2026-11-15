@@ -104,6 +104,10 @@ int nqdcite(const nqdrec *r, int fmt, char *out, size_t cap,
   c = qdjget(qdrectree(r), "cite");
   if (c == NULL)
     return NQEIO;
+  /* a record from nqdparse is of the format; one that is not (no title,
+   * or not an object) is refused, never followed */
+  if (c->t != DJOBJ || str(c, "title") == NULL)
+    return NQEDEC;
   au = qdjget(c, "authors");
   qdjint(qdjget(c, "year"), &year);
   memset(&b, 0, sizeof b);

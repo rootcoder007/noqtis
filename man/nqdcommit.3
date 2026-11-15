@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 12, 2026
+.Dd November 15, 2026
 .Dt NQDCOMMIT 3
 .Os
 .Sh NAME
@@ -88,6 +88,11 @@ when no commitment matches;
 .Dv NQEIO
 when there is no
 .Ql cite ,
+.Dv NQEDEC
+for one that is not of the format (not an object, or no title; a record
+from
+.Xr nqdload 3
+never holds one),
 .Dv NQEBUF
 for a
 .Fa cap
