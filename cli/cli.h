@@ -71,7 +71,7 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
 #define NCRDSMALL ((size_t)1 << 20) /* a key, signature, anchor: 1 MiB */
 /* Creates path for writing: refuses an existing file unless force; sec
  * gives owner-only permissions (0600 on POSIX). The bytes go to a new
- * temporary name beside path (".<name>.<16 hex>.tmp"), which ncclose
+ * temporary name beside path (".noqtis.<16 hex>.tmp"), which ncclose
  * renames to path once the file is whole and removes otherwise; a
  * signal (SIGINT, SIGTERM, SIGHUP) removes it too. */
 FILE *ncopen(const char *path, int force, int sec);

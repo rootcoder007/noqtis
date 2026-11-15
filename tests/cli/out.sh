@@ -41,11 +41,11 @@ no() {
   fi
 }
 
-# notmp <dir> <what>: no temporary output name (.<name>.<hex>.tmp) is
+# notmp <dir> <what>: no temporary output name (.noqtis.<hex>.tmp) is
 # left in dir
 notmp() {
   n=$((n + 1))
-  if ls -a "$1" | grep -q '^\..*\.[0-9a-f]\{16\}\.tmp$'; then
+  if ls -a "$1" | grep -q '^\.noqtis\.[0-9a-f]\{16\}\.tmp$'; then
     bad=$((bad + 1))
     echo "FAIL $2: a temporary name is left:" >&2
     ls -a "$1" >&2
@@ -57,7 +57,7 @@ notmp() {
 started() {
   i=0
   while [ $i -lt 100 ]; do
-    for t in "$1/$2" "$1"/."$2".*.tmp; do
+    for t in "$1/$2" "$1"/.noqtis.*.tmp; do
       [ -e "$t" ] && return 0
     done
     sleep 0.1

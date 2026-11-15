@@ -270,10 +270,11 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
 /* ---- outputs under a temporary name ----
  *
  * A file the tool writes (ncopen, ncwr) is written to a new temporary
- * name in the same folder, ".<name>.<16 hex digits>.tmp", created with
- * O_EXCL and O_NOFOLLOW, so never through a link; ncclose gives it its
- * name only once it is whole, so an output cut short by a failure or a
- * signal never stands under the name asked for. The paths in pnd are
+ * name in the same folder, ".noqtis.<16 hex digits>.tmp" (short, so a
+ * long file name never makes it too long for the file system), created
+ * with O_EXCL and O_NOFOLLOW, so never through a link; ncclose gives it
+ * its name only once it is whole, so an output cut short by a failure
+ * or a signal never stands under the name asked for. The paths in pnd are
  * removed on SIGINT, SIGTERM, SIGHUP and SIGXFSZ (and, for an output
  * still open, at exit) before the process ends; a signal the process
  * ignored when the first was armed stays ignored. Only SIGKILL or a
@@ -365,7 +366,7 @@ void ncpendseal(const char *dir, int sl[2]) {
   }
 }
 
-/* the temporary name of path into t: ".<name>.<16 hex>.tmp" beside it */
+/* the temporary name of path into t: ".noqtis.<16 hex>.tmp" beside it */
 static int tmpnm(const char *path, char *t, size_t cap) {
   const char *b = strrchr(path, '/');
   uint8_t rb[8];
@@ -379,9 +380,14 @@ static int tmpnm(const char *path, char *t, size_t cap) {
   b = b != NULL ? b + 1 : path;
   if (*b == '\0' || nqrand(rb, sizeof rb) != NQOK)
     return NCUSE;
-  nchexe(rb, sizeof rb, hx);
+  /* written out here, not with nchexe(): this file is also built on its
+   * own into a test program that has no b64.c */
+  for (n = 0; n < (int)sizeof rb; n++) {
+    hx[2 * n] = "0123456789abcdef"[rb[n] >> 4];
+    hx[2 * n + 1] = "0123456789abcdef"[rb[n] & 15];
+  }
   hx[16] = '\0';
-  n = snprintf(t, cap, "%.*s.%s.%s.tmp", (int)(b - path), path, b, hx);
+  n = snprintf(t, cap, "%.*s.noqtis.%s.tmp", (int)(b - path), path, hx);
   return n < 0 || (size_t)n >= cap ? NCUSE : NCOK;
 }
 
