@@ -357,8 +357,13 @@ static int sadd(int argc, char **argv) {
       free(q);
       if (l >= sizeof rs) break;
     }
-    l += (size_t)snprintf(rs + l, l < sizeof rs ? sizeof rs - l : 0,
-                          "%s\"kind\":\"%s\"", l > 1 ? "," : "", kind);
+    /* refused before rs + l could point past rs */
+    if (l >= sizeof rs) {
+      ncmsg("src add", "the portal's options are too long");
+      return NCUSE;
+    }
+    l += (size_t)snprintf(rs + l, sizeof rs - l, "%s\"kind\":\"%s\"",
+                          l > 1 ? "," : "", kind);
     if (lay != NULL && l < sizeof rs) {
       char *e;
       long v = strtol(lay, &e, 10);

@@ -1272,6 +1272,14 @@ printf 'a,b,a\n1,2,3\n' >"$q/d.csv"
 ok 2 "schema infer, a header name twice" "$nq" schema infer "$q" d.csv
 has "$w/err" 'names column "a" twice' "the name is given"
 
+# ---- src add: portal options over their buffer are refused ----
+
+mkdir -p "$w/sb"
+bb=$(aa 9100)
+ok 2 "src add, a --base over the options' room" "$nq" src add --portal ckan \
+  --base "$bb" --id x "$w/sb" x
+has "$w/err" "too long" "the options are too long"
+
 # ---- a folder path too long for the record's: the reason says so ----
 
 mkdir -p "$w/lp"
