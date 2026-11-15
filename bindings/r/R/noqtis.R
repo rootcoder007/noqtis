@@ -25,9 +25,40 @@
 #'   \item{Key encapsulation}{[nqencap()], [nqdecap()].}
 #'   \item{Hashes}{[nqhash()], [nqhmac()].}
 #'   \item{Capsules}{[nqseal()], [nqcheck()], [nqcapid()], [nqfiles()],
-#'     [nqprove()]; key statements with [nqrotate()] and [nqrevoke()];
-#'     identity cards with [nqidcard()] and [nqidcheck()].}
+#'     [nqprove()], [nqinspect()], [nqsealwhy()]; timestamps and evidence
+#'     records with [nqtsreq()], [nqtsput()], [nqersreq()] and
+#'     [nqersput()]; bundles and chains with [nqpack()], [nqunpack()],
+#'     [nqcheckpack()] and [nqchain()]; key statements with [nqrotate()]
+#'     and [nqrevoke()]; identity cards with [nqidcard()] and
+#'     [nqidcheck()].}
+#'   \item{Streams and sealed files}{[nqsigner()], [nqverifier()],
+#'     [nqupdate()], [nqfinish()], [nqsignfile()], [nqverifyfile()];
+#'     [nqkseal()], [nqkopen()], [nqbox()], [nqunbox()]; [nqmu()],
+#'     [nqsignmu()], [nqverifymu()]; [nqblake2b()], [nqargon2id()],
+#'     [nqcteq()], [nqpwenc()], [nqpwdec()].}
+#'   \item{Data records}{[nqdata()], [nqdadd()], [nqdput()],
+#'     [nqdcheck()], [nqschema()], [nqschk()], [nqdpin()], [nqdrift()],
+#'     [nqdiff()], [nqdaddr()] and the rest of its page, [nqdparse()],
+#'     [nqdschk()], [nqdsyn()], [nqdcal()], [nqdchunk()], [nqdpiece()],
+#'     [nqdcommit()], [nqdreveal()], [nqdcite()], [nqdreport()],
+#'     [nqdenv()], [nqdpkgs()].}
 #' }
+#'
+#' @section Algorithms:
+#' The package implements published standards, in the C library it
+#' bundles, and no new algorithm: the signature, key encapsulation and
+#' hash standards above; BLAKE2b (RFC 7693) and Argon2id (RFC 9106); and,
+#' for the data record, existing statistics (the two-sample
+#' Kolmogorov-Smirnov test, the population stability index, the
+#' Jensen-Shannon divergence, the chi-square test of homogeneity,
+#' Benford's first-digit test). Each help page cites its standard.
+#'
+#' @section Life cycle:
+#' The package follows the noqtis library's version (0.x: the interface
+#' may still change between minor versions, and `NEWS.md` says how). Its
+#' formats (capsules, key files, data records, bundles) are versioned by
+#' their own names and stay readable by later versions. The code has not
+#' had an external security audit yet.
 #'
 #' @section Randomness:
 #' Key generation, hedged signing and encapsulation draw their randomness

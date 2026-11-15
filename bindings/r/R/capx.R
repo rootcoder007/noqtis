@@ -7,7 +7,7 @@
 #' [nqseal()] refused a folder: the first thing in it a capsule cannot
 #' hold.
 #'
-#' @param dir Path of the capsule folder.
+#' @inheritParams nqcapid
 #'
 #' @return `nqinspect()`: a data frame with columns `check` (`"info.*"`),
 #'   `ok` and `detail`. `nqsealwhy()`: `NULL` when nothing in `dir` stops a
@@ -178,7 +178,7 @@ nqersput <- function(dir, reply, hash = NULL, nonce = NULL, anchors = NULL) {
 #' @export
 nqpack <- function(dir, file, files = TRUE) {
   if (!.flag1(files)) stop("'files' must be TRUE or FALSE", call. = FALSE)
-  if (!.is1(file)) stop("'file' must be one path", call. = FALSE)
+  .path1(file, "file")
   .Call(Cdpack, .dir(dir), files, enc2native(file))
   invisible(file)
 }
@@ -186,8 +186,8 @@ nqpack <- function(dir, file, files = TRUE) {
 #' @rdname nqpack
 #' @export
 nqunpack <- function(file, dir) {
-  if (!.file1(file)) stop("'file' must be one existing bundle", call. = FALSE)
-  if (!.is1(dir)) stop("'dir' must be one path", call. = FALSE)
+  .bundle1(file)
+  .path1(dir, "dir")
   .Call(Cdunpack, file, dir, FALSE)
   invisible(dir)
 }
@@ -195,10 +195,10 @@ nqunpack <- function(file, dir) {
 #' @rdname nqpack
 #' @export
 nqcheckpack <- function(file, pk = NULL) {
-  if (!.file1(file)) stop("'file' must be one existing bundle", call. = FALSE)
+  .bundle1(file)
   t <- tempfile("noqtis")
   .Call(Cdunpack, file, t, FALSE)
-  on.exit(.Call(Cdunpack, file, t, TRUE))
+  on.exit(.Call(Cdunpack, file, t, TRUE), add = TRUE)
   nqcheck(t, pk)
 }
 
@@ -214,4 +214,12 @@ nqchain <- function(dirs, pk = NULL) {
   out <- .drep(r[[1]])
   attr(out, "head") <- if (isTRUE(attr(out, "ok"))) r[[2]] else NULL
   out
+}
+
+#' The path of one existing bundle file, or an error.
+#' @param file What the caller gave.
+#' @noRd
+.bundle1 <- function(file) {
+  if (!.file1(file)) stop("'file' must be one existing bundle", call. = FALSE)
+  file
 }

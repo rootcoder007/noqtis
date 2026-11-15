@@ -67,6 +67,8 @@ nqdschk <- function(dir, schema) {
   .drep(.Call(Cdschk, .dir(dir), enc2utf8(schema)))
 }
 
+#' A whole number from 0 to 2^53, as a double, or an error.
+#' @noRd
 .u53 <- function(x, what) {
   if (!is.numeric(x) || length(x) != 1L || is.na(x) || x < 0 ||
         x != floor(x) || x > 2^53) {
@@ -80,7 +82,7 @@ nqdschk <- function(dir, schema) {
 #' @rdname nqdparse
 #' @export
 nqdsyn <- function(dir, file, seed, rows = 0) {
-  if (!.is1(file)) stop("'file' must be one path", call. = FALSE)
+  .path1(file, "file")
   .Call(Cdsyn, .dir(dir), file, .u53(seed, "seed"), .u53(rows, "rows"))
   invisible(dir)
 }
@@ -88,7 +90,7 @@ nqdsyn <- function(dir, file, seed, rows = 0) {
 #' @rdname nqdparse
 #' @export
 nqdcal <- function(dir, file, known, delim = ",", header = TRUE) {
-  if (!.is1(file)) stop("'file' must be one path", call. = FALSE)
+  .path1(file, "file")
   if (!is.character(known) || length(known) == 0L || anyNA(known) ||
         !all(file.exists(known))) {
     stop("'known' must name existing CSV files", call. = FALSE)
@@ -96,9 +98,8 @@ nqdcal <- function(dir, file, known, delim = ",", header = TRUE) {
   d <- .dir(dir)
   s <- .Call(Cdkey, d, "stats", file)
   if (is.null(s)) {
-    stop(sprintf("no summary of %s: pin one with nqdpin()", file),
-      call. = FALSE
-    )
+    stop(sprintf("no summary of %s to calibrate: pin one with nqdpin()",
+                 file), call. = FALSE)
   }
   e <- .Call(Cdcal, s, normalizePath(known), delim, !isTRUE(header))
   nqdput(d, "stats", e)
@@ -108,7 +109,7 @@ nqdcal <- function(dir, file, known, delim = ",", header = TRUE) {
 #' @rdname nqdparse
 #' @export
 nqdchunk <- function(dir, file, chunk = 1048576) {
-  if (!.is1(file)) stop("'file' must be one path", call. = FALSE)
+  .path1(file, "file")
   d <- .dir(dir)
   e <- .Call(Cdchunk, d, file, .u53(chunk, "chunk"))
   nqdput(d, "chunks", e)
@@ -118,8 +119,8 @@ nqdchunk <- function(dir, file, chunk = 1048576) {
 #' @rdname nqdparse
 #' @export
 nqdpiece <- function(dir, file, piece, off = 0) {
-  if (!.is1(file)) stop("'file' must be one path", call. = FALSE)
-  if (!.file1(piece)) stop("'piece' must be one existing file", call. = FALSE)
+  .path1(file, "file")
+  .file1e(piece, "piece")
   e <- .Call(Cdkey, .dir(dir), "chunks", file)
   if (is.null(e)) {
     stop(sprintf("no chunk digests of %s: record them with nqdchunk()",
@@ -274,19 +275,16 @@ nqdenv <- function(dir, rng = NULL, seed = NULL, locks = NULL,
                    pkgs = NULL) {
   d <- .dir(dir)
   if (!is.null(seed) && is.null(rng)) rng <- RNGkind()[1L]
-  p <- if (is.null(pkgs)) nqdpkgs() else pkgs
-  if (!is.data.frame(p) || !all(c("name", "version", "source") %in% names(p))) {
-    stop("'pkgs' must be a data frame with name, version and source",
-      call. = FALSE
-    )
-  }
-  p <- p[order(p$name), , drop = FALSE]
-  pj <- sprintf(
-    '{"name":%s,"version":%s,"source":%s}',
-    vapply(p$name, .jstr, ""), vapply(as.character(p$version), .jstr, ""),
-    vapply(p$source, .jstr, "")
-  )
-  rv <- paste(R.version$major, R.version$minor, sep = ".")
+  e <- c(.envplat(), .envrt(if (is.null(pkgs)) nqdpkgs() else pkgs),
+         .locks(d, locks), .envrng(rng, seed))
+  j <- paste0("{", paste(e, collapse = ","), "}")
+  nqdput(d, "env", j)
+  j
+}
+
+#' The platform members of env: os, arch, noqtis, locale, tz.
+#' @noRd
+.envplat <- function() {
   e <- c(
     paste0('"os":', .jstr(.osname())), paste0('"arch":', .jstr(.archname())),
     paste0('"noqtis":', .jstr(nqver()))
@@ -296,30 +294,57 @@ nqdenv <- function(dir, rng = NULL, seed = NULL, locks = NULL,
   if (nzchar(loc)) e <- c(e, paste0('"locale":', .jstr(loc)))
   tz <- Sys.getenv("TZ")
   if (nzchar(tz)) e <- c(e, paste0('"tz":', .jstr(tz)))
-  e <- c(e, sprintf(
-    '"runtime":{"language":"r","version":%s,"packages":[%s]}',
-    .jstr(rv), paste(pj, collapse = ",")
-  ))
-  e <- c(e, .locks(d, locks))
-  if (!is.null(rng)) {
-    if (!.is1(rng)) stop("'rng' must be one string", call. = FALSE)
-    g <- paste0('"kind":', .jstr(rng))
-    if (!is.null(seed)) {
-      sv <- if (is.character(seed)) {
-        .jstr(seed)
-      } else {
-        format(seed, scientific = FALSE)
-      }
-      g <- paste0(g, ',"seed":', sv)
-    }
-    e <- c(e, paste0('"rng":{', g, "}"))
-  }
-  j <- paste0("{", paste(e, collapse = ","), "}")
-  nqdput(d, "env", j)
-  j
+  e
 }
 
-# the lock files in d (those named, else the known ones present)
+#' The runtime member of env: R, its version and the packages p (a data
+#' frame with name, version and source; any atomic column class).
+#' @param p The packages.
+#' @noRd
+.envrt <- function(p) {
+  if (!is.data.frame(p) || !all(c("name", "version", "source") %in% names(p))) {
+    stop("'pkgs' must be a data frame with name, version and source",
+      call. = FALSE
+    )
+  }
+  cols <- p[c("name", "version", "source")]
+  if (any(vapply(cols, is.list, NA))) {
+    stop("'pkgs' must not have list columns", call. = FALSE)
+  }
+  p <- lapply(cols, as.character)
+  if (anyNA(unlist(p))) stop("'pkgs' must not hold NA", call. = FALSE)
+  o <- order(p$name)
+  pj <- sprintf(
+    '{"name":%s,"version":%s,"source":%s}',
+    vapply(p$name[o], .jstr, ""), vapply(p$version[o], .jstr, ""),
+    vapply(p$source[o], .jstr, "")
+  )
+  rv <- paste(R.version$major, R.version$minor, sep = ".")
+  sprintf(
+    '"runtime":{"language":"r","version":%s,"packages":[%s]}',
+    .jstr(rv), paste(pj, collapse = ",")
+  )
+}
+
+#' The rng member of env, or nothing without rng.
+#' @param rng,seed As for nqdenv().
+#' @noRd
+.envrng <- function(rng, seed) {
+  if (is.null(rng)) {
+    return(character(0))
+  }
+  if (!.is1(rng)) stop("'rng' must be one string", call. = FALSE)
+  g <- paste0('"kind":', .jstr(rng))
+  if (!is.null(seed)) {
+    sv <- format(seed, scientific = FALSE)
+    if (is.character(seed)) sv <- .jstr(seed)
+    g <- paste0(g, ',"seed":', sv)
+  }
+  paste0('"rng":{', g, "}")
+}
+
+#' the lock files in d (those named, else the known ones present)
+#' @noRd
 .locks <- function(d, locks) {
   known <- c(
     "renv.lock", "uv.lock", "poetry.lock", "Pipfile.lock",
@@ -341,8 +366,10 @@ nqdenv <- function(dir, rng = NULL, seed = NULL, locks = NULL,
   paste0('"locks":[', paste(el, collapse = ","), "]")
 }
 
-.osname <- function() {
-  s <- tolower(Sys.info()[["sysname"]])
+#' The operating system's name as the data record writes it.
+#' @noRd
+.osname <- function(s = Sys.info()[["sysname"]]) {
+  s <- tolower(s)
   os <- c(
     windows = "windows", darwin = "macos", linux = "linux",
     freebsd = "freebsd", openbsd = "openbsd", netbsd = "netbsd"
@@ -350,8 +377,10 @@ nqdenv <- function(dir, rng = NULL, seed = NULL, locks = NULL,
   if (s %in% names(os)) os[[s]] else "other"
 }
 
-.archname <- function() {
-  m <- tolower(Sys.info()[["machine"]])
+#' The processor's name as the data record writes it.
+#' @noRd
+.archname <- function(m = Sys.info()[["machine"]]) {
+  m <- tolower(m)
   ar <- c(
     x86_64 = "x86_64", amd64 = "x86_64", "x86-64" = "x86_64",
     arm64 = "aarch64", aarch64 = "aarch64", i386 = "i686", i686 = "i686",
@@ -360,21 +389,23 @@ nqdenv <- function(dir, rng = NULL, seed = NULL, locks = NULL,
   if (m %in% names(ar)) ar[[m]] else m
 }
 
+#' Where a package came from, by the fields of its DESCRIPTION (a list).
+#' @noRd
+.pkgsrc <- function(d) {
+  if (!is.null(d$Priority) && d$Priority == "base") return("base")
+  if (!is.null(d$RemoteType)) return(d$RemoteType)
+  if (!is.null(d$Repository)) return(d$Repository)
+  "local"
+}
+
 #' @rdname nqdenv
 #' @export
 nqdpkgs <- function(which = NULL) {
   n <- sort(if (is.null(which)) loadedNamespaces() else which)
-  src <- function(p) {
-    d <- utils::packageDescription(p)
-    if (!is.null(d$Priority) && d$Priority == "base") return("base")
-    if (!is.null(d$RemoteType)) return(d$RemoteType)
-    if (!is.null(d$Repository)) return(d$Repository)
-    "local"
-  }
   data.frame(
     name = n,
     version = vapply(n, function(p) as.character(utils::packageVersion(p)), ""),
-    source = vapply(n, src, ""),
-    row.names = NULL, stringsAsFactors = FALSE
+    source = vapply(n, function(p) .pkgsrc(utils::packageDescription(p)), ""),
+    row.names = NULL
   )
 }

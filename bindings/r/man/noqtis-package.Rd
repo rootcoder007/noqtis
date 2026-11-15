@@ -33,9 +33,44 @@ is ignored.
 \item{Key encapsulation}{\code{\link[=nqencap]{nqencap()}}, \code{\link[=nqdecap]{nqdecap()}}.}
 \item{Hashes}{\code{\link[=nqhash]{nqhash()}}, \code{\link[=nqhmac]{nqhmac()}}.}
 \item{Capsules}{\code{\link[=nqseal]{nqseal()}}, \code{\link[=nqcheck]{nqcheck()}}, \code{\link[=nqcapid]{nqcapid()}}, \code{\link[=nqfiles]{nqfiles()}},
-\code{\link[=nqprove]{nqprove()}}; key statements with \code{\link[=nqrotate]{nqrotate()}} and \code{\link[=nqrevoke]{nqrevoke()}};
-identity cards with \code{\link[=nqidcard]{nqidcard()}} and \code{\link[=nqidcheck]{nqidcheck()}}.}
+\code{\link[=nqprove]{nqprove()}}, \code{\link[=nqinspect]{nqinspect()}}, \code{\link[=nqsealwhy]{nqsealwhy()}}; timestamps and evidence
+records with \code{\link[=nqtsreq]{nqtsreq()}}, \code{\link[=nqtsput]{nqtsput()}}, \code{\link[=nqersreq]{nqersreq()}} and
+\code{\link[=nqersput]{nqersput()}}; bundles and chains with \code{\link[=nqpack]{nqpack()}}, \code{\link[=nqunpack]{nqunpack()}},
+\code{\link[=nqcheckpack]{nqcheckpack()}} and \code{\link[=nqchain]{nqchain()}}; key statements with \code{\link[=nqrotate]{nqrotate()}}
+and \code{\link[=nqrevoke]{nqrevoke()}}; identity cards with \code{\link[=nqidcard]{nqidcard()}} and
+\code{\link[=nqidcheck]{nqidcheck()}}.}
+\item{Streams and sealed files}{\code{\link[=nqsigner]{nqsigner()}}, \code{\link[=nqverifier]{nqverifier()}},
+\code{\link[=nqupdate]{nqupdate()}}, \code{\link[=nqfinish]{nqfinish()}}, \code{\link[=nqsignfile]{nqsignfile()}}, \code{\link[=nqverifyfile]{nqverifyfile()}};
+\code{\link[=nqkseal]{nqkseal()}}, \code{\link[=nqkopen]{nqkopen()}}, \code{\link[=nqbox]{nqbox()}}, \code{\link[=nqunbox]{nqunbox()}}; \code{\link[=nqmu]{nqmu()}},
+\code{\link[=nqsignmu]{nqsignmu()}}, \code{\link[=nqverifymu]{nqverifymu()}}; \code{\link[=nqblake2b]{nqblake2b()}}, \code{\link[=nqargon2id]{nqargon2id()}},
+\code{\link[=nqcteq]{nqcteq()}}, \code{\link[=nqpwenc]{nqpwenc()}}, \code{\link[=nqpwdec]{nqpwdec()}}.}
+\item{Data records}{\code{\link[=nqdata]{nqdata()}}, \code{\link[=nqdadd]{nqdadd()}}, \code{\link[=nqdput]{nqdput()}},
+\code{\link[=nqdcheck]{nqdcheck()}}, \code{\link[=nqschema]{nqschema()}}, \code{\link[=nqschk]{nqschk()}}, \code{\link[=nqdpin]{nqdpin()}}, \code{\link[=nqdrift]{nqdrift()}},
+\code{\link[=nqdiff]{nqdiff()}}, \code{\link[=nqdaddr]{nqdaddr()}} and the rest of its page, \code{\link[=nqdparse]{nqdparse()}},
+\code{\link[=nqdschk]{nqdschk()}}, \code{\link[=nqdsyn]{nqdsyn()}}, \code{\link[=nqdcal]{nqdcal()}}, \code{\link[=nqdchunk]{nqdchunk()}}, \code{\link[=nqdpiece]{nqdpiece()}},
+\code{\link[=nqdcommit]{nqdcommit()}}, \code{\link[=nqdreveal]{nqdreveal()}}, \code{\link[=nqdcite]{nqdcite()}}, \code{\link[=nqdreport]{nqdreport()}},
+\code{\link[=nqdenv]{nqdenv()}}, \code{\link[=nqdpkgs]{nqdpkgs()}}.}
 }
+}
+
+\section{Algorithms}{
+
+The package implements published standards, in the C library it
+bundles, and no new algorithm: the signature, key encapsulation and
+hash standards above; BLAKE2b (RFC 7693) and Argon2id (RFC 9106); and,
+for the data record, existing statistics (the two-sample
+Kolmogorov-Smirnov test, the population stability index, the
+Jensen-Shannon divergence, the chi-square test of homogeneity,
+Benford's first-digit test). Each help page cites its standard.
+}
+
+\section{Life cycle}{
+
+The package follows the noqtis library's version (0.x: the interface
+may still change between minor versions, and \code{NEWS.md} says how). Its
+formats (capsules, key files, data records, bundles) are versioned by
+their own names and stay readable by later versions. The code has not
+had an external security audit yet.
 }
 
 \section{Randomness}{

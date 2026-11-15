@@ -56,18 +56,7 @@ nqdadd <- function(dir, files, url = NULL, title = NULL, publisher = NULL,
   if (!is.character(files) || !length(files) || anyNA(files)) {
     stop("'files' must be paths of files in 'dir'", call. = FALSE)
   }
-  f <- list(
-    url = url, title = title, publisher = publisher, licence = licence
-  )
-  if (!is.null(retrieved)) {
-    f$retrieved <- if (identical(retrieved, "now")) .now() else retrieved
-  }
-  f <- f[!vapply(f, is.null, TRUE)]
-  for (n in names(f)) {
-    if (!.is1(f[[n]])) {
-      stop(sprintf("'%s' must be one string", n), call. = FALSE)
-    }
-  }
+  f <- .srcf(url, title, publisher, licence, retrieved)
   if (length(f) && length(files) > 1L && !is.null(url)) {
     stop("'url' describes one file: add the files one at a time",
       call. = FALSE
@@ -80,6 +69,26 @@ nqdadd <- function(dir, files, url = NULL, title = NULL, publisher = NULL,
   }
   .Call(Cdadd, d, enc2utf8(files), names(vals), unname(vals))
   invisible(dir)
+}
+
+#' The fields nqdadd() sets, without the NULL ones, each checked to be one
+#' string; retrieved "now" is the time now.
+#' @param url,title,publisher,licence,retrieved As for nqdadd().
+#' @noRd
+.srcf <- function(url, title, publisher, licence, retrieved) {
+  f <- list(
+    url = url, title = title, publisher = publisher, licence = licence
+  )
+  if (!is.null(retrieved)) {
+    f$retrieved <- if (identical(retrieved, "now")) .now() else retrieved
+  }
+  f <- f[!vapply(f, is.null, TRUE)]
+  for (n in names(f)) {
+    if (!.is1(f[[n]])) {
+      stop(sprintf("'%s' must be one string", n), call. = FALSE)
+    }
+  }
+  f
 }
 
 #' @rdname nqdata
@@ -277,37 +286,38 @@ nqdrift <- function(dir, files = NULL, current = NULL, psiwarn = 0.1,
 nqdiff <- function(a, b) {
   r <- .Call(Cddiff, .dir(a), .dir(b))
   out <- data.frame(
-    what = r[[2]], differs = !r[[3]], detail = r[[4]],
-    stringsAsFactors = FALSE
+    what = r[[2]], differs = !r[[3]], detail = r[[4]]
   )
   attr(out, "same") <- r[[1]] == 0L
   out
 }
 
-# A report as a data frame; the "stats" column when a row has numbers.
+#' A report as a data frame; the "stats" column when a row has numbers.
+#' @noRd
 .drep <- function(r) {
   out <- data.frame(
-    check = r[[2]], ok = r[[3]], detail = r[[4]],
-    stringsAsFactors = FALSE
+    check = r[[2]], ok = r[[3]], detail = r[[4]]
   )
-  if (any(!is.na(r[[5]]))) out$stats <- r[[5]]
+  if (!all(is.na(r[[5]]))) out$stats <- r[[5]]
   attr(out, "ok") <- r[[1]] == 0L && nrow(out) > 0L && all(out$ok)
   out
 }
 
-# One string as JSON text.
+#' One string as JSON text.
+#' @noRd
 .jstr <- function(s) {
   s <- enc2utf8(s)
   s <- gsub("\\", "\\\\", s, fixed = TRUE)
   s <- gsub("\"", "\\\"", s, fixed = TRUE)
-  for (i in c(1:31)) {
+  for (i in 1:31) {
     ch <- intToUtf8(i)
     s <- gsub(ch, sprintf("\\u%04x", i), s, fixed = TRUE)
   }
   paste0("\"", s, "\"")
 }
 
-# The time now (or SOURCE_DATE_EPOCH), as the record writes it.
+#' The time now (or SOURCE_DATE_EPOCH), as the record writes it.
+#' @noRd
 .now <- function() {
   e <- Sys.getenv("SOURCE_DATE_EPOCH")
   t <- if (nzchar(e)) as.POSIXct(as.numeric(e), origin = "1970-01-01",
@@ -315,9 +325,10 @@ nqdiff <- function(a, b) {
   format(t, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
 }
 
-# The paths the record's summaries are of, from its canonical JSON:
-# in "stats", each element's "path" comes right before its "rows", a
-# count (in "schemas" the "rows" that follows is an object).
+#' The paths the record's summaries are of, from its canonical JSON:
+#' in "stats", each element's "path" comes right before its "rows", a
+#' count (in "schemas" the "rows" that follows is an object).
+#' @noRd
 .statpaths <- function(d) {
   j <- .Call(Cdload, d)
   s <- regmatches(j, regexpr("\"stats\":\\[.*", j))
@@ -349,7 +360,7 @@ nqdiff <- function(a, b) {
 #' portal's reply to it, and `nqdwayback()` turns the address of a Wayback
 #' Machine copy into the address of its raw bytes.
 #'
-#' @param dir Path of the capsule folder.
+#' @inheritParams nqdata
 #' @param file The source's path in `dir`.
 #' @param bytes A raw vector: what was fetched.
 #' @param member,i,field The member, the element's index (from 0) and the
@@ -374,7 +385,7 @@ nqdaddr <- function(dir, file) {
   r <- .Call(Cdaddr, .dir(dir), enc2utf8(file))
   data.frame(
     kind = c("url", "portal", "mirror", "archived")[r[[1]]],
-    url = r[[2]], stringsAsFactors = FALSE
+    url = r[[2]]
   )
 }
 

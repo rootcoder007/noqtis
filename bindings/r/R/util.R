@@ -6,6 +6,8 @@
 # The algorithm table, built once from the C library and kept here.
 .cache <- new.env(parent = emptyenv())
 
+#' The algorithm table, built once from the library.
+#' @noRd
 .tab <- function() {
   if (is.null(.cache$tab)) {
     .cache$tab <- .algsraw()
@@ -13,15 +15,18 @@
   .cache$tab
 }
 
+#' The algorithm table as the library gives it.
+#' @noRd
 .algsraw <- function() {
   x <- .Call(Calgs)
   data.frame(
     name = x[[3]], type = x[[1]], pk = x[[4]], sk = x[[5]], sig = x[[6]],
-    ct = x[[7]], ss = x[[8]], id = x[[2]], stringsAsFactors = FALSE
+    ct = x[[7]], ss = x[[8]], id = x[[2]]
   )
 }
 
-# One row of the table for alg (a name, case ignored) of the given type.
+#' One row of the table for alg (a name, case ignored) of the given type.
+#' @noRd
 .alg <- function(alg, type = c("sig", "kem")) {
   type <- match.arg(type)
   if (!.is1(alg)) {
@@ -39,6 +44,8 @@
   t[i, , drop = FALSE]
 }
 
+#' "sig" or "kem", the type of an algorithm name.
+#' @noRd
 .kind <- function(alg) {
   t <- .tab()
   i <- match(toupper(alg), toupper(t$name))
@@ -48,7 +55,8 @@
   t$type[i]
 }
 
-# Hash name to the library's nqhalg number.
+#' Hash name to the library's nqhalg number.
+#' @noRd
 .hid <- function(alg) {
   if (!.is1(alg)) {
     stop("'alg' must be one hash name", call. = FALSE)
@@ -63,10 +71,12 @@
   i
 }
 
-# Pre-hash argument: NULL (pure) or a hash name.
+#' Pre-hash argument: NULL (pure) or a hash name.
+#' @noRd
 .ph <- function(ph) if (is.null(ph)) 0L else .hid(ph)
 
-# A raw vector, or a single string taken as its UTF-8 bytes.
+#' A raw vector, or a single string taken as its UTF-8 bytes.
+#' @noRd
 .bytes <- function(x, what) {
   if (is.raw(x)) {
     return(x)
@@ -79,6 +89,8 @@
   )
 }
 
+#' A raw vector, or an error naming the argument.
+#' @noRd
 .rawarg <- function(x, what) {
   if (!is.raw(x)) {
     stop(sprintf("'%s' must be a raw vector", what), call. = FALSE)
@@ -86,8 +98,12 @@
   x
 }
 
+#' Lower-case hex digits of a raw vector.
+#' @noRd
 .hex <- function(x) paste(sprintf("%02x", as.integer(x)), collapse = "")
 
+#' The normalised path of an existing folder, or an error.
+#' @noRd
 .dir <- function(dir) {
   if (!.is1(dir) || !dir.exists(dir)) {
     stop("'dir' must be the path of an existing folder", call. = FALSE)
@@ -95,17 +111,40 @@
   enc2utf8(normalizePath(dir, mustWork = TRUE))
 }
 
-# One string, not NA.
+#' One string, not NA.
+#' @noRd
 .is1 <- function(x) is.character(x) && length(x) == 1L && !is.na(x)
 
-# One whole number from 0 to the largest integer.
+#' One whole number from 0 to the largest integer.
+#' @noRd
 .count1 <- function(x) {
   is.numeric(x) && length(x) == 1L && !is.na(x) && x >= 0 &&
     x == floor(x) && x <= .Machine$integer.max
 }
 
-# The path of one existing regular file.
+#' The path of one existing regular file.
+#' @noRd
 .file1 <- function(x) .is1(x) && file.exists(x) && !dir.exists(x)
 
-# TRUE or FALSE.
+#' TRUE or FALSE.
+#' @noRd
 .flag1 <- function(x) is.logical(x) && length(x) == 1L && !is.na(x)
+
+#' One path, or an error naming the argument.
+#' @param x What the caller gave.
+#' @param what The argument's name.
+#' @noRd
+.path1 <- function(x, what) {
+  if (!.is1(x)) stop(sprintf("'%s' must be one path", what), call. = FALSE)
+  x
+}
+
+#' One existing file, or an error naming the argument.
+#' @inheritParams .path1
+#' @noRd
+.file1e <- function(x, what) {
+  if (!.file1(x)) {
+    stop(sprintf("'%s' must be one existing file", what), call. = FALSE)
+  }
+  x
+}

@@ -93,6 +93,8 @@ nqidcheck <- function(card, pk = NULL) {
   )
 }
 
+#' One string or NULL, or an error naming the argument.
+#' @noRd
 .str1 <- function(x, what, null = TRUE) {
   if (null && is.null(x)) {
     return(NULL)
@@ -106,7 +108,8 @@ nqidcheck <- function(card, pk = NULL) {
   enc2utf8(x)
 }
 
-# The bytes of a card file.
+#' The bytes of a card file.
+#' @noRd
 .cardfile <- function(card) {
   if (!.file1(card)) {
     stop("'card' must be a raw vector or the path of a card file",

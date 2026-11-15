@@ -7,7 +7,7 @@ kat <- function(set) {
   l <- l[!startsWith(l, "#")]
   blocks <- split(l[nzchar(l)], cumsum(!nzchar(l))[nzchar(l)])
   recs <- lapply(blocks, function(b) {
-    kv <- regmatches(b, regexpr("=", b), invert = TRUE)
+    kv <- regmatches(b, regexpr("=", b, fixed = TRUE), invert = TRUE)
     stats::setNames(
       vapply(kv, function(x) if (length(x) > 1L) x[2L] else "", ""),
       vapply(kv, `[`, "", 1L)

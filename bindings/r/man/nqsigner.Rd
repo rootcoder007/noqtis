@@ -22,15 +22,16 @@ nqsignfile(file, sk, alg, ctx = NULL, ph = NULL, det = FALSE)
 nqverifyfile(file, pk, sig, alg, ctx = NULL, ph = NULL)
 }
 \arguments{
-\item{sk}{Secret key, a raw vector.}
+\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}).}
 
 \item{alg}{\code{"ML-DSA-44"}, \code{"ML-DSA-65"} or \code{"ML-DSA-87"}.}
 
-\item{ctx}{\code{NULL}, or the context string (at most 255 bytes), a raw
-vector or one string.}
+\item{ctx}{\code{NULL} or a context string (raw vector or string, at most 255
+bytes, 241 for a hybrid), bound into the signature; verification
+needs the same one.}
 
-\item{ph}{\code{NULL} for the pure variant, or a hash name (see \code{\link[=nqhash]{nqhash()}})
-for HashML-DSA.}
+\item{ph}{\code{NULL} for the pure algorithm, or a hash name (see \code{\link[=nqhash]{nqhash()}})
+for HashML-DSA / HashSLH-DSA, which hash \code{msg} with it first.}
 
 \item{pk}{Public key, a raw vector.}
 
@@ -40,7 +41,8 @@ for HashML-DSA.}
 
 \item{sig}{The signature, a raw vector.}
 
-\item{det}{\code{TRUE} for the deterministic signature.}
+\item{det}{\code{FALSE} (the default) for hedged signing with fresh
+randomness; \code{TRUE} for the deterministic variant.}
 
 \item{rnd}{\code{NULL}, or the 32 bytes of per-signature randomness.}
 
@@ -89,6 +91,11 @@ f <- tempfile()
 writeBin(as.raw(0:255), f)
 nqverifyfile(f, k$pk, nqsignfile(f, k$sk, "ML-DSA-44"), "ML-DSA-44")
 unlink(f)
+}
+\references{
+FIPS 204 \doi{10.6028/NIST.FIPS.204}, FIPS 205
+\doi{10.6028/NIST.FIPS.205} and RFC 8032 \doi{10.17487/RFC8032}
+define the signatures and their pre-hash variants.
 }
 \seealso{
 Other signature functions:

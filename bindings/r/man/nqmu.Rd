@@ -15,21 +15,24 @@ nqverifymu(pk, mu, sig, alg)
 \arguments{
 \item{pk}{Public key, a raw vector.}
 
-\item{msg}{The message: a raw vector or one string.}
+\item{msg}{The message: a raw vector, or one string, which is signed as
+its UTF-8 bytes.}
 
 \item{alg}{\code{"ML-DSA-44"}, \code{"ML-DSA-65"} or \code{"ML-DSA-87"}.}
 
-\item{ctx}{\code{NULL}, or the context string (at most 255 bytes), a raw
-vector or one string.}
+\item{ctx}{\code{NULL} or a context string (raw vector or string, at most 255
+bytes, 241 for a hybrid), bound into the signature; verification
+needs the same one.}
 
-\item{ph}{\code{NULL} for the pure variant, or a hash name (see \code{\link[=nqhash]{nqhash()}})
-for HashML-DSA.}
+\item{ph}{\code{NULL} for the pure algorithm, or a hash name (see \code{\link[=nqhash]{nqhash()}})
+for HashML-DSA / HashSLH-DSA, which hash \code{msg} with it first.}
 
-\item{sk}{Secret key, a raw vector.}
+\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}).}
 
 \item{mu}{The 64-byte mu, a raw vector (from \code{nqmu()}).}
 
-\item{det}{\code{TRUE} for the deterministic signature.}
+\item{det}{\code{FALSE} (the default) for hedged signing with fresh
+randomness; \code{TRUE} for the deterministic variant.}
 
 \item{rnd}{\code{NULL}, or the 32 bytes of per-signature randomness.}
 

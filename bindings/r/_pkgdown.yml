@@ -14,3 +14,30 @@ navbar:
     site:
       text: noqtis.dev
       href: https://noqtis.dev/
+reference:
+  - title: Signatures
+    contents:
+      - has_concept("signature functions")
+  - title: Keys
+    contents:
+      - has_concept("key functions")
+  - title: Key encapsulation
+    contents:
+      - has_concept("key encapsulation functions")
+  - title: Hashes
+    contents:
+      - has_concept("hash functions")
+  - title: Capsules
+    contents:
+      - has_concept("capsule functions")
+  - title: Data records
+    contents:
+      - nqdata
+      - nqdaddr
+      - nqschema
+      - nqdpin
+      - nqdiff
+      - has_concept("data record functions")
+  - title: The library
+    contents:
+      - has_concept("library functions")

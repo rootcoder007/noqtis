@@ -175,7 +175,7 @@ nqcheck <- function(dir, pk = NULL, anchors = NULL, only = NULL,
 #' The id is the same for any copy of the capsule, wherever it is kept,
 #' and changes when the folder is sealed again.
 #'
-#' @param dir Path of the capsule folder.
+#' @inheritParams nqdata
 #' @param paths The files to prove, as the manifest lists them (`/`
 #'   between folders).
 #'
@@ -223,8 +223,7 @@ nqfiles <- function(dir) {
   data.frame(
     path = vapply(m, `[`, "", 4L),
     size = as.numeric(vapply(m, `[`, "", 2L)),
-    sha256 = vapply(m, `[`, "", 3L),
-    stringsAsFactors = FALSE
+    sha256 = vapply(m, `[`, "", 3L)
   )
 }
 
@@ -301,6 +300,8 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
   .Call(Ckstmt, a$id, sk, pk, a$id, NULL, NULL, .at(at), reason)
 }
 
+#' The time at, as whole seconds since 1970.
+#' @noRd
 .at <- function(at) {
   if (inherits(at, "POSIXt")) at <- as.numeric(as.POSIXct(at))
   if (!is.numeric(at) || length(at) != 1L || is.na(at)) {
@@ -309,16 +310,18 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
   floor(as.double(at))
 }
 
+#' A capsule report as a data frame with the attribute "ok".
+#' @noRd
 .rep <- function(r) {
   out <- data.frame(
-    check = r[[2]], ok = r[[3]], detail = r[[4]],
-    stringsAsFactors = FALSE
+    check = r[[2]], ok = r[[3]], detail = r[[4]]
   )
   attr(out, "ok") <- r[[1]] == 0L && nrow(out) > 0L && all(out$ok)
   out
 }
 
-# A raw vector as given, or the bytes of the file one string names.
+#' A raw vector as given, or the bytes of the file one string names.
+#' @noRd
 .blob <- function(x, what) {
   if (is.raw(x)) {
     return(x)
@@ -331,7 +334,8 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
   )
 }
 
-# The format, 1 or 2; inputs need 2.
+#' The format, 1 or 2; inputs need 2.
+#' @noRd
 .fmt <- function(format, inputs) {
   if (!is.numeric(format) || length(format) != 1L || !format %in% c(1, 2)) {
     stop("'format' must be 1 or 2", call. = FALSE)
@@ -342,8 +346,9 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
   format
 }
 
-# The identities and names of the input capsules of a format 2 seal; a
-# name not given is the folder's base name.
+#' The identities and names of the input capsules of a format 2 seal; a
+#' name not given is the folder's base name.
+#' @noRd
 .inputs <- function(inputs) {
   if (is.null(inputs)) inputs <- character()
   if (!is.character(inputs) || anyNA(inputs)) {
@@ -359,7 +364,8 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
   )
 }
 
-# The trust anchors: NULL, or a non-empty list of raw vectors.
+#' The trust anchors: NULL, or a non-empty list of raw vectors.
+#' @noRd
 .anchors <- function(anchors) {
   if (is.null(anchors)) {
     return(NULL)
@@ -371,7 +377,8 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
   if (length(anchors) == 0L) NULL else anchors
 }
 
-# Key statements, as raw vectors; they need the trusted key pk.
+#' Key statements, as raw vectors; they need the trusted key pk.
+#' @noRd
 .keys <- function(keys, pk) {
   if (is.null(keys)) {
     return(NULL)
@@ -384,7 +391,8 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
   keys
 }
 
-# The paths of a partial check, as UTF-8, or NULL.
+#' The paths of a partial check, as UTF-8, or NULL.
+#' @noRd
 .only <- function(only) {
   if (is.null(only)) {
     return(NULL)

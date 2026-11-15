@@ -82,7 +82,8 @@ nqhmac <- function(key, x, alg = "sha256", hex = FALSE) {
   if (isTRUE(hex)) .hex(d) else d
 }
 
-# The output length of hash id: its own, or len for SHAKE.
+#' The output length of hash id: its own, or len for SHAKE.
+#' @noRd
 .hlen <- function(id, len) {
   if (is.null(len)) {
     return(c(28L, 32L, 48L, 64L, 28L, 32L, 28L, 32L, 48L, 64L, 32L, 64L)[id])
@@ -94,7 +95,8 @@ nqhmac <- function(key, x, alg = "sha256", hex = FALSE) {
   as.integer(len)
 }
 
-# The digest of the file at path x, read in chunks of 1 MiB.
+#' The digest of the file at path x, read in chunks of 1 MiB.
+#' @noRd
 .hfile <- function(x, id, n) {
   if (!.file1(x)) {
     stop("'x' must be the path of an existing file", call. = FALSE)

@@ -11,3 +11,6 @@
 ^src/Makevars$
 ^src/Makevars\.win$
 ^LICENSE$
+^\.covrignore$
+^STANDARDS\.md$
+^\.github$

@@ -21,7 +21,7 @@ test_that("a data record is written, read and checked", {
   expect_match(j, "^\\{\"format\":\"noqtis-data-1\",\"sources\"")
   r <- nqdcheck(d)
   expect_true(attr(r, "ok"))
-  expect_equal(r$check, c("record", "source"))
+  expect_identical(r$check, c("record", "source"))
   # adding again keeps the url
   nqdadd(d, "data/a.csv")
   expect_match(nqdata(d), "https://example.org/a.csv", fixed = TRUE)
@@ -33,9 +33,9 @@ test_that("a data record is written, read and checked", {
   expect_error(nqdput(d, "checks", "{\"name\":\"x\",\"status\":\"maybe\"}"),
                "must be one of pass, warn, fail")
   nqdput(d, "checks", "{\"name\":\"x\",\"status\":\"fail\"}")
-  expect_equal(tail(nqdcheck(d)$check, 1), "recorded")
+  expect_identical(tail(nqdcheck(d)$check, 1), "recorded")
   nqdput(d, "checks", NULL, key = "x")
-  expect_false(grepl("\"checks\"", nqdata(d)))
+  expect_false(grepl("\"checks\"", nqdata(d), fixed = TRUE))
   expect_error(nqdata(tempdir()), "noqtis.data.json is missing")
 })
 
@@ -51,7 +51,7 @@ test_that("schemas are inferred, pinned and checked", {
   cat("9,dan,9\n", file = file.path(d, "data", "a.csv"), append = TRUE)
   r <- nqschk(d, "data/a.csv")
   expect_false(attr(r, "ok"))
-  expect_true(any(grepl("outside its range", r$detail)))
+  expect_true(any(grepl("outside its range", r$detail, fixed = TRUE)))
   expect_error(nqschema(d, "data/none.csv"), "cannot be read")
 })
 
@@ -63,11 +63,11 @@ test_that("drift is found from the summaries alone", {
   writeLines(c("x", x), file.path(d, "a.csv"))
   nqdpin(d, "a.csv")
   r <- nqdrift(d)
-  expect_equal(attr(r, "level"), "ok")
+  expect_identical(attr(r, "level"), "ok")
   y <- sprintf("%.6f", stats::qnorm(stats::ppoints(60)) + 1)
   writeLines(c("x", y), file.path(d, "b.csv"))
   r <- nqdrift(d, "a.csv", current = file.path(d, "b.csv"), minn = 1)
-  expect_equal(attr(r, "level"), "fail")
+  expect_identical(attr(r, "level"), "fail")
   st <- r$stats[!is.na(r$stats)]
   expect_match(st, "\"ksexact\":true", fixed = TRUE)
   ks <- suppressWarnings(stats::ks.test(as.numeric(x), as.numeric(y)))
@@ -85,7 +85,7 @@ test_that("two capsules are compared", {
   expect_true(attr(nqdiff(a, a), "same"))
   r <- nqdiff(a, b)
   expect_false(attr(r, "same"))
-  expect_true(any(r$what == "source" & grepl("url", r$detail)))
+  expect_true(any(r$what == "source" & grepl("url", r$detail, fixed = TRUE)))
 })
 
 # ---- against the values the C tests check (tests/nqd/tdrec.c, tdcsv.c,
@@ -159,7 +159,7 @@ test_that("the C tests' drift statistics come out the same", {
   nqdpin(d, "ref.csv")
   r <- nqdrift(d, "ref.csv", current = fx("drift", "cur.csv"))
   # fewer than 1,000 values: PSI warns, never fails
-  expect_equal(attr(r, "level"), "warn")
+  expect_identical(attr(r, "level"), "warn")
   col <- function(n) {
     r$stats[!is.na(r$stats) & grepl(sprintf("\"name\":\"%s\"", n), r$stats,
                                     fixed = TRUE)][1]
@@ -187,7 +187,8 @@ test_that("a changed source shows in the diff of the C tests' capsule", {
   nqdadd(b, "data/a.csv", url = "https://example.org/a2.csv")
   r <- nqdiff(a, b)
   expect_false(attr(r, "same"))
-  expect_true(any(r$what == "source" & r$differs & grepl("url", r$detail)))
+  expect_true(any(r$what == "source" & r$differs &
+                    grepl("url", r$detail, fixed = TRUE)))
 })
 
 test_that("sources: addresses in order, bytes checked, resolvers", {
@@ -203,11 +204,13 @@ test_that("sources: addresses in order, bytes checked, resolvers", {
                         '"id":"abcd-1234","kind":"socrata"}}'), e)
   nqdput(d, "sources", e)
   a <- nqdaddr(d, "data/a.csv")
-  expect_equal(a$kind, c("url", "portal", "mirror"))
-  expect_equal(a$url[2], "https://data.example.org/api/views/abcd-1234.json")
+  expect_identical(a$kind, c("url", "portal", "mirror"))
+  expect_identical(a$url[2],
+                   "https://data.example.org/api/views/abcd-1234.json")
   expect_true(nqdverify(d, "data/a.csv", b))
   expect_false(nqdverify(d, "data/a.csv", c(b, as.raw(10))))
-  expect_equal(nqdfield(d, "sources", 0, "url"), "https://example.org/a.csv")
+  expect_identical(nqdfield(d, "sources", 0, "url"),
+                   "https://example.org/a.csv")
   expect_null(nqdfield(d, "sources", 0, "title"))
   expect_error(nqdaddr(d, "none.csv"))
   rs <- '{"base":"https://example.org/a.csv","kind":"wayback"}'
@@ -215,9 +218,9 @@ test_that("sources: addresses in order, bytes checked, resolvers", {
                  "nqd", "src")
   skip_if_not(dir.exists(v))
   r <- nqdreply(rs, readBin(file.path(v, "wb.json"), "raw", 1e5))
-  expect_equal(r, c(paste0("https://web.archive.org/web/20240102030405id_/",
-                           "https://example.org/a.csv"),
-                    "2024-01-02T03:04:05Z"))
+  expect_identical(r, c(paste0("https://web.archive.org/web/20240102030405id_/",
+                               "https://example.org/a.csv"),
+                        "2024-01-02T03:04:05Z"))
   expect_error(nqdreply(rs, readBin(file.path(v, "wb-none.json"), "raw",
                                     1e5)), "no copy")
   expect_error(nqdrslv('{"base":"https://x.org/a","kind":"direct"}'))

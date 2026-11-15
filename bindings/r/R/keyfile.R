@@ -90,22 +90,7 @@ nqreadkey <- function(path, pass = NULL) {
   f <- .kfhead(b[seq_len(nl[1L] - 1L)], path)
   a <- .kalg(f[2L])
   want <- if (f[3L] == "pub") a$pk else a$sk
-  k <- .kfbody(b[-seq_len(nl[1L])])
-  ad <- charToRaw(sprintf("noqtis-key-1 %s sec", a$name))
-  prot <- f[3L] == "sec" && !is.null(k) && length(k) == want + 51L &&
-    identical(k[1:4], charToRaw("NQPW"))
-  if (prot && is.null(pass)) {
-    stop(sprintf("%s is protected by a passphrase: give 'pass'", path),
-      call. = FALSE
-    )
-  }
-  if (prot) {
-    k <- nqpwdec(k, pass, ad)
-  } else if (!is.null(pass) && f[3L] == "sec" && length(k) == want) {
-    stop(sprintf("%s is not protected by a passphrase", path),
-      call. = FALSE
-    )
-  }
+  k <- .kfopen(.kfbody(b[-seq_len(nl[1L])]), f[3L], a, want, pass, path)
   if (is.null(k) || length(k) != want) {
     stop(sprintf(paste0(
       "%s: the key is not %d bytes of base64 for %s (the ",
@@ -177,7 +162,8 @@ nqpwdec <- function(x, pass, ad = NULL) {
   .Call(Cpwdec, .pass(pass), ad, x)
 }
 
-# The passphrase's bytes, checked without showing it.
+#' The passphrase's bytes, checked without showing it.
+#' @noRd
 .pass <- function(pass) {
   b <- if (is.raw(pass)) pass else if (.is1(pass)) {
     charToRaw(enc2utf8(pass))
@@ -190,9 +176,40 @@ nqpwdec <- function(x, pass, ad = NULL) {
   b
 }
 
+#' The key of a decoded body: opened with pass when it is under a
+#' passphrase (noqtis-pwkey-1), else as it is.
+#' @param k The decoded body, or NULL.
+#' @param kind "pub" or "sec".
+#' @param a The algorithm's row of the table.
+#' @param want The key's size.
+#' @param pass The passphrase, or NULL.
+#' @param path The key file, for messages.
+#' @noRd
+.kfopen <- function(k, kind, a, want, pass, path) {
+  sec <- kind == "sec" && !is.null(k)
+  prot <- sec && length(k) == want + 51L &&
+    identical(k[1:4], charToRaw("NQPW"))
+  if (prot && is.null(pass)) {
+    stop(sprintf("%s is protected by a passphrase: give 'pass'", path),
+      call. = FALSE
+    )
+  }
+  if (prot) {
+    ad <- charToRaw(sprintf("noqtis-key-1 %s sec", a$name))
+    return(nqpwdec(k, pass, ad))
+  }
+  if (!is.null(pass) && sec && length(k) == want) {
+    stop(sprintf("%s is not protected by a passphrase", path),
+      call. = FALSE
+    )
+  }
+  k
+}
+
 .b64a <- c(LETTERS, letters, as.character(0:9), "+", "/")
 
-# The base64 text of a raw vector, in lines of 64 characters.
+#' The base64 text of a raw vector, in lines of 64 characters.
+#' @noRd
 .b64enc <- function(x) {
   if (length(x) == 0L) {
     return(character(0))
@@ -214,7 +231,8 @@ nqpwdec <- function(x, pass, ad = NULL) {
   substring(s, st, pmin(st + 63L, nchar(s)))
 }
 
-# The bytes of strict base64 (RFC 4648, padded, canonical), or NULL.
+#' The bytes of strict base64 (RFC 4648, padded, canonical), or NULL.
+#' @noRd
 .b64dec <- function(s) {
   r <- charToRaw(s)
   n <- length(r)
@@ -245,7 +263,8 @@ nqpwdec <- function(x, pass, ad = NULL) {
   out
 }
 
-# Any algorithm by name (case ignored), as the CLI finds it.
+#' Any algorithm by name (case ignored), as the CLI finds it.
+#' @noRd
 .kalg <- function(name) {
   t <- .tab()
   i <- match(toupper(name), toupper(t$name))
@@ -257,6 +276,8 @@ nqpwdec <- function(x, pass, ad = NULL) {
   t[i, , drop = FALSE]
 }
 
+#' The error for a file that is not a key file.
+#' @noRd
 .kfbad <- function(path) {
   stop(sprintf(paste0(
     "%s is not a noqtis key file (want a first line ",
@@ -264,8 +285,9 @@ nqpwdec <- function(x, pass, ad = NULL) {
   ), path), call. = FALSE)
 }
 
-# The header fields of a key file, or an error: the exact line
-# "noqtis-key-1 <alg> <pub|sec>" (a CR before the LF dropped).
+#' The header fields of a key file, or an error: the exact line
+#' "noqtis-key-1 <alg> <pub|sec>" (a CR before the LF dropped).
+#' @noRd
 .kfhead <- function(h, path) {
   if (length(h) > 0L && h[length(h)] == as.raw(13L)) {
     h <- h[-length(h)]
@@ -281,7 +303,8 @@ nqpwdec <- function(x, pass, ad = NULL) {
   f
 }
 
-# The key bytes of the base64 body (line ends dropped), or NULL.
+#' The key bytes of the base64 body (line ends dropped), or NULL.
+#' @noRd
 .kfbody <- function(rest) {
   rest <- rest[rest != as.raw(10L) & rest != as.raw(13L)]
   if (any(rest < as.raw(33L) | rest > as.raw(126L))) {
@@ -290,9 +313,10 @@ nqpwdec <- function(x, pass, ad = NULL) {
   .b64dec(rawToChar(rest))
 }
 
-# Clears path for a new key file: an existing file, or a dangling link
-# (Sys.readlink() is NA for no file), is removed with force, refused
-# without it.
+#' Clears path for a new key file: an existing file, or a dangling link
+#' (Sys.readlink() is NA for no file), is removed with force, refused
+#' without it.
+#' @noRd
 .kfclear <- function(path, force) {
   lk <- Sys.readlink(path)
   if (!file.exists(path) && (is.na(lk) || !nzchar(lk))) {

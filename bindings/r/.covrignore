@@ -1,0 +1,4 @@
+# The C library vendored from the repository (tools/vendor.sh): its tests
+# are the repository's own (ctest); the package's coverage is its R code
+# and its interface to the library, src/rnq.c and src/rnqd.c.
+src/*/*

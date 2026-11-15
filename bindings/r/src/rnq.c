@@ -36,7 +36,7 @@ static int ival(SEXP x, const char *what) {
   return INTEGER(x)[0];
 }
 
-static void fail(int rc, const char *what) {
+NORET static void fail(int rc, const char *what) {
   Rf_error("noqtis: %s: %s", what, nqerr(rc));
 }
 
@@ -277,12 +277,8 @@ static SEXP Csign(SEXP alg, SEXP sk, SEXP msg, SEXP ctx, SEXP ph, SEXP rnd) {
                  rn(ctx), h, rp(rnd), rn(rnd), RAW(sig), s.sig, &n);
   }
   if (rc != NQOK) fail(rc, "nqsign");
-  if (n == s.sig) {
-    UNPROTECT(1);
-    return sig;
-  }
-  out = rawn(n);
-  if (n > 0) memcpy(RAW(out), RAW(sig), n);
+  /* every algorithm fills s.sig bytes; a shorter one is cut to n */
+  out = n == s.sig ? sig : Rf_xlengthgets(sig, (R_xlen_t)n);
   UNPROTECT(1);
   return out;
 }
@@ -877,14 +873,10 @@ static SEXP Cpwdec(SEXP pw, SEXP ad, SEXP in) {
   rc = nqpwdec(rp(pw), rn(pw), rp(ad), rn(ad), rp(in), rn(in), RAW(out), cap,
                &n);
   if (rc != NQOK) fail(rc, "the passphrase-protected key");
-  if (n == cap) {
-    UNPROTECT(1);
-    return out;
-  }
-  r = PROTECT(rawn(n));
-  memcpy(RAW(r), RAW(out), n);
-  nqwipe(RAW(out), cap);
-  UNPROTECT(2);
+  /* the key fills cap bytes; were it shorter, the copy is cut to n */
+  r = n == cap ? out : Rf_xlengthgets(out, (R_xlen_t)n);
+  if (r != out) nqwipe(RAW(out), cap);
+  UNPROTECT(1);
   return r;
 }
 
@@ -946,6 +938,12 @@ static void ctxfin(SEXP p) {
   }
 }
 
+/* frees the context of p, then raises the library's error rc */
+NORET static void ctxfail(SEXP p, int rc, const char *what) {
+  ctxfin(p);
+  fail(rc, what);
+}
+
 static SEXP ctxnew(size_t n, void **c) {
   SEXP p;
   *c = R_Calloc(n, char);
@@ -974,10 +972,7 @@ static SEXP Csini(SEXP alg, SEXP key, SEXP ctx, SEXP ph, SEXP vrfy) {
                   ival(ph, "ph"))
          : nqsini((nqsctx *)c, (nqsalg)a, rp(key), rn(key), rp(ctx), rn(ctx),
                   ival(ph, "ph"));
-  if (rc != NQOK) {
-    ctxfin(p);
-    fail(rc, v ? "nqvini" : "nqsini");
-  }
+  if (rc != NQOK) ctxfail(p, rc, v ? "nqvini" : "nqsini");
   UNPROTECT(1);
   return p;
 }
@@ -986,10 +981,7 @@ static SEXP Csupd(SEXP p, SEXP x) {
   int rc;
   chkraw(x, "x", 0);
   rc = nqsupd((nqsctx *)ctxget(p), rp(x), rn(x));
-  if (rc != NQOK) {
-    ctxfin(p);
-    fail(rc, "nqsupd");
-  }
+  if (rc != NQOK) ctxfail(p, rc, "nqsupd");
   return R_NilValue;
 }
 
@@ -1076,10 +1068,7 @@ static SEXP Ckfeini(SEXP alg, SEXP pk, SEXP ctx, SEXP chunk) {
   p = PROTECT(ctxnew(sizeof(nqkfctx), &c));
   rc = nqkfeini((nqkfctx *)c, (nqkalg)a, rp(pk), rn(pk), rp(ctx), rn(ctx),
                 (uint32_t)ch, h, sizeof h, &hl);
-  if (rc != NQOK) {
-    ctxfin(p);
-    fail(rc, "nqkfeini");
-  }
+  if (rc != NQOK) ctxfail(p, rc, "nqkfeini");
   out = PROTECT(Rf_allocVector(VECSXP, 2));
   SET_VECTOR_ELT(out, 0, p);
   hd = rawn(hl);
@@ -1101,10 +1090,7 @@ static SEXP Ckfdini(SEXP alg, SEXP sk, SEXP ctx, SEXP hdr) {
   p = PROTECT(ctxnew(sizeof(nqkfctx), &c));
   rc = nqkfdini((nqkfctx *)c, (nqkalg)a, rp(sk), rn(sk), rp(ctx), rn(ctx),
                 rp(hdr), rn(hdr), &ch);
-  if (rc != NQOK) {
-    ctxfin(p);
-    fail(rc, "the stream's header");
-  }
+  if (rc != NQOK) ctxfail(p, rc, "the stream's header");
   out = PROTECT(Rf_allocVector(VECSXP, 2));
   SET_VECTOR_ELT(out, 0, p);
   SET_VECTOR_ELT(out, 1, Rf_ScalarInteger((int)ch));
@@ -1170,7 +1156,7 @@ static SEXP Csealwhy(SEXP dir) {
   return out;
 }
 
-static void whyfail(int rc, const char *what, const char *why) {
+NORET static void whyfail(int rc, const char *what, const char *why) {
   if (why != NULL) Rf_error("noqtis: %s: %s: %s", what, nqerr(rc), why);
   fail(rc, what);
 }

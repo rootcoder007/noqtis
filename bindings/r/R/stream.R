@@ -55,11 +55,8 @@ nqblake2b <- function(x, key = NULL, n = 64L) {
 #' @export
 nqargon2id <- function(pw, salt, t = 3, m = 65536, p = 4, n = 32L,
                        key = NULL, ad = NULL) {
-  for (v in list(t, m, p, n)) {
-    if (!is.numeric(v) || length(v) != 1L || is.na(v) || v < 0 ||
-          v != floor(v) || v > 4294967295) {
-      stop("'t', 'm', 'p' and 'n' must be whole numbers", call. = FALSE)
-    }
+  if (!all(vapply(list(t, m, p, n), .u32, NA))) {
+    stop("'t', 'm', 'p' and 'n' must be whole numbers", call. = FALSE)
   }
   .rawarg(salt, "salt")
   if (!is.null(key)) .rawarg(key, "key")
@@ -68,6 +65,14 @@ nqargon2id <- function(pw, salt, t = 3, m = 65536, p = 4, n = 32L,
     Ca2id, .bytes(pw, "pw"), salt, key, ad, as.double(c(t, m, p)),
     as.integer(n)
   )
+}
+
+#' TRUE for one whole number from 0 to 2^32 - 1.
+#' @param v The value.
+#' @noRd
+.u32 <- function(v) {
+  is.numeric(v) && length(v) == 1L && !is.na(v) && v >= 0 &&
+    v == floor(v) && v <= 4294967295
 }
 
 #' @rdname nqblake2b
@@ -83,17 +88,11 @@ nqcteq <- function(a, b) .Call(Ccteq, .rawarg(a, "a"), .rawarg(b, "b"))
 #' is the one [nqsign()] gives for the message with the same randomness.
 #' `nqverifymu()` checks a signature against a mu.
 #'
-#' @param pk Public key, a raw vector.
-#' @param sk Secret key, a raw vector.
-#' @param msg The message: a raw vector or one string.
+#' @inheritParams nqsign
+#' @inheritParams nqverify
 #' @param mu The 64-byte mu, a raw vector (from `nqmu()`).
 #' @param sig The signature, a raw vector.
 #' @param alg `"ML-DSA-44"`, `"ML-DSA-65"` or `"ML-DSA-87"`.
-#' @param ctx `NULL`, or the context string (at most 255 bytes), a raw
-#'   vector or one string.
-#' @param ph `NULL` for the pure variant, or a hash name (see [nqhash()])
-#'   for HashML-DSA.
-#' @param det `TRUE` for the deterministic signature.
 #' @param rnd `NULL`, or the 32 bytes of per-signature randomness.
 #'
 #' @return `nqmu()`: a raw vector of 64 bytes. `nqsignmu()`: the signature.
@@ -145,10 +144,12 @@ nqverifymu <- function(pk, mu, sig, alg) {
   )
 }
 
-# A context string: NULL, a raw vector or one string.
+#' A context string: NULL, a raw vector or one string.
+#' @noRd
 .ctxb <- function(ctx) if (is.null(ctx)) NULL else .bytes(ctx, "ctx")
 
-# The per-signature randomness of det and rnd: NULL (hedged), n zeros.
+#' The per-signature randomness of det and rnd: NULL (hedged), n zeros.
+#' @noRd
 .rnd <- function(det, rnd, n) {
   if (!.flag1(det)) stop("'det' must be TRUE or FALSE", call. = FALSE)
   if (det && !is.null(rnd)) {
@@ -192,6 +193,11 @@ nqverifymu <- function(pk, mu, sig, alg) {
 #' An algorithm and variant that cannot stream, a stream used after its
 #' end, a key of the wrong size.
 #'
+#' @references
+#' FIPS 204 \doi{10.6028/NIST.FIPS.204}, FIPS 205
+#' \doi{10.6028/NIST.FIPS.205} and RFC 8032 \doi{10.17487/RFC8032}
+#' define the signatures and their pre-hash variants.
+#'
 #' @family signature functions
 #'
 #' @examples
@@ -227,6 +233,8 @@ nqverifier <- function(pk, alg, ctx = NULL, ph = NULL) {
   )
 }
 
+#' A stream from nqsigner() or nqverifier(), or an error.
+#' @noRd
 .stream <- function(s) {
   if (!inherits(s, "nqstream")) {
     stop("'s' must be a stream from nqsigner() or nqverifier()",
@@ -254,8 +262,9 @@ nqfinish <- function(s, sig = NULL, det = FALSE, rnd = NULL) {
   .Call(Csfin, s$p, s$alg$id, s$key, .rnd(det, rnd, n))
 }
 
-# Bytes of per-signature randomness: 32 for ML-DSA and the hybrids, n for
-# SLH-DSA, none for Ed25519.
+#' Bytes of per-signature randomness: 32 for ML-DSA and the hybrids, n for
+#' SLH-DSA, none for Ed25519.
+#' @noRd
 .rndlen <- function(a) {
   if (a$name == "Ed25519") {
     return(0L)
@@ -272,11 +281,12 @@ print.nqstream <- function(x, ...) {
   invisible(x)
 }
 
-# Feeds the file at path to the stream s, 64 KiB at a time.
+#' Feeds the file at path to the stream s, 64 KiB at a time.
+#' @noRd
 .feed <- function(s, path) {
-  if (!.file1(path)) stop("'file' must be one existing file", call. = FALSE)
+  .file1e(path, "file")
   con <- file(path, open = "rb")
-  on.exit(close(con))
+  on.exit(close(con), add = TRUE)
   repeat {
     b <- readBin(con, "raw", n = 65536L)
     if (length(b) == 0L) break
@@ -362,8 +372,9 @@ nqkopen <- function(x, sk, alg, ctx = NULL) {
   .Call(Ckopen, a$id, .rawarg(sk, "sk"), .ctxb(ctx), .rawarg(x, "x"))
 }
 
-# Moves the connection i to o in pieces of n bytes through f(b, last),
-# the last piece the one no byte follows, one piece in memory.
+#' Moves the connection i to o in pieces of n bytes through f(b, last),
+#' the last piece the one no byte follows, one piece in memory.
+#' @noRd
 .pump <- function(i, o, n, f) {
   b <- readBin(i, "raw", n = n)
   repeat {
@@ -375,8 +386,10 @@ nqkopen <- function(x, sk, alg, ctx = NULL) {
   }
 }
 
+#' Checks an input file and an output path for nqbox() and nqunbox().
+#' @noRd
 .io <- function(input, output) {
-  if (!.file1(input)) stop("'input' must be one existing file", call. = FALSE)
+  .file1e(input, "input")
   if (!.is1(output) || file.exists(output)) {
     stop("'output' must be the path of a file that does not exist",
       call. = FALSE
@@ -392,7 +405,7 @@ nqbox <- function(input, output, pk, alg, ctx = NULL, chunk = 65536L) {
   if (!.count1(chunk)) stop("'chunk' must be a whole number", call. = FALSE)
   x <- .Call(Ckfeini, a$id, .rawarg(pk, "pk"), .ctxb(ctx), as.integer(chunk))
   i <- file(input, open = "rb")
-  on.exit(close(i))
+  on.exit(close(i), add = TRUE)
   o <- file(output, open = "wb")
   ok <- FALSE
   on.exit(
@@ -416,7 +429,7 @@ nqunbox <- function(input, output, sk, alg, ctx = NULL) {
   a <- .alg(alg, "kem")
   .io(input, output)
   i <- file(input, open = "rb")
-  on.exit(close(i))
+  on.exit(close(i), add = TRUE)
   h <- readBin(i, "raw", n = 17L + a$ct)
   x <- .Call(Ckfdini, a$id, .rawarg(sk, "sk"), .ctxb(ctx), h)
   old <- Sys.umask("077")

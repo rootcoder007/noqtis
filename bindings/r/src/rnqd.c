@@ -97,11 +97,9 @@ static SEXP jout(int (*f)(const nqdrec *, char *, size_t, size_t *),
   size_t n = 0;
   char *b;
   int rc = f(r, NULL, 0, &n);
-  if (rc != NQEBUF)
-    dfail(rc, "the data record", NULL);
+  if (rc != NQEBUF) dfail(rc, "the data record", NULL);
   b = R_alloc(n + 1, 1);
-  if ((rc = f(r, b, n + 1, &n)) != NQOK)
-    dfail(rc, "the data record", NULL);
+  if ((rc = f(r, b, n + 1, &n)) != NQOK) dfail(rc, "the data record", NULL);
   return Rf_mkCharLenCE(b, (int)n, CE_UTF8);
 }
 
@@ -191,8 +189,7 @@ SEXP Cdkey(SEXP dir, SEXP member, SEXP key) {
   int rc = nqdkey(r, m, k, NULL, 0, &n);
   if (rc == NQEBUF) {
     char *b = R_alloc(n + 1, 1);
-    if ((rc = nqdkey(r, m, k, b, n + 1, &n)) != NQOK)
-      dfail(rc, m, NULL);
+    if ((rc = nqdkey(r, m, k, b, n + 1, &n)) != NQOK) dfail(rc, m, NULL);
     out = Rf_mkString(b);
   } else if (rc != NQEIO) {
     dfail(rc, m, NULL);
@@ -216,8 +213,7 @@ static void repfin(SEXP p) {
 static SEXP drep(int rc, nqdrep *r) {
   size_t n, i;
   SEXP out, ck, ok, dt, js, p;
-  if (r == NULL)
-    dfail(rc, "check", NULL);
+  if (r == NULL) dfail(rc, "check", NULL);
   p = PROTECT(R_MakeExternalPtr(r, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(p, repfin, TRUE);
   n = nqdrepn(r);
@@ -274,8 +270,8 @@ static SEXP jfile(jfn f, SEXP dir, SEXP path, const nqdcsvopt *o) {
   if (rc != NQEBUF)
     dfail(rc, pa, why);
   b = R_alloc(n + 1, 1);
-  if ((rc = f(d, pa, o, b, n + 1, &n, why, sizeof why)) != NQOK)
-    dfail(rc, pa, why);
+  rc = f(d, pa, o, b, n + 1, &n, why, sizeof why);
+  if (rc != NQOK) dfail(rc, pa, why);
   return Rf_mkString(b);
 }
 
@@ -338,8 +334,7 @@ SEXP Cdaddr(SEXP dir, SEXP path) {
   for (i = 0; i < c; i++) {
     size_t n = 0;
     int kd = 0;
-    if (nqdaddr(r, f, i, &kd, b, sizeof b, &n) != NQOK)
-      dfail(NQEIO, f, NULL);
+    if (nqdaddr(r, f, i, &kd, b, sizeof b, &n) != NQOK) dfail(NQEIO, f, NULL);
     INTEGER(k)[i] = kd;
     SET_STRING_ELT(u, (R_xlen_t)i, Rf_mkCharLenCE(b, (int)n, CE_UTF8));
   }
@@ -375,12 +370,10 @@ SEXP Cdfld(SEXP dir, SEXP member, SEXP i, SEXP field) {
   rc = nqdfld(r, m, (size_t)x, f, NULL, 0, &n);
   if (rc == NQEBUF) {
     char *b = R_alloc(n + 1, 1);
-    if ((rc = nqdfld(r, m, (size_t)x, f, b, n + 1, &n)) != NQOK)
-      dfail(rc, m, NULL);
+    rc = nqdfld(r, m, (size_t)x, f, b, n + 1, &n);
+    if (rc != NQOK) dfail(rc, m, NULL);
     out = Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
-  } else if (rc != NQEIO) {
-    dfail(rc, m, NULL);
-  }
+  } else if (rc != NQEIO) dfail(rc, m, NULL);
   PROTECT(out);
   recfin(p);
   UNPROTECT(2);
@@ -514,8 +507,8 @@ SEXP Cdchunk(SEXP dir, SEXP path, SEXP chunk) {
   rc = nqdchunk(d, pa, ch, NULL, 0, &n, why, sizeof why);
   if (rc != NQEBUF) dfail(rc, pa, why);
   b = R_alloc(n + 1, 1);
-  if ((rc = nqdchunk(d, pa, ch, b, n + 1, &n, why, sizeof why)) != NQOK)
-    dfail(rc, pa, why);
+  rc = nqdchunk(d, pa, ch, b, n + 1, &n, why, sizeof why);
+  if (rc != NQOK) dfail(rc, pa, why);
   return Rf_mkString(b);
 }
 
@@ -571,8 +564,8 @@ SEXP Cdcite(SEXP dir, SEXP fmt) {
   rc = nqdcite(r, f, NULL, 0, &n);
   if (rc != NQEBUF) dfail(rc, "the citation", NULL);
   b = R_alloc(n + 1, 1);
-  if ((rc = nqdcite(r, f, b, n + 1, &n)) != NQOK)
-    dfail(rc, "the citation", NULL);
+  rc = nqdcite(r, f, b, n + 1, &n);
+  if (rc != NQOK) dfail(rc, "the citation", NULL);
   recfin(p);
   UNPROTECT(1);
   return Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
@@ -620,8 +613,8 @@ SEXP Cdrpt(SEXP dir, SEXP pk, SEXP fmt, SEXP sealed, SEXP hasrec) {
   rc = nqdrpt(d, cr, dr, f, NULL, 0, &n);
   if (rc != NQEBUF) dfail(rc, "the report", NULL);
   b = R_alloc(n + 1, 1);
-  if ((rc = nqdrpt(d, cr, dr, f, b, n + 1, &n)) != NQOK)
-    dfail(rc, "the report", NULL);
+  rc = nqdrpt(d, cr, dr, f, b, n + 1, &n);
+  if (rc != NQOK) dfail(rc, "the report", NULL);
   crfin(pc);
   repfin(pd);
   UNPROTECT(2);

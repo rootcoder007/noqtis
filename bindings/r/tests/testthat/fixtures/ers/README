@@ -1,0 +1,11 @@
+seal.tok is an RFC 3161 token over the SHA-256 of the golden capsule's
+inst/extdata/capsule/noqtis.sig: the first archive timestamp of an RFC 4998
+evidence record. root.der is the root certificate of the throwaway TSA that
+signed it. Both were made as tests/vectors/cap/tsa.sh makes its files (the
+same certificate and TSA settings, new keys), with the query
+
+  openssl ts -query -data inst/extdata/capsule/noqtis.sig -sha256 -cert \
+    -no_nonce -out q.tsq
+
+in place of the one over the signature bytes, then "openssl ts -reply" and
+"openssl ts -reply -in r.tsr -token_out" as there. The keys were not kept.
