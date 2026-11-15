@@ -97,11 +97,53 @@ Start, build and check a reproducibility bundle: a capsule with its
 environment and lock files recorded, shipped as one file.
 See
 .Xr noqtis-pack 1 .
+.It Cm data
+Make, show and check a capsule's data record,
+.Pa noqtis.data.json
+.Pq Xr noqtis-data 5 .
+See
+.Xr noqtis-data 1 .
+.It Cm schema
+Pin and check the schema of CSV files.
+See
+.Xr noqtis-schema 1 .
+.It Cm src
+Fetch the sources of a capsule's data record, and say if they changed.
+See
+.Xr noqtis-src 1 .
+.It Cm drift
+Summarise CSV files, and say later whether they drifted.
+See
+.Xr noqtis-drift 1 .
 .It Cm chunk
 Record the chunk digests of a large file, and check a piece of it
 alone.
 See
 .Xr noqtis-chunk 1 .
+.It Cm env
+Record the environment of a run in the data record.
+See
+.Xr noqtis-env 1 .
+.It Cm commit
+Commit to a file now, to reveal it later.
+See
+.Xr noqtis-commit 1 .
+.It Cm reveal
+Check a file against a commitment.
+See
+.Xr noqtis-reveal 1 .
+.It Cm cite
+Print how to cite the data of a capsule.
+See
+.Xr noqtis-cite 1 .
+.It Cm diff
+Say what changed between two capsules.
+See
+.Xr noqtis-diff 1 .
+.It Cm report
+Check a capsule and write a report of it.
+See
+.Xr noqtis-report 1 .
 .It Cm rotate , revoke
 Say that a seal key was replaced, or must no longer be trusted, for
 .Cm check Fl -keys .
@@ -263,7 +305,7 @@ for reproducible capsules (see
 .Xr noqtis-seal 1 ) .
 .El
 .Sh EXIT STATUS
-For every command:
+For every command (each page gives the details):
 .Bl -tag -width 3n
 .It 0
 Success: a signature is valid, every capsule check passed, every digest
@@ -280,6 +322,15 @@ be written (a full disk, or a closed pipe when SIGPIPE is ignored),
 whatever the command found, with
 .Ql cannot write to stdout
 on standard error.
+.It 3
+A warning, from two commands only:
+.Cm drift check ,
+when a column warned and none failed
+.Pq Xr noqtis-drift 1 ,
+and
+.Cm src refresh ,
+when nothing changed but a source could not be reached
+.Pq Xr noqtis-src 1 .
 .El
 .Sh EXAMPLES
 Seal a folder, check it, change a file and check again:
@@ -305,8 +356,14 @@ results: FAILED (1 of 22 checks failed)
 .Xr noqtis-chain 1 ,
 .Xr noqtis-check 1 ,
 .Xr noqtis-chunk 1 ,
+.Xr noqtis-cite 1 ,
+.Xr noqtis-commit 1 ,
+.Xr noqtis-data 1 ,
 .Xr noqtis-dec 1 ,
+.Xr noqtis-diff 1 ,
+.Xr noqtis-drift 1 ,
 .Xr noqtis-enc 1 ,
+.Xr noqtis-env 1 ,
 .Xr noqtis-ers 1 ,
 .Xr noqtis-export 1 ,
 .Xr noqtis-hash 1 ,
@@ -315,17 +372,22 @@ results: FAILED (1 of 22 checks failed)
 .Xr noqtis-keygen 1 ,
 .Xr noqtis-pack 1 ,
 .Xr noqtis-prove 1 ,
+.Xr noqtis-report 1 ,
+.Xr noqtis-reveal 1 ,
 .Xr noqtis-revoke 1 ,
 .Xr noqtis-rotate 1 ,
+.Xr noqtis-schema 1 ,
 .Xr noqtis-seal 1 ,
 .Xr noqtis-selftest 1 ,
 .Xr noqtis-sign 1 ,
+.Xr noqtis-src 1 ,
 .Xr noqtis-timestamp 1 ,
 .Xr noqtis-unbox 1 ,
 .Xr noqtis-verify 1 ,
 .Xr noqtis-version 1 ,
 .Xr noqtis 3 ,
-.Xr noqtis-capsule 5
+.Xr noqtis-capsule 5 ,
+.Xr noqtis-data 5
 .Sh STANDARDS
 .Rs
 .%T FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard

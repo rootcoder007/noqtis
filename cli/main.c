@@ -549,7 +549,8 @@ static void ncall(FILE *f) {
     fprintf(f, "  %-8s %s\n", cmds[i].name, cmds[i].brief);
   fputs("\n`noqtis help <command>` shows a command's options.\n"
         "Exit status: 0 success, 1 verification failed, 2 usage or file "
-        "error.\n", f);
+        "error\n(or standard output not written), 3 a warning (drift check, "
+        "src refresh).\n", f);
 }
 
 static int cmdopt(const char *cmd, const ncopt *o, size_t n, const char *a,
