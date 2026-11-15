@@ -366,6 +366,29 @@ for lp in ref cur; do
 done
 ok 1 "diff: a long summary path" "$nq" diff "$w/lpref" "$w/lpcur"
 has "$w/out" "$l.csv: x: n 60 -> 70" "diff: the long path in full"
+# summaries whose columns differ: renamed, dropped, none, reordered
+mkdir -p "$w/dc1/data" "$w/dc2/data"
+printf 'a,b\n1,x\n2,y\n3,z\n' >"$w/dc1/data/f.csv"
+printf 'a,c\n1,x\n2,y\n3,z\n' >"$w/dc2/data/f.csv"
+ok 0 "diff: pin a,b" "$nq" drift pin "$w/dc1" data/f.csv
+ok 0 "diff: pin a,c" "$nq" drift pin "$w/dc2" data/f.csv
+ok 1 "diff: a column renamed" "$nq" diff "$w/dc1" "$w/dc2"
+has "$w/out" "data/f.csv: column b removed" "diff: the old name removed"
+has "$w/out" "data/f.csv: column c added" "diff: the new name added"
+printf 'a\n1\n2\n3\n' >"$w/dc2/data/f.csv"
+ok 0 "diff: pin a" "$nq" drift pin "$w/dc2" data/f.csv
+ok 1 "diff: a column dropped" "$nq" diff "$w/dc1" "$w/dc2"
+has "$w/out" "data/f.csv: column b removed" "diff: the dropped column"
+printf 'b,a\nx,1\ny,2\nz,3\n' >"$w/dc2/data/f.csv"
+ok 0 "diff: pin b,a" "$nq" drift pin "$w/dc2" data/f.csv
+ok 1 "diff: the columns reordered" "$nq" diff "$w/dc1" "$w/dc2"
+has "$w/out" "another order" "diff: the order"
+printf '{"format":"noqtis-data-1","stats":[{"path":"data/f.csv","rows":3}]}' \
+  >"$w/dc2/noqtis.data.json"
+ok 1 "diff: a summary without columns" "$nq" diff "$w/dc1" "$w/dc2"
+has "$w/out" "column a removed" "diff: its columns are removed"
+ok 1 "diff: and the other way" "$nq" diff "$w/dc2" "$w/dc1"
+has "$w/out" "column a added" "diff: its columns are added"
 
 # ---- report ----
 

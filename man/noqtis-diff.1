@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 12, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-DIFF 1
 .Os
 .Sh NAME
@@ -23,11 +23,13 @@ a source added or removed in the data records
 or the fields that changed, old and new
 .It schema
 a column added, removed or changed (its type, missing values, range),
-or another field of a schema (rows, delimiter, rules)
+another field of a schema (rows, delimiter, rules), or the columns in
+another order
 .It stats
-a summary's row count, or a column's count, median and the population
-stability index between the two summaries (over the same bins, or over
-the categories of either)
+a summary's row count, a column added or removed, a column's count,
+median and the population stability index between the two summaries
+(over the same bins, or over the categories of either), another field
+of a summary (delimiter, header), or the columns in another order
 .It env , cite
 fields that changed, or the member added or removed
 .It steps , commits

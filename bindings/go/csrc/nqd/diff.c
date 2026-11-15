@@ -241,32 +241,119 @@ static void statcol(nqdrep *rep, const char *path, const djs *a,
   qdrepadd(rep, "stats", 0, "%s: %s", path, m);
 }
 
-static void schcols(nqdrep *rep, const char *path, const djs *a,
-                    const djs *b) {
+/* the names of the columns c (NULL: none), sorted, with their places,
+ * so that a column is found by name in log n */
+typedef struct {
+  const char *n;
+  size_t i;
+} qdnm;
+
+static int nmcmp(const void *a, const void *b) {
+  const qdnm *x = (const qdnm *)a, *y = (const qdnm *)b;
+  int c = strcmp(x->n, y->n);
+  return c != 0 ? c : x->i < y->i ? -1 : x->i > y->i;
+}
+
+static qdnm *names(const djs *c, size_t *n) {
+  size_t i, k = c != NULL ? c->n : 0;
+  qdnm *v = (qdnm *)qdmal((k + 1) * sizeof *v);
+  *n = k;
+  if (v == NULL)
+    return NULL;
+  for (i = 0; i < k; i++) {
+    v[i].n = qdjget(c->k[i], "name")->s;
+    v[i].i = i;
+  }
+  qsort(v, k, sizeof *v, nmcmp);
+  return v;
+}
+
+/* the place of the column named s among v, or (size_t)-1 */
+static size_t nmat(const qdnm *v, size_t n, const char *s) {
+  size_t lo = 0, hi = n, m;
+  while (lo < hi) {
+    m = lo + (hi - lo) / 2;
+    if (strcmp(v[m].n, s) < 0)
+      lo = m + 1;
+    else
+      hi = m;
+  }
+  return lo < n && strcmp(v[lo].n, s) == 0 ? v[lo].i : (size_t)-1;
+}
+
+/* the columns of two schemas (st 0) or summaries (st 1) of path: each
+ * one removed, added or changed */
+static void cols(nqdrep *rep, int st, const char *path, const djs *a,
+                 const djs *b) {
   const djs *ca = qdjget(a, "columns"), *cb = qdjget(b, "columns");
-  size_t i, j;
+  const char *row = st ? "stats" : "schema";
+  size_t i, j, na = 0, nb = 0;
+  qdnm *va = names(ca, &na), *vb = names(cb, &nb);
   char m[300];
-  for (i = 0; ca != NULL && i < ca->n; i++) {
+  if (va == NULL || vb == NULL) {
+    qdrepadd(rep, row, 0, "%s: the columns differ (out of memory to say "
+             "how)", path);
+    goto out;
+  }
+  for (i = 0; i < na; i++) {
     const char *n = qdjget(ca->k[i], "name")->s;
-    const djs *f = NULL;
-    for (j = 0; cb != NULL && j < cb->n && f == NULL; j++)
-      if (strcmp(qdjget(cb->k[j], "name")->s, n) == 0)
-        f = cb->k[j];
-    if (f == NULL) {
-      qdrepadd(rep, "schema", 0, "%s: column %s removed", path, n);
-    } else if (!same(ca->k[i], f)) {
-      fields(ca->k[i], f, m, sizeof m);
-      qdrepadd(rep, "schema", 0, "%s: column %s: %s", path, n, m);
+    j = nmat(vb, nb, n);
+    if (j == (size_t)-1) {
+      qdrepadd(rep, row, 0, "%s: column %s removed", path, n);
+    } else if (st) {
+      statcol(rep, path, ca->k[i], cb->k[j]);
+    } else if (!same(ca->k[i], cb->k[j])) {
+      fields(ca->k[i], cb->k[j], m, sizeof m);
+      qdrepadd(rep, row, 0, "%s: column %s: %s", path, n, m);
     }
   }
-  for (j = 0; cb != NULL && j < cb->n; j++) {
+  for (j = 0; j < nb; j++) {
     const char *n = qdjget(cb->k[j], "name")->s;
-    int f = 0;
-    for (i = 0; ca != NULL && i < ca->n && !f; i++)
-      f = strcmp(qdjget(ca->k[i], "name")->s, n) == 0;
-    if (!f)
-      qdrepadd(rep, "schema", 0, "%s: column %s added", path, n);
+    if (nmat(va, na, n) == (size_t)-1)
+      qdrepadd(rep, row, 0, "%s: column %s added", path, n);
   }
+out:
+  qdfree(va, (na + 1) * sizeof *va);
+  qdfree(vb, (nb + 1) * sizeof *vb);
+}
+
+/* two elements x and y of path (schemas or stats) that differ: their
+ * columns, then every other member, then (when nothing else differs)
+ * the order of the columns */
+static void colm(nqdrep *rep, int st, const char *path, const djs *x,
+                 const djs *y) {
+  const char *row = st ? "stats" : "schema";
+  djs *xa = qdjcopy(x), *ya = qdjcopy(y);
+  size_t n0 = nqdrepn(rep);
+  char det[500];
+  if (st) {
+    int64_t rx = 0, ry = 0;
+    qdjint(qdjget(x, "rows"), &rx);
+    qdjint(qdjget(y, "rows"), &ry);
+    if (rx != ry)
+      qdrepadd(rep, row, 0, "%s: rows %lld -> %lld", path, (long long)rx,
+               (long long)ry);
+  }
+  cols(rep, st, path, x, y);
+  if (xa != NULL && ya != NULL) {
+    qdjdel(xa, "columns");
+    qdjdel(ya, "columns");
+    if (st) {
+      qdjdel(xa, "rows");
+      qdjdel(ya, "rows");
+    }
+    if (!same(xa, ya)) {
+      fields(xa, ya, det, sizeof det);
+      qdrepadd(rep, row, 0, "%s: %s", path, det);
+    }
+  }
+  if (nqdrepn(rep) == n0)
+    qdrepadd(rep, row, 0, xa != NULL && ya != NULL
+                              ? "%s: the columns are in another order"
+                              : "%s: differs (out of memory to say how)",
+             path);
+  qdjfree(xa);
+  qdjfree(ya);
 }
 
 static void keyedm(nqdrep *rep, const char *m, const djs *a, const djs *b) {
@@ -287,33 +374,8 @@ static void keyedm(nqdrep *rep, const char *m, const djs *a, const djs *b) {
     } else {
       const djs *x = a->k[i], *y = b->k[j];
       if (!same(x, y)) {
-        if (strcmp(m, "stats") == 0) {
-          const djs *cx = qdjget(x, "columns"), *cy = qdjget(y, "columns");
-          size_t p, q;
-          int64_t rx = 0, ry = 0;
-          qdjint(qdjget(x, "rows"), &rx);
-          qdjint(qdjget(y, "rows"), &ry);
-          if (rx != ry)
-            qdrepadd(rep, "stats", 0, "%s: rows %lld -> %lld", ka,
-                     (long long)rx, (long long)ry);
-          for (p = 0; cx != NULL && p < cx->n; p++)
-            for (q = 0; cy != NULL && q < cy->n; q++)
-              if (strcmp(qdjget(cx->k[p], "name")->s,
-                         qdjget(cy->k[q], "name")->s) == 0)
-                statcol(rep, ka, cx->k[p], cy->k[q]);
-        } else if (strcmp(m, "schemas") == 0) {
-          djs *xa = qdjcopy(x), *ya = qdjcopy(y);
-          schcols(rep, ka, x, y);
-          if (xa != NULL && ya != NULL) {
-            qdjdel(xa, "columns");
-            qdjdel(ya, "columns");
-            if (!same(xa, ya)) {
-              fields(xa, ya, det, sizeof det);
-              qdrepadd(rep, "schema", 0, "%s: %s", ka, det);
-            }
-          }
-          qdjfree(xa);
-          qdjfree(ya);
+        if (strcmp(m, "stats") == 0 || strcmp(m, "schemas") == 0) {
+          colm(rep, strcmp(m, "stats") == 0, ka, x, y);
         } else {
           fields(x, y, det, sizeof det);
           qdrepadd(rep, row, 0, "%s: %s", ka, det);
