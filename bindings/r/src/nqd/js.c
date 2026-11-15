@@ -241,7 +241,9 @@ int qdnumrd(const char *s, size_t n, int json, double *d) {
   size_t i = 0, o = 0, dl = strlen(dp), dig = 0;
   char *end;
   double v;
-  if (n == 0 || n > 64)
+  /* buf: at most 63 bytes of s and the decimal point; a decimal point
+   * of more than 8 bytes is refused, not overrun */
+  if (n == 0 || n > 64 || dl > 8)
     return NQEDEC;
   if (s[i] == '-' || (!json && s[i] == '+'))
     buf[o++] = s[i++];
@@ -299,7 +301,8 @@ int qdnumfmt(double d, char *out) {
   size_t dl = strlen(dp), k = 0, i;
   int p, e, nexp;
   char *o = out, *ep;
-  if (!isfinite(d))
+  /* t and dg: sized for a decimal point of at most 8 bytes (qdnumrd) */
+  if (!isfinite(d) || dl > 8)
     return NQEARG;
   if (d == 0) {
     strcpy(out, "0");
