@@ -341,10 +341,13 @@ static void keyedm(nqdrep *rep, const char *m, const djs *a, const djs *b) {
     const char *ka = i < na ? qdjget(a->k[i], k)->s : NULL;
     const char *kb = j < nb ? qdjget(b->k[j], k)->s : NULL;
     int c = ka == NULL ? 1 : kb == NULL ? -1 : strcmp(ka, kb);
-    if (c < 0) {
+    /* one of the two is there (the loop's condition), and the branch
+     * taken names that one: said outright, since a compiler that
+     * follows the NULL of the other warns of printing it */
+    if (c < 0 && ka != NULL) {
       qdrepadd(rep, row, 0, "%s removed", ka);
       i++;
-    } else if (c > 0) {
+    } else if (c > 0 && kb != NULL) {
       qdrepadd(rep, row, 0, "%s added", kb);
       j++;
     } else {
