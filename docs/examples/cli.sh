@@ -97,10 +97,10 @@ noqtis prove -p me.pub -o in.proof r2 data/in.csv
 same "absent" "$(grep -q report.txt in.proof && echo present || echo absent)"
 same "in.proof: OK (16 checks passed)" \
   "$(noqtis check -p me.pub --proof in.proof | tail -1)"
-same "in.proof: OK (19 checks passed)" \
+same "in.proof: PARTIAL OK (19 checks passed; not every file was checked)" \
   "$(noqtis check -p me.pub --proof in.proof r2 | tail -1)"
 code 1 noqtis check -p other.pub --proof in.proof
-same "r2: OK (24 checks passed)" \
+same "r2: PARTIAL OK (24 checks passed; not every file was checked)" \
   "$(noqtis check -p me.pub --only data/in.csv r2 | tail -1)"
 code 2 noqtis prove repro report.txt
 mkdir r3
