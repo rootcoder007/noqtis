@@ -38,6 +38,22 @@ static int foldcmp(const void *ctx, size_t a, size_t b) {
   return nqcfold(l->e[a].path, l->e[a].len, l->e[b].path, l->e[b].len);
 }
 
+/* drops from l the temporary files of a capsule's own files (nqctmpnm:
+ * .noqtis.json.<pid>.<k>.tmp and those of noqtis.sig and noqtis.ers),
+ * which a seal or timestamp stopped while writing leaves behind: never
+ * sealed in as data. A check still sees one as an unlisted file. */
+static void notmp(nqclist *l) {
+  size_t i, k = 0;
+  for (i = 0; i < l->n; i++) {
+    if (nqctmpnm(l->e[i].path, l->e[i].len)) {
+      nqfree(l->e[i].path, l->e[i].len + 1);
+      continue;
+    }
+    l->e[k++] = l->e[i];
+  }
+  l->n = k;
+}
+
 int nqsealwhy(const char *dir, int *why, char *path, size_t cap) {
   nqclist l;
   size_t *idx = NULL, i;
@@ -48,6 +64,7 @@ int nqsealwhy(const char *dir, int *why, char *path, size_t cap) {
   if (cap > 0) path[0] = 0;
   memset(&l, 0, sizeof l);
   rc = nqcwalk(dir, &l);
+  if (rc == NQOK) notmp(&l);
   for (i = 0; rc == NQOK && w == 0 && i < l.n; i++) {
     if (l.e[i].kind == NQCLNK) w = NQSWLINK;
     else if (l.e[i].kind == NQCODD) w = NQSWODD;
@@ -311,6 +328,7 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
     nqjfree(mj);
     return rc;
   }
+  notmp(&l);
   rc = sealable(&l);
   if (rc == NQOK && ver == 2) {
     lvn = (l.n > 0 ? l.n : 1) * 32;

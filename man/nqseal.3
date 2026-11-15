@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 29, 2026
+.Dd November 15, 2026
 .Dt NQSEAL 3
 .Os
 .Sh NAME
@@ -39,7 +39,17 @@ without following links, leaving out
 .Pa noqtis.json
 and
 .Pa noqtis.sig
-at the top; records each regular file's path, size, SHA-256 and SHA3-256
+at the top, and the temporary files it writes them through when one is
+left there
+.Po
+.Pa .noqtis.json. Ns Ar pid Ns Pa \&. Ns Ar k Ns Pa .tmp
+and the same of
+.Pa noqtis.sig
+and
+.Pa noqtis.ers ,
+.Ar k
+0 to 15
+.Pc ; records each regular file's path, size, SHA-256 and SHA3-256
 in canonical JSON (RFC 8785), sorted by path; adds
 .Fa meta ;
 signs the exact manifest bytes with

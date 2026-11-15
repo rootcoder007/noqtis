@@ -274,11 +274,11 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
  * O_EXCL and O_NOFOLLOW, so never through a link; ncclose gives it its
  * name only once it is whole, so an output cut short by a failure or a
  * signal never stands under the name asked for. The paths in pnd are
- * removed on SIGINT, SIGTERM and SIGHUP (and, for an output still open,
- * at exit) before the process ends; a signal the process ignored when
- * the first was armed stays ignored. Only SIGKILL or a power cut can
- * leave a temporary name behind (and on Windows a signal, as an open
- * file cannot be removed there). */
+ * removed on SIGINT, SIGTERM, SIGHUP and SIGXFSZ (and, for an output
+ * still open, at exit) before the process ends; a signal the process
+ * ignored when the first was armed stays ignored. Only SIGKILL or a
+ * power cut can leave a temporary name behind (and on Windows a signal,
+ * as an open file cannot be removed there). */
 #define NCPEND 8
 static char pnd[NCPEND][4200];
 static volatile sig_atomic_t pon[NCPEND];
@@ -289,6 +289,9 @@ static int npon = 0, pexit = 0;
 static const int psig[] = {SIGINT, SIGTERM
 #ifdef SIGHUP
                            , SIGHUP
+#endif
+#ifdef SIGXFSZ
+                           , SIGXFSZ /* a write over ulimit -f */
 #endif
 };
 #define NPSIG (sizeof psig / sizeof psig[0])
@@ -341,6 +344,24 @@ void ncunpend(int i) {
   if (--npon == 0) {
     for (k = 0; k < NPSIG; k++)
       signal(psig[k], pold[k] == SIG_ERR ? SIG_DFL : pold[k]);
+  }
+}
+
+void ncpendseal(const char *dir, int sl[2]) {
+  static const char *const nm[] = {"noqtis.json", "noqtis.sig"};
+  char p[4200];
+  unsigned long pid;
+  int i, n;
+#ifdef _WIN32
+  pid = (unsigned long)GetCurrentProcessId();
+#else
+  pid = (unsigned long)getpid();
+#endif
+  for (i = 0; i < 2; i++) {
+    sl[i] = -1;
+    n = snprintf(p, sizeof p, "%s/.%s.%lu.0.tmp", dir, nm[i], pid);
+    if (n > 0 && (size_t)n < sizeof p)
+      sl[i] = ncpend(p);
   }
 }
 

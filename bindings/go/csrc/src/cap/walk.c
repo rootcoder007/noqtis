@@ -744,6 +744,25 @@ int nqchas(const char *dir, const char *name) {
   return 1;
 }
 
+int nqctmpnm(const char *p, size_t n) {
+  static const char *const own[] = {NQCMAN, NQCSIG, NQCERS};
+  size_t i, j, d, k, l;
+  for (i = 0; i < 3; i++) {
+    l = strlen(own[i]);
+    if (n < l + 9 || p[0] != '.' || memcmp(p + 1, own[i], l) != 0 ||
+        p[l + 1] != '.')
+      continue;
+    /* <pid>.<k>.tmp after ".<name>." */
+    for (j = l + 2, d = 0; j < n && p[j] >= '0' && p[j] <= '9'; j++) d++;
+    if (d == 0 || d > 20 || j >= n || p[j] != '.') continue;
+    for (j++, k = 0, d = 0; j < n && p[j] >= '0' && p[j] <= '9'; j++, d++)
+      k = k * 10 + (size_t)(p[j] - '0');
+    if (d == 0 || d > 2 || k > 15 || (d == 2 && p[j - 2] == '0')) continue;
+    if (n - j == 4 && memcmp(p + j, ".tmp", 4) == 0) return 1;
+  }
+  return 0;
+}
+
 int nqcwrite(const char *dir, const char *name, const char *buf, size_t n) {
   size_t fl = 0, tl = 0;
   char *full, *tmp = NULL, tn[96];

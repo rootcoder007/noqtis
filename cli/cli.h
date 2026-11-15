@@ -79,6 +79,10 @@ FILE *ncopen(const char *path, int force, int sec);
  * the slot, or -1 when all 8 are taken or path is too long */
 int ncpend(const char *path);
 void ncunpend(int slot);
+/* ncpend for the temporary files the library writes a seal of dir
+ * through (.noqtis.json.<pid>.0.tmp, .noqtis.sig.<pid>.0.tmp): two
+ * slots into sl, -1 where none was free */
+void ncpendseal(const char *dir, int sl[2]);
 /* Writes len bytes to a new file (see ncopen); removes it on failure. */
 int ncwr(const char *path, const uint8_t *b, size_t len, int force,
          int sec);

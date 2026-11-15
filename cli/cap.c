@@ -15,19 +15,26 @@
 /* While seal --tsa waits for a TSA, an interrupt (Ctrl-C, SIGTERM,
  * SIGHUP) removes the new noqtis.json and noqtis.sig before the process
  * ends (ncpend, cli/io.c), so the folder is not left sealed without the
- * timestamp asked for. Only SIGKILL (or a power cut) can still leave it
- * so. */
-static int pslot[2] = {-1, -1};
+ * timestamp asked for; and while any seal writes, the temporary files
+ * it writes them through are removed the same way, so a stopped seal
+ * leaves none in the folder. Only SIGKILL (or a power cut) can still
+ * leave either. */
+static int pslot[4] = {-1, -1, -1, -1};
 
 static void disarm(void);
 
-static int arm(const char *dir) {
+static int arm(const char *dir, int tsa) {
   char p[2][4200];
+  ncpendseal(dir, pslot + 2);
+  if (!tsa)
+    return 1;
   if (snprintf(p[0], sizeof p[0], "%s/noqtis.sig", dir) >=
           (int)sizeof p[0] ||
       snprintf(p[1], sizeof p[1], "%s/noqtis.json", dir) >=
-          (int)sizeof p[1])
+          (int)sizeof p[1]) {
+    disarm();
     return 0;
+  }
   pslot[0] = ncpend(p[0]);
   pslot[1] = ncpend(p[1]);
   if (pslot[0] >= 0 && pslot[1] >= 0)
@@ -37,9 +44,11 @@ static int arm(const char *dir) {
 }
 
 static void disarm(void) {
-  ncunpend(pslot[0]);
-  ncunpend(pslot[1]);
-  pslot[0] = pslot[1] = -1;
+  int i;
+  for (i = 0; i < 4; i++) {
+    ncunpend(pslot[i]);
+    pslot[i] = -1;
+  }
 }
 
 /* ---- TSA anchors (--anchor, DER certificates) ---- */
@@ -535,7 +544,7 @@ int ncseal(int argc, char **argv) {
   }
   /* armed before the seal is written, so no interrupt can fall between
    * writing it and waiting for the TSA */
-  if (nt > 0 && !arm(argv[0])) {
+  if (!arm(argv[0], nt > 0)) {
     ncmsg("seal", "%s: path too long", argv[0]);
     goto done;
   }

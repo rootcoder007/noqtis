@@ -465,6 +465,38 @@ has "$w/err" "its source is not marked synthetic" "real source refused"
 same "$y/data/real.csv" "$v/cap/data/a.csv" "the real file is untouched"
 ok 2 "syn: refuses a path outside" "$nq" data syn --seed 1 "$y" ../x.csv
 
+# ---- a seal's own temporary files: never sealed in, removed when a seal
+# is stopped ----
+
+z=$w/stale
+mkdir -p "$z"
+i=0
+while [ $i -lt 30 ]; do
+  printf '%s\n' "$i" >"$z/file-$i-with-a-name-long-enough.txt"
+  i=$((i + 1))
+done
+printf 'half a manifest' >"$z/.noqtis.json.12345.0.tmp"
+printf 'not one of them' >"$z/.noqtis.json.x.tmp"
+ok 0 "seal beside a stale temporary file" "$nq" seal -k "$w/k" "$z"
+ok 1 "the stale file is not listed" grep -q 'noqtis.json.12345' \
+  "$z/noqtis.json"
+has "$z/noqtis.json" '"path":".noqtis.json.x.tmp"' "another name is sealed"
+ok 1 "check fails the stale file" "$nq" check -p "$w/k.pub" "$z"
+has "$w/out" ".noqtis.json.12345.0.tmp: not in the manifest" \
+  "it is named as unlisted"
+rm "$z/.noqtis.json.12345.0.tmp"
+ok 0 "check without it" "$nq" check -p "$w/k.pub" "$z"
+rm "$z/noqtis.json" "$z/noqtis.sig"
+# stopped by SIGXFSZ while it writes the manifest (over 512 bytes)
+ok 153 "a seal stopped while writing" sh -c 'ulimit -f 1; exec "$@"' sh \
+  "$nq" seal -k "$w/k" "$z"
+n=$((n + 1))
+if ls -a "$z" | grep -q '^\.noqtis\.[a-z]*\.[0-9]*\.[0-9]*\.tmp$'; then
+  bad=$((bad + 1))
+  echo "FAIL a stopped seal left a temporary file:" >&2
+  ls -a "$z" >&2
+fi
+
 # ---- seal -r, check -r ----
 
 t=$w/tree

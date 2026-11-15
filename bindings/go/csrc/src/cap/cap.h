@@ -173,8 +173,14 @@ int nqcdigx(const char *dir, const char *rel, uint64_t max, uint64_t *size,
  * is read (NQELIM either way). */
 int nqcread(const char *dir, const char *name, size_t max, char **buf,
             size_t *n);
-/* Writes n bytes to dir/name, replacing it. */
+/* Writes n bytes to dir/name, replacing it, through the temporary file
+ * .<name>.<pid>.<k>.tmp (k 0 to 15) beside it. */
 int nqcwrite(const char *dir, const char *name, const char *buf, size_t n);
+/* 1 when the path p (n bytes) is exactly a temporary name nqcwrite
+ * gives a capsule's own file at the top of its folder:
+ * .noqtis.json.<pid>.<k>.tmp, and the same of noqtis.sig and noqtis.ers,
+ * <pid> 1 to 20 decimal digits, <k> 0 to 15 */
+int nqctmpnm(const char *p, size_t n);
 /* 1 when dir/name opens for reading (never through a link), else 0. */
 int nqchas(const char *dir, const char *name);
 
