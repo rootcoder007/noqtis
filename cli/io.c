@@ -330,7 +330,8 @@ int ncpend(const char *path) {
     ;
   if (i == NCPEND)
     return -1;
-  strcpy(pnd[i], path);
+  /* the length was checked above */
+  snprintf(pnd[i], sizeof pnd[i], "%s", path);
   pfh[i] = NULL;
   if (npon++ == 0) {
     for (k = 0; k < NPSIG; k++) {
@@ -490,7 +491,8 @@ FILE *ncopen(const char *path, int force, int sec) {
     setvbuf(f, NULL, _IONBF, 0);
   if (!pexit)
     pexit = atexit(atpend) == 0;
-  strcpy(pfin[i], path);
+  /* shorter than its temporary name, which fitted in the same size */
+  snprintf(pfin[i], sizeof pfin[i], "%s", path);
   pfrc[i] = force;
   pfh[i] = f;
   return f;
