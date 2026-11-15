@@ -1,6 +1,6 @@
 # R package (bindings/r): vendors the C library, then R CMD check --as-cran
 # on Linux, macOS and Windows, R release and devel.
-name: r
+name: R-CMD-check
 
 on:
   push:

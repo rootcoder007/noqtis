@@ -30,6 +30,9 @@ Test fixtures
 
 inst/extdata/capsule and tests/testthat/fixtures were made with the
 noqtis library and are under the same licence, except
+The timestamp tokens and certificates under tests/testthat/fixtures/tsa
+and tests/testthat/fixtures/ers were made with OpenSSL, with throwaway
+keys that were not kept.
 tests/testthat/fixtures/kat.txt: records copied from the repository's
 tests/vectors, among them answers of the NIST ACVP sets (works of the
 United States government) and the published BLAKE2b and Argon2 answers
