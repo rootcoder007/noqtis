@@ -7,7 +7,7 @@ vignette are
   Copyright 2026 Vansh Singh Ruhela (rootcoder007)
 
 and licensed under the Apache License, Version 2.0, with LLVM
-Exceptions (SPDX: Apache-2.0 WITH LLVM-exception); see LICENSE.
+Exceptions (SPDX: Apache-2.0 WITH LLVM-exception); see LICENSE.note.
 
 Bundled C library
 -----------------
@@ -19,7 +19,7 @@ unmodified copy of the noqtis C library
 that repository:
 
   Copyright 2026 Vansh Singh Ruhela (rootcoder007)
-  License: Apache-2.0 WITH LLVM-exception (see LICENSE)
+  License: Apache-2.0 WITH LLVM-exception (see LICENSE.note)
 
 The library is an independent implementation of public standards
 (FIPS 180-4, FIPS 202, FIPS 203, FIPS 204, FIPS 205, SP 800-90A, the
@@ -29,14 +29,17 @@ Test fixtures
 -------------
 
 inst/extdata/capsule and tests/testthat/fixtures were made with the
-noqtis library and are under the same licence. No NIST or Wycheproof
-test vector files are shipped in this package.
+noqtis library and are under the same licence, except
+tests/testthat/fixtures/kat.txt: records copied from the repository's
+tests/vectors, among them answers of the NIST ACVP sets (works of the
+United States government) and the published BLAKE2b and Argon2 answers
+(RFC 7693, RFC 9106, the BLAKE2 reference implementation); see
+tests/vectors/SOURCES.md in the repository. No whole NIST or Wycheproof
+test vector file is shipped in this package.
 
 Licence note
 ------------
 
-The licence field "Apache License (== 2.0) | file LICENSE" offers the
-Apache License 2.0 or the Apache License 2.0 with the LLVM Exceptions
-(the text in LICENSE). The exceptions only add permissions, so the two
-alternatives together grant exactly what Apache-2.0 WITH
-LLVM-exception grants.
+The licence field names the Apache License 2.0; inst/LICENSE.note
+carries the LLVM Exceptions, additional permissions on top of it, so
+the package grants exactly what Apache-2.0 WITH LLVM-exception grants.

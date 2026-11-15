@@ -10,3 +10,4 @@
 ^\.lintr$
 ^src/Makevars$
 ^src/Makevars\.win$
+^LICENSE$

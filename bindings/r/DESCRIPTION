@@ -17,7 +17,7 @@ Description: A post-quantum cryptography toolkit for R, built on the
     others, and signed statements rotate or revoke a sealing key. Results
     can be wrapped in 'DSSE' envelopes. Keys and 'nonces' come from the
     operating system's random generator, not from the one in R.
-License: Apache License (== 2.0) | file LICENSE
+License: Apache License (== 2.0)
 Copyright: see file inst/COPYRIGHTS
 URL: https://github.com/rootcoder007/noqtis
 BugReports: https://github.com/rootcoder007/noqtis/issues
