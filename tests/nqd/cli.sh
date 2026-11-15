@@ -1272,6 +1272,20 @@ printf 'a,b,a\n1,2,3\n' >"$q/d.csv"
 ok 2 "schema infer, a header name twice" "$nq" schema infer "$q" d.csv
 has "$w/err" 'names column "a" twice' "the name is given"
 
+# ---- a folder path too long for the record's: the reason says so ----
+
+mkdir -p "$w/lp"
+lp=$(awk 'BEGIN { s = ""; for (i = 0; i < 2100; i++) s = s "./"; printf "%slp", s }')
+for cmd in "data show" "drift check"; do
+  (cd "$w" && "$nq" $cmd "$lp") >"$w/out" 2>"$w/err"
+  n=$((n + 1))
+  if ! grep -q "path is too long" "$w/err"; then
+    bad=$((bad + 1))
+    echo "FAIL $cmd with a 4,202-byte folder path: not the reason" >&2
+    od -c "$w/err" | head -5 >&2
+  fi
+done
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"

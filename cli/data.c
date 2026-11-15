@@ -47,7 +47,7 @@ char *ncjq(const char *s) {
 
 /* the record of dir: loaded, or a new one when there is none and mk */
 int ncdload(const char *cmd, const char *dir, int mk, nqdrec **r) {
-  char why[600];
+  char why[600] = "";
   int rc = nqdload(dir, r, why, sizeof why);
   if (rc == NQEIO && mk)
     rc = nqdnew(r);

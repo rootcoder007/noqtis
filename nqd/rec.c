@@ -806,11 +806,11 @@ static int parse(const char *json, size_t n, int fix, nqdrec **r, char *why,
   djs *v = NULL;
   int rc;
   nqdrec *x;
+  if (why != NULL && cap)
+    why[0] = '\0';
   if (r == NULL || (json == NULL && n))
     return NQEARG;
   *r = NULL;
-  if (why != NULL && cap)
-    why[0] = '\0';
   if (n > NQDMAX) {
     qdwhy(why, cap, "a record is at most 64 MiB");
     return NQELIM;
@@ -870,11 +870,17 @@ int nqdload(const char *dir, nqdrec **r, char *why, size_t cap) {
   size_t n;
   int rc;
   dbuf b;
+  /* the reason is set on every return: a caller prints it */
+  if (why != NULL && cap)
+    why[0] = '\0';
   if (r == NULL || dir == NULL)
     return NQEARG;
   *r = NULL;
-  if ((size_t)snprintf(p, sizeof p, "%s/%s", dir, NQDFILE) >= sizeof p)
+  if ((size_t)snprintf(p, sizeof p, "%s/%s", dir, NQDFILE) >= sizeof p) {
+    qdwhy(why, cap, "the folder's path is too long (over 4,200 bytes "
+          "with " NQDFILE ")");
     return NQELIM;
+  }
   if ((rc = qdreadat(dir, NQDFILE, NQDMAX, &buf, &n)) != NQOK) {
     qdwhy(why, cap, rc == NQELIM   ? NQDFILE " is over 64 MiB"
                     : rc == NQEARG ? NQDFILE " is a link or not a plain "
