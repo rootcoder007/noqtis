@@ -1,0 +1,101 @@
+# The checks the rOpenSci review bot runs on the R package (bindings/r):
+# goodpractice::gp() with all its default checks on every push to main
+# that touches the package or the library it vendors, and pkgcheck in the
+# bot's own image, by hand only: pkgcheck reads the repository's website
+# and workflow runs from GitHub. Each fails on any failed check.
+name: rgp
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bindings/r/**"
+      - "src/**"
+      - "include/**"
+      - "nqd/**"
+      - ".github/workflows/rgp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rgp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  goodpractice:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      _R_CHECK_FORCE_SUGGESTS_: false
+      _R_CHECK_CRAN_INCOMING_REMOTE_: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          working-directory: bindings/r
+          extra-packages: any::goodpractice, any::rcmdcheck, any::covr
+          needs: check
+      - name: the vendored sources match src/, include/ and nqd/
+        run: |
+          sh bindings/r/tools/vendor.sh
+          git diff --exit-code -- bindings/r/src
+          test -z "$(git status --porcelain bindings/r/src)"
+      - name: goodpractice, all default checks
+        working-directory: bindings/r
+        run: |
+          Rscript -e '
+            g <- goodpractice::gp(".")
+            print(g)
+            bad <- goodpractice::failed_checks(g)
+            cat("failed checks:", length(bad), "\n")
+            if (length(bad)) {
+              writeLines(paste0("::error title=goodpractice::", bad))
+              quit(status = 1)
+            }'
+
+  pkgcheck:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: pkgcheck in the bot's image, at most 2 GB
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pc"
+          cat > "$RUNNER_TEMP/pc/run.R" <<'RSCRIPT'
+          pkgstats::ctags_install(sudo = TRUE)
+          x <- pkgcheck::pkgcheck("/pkg/bindings/r")
+          s <- capture.output(summary(x), type = "message")
+          writeLines(s)
+          rc <- x$goodpractice$rcmdcheck
+          if (inherits(rc, "try-error")) cat(rc) else {
+            cat("errors:", length(rc$errors), " warnings:",
+                length(rc$warnings), " notes:", length(rc$notes), "\n")
+            writeLines(c(rc$errors, rc$warnings))
+          }
+          # a cross (U+2716) is a failing check
+          quit(status = as.integer(any(grepl("✖", s))))
+          RSCRIPT
+          # the review bot kills a check that needs more than about 2 GB
+          docker run --rm --memory=2g --memory-swap=2g \
+            -e GITHUB_TOKEN -e PKG_SYSREQS=false \
+            -v "$PWD:/pkg" -v "$RUNNER_TEMP/pc:/pc" -w /pkg \
+            --entrypoint Rscript \
+            ghcr.io/ropensci-review-tools/pkgcheck-action:latest \
+            /pc/run.R
