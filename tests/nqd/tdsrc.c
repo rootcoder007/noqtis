@@ -36,7 +36,7 @@ static int rsp(const char *rs, const char *f, char tm[21]) {
   why[0] = '\0';
   rc = nqdrsp(rs, strlen(rs), b, bl, out, sizeof out, &n, tm, why,
               sizeof why);
-  qdfree(b);
+  qdfree(b, bl + 1);
   return rc;
 }
 

@@ -50,6 +50,7 @@ struct qdrx {
   size_t start;
   /* for the run: two lists of states, a stack, and marks */
   size_t *cur, *nxt, *stk, *mark, gen;
+  size_t pn; /* the pattern's length, which sized s, r and cl */
 };
 
 /* the code point at s[*i], *i moved past it; a byte that does not start
@@ -461,14 +462,14 @@ static void build(qdrx *x, const rxpost *o, rxfrag *fs) {
 void qdrxfree(qdrx *x) {
   if (x == NULL)
     return;
-  qdfree(x->s);
-  qdfree(x->r);
-  qdfree(x->cl);
-  qdfree(x->cur);
-  qdfree(x->nxt);
-  qdfree(x->stk);
-  qdfree(x->mark);
-  qdfree(x);
+  qdfree(x->s, (2 * x->pn + 5) * sizeof *x->s);
+  qdfree(x->r, (4 * x->pn + 4) * sizeof *x->r);
+  qdfree(x->cl, (x->pn + 1) * sizeof *x->cl);
+  qdfree(x->cur, x->ns * sizeof *x->cur);
+  qdfree(x->nxt, x->ns * sizeof *x->nxt);
+  qdfree(x->stk, (2 * x->ns + 1) * sizeof *x->stk);
+  qdfree(x->mark, x->ns * sizeof *x->mark);
+  qdfree(x, sizeof *x);
 }
 
 int qdrxcomp(const char *p, size_t n, qdrx **out, char *why, size_t cap) {
@@ -491,6 +492,7 @@ int qdrxcomp(const char *p, size_t n, qdrx **out, char *why, size_t cap) {
   if ((x = (qdrx *)qdmal(sizeof *x)) == NULL)
     return NQEMEM;
   memset(x, 0, sizeof *x);
+  x->pn = n;
   /* every pattern byte gives at most one token and one concatenation,
    * a class at most four ranges per byte, a token at most one state */
   o.t = (rxtok *)qdmal(nt * sizeof *o.t);
@@ -519,8 +521,8 @@ int qdrxcomp(const char *p, size_t n, qdrx **out, char *why, size_t cap) {
     x->mark[i] = 0;
   x->gen = 0;
 out:
-  qdfree(o.t);
-  qdfree(fs);
+  qdfree(o.t, nt * sizeof *o.t);
+  qdfree(fs, nt * sizeof *fs);
   if (rc != NQOK)
     qdrxfree(x);
   else

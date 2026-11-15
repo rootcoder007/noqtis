@@ -99,7 +99,7 @@ int nqdchunk(const char *dir, const char *path, uint64_t chunk, char *out,
 out:
   if (f != NULL)
     fclose(f);
-  qdfree(b);
+  qdfree(b, 65536);
   qdjfree(dg);
   qdjfree(e);
   return rc;
@@ -138,7 +138,7 @@ int qdpiece(nqdrep *rep, const djs *e, const char *dir, const char *piece,
     return qdrepadd(rep, "chunk", 0, "%s: missing or unreadable", piece);
   if ((b = (uint8_t *)qdmal(65536)) == NULL || nqhini(&c, NQS256) != NQOK) {
     fclose(f);
-    qdfree(b);
+    qdfree(b, 65536);
     return NQEMEM;
   }
   first = off / chunk;
@@ -189,7 +189,7 @@ int qdpiece(nqdrep *rep, const djs *e, const char *dir, const char *piece,
                   (unsigned long long)in);
   }
   fclose(f);
-  qdfree(b);
+  qdfree(b, 65536);
   if (bad > 20)
     rc = qdrepadd(rep, "chunk", 0, "%s: %llu more chunks differ", path,
                   (unsigned long long)(bad - 20));
@@ -228,8 +228,7 @@ int nqdpiece(const char *elem, size_t n, const char *piece, uint64_t off,
       return rc;
     }
     qdrepadd(r, "chunk", 0, "the chunks element: %s", why);
-    *rep = r;
-    return NQEVRFY;
+    return qdrepout(r, rep, NQEVRFY);
   }
   rc = qdpiece(r, e, NULL, piece, off, 0);
   qdjfree(e);
@@ -242,6 +241,5 @@ int nqdpiece(const char *elem, size_t n, const char *piece, uint64_t off,
     nqdrepi(r, i, NULL, &ok, NULL);
     bad += !ok;
   }
-  *rep = r;
-  return bad ? NQEVRFY : NQOK;
+  return qdrepout(r, rep, bad ? NQEVRFY : NQOK);
 }

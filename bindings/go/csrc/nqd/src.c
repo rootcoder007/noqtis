@@ -649,6 +649,8 @@ int nqdrsp(const char *rslvj, size_t n, const char *reply, size_t rn,
   memset(&b, 0, sizeof b);
   b.max = QDURL + 1;
   rc = rslv(rs, &b, why, wcap);
+  if (rc == NQOK && b.err == NQEMEM)
+    rc = NQEMEM;
   qdbfree(&b);
   if (rc != NQOK) {
     qdjfree(rs);

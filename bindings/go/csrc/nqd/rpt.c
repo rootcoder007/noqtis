@@ -388,6 +388,8 @@ int nqdrpt(const char *dir, const nqrep *crep, const nqdrep *drep, int fmt,
     n++;
   }
   bad += data(&r, dir, drep, &nd, &err);
+  if (err == NQOK && body.err)
+    err = body.err;
   if (err != NQOK) {
     qdbfree(&body);
     return err;

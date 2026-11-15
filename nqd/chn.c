@@ -28,7 +28,10 @@ static int inputs(const char *dir, const uint8_t id[32], uint8_t *ids,
   int rc;
   *n = 0;
   memset(&h, 0, sizeof h);
-  if (qdreadat(dir, "noqtis.json", (size_t)512 << 20, &m, &ml) != NQOK) {
+  if ((rc = qdreadat(dir, "noqtis.json", (size_t)512 << 20, &m, &ml)) !=
+      NQOK) {
+    if (rc == NQEMEM)
+      return rc;
     qdwhy(why, cap, "its manifest cannot be read");
     return NQEIO;
   }
@@ -65,16 +68,18 @@ static int inputs(const char *dir, const uint8_t id[32], uint8_t *ids,
   }
   qdjfree(v);
   qdbfree(&h);
-  qdfree(m);
+  qdfree(m, ml + 1);
   return rc;
 }
 
-/* the seal's key fingerprint (info.key of nqinsp), "" when unread */
-static void keyfp(const char *dir, char out[65]) {
+/* the seal's key fingerprint (info.key of nqinsp), "" when unread;
+ * NQEMEM when nqinsp ran out of memory, else NQOK */
+static int keyfp(const char *dir, char out[65]) {
   nqrep *r = NULL;
   size_t i;
+  int rc;
   out[0] = '\0';
-  if (nqinsp(dir, &r) == NQOK) {
+  if ((rc = nqinsp(dir, &r)) == NQOK) {
     for (i = 0; i < nqrepn(r); i++) {
       const char *c = NULL, *d = NULL;
       nqrepi(r, i, &c, NULL, &d);
@@ -84,6 +89,7 @@ static void keyfp(const char *dir, char out[65]) {
     }
   }
   nqrepfree(r);
+  return rc == NQEMEM ? rc : NQOK;
 }
 
 /* the first failed row of a capsule check, as "check: detail" */
@@ -186,7 +192,10 @@ int nqdchain(const char *const *dirs, size_t n, const nqcopt *o,
                (unsigned long)i + 1, dirs[i], dirs[i - 1]);
     }
     bad += !ok;
-    keyfp(dirs[i], k);
+    if (keyfp(dirs[i], k) == NQEMEM) {
+      nqdrepfree(rep);
+      return NQEMEM;
+    }
     if (i == 0) {
       memcpy(k0, k, sizeof k);
     } else if (k[0] == '\0' || strcmp(k, k0) != 0) {
@@ -203,6 +212,5 @@ int nqdchain(const char *const *dirs, size_t n, const nqcopt *o,
     qdhex(head, 32, hx);
     qdrepadd(rep, "head", 1, "%s (%s)", hx, dirs[n - 1]);
   }
-  *out = rep;
-  return bad ? NQEVRFY : NQOK;
+  return qdrepout(rep, out, bad ? NQEVRFY : NQOK);
 }

@@ -1,18 +1,24 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd November 14, 2026
 .Dt NQSETAL 3
 .Os
 .Sh NAME
-.Nm nqsetal
-.Nd set the allocator of the capsule and parser layers
+.Nm nqsetal ,
+.Nm nqdsetal
+.Nd set the allocator of the capsule and parser layers, and of the data layer
 .Sh LIBRARY
-libnoqtis, \-lnoqtis
+libnoqtis, \-lnoqtis;
+.Fn nqdsetal
+in libnqd, \-lnqd
 .Sh SYNOPSIS
 .In noqtis.h
 .Vt typedef void *(*nqmalfn)(size_t size, void *user);
 .Vt typedef void (*nqfreefn)(void *ptr, size_t size, void *user);
 .Ft int
 .Fn nqsetal "nqmalfn mal" "nqfreefn fre" "void *user"
+.In nqd.h
+.Ft int
+.Fn nqdsetal "nqmalfn mal" "nqfreefn fre" "void *user"
 .Sh DESCRIPTION
 The algorithm code of noqtis never allocates; the capsule layer
 .Pq Xr nqseal 3 , Xr nqchk 3
@@ -44,10 +50,24 @@ restore the default,
 and
 .Xr free 3 .
 .Pp
-The hook is global and
+.Fn nqdsetal
+does the same for the data layer
+.Pq Xr nqdnew 3 , Xr nqdchk 3
+and everything it allocates, with the same arguments and the same
+default.
+The data layer does not wipe memory before it gives it to
+.Fa fre .
+The two hooks are separate: a program that wants one allocator for both
+sets both.
+The language bindings set neither; the R package sets both in its own
+tests only, to make allocations fail.
+.Pp
+Each hook is global, and
 .Fn nqsetal
-is not thread safe: call it before any other function of the library, and
-never while another thread uses the library.
+and
+.Fn nqdsetal
+are not thread safe: call them before any other function of the library,
+and never while another thread uses the library.
 .Sh RETURN VALUES
 .Dv NQOK ,
 or
@@ -88,4 +108,5 @@ nqsetal(mal, fre, NULL);
 .Sh SEE ALSO
 .Xr noqtis 3 ,
 .Xr nqchk 3 ,
+.Xr nqdnew 3 ,
 .Xr nqseal 3

@@ -98,7 +98,7 @@ static int hsadd(qdhs *h, const uint8_t d[16]) {
         ;
       memcpy(nk + 16 * i, e, 16);
     }
-    qdfree(h->k);
+    qdfree(h->k, h->cap * 16);
     h->k = nk;
     h->cap = nc;
   }
@@ -170,6 +170,8 @@ typedef struct {
   double *mv;   /* mad: the numbers, in file order */
   uint64_t *ml; /* mad: the line of each */
   size_t mn, mcap;
+  int mfull; /* mad: a value could not be kept; the end says so */
+  int oom;   /* an allocation failed: the check is an error, NQEMEM */
   int ok; /* 0: the rule cannot run (a column it names is not there) */
 } qdrule;
 
@@ -177,7 +179,7 @@ typedef struct {
 #define QDMADMAX ((size_t)1 << 23)
 
 /* keeps d and its line for a mad rule; 0 when it cannot (too many, or
- * out of memory) */
+ * out of memory: u->oom) */
 static int madadd(qdrule *u, double d, uint64_t line) {
   if (u->mn == u->mcap) {
     size_t nc = u->mcap ? u->mcap * 2 : 1024;
@@ -188,16 +190,17 @@ static int madadd(qdrule *u, double d, uint64_t line) {
     nv = (double *)qdmal(nc * sizeof *nv);
     nl = (uint64_t *)qdmal(nc * sizeof *nl);
     if (nv == NULL || nl == NULL) {
-      qdfree(nv);
-      qdfree(nl);
+      qdfree(nv, nc * sizeof *nv);
+      qdfree(nl, nc * sizeof *nl);
+      u->oom = 1;
       return 0;
     }
     if (u->mn) {
       memcpy(nv, u->mv, u->mn * sizeof *nv);
       memcpy(nl, u->ml, u->mn * sizeof *nl);
     }
-    qdfree(u->mv);
-    qdfree(u->ml);
+    qdfree(u->mv, u->mcap * sizeof *u->mv);
+    qdfree(u->ml, u->mcap * sizeof *u->ml);
     u->mv = nv;
     u->ml = nl;
     u->mcap = nc;
@@ -325,8 +328,8 @@ static void rulestep(qdrule *u, const qdcsv *c, const djs *na,
     if (!(qdvclass(v, l, &d) & QDTREAL)) {
       if (u->bad++ == 0)
         u->first = line;
-    } else if (!madadd(u, d, line)) {
-      u->mcap = (size_t)-1; /* the end says so */
+    } else if (!u->mfull && !madadd(u, d, line)) {
+      u->mfull = 1;
     }
   } else if (strcmp(u->kind, "incr") == 0) {
     int num = (qdvclass(v, l, &d) & QDTREAL) != 0;
@@ -337,12 +340,13 @@ static void rulestep(qdrule *u, const qdcsv *c, const djs *na,
         u->first = line;
     }
     u->prev = 1;
-    qdfree(u->ps);
+    if (u->ps != NULL)
+      qdfree(u->ps, strlen(u->ps) + 1);
     u->ps = NULL;
     if (num)
       u->pd = d;
     else
-      u->ps = qddup(v, l);
+      u->oom |= (u->ps = qddup(v, l)) == NULL;
   }
 }
 
@@ -380,7 +384,10 @@ static int rulesetup(qdrule *u, const djs *r, const qdcol *cols, size_t nc,
   if (strcmp(u->kind, "regex") == 0) {
     const djs *p = qdjget(r, "pattern");
     char w[300];
-    if (qdrxcomp(p->s, p->sl, &u->rx, w, sizeof w) != NQOK) {
+    int rc = qdrxcomp(p->s, p->sl, &u->rx, w, sizeof w);
+    if (rc == NQEMEM)
+      return rc;
+    if (rc != NQOK) {
       u->ok = 0;
       return qdrepadd(x->rep, "rule", 0, "%s%s: regex: %s", x->path, x->sy,
                       w);
@@ -390,11 +397,12 @@ static int rulesetup(qdrule *u, const djs *r, const qdcol *cols, size_t nc,
 }
 
 static void rulefree(qdrule *u) {
-  qdfree(u->hs.k);
-  qdfree(u->ps);
+  qdfree(u->hs.k, u->hs.cap * 16);
+  if (u->ps != NULL)
+    qdfree(u->ps, strlen(u->ps) + 1);
   qdrxfree(u->rx);
-  qdfree(u->mv);
-  qdfree(u->ml);
+  qdfree(u->mv, u->mcap * sizeof *u->mv);
+  qdfree(u->ml, u->mcap * sizeof *u->ml);
   u->hs.k = NULL;
   u->ps = NULL;
   u->rx = NULL;
@@ -410,13 +418,13 @@ static void madend(qdrule *u, qdctx *x, const char *who) {
   size_t i;
   char a[40], b[40];
   int ok;
-  if (u->mcap == (size_t)-1) {
+  if (u->mfull) {
     qdrepadd(x->rep, "rule", 0, "%s: too many values to check", who);
     return;
   }
   if (u->mn > 0) {
     if ((t = (double *)qdmal(u->mn * sizeof *t)) == NULL) {
-      qdrepadd(x->rep, "rule", 0, "%s: out of memory", who);
+      u->oom = 1; /* qdschk returns NQEMEM */
       return;
     }
     memcpy(t, u->mv, u->mn * sizeof *t);
@@ -424,7 +432,7 @@ static void madend(qdrule *u, qdctx *x, const char *who) {
     for (i = 0; i < u->mn; i++)
       t[i] = fabs(u->mv[i] - med);
     s = 1.4826 * median(t, u->mn);
-    qdfree(t);
+    qdfree(t, u->mn * sizeof *t);
     for (i = 0; i < u->mn; i++) {
       if (fabs(u->mv[i] - med) > k * s) {
         if (u->bad++ == 0 || u->ml[i] < u->first)
@@ -507,6 +515,8 @@ int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy) {
   size_t nc = cj != NULL ? cj->n : 0, nr = rl != NULL ? rl->n : 0, i;
   qdcol *cols = NULL;
   qdrule *ru = NULL;
+  size_t ncap = nc + 1; /* the columns cols has room for */
+  size_t rcap = nr + 1; /* the rules ru has room for */
   qdcsv c;
   qdctx x;
   char p[4200];
@@ -527,12 +537,14 @@ int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy) {
                         ? "%s%s: a link or not a plain file, refused"
                         : "%s%s: missing or unreadable", path, sy);
   cols = (qdcol *)qdmal((nc + 1) * sizeof *cols);
-  ru = (qdrule *)qdmal((nr + 1) * sizeof *ru);
+  ru = (qdrule *)qdmal(rcap * sizeof *ru);
+  /* cleared before anything can fail: done frees every rule */
+  if (ru != NULL)
+    memset(ru, 0, rcap * sizeof *ru);
   if (cols == NULL || ru == NULL) {
     rc = NQEMEM;
     goto done;
   }
-  memset(ru, 0, (nr + 1) * sizeof *ru);
   for (i = 0; i < nc; i++) {
     const djs *e = cj->k[i], *nu = qdjget(e, "nulls");
     cols[i].name = qdjget(e, "name")->s;
@@ -555,8 +567,9 @@ int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy) {
   nf = c.nf;
   if (nc == 0) {
     /* no columns pinned: the file's own, as text, for the rules */
-    qdfree(cols);
-    cols = (qdcol *)qdmal((nf + 1) * sizeof *cols);
+    qdfree(cols, ncap * sizeof *cols);
+    ncap = nf + 1;
+    cols = (qdcol *)qdmal(ncap * sizeof *cols);
     own = (char **)qdmal((nf + 1) * sizeof *own);
     if (cols == NULL || own == NULL) {
       rc = NQEMEM;
@@ -600,7 +613,8 @@ int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy) {
     }
   }
   for (i = 0; i < nr; i++)
-    rulesetup(&ru[i], rl->k[i], cols, ncr, &x);
+    if ((rc = rulesetup(&ru[i], rl->k[i], cols, ncr, &x)) != NQOK)
+      goto done;
   /* with a header, the first data record comes next */
   if (header && (rc = qdcsvnext(&c, &got)) != NQOK)
     goto bad;
@@ -651,23 +665,38 @@ int qdschk(nqdrep *rep, const char *dir, const djs *sch, const char *sy) {
     qdrepadd(rep, "schema", 1, "%s%s: %llu rows, %lu columns as the schema "
              "says", path, sy, (unsigned long long)rows,
              (unsigned long)(nc ? nc : nf));
+  /* a rule that ran out of memory has not checked the file */
+  for (i = 0; i < nr; i++)
+    if (ru[i].oom || ru[i].hs.err == NQEMEM) {
+      rc = NQEMEM;
+      goto done;
+    }
   for (i = 0; i < nr; i++)
     ruleend(&ru[i], &x, rows, nc ? nc : nf);
+  for (i = 0; i < nr; i++)
+    if (ru[i].oom) {
+      nr = 0; /* ruleend freed them */
+      rc = NQEMEM;
+      goto done;
+    }
   nr = 0;
   rc = NQOK;
   goto done;
 bad:
+  if (rc == NQEMEM)
+    goto done; /* an error, not a row of the report */
   qdrepadd(rep, "schema", 0, "%s%s: %s", path, sy,
            c.why[0] ? c.why : nqerr(rc));
   rc = NQOK;
 done:
-  for (i = 0; i < nr; i++)
+  for (i = 0; ru != NULL && i < nr; i++)
     rulefree(&ru[i]);
   for (i = 0; i < nown; i++)
-    qdfree(own[i]);
-  qdfree(own);
-  qdfree(cols);
-  qdfree(ru);
+    if (own[i] != NULL)
+      qdfree(own[i], strlen(own[i]) + 1);
+  qdfree(own, (nf + 1) * sizeof *own);
+  qdfree(cols, ncap * sizeof *cols);
+  qdfree(ru, rcap * sizeof *ru);
   qdcsvclose(&c);
   return rc;
 }
@@ -693,8 +722,7 @@ int nqdschk(const char *dir, const char *schema, size_t n, nqdrep **out) {
       return rc;
     }
     qdrepadd(rep, "schema", 0, "not a schema: %s", why);
-    *out = rep;
-    return NQEVRFY;
+    return qdrepout(rep, out, NQEVRFY);
   }
   rc = qdschk(rep, dir, e, "");
   qdjfree(e);
@@ -707,8 +735,7 @@ int nqdschk(const char *dir, const char *schema, size_t n, nqdrep **out) {
     nqdrepi(rep, i, NULL, &ok, NULL);
     bad |= !ok;
   }
-  *out = rep;
-  return bad ? NQEVRFY : NQOK;
+  return qdrepout(rep, out, bad ? NQEVRFY : NQOK);
 }
 
 /* ---- inference ---- */
@@ -760,11 +787,13 @@ int nqdinfer(const char *dir, const char *path, const nqdcsvopt *o,
   nc = c.nf;
   in = (qdinf *)qdmal(nc * sizeof *in);
   names = (char **)qdmal(nc * sizeof *names);
+  /* cleared before anything can fail: out frees every name */
+  if (names != NULL)
+    memset(names, 0, nc * sizeof *names);
   if (in == NULL || names == NULL) {
     rc = NQEMEM;
     goto out;
   }
-  memset(names, 0, nc * sizeof *names);
   for (i = 0; i < nc; i++) {
     char g[32];
     memset(&in[i], 0, sizeof in[i]);
@@ -903,9 +932,10 @@ bad:
 out:
   if (names != NULL)
     for (i = 0; i < nc; i++)
-      qdfree(names[i]);
-  qdfree(names);
-  qdfree(in);
+      if (names[i] != NULL)
+        qdfree(names[i], strlen(names[i]) + 1);
+  qdfree(names, nc * sizeof *names);
+  qdfree(in, nc * sizeof *in);
   qdjfree(e);
   qdcsvclose(&c);
   return rc;

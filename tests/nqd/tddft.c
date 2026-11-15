@@ -23,7 +23,7 @@ static double ex(const char *key) {
       break;
     }
   }
-  qdfree(b);
+  qdfree(b, n + 1);
   return v;
 }
 

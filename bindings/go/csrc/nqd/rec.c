@@ -368,7 +368,7 @@ static int ksort(djs *a, const char *k) {
     }
     memcpy(a->k, t, a->n * sizeof *t);
   }
-  qdfree(t);
+  qdfree(t, a->n * sizeof *t);
   return NQOK;
 }
 
@@ -783,7 +783,7 @@ int nqdnew(nqdrec **r) {
   n->root = qdjnew(DJOBJ);
   if (n->root == NULL || qdjset(n->root, "format", qdjstr(NQDFMT)) != NQOK) {
     qdjfree(n->root);
-    qdfree(n);
+    qdfree(n, sizeof *n);
     return NQEMEM;
   }
   *r = n;
@@ -887,7 +887,7 @@ int nqdload(const char *dir, nqdrec **r, char *why, size_t cap) {
     }
     qdbfree(&b);
   }
-  qdfree(buf);
+  qdfree(buf, n + 1);
   return rc;
 }
 
@@ -909,7 +909,7 @@ int nqdsave(const nqdrec *r, const char *dir) {
 void nqdrfree(nqdrec *r) {
   if (r != NULL) {
     qdjfree(r->root);
-    qdfree(r);
+    qdfree(r, sizeof *r);
   }
 }
 

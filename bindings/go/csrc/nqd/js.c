@@ -15,12 +15,39 @@
 
 /* ---- memory and buffers ---- */
 
-void *qdmal(size_t n) {
-  return malloc(n == 0 ? 1 : n);
+/* the hook nqdsetal sets; NULL: malloc and free */
+static nqmalfn qdmalf = NULL;
+static nqfreefn qdfreef = NULL;
+static void *qduser = NULL;
+
+int nqdsetal(nqmalfn mal, nqfreefn fre, void *user) {
+  if (mal == NULL && fre == NULL) {
+    qdmalf = NULL;
+    qdfreef = NULL;
+    qduser = NULL;
+    return NQOK;
+  }
+  if (mal == NULL || fre == NULL)
+    return NQEARG;
+  qdmalf = mal;
+  qdfreef = fre;
+  qduser = user;
+  return NQOK;
 }
 
-void qdfree(void *p) {
-  free(p);
+void *qdmal(size_t n) {
+  if (n == 0)
+    n = 1;
+  return qdmalf != NULL ? qdmalf(n, qduser) : malloc(n);
+}
+
+void qdfree(void *p, size_t n) {
+  if (p == NULL)
+    return;
+  if (qdfreef != NULL)
+    qdfreef(p, n == 0 ? 1 : n, qduser);
+  else
+    free(p);
 }
 
 char *qddup(const char *s, size_t n) {
@@ -55,7 +82,7 @@ void qdbput(dbuf *b, const char *s, size_t n) {
     }
     if (b->n)
       memcpy(nb, b->b, b->n);
-    qdfree(b->b);
+    qdfree(b->b, b->cap);
     b->b = nb;
     b->cap = nc;
   }
@@ -73,7 +100,7 @@ void qdbch(dbuf *b, char c) {
 }
 
 void qdbfree(dbuf *b) {
-  qdfree(b->b);
+  qdfree(b->b, b->cap);
   b->b = NULL;
   b->n = b->cap = 0;
 }
@@ -370,7 +397,7 @@ djs *qdjnew(int t) {
 djs *qdjstrn(const char *s, size_t n) {
   djs *v = qdjnew(DJSTR);
   if (v != NULL && (v->s = qddup(s, n)) == NULL) {
-    qdfree(v);
+    qdfree(v, sizeof *v);
     return NULL;
   }
   if (v != NULL)
@@ -400,13 +427,13 @@ void qdjfree(djs *v) {
   for (i = 0; i < v->n; i++) {
     qdjfree(v->k[i]);
     if (v->key != NULL)
-      qdfree(v->key[i]);
+      qdfree(v->key[i], v->kl[i] + 1);
   }
-  qdfree(v->k);
-  qdfree(v->key);
-  qdfree(v->kl);
-  qdfree(v->s);
-  qdfree(v);
+  qdfree(v->k, v->cap * sizeof *v->k);
+  qdfree(v->key, v->cap * sizeof *v->key);
+  qdfree(v->kl, v->cap * sizeof *v->kl);
+  qdfree(v->s, v->sl + 1);
+  qdfree(v, sizeof *v);
 }
 
 static int grow(djs *c) {
@@ -423,9 +450,9 @@ static int grow(djs *c) {
     ks = (char **)qdmal(nc * sizeof *ks);
     kl = (size_t *)qdmal(nc * sizeof *kl);
     if (ks == NULL || kl == NULL) {
-      qdfree(k);
-      qdfree(ks);
-      qdfree(kl);
+      qdfree(k, nc * sizeof *k);
+      qdfree(ks, nc * sizeof *ks);
+      qdfree(kl, nc * sizeof *kl);
       return NQEMEM;
     }
   }
@@ -436,9 +463,9 @@ static int grow(djs *c) {
       kl[i] = c->kl[i];
     }
   }
-  qdfree(c->k);
-  qdfree(c->key);
-  qdfree(c->kl);
+  qdfree(c->k, c->cap * sizeof *c->k);
+  qdfree(c->key, c->cap * sizeof *c->key);
+  qdfree(c->kl, c->cap * sizeof *c->kl);
   c->k = k;
   c->key = ks;
   c->kl = kl;
@@ -515,7 +542,7 @@ int qdjdel(djs *o, const char *key) {
   if (i == (size_t)-1)
     return 0;
   qdjfree(o->k[i]);
-  qdfree(o->key[i]);
+  qdfree(o->key[i], o->kl[i] + 1);
   for (j = i + 1; j < o->n; j++) {
     o->k[j - 1] = o->k[j];
     o->key[j - 1] = o->key[j];
@@ -547,7 +574,7 @@ djs *qdjcopy(const djs *v) {
     return NULL;
   c->d = v->d;
   if (v->s != NULL && (c->sl = v->sl, c->s = qddup(v->s, v->sl)) == NULL) {
-    qdfree(c);
+    qdfree(c, sizeof *c);
     return NULL;
   }
   for (i = 0; i < v->n; i++) {
@@ -565,7 +592,7 @@ djs *qdjcopy(const djs *v) {
         return NULL;
       }
       rc = qdjset(c, key, k);
-      qdfree(key);
+      qdfree(key, v->kl[i] + 1);
     } else {
       rc = qdjadd(c, k);
     }
@@ -665,7 +692,7 @@ static int rdstr(rd *r, char **out, size_t *outl) {
   while (r->b[r->i] != '"') {
     unsigned char c = (unsigned char)r->b[r->i];
     if (c < 0x20) {
-      qdfree(b);
+      qdfree(b, n + 1);
       return rderr(r, NQEDEC, "a control character in a string");
     }
     if (c == '\\') {
@@ -683,7 +710,7 @@ static int rdstr(rd *r, char **out, size_t *outl) {
       case 't': b[o++] = '\t'; break;
       case 'u':
         if (r->n - r->i < 4 || !hex4(r->b + r->i, &cp)) {
-          qdfree(b);
+          qdfree(b, n + 1);
           return rderr(r, NQEDEC, "a bad \\u escape");
         }
         r->i += 4;
@@ -692,29 +719,29 @@ static int rdstr(rd *r, char **out, size_t *outl) {
           if (r->n - r->i < 6 || r->b[r->i] != '\\' ||
               r->b[r->i + 1] != 'u' || !hex4(r->b + r->i + 2, &lo) ||
               lo < 0xdc00 || lo > 0xdfff) {
-            qdfree(b);
+            qdfree(b, n + 1);
             return rderr(r, NQEDEC, "a lone surrogate in a \\u escape");
           }
           r->i += 6;
           cp = 0x10000 + ((cp - 0xd800) << 10) + (lo - 0xdc00);
         } else if (cp >= 0xdc00 && cp <= 0xdfff) {
-          qdfree(b);
+          qdfree(b, n + 1);
           return rderr(r, NQEDEC, "a lone surrogate in a \\u escape");
         } else if (cp == 0) {
-          qdfree(b);
+          qdfree(b, n + 1);
           return rderr(r, NQEDEC, "\\u0000 in a string");
         }
         o += u8enc(cp, b + o);
         break;
       default:
-        qdfree(b);
+        qdfree(b, n + 1);
         return rderr(r, NQEDEC, "an unknown escape in a string");
       }
     } else {
       uint32_t cp;
       size_t l = u8dec((const unsigned char *)r->b + r->i, r->n - r->i, &cp);
       if (l == 0) {
-        qdfree(b);
+        qdfree(b, n + 1);
         return rderr(r, NQEDEC, "invalid UTF-8 in a string");
       }
       memcpy(b + o, r->b + r->i, l);
@@ -724,6 +751,15 @@ static int rdstr(rd *r, char **out, size_t *outl) {
   }
   r->i++;
   b[o] = '\0';
+  if (o < n) {
+    /* escapes made it shorter: every string nqd frees is its length + 1
+     * bytes (qdfree's size) */
+    char *e = qddup(b, o);
+    qdfree(b, n + 1);
+    if (e == NULL)
+      return NQEMEM;
+    b = e;
+  }
   *out = b;
   *outl = o;
   return NQOK;
@@ -740,7 +776,7 @@ static int rdscalar(rd *r, djs **out) {
     if ((rc = rdstr(r, &str, &l)) != NQOK)
       return rc;
     if ((v = qdjnew(DJSTR)) == NULL) {
-      qdfree(str);
+      qdfree(str, l + 1);
       return NQEMEM;
     }
     v->s = str;
@@ -893,7 +929,7 @@ int qdjparse(const char *buf, size_t len, djs **out, char *why, size_t cap) {
         goto fail;
       for (j = 0; j < st[top]->n; j++) {
         if (st[top]->kl[j] == kl && memcmp(st[top]->key[j], k, kl) == 0) {
-          qdfree(k);
+          qdfree(k, kl + 1);
           rc = rderr(&r, NQEDEC, "a duplicate key");
           goto fail;
         }
@@ -911,7 +947,7 @@ int qdjparse(const char *buf, size_t len, djs **out, char *why, size_t cap) {
 fail:
   for (; top >= 0; top--)
     if (st[top]->t == DJOBJ)
-      qdfree(pk[top]);
+      qdfree(pk[top], pkl[top] + 1);
   qdjfree(root);
   return rc;
 }
@@ -1008,7 +1044,7 @@ void qdjwrite(const djs *v, dbuf *b) {
         continue;
       }
       qdbch(b, c->t == DJOBJ ? '}' : ']');
-      qdfree(ord[top]);
+      qdfree(ord[top], c->n * sizeof(size_t));
       ord[top] = NULL;
     } else {
       char nb[40];
@@ -1030,5 +1066,5 @@ void qdjwrite(const djs *v, dbuf *b) {
     top--;
   }
   for (; top >= 0; top--)
-    qdfree(ord[top]);
+    qdfree(ord[top], st[top]->n * sizeof(size_t));
 }

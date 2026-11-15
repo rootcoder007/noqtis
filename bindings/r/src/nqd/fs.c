@@ -19,6 +19,7 @@
 #include <direct.h>
 #include <fcntl.h>
 #include <io.h>
+#include <wchar.h>
 #include <sys/stat.h>
 #else
 #include <fcntl.h>
@@ -32,13 +33,19 @@ static wchar_t *wide(const char *s) {
   wchar_t *w;
   if (n <= 0)
     return NULL;
-  w = (wchar_t *)malloc((size_t)n * sizeof *w);
+  w = (wchar_t *)qdmal((size_t)n * sizeof *w);
   if (w != NULL &&
       MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, w, n) != n) {
-    free(w);
+    qdfree(w, (size_t)n * sizeof *w);
     w = NULL;
   }
   return w;
+}
+
+/* frees what wide returned: its length and the NUL */
+static void wfree(wchar_t *w) {
+  if (w != NULL)
+    qdfree(w, (wcslen(w) + 1) * sizeof *w);
 }
 #endif
 
@@ -48,8 +55,8 @@ FILE *qdfopen(const char *path, const char *mode) {
   FILE *f = NULL;
   if (p != NULL && m != NULL)
     f = _wfopen(p, m);
-  free(p);
-  free(m);
+  wfree(p);
+  wfree(m);
   return f;
 #else
   return fopen(path, mode);
@@ -61,8 +68,8 @@ static int drename(const char *from, const char *to) {
   wchar_t *a = wide(from), *b = wide(to);
   int ok = a != NULL && b != NULL &&
            MoveFileExW(a, b, MOVEFILE_REPLACE_EXISTING) != 0;
-  free(a);
-  free(b);
+  wfree(a);
+  wfree(b);
   return ok ? 0 : -1;
 #else
   return rename(from, to);
@@ -73,7 +80,7 @@ static int dremove(const char *path) {
 #ifdef _WIN32
   wchar_t *a = wide(path);
   int ok = a != NULL && DeleteFileW(a) != 0;
-  free(a);
+  wfree(a);
   return ok ? 0 : -1;
 #else
   return remove(path);
@@ -87,7 +94,7 @@ FILE *qdfnew(const char *path) {
                               _S_IREAD | _S_IWRITE)
                      : -1;
   FILE *f = fd >= 0 ? _fdopen(fd, "wb") : NULL;
-  free(p);
+  wfree(p);
   if (fd >= 0 && f == NULL)
     _close(fd);
   return f;
@@ -107,7 +114,7 @@ int qdmkdir(const char *path) {
 #ifdef _WIN32
   wchar_t *p = wide(path);
   int r = p != NULL && _wmkdir(p) == 0;
-  free(p);
+  wfree(p);
   return r ? NQOK : NQEIO;
 #else
   return mkdir(path, 0755) == 0 ? NQOK : NQEIO;
@@ -118,7 +125,7 @@ int qdrm(const char *path, int isdir) {
 #ifdef _WIN32
   wchar_t *p = wide(path);
   int r = p != NULL && (isdir ? _wrmdir(p) : _wunlink(p)) == 0;
-  free(p);
+  wfree(p);
   return r ? NQOK : NQEIO;
 #else
   return (isdir ? rmdir(path) : unlink(path)) == 0 ? NQOK : NQEIO;
@@ -170,10 +177,16 @@ static int readf(FILE *f, size_t max, char **buf, size_t *len) {
     qdbfree(&b);
     return b.err;
   }
-  if (b.b == NULL && (b.b = qddup("", 0)) == NULL)
-    return NQEMEM;
-  *buf = b.b;
+  /* exactly len + 1 bytes, the size the caller frees */
+  *buf = b.b != NULL && b.cap == b.n + 1 ? b.b
+                                         : qddup(b.b != NULL ? b.b : "", b.n);
   *len = b.n;
+  if (*buf != b.b)
+    qdbfree(&b);
+  if (*buf == NULL) {
+    *len = 0;
+    return NQEMEM;
+  }
   return NQOK;
 }
 
@@ -259,6 +272,7 @@ struct nqdrep {
   drow *r;
   size_t n;
   size_t cap;
+  int err; /* a row that could not be added: the report is not whole */
 };
 
 nqdrep *qdrepnew(void) {
@@ -277,13 +291,13 @@ int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...) {
     size_t nc = r->cap ? r->cap * 2 : 16, i;
     drow *nr;
     if (nc > ((size_t)1 << 26))
-      return NQELIM;
+      return r->err = NQELIM;
     nr = (drow *)qdmal(nc * sizeof *nr);
     if (nr == NULL)
-      return NQEMEM;
+      return r->err = NQEMEM;
     for (i = 0; i < r->n; i++)
       nr[i] = r->r[i];
-    qdfree(r->r);
+    qdfree(r->r, r->cap * sizeof *r->r);
     r->r = nr;
     r->cap = nc;
   }
@@ -306,9 +320,10 @@ int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...) {
   w.ok = ok != 0;
   w.json = NULL;
   if (w.check == NULL || w.detail == NULL) {
-    qdfree(w.check);
-    qdfree(w.detail);
-    return NQEMEM;
+    qdfree(w.check, strlen(check) + 1);
+    if (w.detail != NULL)
+      qdfree(w.detail, strlen(w.detail) + 1);
+    return r->err = NQEMEM;
   }
   r->r[r->n++] = w;
   return NQOK;
@@ -317,9 +332,21 @@ int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...) {
 int qdrepjson(nqdrep *r, const char *j) {
   if (r->n == 0)
     return NQEARG;
-  qdfree(r->r[r->n - 1].json);
+  if (r->r[r->n - 1].json != NULL)
+    qdfree(r->r[r->n - 1].json, strlen(r->r[r->n - 1].json) + 1);
   r->r[r->n - 1].json = qddup(j, strlen(j));
-  return r->r[r->n - 1].json != NULL ? NQOK : NQEMEM;
+  return r->r[r->n - 1].json != NULL ? NQOK : (r->err = NQEMEM);
+}
+
+int qdrepout(nqdrep *r, nqdrep **out, int rc) {
+  int e = r->err;
+  if (e != NQOK) {
+    nqdrepfree(r);
+    *out = NULL;
+    return e;
+  }
+  *out = r;
+  return rc;
 }
 
 const char *nqdrepj(const nqdrep *r, size_t i) {
@@ -348,12 +375,13 @@ void nqdrepfree(nqdrep *r) {
   if (r == NULL)
     return;
   for (i = 0; i < r->n; i++) {
-    qdfree(r->r[i].check);
-    qdfree(r->r[i].detail);
-    qdfree(r->r[i].json);
+    qdfree(r->r[i].check, strlen(r->r[i].check) + 1);
+    qdfree(r->r[i].detail, strlen(r->r[i].detail) + 1);
+    if (r->r[i].json != NULL)
+      qdfree(r->r[i].json, strlen(r->r[i].json) + 1);
   }
-  qdfree(r->r);
-  qdfree(r);
+  qdfree(r->r, r->cap * sizeof *r->r);
+  qdfree(r, sizeof *r);
 }
 
 /* ---- paths under a capsule folder, never through a link ---- */
@@ -429,7 +457,7 @@ static int noreparse(const char *dir, const char *rel, int mustfile) {
       p[dl + 1 + i] = '\0';
       w = wide(p);
       a = w != NULL ? GetFileAttributesW(w) : INVALID_FILE_ATTRIBUTES;
-      free(w);
+      wfree(w);
       if (a == INVALID_FILE_ATTRIBUTES) {
         if (c == '\0' && !mustfile)
           return NQOK;
@@ -468,7 +496,7 @@ int qdopen(const char *dir, const char *rel, FILE **f) {
     h = CreateFileW(w, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                     FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
                     NULL);
-    free(w);
+    wfree(w);
     if (h == INVALID_HANDLE_VALUE)
       return NQEIO;
     if (!GetFileInformationByHandle(h, &fi) ||

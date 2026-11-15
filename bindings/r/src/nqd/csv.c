@@ -109,12 +109,13 @@ void qdcsvclose(qdcsv *c) {
   if (c->own == 1 && c->u != NULL)
     fclose((FILE *)c->u);
   else if (c->own == 2)
-    qdfree(c->u);
-  qdfree(c->rec);
-  qdfree(c->off);
+    qdfree(c->u, sizeof(qdmem));
+  qdfree(c->rec, c->reccap);
+  qdfree(c->off, c->offcap * sizeof *c->off);
   c->u = NULL;
   c->rec = NULL;
   c->off = NULL;
+  c->reccap = c->offcap = 0;
 }
 
 static int putb(qdcsv *c, char b) {
@@ -130,7 +131,7 @@ static int putb(qdcsv *c, char b) {
       return NQEMEM;
     if (c->reclen)
       memcpy(n, c->rec, c->reclen);
-    qdfree(c->rec);
+    qdfree(c->rec, c->reccap);
     c->rec = n;
     c->reccap = nc;
   }
@@ -159,7 +160,7 @@ static int endf(qdcsv *c, size_t start) {
       return NQEMEM;
     for (i = 0; i < c->nf; i++)
       n[i] = c->off[i];
-    qdfree(c->off);
+    qdfree(c->off, c->offcap * sizeof *c->off);
     c->off = n;
     c->offcap = nc;
   }

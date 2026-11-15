@@ -32,10 +32,12 @@
 
 /* ---- memory ---- */
 
-/* malloc and free; no realloc (the core's allocator hook has none, and
- * nqd keeps to the same pattern: grow by copy) */
+/* malloc and free, or the hook nqdsetal sets; no realloc (the hook has
+ * none: nqd grows by copy). qdfree takes the size that was given to
+ * qdmal, as the hook's free does; a string nqd allocates is always its
+ * length + 1 bytes. */
 void *qdmal(size_t n);
-void qdfree(void *p);
+void qdfree(void *p, size_t n);
 /* a copy of n bytes of s, NUL-terminated; NULL when out of memory */
 char *qddup(const char *s, size_t n);
 
@@ -142,6 +144,10 @@ int qdrepadd(nqdrep *r, const char *check, int ok, const char *fmt, ...)
 nqdrep *qdrepnew(void);
 /* attaches a copy of the JSON text j to the last row */
 int qdrepjson(nqdrep *r, const char *j);
+/* r into *out and rc; when a row could not be added (qdrepadd and
+ * qdrepjson failed), r is freed, *out NULL and its error returned: a
+ * report that lost a row is never handed out */
+int qdrepout(nqdrep *r, nqdrep **out, int rc);
 
 /* ---- statistics (dft.c) ---- */
 

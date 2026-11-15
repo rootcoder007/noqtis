@@ -294,7 +294,7 @@ static void full(void) {
   NQTEQI(nqdparse(b, n, &r, why, sizeof why), NQOK);
   if (r == NULL) {
     fprintf(stderr, "full.json: %s\n", why);
-    qdfree(b);
+    qdfree(b, n + 1);
     return;
   }
   NQTEQI(nqdjson(r, NULL, 0, &n1), NQEBUF);
@@ -308,7 +308,7 @@ static void full(void) {
   NQTEQI(nqdlen(r, "stats"), 1);
   free(o1);
   free(o2);
-  qdfree(b);
+  qdfree(b, n + 1);
   nqdrfree(r);
   nqdrfree(r2);
 }

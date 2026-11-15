@@ -149,7 +149,7 @@ static int statrow(nqdrep *rep, const char *dir, const djs *root,
   const djs *sch = NULL, *a = qdjget(root, "schemas"), *dl, *hd;
   nqdcsvopt o;
   char why[600], *buf = NULL;
-  size_t n = 0, i;
+  size_t n = 0, bn = 0, i;
   djs *re = NULL;
   dbuf x, y;
   int rc, same;
@@ -168,13 +168,14 @@ static int statrow(nqdrep *rep, const char *dir, const djs *root,
   o.noheader = hd != NULL && hd->t == DJFALSE;
   rc = nqdstats(dir, path, &o, NULL, 0, &n, why, sizeof why);
   if (rc == NQEBUF) {
-    if ((buf = (char *)qdmal(n + 1)) == NULL)
+    bn = n + 1;
+    if ((buf = (char *)qdmal(bn)) == NULL)
       return NQEMEM;
-    rc = nqdstats(dir, path, &o, buf, n + 1, &n, why, sizeof why);
+    rc = nqdstats(dir, path, &o, buf, bn, &n, why, sizeof why);
   }
   if (rc == NQOK)
     rc = qdjparse(buf, n, &re, why, sizeof why);
-  qdfree(buf);
+  qdfree(buf, bn);
   if (rc == NQEMEM)
     return rc;
   if (rc != NQOK)
@@ -258,8 +259,7 @@ int nqdchk(const char *dir, nqdrep **out) {
   }
   if (rc != NQOK) {
     qdrepadd(rep, "record", 0, "%s", why);
-    *out = rep;
-    return NQEVRFY;
+    return qdrepout(rep, out, NQEVRFY);
   }
   root = qdrectree(r);
   qdrepadd(rep, "record", 1, NQDFMT ", canonical: %lu sources, %lu schemas",
@@ -272,16 +272,17 @@ int nqdchk(const char *dir, nqdrep **out) {
     for (i = 0; i < a->n; i++)
       lockrow(rep, dir, a->k[i]);
   if ((a = qdjget(root, "schemas")) != NULL)
-    for (i = 0; i < a->n; i++)
-      qdschk(rep, dir, a->k[i], synth(root, qdjget(a->k[i], "path")->s));
+    for (i = 0; i < a->n && rc == NQOK; i++)
+      rc = qdschk(rep, dir, a->k[i],
+                  synth(root, qdjget(a->k[i], "path")->s));
   if ((a = qdjget(root, "chunks")) != NULL) {
-    for (i = 0; i < a->n; i++) {
+    for (i = 0; i < a->n && rc == NQOK; i++) {
       char p[4200];
       const char *path = qdjget(a->k[i], "path")->s;
       if (qdjoin(dir, path, p, sizeof p) != NQOK)
         qdrepadd(rep, "chunk", 0, "%s: not a path in the folder", path);
-      else
-        qdpiece(rep, a->k[i], dir, path, 0, 1);
+      else if (qdpiece(rep, a->k[i], dir, path, 0, 1) == NQEMEM)
+        rc = NQEMEM;
     }
   }
   if ((a = qdjget(root, "stats")) != NULL)
@@ -306,6 +307,5 @@ int nqdchk(const char *dir, nqdrep **out) {
     nqdrepi(rep, i, NULL, &ok, NULL);
     bad += !ok;
   }
-  *out = rep;
-  return bad ? NQEVRFY : NQOK;
+  return qdrepout(rep, out, bad ? NQEVRFY : NQOK);
 }

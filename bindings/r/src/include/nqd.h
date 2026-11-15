@@ -49,6 +49,16 @@ extern "C" {
 typedef struct nqdrec nqdrec;
 typedef struct nqdrep nqdrep;
 
+/* ---- memory ---- */
+
+/* Replaces the allocator nqd uses for everything it allocates, as
+ * nqsetal does for the core (the same nqmalfn and nqfreefn of noqtis.h:
+ * mal gets the size wanted, fre the pointer and the size that was asked
+ * for); NULL for both restores malloc/free. Unlike the core, nqd does
+ * not wipe memory before it frees it. Not thread safe: call before
+ * anything else. */
+NQDAPI int nqdsetal(nqmalfn mal, nqfreefn fre, void *user);
+
 /* ---- records ---- */
 
 /* A new record that holds only its format. */

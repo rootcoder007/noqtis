@@ -240,7 +240,7 @@ static void files(void) {
   NQTEQI(qdread(at("s2.nqb"), 1 << 20, &b, &bn2), NQOK);
   NQTCHK(an == bn2 && memcmp(a, b, an) == 0);
   NQTCHK(an > 16 && memcmp(a, "noqtis-bundle-1\n", 16) == 0);
-  qdfree(b);
+  qdfree(b, bn2 + 1);
   /* never over a file, nor without a record when the files stay out,
    * nor from a folder that is not a capsule */
   NQTEQI(nqdpack("vectors/cap/sample", 1, at("s1.nqb")), NQEIO);
@@ -277,7 +277,7 @@ static void files(void) {
   NQTEQI(nqdunpack(at("clash.nqb"), at("out"), 0, why, sizeof why), NQEIO);
   NQTCHK(strstr(why, "x/y") != NULL);
   NQTCHK(gone(at("out")));
-  qdfree(a);
+  qdfree(a, an + 1);
   /* tidy */
   qdrm(at("s1.nqb"), 0);
   qdrm(at("s2.nqb"), 0);

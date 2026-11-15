@@ -42,15 +42,16 @@ typedef struct {
   uint64_t size;
 } qdmf;
 
-/* the files of the manifest in dir, in manifest order (sorted by path);
- * NQEIO when dir is not a sealed capsule that reads */
-static int mfiles(const char *dir, qdmf **out, size_t *n) {
+/* the files of the manifest in dir, in manifest order (sorted by path),
+ * *n of them in an array of *cap; NQEIO when dir is not a sealed capsule
+ * that reads */
+static int mfiles(const char *dir, qdmf **out, size_t *n, size_t *cap) {
   nqrep *r = NULL;
   size_t i, k = 0, m;
   qdmf *f;
   int rc = nqfiles(dir, &r);
   *out = NULL;
-  *n = 0;
+  *n = *cap = 0;
   if (rc != NQOK) {
     if (r != NULL)
       nqrepfree(r);
@@ -84,41 +85,41 @@ static int mfiles(const char *dir, qdmf **out, size_t *n) {
   nqrepfree(r);
   if (rc != NQOK) {
     for (i = 0; i < k; i++)
-      qdfree(f[i].path);
-    qdfree(f);
+      qdfree(f[i].path, strlen(f[i].path) + 1);
+    qdfree(f, (m + 1) * sizeof *f);
     return rc;
   }
   *out = f;
   *n = k;
+  *cap = m + 1;
   return NQOK;
 }
 
-static void mfree(qdmf *f, size_t n) {
+static void mfree(qdmf *f, size_t n, size_t cap) {
   size_t i;
   for (i = 0; i < n; i++)
-    qdfree(f[i].path);
-  qdfree(f);
+    qdfree(f[i].path, strlen(f[i].path) + 1);
+  qdfree(f, cap * sizeof *f);
 }
 
-/* canonical text of v (NULL: "") into a new buffer */
+/* canonical text of v (NULL: "") into a new buffer of its length + 1 */
 static char *ctext(const djs *v) {
   dbuf b;
+  char *t;
   memset(&b, 0, sizeof b);
   if (v == NULL)
     return qddup("", 0);
   qdjwrite(v, &b);
-  if (b.err) {
-    qdbfree(&b);
-    return NULL;
-  }
-  return b.b != NULL ? b.b : qddup("", 0);
+  t = b.err ? NULL : qddup(b.b != NULL ? b.b : "", b.n);
+  qdbfree(&b);
+  return t;
 }
 
 static int same(const djs *a, const djs *b) {
   char *x = ctext(a), *y = ctext(b);
   int s = x != NULL && y != NULL && strcmp(x, y) == 0;
-  qdfree(x);
-  qdfree(y);
+  qdfree(x, x != NULL ? strlen(x) + 1 : 0);
+  qdfree(y, y != NULL ? strlen(y) + 1 : 0);
   return s;
 }
 
@@ -127,7 +128,7 @@ static void brief(const djs *v, char *out, size_t cap) {
   char *t = ctext(v);
   snprintf(out, cap, "%.60s%s", v == NULL ? "(none)" : t != NULL ? t : "?",
            t != NULL && strlen(t) > 60 ? "..." : "");
-  qdfree(t);
+  qdfree(t, t != NULL ? strlen(t) + 1 : 0);
 }
 
 /* the members of a and b (objects) that differ, as "k old -> new, ..." */
@@ -202,8 +203,8 @@ static void statcol(nqdrep *rep, const char *path, const djs *a,
       qdpsi(x, y, k, &psi, &js);
       snprintf(m + o, sizeof m - o, ", PSI %.4f over the same bins", psi);
     }
-    qdfree(x);
-    qdfree(y);
+    qdfree(x, (k + 1) * sizeof *x);
+    qdfree(y, (k + 1) * sizeof *y);
   } else if (ea != NULL || eb != NULL) {
     snprintf(m + o, sizeof m - o, ", bins differ");
   } else if (ca != NULL && cb != NULL) {
@@ -229,8 +230,8 @@ static void statcol(nqdrep *rep, const char *path, const djs *a,
       qdpsi(x, y, k + 1, &psi, &js);
       snprintf(m + o, sizeof m - o, ", PSI %.4f over the categories", psi);
     }
-    qdfree(x);
-    qdfree(y);
+    qdfree(x, cap * sizeof *x);
+    qdfree(y, cap * sizeof *y);
   }
   qdrepadd(rep, "stats", 0, "%s", m);
 }
@@ -355,7 +356,7 @@ static void recdiff(nqdrep *rep, const djs *a, const djs *b) {
 int nqddiff(const char *a, const char *b, nqdrep **out) {
   nqdrep *rep;
   qdmf *fa = NULL, *fb = NULL;
-  size_t na = 0, nb = 0, i = 0, j = 0, n, k;
+  size_t na = 0, nb = 0, ca = 0, cb = 0, i = 0, j = 0, n, k;
   nqdrec *ra = NULL, *rb = NULL;
   char why[600];
   int ma, mb, la, lb, rc = NQOK, bad = 0;
@@ -364,8 +365,8 @@ int nqddiff(const char *a, const char *b, nqdrep **out) {
   *out = NULL;
   if ((rep = qdrepnew()) == NULL)
     return NQEMEM;
-  ma = mfiles(a, &fa, &na);
-  mb = mfiles(b, &fb, &nb);
+  ma = mfiles(a, &fa, &na, &ca);
+  mb = mfiles(b, &fb, &nb, &cb);
   if (ma == NQEMEM || mb == NQEMEM) {
     rc = NQEMEM;
     goto out;
@@ -415,14 +416,13 @@ int nqddiff(const char *a, const char *b, nqdrep **out) {
     bad |= !ok;
   }
 out:
-  mfree(fa, na);
-  mfree(fb, nb);
+  mfree(fa, na, ca);
+  mfree(fb, nb, cb);
   nqdrfree(ra);
   nqdrfree(rb);
   if (rc != NQOK) {
     nqdrepfree(rep);
     return rc;
   }
-  *out = rep;
-  return bad ? NQEVRFY : NQOK;
+  return qdrepout(rep, out, bad ? NQEVRFY : NQOK);
 }

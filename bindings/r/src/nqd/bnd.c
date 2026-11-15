@@ -161,9 +161,9 @@ int qdbread(const qdbio *io, char *why, size_t cap) {
     rc = NQEDEC;
   }
 out:
-  qdfree(pa);
-  qdfree(pb);
-  qdfree(buf);
+  qdfree(pa, QDBPATH + 1);
+  qdfree(pb, QDBPATH + 1);
+  qdfree(buf, QDBCHUNK);
   return rc;
 }
 
@@ -373,7 +373,7 @@ static int bent(FILE *out, const char *dir, const char *path) {
   if (rc == NQOK && (ferror(f) || got != size))
     rc = NQEIO; /* changed while it was read */
   fclose(f);
-  qdfree(b);
+  qdfree(b, QDBCHUNK);
   return rc;
 }
 
@@ -447,8 +447,8 @@ int nqdpack(const char *dir, int files, const char *file) {
     qdrm(file, 0);
 out:
   for (i = 0; pv != NULL && i < np; i++)
-    qdfree(pv[i]);
-  qdfree(pv);
+    qdfree(pv[i], strlen(pv[i]) + 1);
+  qdfree(pv, (nr + 3) * sizeof *pv);
   nqrepfree(rep);
   return rc;
 }

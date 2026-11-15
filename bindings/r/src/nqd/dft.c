@@ -116,7 +116,7 @@ double qdsmir(double d, int m, int n) {
       u[j] = fabs(i / md - j / nd) > q ? 0 : w * u[j] + u[j - 1];
   }
   r = u[n];
-  qdfree(u);
+  qdfree(u, (size_t)(n + 1) * sizeof *u);
   r = 1 - r;
   return r < 0 ? 0 : r;
 }
@@ -228,7 +228,7 @@ static void catadd(qdccol *c, const char *s, size_t n) {
         ;
       nh[i] = c->h[j];
     }
-    qdfree(c->h);
+    qdfree(c->h, c->ch * sizeof *c->h);
     c->h = nh;
     c->ch = nc;
   }
@@ -279,7 +279,7 @@ static void numadd(qdccol *c, double d) {
     }
     for (i = 0; i < c->nv; i++)
       nv[i] = c->v[i];
-    qdfree(c->v);
+    qdfree(c->v, c->cv * sizeof *c->v);
     c->v = nv;
     c->cv = nc;
   }
@@ -292,12 +292,14 @@ static void colfree(qdccol *c, size_t n) {
     return;
   for (i = 0; i < n; i++) {
     for (j = 0; j < c[i].ch; j++)
-      qdfree(c[i].h[j].k);
-    qdfree(c[i].h);
-    qdfree(c[i].v);
-    qdfree(c[i].name);
+      if (c[i].h[j].k != NULL)
+        qdfree(c[i].h[j].k, c[i].h[j].kl + 1);
+    qdfree(c[i].h, c[i].ch * sizeof *c[i].h);
+    qdfree(c[i].v, c[i].cv * sizeof *c[i].v);
+    if (c[i].name != NULL)
+      qdfree(c[i].name, strlen(c[i].name) + 1);
   }
-  qdfree(c);
+  qdfree(c, n * sizeof *c);
 }
 
 static int dcmp(const void *a, const void *b) {
@@ -427,7 +429,11 @@ static size_t upto(const double *x, size_t n, double v) {
 
 static int pair(djs *a, djs *x, double c) {
   djs *p = qdjnew(DJARR);
-  if (p == NULL || qdjadd(p, x) != NQOK || qdjadd(p, qdjnum(c)) != NQOK) {
+  if (p == NULL) {
+    qdjfree(x);
+    return NQEMEM;
+  }
+  if (qdjadd(p, x) != NQOK || qdjadd(p, qdjnum(c)) != NQOK) {
     qdjfree(p);
     return NQEMEM;
   }
@@ -549,7 +555,7 @@ static int catstats(djs *o, const qdccol *c) {
   t = (qdcat *)qdmal(c->nh * sizeof *t);
   a = qdjnew(DJARR);
   if (t == NULL || a == NULL) {
-    qdfree(t);
+    qdfree(t, c->nh * sizeof *t);
     qdjfree(a);
     return NQEMEM;
   }
@@ -569,7 +575,7 @@ static int catstats(djs *o, const qdccol *c) {
     qdjfree(a);
   if (rc == NQOK)
     rc = qdjset(o, "other", qdjnum((double)other));
-  qdfree(t);
+  qdfree(t, c->nh * sizeof *t);
   return rc;
 }
 
@@ -767,11 +773,17 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
   qdbstr(&b, "{\"path\":");
   {
     djs *t = qdjstr(path);
-    qdjwrite(t, &b);
+    if (t == NULL)
+      b.err = NQEMEM;
+    else
+      qdjwrite(t, &b);
     qdjfree(t);
     qdbstr(&b, ",\"name\":");
     t = qdjstr(name);
-    qdjwrite(t, &b);
+    if (t == NULL)
+      b.err = NQEMEM;
+    else
+      qdjwrite(t, &b);
     qdjfree(t);
   }
   jnum(&b, "nref", nref);
@@ -790,7 +802,7 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
                name, (unsigned long long)c->bad,
                (unsigned long long)c->nv);
       qdbstr(&b, ",\"level\":\"fail\"}");
-      rc = addrow(rep, 2, b.b, "%s: %s", path, det);
+      rc = b.err ? b.err : addrow(rep, 2, b.b, "%s: %s", path, det);
       qdbfree(&b);
       return rc;
     }
@@ -802,8 +814,8 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
       a = (double *)qdmal(k * sizeof *a);
       bb = (double *)qdmal(k * sizeof *bb);
       if (a == NULL || bb == NULL) {
-        qdfree(a);
-        qdfree(bb);
+        qdfree(a, k * sizeof *a);
+        qdfree(bb, k * sizeof *bb);
         qdbfree(&b);
         return NQEMEM;
       }
@@ -823,8 +835,8 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
         bb[lo]++;
       }
       qdpsi(a, bb, k, &psi, &js);
-      qdfree(a);
-      qdfree(bb);
+      qdfree(a, k * sizeof *a);
+      qdfree(bb, k * sizeof *bb);
     }
     if (dg != NULL) {
       double r[9];
@@ -864,8 +876,8 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
     double *bb = (double *)qdmal((k + 1) * sizeof *bb);
     double seen = 0, pr;
     if (a == NULL || bb == NULL) {
-      qdfree(a);
-      qdfree(bb);
+      qdfree(a, (k + 1) * sizeof *a);
+      qdfree(bb, (k + 1) * sizeof *bb);
       qdbfree(&b);
       return NQEMEM;
     }
@@ -887,8 +899,8 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
     jnum(&b, "df", df);
     jnum(&b, "chisqp", pc);
     jnum(&b, "unseen", c->n ? bb[k] / (double)c->n : 0);
-    qdfree(a);
-    qdfree(bb);
+    qdfree(a, (k + 1) * sizeof *a);
+    qdfree(bb, (k + 1) * sizeof *bb);
     if (psi >= d->psifail && minn)
       level = 2;
     else if ((psi >= d->psiwarn && psi > cpsi) || (pc < d->alpha && pc < cp))
@@ -956,8 +968,7 @@ int nqddrift(const char *stats, size_t n, const char *file,
       return rc;
     }
     qdrepadd(rep, "drift", 0, "not a stats element: %s", why);
-    *out = rep;
-    return NQEVRFY;
+    return qdrepout(rep, out, NQEVRFY);
   }
   /* the file is read as the reference was, unless the caller says */
   memset(&co, 0, sizeof co);
@@ -978,8 +989,7 @@ int nqddrift(const char *stats, size_t n, const char *file,
       return rc;
     }
     qdrepadd(rep, "drift", 0, "%s", why);
-    *out = rep;
-    return NQEVRFY;
+    return qdrepout(rep, out, NQEVRFY);
   }
   {
     const char *path = qdjget(st, "path")->s;
@@ -1021,8 +1031,7 @@ int nqddrift(const char *stats, size_t n, const char *file,
     nqdrepi(rep, i, NULL, &ok, NULL);
     bad |= !ok;
   }
-  *out = rep;
-  return bad ? NQEVRFY : NQOK;
+  return qdrepout(rep, out, bad ? NQEVRFY : NQOK);
 }
 
 /* ---- calibration ---- */
@@ -1132,9 +1141,9 @@ int nqddcal(const char *stats, size_t n, const char *const *files, size_t nf,
     qdbfree(&b);
   }
 out:
-  qdfree(mp);
-  qdfree(mq);
-  qdfree(mb);
+  qdfree(mp, (nc + 1) * sizeof *mp);
+  qdfree(mq, (nc + 1) * sizeof *mq);
+  qdfree(mb, (nc + 1) * sizeof *mb);
   qdjfree(st);
   return rc;
 }
