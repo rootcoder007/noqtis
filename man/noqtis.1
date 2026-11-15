@@ -275,7 +275,11 @@ check, a digest that differs or a listed file that is missing, a malformed
 line.
 .It 2
 A usage error, an unreadable or unwritable file, the wrong kind of key, or
-a library error.
+a library error; and for every command, standard output that could not
+be written (a full disk, or a closed pipe when SIGPIPE is ignored),
+whatever the command found, with
+.Ql cannot write to stdout
+on standard error.
 .El
 .Sh EXAMPLES
 Seal a folder, check it, change a file and check again:

@@ -146,6 +146,58 @@ if [ -h "$w/o3" ]; then
 fi
 notmp "$w" "outputs replaced"
 
+# ---- standard output that cannot be written (M4) ----
+
+# full <command...>: with standard output on /dev/full the command fails
+# with exit 2 and says why
+full() {
+  n=$((n + 1))
+  "$nq" "$@" >/dev/full 2>"$w/err"
+  got=$?
+  if [ "$got" != 2 ] || ! grep -q "cannot write to stdout" "$w/err"; then
+    bad=$((bad + 1))
+    echo "FAIL $* >/dev/full: exit $got, expected 2 and a message" >&2
+    sed 's/^/  err: /' "$w/err" >&2
+  fi
+}
+
+if [ -w /dev/full ]; then
+  ok 0 "keygen a signature key" "$nq" keygen -a ML-DSA-44 -o "$w/s"
+  printf 'a message\n' >"$w/m"
+  ok 0 "sign" "$nq" sign -k "$w/s" "$w/m"
+  c=$w/cap
+  mkdir -p "$c/data"
+  printf 'a,b\n1,x\n2,y\n3,z\n' >"$c/data/a.csv"
+  ok 0 "data add" "$nq" data add "$c" data/a.csv
+  ok 0 "schema infer --put" "$nq" schema infer --put "$c" data/a.csv
+  ok 0 "drift pin" "$nq" drift pin "$c" data/a.csv
+  ok 0 "seal" "$nq" seal -k "$w/s" "$c"
+  ok 0 "idcard" "$nq" idcard -k "$w/s" --name Example
+  cp "$w/out" "$w/card.json"
+  full verify -p "$w/s.pub" -s "$w/m.sig" "$w/m"
+  full check -p "$w/s.pub" "$c"
+  full check -j -p "$w/s.pub" "$c"
+  full inspect "$c"
+  full report -p "$w/s.pub" "$c"
+  full report -j -p "$w/s.pub" "$c"
+  full data show "$c"
+  full data show -j "$c"
+  full data check "$c"
+  full schema infer "$c" data/a.csv
+  full schema check "$c"
+  full drift check "$c"
+  full idcard --verify "$w/card.json"
+  full algs
+  full version
+  full --version
+  full selftest
+  full help
+  full --help
+  # a failed check on an unwritable output is 2 too, as hash does
+  printf 'x' >>"$c/data/a.csv"
+  full check -p "$w/s.pub" "$c"
+fi
+
 if [ $bad -gt 0 ]; then
   echo "out.sh: $bad of $n checks failed" >&2
   exit 1

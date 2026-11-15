@@ -719,6 +719,19 @@ static int nchelp(int argc, char **argv) {
   return NCOK;
 }
 
+/* every command ends here: standard output that could not be written
+ * (a full disk, /dev/full, a closed pipe when SIGPIPE is ignored) is
+ * exit 2 with a message, whatever the command found, as hash and export
+ * do, since what it printed is not all there; a command that already
+ * failed with 2 has said why */
+static int outend(const char *cmd, int rc) {
+  if (fflush(stdout) == 0 && !ferror(stdout))
+    return rc;
+  if (rc != NCUSE)
+    ncmsg(cmd, "cannot write to stdout");
+  return NCUSE;
+}
+
 static int run(int argc, char **argv) {
   size_t i;
   ncbin();
@@ -728,16 +741,16 @@ static int run(int argc, char **argv) {
   }
   if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
     ncall(stdout);
-    return NCOK;
+    return outend(NULL, NCOK);
   }
   if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0) {
     printf("noqtis %s\n", nqver());
-    return NCOK;
+    return outend(NULL, NCOK);
   }
   ncprog();
   for (i = 0; i < NCNCMD; i++) {
     if (strcmp(cmds[i].name, argv[1]) == 0)
-      return cmds[i].run(argc - 1, argv + 1);
+      return outend(cmds[i].name, cmds[i].run(argc - 1, argv + 1));
   }
   ncmsg(NULL, "unknown command %s (see `noqtis help`)", argv[1]);
   return NCUSE;
