@@ -1378,14 +1378,21 @@ int ncreveal(int argc, char **argv) {
   }
   if ((rc = ncdload("reveal", argv[0], 0, &r)) != NCOK)
     return rc;
-  if (ncrdx(argv[1], 0, NCRDMAX, &m, &n) != NCOK ||
-      ncrdx(argv[2], 1, NCRDSMALL, &s, &sn) != NCOK) {
-    ncmsg("reveal", "%s or %s cannot be read", argv[1], argv[2]);
+  /* the file stays hidden until it is revealed: its copies are wiped,
+   * as the salt's are, on every path */
+  if (ncrdx(argv[1], 1, NCRDMAX, &m, &n) != NCOK) {
+    ncmsg("reveal", "%s cannot be read", argv[1]);
+    nqdrfree(r);
+    return NCUSE;
+  }
+  if (ncrdx(argv[2], 1, NCRDSMALL, &s, &sn) != NCOK) {
+    ncmsg("reveal", "%s (the salt) cannot be read", argv[2]);
+    ncfree(m, n, 1);
     nqdrfree(r);
     return NCUSE;
   }
   rc = nqdreveal(r, s, sn, m, n, &at);
-  ncfree(m, n, 0);
+  ncfree(m, n, 1);
   ncfree(s, sn, 1);
   nqdrfree(r);
   if (rc == NQOK) {

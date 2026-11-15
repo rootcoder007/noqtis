@@ -595,6 +595,9 @@ printf 'arm,id\nB,1\nA,2\n' >"$w/list2.csv"
 ok 1 "reveal another list" "$nq" reveal "$e" "$w/list2.csv" \
   "$w/list.csv.salt"
 has "$w/err" "not the list or plan recorded" "reveal says why"
+ok 2 "reveal without its salt" "$nq" reveal "$e" "$w/list.csv" \
+  "$w/no-such.salt"
+has "$w/err" "(the salt) cannot be read" "reveal names the salt"
 ok 2 "cite without cite" "$nq" cite "$e"
 has "$w/err" "data put" "cite says how to add one"
 printf '{"title":"Example","authors":["A. Author"],"year":2026}' \
