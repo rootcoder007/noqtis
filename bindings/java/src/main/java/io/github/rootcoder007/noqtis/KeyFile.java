@@ -19,7 +19,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Set;
 
 /**
- * The CLI's key files (DESIGN.md, "Key files"): a header line {@code
+ * The CLI's key files (docs/guides/keys.md): a header line {@code
  * noqtis-key-1 <algorithm> <pub|sec>} and the key bytes as padded base64 in
  * lines of 64 characters, as {@code noqtis keygen} writes them. {@link
  * #decode} is as strict as the CLI's reader: the exact header, {@code \n}

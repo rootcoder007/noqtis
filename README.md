@@ -166,8 +166,6 @@ nqrepfree(rep);
   [docs/spec/capsule.md](docs/spec/capsule.md); the data record format:
   [docs/spec/data.md](docs/spec/data.md).
 - Runnable examples: [docs/examples/](docs/examples/), compiled and run in CI.
-- [DESIGN.md](DESIGN.md): the modules, the checks each must pass, and the
-  release plan.
 
 ## Contributing, security, citing
 

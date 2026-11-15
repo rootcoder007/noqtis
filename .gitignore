@@ -10,3 +10,5 @@
 compile_flags.txt
 # release channel planning, kept local
 /chan.md
+# design notes, kept local
+/DESIGN.md

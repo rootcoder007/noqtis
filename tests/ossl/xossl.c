@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* Cross-checks against OpenSSL 3.5 (DESIGN.md, M1, M3, M4, M5, M7):
+/* Cross-checks against OpenSSL 3.5:
  * - SHA-2, SHA-3, SHAKE and HMAC: the same digests of random inputs;
  * - ML-DSA-44/65/87 and all twelve SLH-DSA sets: the same keys from the
  *   same seed, byte-identical signatures for the same randomness and

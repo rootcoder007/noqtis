@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
-# Builds noqtis and runs every test on each platform DESIGN.md lists.
+# Builds noqtis and runs every test on each supported platform.
 # x86-64 Linux jobs run on every push and pull request. The arm64, macOS,
 # Windows, FreeBSD and emulated big-endian jobs cost runner minutes, so on a
 # private repository they run weekly and on demand; once the repository is

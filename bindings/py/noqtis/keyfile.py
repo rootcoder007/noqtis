@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-"""The CLI's key files (DESIGN.md, "Key files"): a header line
+"""The CLI's key files (docs/guides/keys.md): a header line
 ``noqtis-key-1 <algorithm> <pub|sec>`` and the key bytes as padded base64
 in lines of 64 characters, as ``noqtis keygen`` writes them.
 

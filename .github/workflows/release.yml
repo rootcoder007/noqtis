@@ -211,7 +211,7 @@ jobs:
 
   abi:
     # the ABI report against the release before this one, published with
-    # the release (DESIGN.md, "Documentation"); an incompatible change
+    # the release; an incompatible change
     # within one major version stops the release
     needs: meta
     runs-on: ubuntu-24.04
@@ -243,7 +243,7 @@ jobs:
 
   sidech:
     # the side-channel evidence for this very commit, published with the
-    # release (DESIGN.md, "Trust"): dudect timing tests (reported; shared
+    # release: dudect timing tests (reported; shared
     # runners are too noisy to judge on) and the simulated TVLA (must
     # pass), as JSON and text, with what they do and do not show
     needs: meta
@@ -291,7 +291,7 @@ jobs:
           zero. It shows the masking hides each secret intermediate in that
           model; it does not measure power or EM leakage of real hardware.
 
-          See DESIGN.md, "Side-channel results", for the method and its limits.
+          See docs/security.md for the method and its limits.
           EOF
           tar --sort=name --owner=0 --group=0 --numeric-owner \
             --mtime="@$(git log -1 --format=%ct)" -czf "dist/$d.tar.gz" "$d"

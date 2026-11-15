@@ -85,7 +85,7 @@ that does not verify is `false`, not an error.
 
 A capsule is a folder with `noqtis.json` (a manifest of every file's
 SHA-256 and SHA3-256) and `noqtis.sig` (its signature); the format is in
-the main repository's DESIGN.md. In JavaScript a capsule is a map of
+the main repository's docs/spec/capsule.md. In JavaScript a capsule is a map of
 `'/'`-separated relative paths to file contents, so sealing and checking
 work in browsers too:
 

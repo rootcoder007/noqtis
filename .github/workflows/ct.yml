@@ -16,7 +16,7 @@
 # machine every time. A dudect pass here is weak evidence (it says only
 # that this runner did not resolve a difference with this many
 # measurements) and a failure may be the runner; re-run before reading
-# anything into it. The numbers DESIGN.md and the security page quote
+# anything into it. The numbers the security page quotes
 # were measured on a named machine, pinned to one core. The TVLA is a
 # simulation over the values the code computes and does not depend on
 # the runner.

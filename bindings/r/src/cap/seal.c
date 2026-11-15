@@ -281,7 +281,7 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
   o.in = in;
   o.nin = nin;
   /* a timestamp needs a request to a TSA over the network, which the
-   * library does not make; the CLI is to add it (DESIGN.md, M10) */
+   * library does not make; the CLI is to add it */
   if (tsa != NULL) return NQENOSUP;
   if (nqssize(alg, &sz) != NQOK) return NQEARG;
   /* Ed25519 alone is not post-quantum: never a seal */

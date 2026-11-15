@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         NOQTIS stays small on purpose: standard algorithms only, no
-        dependencies, and nothing outside its goals (see DESIGN.md: no TLS,
+        dependencies, and nothing outside its goals (no TLS,
         no general X.509 toolkit, no OpenSSL provider). Say what problem the
         feature solves for you.
   - type: textarea

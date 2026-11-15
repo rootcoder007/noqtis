@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
-# Adoption, reviewed monthly (DESIGN.md, "Launch"): downloads per
+# Adoption, reviewed monthly: downloads per
 # package manager and per release archive, and the public workflows that
 # use the Action, written to the run's summary. Nothing is stored or
 # sent anywhere else; a source that does not answer is reported as such.

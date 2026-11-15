@@ -14,7 +14,7 @@ import (
 // KeyMagic is the first word of every key file.
 const KeyMagic = "noqtis-key-1"
 
-// Key is a decoded key file (DESIGN.md, "Key files"): the algorithm's
+// Key is a decoded key file (docs/guides/keys.md): the algorithm's
 // name as noqtis spells it, "pub" or "sec", and the key bytes.
 type Key struct {
 	Alg  string

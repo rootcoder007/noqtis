@@ -5,7 +5,7 @@
  * A key file is text: one header line
  *   noqtis-key-1 <algorithm> <pub|sec>
  * then the key bytes, in the standard's encoding, as base64 (RFC 4648,
- * padded) in lines of 64 characters. See DESIGN.md, "CLI". A secret key
+ * padded) in lines of 64 characters. See docs/guides/keys.md. A secret key
  * under a passphrase has the same first line; its body is the
  * noqtis-pwkey-1 bytes of nqpwenc (NQPWOVH bytes longer than the key,
  * starting "NQPW"), with that line, as nckwrp writes it, for their
