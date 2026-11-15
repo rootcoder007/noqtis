@@ -219,3 +219,39 @@ test_that("library failures come back as errors", {
   expect_error(nqdadd(d, "a.csv", url = "https://e.org"), "cannot write")
   expect_error(nqdput(d, "checks", NULL, key = "y"), "cannot write")
 })
+
+test_that("a record that cannot be written is an error, root or not", {
+  # a folder where the record's temporary file goes: no user can write it
+  d <- tempfile("nqwr")
+  dir.create(file.path(d, "noqtis.data.json.tmp"), recursive = TRUE)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  writeLines("x", file.path(d, "noqtis.data.json.tmp", "keep"))
+  writeLines(c("x", "1"), file.path(d, "a.csv"))
+  expect_error(nqdadd(d, "a.csv"), "cannot write")
+  expect_error(nqdput(d, "checks", '{"name":"y","status":"pass"}'),
+               "cannot write")
+  unlink(file.path(d, "noqtis.data.json.tmp"), recursive = TRUE)
+  nqdput(d, "checks", '{"name":"y","status":"pass"}')
+  dir.create(file.path(d, "noqtis.data.json.tmp"))
+  writeLines("x", file.path(d, "noqtis.data.json.tmp", "keep"))
+  expect_error(nqdput(d, "checks", NULL, key = "y"), "cannot write")
+})
+
+test_that("the locale comes from LANG when LC_ALL is empty", {
+  d <- tempfile("nqlc")
+  dir.create(d)
+  old <- Sys.getenv(c("LC_ALL", "LANG"), unset = NA)
+  on.exit({
+    for (v in names(old)) {
+      if (is.na(old[[v]])) {
+        Sys.unsetenv(v)
+      } else {
+        do.call(Sys.setenv, as.list(old[v]))
+      }
+    }
+    unlink(d, recursive = TRUE)
+  }, add = TRUE)
+  Sys.setenv(LC_ALL = "", LANG = "C.UTF-8")
+  expect_match(nqdenv(d), '"locale":"C.UTF-8"', fixed = TRUE)
+})
+

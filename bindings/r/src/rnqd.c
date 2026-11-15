@@ -6,6 +6,7 @@
 #include <R.h>
 #include <Rinternals.h>
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "nqd.h"
@@ -39,6 +40,7 @@ SEXP Cdrpt(SEXP dir, SEXP pk, SEXP fmt, SEXP sealed, SEXP hasrec);
 SEXP Cdpack(SEXP dir, SEXP files, SEXP file);
 SEXP Cdunpack(SEXP file, SEXP dir, SEXP rm);
 SEXP Cdchain(SEXP dirs, SEXP pk);
+SEXP Calfail(SEXP n);
 
 static const char *s1(SEXP x, const char *what) {
   if (TYPEOF(x) != STRSXP || XLENGTH(x) != 1 || STRING_ELT(x, 0) == NA_STRING)
@@ -97,9 +99,11 @@ static SEXP jout(int (*f)(const nqdrec *, char *, size_t, size_t *),
   size_t n = 0;
   char *b;
   int rc = f(r, NULL, 0, &n);
-  if (rc != NQEBUF) dfail(rc, "the data record", NULL);
+  if (rc != NQEBUF)
+    dfail(rc, "the data record", NULL);
   b = R_alloc(n + 1, 1);
-  if ((rc = f(r, b, n + 1, &n)) != NQOK) dfail(rc, "the data record", NULL);
+  if ((rc = f(r, b, n + 1, &n)) != NQOK)
+    dfail(rc, "the data record", NULL);
   return Rf_mkCharLenCE(b, (int)n, CE_UTF8);
 }
 
@@ -189,7 +193,8 @@ SEXP Cdkey(SEXP dir, SEXP member, SEXP key) {
   int rc = nqdkey(r, m, k, NULL, 0, &n);
   if (rc == NQEBUF) {
     char *b = R_alloc(n + 1, 1);
-    if ((rc = nqdkey(r, m, k, b, n + 1, &n)) != NQOK) dfail(rc, m, NULL);
+    if ((rc = nqdkey(r, m, k, b, n + 1, &n)) != NQOK)
+      dfail(rc, m, NULL);
     out = Rf_mkString(b);
   } else if (rc != NQEIO) {
     dfail(rc, m, NULL);
@@ -213,7 +218,8 @@ static void repfin(SEXP p) {
 static SEXP drep(int rc, nqdrep *r) {
   size_t n, i;
   SEXP out, ck, ok, dt, js, p;
-  if (r == NULL) dfail(rc, "check", NULL);
+  if (r == NULL)
+    dfail(rc, "check", NULL);
   p = PROTECT(R_MakeExternalPtr(r, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(p, repfin, TRUE);
   n = nqdrepn(r);
@@ -270,8 +276,8 @@ static SEXP jfile(jfn f, SEXP dir, SEXP path, const nqdcsvopt *o) {
   if (rc != NQEBUF)
     dfail(rc, pa, why);
   b = R_alloc(n + 1, 1);
-  rc = f(d, pa, o, b, n + 1, &n, why, sizeof why);
-  if (rc != NQOK) dfail(rc, pa, why);
+  if ((rc = f(d, pa, o, b, n + 1, &n, why, sizeof why)) != NQOK)
+    dfail(rc, pa, why);
   return Rf_mkString(b);
 }
 
@@ -334,7 +340,8 @@ SEXP Cdaddr(SEXP dir, SEXP path) {
   for (i = 0; i < c; i++) {
     size_t n = 0;
     int kd = 0;
-    if (nqdaddr(r, f, i, &kd, b, sizeof b, &n) != NQOK) dfail(NQEIO, f, NULL);
+    if (nqdaddr(r, f, i, &kd, b, sizeof b, &n) != NQOK)
+      dfail(NQEIO, f, NULL);
     INTEGER(k)[i] = kd;
     SET_STRING_ELT(u, (R_xlen_t)i, Rf_mkCharLenCE(b, (int)n, CE_UTF8));
   }
@@ -370,10 +377,12 @@ SEXP Cdfld(SEXP dir, SEXP member, SEXP i, SEXP field) {
   rc = nqdfld(r, m, (size_t)x, f, NULL, 0, &n);
   if (rc == NQEBUF) {
     char *b = R_alloc(n + 1, 1);
-    rc = nqdfld(r, m, (size_t)x, f, b, n + 1, &n);
-    if (rc != NQOK) dfail(rc, m, NULL);
+    if ((rc = nqdfld(r, m, (size_t)x, f, b, n + 1, &n)) != NQOK)
+      dfail(rc, m, NULL);
     out = Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
-  } else if (rc != NQEIO) dfail(rc, m, NULL);
+  } else if (rc != NQEIO) {
+    dfail(rc, m, NULL);
+  }
   PROTECT(out);
   recfin(p);
   UNPROTECT(2);
@@ -507,8 +516,8 @@ SEXP Cdchunk(SEXP dir, SEXP path, SEXP chunk) {
   rc = nqdchunk(d, pa, ch, NULL, 0, &n, why, sizeof why);
   if (rc != NQEBUF) dfail(rc, pa, why);
   b = R_alloc(n + 1, 1);
-  rc = nqdchunk(d, pa, ch, b, n + 1, &n, why, sizeof why);
-  if (rc != NQOK) dfail(rc, pa, why);
+  if ((rc = nqdchunk(d, pa, ch, b, n + 1, &n, why, sizeof why)) != NQOK)
+    dfail(rc, pa, why);
   return Rf_mkString(b);
 }
 
@@ -564,8 +573,8 @@ SEXP Cdcite(SEXP dir, SEXP fmt) {
   rc = nqdcite(r, f, NULL, 0, &n);
   if (rc != NQEBUF) dfail(rc, "the citation", NULL);
   b = R_alloc(n + 1, 1);
-  rc = nqdcite(r, f, b, n + 1, &n);
-  if (rc != NQOK) dfail(rc, "the citation", NULL);
+  if ((rc = nqdcite(r, f, b, n + 1, &n)) != NQOK)
+    dfail(rc, "the citation", NULL);
   recfin(p);
   UNPROTECT(1);
   return Rf_ScalarString(Rf_mkCharLenCE(b, (int)n, CE_UTF8));
@@ -613,8 +622,8 @@ SEXP Cdrpt(SEXP dir, SEXP pk, SEXP fmt, SEXP sealed, SEXP hasrec) {
   rc = nqdrpt(d, cr, dr, f, NULL, 0, &n);
   if (rc != NQEBUF) dfail(rc, "the report", NULL);
   b = R_alloc(n + 1, 1);
-  rc = nqdrpt(d, cr, dr, f, b, n + 1, &n);
-  if (rc != NQOK) dfail(rc, "the report", NULL);
+  if ((rc = nqdrpt(d, cr, dr, f, b, n + 1, &n)) != NQOK)
+    dfail(rc, "the report", NULL);
   crfin(pc);
   repfin(pd);
   UNPROTECT(2);
@@ -675,4 +684,51 @@ SEXP Cdchain(SEXP dirs, SEXP pk) {
   memcpy(RAW(h), head, 32);
   UNPROTECT(2);
   return out;
+}
+
+/* ---- failing allocations, for the package's tests only ---- */
+
+/* Calfail(n), n >= 0, makes the n-th allocation from now (0: the next)
+ * that the bundled library or its data layer makes fail, once; both
+ * then go on as before. Calfail(-1) restores malloc and free and says
+ * whether an allocation was failed. It exists for the package's tests
+ * (tests/testthat/test-alloc.R), which disarm it in on.exit(); no
+ * exported function reaches it. Unarmed, the library calls malloc and
+ * free itself, so it costs nothing. The hooks (nqsetal, nqdsetal) are
+ * process-wide and not thread safe; the tests are single-threaded. */
+static long alleft = -1;
+static int alfired = 0;
+
+static void *almal(size_t n, void *user) {
+  (void)user;
+  if (alleft == 0) {
+    alleft = -1;
+    alfired = 1;
+    return NULL;
+  }
+  if (alleft > 0)
+    alleft--;
+  return malloc(n);
+}
+
+static void alfree(void *p, size_t n, void *user) {
+  (void)n;
+  (void)user;
+  free(p);
+}
+
+SEXP Calfail(SEXP n) {
+  int k = Rf_asInteger(n), f = alfired;
+  if (k == NA_INTEGER || k < 0) {
+    nqsetal(NULL, NULL, NULL);
+    nqdsetal(NULL, NULL, NULL);
+    alleft = -1;
+    alfired = 0;
+    return Rf_ScalarLogical(f);
+  }
+  alleft = k;
+  alfired = 0;
+  nqsetal(almal, alfree, NULL);
+  nqdsetal(almal, alfree, NULL);
+  return R_NilValue;
 }

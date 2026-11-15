@@ -263,7 +263,7 @@ static SEXP Csign(SEXP alg, SEXP sk, SEXP msg, SEXP ctx, SEXP ph, SEXP rnd) {
   int a = ival(alg, "alg"), h = ival(ph, "ph"), rc;
   nqssz s = ssz(a);
   size_t n = 0;
-  SEXP sig, out;
+  SEXP sig;
   chkraw(sk, "sk", 0);
   chkraw(msg, "msg", 0);
   chkraw(ctx, "ctx", 1);
@@ -277,10 +277,9 @@ static SEXP Csign(SEXP alg, SEXP sk, SEXP msg, SEXP ctx, SEXP ph, SEXP rnd) {
                  rn(ctx), h, rp(rnd), rn(rnd), RAW(sig), s.sig, &n);
   }
   if (rc != NQOK) fail(rc, "nqsign");
-  /* every algorithm fills s.sig bytes; a shorter one is cut to n */
-  out = n == s.sig ? sig : Rf_xlengthgets(sig, (R_xlen_t)n);
+  /* n is s.sig: every algorithm's signatures have one fixed size */
   UNPROTECT(1);
-  return out;
+  return sig;
 }
 
 /* The library's return code: NQOK, NQEVRFY, or another error. An empty
@@ -862,7 +861,7 @@ static SEXP Cpwenc(SEXP pw, SEXP ad, SEXP mtp, SEXP sk) {
 }
 
 static SEXP Cpwdec(SEXP pw, SEXP ad, SEXP in) {
-  SEXP out, r;
+  SEXP out;
   size_t cap, n = 0;
   int rc;
   chkraw(pw, "pass", 0);
@@ -873,11 +872,10 @@ static SEXP Cpwdec(SEXP pw, SEXP ad, SEXP in) {
   rc = nqpwdec(rp(pw), rn(pw), rp(ad), rn(ad), rp(in), rn(in), RAW(out), cap,
                &n);
   if (rc != NQOK) fail(rc, "the passphrase-protected key");
-  /* the key fills cap bytes; were it shorter, the copy is cut to n */
-  r = n == cap ? out : Rf_xlengthgets(out, (R_xlen_t)n);
-  if (r != out) nqwipe(RAW(out), cap);
+  /* n is cap: nqpwdec refuses anything shorter than NQPWOVH + 1 bytes and
+   * returns the n - NQPWOVH bytes it decrypts */
   UNPROTECT(1);
-  return r;
+  return out;
 }
 
 /* ---- ML-DSA with an external mu ------------------------------------ */
@@ -938,12 +936,6 @@ static void ctxfin(SEXP p) {
   }
 }
 
-/* frees the context of p, then raises the library's error rc */
-NORET static void ctxfail(SEXP p, int rc, const char *what) {
-  ctxfin(p);
-  fail(rc, what);
-}
-
 static SEXP ctxnew(size_t n, void **c) {
   SEXP p;
   *c = R_Calloc(n, char);
@@ -961,6 +953,17 @@ static void *ctxget(SEXP p) {
   return c;
 }
 
+/* Cctxbad(p) is for the package's tests only (tests/testthat/
+ * test-alloc.R): it overwrites the streaming context p holds with zeros,
+ * so that the library's state check (the context's magic number, read
+ * by nqsupd, nqsfin and nqvfin) refuses it with NQESTATE. A context
+ * damaged in memory is the only way nqsupd fails, and R cannot reach
+ * that memory otherwise; no exported function calls this. */
+static SEXP Cctxbad(SEXP p) {
+  memset(ctxget(p), 0, (size_t)Rf_asInteger(R_ExternalPtrTag(p)));
+  return R_NilValue;
+}
+
 static SEXP Csini(SEXP alg, SEXP key, SEXP ctx, SEXP ph, SEXP vrfy) {
   int a = ival(alg, "alg"), v = Rf_asLogical(vrfy), rc;
   void *c;
@@ -972,7 +975,10 @@ static SEXP Csini(SEXP alg, SEXP key, SEXP ctx, SEXP ph, SEXP vrfy) {
                   ival(ph, "ph"))
          : nqsini((nqsctx *)c, (nqsalg)a, rp(key), rn(key), rp(ctx), rn(ctx),
                   ival(ph, "ph"));
-  if (rc != NQOK) ctxfail(p, rc, v ? "nqvini" : "nqsini");
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, v ? "nqvini" : "nqsini");
+  }
   UNPROTECT(1);
   return p;
 }
@@ -981,7 +987,10 @@ static SEXP Csupd(SEXP p, SEXP x) {
   int rc;
   chkraw(x, "x", 0);
   rc = nqsupd((nqsctx *)ctxget(p), rp(x), rn(x));
-  if (rc != NQOK) ctxfail(p, rc, "nqsupd");
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, "nqsupd");
+  }
   return R_NilValue;
 }
 
@@ -1068,7 +1077,10 @@ static SEXP Ckfeini(SEXP alg, SEXP pk, SEXP ctx, SEXP chunk) {
   p = PROTECT(ctxnew(sizeof(nqkfctx), &c));
   rc = nqkfeini((nqkfctx *)c, (nqkalg)a, rp(pk), rn(pk), rp(ctx), rn(ctx),
                 (uint32_t)ch, h, sizeof h, &hl);
-  if (rc != NQOK) ctxfail(p, rc, "nqkfeini");
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, "nqkfeini");
+  }
   out = PROTECT(Rf_allocVector(VECSXP, 2));
   SET_VECTOR_ELT(out, 0, p);
   hd = rawn(hl);
@@ -1090,7 +1102,10 @@ static SEXP Ckfdini(SEXP alg, SEXP sk, SEXP ctx, SEXP hdr) {
   p = PROTECT(ctxnew(sizeof(nqkfctx), &c));
   rc = nqkfdini((nqkfctx *)c, (nqkalg)a, rp(sk), rn(sk), rp(ctx), rn(ctx),
                 rp(hdr), rn(hdr), &ch);
-  if (rc != NQOK) ctxfail(p, rc, "the stream's header");
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, "the stream's header");
+  }
   out = PROTECT(Rf_allocVector(VECSXP, 2));
   SET_VECTOR_ELT(out, 0, p);
   SET_VECTOR_ELT(out, 1, Rf_ScalarInteger((int)ch));
@@ -1232,6 +1247,7 @@ SEXP Cdrpt(SEXP dir, SEXP pk, SEXP fmt, SEXP sealed, SEXP hasrec);
 SEXP Cdpack(SEXP dir, SEXP files, SEXP file);
 SEXP Cdunpack(SEXP file, SEXP dir, SEXP rm);
 SEXP Cdchain(SEXP dirs, SEXP pk);
+SEXP Calfail(SEXP n);
 
 #define CDEF(f, n) {#f, (DL_FUNC)(void (*)(void))&f, n}
 
@@ -1255,7 +1271,8 @@ static const R_CallMethodDef calls[] = {
   CDEF(Ctsput, 6), CDEF(Cdparse, 1), CDEF(Cdschk, 2), CDEF(Cdsyn, 4),
   CDEF(Cdcal, 4), CDEF(Cdchunk, 3), CDEF(Cdpiece, 3), CDEF(Cdcommit, 2),
   CDEF(Cdreveal, 3), CDEF(Cdcite, 2), CDEF(Cdrpt, 5), CDEF(Cdpack, 3),
-  CDEF(Cdunpack, 3), CDEF(Cdchain, 2),
+  CDEF(Cdunpack, 3), CDEF(Cdchain, 2), CDEF(Calfail, 1),
+  CDEF(Cctxbad, 1),
   {NULL, NULL, 0}
 };
 

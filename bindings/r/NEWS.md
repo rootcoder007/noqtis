@@ -19,6 +19,10 @@
   `nqdcal()`, `nqdchunk()`, `nqdpiece()`, `nqdcommit()`, `nqdreveal()`,
   `nqdcite()`, `nqdreport()`, and `nqdenv()` with `nqdpkgs()`, which
   record the environment with R and its loaded packages.
+* The data record's functions give an error when memory runs out, never
+  a report or a record missing a part (the data layer's allocator hook,
+  `nqdsetal()` in C); the tests make each allocation of the bundled
+  library fail in turn to show it.
 
 # noqtis 0.1.4
 
