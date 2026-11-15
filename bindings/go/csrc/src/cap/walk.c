@@ -116,7 +116,9 @@ static char *join(const char *dir, const char *rel, size_t *n) {
   size_t dl = strlen(dir), rl = strlen(rel);
   char *p;
   if (dl > NQCPATHMAX * 4 || rl > NQCPATHMAX) return NULL;
-  p = (char *)nqmal(dl + rl + 2);
+  /* exactly *n + 1 bytes, the size the caller frees: no "/" when rel
+   * is empty */
+  p = (char *)nqmal(dl + (rl != 0 ? rl + 1 : 0) + 1);
   if (p == NULL) return NULL;
   memcpy(p, dir, dl);
   *n = dl;

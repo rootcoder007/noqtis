@@ -1058,18 +1058,50 @@ static void tsealargs(const key *k, const key *other) {
 
 /* ---- allocation failures: every one fails cleanly ---- */
 
-static long alfail = -1, alcount = 0, allive = 0;
+static long alfail = -1, alcount = 0, allive = 0, albad = 0;
+
+/* each live block and its size, so that tfree can check the size the
+ * library gives it is the one it asked for (nqsetal(3)) */
+#define ALSZ 16384
+static void *alp[ALSZ];
+static size_t aln[ALSZ];
+
+static size_t alslot(const void *p) {
+  size_t i = (size_t)(((uintptr_t)p >> 4) * 2654435761u) & (ALSZ - 1);
+  while (alp[i] != NULL && alp[i] != p) i = (i + 1) & (ALSZ - 1);
+  return i;
+}
 
 static void *tmal(size_t n, void *u) {
+  void *p;
   (void)u;
   if (alfail >= 0 && alcount++ == alfail) return NULL;
+  if (allive >= ALSZ / 2 || (p = malloc(n)) == NULL) return NULL;
+  alp[alslot(p)] = p;
+  aln[alslot(p)] = n;
   allive++;
-  return malloc(n);
+  return p;
 }
 
 static void tfree(void *p, size_t n, void *u) {
+  size_t i = alslot(p), j;
   (void)u;
-  (void)n;
+  if (alp[i] != p || aln[i] != n) {
+    albad++;
+    fprintf(stderr, "tcap: a block of %lu bytes freed as %lu\n",
+            (unsigned long)(alp[i] == p ? aln[i] : 0), (unsigned long)n);
+  }
+  if (alp[i] == p) {
+    alp[i] = NULL;
+    /* close the gap: the later entries of the run move back */
+    for (j = (i + 1) & (ALSZ - 1); alp[j] != NULL; j = (j + 1) & (ALSZ - 1)) {
+      void *q = alp[j];
+      size_t m = aln[j];
+      alp[j] = NULL;
+      alp[alslot(q)] = q;
+      aln[alslot(q)] = m;
+    }
+  }
   allive--;
   free(p);
 }
@@ -1108,6 +1140,8 @@ static void talloc(const key *k) {
   }
   NQTEQI(rc, NQOK);
   alfail = -1;
+  /* every block was freed with the size asked for */
+  NQTEQI(albad, 0);
   NQTEQI(nqsetal(NULL, NULL, NULL), NQOK);
   {
     char p[600];
@@ -1123,6 +1157,39 @@ static void talloc(const key *k) {
 
 #define GDIR "vectors/cap/sample"
 #define GMETA "{\"project\":\"golden\",\"n\":1.50,\"tags\":[\"a\",\"b\"]}"
+
+/* nqersput under the size-checking allocator: a new evidence record over
+ * the golden seal (sealed again, the same signature) from the token
+ * vectors/cap/tsa/ers.tok; every block is freed with its size */
+static void tersal(const key *k) {
+  char d[600], p[600], *tok = NULL, *ra = NULL;
+  size_t tn = 0, rn = 0, l[1];
+  const uint8_t *a[1];
+  const char *why = NULL;
+  int64_t gt = 0;
+  int how = -1;
+  NQTEQI(rd("vectors/cap/tsa", "ers.tok", &tok, &tn), NQOK);
+  NQTEQI(rd("vectors/cap/tsa", "ersroot.der", &ra, &rn), NQOK);
+  if (tok == NULL || ra == NULL) return;
+  fresh(d, sizeof d);
+  NQTEQI(sealk(d, k, GMETA), NQOK);
+  a[0] = (const uint8_t *)ra;
+  l[0] = rn;
+  alfail = -1;
+  allive = 0;
+  albad = 0;
+  NQTEQI(nqsetal(tmal, tfree, NULL), NQOK);
+  NQTEQI(nqersput(d, (nqhalg)0, (const uint8_t *)tok, tn, NULL, 0, a, l, 1,
+                  &gt, &how, &why), NQOK);
+  NQTEQI(nqsetal(NULL, NULL, NULL), NQOK);
+  NQTEQI(how, 0);
+  NQTEQI(allive, 0);
+  NQTEQI(albad, 0);
+  path(p, sizeof p, d, NQCERS);
+  track(p);
+  nqfree(tok, tn + 1);
+  nqfree(ra, rn + 1);
+}
 
 static void tgolden(const key *k, int gen) {
   char d[600], *g = NULL, *m = NULL;
@@ -1761,6 +1828,7 @@ static void tfs(int gen) {
   tlims(&m44);
   if (getenv("NQCAPBIG") != NULL) tbig(&m44);
   talloc(&m44);
+  tersal(&m44);
   cleanup();
 }
 

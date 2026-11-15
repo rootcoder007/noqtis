@@ -561,7 +561,8 @@ static int build(const work *w, const nqspan *tok, uint8_t **out,
     if (algs & (1u << i)) dan += sizeof aid[0];
   body = sizeof ver + hdr(hb, 0x30, dan) + dan +
          (e != NULL ? e->cinfo.n : 0) + hdr(hb, 0x30, seqn) + seqn;
-  cap = body + 6;
+  /* exactly the record's length, the size the caller frees */
+  cap = hdr(hb, 0x30, body) + body;
   if (cap > NQCERSMAX) return NQELIM;
   o = (uint8_t *)nqmal(cap);
   if (o == NULL) return NQEMEM;
