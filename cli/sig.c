@@ -159,7 +159,7 @@ static int feed(const char *cmd, const char *path, nqsctx *s, nqsctx *v) {
 
 int nckeygen(int argc, char **argv) {
   const char *an = NULL, *out = NULL, *sd = NULL;
-  int force = 0, help = 0, np, rc;
+  int force = 0, help = 0, np, rc, wrc;
   ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'a', "alg", 1, &an, NULL},
@@ -234,11 +234,20 @@ int nckeygen(int argc, char **argv) {
   }
   rc = pw != NULL ? nckwrp(fs, &a, pw, pwn, sk, skn)
                   : nckwr(fs, &a, 1, sk, skn);
+  wrc = rc;
   rc = ncclose(fs, out, rc != NQOK);
   fs = NULL;
   if (rc != NQOK) {
     (void)ncclose(fp, pp, 1);
-    ncmsg("keygen", "cannot write %s", out);
+    /* the key under the passphrase needs 64 MiB for Argon2id: running
+     * out of memory is not a file that cannot be written */
+    if (wrc == NQEMEM)
+      nclib("keygen", pw != NULL ? "the secret key under the passphrase "
+                                   "(Argon2id needs 64 MiB)"
+                                 : "memory",
+            wrc);
+    else
+      ncmsg("keygen", "cannot write %s", out);
     goto done;
   }
   rc = nckwr(fp, &a, 0, pk, pkn);

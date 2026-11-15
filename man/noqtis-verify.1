@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-VERIFY 1
 .Os
 .Sh NAME
@@ -83,7 +83,11 @@ It is not: a wrong signature, file, key, context or pre-hash, or a
 signature of the wrong length.
 .It 2
 A usage error, a key that is not a public signature key, or a file that
-cannot be read.
+cannot be read; also a file over 1 GiB for an algorithm that takes the
+message whole (pure SLH-DSA, Ed25519, a hybrid), which cannot be checked
+as given: its pre-hash variant
+.Pq Fl -ph
+takes a file of any size, as the message says.
 .El
 .Sh EXAMPLES
 .Bd -literal -offset indent

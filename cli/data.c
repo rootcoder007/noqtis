@@ -1135,18 +1135,20 @@ static const char *archname(void) {
 }
 
 /* appends ,"k":<JSON string of v> to b (cap bytes) */
+/* adds "k":v to the JSON object in b: NCOK, NQEMEM, or NQELIM when it
+ * does not fit */
 static int jadd(char *b, size_t cap, const char *k, const char *v) {
   char *q;
   size_t n = strlen(b);
   if (v == NULL || *v == '\0')
     return NCOK;
   if ((q = ncjq(v)) == NULL)
-    return NCUSE;
+    return NQEMEM;
   /* - 1: room for the closing brace the caller adds */
   if ((size_t)snprintf(b + n, cap - n, "%s\"%s\":%s", n > 1 ? "," : "", k,
                        q) >= cap - n - 1) {
     free(q);
-    return NCUSE;
+    return NQELIM;
   }
   free(q);
   return NCOK;
@@ -1180,15 +1182,30 @@ static int denv(int argc, char **argv) {
     return NCUSE;
   }
   strcpy(b, "{");
-  if (jadd(b, sizeof b, "os", osname()) != NCOK ||
-      jadd(b, sizeof b, "arch", archname()) != NCOK ||
-      jadd(b, sizeof b, "noqtis", nqver()) != NCOK ||
-      jadd(b, sizeof b, "locale",
-           getenv("LC_ALL") && *getenv("LC_ALL") ? getenv("LC_ALL")
-                                                  : getenv("LANG")) !=
-          NCOK ||
-      jadd(b, sizeof b, "tz", getenv("TZ")) != NCOK)
-    return nclib("env", "memory", NQELIM);
+  {
+    static const char *const kn[] = {"os", "arch", "noqtis", "locale",
+                                     "tz"};
+    int lc = getenv("LC_ALL") != NULL && *getenv("LC_ALL") != '\0';
+    const char *kv[5], *src[5];
+    kv[0] = osname();
+    kv[1] = archname();
+    kv[2] = nqver();
+    kv[3] = lc ? getenv("LC_ALL") : getenv("LANG");
+    kv[4] = getenv("TZ");
+    src[0] = src[1] = src[2] = "this system";
+    src[3] = lc ? "LC_ALL" : "LANG";
+    src[4] = "TZ";
+    for (i = 0; i < 5; i++) {
+      if ((rc = jadd(b, sizeof b, kn[i], kv[i])) == NQEMEM)
+        return nclib("env", "memory", NQEMEM);
+      if (rc != NCOK) {
+        ncmsg("env", "the %s (from %s) is too long to record: the "
+              "environment is at most %lu bytes", kn[i], src[i],
+              (unsigned long)sizeof b - 2);
+        return NCUSE;
+      }
+    }
+  }
   strcat(b, "}");
   if ((rc = ncdload("env", argv[0], 1, &r)) != NCOK)
     return rc;
@@ -1199,9 +1216,13 @@ static int denv(int argc, char **argv) {
   }
   if (rng != NULL) {
     char g[1024] = "{";
-    if (jadd(g, sizeof g, "kind", rng) != NCOK ||
-        (seed != NULL && jadd(g, sizeof g, "seed", seed) != NCOK)) {
-      ncmsg("env", "--rng and --seed: too long");
+    if ((rc = jadd(g, sizeof g, "kind", rng)) == NCOK && seed != NULL)
+      rc = jadd(g, sizeof g, "seed", seed);
+    if (rc != NCOK) {
+      if (rc == NQEMEM)
+        nclib("env", "memory", NQEMEM);
+      else
+        ncmsg("env", "--rng and --seed: too long");
       nqdrfree(r);
       return NCUSE;
     }

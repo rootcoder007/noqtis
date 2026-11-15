@@ -776,6 +776,28 @@ static const char *fixfor(const char *chk, const char *det) {
   return "no advice for this check: please report it as a bug";
 }
 
+/* fixfor, for a local folder dir (NULL: none) where noqtis.sig or
+ * noqtis.json is there but could not be read: not "missing" */
+static const char *fixin(const char *dir, const char *chk, const char *det) {
+  char p[4200];
+  const char *nm = strcmp(chk, "seal.read") == 0 ? "noqtis.sig"
+                   : strcmp(chk, "manifest.read") == 0 &&
+                           (det == NULL || strstr(det, "too large") == NULL)
+                       ? "noqtis.json"
+                       : NULL;
+  if (dir != NULL && nm != NULL &&
+      (size_t)snprintf(p, sizeof p, "%s/%s", dir, nm) < sizeof p &&
+      ncexist(p))
+    return strcmp(nm, "noqtis.sig") == 0
+               ? "noqtis.sig is there but could not be read (no "
+                 "permission, a link, or too many files open): check it "
+                 "and try again"
+               : "noqtis.json is there but could not be read (no "
+                 "permission, a link, or too many files open): check it "
+                 "and try again";
+  return fixfor(chk, det);
+}
+
 static const char *info(const nqrep *r, const char *name);
 
 /* the card row of check --card: whether the card cf (read with ncidrd:
@@ -897,7 +919,7 @@ int ncchk(int argc, char **argv) {
   char bdir[1024];
   size_t n = 0, i, j, w = 5, nf = 0, pn = 0;
   int part = 0;
-  const char *kn = NULL, *kalg = NULL, *dir = NULL;
+  const char *kn = NULL, *kalg = NULL, *dir = NULL, *ldir = NULL;
 
   if (hasrec(argc, argv))
     return ncrec("check", ncchk, argc, argv);
@@ -953,6 +975,8 @@ int ncchk(int argc, char **argv) {
     return NCUSE;
   }
   if (np == 1) dir = argv[0];
+  /* a folder given as itself, for the advice on what could not be read */
+  if (np == 1 && !ncisurl(argv[0]) && ncisdir(argv[0])) ldir = argv[0];
   for (i = 0; i < (size_t)nl; i++) {
     if (!ncisdir(lin[i])) {
       ncmsg("check", "%s: not a folder (--lineage takes a folder of "
@@ -1122,7 +1146,7 @@ int ncchk(int argc, char **argv) {
       jstr(d != NULL ? d : "");
       if (!ok) {
         fputs(",\"fix\":", stdout);
-        jstr(fixfor(c, d));
+        jstr(fixin(ldir, c, d));
       }
       putchar('}');
     } else {
@@ -1189,12 +1213,12 @@ int ncchk(int argc, char **argv) {
     int ok = 1, dup = 0;
     if (nqrepi(r, i, &c, &ok, &d) != NQOK || c == NULL || ok)
       continue;
-    f = fixfor(c, d);
+    f = fixin(ldir, c, d);
     for (j = 0; j < i && !dup; j++) {
       const char *c2 = NULL, *d2 = NULL;
       int ok2 = 1;
       if (nqrepi(r, j, &c2, &ok2, &d2) == NQOK && c2 != NULL && !ok2 &&
-          strcmp(c, c2) == 0 && fixfor(c2, d2) == f)
+          strcmp(c, c2) == 0 && fixin(ldir, c2, d2) == f)
         dup = 1;
     }
     if (!dup)

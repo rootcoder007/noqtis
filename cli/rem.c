@@ -205,10 +205,10 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out) {
     return NCUSE;
   }
   *out = m;
-  if (!pull(m, "noqtis.sig", (size_t)1 << 20) ||
-      !pull(m, "noqtis.json", (size_t)512 << 20)) {
-    return NCOK; /* the check says what is missing */
-  }
+  /* both, so a refusal of one is not reported as the other missing */
+  ok = pull(m, "noqtis.sig", (size_t)1 << 20);
+  if (!pull(m, "noqtis.json", (size_t)512 << 20) || !ok)
+    return NCOK; /* the check says what is missing, pull why */
   /* the seal, its signature and the manifest first: nothing more is
    * fetched for a capsule they do not vouch for */
   pre = *co;

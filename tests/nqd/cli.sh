@@ -375,6 +375,7 @@ ok 0 "diff: pin a,c" "$nq" drift pin "$w/dc2" data/f.csv
 ok 1 "diff: a column renamed" "$nq" diff "$w/dc1" "$w/dc2"
 has "$w/out" "data/f.csv: column b removed" "diff: the old name removed"
 has "$w/out" "data/f.csv: column c added" "diff: the new name added"
+has "$w/out" "neither is sealed (or their seals" "diff: no double negative"
 printf 'a\n1\n2\n3\n' >"$w/dc2/data/f.csv"
 ok 0 "diff: pin a" "$nq" drift pin "$w/dc2" data/f.csv
 ok 1 "diff: a column dropped" "$nq" diff "$w/dc1" "$w/dc2"
@@ -585,6 +586,9 @@ ok 2 "commit: bad kind" "$nq" commit -f --kind lottery "$e" "$w/list.csv"
 # whole, never written past the end
 ok 2 "env: --rng of 1013 bytes" "$nq" env --rng "$(aa 1013)" "$e"
 has "$w/err" "too long" "env says the rng is too long"
+ok 2 "env: a LANG over the environment's room" env LC_ALL= \
+  LANG="$(aa 17000)" "$nq" env "$e"
+has "$w/err" "locale (from LANG) is too long" "env names LANG, not memory"
 ok 2 "commit: --label and --after over the entry" "$nq" commit -f \
   --kind randomisation --label "$(aa 1870)" --after 2026-01-01T00:00:00Z \
   "$e" "$w/list.csv"

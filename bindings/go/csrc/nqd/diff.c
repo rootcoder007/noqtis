@@ -435,11 +435,13 @@ int nqddiff(const char *a, const char *b, nqdrep **out) {
       }
     }
   } else {
-    qdrepadd(rep, "manifest", 1,
-             "%s not sealed (or its seal does not read): files not compared",
-             ma != NQOK && mb != NQOK ? "neither is"
-             : ma != NQOK             ? "the first is"
-                                      : "the second is");
+    qdrepadd(rep, "manifest", 1, "%s: files not compared",
+             ma != NQOK && mb != NQOK
+                 ? "neither is sealed (or their seals do not read)"
+             : ma != NQOK ? "the first is not sealed (or its seal does not "
+                            "read)"
+                          : "the second is not sealed (or its seal does not "
+                            "read)");
   }
   la = nqdload(a, &ra, why, sizeof why);
   lb = nqdload(b, &rb, why, sizeof why);
