@@ -836,42 +836,38 @@ static void jcard(const nqcardf *f) {
          f->utc, nqsname(f->alg), hx);
 }
 
-/* the listed files a bundle unpacked to dir carries, when it carries
- * some but not all (a bundle made with --no-files): those to check in
- * *out (free each and the list); NCOK, or NCUSE for every file or none */
-static int carried(const char *dir, char ***out, size_t *nout) {
-  nqrep *r = NULL;
-  size_t i, n, k = 0, all = 0;
-  char **v, p[4200];
-  *out = NULL;
-  *nout = 0;
-  if (nqfiles(dir, &r) != NQOK) {
-    nqrepfree(r);
-    return NCUSE;
-  }
-  n = nqrepn(r);
-  v = (char **)calloc(n + 1, sizeof *v);
-  for (i = 0; v != NULL && i < n; i++) {
-    const char *c = NULL, *d = NULL, *sp;
-    if (nqrepi(r, i, &c, NULL, &d) != NQOK || strcmp(c, "info.file") != 0 ||
-        (sp = strchr(d, ' ')) == NULL || strlen(sp) < 67)
+/* whether the full check r of a bundle's folder shows the shape of a
+ * bundle made with --no-files (nqdpack with files 0): of the listed
+ * files only the data record is there, and it matches; every other
+ * listed file is missing; nothing is there that the manifest does not
+ * list. The shape is read from the check's own rows, so the folder walk
+ * that finds unlisted files decides it, not what a file name suggests.
+ * Any other bundle stands as checked in full. A bundle cut down to this
+ * shape by hand is the --no-files bundle of the same capsule, byte for
+ * byte, and is checked as one: partial, and labelled so. */
+static int lean(const nqrep *r) {
+  size_t i, n = nqrepn(r), rec = 0, miss = 0, l;
+  for (i = 0; i < n; i++) {
+    const char *c = NULL, *d = NULL;
+    int ok = 0;
+    if (nqrepi(r, i, &c, &ok, &d) != NQOK || c == NULL)
+      return 0;
+    if (strcmp(c, "extra") == 0 || strcmp(c, "unsafe") == 0 ||
+        strcmp(c, "path") == 0)
+      return 0;
+    if (strcmp(c, "file") != 0)
       continue;
-    all++;
-    sp += 66;
-    snprintf(p, sizeof p, "%s/%s", dir, sp);
-    if (ncisreg(p) && (v[k] = (char *)malloc(strlen(sp) + 1)) != NULL)
-      memcpy(v[k++], sp, strlen(sp) + 1);
+    if (d == NULL)
+      return 0;
+    l = strlen(d);
+    if (ok && strcmp(d, NQDFILE) == 0)
+      rec++;
+    else if (!ok && l > 9 && strcmp(d + l - 9, ": missing") == 0)
+      miss++;
+    else
+      return 0;
   }
-  nqrepfree(r);
-  if (v == NULL || k == 0 || k == all) {
-    for (i = 0; v != NULL && i < k; i++)
-      free(v[i]);
-    free(v);
-    return NCUSE;
-  }
-  *out = v;
-  *nout = k;
-  return NCOK;
+  return rec == 1 && miss > 0;
 }
 
 int ncchk(int argc, char **argv) {
@@ -900,8 +896,9 @@ int ncchk(int argc, char **argv) {
   size_t stl[NCMAXV];
   ncrem *rm = NULL;
   uint8_t *pb = NULL;
-  char bdir[1024], **bo = NULL;
-  size_t n = 0, i, j, w = 5, nf = 0, pn = 0, nbo = 0;
+  char bdir[1024];
+  size_t n = 0, i, j, w = 5, nf = 0, pn = 0;
+  int part = 0;
   const char *kn = NULL, *kalg = NULL, *dir = NULL;
 
   if (hasrec(argc, argv))
@@ -1038,23 +1035,27 @@ int ncchk(int argc, char **argv) {
       return ret;
     }
     dir = bdir;
-    if (pf == NULL && no == 0 && carried(bdir, &bo, &nbo) == NCOK) {
-      co.only = (const char *const *)bo;
-      co.nonly = nbo;
+  }
+  if (pf != NULL) {
+    rc = nqchkp((const char *)pb, pn, &co, dir, &r);
+  } else {
+    rc = nqchkx(dir, &co, &r);
+    /* a bundle is checked in full; only one of the --no-files shape is
+     * checked again as the partial check of its data record */
+    if (dir == bdir && no == 0 && rc == NQEVRFY && r != NULL && lean(r)) {
+      static const char *const rec[] = {NQDFILE};
+      nqrepfree(r);
+      r = NULL;
+      co.only = rec;
+      co.nonly = 1;
+      rc = nqchkx(dir, &co, &r);
     }
   }
-  if (pf != NULL)
-    rc = nqchkp((const char *)pb, pn, &co, dir, &r);
-  else
-    rc = nqchkx(dir, &co, &r);
   if (cf != NULL && dir != NULL)
     cok = cardrow(dir, cvr, cwhy, &card, cdet, sizeof cdet);
   ncremfree(rm);
   if (dir == bdir)
     ncbdone(argv[0], bdir);
-  for (i = 0; i < nbo; i++)
-    free(bo[i]);
-  free(bo);
   kn = pp != NULL ? pk.a.name : NULL;
   nckfree(&pk);
   ancfree(&an);
@@ -1074,6 +1075,11 @@ int ncchk(int argc, char **argv) {
       all = 0;
       nf++;
     }
+    /* a check of some files only (--only, --proof with a folder, a
+     * --no-files bundle) says so in its summary and JSON too, so a
+     * partial pass is never read as a full one */
+    if (strcmp(c, "partial") == 0)
+      part = 1;
     /* -p pins the key file's algorithm too, not only its bytes (with
      * --keys the verified chain decides the key, and so its algorithm) */
     if (kn != NULL && nk == 0 && ok && strcmp(c, "seal.alg") == 0 &&
@@ -1099,7 +1105,8 @@ int ncchk(int argc, char **argv) {
   if (json) {
     fputs(pf != NULL ? "{\"proof\":" : "{\"capsule\":", stdout);
     jstr(lab);
-    printf(",\"ok\":%s,\"result\":", ret == NCOK ? "true" : "false");
+    printf(",\"ok\":%s,\"partial\":%s,\"result\":",
+           ret == NCOK ? "true" : "false", part ? "true" : "false");
     jstr(nqerr(rc));
     fputs(",\"checks\":[", stdout);
   } else if (n > 0) {
@@ -1165,6 +1172,10 @@ int ncchk(int argc, char **argv) {
     if (cf != NULL && cok)
       jcard(&card);
     fputs("}\n", stdout);
+  } else if (ret == NCOK && part) {
+    printf("%s: PARTIAL OK (%lu checks passed; not every file was "
+           "checked)\n", ncesc(lab),
+           (unsigned long)(n + (size_t)(cf != NULL)));
   } else if (ret == NCOK) {
     printf("%s: OK (%lu checks passed)\n", ncesc(lab),
            (unsigned long)(n + (size_t)(cf != NULL)));

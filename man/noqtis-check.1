@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 13, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-CHECK 1
 .Os
 .Sh NAME
@@ -46,6 +46,15 @@ the check's name and a detail, then a summary line
 .Dl <dir>: OK (<n> checks passed)
 or
 .Dl <dir>: FAILED (<k> of <n> checks failed)
+or, for a check of some files only
+.Po
+.Fl -only ,
+.Fl -proof
+with a folder, a bundle made with
+.Fl -no-files
+.Pc ,
+when everything it checked passed,
+.Dl <dir>: PARTIAL OK (<n> checks passed; not every file was checked)
 .Pp
 Without
 .Fl p ,
@@ -95,10 +104,26 @@ a bundle from
 it is read into a new temporary folder, refused whole when it is
 malformed or names a path that would leave that folder (exit 1), checked
 as that folder, and removed again; the report names the file.
-A bundle made with
+A bundle is checked in full: a listed file it does not carry fails its
+.Ql file
+row, and a file it carries that the manifest does not list fails an
+.Ql extra
+row.
+Only a bundle of the shape
+.Ql noqtis export --as bundle --no-files
+writes is checked as partial: of the listed files it carries the data
+record
+.Pa noqtis.data.json
+alone, which matches, and nothing the manifest does not list besides the
+seal and the evidence record.
+That shape is read from the full check of the folder, so a bundle with
+some of its files removed, or a file added, is never taken for one; a
+bundle cut down to that shape by hand is the
 .Fl -no-files
-carries the seal, the manifest and the data record alone: those are
-checked, and the report says the check is partial.
+bundle of the same capsule, byte for byte.
+Its seal, manifest and data record are then checked as with
+.Fl -only Pa noqtis.data.json ,
+and the report says the check is partial.
 .Pp
 Given a
 .Ar url
@@ -144,9 +169,15 @@ The public signature key the capsule must be sealed with.
 .It Fl j , Fl -json
 Print one line of JSON instead of the table:
 .Bd -literal
-{"capsule":"<dir>","ok":<bool>,"result":"<nqerr text>",
+{"capsule":"<dir>","ok":<bool>,"partial":<bool>,
+ "result":"<nqerr text>",
  "checks":[{"check":"<name>","ok":<bool>,"detail":"<text>"},...]}
 .Ed
+.Pp
+.Ql partial
+is true when only some files were checked, as with the
+.Ql PARTIAL OK
+summary line.
 .Pp
 A failed check also has
 .Ql fix ,
@@ -185,7 +216,11 @@ The seal, the signature and the whole manifest are still checked; files
 not named are neither read nor needed, and files present but not listed
 are not looked for.
 .Ql partial
-rows say so, so a partial pass is never mistaken for a full one.
+rows, the
+.Ql PARTIAL OK
+summary line and
+.Ql \(dqpartial\(dq:true
+in JSON say so, so a partial pass is never mistaken for a full one.
 A named path the manifest does not list fails its
 .Ql file
 row.
@@ -344,9 +379,10 @@ when the seal's key was rotated away or revoked: the verified
 timestamp's genTime is before then.
 .It Cm partial
 With
-.Fl -only
-or
-.Fl -proof :
+.Fl -only ,
+.Fl -proof
+or a bundle made with
+.Fl -no-files :
 what the check left out; never a failure.
 .It Cm proof.parse , proof.canonical , proof.fields , proof.entry
 With
@@ -387,7 +423,9 @@ current.
 .Sh EXIT STATUS
 .Bl -tag -width 3n -compact
 .It 0
-Every check passed.
+Every check passed; for a partial check, every check of what it
+checked, and the summary line says
+.Ql PARTIAL OK .
 .It 1
 A check failed (the files changed, the seal or manifest is damaged or not
 signed by

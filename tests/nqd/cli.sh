@@ -585,6 +585,62 @@ ok 0 "check a bundle without its files" "$nq" check -p "$w/k.pub" \
   "$w/lean.nqb"
 has "$w/out" "partial" "a partial check, which the report says"
 has "$w/out" "noqtis.data.json" "the record is checked"
+has "$w/out" "lean.nqb: PARTIAL OK" "the summary says partial, not OK alone"
+ok 0 "check a bundle without its files --json" "$nq" check --json \
+  -p "$w/k.pub" "$w/lean.nqb"
+has "$w/out" '"ok":true,"partial":true' "json says partial"
+ok 0 "check a full bundle --json" "$nq" check --json -p "$w/k.pub" \
+  "$w/b.nqb"
+has "$w/out" '"ok":true,"partial":false' "a full check is not partial"
+# a bundle is partial only in the shape --no-files writes. The entries of
+# b.nqb, in order: a.txt (bytes from 16 + 2 + 5 + 8), data/a.csv,
+# noqtis.data.json, noqtis.json, noqtis.sig; of lean.nqb: the last three
+ac=$(wc -c <"$b/data/a.csv")
+# one bit: a.txt becomes c.txt, a file the manifest does not list
+cp "$w/b.nqb" "$w/m1.nqb"
+printf 'c' | dd of="$w/m1.nqb" bs=1 seek=18 conv=notrunc 2>/dev/null
+ok 1 "check a bundle with a listed file renamed" "$nq" check \
+  -p "$w/k.pub" "$w/m1.nqb"
+has "$w/out" "a.txt: missing" "the listed file is missing"
+has "$w/out" "c.txt: not in the manifest" "the renamed file is extra"
+ok 1 "the same, --json" "$nq" check --json -p "$w/k.pub" "$w/m1.nqb"
+has "$w/out" '"ok":false' "json fails"
+# one bit: noqtis.data.json becomes nOqtis.data.json
+cp "$w/b.nqb" "$w/m2.nqb"
+printf 'O' | dd of="$w/m2.nqb" bs=1 \
+  seek=$((16 + 2 + 5 + 8 + 5 + 2 + 10 + 8 + ac + 2 + 1)) \
+  conv=notrunc 2>/dev/null
+ok 1 "check a bundle with the record renamed in case" "$nq" check \
+  -p "$w/k.pub" "$w/m2.nqb"
+# (the rows differ where the file system ignores case)
+has "$w/out" "FAIL" "a row fails"
+# a listed file left out: the bundle without its a.txt entry
+{ dd if="$w/b.nqb" bs=16 count=1 2>/dev/null
+  tail -c +37 "$w/b.nqb"; } >"$w/m3.nqb"
+ok 1 "check a bundle with a listed file removed" "$nq" check \
+  -p "$w/k.pub" "$w/m3.nqb"
+has "$w/out" "a.txt: missing" "the removed file fails"
+# an unlisted file added (b.txt sorts after a.txt)
+{ dd if="$w/b.nqb" bs=36 count=1 2>/dev/null
+  printf '\000\005b.txt\000\000\000\000\000\000\000\001x'
+  tail -c +37 "$w/b.nqb"; } >"$w/m4.nqb"
+ok 1 "check a bundle with an unlisted file added" "$nq" check \
+  -p "$w/k.pub" "$w/m4.nqb"
+has "$w/out" "b.txt: not in the manifest" "the added file fails"
+# a --no-files bundle with a file added: unlisted, or one of its own
+for f in b a; do
+  { dd if="$w/lean.nqb" bs=16 count=1 2>/dev/null
+    if [ $f = a ]; then
+      printf '\000\005a.txt\000\000\000\000\000\000\000\005AAAA\n'
+    else
+      printf '\000\005b.txt\000\000\000\000\000\000\000\001x'
+    fi
+    tail -c +17 "$w/lean.nqb"; } >"$w/m5.nqb"
+  ok 1 "check a --no-files bundle with $f.txt added" "$nq" check \
+    -p "$w/k.pub" "$w/m5.nqb"
+  has "$w/out" "data/a.csv: missing" "it is checked in full"
+done
+has "$w/out" "FAIL  file" "a listed file it lacks fails"
 dd if="$w/b.nqb" bs=100 count=1 2>/dev/null >"$w/cut.nqb"
 ok 1 "check a cut bundle" "$nq" check "$w/cut.nqb"
 has "$w/err" "ends" "a cut bundle says where it ends"

@@ -492,8 +492,13 @@ for a device (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`,
 with any extension) or one ending in a dot or space. Two paths that
 differ only in ASCII case fail there on a file system that ignores case,
 and otherwise in the check (§4 rule 6). A checker then checks the folder
-as in §7; for a bundle without its files, only the files it carries
-(§9: a partial check, which the report says).
+as in §7. Only a bundle of the shape a packer writes without the files
+(of the listed files it carries the data record alone, which matches,
+and nothing unlisted besides the seal and the evidence record, as the
+full check of the folder shows) MAY then be checked as the partial check
+of its data record (§9), which the report MUST say; a checker MUST NOT
+infer a partial check from any other set of files a bundle carries: a
+listed file missing from it, or an unlisted file in it, fails.
 
 ## 15. Chains
 
