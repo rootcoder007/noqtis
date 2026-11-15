@@ -228,35 +228,35 @@ static int child(wctx *w, const char *nm, size_t nl, int isdir, int kind,
 
 #if defined(_WIN32)
 
-static wchar_t *wide(const char *s, size_t *bytes) {
-  int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, NULL, 0);
-  wchar_t *w;
-  if (n <= 0) return NULL;
-  *bytes = (size_t)n * sizeof(wchar_t);
-  w = (wchar_t *)nqmal(*bytes);
-  if (w == NULL) return NULL;
-  if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, w, n) != n) {
-    nqfree(w, *bytes);
-    return NULL;
-  }
-  return w;
+#define WMAX 8192 /* wide characters in one full path; a longer one is refused */
+
+/* The path as UTF-16 in w, the caller's own array of WMAX wide
+ * characters: nothing is allocated, so a path cannot fail for want of
+ * memory and be taken for a file that is not there. 0 when the text is
+ * not UTF-8 or does not fit. */
+static int wide(const char *s, wchar_t *w) {
+  return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, w, WMAX) >
+         0;
+}
+
+/* FindFirstFileW on a UTF-8 pattern; its own function so that the wide
+ * path is not held on the stack while walk1 goes down the tree */
+static HANDLE ffirst(const char *pat, WIN32_FIND_DATAW *fd) {
+  wchar_t wp[WMAX];
+  return wide(pat, wp) ? FindFirstFileW(wp, fd) : INVALID_HANDLE_VALUE;
 }
 
 static int walk1(wctx *w, const char *full) {
-  size_t fl = strlen(full), wb;
+  size_t fl = strlen(full);
   char *pat = (char *)nqmal(fl + 3);
-  wchar_t *wp;
   WIN32_FIND_DATAW fd;
   HANDLE h;
   int rc = NQOK;
   if (pat == NULL) return NQEMEM;
   memcpy(pat, full, fl);
   memcpy(pat + fl, "/*", 3);
-  wp = wide(pat, &wb);
+  h = ffirst(pat, &fd);
   nqfree(pat, fl + 3);
-  if (wp == NULL) return NQEIO;
-  h = FindFirstFileW(wp, &fd);
-  nqfree(wp, wb);
   if (h == INVALID_HANDLE_VALUE) return NQEIO;
   do {
     char nm[NQCPATHMAX * 3 + 1];
@@ -286,19 +286,17 @@ static int walk1(wctx *w, const char *full) {
  * POINT), then checks on the open handle that it is a plain file, so no
  * one can swap in a link between the check and the open. */
 static FILE *openh(const char *path, int wr) {
-  size_t wb;
-  wchar_t *wp = wide(path, &wb);
+  wchar_t wp[WMAX];
   BY_HANDLE_FILE_INFORMATION fi;
   HANDLE h;
   FILE *f;
   int fd;
-  if (wp == NULL) return NULL;
+  if (!wide(path, wp)) return NULL;
   h = CreateFileW(wp, wr ? GENERIC_WRITE : GENERIC_READ,
                   wr ? 0 : FILE_SHARE_READ, NULL,
                   wr ? CREATE_NEW : OPEN_EXISTING,
                   FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
                   NULL);
-  nqfree(wp, wb);
   if (h == INVALID_HANDLE_VALUE) return NULL;
   if (!GetFileInformationByHandle(h, &fi) ||
       (fi.dwFileAttributes &
@@ -321,20 +319,11 @@ static FILE *openh(const char *path, int wr) {
 
 static FILE *openw(const char *path) { return openh(path, 1); }
 
-/* The final path of an open handle (\\?\C:\...), or NULL. */
-static wchar_t *finalp(HANDLE h, size_t *bytes) {
-  DWORD n = GetFinalPathNameByHandleW(h, NULL, 0, FILE_NAME_NORMALIZED);
-  wchar_t *w;
-  if (n == 0) return NULL;
-  *bytes = ((size_t)n + 1) * sizeof(wchar_t);
-  w = (wchar_t *)nqmal(*bytes);
-  if (w == NULL) return NULL;
-  if (GetFinalPathNameByHandleW(h, w, n + 1, FILE_NAME_NORMALIZED) == 0 ||
-      GetFinalPathNameByHandleW(h, w, n + 1, FILE_NAME_NORMALIZED) > n) {
-    nqfree(w, *bytes);
-    return NULL;
-  }
-  return w;
+/* The final path of an open handle (\\?\C:\...) in w, the caller's array
+ * of WMAX wide characters; 0 when it cannot be had or does not fit. */
+static int finalp(HANDLE h, wchar_t *w) {
+  DWORD n = GetFinalPathNameByHandleW(h, w, WMAX, FILE_NAME_NORMALIZED);
+  return n > 0 && n < WMAX;
 }
 
 /* Opens rel inside dir for reading, refusing it unless the opened file's
@@ -342,36 +331,32 @@ static wchar_t *finalp(HANDLE h, size_t *bytes) {
  * a junction or link while a seal or check runs is refused, not
  * followed. */
 static FILE *openin(const char *dir, const char *rel) {
-  size_t fl = 0, rb = 0, db = 0, dn, dwb = 0;
+  size_t fl = 0, dn;
   char *full = join(dir, rel, &fl);
-  wchar_t *wd, *rp = NULL, *dp = NULL;
+  wchar_t wd[WMAX], rp[WMAX], dp[WMAX];
   HANDLE dh;
   FILE *f;
-  int ok = 0;
+  int ok = 0, hd = 0;
   if (full == NULL) return NULL;
   f = openh(full, 0);
   nqfree(full, fl + 1);
   if (f == NULL) return NULL;
-  wd = wide(dir, &dwb);
-  dh = wd == NULL ? INVALID_HANDLE_VALUE
-                  : CreateFileW(wd, 0, FILE_SHARE_READ | FILE_SHARE_WRITE |
-                                           FILE_SHARE_DELETE,
-                                NULL, OPEN_EXISTING,
-                                FILE_FLAG_BACKUP_SEMANTICS, NULL);
-  if (wd != NULL) nqfree(wd, dwb);
+  dh = !wide(dir, wd) ? INVALID_HANDLE_VALUE
+                      : CreateFileW(wd, 0, FILE_SHARE_READ |
+                                               FILE_SHARE_WRITE |
+                                               FILE_SHARE_DELETE,
+                                    NULL, OPEN_EXISTING,
+                                    FILE_FLAG_BACKUP_SEMANTICS, NULL);
   if (dh != INVALID_HANDLE_VALUE) {
-    dp = finalp(dh, &db);
+    hd = finalp(dh, dp);
     CloseHandle(dh);
   }
-  rp = finalp((HANDLE)_get_osfhandle(_fileno(f)), &rb);
-  if (dp != NULL && rp != NULL) {
+  if (hd && finalp((HANDLE)_get_osfhandle(_fileno(f)), rp)) {
     dn = wcslen(dp);
     while (dn > 0 && dp[dn - 1] == L'\\') dn--;
     ok = wcslen(rp) > dn + 1 && _wcsnicmp(rp, dp, dn) == 0 &&
          rp[dn] == L'\\';
   }
-  if (dp != NULL) nqfree(dp, db);
-  if (rp != NULL) nqfree(rp, rb);
   if (!ok) {
     fclose(f);
     return NULL;
@@ -383,12 +368,11 @@ static FILE *openin(const char *dir, const char *rel) {
  * (reparse point) or a folder; a hard link at path is replaced, never
  * written through. */
 static int replacef(const char *tmp, const char *path) {
-  size_t tb, pb;
-  wchar_t *wt = wide(tmp, &tb), *wp = wide(path, &pb);
+  wchar_t wt[WMAX], wp[WMAX];
   DWORD a;
   int rc = NQOK;
-  if (wt == NULL || wp == NULL) {
-    rc = NQEMEM;
+  if (!wide(tmp, wt) || !wide(path, wp)) {
+    rc = NQEIO;
   } else {
     a = GetFileAttributesW(wp);
     if (a != INVALID_FILE_ATTRIBUTES &&
@@ -400,17 +384,12 @@ static int replacef(const char *tmp, const char *path) {
       rc = NQEIO;
     }
   }
-  if (wt != NULL) nqfree(wt, tb);
-  if (wp != NULL) nqfree(wp, pb);
   return rc;
 }
 
 static void droptmp(const char *tmp) {
-  size_t tb;
-  wchar_t *wt = wide(tmp, &tb);
-  if (wt == NULL) return;
-  DeleteFileW(wt);
-  nqfree(wt, tb);
+  wchar_t wt[WMAX];
+  if (wide(tmp, wt)) DeleteFileW(wt);
 }
 
 static unsigned long mypid(void) {
