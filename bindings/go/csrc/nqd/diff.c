@@ -241,44 +241,20 @@ static void statcol(nqdrep *rep, const char *path, const djs *a,
   qdrepadd(rep, "stats", 0, "%s: %s", path, m);
 }
 
-/* the names of the columns c (NULL: none), sorted, with their places,
- * so that a column is found by name in log n */
-typedef struct {
-  const char *n;
-  size_t i;
-} qdnm;
-
-static int nmcmp(const void *a, const void *b) {
-  const qdnm *x = (const qdnm *)a, *y = (const qdnm *)b;
-  int c = strcmp(x->n, y->n);
-  return c != 0 ? c : x->i < y->i ? -1 : x->i > y->i;
-}
-
-static qdnm *names(const djs *c, size_t *n) {
+/* the names of the columns c (NULL: none), sorted (qdsisort), so that
+ * a column is found by name in log n */
+static qdsi *names(const djs *c, size_t *n) {
   size_t i, k = c != NULL ? c->n : 0;
-  qdnm *v = (qdnm *)qdmal((k + 1) * sizeof *v);
+  qdsi *v = (qdsi *)qdmal((k + 1) * sizeof *v);
   *n = k;
   if (v == NULL)
     return NULL;
   for (i = 0; i < k; i++) {
-    v[i].n = qdjget(c->k[i], "name")->s;
+    v[i].s = qdjget(c->k[i], "name")->s;
     v[i].i = i;
   }
-  qsort(v, k, sizeof *v, nmcmp);
+  qdsisort(v, k);
   return v;
-}
-
-/* the place of the column named s among v, or (size_t)-1 */
-static size_t nmat(const qdnm *v, size_t n, const char *s) {
-  size_t lo = 0, hi = n, m;
-  while (lo < hi) {
-    m = lo + (hi - lo) / 2;
-    if (strcmp(v[m].n, s) < 0)
-      lo = m + 1;
-    else
-      hi = m;
-  }
-  return lo < n && strcmp(v[lo].n, s) == 0 ? v[lo].i : (size_t)-1;
 }
 
 /* the columns of two schemas (st 0) or summaries (st 1) of path: each
@@ -288,7 +264,7 @@ static void cols(nqdrep *rep, int st, const char *path, const djs *a,
   const djs *ca = qdjget(a, "columns"), *cb = qdjget(b, "columns");
   const char *row = st ? "stats" : "schema";
   size_t i, j, na = 0, nb = 0;
-  qdnm *va = names(ca, &na), *vb = names(cb, &nb);
+  qdsi *va = names(ca, &na), *vb = names(cb, &nb);
   char m[300];
   if (va == NULL || vb == NULL) {
     qdrepadd(rep, row, 0, "%s: the columns differ (out of memory to say "
@@ -297,7 +273,7 @@ static void cols(nqdrep *rep, int st, const char *path, const djs *a,
   }
   for (i = 0; i < na; i++) {
     const char *n = qdjget(ca->k[i], "name")->s;
-    j = nmat(vb, nb, n);
+    j = qdsiat(vb, nb, n);
     if (j == (size_t)-1) {
       qdrepadd(rep, row, 0, "%s: column %s removed", path, n);
     } else if (st) {
@@ -309,7 +285,7 @@ static void cols(nqdrep *rep, int st, const char *path, const djs *a,
   }
   for (j = 0; j < nb; j++) {
     const char *n = qdjget(cb->k[j], "name")->s;
-    if (nmat(va, na, n) == (size_t)-1)
+    if (qdsiat(va, na, n) == (size_t)-1)
       qdrepadd(rep, row, 0, "%s: column %s added", path, n);
   }
 out:

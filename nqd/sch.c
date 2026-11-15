@@ -754,7 +754,7 @@ int nqdinfer(const char *dir, const char *path, const nqdcsvopt *o,
   int rc, got, header = o == NULL || !o->noheader;
   int ranges = o != NULL && o->ranges;
   char delim = o != NULL && o->delim ? o->delim : ',';
-  size_t nc = 0, i, j;
+  size_t nc = 0, i;
   uint64_t rows = 0;
   qdinf *in = NULL;
   char **names = NULL;
@@ -808,13 +808,27 @@ int nqdinfer(const char *dir, const char *path, const nqdcsvopt *o,
       rc = NQEMEM;
       goto out;
     }
-    for (j = 0; j < i; j++) {
-      if (strcmp(names[i], names[j]) == 0) {
-        qdwhy(why, wcap, "%s: the header names column \"%.80s\" twice", path,
-              names[i]);
-        rc = NQEDEC;
-        goto out;
-      }
+  }
+  if (nc > 1) {
+    /* a name given twice, found by sorting the names */
+    qdsi *t = (qdsi *)qdmal(nc * sizeof *t);
+    size_t d;
+    if (t == NULL) {
+      rc = NQEMEM;
+      goto out;
+    }
+    for (i = 0; i < nc; i++) {
+      t[i].s = names[i];
+      t[i].i = i;
+    }
+    qdsisort(t, nc);
+    d = qdsidup(t, nc);
+    qdfree(t, nc * sizeof *t);
+    if (d != (size_t)-1) {
+      qdwhy(why, wcap, "%s: the header names column \"%.80s\" twice", path,
+            names[d]);
+      rc = NQEDEC;
+      goto out;
     }
   }
   if (header && (rc = qdcsvnext(&c, &got)) != NQOK)

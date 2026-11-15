@@ -63,6 +63,41 @@ char *qddup(const char *s, size_t n) {
   return d;
 }
 
+/* ---- names found in n log n ---- */
+
+static int sicmp(const void *a, const void *b) {
+  const qdsi *x = (const qdsi *)a, *y = (const qdsi *)b;
+  int c = strcmp(x->s, y->s);
+  return c != 0 ? c : x->i < y->i ? -1 : x->i > y->i;
+}
+
+void qdsisort(qdsi *t, size_t n) {
+  if (n > 1)
+    qsort(t, n, sizeof *t, sicmp);
+}
+
+size_t qdsiat(const qdsi *t, size_t n, const char *s) {
+  size_t lo = 0, hi = n, m;
+  while (lo < hi) {
+    m = lo + (hi - lo) / 2;
+    if (strcmp(t[m].s, s) < 0)
+      lo = m + 1;
+    else
+      hi = m;
+  }
+  return lo < n && strcmp(t[lo].s, s) == 0 ? t[lo].i : (size_t)-1;
+}
+
+size_t qdsidup(const qdsi *t, size_t n) {
+  size_t k, d = (size_t)-1;
+  /* equal strings sit together, in the order of their places: the
+   * second of each run is where that name is given again first */
+  for (k = 1; k < n; k++)
+    if (strcmp(t[k - 1].s, t[k].s) == 0 && t[k].i < d)
+      d = t[k].i;
+  return d;
+}
+
 void qdbput(dbuf *b, const char *s, size_t n) {
   if (b->err || n == 0)
     return;
@@ -825,6 +860,10 @@ int qdjparse(const char *buf, size_t len, djs **out, char *why, size_t cap) {
   djs *st[DJDEPTH];
   char *pk[DJDEPTH]; /* the key waiting for its value, per object */
   size_t pkl[DJDEPTH];
+  /* per object: its keys so far in increasing byte order, so a new key
+   * after the last cannot be one of them (a canonical object is read
+   * without comparing each key with every earlier one) */
+  unsigned char up[DJDEPTH];
   int top = -1, rc = NQOK;
   djs *root = NULL;
   r.b = buf;
@@ -878,6 +917,7 @@ int qdjparse(const char *buf, size_t len, djs **out, char *why, size_t cap) {
     if (v->t == DJOBJ || v->t == DJARR) {
       st[++top] = v;
       pk[top] = NULL;
+      up[top] = 1;
       ws(&r);
       if (r.i < r.n && buf[r.i] == (v->t == DJOBJ ? '}' : ']')) {
         r.i++;
@@ -930,7 +970,13 @@ int qdjparse(const char *buf, size_t len, djs **out, char *why, size_t cap) {
       size_t kl, j;
       if ((rc = rdstr(&r, &k, &kl)) != NQOK)
         goto fail;
-      for (j = 0; j < st[top]->n; j++) {
+      if (up[top] && st[top]->n > 0) {
+        size_t m = st[top]->n - 1, ml = st[top]->kl[m];
+        int c = memcmp(st[top]->key[m], k, ml < kl ? ml : kl);
+        if (c > 0 || (c == 0 && ml >= kl))
+          up[top] = 0;
+      }
+      for (j = 0; !up[top] && j < st[top]->n; j++) {
         if (st[top]->kl[j] == kl && memcmp(st[top]->key[j], k, kl) == 0) {
           qdfree(k, kl + 1);
           rc = rderr(&r, NQEDEC, "a duplicate key");

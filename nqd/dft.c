@@ -1000,13 +1000,31 @@ int nqddrift(const char *stats, size_t n, const char *file,
     qdjint(qdjget(st, "rows"), &rref);
     qdrepadd(rep, "drift", 1, "%s: %lld rows then %llu", path,
              (long long)rref, (unsigned long long)rows);
+    size_t nr;
+    qdsi *tf, *tr;
     cols = qdjget(st, "columns");
-    for (i = 0; cols != NULL && i < cols->n; i++) {
+    nr = cols != NULL ? cols->n : 0;
+    /* the columns of each side by name, sorted: each found in log n */
+    tf = (qdsi *)qdmal((nc + 1) * sizeof *tf);
+    tr = (qdsi *)qdmal((nr + 1) * sizeof *tr);
+    if (tf == NULL || tr == NULL)
+      rc = NQEMEM;
+    for (j = 0; rc == NQOK && j < nc; j++) {
+      tf[j].s = cs[j].name;
+      tf[j].i = j;
+    }
+    for (i = 0; rc == NQOK && i < nr; i++) {
+      tr[i].s = qdjget(cols->k[i], "name")->s;
+      tr[i].i = i;
+    }
+    if (rc == NQOK) {
+      qdsisort(tf, nc);
+      qdsisort(tr, nr);
+    }
+    for (i = 0; rc == NQOK && i < nr; i++) {
       const char *name = qdjget(cols->k[i], "name")->s;
-      for (j = 0; j < nc; j++)
-        if (strcmp(cs[j].name, name) == 0)
-          break;
-      if (j == nc) {
+      j = qdsiat(tf, nc, name);
+      if (j == (size_t)-1) {
         addrow(rep, 2, NULL, "%s: %s: the column is gone", path, name);
         continue;
       }
@@ -1015,13 +1033,12 @@ int nqddrift(const char *stats, size_t n, const char *file,
         break;
     }
     for (j = 0; j < nc && rc == NQOK; j++) {
-      for (i = 0; cols != NULL && i < cols->n; i++)
-        if (strcmp(qdjget(cols->k[i], "name")->s, cs[j].name) == 0)
-          break;
-      if (cols == NULL || i == cols->n)
+      if (qdsiat(tr, nr, cs[j].name) == (size_t)-1)
         addrow(rep, 1, NULL, "%s: %s: a new column, not in the reference",
                path, cs[j].name);
     }
+    qdfree(tf, (nc + 1) * sizeof *tf);
+    qdfree(tr, (nr + 1) * sizeof *tr);
   }
   colfree(cs, nc);
   qdjfree(st);
@@ -1044,6 +1061,7 @@ int nqddcal(const char *stats, size_t n, const char *const *files, size_t nf,
             char *why, size_t wcap) {
   djs *st = NULL, *cols;
   double *mp = NULL, *mq = NULL, *mb = NULL;
+  qdsi *tn = NULL;
   size_t nc, i, f, k;
   int rc;
   dbuf b;
@@ -1066,7 +1084,8 @@ int nqddcal(const char *stats, size_t n, const char *const *files, size_t nf,
   mp = (double *)qdmal((nc + 1) * sizeof *mp);
   mq = (double *)qdmal((nc + 1) * sizeof *mq);
   mb = (double *)qdmal((nc + 1) * sizeof *mb);
-  if (mp == NULL || mq == NULL || mb == NULL) {
+  tn = (qdsi *)qdmal((nc + 1) * sizeof *tn);
+  if (mp == NULL || mq == NULL || mb == NULL || tn == NULL) {
     rc = NQEMEM;
     goto out;
   }
@@ -1074,7 +1093,11 @@ int nqddcal(const char *stats, size_t n, const char *const *files, size_t nf,
     mp[k] = 0;
     mq[k] = 1;
     mb[k] = 2; /* none: a categorical column */
+    tn[k].s = qdjget(cols->k[k], "name")->s;
+    tn[k].i = k;
   }
+  /* each drift row's column found by name in log n */
+  qdsisort(tn, nc);
   for (f = 0; f < nf && rc == NQOK; f++) {
     nqdrep *rep = NULL;
     int e = nqddrift(stats, n, files[f], o, NULL, &rep);
@@ -1104,9 +1127,9 @@ int nqddcal(const char *stats, size_t n, const char *const *files, size_t nf,
       ps = qdjget(v, "psi");
       p = qdjget(v, "ksp") != NULL ? qdjget(v, "ksp") : qdjget(v, "chisqp");
       bp = qdjget(v, "benfordp");
-      for (k = 0; k < nc; k++)
-        if (strcmp(qdjget(cols->k[k], "name")->s, nm->s) == 0)
-          break;
+      k = nm != NULL && nm->t == DJSTR ? qdsiat(tn, nc, nm->s) : (size_t)-1;
+      if (k == (size_t)-1)
+        k = nc;
       if (k == nc || ps == NULL || p == NULL) {
         qdwhy(why, wcap, "%s: %s: a file that has not drifted has values of "
               "the reference's kind", files[f], dt);
@@ -1144,6 +1167,7 @@ int nqddcal(const char *stats, size_t n, const char *const *files, size_t nf,
     qdbfree(&b);
   }
 out:
+  qdfree(tn, (nc + 1) * sizeof *tn);
   qdfree(mp, (nc + 1) * sizeof *mp);
   qdfree(mq, (nc + 1) * sizeof *mq);
   qdfree(mb, (nc + 1) * sizeof *mb);

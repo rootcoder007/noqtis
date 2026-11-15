@@ -440,26 +440,35 @@ static int vfield(djs *v, const dfld *f, int fix, char *why, size_t cap,
     }
     if (f->amode == 1 && fix && ksort(v, f->akey) != NQOK)
       return NQEMEM;
-    for (i = 1; i < v->n && f->amode != 0; i++) {
-      size_t j;
+    for (i = 1; i < v->n && f->amode == 1; i++) {
       const char *a = keyof(v->k[i], f->akey);
-      if (f->amode == 1) {
-        int c = strcmp(keyof(v->k[i - 1], f->akey), a);
-        if (c >= 0) {
-          qdwhy(why, cap,
-               c == 0 ? "%s[%lu]: %s \"%s\" is there twice"
-                      : "%s[%lu]: not sorted by %s (\"%s\" comes earlier)",
-               at, (unsigned long)i, f->akey, a);
-          return NQEDEC;
-        }
-      } else if (f->amode == 2) {
-        for (j = 0; j < i; j++) {
-          if (strcmp(keyof(v->k[j], f->akey), a) == 0) {
-            qdwhy(why, cap, "%s[%lu]: %s \"%s\" is there twice", at,
-                 (unsigned long)i, f->akey, a);
-            return NQEDEC;
-          }
-        }
+      int c = strcmp(keyof(v->k[i - 1], f->akey), a);
+      if (c >= 0) {
+        qdwhy(why, cap,
+             c == 0 ? "%s[%lu]: %s \"%s\" is there twice"
+                    : "%s[%lu]: not sorted by %s (\"%s\" comes earlier)",
+             at, (unsigned long)i, f->akey, a);
+        return NQEDEC;
+      }
+    }
+    if (f->amode == 2 && v->n > 1) {
+      /* kept in file order: a name given twice is found by sorting the
+       * names, not by comparing each with every earlier one */
+      qdsi *t = (qdsi *)qdmal(v->n * sizeof *t);
+      size_t d;
+      if (t == NULL)
+        return NQEMEM;
+      for (i = 0; i < v->n; i++) {
+        t[i].s = keyof(v->k[i], f->akey);
+        t[i].i = i;
+      }
+      qdsisort(t, v->n);
+      d = qdsidup(t, v->n);
+      qdfree(t, v->n * sizeof *t);
+      if (d != (size_t)-1) {
+        qdwhy(why, cap, "%s[%lu]: %s \"%s\" is there twice", at,
+             (unsigned long)d, f->akey, keyof(v->k[d], f->akey));
+        return NQEDEC;
       }
     }
     return NQOK;

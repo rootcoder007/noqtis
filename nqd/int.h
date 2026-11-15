@@ -41,6 +41,23 @@ void qdfree(void *p, size_t n);
 /* a copy of n bytes of s, NUL-terminated; NULL when out of memory */
 char *qddup(const char *s, size_t n);
 
+/* ---- names found in n log n ---- */
+
+/* a string and its place in the list it came from; sorted by qdsisort
+ * (by string, then place), a name is found, and a name given twice, in
+ * log n each rather than by comparing it with every other */
+typedef struct {
+  const char *s;
+  size_t i;
+} qdsi;
+void qdsisort(qdsi *t, size_t n);
+/* the place of s in the sorted t (the first, when it is there twice),
+ * or (size_t)-1 */
+size_t qdsiat(const qdsi *t, size_t n, const char *s);
+/* the first place, in the list's order, whose string is also at an
+ * earlier place, or (size_t)-1 */
+size_t qdsidup(const qdsi *t, size_t n);
+
 /* ---- a growing byte buffer ---- */
 
 typedef struct {

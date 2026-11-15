@@ -1192,6 +1192,54 @@ for x in 5 '"x"' '[1]' true null; do
   done
 done
 
+# ---- many columns: a name given twice is found without comparing every
+# pair (100,000 columns took hours before) ----
+
+q=$w/many
+mkdir -p "$q"
+cols() {
+  awk -v n="$1" -v d="$2" 'BEGIN {
+    printf "{\"format\":\"noqtis-data-1\",\"schemas\":[{\"columns\":["
+    for (i = 1; i <= n; i++)
+      printf "%s{\"name\":\"c%d\",\"type\":\"int\"}", (i > 1 ? "," : ""), i
+    if (d != "")
+      printf ",{\"name\":\"c%d\",\"type\":\"int\"}", d
+    printf "],\"kind\":\"csv\",\"path\":\"data/a.csv\"}]}"
+  }' >"$q/noqtis.data.json"
+}
+# within <s> seconds: runs the command in the background, and kills it
+# when it is not done by then
+within() {
+  lim=$1
+  what=$2
+  shift 2
+  n=$((n + 1))
+  "$@" >"$w/out" 2>"$w/err" &
+  bp=$!
+  i=0
+  while kill -0 $bp 2>/dev/null && [ $i -lt $((lim * 10)) ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if kill -0 $bp 2>/dev/null; then
+    kill $bp
+    wait $bp
+    bad=$((bad + 1))
+    echo "FAIL $what: not done in $lim s" >&2
+  else
+    wait $bp
+  fi
+}
+cols 100000 ""
+within 30 "data show, 100,000 columns" "$nq" data show "$q"
+has "$w/out" '"c100000"' "the last column is read"
+cols 3 2
+ok 1 "data check, a column named twice" "$nq" data check "$q"
+has "$w/out" 'columns\[3\]: name "c2" is there twice' "the second c2 is named"
+printf 'a,b,a\n1,2,3\n' >"$q/d.csv"
+ok 2 "schema infer, a header name twice" "$nq" schema infer "$q" d.csv
+has "$w/err" 'names column "a" twice' "the name is given"
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"
