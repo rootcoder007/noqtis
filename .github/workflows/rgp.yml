@@ -35,6 +35,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+      # R CMD check builds the PDF manual: the runner has no TeX, so the TeX
+      # Live packages the review bot's image (Ubuntu 24.04) has
+      - name: TeX for the PDF manual
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends texlive-latex-base \
+            texlive-latex-recommended texlive-latex-extra \
+            texlive-fonts-recommended texlive-fonts-extra
       - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
         with:
           use-public-rspm: true
