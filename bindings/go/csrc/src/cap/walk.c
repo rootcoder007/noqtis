@@ -331,15 +331,19 @@ static int finalp(HANDLE h, wchar_t *w) {
  * a junction or link while a seal or check runs is refused, not
  * followed. */
 static FILE *openin(const char *dir, const char *rel) {
-  size_t fl = 0, dn;
-  char *full = join(dir, rel, &fl);
+  size_t dl = strlen(dir), rl = strlen(rel), dn;
+  char full[WMAX * 3]; /* the UTF-8 of WMAX wide characters at most */
   wchar_t wd[WMAX], rp[WMAX], dp[WMAX];
   HANDLE dh;
   FILE *f;
   int ok = 0, hd = 0;
-  if (full == NULL) return NULL;
+  /* joined on the stack, as on the other systems: no allocation, so an
+   * open cannot fail for want of memory */
+  if (dl + 1 + rl + 1 > sizeof full) return NULL;
+  memcpy(full, dir, dl);
+  full[dl] = '/';
+  memcpy(full + dl + 1, rel, rl + 1);
   f = openh(full, 0);
-  nqfree(full, fl + 1);
   if (f == NULL) return NULL;
   dh = !wide(dir, wd) ? INVALID_HANDLE_VALUE
                       : CreateFileW(wd, 0, FILE_SHARE_READ |
