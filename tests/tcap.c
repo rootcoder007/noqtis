@@ -1066,9 +1066,10 @@ static long alfail = -1, alcount = 0, allive = 0, albad = 0;
 static void *alp[ALSZ];
 static size_t aln[ALSZ];
 
-static size_t alslot(const void *p) {
-  size_t i = (size_t)(((uintptr_t)p >> 4) * 2654435761u) & (ALSZ - 1);
-  while (alp[i] != NULL && alp[i] != p) i = (i + 1) & (ALSZ - 1);
+/* the address alone: the block may not be written yet */
+static size_t alslot(uintptr_t p) {
+  size_t i = (size_t)((p >> 4) * 2654435761u) & (ALSZ - 1);
+  while (alp[i] != NULL && (uintptr_t)alp[i] != p) i = (i + 1) & (ALSZ - 1);
   return i;
 }
 
@@ -1077,14 +1078,14 @@ static void *tmal(size_t n, void *u) {
   (void)u;
   if (alfail >= 0 && alcount++ == alfail) return NULL;
   if (allive >= ALSZ / 2 || (p = malloc(n)) == NULL) return NULL;
-  alp[alslot(p)] = p;
-  aln[alslot(p)] = n;
+  alp[alslot((uintptr_t)p)] = p;
+  aln[alslot((uintptr_t)p)] = n;
   allive++;
   return p;
 }
 
 static void tfree(void *p, size_t n, void *u) {
-  size_t i = alslot(p), j;
+  size_t i = alslot((uintptr_t)p), j;
   (void)u;
   if (alp[i] != p || aln[i] != n) {
     albad++;
@@ -1098,8 +1099,8 @@ static void tfree(void *p, size_t n, void *u) {
       void *q = alp[j];
       size_t m = aln[j];
       alp[j] = NULL;
-      alp[alslot(q)] = q;
-      aln[alslot(q)] = m;
+      alp[alslot((uintptr_t)q)] = q;
+      aln[alslot((uintptr_t)q)] = m;
     }
   }
   allive--;

@@ -22,9 +22,10 @@ static size_t live;
 static long left = -1; /* allocations before the one that fails */
 static int failed, badfree;
 
-static size_t slot(const void *p) {
-  size_t i = (size_t)(((uintptr_t)p >> 4) * 2654435761u) & (TSZ - 1);
-  while (tp[i] != NULL && tp[i] != p)
+/* the address alone: the block may not be written yet */
+static size_t slot(uintptr_t p) {
+  size_t i = (size_t)((p >> 4) * 2654435761u) & (TSZ - 1);
+  while (tp[i] != NULL && (uintptr_t)tp[i] != p)
     i = (i + 1) & (TSZ - 1);
   return i;
 }
@@ -41,14 +42,14 @@ static void *tmal(size_t n, void *u) {
     left--;
   if (n == 0 || live >= TSZ / 2 || (p = malloc(n)) == NULL)
     return NULL;
-  tp[slot(p)] = p;
-  ts[slot(p)] = n;
+  tp[slot((uintptr_t)p)] = p;
+  ts[slot((uintptr_t)p)] = n;
   live++;
   return p;
 }
 
 static void tfree(void *p, size_t n, void *u) {
-  size_t i = slot(p), j;
+  size_t i = slot((uintptr_t)p), j;
   (void)u;
   if (tp[i] != p || ts[i] != n) {
     badfree++;
@@ -64,8 +65,8 @@ static void tfree(void *p, size_t n, void *u) {
     void *q = tp[j];
     size_t s = ts[j];
     tp[j] = NULL;
-    tp[slot(q)] = q;
-    ts[slot(q)] = s;
+    tp[slot((uintptr_t)q)] = q;
+    ts[slot((uintptr_t)q)] = s;
   }
 }
 
