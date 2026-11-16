@@ -639,7 +639,7 @@ static int placed(const char *t, const char *p) {
 /* a signal held while a folder was filled ends the process now, as it
  * would have: what is still pending is removed first */
 static void ncdone(void) {
-  int s = pgot, i;
+  int s = (int)pgot, i;
   if (pheld || !s)
     return;
   for (i = 0; i < NCPEND; i++)
