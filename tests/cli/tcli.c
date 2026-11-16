@@ -1003,6 +1003,26 @@ static void tts(void) {
   want(0, "inspect qts", NULL);
   ok(has("q.out", "timestamp  none"), "still no timestamp");
   want(0, "check -p q.c.pub qts", NULL);
+  /* a TSA that also sends a certificate not on its path (another
+   * end-entity certificate of its CA): it is left out, and the token
+   * verifies as it does without it */
+  if (system("(openssl ecparam -name prime256v1 -genkey -noout "
+             "-out q.ao.key && openssl req -new -key q.ao.key -out q.ao.csr "
+             "-config q.a.cnf -subj /CN=other && openssl x509 -req "
+             "-in q.ao.csr -CA q.ar.pem -CAkey q.ar.key -set_serial 9 "
+             "-days 2 -out q.ao.pem -sha256) >q.ossl 2>&1") != 0) {
+    ok(0, "openssl makes a second end-entity certificate");
+    return;
+  }
+  wrs("q.ax.rcmd", "openssl ts -reply -config q.a.cnf -section t "
+      "-queryfile q.tsq -signer q.at.pem -inkey q.at.key -chain q.ao.pem "
+      "-out q.tsr");
+  wantts(0, "ossl", "q.ax.rcmd",
+         "timestamp --tsa http://127.0.0.1:@PORT@/ --anchor q.ar.der qts");
+  ok(has("q.out", "verified under a TSA anchor"),
+     "a token with a certificate off its path is taken");
+  want(0, "check -p q.c.pub --anchor q.ar.der qts", NULL);
+  want(1, "check -p q.c.pub --anchor q.br.der qts", NULL);
 }
 
 /* ---- RFC 4998 evidence records (noqtis ers, check --anchor) ---- */

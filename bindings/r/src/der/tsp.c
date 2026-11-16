@@ -635,11 +635,21 @@ static int sigalg(const nqts *ts, nqxsig *s) {
   return NQOK;
 }
 
+/* sets the bit of the token's certificate c is, if it is one (at[q]: the
+ * index in ts->certs of all[q], or NQTSCERTS for an extra) */
+static void onpath(nqts *ts, const nqcert *all, const size_t *at, size_t na,
+                   const nqcert *c) {
+  size_t q;
+  for (q = 0; q < na; q++)
+    if (&all[q] == c && at[q] < NQTSCERTS) ts->onpath |= 1u << at[q];
+}
+
 int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts) {
   nqcert all[NQTSCERTS + NQTSEXTRA];
+  size_t at[NQTSCERTS + NQTSEXTRA];
   const nqcert *path[NQXMAXPATH];
   const nqcert *sc = NULL;
-  size_t na = 0, i, j, np;
+  size_t na = 0, i, np;
   uint8_t d[NQHMAX];
   nqxchk k;
   nqxsig s;
@@ -655,6 +665,7 @@ int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts) {
   if ((r = nqtsprs(p, n, ts)) != NQOK) {
     return r;
   }
+  ts->onpath = 0;
   /* the imprint, the nonce, the policy */
   if (a->halg != ts->ialg || a->diglen != ts->imp.n ||
       memcmp(a->dig, ts->imp.p, ts->imp.n) != 0) {
@@ -672,9 +683,13 @@ int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts) {
       return NQEVRFY;
     }
   }
-  /* the certificates */
+  /* the certificates: candidates for the signer and its path. A TSA may
+   * send more than its chain (a cross-certificate, another of its CA's
+   * certificates); what is not on the path is not used, so it is left
+   * out rather than refused, as one that does not parse is (the TLS
+   * client does the same). Only the path built below is trusted. */
   for (i = 0; i < ts->ncert; i++) {
-    if ((r = nqcprs(ts->certs[i].p, ts->certs[i].n, &all[na])) != NQOK) {
+    if (nqcprs(ts->certs[i].p, ts->certs[i].n, &all[na]) != NQOK) {
       /* a copy of a trust anchor (which may carry a serial nqcprs
        * refuses, nqcprsa) is the anchor, parsed as one */
       size_t ai, hit = 0;
@@ -685,11 +700,12 @@ int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts) {
           hit = 1;
         }
       }
-      if (!hit) return r;
+      if (!hit) continue;
     }
-    na++;
+    at[na++] = i;
   }
   for (i = 0; i < a->nextra; i++) {
+    at[na] = NQTSCERTS;
     all[na++] = a->extra[i];
   }
   /* the signer, by its sid */
@@ -748,6 +764,7 @@ int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts) {
       (sc->ku & (NQXKUSIG | NQXKUNR)) == 0) {
     return NQEVRFY;
   }
+  onpath(ts, all, at, na, sc);
   /* no anchors: the signer's own validity, and no path */
   if (a->self) {
     return !sc->bad && ts->gt >= sc->nb && ts->gt <= sc->na ? NQOK
@@ -764,27 +781,6 @@ int nqtsvrf(const uint8_t *p, size_t n, const nqtsarg *a, nqts *ts) {
   if ((r = nqchain(sc, &k, path, NQXMAXPATH, &np)) != NQOK) {
     return r == NQELIM ? NQELIM : NQEVRFY;
   }
-  /* every certificate the token carries is on the path, is byte-equal
-   * to an anchor, or is an alias of an anchor: the anchor's subject and
-   * key, whoever issued it (a cross-certificate, or a copy of the root).
-   * It parsed strictly above; nothing else in it is used, since only the
-   * configured anchor is trusted. */
-  for (i = 0; i < ts->ncert; i++) {
-    int on = 0;
-    for (j = 0; j < np; j++) {
-      if (nqdseq(path[j]->raw, all[i].raw)) {
-        on = 1;
-      }
-    }
-    for (j = 0; j < a->nanc; j++) {
-      if (nqdseq(all[i].raw, a->anc[j].raw) ||
-          nqxalias(&all[i], &a->anc[j])) {
-        on = 1;
-      }
-    }
-    if (!on) {
-      return NQEVRFY;
-    }
-  }
+  for (i = 0; i < np; i++) onpath(ts, all, at, na, path[i]);
   return NQOK;
 }

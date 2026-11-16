@@ -41,6 +41,8 @@ typedef struct {
   nqspan tok;        /* the ContentInfo */
   nqspan certs[NQTSCERTS];
   size_t ncert;
+  unsigned onpath;   /* nqtsvrf: bit i set when certs[i] is on the path
+                        it verified (the signer's included) */
   /* SignerInfo */
   int sver;          /* 1 or 3 */
   nqspan sidiss;     /* v1: the issuer Name element */
@@ -103,12 +105,10 @@ typedef struct {
  * signed attributes, which commit to this TSTInfo, its key and the
  * signature algorithm agree with the digest algorithm, the signer is a
  * TSA certificate (extendedKeyUsage critical and only timeStamping) on a
- * path to an anchor valid at genTime (or a->t), and every certificate
- * the token carries is on that path, is byte-equal to an anchor, or is
- * an alias of an anchor (the anchor's subject and SubjectPublicKeyInfo,
- * nqxalias, whoever issued it: a cross-certificate or a copy of the
- * root; it must still parse strictly, and nothing else in it is used).
- * ts gets the token's fields. NQOK
+ * path to an anchor valid at genTime (or a->t). The path is built from
+ * the token's certificates and extra; one of them not on it (another
+ * certificate of the TSA's CA, a cross-certificate) or that does not
+ * parse is left out, never used. ts gets the token's fields. NQOK
  * only when all of it holds.
  *
  * With a->self (and no anchors) no path is built: the token must still

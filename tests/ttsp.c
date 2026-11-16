@@ -11,12 +11,11 @@
  * - octets of a PKIFreeText statusString that leave it valid UTF-8: the
  *   text is advisory and outside the token (ts.ssl.com sends
  *   "Operation Okay").
- * - octets of an embedded alias of the trust anchor (a certificate with
- *   the anchor's subject and SubjectPublicKeyInfo, whoever issued it: a
- *   cross-certificate of a self-signed root, or a copy of the root
- *   itself) when the mutated certificate still parses strictly and is
- *   still an alias: nothing in it but its subject and key is used, and
- *   those are the configured anchor's, which is all that is trusted.
+ * - octets of an embedded certificate that is not on the path the
+ *   unchanged token verified on (an alias of the trust anchor: a
+ *   cross-certificate of a self-signed root or a copy of the root
+ *   itself; another certificate of the TSA's CA): such a certificate is
+ *   left out of the path, never used, whether it parses or not.
  * Everything else in a response is either signed (TSTInfo, signed
  * attributes, certificates on the path), the signature, checked against
  * a signed copy, or decides the result, so no other mutation may
@@ -222,33 +221,21 @@ static int inharm(const harm *h, size_t i) {
 
 static unsigned long nharm = 0, nbad = 0, ntried = 0, nalias = 0;
 
-/* The embedded certificates that are aliases of the anchor: [lo, hi)
- * offsets in the token. */
-static size_t aliases(const uint8_t *p, size_t n, const nqcert *anc,
-                      size_t *lo, size_t *hi, size_t cap) {
-  static nqts ts;
+/* The embedded certificates the unchanged token p verified without
+ * (not on its path, c->ts.onpath): [lo, hi) offsets in the token. */
+static size_t offpath(const uint8_t *p, size_t n, ctx *c, size_t *lo,
+                      size_t *hi, size_t cap) {
   size_t i, k = 0;
-  if (nqtsprs(p, n, &ts) != NQOK) {
+  if (vrfy(p, n, c) != NQOK) {
     return 0;
   }
-  for (i = 0; i < ts.ncert && k < cap; i++) {
-    nqcert c;
-    if (nqcprs(ts.certs[i].p, ts.certs[i].n, &c) == NQOK &&
-        nqxalias(&c, anc)) {
-      lo[k] = (size_t)(ts.certs[i].p - p);
-      hi[k++] = (size_t)(ts.certs[i].p - p) + ts.certs[i].n;
+  for (i = 0; i < c->ts.ncert && k < cap; i++) {
+    if ((c->ts.onpath >> i & 1u) == 0) {
+      lo[k] = (size_t)(c->ts.certs[i].p - p);
+      hi[k++] = (size_t)(c->ts.certs[i].p - p) + c->ts.certs[i].n;
     }
   }
   return k;
-}
-
-/* 1 when the mutated token still carries, at [lo, hi), a certificate
- * that parses and is an alias of anc. */
-static int stillalias(const uint8_t *p, size_t n, size_t lo, size_t hi,
-                      const nqcert *anc) {
-  nqcert c;
-  return hi <= n && nqcprs(p + lo, hi - lo, &c) == NQOK &&
-         nqxalias(&c, anc);
 }
 
 static void mutate(const tdbuf *b, ctx *c) {
@@ -265,7 +252,7 @@ static void mutate(const tdbuf *b, ctx *c) {
   unsigned long al = 0;
   memcpy(m, b->p, b->n);
   harmless(m, b->n, &h);
-  na = aliases(m, b->n, &c->anc, alo, ahi, 4);
+  na = offpath(m, b->n, c, alo, ahi, 4);
   for (i = 0; i < b->n; i++) {
     for (k = tdquick() ? 8 : 0; k <= 8; k++) {
       uint8_t x = (uint8_t)(k < 8 ? 1u << k : 0xffu);
@@ -274,13 +261,12 @@ static void mutate(const tdbuf *b, ctx *c) {
       if (vrfy(m, b->n, c) == NQOK) {
         int ina = 0;
         for (q = 0; q < na; q++) {
-          if (i >= alo[q] && i < ahi[q] &&
-              stillalias(m, b->n, alo[q], ahi[q], &c->anc)) {
+          if (i >= alo[q] && i < ahi[q]) {
             ina = 1;
           }
         }
         if (ina) {
-          al++; /* inside an anchor alias, subject and key unchanged */
+          al++; /* inside a certificate off the path: never used */
         } else if (inharm(&h, i)) {
           ok++;
           /* a status mutation is reported */
@@ -297,7 +283,7 @@ static void mutate(const tdbuf *b, ctx *c) {
     }
   }
   printf("%s: %lu mutations, %lu accepted as harmless (status), %lu in "
-         "an anchor alias, %lu accepted otherwise\n",
+         "a certificate off the path, %lu accepted otherwise\n",
          c->t->file, tried, ok, al, acc);
   nharm += ok;
   nalias += al;
@@ -483,21 +469,20 @@ static void tdigicert(void) {
     NQTCHK(0);
     return;
   }
-  /* one byte of the alias's key (inside the modulus): no longer an
-   * alias, so off the path */
-  NQTEQI(dvrfy(&tb, &c, (size_t)(x.key.key.p - tb.p) + 100, 0x01),
-         NQEVRFY);
-  /* its subject: the last octet of the last RDN's value */
+  /* the path can end at the configured anchor without the alias, so a
+   * changed alias is left out of it, never used. One byte of its key
+   * (inside the modulus), of its subject (the last octet of the last
+   * RDN's value), of its signature, or one that makes it not strict DER
+   * (the signature's unused-bits octet, so it no longer parses): the
+   * token verifies all the same */
+  NQTEQI(dvrfy(&tb, &c, (size_t)(x.key.key.p - tb.p) + 100, 0x01), NQOK);
   NQTEQI(dvrfy(&tb, &c, (size_t)(x.subject.p - tb.p) + x.subject.n - 1,
                0x01),
-         NQEVRFY);
-  /* not strict DER: the signature's unused-bits octet */
-  NQTEQI(dvrfy(&tb, &c, (size_t)(x.sig.p - tb.p) - 1, 0x01), NQEDEC);
-  /* a mutated non-alias embedded certificate: CA1's signature */
-  NQTEQI(dvrfy(&tb, &c, (size_t)(ca1.sig.p - tb.p) + 10, 0x01), NQEVRFY);
-  /* and inside the alias outside subject and key (its signature): the
-   * one harmless class */
+         NQOK);
+  NQTEQI(dvrfy(&tb, &c, (size_t)(x.sig.p - tb.p) - 1, 0x01), NQOK);
   NQTEQI(dvrfy(&tb, &c, (size_t)(x.sig.p - tb.p) + 10, 0x01), NQOK);
+  /* a certificate on the path changed: CA1's signature */
+  NQTEQI(dvrfy(&tb, &c, (size_t)(ca1.sig.p - tb.p) + 10, 0x01), NQEVRFY);
   /* still refused with an unrelated anchor */
   {
     int own;
@@ -519,10 +504,9 @@ static void tdigicert(void) {
   }
 }
 
-/* A token that carries a copy of its self-signed root: a mutated copy
- * that still parses with the same subject and key is tolerated (only the
- * configured anchor is trusted; the alias class), one whose key or
- * subject changed is refused. */
+/* A token that carries a copy of its self-signed root: only the
+ * configured anchor is trusted, so a mutated copy, whatever changed in
+ * it, is left out of the path and the token still verifies. */
 static void trootcopy(void) {
   static const size_t which[] = {6, 20, 21};  /* freetsa, bl:rsa, bl:ec */
   size_t w;
@@ -549,13 +533,14 @@ static void trootcopy(void) {
         NQTEQI(dvrfy(&tb, &c, (size_t)(y.sig.p - tb.p) + 10, 0x01), NQOK);
         NQTEQI(dvrfy(&tb, &c, (size_t)(y.serial.p - tb.p), 0x01), NQOK);
         nalias += 2;
-        /* its key, its subject */
+        /* its key, its subject: no longer the root, so left out of the
+         * path, which ends at the configured anchor all the same */
         NQTEQI(dvrfy(&tb, &c, (size_t)(y.key.key.p - tb.p) + 40, 0x01),
-               NQEVRFY);
+               NQOK);
         NQTEQI(dvrfy(&tb, &c, (size_t)(y.subject.p - tb.p) + y.subject.n -
                                   1,
                      0x01),
-               NQEVRFY);
+               NQOK);
       }
     }
     if (found != 1) {
@@ -644,7 +629,7 @@ int main(void) {
     textra();
     tstatus();
     printf("ttsp: %lu mutations, %lu harmless (status) accepted, %lu "
-           "anchor-alias accepted, %lu other accepted\n",
+           "off-path accepted, %lu other accepted\n",
            ntried, nharm, nalias, nbad);
     NQTEQI(nbad, 0);
     printf("ttsp: %lu signature checks\n", tdcalls);
