@@ -39,7 +39,9 @@ jobs:
           cmake -S . -B build -DNQCOV=ON -DCMAKE_BUILD_TYPE=Debug
           cmake --build build -j "$(nproc)"
       - name: Tests
-        run: ctest --test-dir build -j "$(nproc)"
+        # the unoptimised build with counters signs slowly: every 8th of the
+        # SLH-DSA signing vectors, as the other debug jobs take
+        run: NQSLSUB=8 ctest --test-dir build -j "$(nproc)"
       - name: Report
         if: always()
         run: |
