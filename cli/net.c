@@ -308,12 +308,19 @@ static const char *hval(const char *h, const char *name, size_t *len) {
   return NULL;
 }
 
-/* decodes a chunked body in place into *len; -1 when it is malformed */
+/* decodes a chunked body in place into *len; -1 when it is malformed.
+ * A chunk size may have any number of leading zeros (RFC 9112 sets no
+ * limit), and after them at most 8 hex digits, far over any body taken;
+ * a ninth is refused, never read as the end of the size. */
 static int unchunk(uint8_t *b, size_t n, size_t *len) {
   size_t i = 0, o = 0;
   for (;;) {
-    size_t v = 0, k = 0;
-    while (i < n && k < 8) {
+    size_t v = 0, k = 0, z = 0;
+    while (i < n && b[i] == '0') {
+      i++;
+      z++;
+    }
+    while (i < n && k < 9) {
       int c = lower(b[i]);
       if (c >= '0' && c <= '9')
         v = v * 16 + (size_t)(c - '0');
@@ -324,7 +331,7 @@ static int unchunk(uint8_t *b, size_t n, size_t *len) {
       i++;
       k++;
     }
-    if (k == 0)
+    if ((k == 0 && z == 0) || k > 8)
       return -1;
     while (i < n && b[i] != '\n')
       i++; /* chunk extensions */

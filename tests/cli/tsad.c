@@ -163,7 +163,9 @@ static void reply(sockt s, const unsigned char *b, size_t n, int chunked,
     snprintf(h, sizeof h, "%lx;x=y\r\n", (unsigned long)half);
     puts2(s, h);
     put(s, b, half);
-    snprintf(h, sizeof h, "\r\n%lX\r\n", (unsigned long)(n - half));
+    /* the second size in ten digits, leading zeros first: a client that
+     * reads only eight takes it for the last chunk */
+    snprintf(h, sizeof h, "\r\n%010lX\r\n", (unsigned long)(n - half));
     puts2(s, h);
     put(s, b + half, n - half);
     puts2(s, "\r\n0\r\n\r\n");
