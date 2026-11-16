@@ -139,6 +139,20 @@ A file there with other bytes is kept
 unless
 .Fl f
 replaces it with a copy that checks.
+A file is written only inside
+.Ar dir :
+each folder on the way is opened from
+.Ar dir
+without following a symbolic link (and made when missing), and a link
+in the file's place is never written through or replaced, so a link in a
+capsule from elsewhere cannot send fetched bytes out of it; such a file
+is
+.Ql refused ,
+before any address is asked.
+The same holds for
+.Cm add
+and
+.Cm refresh Fl w .
 A synthetic source is never fetched.
 .It Cm refresh
 fetches each source again from its

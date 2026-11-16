@@ -284,29 +284,11 @@ static void bpath(tbuf *b, const char *p) {
   }
 }
 
-/* writes len bytes to bag/rel, making folders; NCOK or NCUSE */
+/* writes len bytes to bag/rel, making folders, never through a link
+ * (ncwrat); NCOK or NCUSE */
 static int bwrite(const char *bag, const char *rel, const char *s, size_t n) {
-  tbuf p;
-  size_t i, at;
-  int rc;
-  memset(&p, 0, sizeof p);
-  tstr(&p, bag);
-  tstr(&p, "/");
-  at = p.n;
-  tstr(&p, rel);
-  if (p.bad) return NCUSE;
-  for (i = at; i < p.n; i++) {
-    if (p.p[i] != '/') continue;
-    p.p[i] = 0;
-    if (!ncisdir(p.p) && ncmkdir(p.p) != NCOK) {
-      free(p.p);
-      return NCUSE;
-    }
-    p.p[i] = '/';
-  }
-  rc = ncwr(p.p, (const uint8_t *)s, n, 0, 0);
-  free(p.p);
-  return rc;
+  return ncwrat(bag, rel, (const uint8_t *)s, n, 0, 0) == NQOK ? NCOK
+                                                              : NCUSE;
 }
 
 /* copies dir/rel to bag/data/rel, checking its SHA-256 as it goes */
@@ -317,7 +299,7 @@ static int bcp(const char *dir, const char *bag, const char *rel,
   nqhctx h;
   uint8_t md[32];
   char got[65];
-  size_t k, i, at;
+  size_t k, at;
   int ok = 1;
   memset(&s, 0, sizeof s);
   memset(&d, 0, sizeof d);
@@ -325,18 +307,18 @@ static int bcp(const char *dir, const char *bag, const char *rel,
   tstr(&s, "/");
   tstr(&s, rel);
   tstr(&d, bag);
-  tstr(&d, "/data/");
+  tstr(&d, "/data");
   at = d.n;
+  tstr(&d, "/");
   tstr(&d, rel);
   if (s.bad || d.bad) ok = 0;
-  for (i = at; ok && i < d.n; i++) {
-    if (d.p[i] != '/') continue;
-    d.p[i] = 0;
-    if (!ncisdir(d.p) && ncmkdir(d.p) != NCOK) ok = 0;
-    d.p[i] = '/';
-  }
   if (ok) in = ncfopen(s.p, "rb");
-  if (in != NULL) out = ncopen(d.p, 0, 0);
+  if (in != NULL) {
+    /* bag/data, then rel under it by descriptor (ncopenat) */
+    d.p[at] = '\0';
+    out = ncopenat(d.p, rel, 0, 0);
+    d.p[at] = '/';
+  }
   if (in == NULL || out == NULL || nqhini(&h, NQS256) != NQOK) ok = 0;
   while (ok && (k = fread(buf, 1, cap, in)) > 0) {
     if (nqhupd(&h, buf, k) != NQOK || fwrite(buf, 1, k, out) != k) ok = 0;

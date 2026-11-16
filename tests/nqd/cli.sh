@@ -1174,6 +1174,39 @@ if [ -n "$tsad" ]; then
       "$s" w.csv
     unset NQTESTWB
   fi
+  # a link in a capsule from elsewhere never takes fetched bytes out of
+  # it: a link on the way to a source, or in its place, is refused before
+  # anything is fetched or written, with --force too
+  s3=$w/srclnk
+  mkdir -p "$s3" "$w/srcout"
+  printf 'kept\n' >"$w/srcout/old.csv"
+  ln -s "$w/srcout" "$s3/sub"
+  hs=$("$nq" hash <"$ww/a.csv" | cut -c1-64)
+  sz=$(wc -c <"$ww/a.csv" | tr -d ' ')
+  printf '{"format":"noqtis-data-1","sources":[{"path":"sub/new.csv","sha256":"%s","size":%s,"url":"%s/a.csv"},{"path":"sub/old.csv","sha256":"%s","size":%s,"url":"%s/a.csv"}]}' \
+    "$hs" "$sz" "$U" "$hs" "$sz" "$U" >"$s3/noqtis.data.json"
+  ok 1 "src fetch through a linked folder" "$nq" src fetch "$s3"
+  has "$w/out" "refused" "the link is refused"
+  ok 1 "src fetch wrote nothing outside" test -e "$w/srcout/new.csv"
+  ok 1 "src fetch --force through a linked folder" "$nq" src fetch \
+    --force "$s3"
+  has "$w/srcout/old.csv" "kept" "the file outside is not replaced"
+  ok 2 "src add through a linked folder" "$nq" src add --url "$U/a.csv" \
+    "$s3" sub/added.csv
+  ok 1 "src add wrote nothing outside" test -e "$w/srcout/added.csv"
+  ok 2 "src refresh --write through a linked folder" "$nq" src refresh \
+    --write "$s3"
+  ok 1 "src refresh wrote nothing outside" test -e "$w/srcout/new.csv"
+  rm "$s3/sub"
+  mkdir "$s3/sub"
+  ln -s "$w/srcout/old.csv" "$s3/sub/old.csv"
+  ok 1 "src fetch --force over a link" "$nq" src fetch --force "$s3" \
+    sub/old.csv
+  has "$w/srcout/old.csv" "kept" "the link's target is not replaced"
+  ok 0 "the link is left as it was" test -h "$s3/sub/old.csv"
+  ok 0 "src fetch writes a new file beside it" "$nq" src fetch "$s3" \
+    sub/new.csv
+  same "$s3/sub/new.csv" "$ww/a.csv" "with the recorded bytes"
   ok 0 "data check at the end" "$nq" data check "$s"
   ok 0 "help src" "$nq" help src
   has "$w/out" "noqtis src refresh" "help lists refresh"

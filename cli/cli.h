@@ -111,6 +111,15 @@ int ncstop(void);
 /* Writes len bytes to a new file (see ncopen); removes it on failure. */
 int ncwr(const char *path, const uint8_t *b, size_t len, int force,
          int sec);
+/* ncopen and ncwr of the path rel (a capsule path) under the folder dir:
+ * each folder on the way is opened from dir by descriptor without
+ * following a link (made when missing), the file itself must be new or a
+ * plain file, and its temporary file is made and named in that folder by
+ * descriptor; NULL (NQEIO) when a link or anything else is in the way.
+ * Close with ncclose, giving dir/rel as the path. */
+FILE *ncopenat(const char *dir, const char *rel, int force, int sec);
+int ncwrat(const char *dir, const char *rel, const uint8_t *b, size_t len,
+           int force, int sec);
 /* Makes the folder path (owner-only on POSIX). NCOK or NCUSE. */
 int ncmkdir(const char *path);
 /* Removes the file path, or the empty folder path; 0 on success. */

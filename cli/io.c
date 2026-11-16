@@ -609,6 +609,40 @@ static int dirof(const char *path, size_t *bs) {
   d[n] = '\0';
   return open(n == 0 ? "/" : d, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 }
+
+/* The folder the first rl bytes of r name under the open folder fd
+ * (taken over), reached one component at a time by openat with
+ * O_DIRECTORY | O_NOFOLLOW, so no link on the way is ever followed, as
+ * the walk of a folder to seal reaches its folders; with mk a component
+ * that is not there is made (owner-only, as ncmkdir). The descriptor,
+ * or -1 when a component is a link, not a folder, or cannot be made. */
+static int ncdirat(int fd, const char *r, size_t rl, int mk) {
+  const char *e = r + rl;
+  while (fd >= 0 && r < e) {
+    char nm[1024];
+    size_t k;
+    int nfd;
+    while (r < e && *r == '/')
+      r++;
+    for (k = 0; r + k < e && r[k] != '/'; k++)
+      ;
+    if (k == 0)
+      break;
+    if (k >= sizeof nm) {
+      close(fd);
+      return -1;
+    }
+    memcpy(nm, r, k);
+    nm[k] = '\0';
+    r += k;
+    nfd = openat(fd, nm, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (nfd < 0 && mk && errno == ENOENT && mkdirat(fd, nm, 0700) == 0)
+      nfd = openat(fd, nm, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    close(fd);
+    fd = nfd;
+  }
+  return fd;
+}
 #endif
 
 #ifndef _WIN32
@@ -616,48 +650,53 @@ static int dirof(const char *path, size_t *bs) {
  * has a rename that refuses to replace (Linux 3.15, macOS 10.12) it
  * decides, in one step; elsewhere, and on a file system without one,
  * the name is looked at first and a name made in between is replaced. */
-static int mvnew(const char *t, const char *p) {
+static int mvnew(int d, const char *t, const char *p) {
   struct stat st;
 #if defined(__linux__) && defined(SYS_renameat2)
   /* 1 is RENAME_NOREPLACE */
-  if (syscall(SYS_renameat2, AT_FDCWD, t, AT_FDCWD, p, 1u) == 0)
+  if (syscall(SYS_renameat2, d, t, d, p, 1u) == 0)
     return NCOK;
   if (errno != ENOSYS && errno != EINVAL && errno != EPERM)
     return NCUSE;
 #elif defined(__APPLE__) && defined(RENAME_EXCL)
-  if (renamex_np(t, p, RENAME_EXCL) == 0)
+  if (renameatx_np(d, t, d, p, RENAME_EXCL) == 0)
     return NCOK;
   if (errno != ENOTSUP)
     return NCUSE;
 #endif
-  if (lstat(p, &st) == 0)
+  if (fstatat(d, p, &st, AT_SYMLINK_NOFOLLOW) == 0)
     return NCUSE;
-  return rename(t, p) == 0 ? NCOK : NCUSE;
+  return renameat(d, t, d, p) == 0 ? NCOK : NCUSE;
 }
 #endif
 
-/* gives the whole temporary file t its name p: over a file there only
- * with force, and never through a link at p */
-static int place(const char *t, const char *p, int force) {
+/* gives the whole temporary file of slot i its name: over a file there
+ * only with force, and never through a link at that name. It is named in
+ * the folder it was made in, by descriptor where it has one, so a folder
+ * on the way swapped for a link meanwhile does not take it elsewhere. */
+static int place(int i) {
 #ifdef _WIN32
-  wchar_t *wt = wide(t), *wp = wide(p);
+  wchar_t *wt = wide(pnd[i]), *wp = wide(pfin[i]);
   int ok = wt != NULL && wp != NULL &&
-           MoveFileExW(wt, wp, force ? MOVEFILE_REPLACE_EXISTING : 0);
+           MoveFileExW(wt, wp, pfrc[i] ? MOVEFILE_REPLACE_EXISTING : 0);
   free(wt);
   free(wp);
   return ok ? NCOK : NCUSE;
 #else
-  if (force)
-    return rename(t, p) == 0 ? NCOK : NCUSE;
+  int d = pdfd[i] >= 0 ? pdfd[i] : AT_FDCWD;
+  const char *t = pdfd[i] >= 0 ? pnd[i] + pbs[i] : pnd[i];
+  const char *p = pdfd[i] >= 0 ? pfin[i] + pbs[i] : pfin[i];
+  if (pfrc[i])
+    return renameat(d, t, d, p) == 0 ? NCOK : NCUSE;
   /* a hard link fails on a name that is there (even a link); a file
    * system without hard links gets a rename that does not replace */
-  if (link(t, p) == 0) {
-    (void)unlink(t);
+  if (linkat(d, t, d, p, 0) == 0) {
+    (void)unlinkat(d, t, 0);
     return NCOK;
   }
   if (errno == EEXIST)
     return NCUSE;
-  return mvnew(t, p);
+  return mvnew(d, t, p);
 #endif
 }
 
@@ -671,7 +710,7 @@ static int placed(const char *t, const char *p) {
   free(wp);
   return ok ? NCOK : NCUSE;
 #else
-  return mvnew(t, p);
+  return mvnew(AT_FDCWD, t, p);
 #endif
 }
 
@@ -728,17 +767,22 @@ static void own(int i, const char *path, int force, int dfd, size_t bs) {
     pexit = atexit(atpend) == 0;
 }
 
-FILE *ncopen(const char *path, int force, int sec) {
+/* ncopen; dfd (taken over) is path's folder already opened, bs where
+ * path's last component starts, or dfd -1 to open it by path here */
+static FILE *openin(const char *path, int force, int sec, int dfd,
+                    size_t bs) {
   char t[4200];
-  int fd = -1, dfd = -1, tries, i;
-  size_t bs = 0;
+  int fd = -1, tries, i;
   FILE *f;
-  /* refused at once, not after the output is written */
-  if (!force && ncexist(path))
+  /* refused at once, not after the output is written (with dfd, the
+   * caller looked at the name in the folder) */
+  if ((dfd < 0 && !force && ncexist(path)) || pgot) {
+#ifndef _WIN32
+    if (dfd >= 0)
+      close(dfd);
+#endif
     return NULL;
-  /* a signal held back ends the command at its next output */
-  if (pgot)
-    return NULL;
+  }
   {
     /* The file is made and its name noted for removal with the signals
      * held back: one that arrived between the two would end the process
@@ -760,7 +804,7 @@ FILE *ncopen(const char *path, int force, int sec) {
       }
 #else
       /* made in the folder it is removed from, by descriptor */
-      if (tries == 0)
+      if (tries == 0 && dfd < 0)
         dfd = dirof(t, &bs);
       if (dfd >= 0)
         fd = openat(dfd, t + bs,
@@ -823,6 +867,92 @@ FILE *ncopen(const char *path, int force, int sec) {
   return f;
 }
 
+FILE *ncopen(const char *path, int force, int sec) {
+  return openin(path, force, sec, -1, 0);
+}
+
+FILE *ncopenat(const char *dir, const char *rel, int force, int sec) {
+  char p[4200];
+  const char *s = rel, *e;
+  int n = snprintf(p, sizeof p, "%s/%s", dir, rel);
+  if (n < 0 || (size_t)n >= sizeof p)
+    return NULL;
+  /* never out of dir: no empty, "." or ".." component */
+  for (;;) {
+    size_t k;
+    e = strchr(s, '/');
+    k = e != NULL ? (size_t)(e - s) : strlen(s);
+    if (k == 0 || (k == 1 && s[0] == '.') ||
+        (k == 2 && s[0] == '.' && s[1] == '.'))
+      return NULL;
+    if (e == NULL)
+      break;
+    s = e + 1;
+  }
+#ifdef _WIN32
+  {
+    /* No openat here: each folder on the way is looked at, made when
+     * missing, and refused when it is a reparse point (a link or a
+     * junction); so is the file itself */
+    size_t i;
+    for (i = strlen(dir) + 1;; i++) {
+      char c = p[i];
+      wchar_t *w;
+      DWORD a;
+      if (c != '/' && c != '\0')
+        continue;
+      p[i] = '\0';
+      w = wide(p);
+      a = w != NULL ? GetFileAttributesW(w) : INVALID_FILE_ATTRIBUTES;
+      if (a == INVALID_FILE_ATTRIBUTES && c == '/' && w != NULL &&
+          _wmkdir(w) == 0)
+        a = FILE_ATTRIBUTE_DIRECTORY;
+      free(w);
+      p[i] = c;
+      if (c == '/' && (a == INVALID_FILE_ATTRIBUTES ||
+                       (a & FILE_ATTRIBUTE_REPARSE_POINT) != 0 ||
+                       (a & FILE_ATTRIBUTE_DIRECTORY) == 0))
+        return NULL;
+      if (c == '\0') {
+        if (a != INVALID_FILE_ATTRIBUTES &&
+            (!force || (a & (FILE_ATTRIBUTE_REPARSE_POINT |
+                             FILE_ATTRIBUTE_DIRECTORY)) != 0))
+          return NULL;
+        return openin(p, force, sec, -1, 0);
+      }
+    }
+  }
+#else
+  {
+    struct stat st;
+    size_t bs = (size_t)(strrchr(p, '/') - p) + 1;
+    int fd = open(*dir ? dir : ".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    /* dir itself, the folder the caller named, may be a link; nothing
+     * under it is followed */
+    if (fd >= 0)
+      fd = ncdirat(fd, rel, s - rel > 0 ? (size_t)(s - rel - 1) : 0, 1);
+    if (fd < 0)
+      return NULL;
+    if (fstatat(fd, p + bs, &st, AT_SYMLINK_NOFOLLOW) == 0 &&
+        (!force || !S_ISREG(st.st_mode))) {
+      close(fd);
+      return NULL;
+    }
+    return openin(p, force, sec, fd, bs);
+  }
+#endif
+}
+
+int ncwrat(const char *dir, const char *rel, const uint8_t *b, size_t len,
+           int force, int sec) {
+  char p[4200];
+  FILE *f = ncopenat(dir, rel, force, sec);
+  if (f == NULL)
+    return NQEIO;
+  snprintf(p, sizeof p, "%s/%s", dir, rel);
+  return ncclose(f, p, fwrite(b, 1, len, f) != len);
+}
+
 int nckeep(FILE *f, int bad) {
   int i;
   for (i = 0; i < NCPEND && !(pon[i] && pfh[i] == f); i++)
@@ -850,8 +980,7 @@ int ncput(const int *sl, int n) {
     int i = sl[k];
     /* a folder filled while a signal waited is removed, not named */
     if (i < 0 || i >= NCPEND || !pon[i] || !pown[i] || (pisd[i] && pgot) ||
-        (pisd[i] ? placed(pnd[i], pfin[i])
-                 : place(pnd[i], pfin[i], pfrc[i])) != NCOK)
+        (pisd[i] ? placed(pnd[i], pfin[i]) : place(i)) != NCOK)
       break;
   }
   for (j = 0; j < n; j++) {
@@ -1132,34 +1261,11 @@ int ncwalk(const char *dir, char ***out, size_t *n) {
 #ifndef _WIN32
 static int ncenterfd(const char *top, const char *path) {
   const char *r = path + strlen(top);
-  int fd = open(top, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-  if (strncmp(path, top, strlen(top)) != 0 || (*r != '\0' && *r != '/')) {
-    if (fd >= 0)
-      close(fd);
+  int fd;
+  if (strncmp(path, top, strlen(top)) != 0 || (*r != '\0' && *r != '/'))
     return -1;
-  }
-  while (fd >= 0 && *r) {
-    char nm[1024];
-    size_t k;
-    int nfd;
-    while (*r == '/')
-      r++;
-    for (k = 0; r[k] && r[k] != '/'; k++)
-      ;
-    if (k == 0)
-      break;
-    if (k >= sizeof nm) {
-      close(fd);
-      return -1;
-    }
-    memcpy(nm, r, k);
-    nm[k] = '\0';
-    r += k;
-    nfd = openat(fd, nm, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-    close(fd);
-    fd = nfd;
-  }
-  return fd;
+  fd = open(top, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  return fd < 0 ? -1 : ncdirat(fd, r, strlen(r), 0);
 }
 #endif
 

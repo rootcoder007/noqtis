@@ -147,7 +147,8 @@ static void now(char out[21]) {
   const char *e = getenv("SOURCE_DATE_EPOCH");
   time_t t = e != NULL && *e ? (time_t)strtoll(e, NULL, 10) : time(NULL);
   out[0] = '\0';
-  if (ncgmtime(t, &tm) == NCOK) strftime(out, 21, "%Y-%m-%dT%H:%M:%SZ", &tm);
+  if (t >= 0 && ncgmtime((time_t)t, &tm) == NCOK)
+    strftime(out, 21, "%Y-%m-%dT%H:%M:%SZ", &tm);
 }
 
 /* sets field of the source path to the JSON value v (NULL removes it) */
@@ -225,29 +226,47 @@ static int wayback(const char *cmd, nqdrec *r, const char *path,
   return rc;
 }
 
-/* writes n bytes to dir/path, making its folders; replacing a file
- * there only when force */
-static int put(const char *cmd, const char *dir, const char *path,
-               const uint8_t *b, size_t n, int force) {
+/* why wopen refused */
+#define NOWR                                                                 \
+  "cannot be written there: no link on the way or in its place is "       \
+  "followed, and only a plain file is replaced"
+
+/* The output for dir/path, opened before anything is fetched: each
+ * folder on the way is reached from dir without following a link (made
+ * when missing), and the file must be new, or with force a plain file
+ * (cli/io.c, ncopenat). A capsule from elsewhere may hold a link to a
+ * folder outside it; the bytes never go through one. NULL when refused,
+ * said for cmd. */
+static FILE *wopen(const char *cmd, const char *dir, const char *path,
+                   int force, int say) {
   char p[4200];
-  size_t i, dl = strlen(dir);
-  int k = snprintf(p, sizeof p, "%s/%s", dir, path);
-  if (k < 0 || (size_t)k >= sizeof p) {
-    ncmsg(cmd, "%s: the path is too long", ncesc(path));
+  FILE *f = ncopenat(dir, path, force, 0);
+  if (f == NULL && say) {
+    snprintf(p, sizeof p, "%s/%s", dir, path);
+    if (!force && ncexist(p))
+      ncmsg(cmd, "%s exists (use --force to replace it)", ncesc(p));
+    else
+      ncmsg(cmd, "%s: %s", ncesc(p), NOWR);
+  }
+  return f;
+}
+
+/* writes n bytes to f (from wopen) and gives it its name; the old file
+ * stays until the new one is whole (cli/io.c) */
+static int put(const char *cmd, const char *dir, const char *path, FILE *f,
+               const uint8_t *b, size_t n) {
+  char p[4200];
+  snprintf(p, sizeof p, "%s/%s", dir, path);
+  if (ncclose(f, p, fwrite(b, 1, n, f) != n) != NQOK) {
+    ncmsg(cmd, "cannot write %s", ncesc(p));
     return NCUSE;
   }
-  for (i = dl + 1; p[i] != '\0'; i++) {
-    if (p[i] != '/') continue;
-    p[i] = '\0';
-    if (!ncisdir(p) && ncmkdir(p) != NCOK) {
-      ncmsg(cmd, "%s: cannot make the folder", ncesc(p));
-      return NCUSE;
-    }
-    p[i] = '/';
-  }
-  /* the old file stays until the new one is whole (cli/io.c) */
-  if (ncwr(p, b, n, force, 0) != NCOK) return ncwfail(cmd, p, force);
   return NCOK;
+}
+
+/* drops an output of wopen that is not written after all */
+static void unput(FILE *f) {
+  if (f != NULL) (void)ncclose(f, "", 1);
 }
 
 /* "path" of a capsule: no '..', not absolute, not a noqtis file */
@@ -399,9 +418,15 @@ static int sadd(int argc, char **argv) {
   addr[0] = '\0';
   if (url != NULL) snprintf(addr, sizeof addr, "%s", url);
   if (!ncexist(path)) {
+    FILE *wf;
     if (syn) {
       ncmsg("src add", "%s: no such file (make it with `noqtis data syn`)",
             ncesc(path));
+      nqdrfree(r);
+      return NCUSE;
+    }
+    /* where the bytes go is settled before any request is made */
+    if ((wf = wopen("src add", argv[0], argv[1], 0, 1)) == NULL) {
       nqdrfree(r);
       return NCUSE;
     }
@@ -409,20 +434,23 @@ static int sadd(int argc, char **argv) {
         portal(rs, addr, sizeof addr, NULL, err, sizeof err) != NCOK) {
       ncmsg("src add", "%s: the portal does not say where the file is: %s",
             kind, err);
+      unput(wf);
       nqdrfree(r);
       return NCUSE;
     }
     if (ncurlok(addr, err, sizeof err) != NCOK) {
       ncmsg("src add", "%s: %s", ncesc(addr), err);
+      unput(wf);
       nqdrfree(r);
       return NCUSE;
     }
     if (get(addr, so.max, so.secs, &re, err, sizeof err) != NCOK) {
       ncmsg("src add", "%s: %s", ncesc(addr), err);
+      unput(wf);
       nqdrfree(r);
       return NCUSE;
     }
-    if (put("src add", argv[0], argv[1], re.b, re.n, 0) != NCOK) {
+    if (put("src add", argv[0], argv[1], wf, re.b, re.n) != NCOK) {
       ncresfree(&re);
       nqdrfree(r);
       return NCUSE;
@@ -612,6 +640,7 @@ static int sfetch(int argc, char **argv) {
     char a[4300], u[4300], err[700], p[4200], last[800];
     size_t i, an = 0, want = sz != NULL ? (size_t)strtoull(sz, NULL, 10) : 0;
     int k = 0, got = 0, syn = issyn(r, ix[j]), there;
+    FILE *wf;
     free(sz);
     if (path == NULL) {
       bad = 1;
@@ -636,6 +665,13 @@ static int sfetch(int argc, char **argv) {
       row(json, &first, path, "differs", 0, NULL, NULL,
           "the file there is not the one recorded; --force replaces it with "
           "a copy that is");
+      bad = 1;
+      free(path);
+      continue;
+    }
+    /* where the bytes go is settled before any request is made */
+    if ((wf = wopen("src fetch", argv[0], path, there, 0)) == NULL) {
+      row(json, &first, path, "refused", 0, NULL, NULL, NOWR);
       bad = 1;
       free(path);
       continue;
@@ -670,15 +706,17 @@ static int sfetch(int argc, char **argv) {
         ncresfree(&re);
         continue;
       }
-      if (put("src fetch", argv[0], path, re.b, re.n, there) == NCOK) {
+      if (put("src fetch", argv[0], path, wf, re.b, re.n) == NCOK) {
         got = 1;
         row(json, &first, path, "fetched", 0, kname(k), re.url, NULL);
       } else {
         bad = 1;
         got = -1;
       }
+      wf = NULL;
       ncresfree(&re);
     }
+    unput(wf);
     if (got == 0) {
       row(json, &first, path, "unreachable", 0, NULL, NULL,
           i == 0 ? "the source records no address" : last);
@@ -733,6 +771,7 @@ static int srefresh(int argc, char **argv) {
     size_t an = 0;
     int k = 0, syn = issyn(r, ix[j]);
     ncres re;
+    FILE *wf = NULL;
     memset(&re, 0, sizeof re);
     if (path == NULL || osha == NULL || osz == NULL) {
       free(path);
@@ -749,6 +788,11 @@ static int srefresh(int argc, char **argv) {
       row(json, &first, path, "unreachable", 0, NULL, NULL,
           "the source records no url or portal to fetch it from");
       dead = 1;
+    } else if (wr && (wf = wopen("src refresh", argv[0], path, 1, 1)) ==
+                         NULL) {
+      /* --write: where the bytes would go is settled before any
+       * request is made */
+      rc = NCUSE;
     } else {
       at = a;
       if (k == NQDAPORT) {
@@ -795,7 +839,8 @@ static int srefresh(int argc, char **argv) {
         chg = 1;
         if (wr) {
           char why[600];
-          int e = put("src refresh", argv[0], path, re.b, re.n, 1);
+          int e = put("src refresh", argv[0], path, wf, re.b, re.n);
+          wf = NULL;
           if (e == NCOK &&
               (e = nqdsrc(r, argv[0], path, why, sizeof why)) != NQOK) {
             ncmsg("src refresh", "%s", why[0] ? why : nqerr(e));
@@ -818,6 +863,7 @@ static int srefresh(int argc, char **argv) {
         }
       }
     }
+    unput(wf);
     ncresfree(&re);
     free(path);
     free(osha);
