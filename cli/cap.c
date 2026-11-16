@@ -561,6 +561,11 @@ int ncseal(int argc, char **argv) {
             "present seal, which a new seal would replace: move "
             "noqtis.ers, noqtis.sig and noqtis.json out together (they "
             "prove the folder as it was), then seal", argv[0]);
+    else if (rc == NQEIO)
+      ncmsg("seal", "%s: a file could not be read or written, or changed "
+            "while it was read (its size is not the one it had when the "
+            "folder was listed): seal again once nothing writes to the "
+            "folder", argv[0]);
     else
       nclib("seal", argv[0], rc);
     goto done;
@@ -654,7 +659,9 @@ static const ncfix fixes[] = {
    "noqtis reads: split the folder into smaller capsules"},
   {"manifest.read", NULL, "noqtis.json is missing or unreadable: " RESEAL},
   {"manifest.digest", NULL, "noqtis.json is not the manifest this seal "
-   "signed: restore the sealed noqtis.json, or seal again if the files "
+   "signed: if a seal of this folder was stopped part way (between "
+   "placing the new noqtis.json and the new noqtis.sig), seal it again; "
+   "otherwise restore the sealed noqtis.json, or seal again if the files "
    "changed on purpose"},
   {"manifest.parse", NULL, "noqtis.json is not JSON: " RESEAL},
   {"manifest.canonical", NULL, "noqtis.json was edited: " RESEAL},

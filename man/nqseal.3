@@ -64,7 +64,12 @@ under the context string
 .Ql noqtis-capsule-1
 (pure ML-DSA or SLH-DSA, hedged); verifies the new signature with
 .Fa pk ;
-and only then writes both files, replacing earlier ones.
+and only then writes both files, replacing earlier ones: both whole
+under their temporary names first, then
+.Pa noqtis.json
+renamed into place and
+.Pa noqtis.sig
+last, so a failure while writing leaves the earlier seal as it was.
 .Pp
 .Fa sklen
 and
@@ -182,7 +187,9 @@ over 1 MiB or nested more than 64 levels deep.
 .Fa meta
 is not a JSON object (strict JSON: no duplicate keys, valid UTF-8).
 .It Bq Er NQEIO
-The folder or a file could not be read, or a file could not be written.
+The folder or a file could not be read, a file changed size while it was
+read (from the size it had when the folder was listed), or a file could
+not be written.
 .It Bq Er NQEMEM
 The allocation hook returned
 .Dv NULL .

@@ -176,6 +176,11 @@ int nqcread(const char *dir, const char *name, size_t max, char **buf,
 /* Writes n bytes to dir/name, replacing it, through the temporary file
  * .<name>.<pid>.<k>.tmp (k 0 to 15) beside it. */
 int nqcwrite(const char *dir, const char *name, const char *buf, size_t n);
+/* nqcwrite of two files, both written whole under their temporary names
+ * before the first is renamed into place and then the second; on
+ * failure no temporary file is left. */
+int nqcwrite2(const char *dir, const char *n1, const char *b1, size_t l1,
+              const char *n2, const char *b2, size_t l2);
 /* 1 when the path p (n bytes) is exactly a temporary name nqcwrite
  * gives a capsule's own file at the top of its folder:
  * .noqtis.json.<pid>.<k>.tmp, and the same of noqtis.sig and noqtis.ers,

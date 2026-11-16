@@ -1728,6 +1728,40 @@ static void pone(int stage, uint64_t total, size_t least) {
   NQTCHK(pdn[n - 1] == total);
 }
 
+/* a file cut short while a seal reads it (from the progress hook, after
+ * its first chunk): the seal refuses it, and writes nothing */
+static char cutp[600];
+static int cutn;
+static void pcut(int stage, uint64_t done, uint64_t total, void *user) {
+  FILE *f;
+  (void)stage;
+  (void)total;
+  (void)user;
+  if (cutn || done < 16384) return;
+  /* Windows shares the file being read for reading only: no cut there */
+  if ((f = fopen(cutp, "wb")) == NULL) return;
+  fputs("cut short", f);
+  fclose(f);
+  cutn = 1;
+}
+
+static void tcut(const key *k) {
+  static uint8_t big[100000];
+  char d[600];
+  int rc;
+  fresh(d, sizeof d);
+  memset(big, 0x5a, sizeof big);
+  wr(d, "big.bin", big, sizeof big);
+  path(cutp, sizeof cutp, d, "big.bin");
+  cutn = 0;
+  NQTEQI(nqsetprog(pcut, NULL), NQOK);
+  rc = sealk(d, k, NULL);
+  NQTEQI(nqsetprog(NULL, NULL), NQOK);
+  if (!cutn) return;
+  NQTEQI(rc, NQEIO);
+  NQTCHK(!nqchas(d, NQCMAN) && !nqchas(d, NQCSIG));
+}
+
 static void tprog(const key *k, const key *slh) {
   static uint8_t big[100000], sig[20000];
   char d[600];
@@ -1819,6 +1853,7 @@ static void tfs(int gen) {
   tstamp(&m44);
   roundtrip(&m44, NULL);
   tprog(&m44, &slh);
+  tcut(&m44);
   roundtrip(&m65, GMETA);
   roundtrip(&slh, "{}");
   tamper(&m44, &other);

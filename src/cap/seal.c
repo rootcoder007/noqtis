@@ -161,6 +161,10 @@ static int manifest(const char *dir, const nqclist *l, const char *ts,
     size_t es;
     rc = nqcdigx(dir, l->e[i].path, (uint64_t)-1, &size, s2, s3, sec);
     if (rc != NQOK) return rc;
+    /* a file that grew or shrank while it was read (or since the walk
+     * listed it) has no digest of bytes it ever held as a whole: never
+     * sealed */
+    if (size != l->e[i].size) return NQEIO;
     /* a secret key in the folder would ship with the capsule */
     if (*sec) return NQEARG;
     if (size > NQCMAXINT) return NQELIM;
@@ -377,8 +381,9 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
     rc = NQEARG;
   }
   if (rc == NQOK) rc = sealjson(&s, ver, an, mh, pk, pklen, sig, siglen);
-  if (rc == NQOK) rc = nqcwrite(dir, NQCMAN, m.p, m.n);
-  if (rc == NQOK) rc = nqcwrite(dir, NQCSIG, s.p, s.n);
+  /* the seal last: a folder holds the new seal only once the new
+   * manifest is in place */
+  if (rc == NQOK) rc = nqcwrite2(dir, NQCMAN, m.p, m.n, NQCSIG, s.p, s.n);
   nqfree(sig, sz.sig);
   if (o.lv != NULL) nqfree(o.lv, lvn);
   nqcbfree(&hd);

@@ -68,6 +68,28 @@ A seal stopped by
 or
 .Dv SIGXFSZ
 removes its own temporary files first.
+.Pp
+The new manifest and the new seal are both written whole under their
+temporary names before either is renamed; then
+.Pa noqtis.json
+is renamed into place, and
+.Pa noqtis.sig
+last.
+A re-seal that fails or is stopped while it writes leaves the old
+capsule as it was.
+Only a stop in the moment between the two renames (or a failure of the
+second) leaves the new
+.Pa noqtis.json
+beside the old
+.Pa noqtis.sig :
+.Xr noqtis-check 1
+then fails
+.Ql manifest.digest
+and says to seal again, which is the remedy.
+.Pp
+A file that grows or shrinks while it is read (its size differs from the
+one it had when the folder was listed) is never sealed: the seal fails
+with exit status 2 and nothing new is written.
 On success it prints
 .Dl sealed Ar dir No with Ar alg
 .Pp

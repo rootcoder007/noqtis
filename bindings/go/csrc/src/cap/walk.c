@@ -773,36 +773,86 @@ int nqctmpnm(const char *p, size_t n) {
   return 0;
 }
 
-int nqcwrite(const char *dir, const char *name, const char *buf, size_t n) {
-  size_t fl = 0, tl = 0;
-  char *full, *tmp = NULL, tn[96];
+/* one file nqcwrite or nqcwrite2 writes: its path, and the temporary
+ * file it is written to first */
+typedef struct {
+  char *full, *tmp;
+  size_t fl, tl;
+} wout;
+
+static void wfree(wout *o) {
+  if (o->tmp != NULL) nqfree(o->tmp, o->tl + 1);
+  if (o->full != NULL) nqfree(o->full, o->fl + 1);
+  o->tmp = o->full = NULL;
+}
+
+/* writes n bytes to a new temporary file beside dir/name, whole and
+ * flushed; on failure nothing is left (and o is freed) */
+static int wtmp(const char *dir, const char *name, const char *buf,
+                size_t n, wout *o) {
+  char tn[96];
   FILE *f = NULL;
   unsigned k;
   int rc = NQOK;
+  o->tmp = NULL;
+  o->tl = 0;
   if (dir == NULL || name == NULL || (buf == NULL && n != 0)) return NQEARG;
   if (strlen(name) > 40) return NQEARG;
-  full = join(dir, name, &fl);
-  if (full == NULL) return NQEMEM;
+  o->full = join(dir, name, &o->fl);
+  if (o->full == NULL) return NQEMEM;
   for (k = 0; k < 16 && f == NULL; k++) {
     snprintf(tn, sizeof tn, ".%s.%lu.%u.tmp", name, mypid(), k);
-    if (tmp != NULL) nqfree(tmp, tl + 1);
-    tmp = join(dir, tn, &tl);
-    if (tmp == NULL) {
-      nqfree(full, fl + 1);
+    if (o->tmp != NULL) nqfree(o->tmp, o->tl + 1);
+    o->tmp = join(dir, tn, &o->tl);
+    if (o->tmp == NULL) {
+      wfree(o);
       return NQEMEM;
     }
-    f = openw(tmp);
+    f = openw(o->tmp);
   }
   if (f == NULL) {
-    rc = NQEIO;
-  } else {
-    if (n != 0 && fwrite(buf, 1, n, f) != n) rc = NQEIO;
-    if (rc == NQOK) rc = flush(f);
-    if (fclose(f) != 0) rc = NQEIO;
-    if (rc == NQOK) rc = replacef(tmp, full);
-    if (rc != NQOK) droptmp(tmp);
+    wfree(o);
+    return NQEIO;
   }
-  nqfree(tmp, tl + 1);
-  nqfree(full, fl + 1);
+  if (n != 0 && fwrite(buf, 1, n, f) != n) rc = NQEIO;
+  if (rc == NQOK) rc = flush(f);
+  if (fclose(f) != 0) rc = NQEIO;
+  if (rc != NQOK) {
+    droptmp(o->tmp);
+    wfree(o);
+  }
+  return rc;
+}
+
+int nqcwrite(const char *dir, const char *name, const char *buf, size_t n) {
+  wout o;
+  int rc = wtmp(dir, name, buf, n, &o);
+  if (rc != NQOK) return rc;
+  rc = replacef(o.tmp, o.full);
+  if (rc != NQOK) droptmp(o.tmp);
+  wfree(&o);
+  return rc;
+}
+
+int nqcwrite2(const char *dir, const char *n1, const char *b1, size_t l1,
+              const char *n2, const char *b2, size_t l2) {
+  wout a, b;
+  int rc = wtmp(dir, n1, b1, l1, &a);
+  if (rc != NQOK) return rc;
+  rc = wtmp(dir, n2, b2, l2, &b);
+  if (rc != NQOK) {
+    droptmp(a.tmp);
+    wfree(&a);
+    return rc;
+  }
+  /* both are whole on disk before either is renamed: only the moment
+   * between the two renames can leave the first new beside the second
+   * old */
+  rc = replacef(a.tmp, a.full);
+  if (rc != NQOK) droptmp(a.tmp);
+  if (rc == NQOK) rc = replacef(b.tmp, b.full);
+  if (rc != NQOK) droptmp(b.tmp);
+  wfree(&a);
+  wfree(&b);
   return rc;
 }

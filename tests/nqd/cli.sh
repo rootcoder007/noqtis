@@ -498,6 +498,23 @@ if ls -a "$z" | grep -q '^\.noqtis\.[a-z]*\.[0-9]*\.[0-9]*\.tmp$'; then
   ls -a "$z" >&2
 fi
 
+# a re-seal stopped while it writes (the seal is over 1 KiB, the manifest
+# not) leaves the old capsule whole: both new files are written before
+# either is placed
+r=$w/reseal
+mkdir -p "$r"
+printf 'a\n' >"$r/a"
+ok 0 "re-seal: the first seal" "$nq" seal -k "$w/k" "$r"
+cp "$r/noqtis.json" "$w/rs.json"
+cp "$r/noqtis.sig" "$w/rs.sig"
+printf 'b\n' >"$r/b"
+ok 153 "re-seal: stopped while writing" sh -c 'ulimit -f 2; exec "$@"' sh \
+  "$nq" seal -k "$w/k" "$r"
+same "$r/noqtis.json" "$w/rs.json" "re-seal: the old manifest stays"
+same "$r/noqtis.sig" "$w/rs.sig" "re-seal: the old seal stays"
+rm "$r/b"
+ok 0 "re-seal: the old capsule still checks" "$nq" check -p "$w/k.pub" "$r"
+
 # a record writer stopped by SIGXFSZ leaves no temporary file, and a
 # leftover of the tool's (.noqtis.<16 hex>.tmp, at any depth) is never
 # sealed in
