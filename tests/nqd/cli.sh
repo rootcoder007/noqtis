@@ -562,10 +562,10 @@ if ls -a "$q" | grep -q 'tmp$'; then
 fi
 ok 0 "drift pin" "$nq" drift pin "$q" d.csv
 printf 'half\n' >"$q/sub/.noqtis.0123456789abcdef.tmp"
-printf 'kept\n' >"$q/sub/.noqtis.0123456789ABCDEF.tmp"
+printf 'kept\n' >"$q/sub/.noqtis.FEDCBA9876543210.tmp"
 ok 0 "seal beside a leftover output" "$nq" seal -k "$w/k" "$q"
 ok 1 "the leftover is not listed" grep -q '0123456789abcdef' "$q/noqtis.json"
-has "$q/noqtis.json" '"path":"sub/.noqtis.0123456789ABCDEF.tmp"' \
+has "$q/noqtis.json" '"path":"sub/.noqtis.FEDCBA9876543210.tmp"' \
   "a name of another shape is sealed"
 ok 1 "check fails the leftover" "$nq" check -p "$w/k.pub" "$q"
 has "$w/out" "sub/.noqtis.0123456789abcdef.tmp: not in the manifest" \
