@@ -196,8 +196,14 @@ itself) that holds
 deepest first, 64 levels down at most; each
 prints its report (with
 .Fl j ,
-one JSON line each), and standard error ends with how many passed and
-failed.
+one JSON line each), naming the capsule by its path under
+.Ar dir
+.Pf ( Ql .\&
+for
+.Ar dir
+itself) in its last line and in
+.Cm capsule ,
+and standard error ends with how many passed and failed.
 It never follows a link: each folder is opened from the one above it
 without following links, when it is listed and again when it is
 checked, so a link inside

@@ -181,6 +181,10 @@ void nctswap(const char *path);
  * that is its last argument: those holding the file mark (seal: a
  * manifest or a data record), with -r taken out of argv */
 int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv);
+/* while ncrec runs a command in a folder: the folder's path under the
+ * one given, for the command to name the capsule by (it is given "."
+ * on POSIX); NULL otherwise */
+extern const char *nclab;
 /* Wipes (when sec) and frees. */
 void ncfree(void *p, size_t len, int sec);
 /* stdin/stdout in binary mode (Windows). */

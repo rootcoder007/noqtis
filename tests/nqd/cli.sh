@@ -607,6 +607,12 @@ has "$w/err" "2 capsules, 2 OK, 0 failed" "check -r counts"
 printf 'y\n' >>"$t/b/inner/f.txt"
 ok 1 "check -r, one changed" "$nq" check -p "$w/k.pub" -r "$t"
 has "$w/err" "2 capsules, 1 OK, 1 failed" "check -r finds it"
+# each capsule is named by its path under the folder given
+has "$w/out" "b/inner: FAILED" "check -r names the failed capsule"
+has "$w/out" "^a: OK" "and the one that passed"
+ok 1 "check -r -j, one changed" "$nq" check -j -p "$w/k.pub" -r "$t"
+has "$w/out" '"capsule":"b/inner","ok":false' "-j names the failed capsule"
+has "$w/out" '"capsule":"a","ok":true' "-j names the one that passed"
 ok 2 "check -r, nothing" "$nq" check -r "$t/c"
 has "$w/err" "no capsule under" "check -r says none"
 

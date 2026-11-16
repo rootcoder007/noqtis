@@ -289,6 +289,8 @@ static const char *pathval(const char *cmd, char **argv, int k) {
   return NULL;
 }
 
+const char *nclab;
+
 int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
   char **a, **fs = NULL, **own;
   size_t nf = 0, i, nc = 0, nok = 0, nbad = 0, no = 0, nref = 0;
@@ -392,7 +394,14 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
     memcpy(b, a, (size_t)n * sizeof *b);
     b[n - 1] = (char *)(uintptr_t)d;
     b[n] = NULL;
+    /* the capsule's name in reports: its path under the folder given */
+    nclab = fs[i] + strlen(a[n - 1]);
+    while (*nclab == '/')
+      nclab++;
+    if (*nclab == '\0')
+      nclab = ".";
     rc = fn(n, b);
+    nclab = NULL;
     free(b);
     if (ncback(home) != NCOK) {
       ret = nclib(cmd, "the working folder", NQEIO);
@@ -1019,7 +1028,7 @@ int ncchk(int argc, char **argv) {
       return NCUSE;
     }
   }
-  lab = pf != NULL ? pf : argv[0];
+  lab = pf != NULL ? pf : nclab != NULL ? nclab : argv[0];
   if (pf != NULL && ncisurl(pf)) {
     char err[300];
     if (ncget(pf, NCRDMAX, &pb, &pn, err, sizeof err) != NCOK) {
