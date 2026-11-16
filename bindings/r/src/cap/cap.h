@@ -179,7 +179,9 @@ int nqcwrite(const char *dir, const char *name, const char *buf, size_t n);
 /* 1 when the path p (n bytes) is exactly a temporary name nqcwrite
  * gives a capsule's own file at the top of its folder:
  * .noqtis.json.<pid>.<k>.tmp, and the same of noqtis.sig and noqtis.ers,
- * <pid> 1 to 20 decimal digits, <k> 0 to 15 */
+ * <pid> 1 to 20 decimal digits, <k> 0 to 15; or, in any folder, one the
+ * tool and nqd write their files through: .noqtis.<16 hex digits>.tmp
+ * (lowercase) */
 int nqctmpnm(const char *p, size_t n);
 /* 1 when dir/name opens for reading (never through a link), else 0. */
 int nqchas(const char *dir, const char *name);

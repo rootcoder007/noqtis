@@ -65,7 +65,10 @@ int ncdload(const char *cmd, const char *dir, int mk, nqdrec **r) {
 
 int ncdsave(const char *cmd, const char *dir, nqdrec *r) {
   char p[4200];
-  int rc = nqdsave(r, dir);
+  /* the temporary file nqd writes the record through is removed if a
+   * signal stops the write (cli/io.c) */
+  int sl = ncpendrec(dir), rc = nqdsave(r, dir);
+  ncunpend(sl);
   if (rc != NQOK)
     return nclib(cmd, "cannot write " NQDFILE, rc);
   snprintf(p, sizeof p, "%s/noqtis.sig", dir);
@@ -1604,7 +1607,19 @@ static int dsyn(int argc, char **argv) {
   if ((rc = ncdload("data syn", argv[0], 0, &r)) != NCOK)
     return rc;
   why[0] = '\0';
-  rc = nqdsyn(r, argv[0], argv[1], seed, rows, why, sizeof why);
+  {
+    /* the folder the file goes in, whose temporary name nqd writes it
+     * through: removed if a signal stops the write (cli/io.c) */
+    char d[4200];
+    const char *e = strrchr(argv[1], '/');
+    int sl = -1;
+    if (snprintf(d, sizeof d, "%s/%.*s", argv[0],
+                 e != NULL ? (int)(e - argv[1]) : 0, argv[1]) <
+        (int)sizeof d)
+      sl = ncpendrec(d);
+    rc = nqdsyn(r, argv[0], argv[1], seed, rows, why, sizeof why);
+    ncunpend(sl);
+  }
   if (rc != NQOK) {
     ncmsg("data syn", "%s", why[0] ? why : nqerr(rc));
     if (rc == NQEARG)

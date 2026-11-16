@@ -498,6 +498,40 @@ if ls -a "$z" | grep -q '^\.noqtis\.[a-z]*\.[0-9]*\.[0-9]*\.tmp$'; then
   ls -a "$z" >&2
 fi
 
+# a record writer stopped by SIGXFSZ leaves no temporary file, and a
+# leftover of the tool's (.noqtis.<16 hex>.tmp, at any depth) is never
+# sealed in
+q=$w/rectmp
+mkdir -p "$q/sub"
+hd=c0
+row=0
+i=1
+while [ $i -lt 40 ]; do
+  hd="$hd,c$i"
+  row="$row,$i"
+  i=$((i + 1))
+done
+printf '%s\n%s\n%s\n' "$hd" "$row" "$row" >"$q/d.csv"
+ok 153 "drift pin stopped while it writes the record" \
+  sh -c 'ulimit -f 1; exec "$@"' sh "$nq" drift pin "$q" d.csv
+n=$((n + 1))
+if ls -a "$q" | grep -q 'tmp$'; then
+  bad=$((bad + 1))
+  echo "FAIL a stopped record writer left a temporary file:" >&2
+  ls -a "$q" >&2
+fi
+ok 0 "drift pin" "$nq" drift pin "$q" d.csv
+printf 'half\n' >"$q/sub/.noqtis.0123456789abcdef.tmp"
+printf 'kept\n' >"$q/sub/.noqtis.0123456789ABCDEF.tmp"
+ok 0 "seal beside a leftover output" "$nq" seal -k "$w/k" "$q"
+ok 1 "the leftover is not listed" grep -q '0123456789abcdef' "$q/noqtis.json"
+has "$q/noqtis.json" '"path":"sub/.noqtis.0123456789ABCDEF.tmp"' \
+  "a name of another shape is sealed"
+ok 1 "check fails the leftover" "$nq" check -p "$w/k.pub" "$q"
+has "$w/out" "sub/.noqtis.0123456789abcdef.tmp: not in the manifest" \
+  "it is named as unlisted"
+has "$w/err" "left from a run that was interrupted" "with its advice"
+
 # ---- seal -r, check -r ----
 
 t=$w/tree

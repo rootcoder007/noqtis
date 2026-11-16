@@ -48,7 +48,11 @@ and the same of
 and
 .Pa noqtis.ers ,
 .Ar k
-0 to 15
+0 to 15, and
+.Pa .noqtis.<16 hex digits>.tmp
+anywhere, which the tool and the data layer
+.Pq Xr nqdnew 3
+write through
 .Pc ; records each regular file's path, size, SHA-256 and SHA3-256
 in canonical JSON (RFC 8785), sorted by path; adds
 .Fa meta ;

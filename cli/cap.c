@@ -1588,7 +1588,13 @@ int ncts(int argc, char **argv) {
   }
   if (ancrd("timestamp", anc, na, &an) != NCOK)
     return NCUSE;
-  rc = stamp("timestamp", argv[0], tsa, nt, &an);
+  {
+    /* the temporary file nqtsput writes noqtis.sig through is removed
+     * if a signal stops the write (cli/io.c) */
+    int sl = ncpendown(argv[0], "noqtis.sig");
+    rc = stamp("timestamp", argv[0], tsa, nt, &an);
+    ncunpend(sl);
+  }
   ancfree(&an);
   if (rc != NCOK) {
     ncmsg("timestamp", "no --tsa gave a timestamp; %s is unchanged: try "
@@ -1685,8 +1691,13 @@ int ncers(int argc, char **argv) {
       ncmsg("ers", "%s: %s", tsa[i], err);
       continue;
     }
-    rc = nqersput(argv[0], h, rsp, rn, nonce, sizeof nonce,
-                  (const uint8_t *const *)an.b, an.n, an.k, &gt, &hw, &why);
+    {
+      /* as for timestamp: its temporary file goes on a signal */
+      int sl = ncpendown(argv[0], "noqtis.ers");
+      rc = nqersput(argv[0], h, rsp, rn, nonce, sizeof nonce,
+                    (const uint8_t *const *)an.b, an.n, an.k, &gt, &hw, &why);
+      ncunpend(sl);
+    }
     free(rsp);
     if (rc != NQOK) {
       ncmsg("ers", "%s: refused its reply: %s", tsa[i],

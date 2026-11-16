@@ -252,8 +252,8 @@ on POSIX; on Windows they inherit the folder's ACL) through unbuffered
 streams.
 No command overwrites an existing file unless given
 .Fl -force .
-A file a command writes (a key, a signature, a shared secret, the output
-of
+A file a command writes (a key, a signature, a shared secret, a report,
+a bundle, the output of
 .Cm box ,
 .Cm unbox
 and the rest) is written first to a new temporary name in the same
@@ -266,16 +266,42 @@ and given its name only once it is whole: with
 the new file replaces the old one (and a link there, never its target),
 so it never inherits the old one's permissions; without it, a file that
 appeared under the name meanwhile is not replaced.
+A command with two outputs (a key pair, a ciphertext and its shared
+secret, a commitment's salt and the data record) writes both whole
+before it names either, and names them one right after the other with
+the signals held back.
+A folder a command makes
+.Pq Cm export --as bagit , Cm pack unpack
+is filled under a temporary name the same way and named only when whole;
+a folder is never replaced.
+The data record
+.Pq Pa noqtis.data.json
+and the files of
+.Cm data syn
+are written through
+.Pa .noqtis. Ns Ar pid Ns Ar k Ns Pa .tmp
+(16 hex digits as well) and renamed into place.
 When the command fails, or is stopped by
 .Dv SIGINT ,
-.Dv SIGTERM
+.Dv SIGTERM ,
+.Dv SIGHUP
 or
-.Dv SIGHUP ,
-the temporary file is removed, so a cut output never stands under the
-name asked for; only
+.Dv SIGXFSZ
+(a write over
+.Ic ulimit -f ) ,
+the temporary file or folder is removed, so a cut output never stands
+under the name asked for; a temporary file is removed through the folder
+it was made in, so that holds even when the folder is renamed while the
+command runs.
+While a folder is filled, a signal ends the command at its next step,
+once what it made is removed.
+Only
 .Dv SIGKILL
 or a power cut can leave a temporary name behind (on Windows, a signal
-too, as an open file cannot be removed there).
+too, as an open file cannot be removed there, and a folder renamed while
+the command runs); a seal never takes such a name in as data, and
+.Xr noqtis-check 1
+reports one it finds as a leftover.
 Every buffer that held a secret key, seed or shared secret is wiped before
 it is freed.
 No secret is printed: a shared secret reaches standard output only with

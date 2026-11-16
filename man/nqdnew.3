@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 13, 2026
+.Dd November 15, 2026
 .Dt NQDNEW 3
 .Os
 .Sh NAME
@@ -118,7 +118,11 @@ writes it to
 .Pa noqtis.data.json
 in
 .Fa dir ,
-through a temporary file and a rename.
+through a temporary file in the same folder and a rename:
+.Pa .noqtis. Ns Ar pid Ns Ar k Ns Pa .tmp ,
+the process id and a number from 0 to 15 in 8 hex digits each, a name
+.Xr nqseal 3
+never takes in as data.
 .Fn nqdrfree
 frees a record;
 .Dv NULL

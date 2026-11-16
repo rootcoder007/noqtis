@@ -40,7 +40,8 @@ static int foldcmp(const void *ctx, size_t a, size_t b) {
 
 /* drops from l the temporary files of a capsule's own files (nqctmpnm:
  * .noqtis.json.<pid>.<k>.tmp and those of noqtis.sig and noqtis.ers),
- * which a seal or timestamp stopped while writing leaves behind: never
+ * which a seal or timestamp stopped while writing leaves behind, and
+ * the .noqtis.<16 hex>.tmp files the tool and nqd write through: never
  * sealed in as data. A check still sees one as an unlisted file. */
 static void notmp(nqclist *l) {
   size_t i, k = 0;

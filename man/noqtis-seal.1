@@ -52,9 +52,15 @@ decimal digits,
 0 to 15).
 A file at the top of
 .Ar dir
-named exactly so, left by a seal that was stopped, is never listed;
+named exactly so, left by a seal that was stopped, is never listed, nor
+is a file anywhere in
+.Ar dir
+named
+.Pa .noqtis.<16 hex digits>.tmp ,
+the name the tool's other outputs and the data record are written
+through;
 .Xr noqtis-check 1
-still fails it as a file the manifest does not list, so remove it.
+still fails either as a file the manifest does not list, so remove it.
 A seal stopped by
 .Dv SIGINT ,
 .Dv SIGTERM ,

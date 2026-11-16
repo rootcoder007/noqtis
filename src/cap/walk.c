@@ -746,7 +746,17 @@ int nqchas(const char *dir, const char *name) {
 
 int nqctmpnm(const char *p, size_t n) {
   static const char *const own[] = {NQCMAN, NQCSIG, NQCERS};
-  size_t i, j, d, k, l;
+  size_t i, j, d, k, l, b;
+  /* .noqtis.<16 hex>.tmp anywhere: the tool's outputs and nqd's files */
+  for (b = n; b > 0 && p[b - 1] != '/'; b--)
+    ;
+  if (n - b == 28 && memcmp(p + b, ".noqtis.", 8) == 0 &&
+      memcmp(p + n - 4, ".tmp", 4) == 0) {
+    for (j = b + 8; j < n - 4; j++)
+      if (!((p[j] >= '0' && p[j] <= '9') || (p[j] >= 'a' && p[j] <= 'f')))
+        break;
+    if (j == n - 4) return 1;
+  }
   for (i = 0; i < 3; i++) {
     l = strlen(own[i]);
     if (n < l + 9 || p[0] != '.' || memcmp(p + 1, own[i], l) != 0 ||

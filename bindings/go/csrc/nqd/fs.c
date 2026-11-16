@@ -182,15 +182,49 @@ int qdread(const char *path, size_t max, char **buf, size_t *len) {
   return readf(f, max, buf, len);
 }
 
+/* The k-th name (0 to 15) a file is written through before it is
+ * renamed into place: ".noqtis.<pid, 8 hex><k, 8 hex>.tmp" in its folder.
+ * The tool's own temporary files share the ".noqtis.<16 hex>.tmp" shape,
+ * so a seal never takes one left behind for data (nqctmpnm), and the
+ * tool knows the first name to remove when a signal stops the write.
+ * WASI has no process ids: random bits stand in. */
+static void tmpnm(char *out, size_t cap, unsigned k) {
+  unsigned long pid;
+#if defined(_WIN32)
+  pid = (unsigned long)GetCurrentProcessId();
+#elif defined(__wasi__)
+  uint8_t r[4] = {0, 0, 0, 0};
+  (void)nqrand(r, sizeof r);
+  pid = (unsigned long)r[0] | (unsigned long)r[1] << 8 |
+        (unsigned long)r[2] << 16 | (unsigned long)r[3] << 24;
+#else
+  pid = (unsigned long)getpid();
+#endif
+  snprintf(out, cap, ".noqtis.%08lx%08x.tmp", pid & 0xffffffffUL, k);
+}
+
 int qdwrite(const char *path, const char *b, size_t len) {
-  char tmp[4200];
-  FILE *f;
+  char tmp[4200], nm[40];
+  const char *sl = strrchr(path, '/');
+  size_t dl = sl != NULL ? (size_t)(sl - path) + 1 : 0;
+  FILE *f = NULL;
+  unsigned k;
   int bad;
-  if ((size_t)snprintf(tmp, sizeof tmp, "%s.tmp", path) >= sizeof tmp)
-    return NQELIM;
-  /* a new file, not one left there or a link planted in its place */
-  dremove(tmp);
-  f = qdfnew(tmp);
+#ifdef _WIN32
+  const char *s2 = strrchr(path, '\\');
+  if (s2 != NULL && s2 + 1 > path + dl)
+    dl = (size_t)(s2 - path) + 1;
+#endif
+  /* a new file (O_EXCL), never one left there or a link planted in its
+   * place */
+  for (k = 0; k < 16 && f == NULL; k++) {
+    tmpnm(nm, sizeof nm, k);
+    if (dl + strlen(nm) >= sizeof tmp)
+      return NQELIM;
+    memcpy(tmp, path, dl);
+    strcpy(tmp + dl, nm);
+    f = qdfnew(tmp);
+  }
   if (f == NULL)
     return NQEIO;
   bad = fwrite(b, 1, len, f) != len;
@@ -564,9 +598,10 @@ int qdwriteat(const char *dir, const char *rel, const char *b, size_t len) {
   {
     int pfd, fd, bad = 0;
     const char *last;
-    char tmp[300];
+    char tmp[40];
     struct stat st;
     size_t done = 0;
+    unsigned j;
     if ((rc = parentat(dir, rel, &pfd, &last)) != NQOK)
       return rc;
     /* the file itself may be new or a plain file, never a link */
@@ -575,10 +610,13 @@ int qdwriteat(const char *dir, const char *rel, const char *b, size_t len) {
       close(pfd);
       return NQEARG;
     }
-    snprintf(tmp, sizeof tmp, "%s.tmp", last);
-    /* a new file, not one left there or a link planted in its place */
-    unlinkat(pfd, tmp, 0);
-    fd = openat(pfd, tmp, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
+    /* a new file (O_EXCL), never one left there or a link planted in
+     * its place */
+    for (j = 0, fd = -1; j < 16 && fd < 0; j++) {
+      tmpnm(tmp, sizeof tmp, j);
+      fd = openat(pfd, tmp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW |
+                  O_CLOEXEC, 0644);
+    }
     if (fd < 0) {
       close(pfd);
       return NQEIO;
