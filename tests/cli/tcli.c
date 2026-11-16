@@ -848,7 +848,11 @@ static void tts(void) {
 #ifndef NQTLSON
   want(2, "seal -k q.c --tsa https://tsa.example/ qts", NULL);
   ok(has("q.err", "https:// is not supported") &&
-     has("q.err", "give the TSA's http:// URL"), "seal refuses https");
+     has("q.err", "give an http:// URL"), "seal refuses https");
+  /* the same refusal for a capsule's URL speaks of no TSA */
+  want(2, "check https://127.0.0.1:1/x/", NULL);
+  ok(has("q.err", "https:// is not supported") && !has("q.err", "TSA"),
+     "check refuses an https capsule URL, with advice that fits it");
 #else
   /* with the TLS client, https:// is a URL like any other */
   want(2, "seal -k q.c --tsa https://127.0.0.1:1/ qts", NULL);

@@ -103,9 +103,13 @@ static int parse(const char *url, ncurl *u, char *err, size_t cap) {
 #ifdef NQTLSON
     u->tls = 1;
 #else
+    /* the one parser of every URL fetched (a capsule, a source, a
+     * proof, a TSA): the advice fits each, as what is fetched is
+     * checked by its seal, digest or signature, not by the connection */
     say(err, cap, "https:// is not supported (noqtis was built without "
-        "its TLS client, NQTLS); the token is signed, so give the TSA's "
-        "http:// URL");
+        "its TLS client, NQTLS); give an http:// URL of the same bytes, "
+        "which are checked all the same, or build noqtis with "
+        "-DNQTLS=ON");
     return NCUSE;
 #endif
   } else if (!pre(url, "http://")) {
