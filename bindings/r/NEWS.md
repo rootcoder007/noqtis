@@ -1,5 +1,7 @@
 # noqtis 0.2.0
 
+* `nqdrift()` refuses a `psiwarn`, `psifail`, `alpha` or `minn` that is not one number, zero or more: an `NA` or a text value was taken with a warning and every column then read as not drifted.
+
 * Secret keys under a passphrase: `nqpwenc()`, `nqpwdec()` and `pass =`
   for `nqreadkey()` and `nqwritekey()`, in the format `noqtis keygen
   --pass-fd` writes.

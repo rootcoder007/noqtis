@@ -226,3 +226,19 @@ test_that("sources: addresses in order, bytes checked, resolvers", {
   expect_error(nqdrslv('{"base":"https://x.org/a","kind":"direct"}'))
   unlink(d, recursive = TRUE)
 })
+
+test_that("nqdrift() refuses a level that is not one number", {
+  d <- tempfile("nqlv")
+  dir.create(d)
+  utils::write.csv(data.frame(x = 1:20), file.path(d, "a.csv"),
+    row.names = FALSE
+  )
+  nqdpin(d, "a.csv")
+  for (k in c("psiwarn", "psifail", "alpha", "minn")) {
+    for (v in list(NA, NA_real_, "x", c(1, 2), -1, Inf, NULL)) {
+      a <- c(list(d), stats::setNames(list(v), k))
+      expect_error(do.call(nqdrift, a), "must be one number")
+    }
+  }
+  expect_true(attr(nqdrift(d), "ok"))
+})

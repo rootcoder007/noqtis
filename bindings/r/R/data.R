@@ -236,6 +236,12 @@ nqdrift <- function(dir, files = NULL, current = NULL, psiwarn = 0.1,
   if (!is.null(current) && length(current) != length(files)) {
     stop("'current' needs one path per file", call. = FALSE)
   }
+  for (k in c("psiwarn", "psifail", "alpha", "minn")) {
+    v <- get(k)
+    if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0) {
+      stop(sprintf("'%s' must be one number, zero or more", k), call. = FALSE)
+    }
+  }
   lv <- as.numeric(c(psiwarn, psifail, alpha, minn, isTRUE(benford)))
   rs <- lapply(seq_along(files), function(i) {
     s <- .Call(Cdkey, d, "stats", enc2utf8(files[i]))
