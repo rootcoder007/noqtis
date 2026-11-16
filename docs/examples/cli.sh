@@ -95,7 +95,7 @@ printf 'r\n' > r2/report.txt
 same "sealed r2 with ML-DSA-65" "$(noqtis seal --format 2 -k me r2)"
 noqtis prove -p me.pub -o in.proof r2 data/in.csv
 same "absent" "$(grep -q report.txt in.proof && echo present || echo absent)"
-same "in.proof: OK (16 checks passed)" \
+same "in.proof: PARTIAL OK (17 checks passed; not every file was checked)" \
   "$(noqtis check -p me.pub --proof in.proof | tail -1)"
 same "in.proof: PARTIAL OK (19 checks passed; not every file was checked)" \
   "$(noqtis check -p me.pub --proof in.proof r2 | tail -1)"
