@@ -59,9 +59,11 @@ static void jrow(int first, const char *pre, const char *c, int ok,
 int ncrpt(int argc, char **argv) {
   const char *pp = NULL, *ff = NULL, *of = NULL, *dir;
   int json = 0, gh = 0, help = 0, np, fmt = NQDMD, rc, sealed, hasrec;
+  int force = 0;
   ncopt o[] = {{'p', "pub", 1, &pp, NULL},
                {'f', "format", 1, &ff, NULL},
                {'o', "out", 1, &of, NULL},
+               {'\0', "force", 0, NULL, &force},
                {'j', "json", 0, NULL, &json},
                {'\0', "github", 0, NULL, &gh}};
   nckey pk = {{0, 0, NULL}, 0, NULL, 0};
@@ -97,6 +99,9 @@ int ncrpt(int argc, char **argv) {
     ncmsg("report", "%s: not a folder", dir);
     return NCUSE;
   }
+  /* refused before the check runs, not after */
+  if (of != NULL && !force && ncexist(of))
+    return ncwfail("report", of, 0);
   snprintf(p, sizeof p, "%s/noqtis.sig", dir);
   sealed = ncexist(p);
   snprintf(p, sizeof p, "%s/%s", dir, NQDFILE);
@@ -165,12 +170,10 @@ int ncrpt(int argc, char **argv) {
     nqdrepi(dr, i, NULL, &ok, NULL);
     bad += !ok;
   }
-  if (of != NULL) {
-    FILE *f = ncfopen(of, "wb");
-    if (f == NULL || fwrite(buf, 1, n, f) != n || fclose(f) != 0) {
-      ncmsg("report", "%s: cannot be written", of);
-      goto out;
-    }
+  /* under a temporary name until whole, as every output (cli/io.c) */
+  if (of != NULL && ncwr(of, (const uint8_t *)buf, n, force, 0) != NQOK) {
+    ncwfail("report", of, force);
+    goto out;
   }
   if (gh) {
     if (cr == NULL)

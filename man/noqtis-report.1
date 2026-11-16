@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 13, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-REPORT 1
 .Os
 .Sh NAME
@@ -10,6 +10,7 @@
 .Op Fl p | Fl -pub Ar key.pub
 .Op Fl f | Fl -format Cm md | txt
 .Op Fl o | Fl -out Ar file
+.Op Fl -force
 .Op Fl j | Fl -json
 .Op Fl -github
 .Ar dir
@@ -47,7 +48,15 @@ Markdown (the default) or plain text
 .It Fl o , Fl -out Ar file
 write the report to
 .Ar file
-instead of standard output
+instead of standard output: under a temporary name in the same folder
+until it is whole, as every output of
+.Xr noqtis 1 ,
+and never over an existing file (or through a link) without
+.Fl -force
+.It Fl -force
+replace
+.Ar file
+when it exists (a link there is replaced, not followed)
 .It Fl j , Fl -json
 print, instead of the report (which
 .Fl o

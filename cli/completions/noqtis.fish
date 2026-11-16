@@ -138,6 +138,7 @@ complete -c noqtis -n "__fish_seen_subcommand_from report" -a '(__fish_complete_
 complete -c noqtis -n "__fish_seen_subcommand_from report" -s p -l pub -r -d 'the key the seal must carry'
 complete -c noqtis -n "__fish_seen_subcommand_from report" -s f -l format -x -a "md txt" -d "the report's format"
 complete -c noqtis -n "__fish_seen_subcommand_from report" -s o -l out -r -d 'write the report to a file'
+complete -c noqtis -n "__fish_seen_subcommand_from report" -l force -d 'replace the file when it exists'
 complete -c noqtis -n "__fish_seen_subcommand_from report" -s j -l json -d 'a JSON summary instead'
 complete -c noqtis -n "__fish_seen_subcommand_from report" -l github -d 'GitHub workflow annotations'
 complete -c noqtis -n "__fish_seen_subcommand_from seal check" -s r -l recursive -d 'every capsule under the folder'

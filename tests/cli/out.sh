@@ -176,6 +176,48 @@ exec 3>&-
 wait $pid
 notmp "$d/moved" "unbox into a folder renamed meanwhile"
 
+# ---- outputs written by the library, folders, and pairs ----
+
+ok 0 "keygen a signature key" "$nq" keygen -a ML-DSA-44 -o "$w/sk"
+c=$w/cp
+mkdir -p "$c"
+i=0
+while [ $i -lt 300 ]; do
+  echo "line $i of a file in a capsule, long enough to pass 1 KiB" >>"$c/a"
+  i=$((i + 1))
+done
+ok 0 "data init" "$nq" data init "$c"
+ok 0 "seal" "$nq" seal -k "$w/sk" "$c"
+mkdir -p "$w/nr"
+echo b >"$w/nr/b"
+ok 0 "seal one without a record" "$nq" seal -k "$w/sk" "$w/nr"
+
+# report -o: never over a file or through a link without --force, and
+# never a cut report (N1)
+echo precious >"$w/pr"
+cp "$w/pr" "$w/pr0"
+ok 2 "report -o over a file" "$nq" report -p "$w/sk.pub" -o "$w/pr" "$c"
+same "$w/pr" "$w/pr0" "the file is kept"
+echo victim >"$w/vi"
+cp "$w/vi" "$w/vi0"
+ln -s "$w/vi" "$w/rl"
+ok 2 "report -o to a link" "$nq" report -p "$w/sk.pub" -o "$w/rl" "$c"
+same "$w/vi" "$w/vi0" "the link's target is kept"
+ok 0 "report -o --force over a link" "$nq" report --force -p "$w/sk.pub" \
+  -o "$w/rl" "$c"
+same "$w/vi" "$w/vi0" "--force replaces the link, not its target"
+n=$((n + 1))
+if [ -h "$w/rl" ] || ! grep -q "noqtis report" "$w/rl"; then
+  bad=$((bad + 1))
+  echo "FAIL report --force: not a report in place of the link" >&2
+fi
+d=$w/rp
+mkdir "$d"
+ok 153 "report -o over ulimit -f" sh -c 'ulimit -f 1; exec "$@"' sh \
+  "$nq" report -p "$w/sk.pub" -o "$d/r.md" "$c"
+no "$d/r.md" "a cut report is not left"
+notmp "$d" "report -o over ulimit -f"
+
 # two outputs: the first is not named until the second is written (N4)
 d=$w/two
 mkdir "$d"

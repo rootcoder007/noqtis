@@ -239,6 +239,7 @@ _noqtis_cmd() {
         '(-p --pub)'{-p,--pub=}'[the key the seal must carry]:pub-file:_files' \
         '(-f --format)'{-f,--format=}'[the report'"'"'s format]:format:(md txt)' \
         '(-o --out)'{-o,--out=}'[write the report to a file]:file:_files' \
+        '--force[replace the file when it exists]' \
         '(-j --json)'{-j,--json}'[a JSON summary instead]' \
         '--github[GitHub workflow annotations]' \
         ':dir:_files -/' ;;

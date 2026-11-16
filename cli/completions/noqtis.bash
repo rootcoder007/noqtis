@@ -71,7 +71,7 @@ _noqtis() {
     check) opts="-p --pub -j --json --anchor --only --lineage --proof
       --keys --card -r --recursive" ;;
     diff) opts="-j --json" ;;
-    report) opts="-p --pub -f --format -o --out -j --json --github" ;;
+    report) opts="-p --pub -f --format -o --out --force -j --json --github" ;;
     env) opts="--rng --seed --lock" ;;
     commit) opts="--kind --label --after -o --out -f --force" ;;
     reveal) opts="" ;;
