@@ -496,6 +496,12 @@ int ncseal(int argc, char **argv) {
       return NCUSE;
     }
   }
+  /* the library refuses to seal with such a time, and its refusal does
+   * not say why: said here, before anything is read */
+  if (ncnow() < 0) {
+    ncmsg("seal", "%s", NCSDEBAD);
+    return NCUSE;
+  }
   if (ancrd("seal", anc, na, &an) != NCOK)
     return NCUSE;
   if (pp == NULL) {

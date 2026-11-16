@@ -87,6 +87,22 @@ int ncgmtime(time_t t, struct tm *tm) {
 #endif
 }
 
+int64_t ncnow(void) {
+  const char *e = getenv("SOURCE_DATE_EPOCH");
+  int64_t v = 0;
+  size_t i;
+  if (e == NULL || e[0] == '\0')
+    return (int64_t)time(NULL);
+  /* the rule the library's seal applies, so every command takes or
+   * refuses the same values: digits only, at most the end of 9999 */
+  for (i = 0; e[i] != '\0'; i++) {
+    if (e[i] < '0' || e[i] > '9' || i >= 12)
+      return -1;
+    v = v * 10 + (e[i] - '0');
+  }
+  return v <= 253402300799LL ? v : -1;
+}
+
 int ncexist(const char *path) {
 #ifdef _WIN32
   wchar_t *p = wide(path);

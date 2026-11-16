@@ -134,6 +134,11 @@ int ncisreg(const char *path);
 /* The UTC calendar time of t into *tm (gmtime_r, gmtime_s on Windows;
  * gmtime itself is not thread-safe). NCOK or NCUSE. */
 int ncgmtime(time_t t, struct tm *tm);
+/* SOURCE_DATE_EPOCH when set, else the clock, in seconds; -1 when
+ * SOURCE_DATE_EPOCH is not a plain decimal number of seconds up to the
+ * end of the year 9999 (the caller says so, with NCSDEBAD) */
+int64_t ncnow(void);
+#define NCSDEBAD "SOURCE_DATE_EPOCH is not a number of seconds up to the year 9999"
 /* Closes f; for a file from ncopen, gives it its name when whole, and
  * removes it when bad or when the close or the rename fails (any other
  * f: removes path then). 0 on success. */

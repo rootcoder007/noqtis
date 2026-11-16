@@ -7,23 +7,6 @@
 #include <string.h>
 #include <time.h>
 
-/* SOURCE_DATE_EPOCH when set, as noqtis seal reads it, else the clock;
- * -1 when it is not a plain decimal number of seconds up to the end of
- * the year 9999, the last time a card can hold */
-static int64_t now(void) {
-  const char *e = getenv("SOURCE_DATE_EPOCH");
-  int64_t v = 0;
-  size_t i;
-  if (e != NULL && e[0] != 0) {
-    for (i = 0; e[i] != 0; i++) {
-      if (e[i] < '0' || e[i] > '9' || i >= 12) return -1;
-      v = v * 10 + (e[i] - '0');
-    }
-    return v <= 253402300799LL ? v : -1;
-  }
-  return (int64_t)time(NULL);
-}
-
 /* which field nqcard refused, said with its rule. nqcard checks the
  * fields before the algorithm, so each field alone with Ed25519 (never a
  * card key) gives NQEARG when the field is refused, NQENOSUP when not */
@@ -65,11 +48,10 @@ static int mkcard(const char *kp, const char *pp, const char *const v[5],
   nckey sk = {{0, 0, NULL}, 0, NULL, 0}, pk = {{0, 0, NULL}, 0, NULL, 0};
   char *dp = NULL, *b = NULL;
   size_t n = 0;
-  int64_t t = now();
+  int64_t t = ncnow();
   int rc, ret = NCUSE;
   if (t < 0) {
-    ncmsg("idcard", "SOURCE_DATE_EPOCH is not a number of seconds "
-           "up to the year 9999");
+    ncmsg("idcard", "%s", NCSDEBAD);
     return NCUSE;
   }
   if (pp == NULL) {

@@ -82,9 +82,13 @@ int ncdsave(const char *cmd, const char *dir, nqdrec *r) {
 static int optime(const char *v, char out[21]) {
   if (strcmp(v, "now") == 0) {
     struct tm tm;
-    const char *e = getenv("SOURCE_DATE_EPOCH");
-    time_t t = e != NULL && *e ? (time_t)strtoll(e, NULL, 10) : time(NULL);
-    if (ncgmtime(t, &tm) != NCOK)
+    /* SOURCE_DATE_EPOCH by the rule seal applies */
+    int64_t t = ncnow();
+    if (t < 0) {
+      ncmsg(NULL, "%s", NCSDEBAD);
+      return NCUSE;
+    }
+    if (ncgmtime((time_t)t, &tm) != NCOK)
       return NCUSE;
     strftime(out, 21, "%Y-%m-%dT%H:%M:%SZ", &tm);
     return NCOK;

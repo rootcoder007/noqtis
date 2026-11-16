@@ -2040,6 +2040,18 @@ static void tidc(void) {
   want(2, "idcard -k q.idk", NULL);
   want(2, "idcard -k q.idk --name A extra", NULL);
   want(2, "idcard --verify q.icard -k q.idk", NULL);
+  /* seal names a SOURCE_DATE_EPOCH it refuses, never the key pair */
+  {
+    static const char *const bad[] = {"1e9", "-1", "253402300800",
+                                      "99999999999999999999"};
+    size_t b;
+    for (b = 0; b < sizeof bad / sizeof bad[0]; b++) {
+      sde(bad[b]);
+      want(2, "seal -k q.c qins", NULL);
+      ok(has("q.err", "SOURCE_DATE_EPOCH") && !has("q.err", "key pair"),
+         "seal: a SOURCE_DATE_EPOCH it refuses is named");
+    }
+  }
   /* a created time past the year 9999 is named as such */
   sde("253402300800");
   want(2, "idcard -k q.idk --name A", NULL);

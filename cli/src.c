@@ -141,11 +141,11 @@ static int portal(const char *rs, char *out, size_t cap, char tm[21],
   return NCOK;
 }
 
-/* the time now, UTC (SOURCE_DATE_EPOCH when set) */
+/* the time now, UTC (SOURCE_DATE_EPOCH when set, by the rule seal
+ * applies: sources(retrieved) never gets a time seal would refuse) */
 static void now(char out[21]) {
   struct tm tm;
-  const char *e = getenv("SOURCE_DATE_EPOCH");
-  time_t t = e != NULL && *e ? (time_t)strtoll(e, NULL, 10) : time(NULL);
+  int64_t t = ncnow();
   out[0] = '\0';
   if (t >= 0 && ncgmtime((time_t)t, &tm) == NCOK)
     strftime(out, 21, "%Y-%m-%dT%H:%M:%SZ", &tm);
@@ -336,6 +336,11 @@ static int sadd(int argc, char **argv) {
   if (sopts("src add", mx, to, &so) != NCOK ||
       pathok("src add", argv[1]) != NCOK)
     return NCUSE;
+  /* the time recorded with a fetch: refused before anything is fetched */
+  if (ncnow() < 0) {
+    ncmsg("src add", "%s", NCSDEBAD);
+    return NCUSE;
+  }
   if (syn && (url != NULL || kind != NULL || wb || nmir > 0 || arc)) {
     ncmsg("src add", "--synthetic marks a generated stand-in: it has no "
           "address (see `noqtis data syn`)");
@@ -753,6 +758,10 @@ static int srefresh(int argc, char **argv) {
     return NCUSE;
   }
   if (sopts("src refresh", mx, to, &so) != NCOK) return NCUSE;
+  if (wr && ncnow() < 0) {
+    ncmsg("src refresh", "%s", NCSDEBAD);
+    return NCUSE;
+  }
   if ((rc = ncdload("src refresh", argv[0], 0, &r)) != NCOK) return rc;
   if ((rc = pick("src refresh", r, np, argv, &ix, &n)) != NCOK) {
     nqdrfree(r);

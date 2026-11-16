@@ -655,6 +655,10 @@ ok 0 "commit" "$nq" commit --kind randomisation --label trial "$e" \
 has "$w/err" "keep it secret" "commit says to keep the salt"
 ok 0 "commit: salt written" test -f "$w/list.csv.salt"
 ok 2 "commit again: salt exists" "$nq" commit "$e" "$w/list.csv"
+# a time seal would refuse is refused here too, and named
+ok 2 "commit: SOURCE_DATE_EPOCH 1e9" env SOURCE_DATE_EPOCH=1e9 "$nq" commit \
+  "$e" "$w/list.csv"
+has "$w/err" "SOURCE_DATE_EPOCH is not a number" "commit names it"
 ok 2 "commit: bad kind" "$nq" commit -f --kind lottery "$e" "$w/list.csv"
 # lengths that fit one part of the entry but not the whole: refused
 # whole, never written past the end
