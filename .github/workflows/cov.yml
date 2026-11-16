@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Line coverage of the library and the command line by their own tests,
+# on one Linux configuration: a build with gcov counters (NQCOV), every
+# test, and the report sent to Codecov, which shows it per file and per
+# change. The upload is signed with the workflow's own identity (OIDC),
+# so the repository holds no token for it, and an upload that fails does
+# not fail the job. A measuring build only: nothing built here is shipped.
+name: cov
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # the Codecov upload's identity; nothing else uses it
+
+concurrency:
+  group: cov-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CTEST_OUTPUT_ON_FAILURE: "1"
+
+jobs:
+  cov:
+    name: coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update -q && sudo apt-get install -y -q gcovr
+      - name: Build with counters
+        run: |
+          cmake -S . -B build -DNQCOV=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j "$(nproc)"
+      - name: Tests
+        run: ctest --test-dir build -j "$(nproc)"
+      - name: Report
+        if: always()
+        run: |
+          gcovr --root . --object-directory build \
+            --filter 'src/' --filter 'cli/' --filter 'nqd/' \
+            --exclude-unreachable-branches --print-summary \
+            --cobertura cobertura.xml
+      - name: Report to Codecov
+        if: always() && hashFiles('cobertura.xml') != ''
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        with:
+          files: ./cobertura.xml
+          plugins: noop
+          disable_search: true
+          slug: rootcoder007/noqtis
+          use_oidc: true
+          fail_ci_if_error: false
+          verbose: true
