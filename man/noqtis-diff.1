@@ -38,6 +38,18 @@ how many there are, and the first that differs
 a recorded check added, removed or changed
 .El
 .Pp
+A
+.Ql manifest
+row says when only one folder is sealed (a difference), or neither (the
+files are not compared); a
+.Ql record
+row, when only one holds a data record.
+Two folders can be compared only as far as they read: a seal or
+manifest that is there but does not read, a data record that is there
+but does not load, or two folders with neither a seal nor a record give
+a row that says so and exit status 2, never
+.Dq the same .
+.Pp
 Nothing is checked: a seal or record that does not verify is compared
 as it reads.
 Run
@@ -60,7 +72,9 @@ nothing differs
 .It 1
 something does
 .It 2
-a usage error, or a path that is not a folder
+a usage error, a path that is not a folder, or two folders that cannot
+be compared (a seal, manifest or data record there that does not read,
+or nothing to compare)
 .El
 .Sh EXAMPLES
 .Bd -literal -offset indent

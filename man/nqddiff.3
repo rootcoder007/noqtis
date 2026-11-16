@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 12, 2026
+.Dd November 15, 2026
 .Dt NQDDIFF 3
 .Os
 .Sh NAME
@@ -44,9 +44,13 @@ Nothing is checked.
 .Dv NQOK
 when nothing differs,
 .Dv NQEVRFY
-when something does, with
+when something does,
+.Dv NQEDEC
+when the two cannot be compared (a seal, manifest or data record that is
+there but does not read, or neither a seal nor a record in either),
+with a failed row that says why, with
 .Fa *rep
-set in both cases;
+set in all three cases;
 .Dv NQEARG
 or
 .Dv NQEMEM

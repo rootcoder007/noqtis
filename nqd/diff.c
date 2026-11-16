@@ -399,13 +399,23 @@ static void recdiff(nqdrep *rep, const djs *a, const djs *b) {
   }
 }
 
+/* whether dir holds name at all (qdopen: NQEIO only when it is not
+ * there), so one that does not read is told from one that is missing */
+static int there(const char *dir, const char *name) {
+  FILE *f;
+  int rc = qdopen(dir, name, &f);
+  if (rc == NQOK)
+    fclose(f);
+  return rc != NQEIO;
+}
+
 int nqddiff(const char *a, const char *b, nqdrep **out) {
   nqdrep *rep;
   qdmf *fa = NULL, *fb = NULL;
   size_t na = 0, nb = 0, ca = 0, cb = 0, i = 0, j = 0, n, k;
   nqdrec *ra = NULL, *rb = NULL;
   char why[600];
-  int ma, mb, la, lb, rc = NQOK, bad = 0;
+  int ma, mb, la, lb, rc = NQOK, bad = 0, cant = 0;
   if (a == NULL || b == NULL || out == NULL)
     return NQEARG;
   *out = NULL;
@@ -437,26 +447,47 @@ int nqddiff(const char *a, const char *b, nqdrep **out) {
         j++;
       }
     }
+  } else if ((ma != NQOK && there(a, "noqtis.sig")) ||
+             (mb != NQOK && there(b, "noqtis.sig"))) {
+    /* a seal there that does not read: the files cannot be compared */
+    qdrepadd(rep, "manifest", 0, "the %s's seal or manifest does not read: "
+             "files not compared",
+             ma != NQOK && there(a, "noqtis.sig") ? "first" : "second");
+    cant = 1;
+  } else if (ma == NQOK || mb == NQOK) {
+    qdrepadd(rep, "manifest", 0, "only the %s is sealed: files not compared",
+             ma == NQOK ? "first" : "second");
   } else {
-    qdrepadd(rep, "manifest", 1, "%s: files not compared",
-             ma != NQOK && mb != NQOK
-                 ? "neither is sealed (or their seals do not read)"
-             : ma != NQOK ? "the first is not sealed (or its seal does not "
-                            "read)"
-                          : "the second is not sealed (or its seal does not "
-                            "read)");
+    qdrepadd(rep, "manifest", 1, "neither is sealed: files not compared");
   }
   la = nqdload(a, &ra, why, sizeof why);
+  if (la != NQOK && la != NQEMEM && there(a, NQDFILE)) {
+    /* there but not loaded: the records cannot be compared */
+    qdrepadd(rep, "record", 0, "the first's data record does not load: %s",
+             why);
+    cant = 1;
+  }
   lb = nqdload(b, &rb, why, sizeof why);
+  if (lb != NQOK && lb != NQEMEM && there(b, NQDFILE)) {
+    qdrepadd(rep, "record", 0, "the second's data record does not load: %s",
+             why);
+    cant = 1;
+  }
   if (la == NQEMEM || lb == NQEMEM) {
     rc = NQEMEM;
     goto out;
   }
   if (la == NQOK && lb == NQOK)
     recdiff(rep, qdrectree(ra), qdrectree(rb));
-  else if (la == NQOK || lb == NQOK)
-    qdrepadd(rep, "record", 0, "only the %s has a data record (that reads)",
+  else if (!cant && (la == NQOK || lb == NQOK))
+    qdrepadd(rep, "record", 0, "only the %s has a data record",
              la == NQOK ? "first" : "second");
+  if (!cant && ma != NQOK && mb != NQOK && la != NQOK && lb != NQOK) {
+    /* nothing was compared at all: that is not "the same" */
+    qdrepadd(rep, "record", 0, "neither holds a data record: nothing to "
+             "compare");
+    cant = 1;
+  }
   n = nqdrepn(rep);
   for (k = 0; k < n; k++) {
     int ok;
@@ -472,5 +503,5 @@ out:
     nqdrepfree(rep);
     return rc;
   }
-  return qdrepout(rep, out, bad ? NQEVRFY : NQOK);
+  return qdrepout(rep, out, cant ? NQEDEC : bad ? NQEVRFY : NQOK);
 }

@@ -278,7 +278,9 @@ NQDAPI int nqdrpt(const char *dir, const nqrep *crep, const nqdrep *drep,
  * schemas (columns added, removed or retyped, rows), stats (counts,
  * medians, the PSI between the two), env, steps, checks, commits, cite.
  * Every difference is a failed row. NQOK when nothing differs,
- * NQEVRFY otherwise, with *rep set. */
+ * NQEVRFY otherwise, NQEDEC when the two cannot be compared (a seal,
+ * manifest or record there that does not read, or neither a seal nor a
+ * record in either), with *rep set in all three cases. */
 NQDAPI int nqddiff(const char *a, const char *b, nqdrep **rep);
 
 /* ---- bundles ---- */

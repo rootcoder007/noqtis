@@ -1547,6 +1547,9 @@ int ncdiff(int argc, char **argv) {
   }
   if (json)
     fputs("]}\n", stdout);
+  else if (rc == NQEDEC)
+    printf("%s and %s: cannot be compared (see above)\n", ncesc(argv[0]),
+           ncesc(argv[1]));
   else if (nd == 0)
     printf("%s and %s: the same\n", ncesc(argv[0]), ncesc(argv[1]));
   else
