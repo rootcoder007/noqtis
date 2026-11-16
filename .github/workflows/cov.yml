@@ -46,6 +46,7 @@ jobs:
           gcovr --root . --object-directory build \
             --filter 'src/' --filter 'cli/' --filter 'nqd/' \
             --exclude-unreachable-branches --print-summary \
+            --merge-mode-functions=separate \
             --cobertura cobertura.xml
       - name: Report to Codecov
         if: always() && hashFiles('cobertura.xml') != ''
