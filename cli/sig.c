@@ -174,7 +174,7 @@ int nckeygen(int argc, char **argv) {
   size_t sn = 0, pkn, skn, pl, pwn = 0;
   char *pp = NULL;
   FILE *fs = NULL, *fp = NULL;
-  int ret = NCUSE;
+  int ret = NCUSE, sl[2] = {-1, -1}, k;
 
   if (ncargs("keygen", argc, argv, o, sizeof o / sizeof o[0], &np,
              &help) != NCOK)
@@ -220,6 +220,10 @@ int nckeygen(int argc, char **argv) {
                                : "key generation", rc);
     goto done;
   }
+  /* Both files are written under temporary names and kept; only then
+   * are they named, the public key first and the secret key last, with
+   * the signals held back (cli/io.c): a failure leaves the old pair (or
+   * nothing), never a new secret key beside an old public key. */
   fs = ncopen(out, force, 1);
   if (fs == NULL) {
     ncwfail("keygen", out, force);
@@ -228,17 +232,18 @@ int nckeygen(int argc, char **argv) {
   fp = ncopen(pp, force, 0);
   if (fp == NULL) {
     ncwfail("keygen", pp, force);
-    (void)ncclose(fs, out, 1);
+    ncdrop(nckeep(fs, 1));
     fs = NULL;
     goto done;
   }
   rc = pw != NULL ? nckwrp(fs, &a, pw, pwn, sk, skn)
                   : nckwr(fs, &a, 1, sk, skn);
   wrc = rc;
-  rc = ncclose(fs, out, rc != NQOK);
+  sl[1] = nckeep(fs, rc != NQOK);
   fs = NULL;
-  if (rc != NQOK) {
-    (void)ncclose(fp, pp, 1);
+  if (sl[1] < 0) {
+    ncdrop(nckeep(fp, 1));
+    fp = NULL;
     /* the key under the passphrase needs 64 MiB for Argon2id: running
      * out of memory is not a file that cannot be written */
     if (wrc == NQEMEM)
@@ -251,8 +256,21 @@ int nckeygen(int argc, char **argv) {
     goto done;
   }
   rc = nckwr(fp, &a, 0, pk, pkn);
-  if (ncclose(fp, pp, rc != NQOK) != NQOK) {
+  sl[0] = nckeep(fp, rc != NQOK);
+  fp = NULL;
+  if (sl[0] < 0) {
+    ncdrop(sl[1]);
     ncmsg("keygen", "cannot write %s", pp);
+    goto done;
+  }
+  k = ncput(sl, 2);
+  if (k == 0) {
+    ncmsg("keygen", "cannot write %s", pp);
+    goto done;
+  }
+  if (k == 1) {
+    ncmsg("keygen", "cannot write %s, after %s was written: the two are "
+          "not a pair; run keygen again", out, pp);
     goto done;
   }
   printf("%s key pair: %s (secret%s), %s (public)\n", a.name, out,

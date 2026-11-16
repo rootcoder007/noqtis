@@ -52,6 +52,17 @@ notmp() {
   fi
 }
 
+# same <file> <file> <what>: the two hold the same bytes (by the tool's
+# own digest: a small container image has no cmp)
+same() {
+  n=$((n + 1))
+  if [ ! -r "$1" ] || [ ! -r "$2" ] ||
+    [ "$("$nq" hash <"$1")" != "$("$nq" hash <"$2")" ]; then
+    bad=$((bad + 1))
+    echo "FAIL $3: $1 and $2 differ" >&2
+  fi
+}
+
 # started <dir> <name>: the output, under its name or a temporary one,
 # has been created (up to 10 s)
 started() {
@@ -145,6 +156,51 @@ if [ -h "$w/o3" ]; then
   echo "FAIL unbox --force: the link is still there" >&2
 fi
 notmp "$w" "outputs replaced"
+
+# a folder renamed while the output is written: the temporary file goes
+# with it, and is removed there all the same
+d=$w/mv
+mkdir -p "$d/sub"
+mkfifo "$d/f"
+"$nq" unbox -k "$w/k" -o "$d/sub/o" "$d/f" 2>"$d/err" &
+pid=$!
+exec 3>"$d/f"
+dd if="$w/b" bs="$part" count=1 2>/dev/null >&3
+n=$((n + 1))
+if ! started "$d/sub" o; then
+  bad=$((bad + 1))
+  echo "FAIL unbox into a renamed folder: no output began" >&2
+fi
+mv "$d/sub" "$d/moved"
+exec 3>&-
+wait $pid
+notmp "$d/moved" "unbox into a folder renamed meanwhile"
+
+# two outputs: the first is not named until the second is written (N4)
+d=$w/two
+mkdir "$d"
+ok 0 "keygen a KEM key" "$nq" keygen -a ML-KEM-768 -o "$d/kk"
+mkdir "$d/ss"
+ok 2 "enc, the secret's name a folder" "$nq" enc -p "$d/kk.pub" -f \
+  -o "$d/ct" "$d/ss"
+no "$d/ct" "enc leaves no ciphertext without its secret"
+notmp "$d" "enc that fails"
+ok 0 "keygen" "$nq" keygen -a ML-DSA-44 -o "$d/me"
+cp "$d/me" "$d/me0"
+rm "$d/me.pub"
+mkdir "$d/me.pub"
+ok 2 "keygen -f, the public key's name a folder" "$nq" keygen -a ML-DSA-44 \
+  -f -o "$d/me"
+same "$d/me" "$d/me0" "the old secret key is kept"
+notmp "$d" "keygen that fails"
+rmdir "$d/me.pub"
+ok 0 "keygen -f" "$nq" keygen -a ML-DSA-44 -f -o "$d/me"
+ok 0 "the pair is new" test -f "$d/me.pub"
+n=$((n + 1))
+if [ "$("$nq" hash <"$d/me")" = "$("$nq" hash <"$d/me0")" ]; then
+  bad=$((bad + 1))
+  echo "FAIL keygen -f: the secret key was not replaced" >&2
+fi
 
 # ---- standard output that cannot be written (M4) ----
 

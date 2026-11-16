@@ -73,7 +73,7 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
  * gives owner-only permissions (0600 on POSIX). The bytes go to a new
  * temporary name beside path (".noqtis.<16 hex>.tmp"), which ncclose
  * renames to path once the file is whole and removes otherwise; a
- * signal (SIGINT, SIGTERM, SIGHUP) removes it too. */
+ * signal (SIGINT, SIGTERM, SIGHUP, SIGXFSZ) removes it too. */
 FILE *ncopen(const char *path, int force, int sec);
 /* path is removed on SIGINT, SIGTERM or SIGHUP until ncunpend(slot):
  * the slot, or -1 when all 8 are taken or path is too long */
@@ -83,6 +83,31 @@ void ncunpend(int slot);
  * through (.noqtis.json.<pid>.0.tmp, .noqtis.sig.<pid>.0.tmp): two
  * slots into sl, -1 where none was free */
 void ncpendseal(const char *dir, int sl[2]);
+/* the same for one of them, name (noqtis.sig, noqtis.ers): the slot */
+int ncpendown(const char *dir, const char *name);
+/* ncpend for the temporary file nqd writes a file of folder dir through
+ * (.noqtis.<pid, 8 hex>00000000.tmp, as a data record): the slot, or -1 */
+int ncpendrec(const char *dir);
+/* Closes f (from ncopen) and keeps it, when whole, under its temporary
+ * name for ncput: its slot; -1 when it is bad or the close fails (it is
+ * removed then). */
+int nckeep(FILE *f, int bad);
+/* Gives the n kept outputs of sl (nckeep, nctmpf, nctmpd) their names,
+ * in that order, with the signals held back; from the first that fails,
+ * that one and the rest are removed. Returns how many were named. */
+int ncput(const int *sl, int n);
+/* Removes a kept or reserved output and frees its slot. */
+void ncdrop(int slot);
+/* A temporary name for path in t (cap bytes), noted for removal, for a
+ * file the library makes (with O_EXCL) and ncput names: the slot, or -1
+ * when path exists and !force, or no slot is free. */
+int nctmpf(const char *path, int force, char *t, size_t cap);
+/* The same for a folder that is filled under t and then named path by
+ * ncput (path must not exist; a folder is never replaced). Until then a
+ * signal is held back: ncstop() turns 1, and once the folder is removed
+ * or named, the process ends as the signal would have ended it. */
+int nctmpd(const char *path, char *t, size_t cap);
+int ncstop(void);
 /* Writes len bytes to a new file (see ncopen); removes it on failure. */
 int ncwr(const char *path, const uint8_t *b, size_t len, int force,
          int sec);

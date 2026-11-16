@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-ENC 1
 .Os
 .Sh NAME
@@ -39,6 +39,14 @@ output instead of writing
 .It Fl f , Fl -force
 Replace existing files.
 .El
+.Pp
+The ciphertext and the shared secret are both written under temporary
+names in their folders before either is renamed into place, the shared
+secret first and the ciphertext last (with
+.Fl -stdout ,
+the ciphertext is renamed only once the secret is printed), so a run
+that fails or is stopped never leaves a ciphertext whose shared secret
+was lost.
 .Pp
 The shared secret is key material: feed it to a key derivation function
 or an authenticated cipher; it is not a password.

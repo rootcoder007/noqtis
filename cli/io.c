@@ -274,12 +274,24 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
  * long file name never makes it too long for the file system), created
  * with O_EXCL and O_NOFOLLOW, so never through a link; ncclose gives it
  * its name only once it is whole, so an output cut short by a failure
- * or a signal never stands under the name asked for. The paths in pnd are
- * removed on SIGINT, SIGTERM, SIGHUP and SIGXFSZ (and, for an output
- * still open, at exit) before the process ends; a signal the process
- * ignored when the first was armed stays ignored. Only SIGKILL or a
- * power cut can leave a temporary name behind (and on Windows a signal,
- * as an open file cannot be removed there). */
+ * or a signal never stands under the name asked for. A command with
+ * more than one output keeps each whole one under its temporary name
+ * (nckeep) and names them all at once (ncput), so a failure on the last
+ * leaves none of them. A file the library writes, or a folder the tool
+ * fills, gets its temporary name the same way (nctmpf, nctmpd).
+ *
+ * The paths in pnd are removed on SIGINT, SIGTERM, SIGHUP and SIGXFSZ
+ * (and, for an output of this file's own, at exit) before the process
+ * ends; a signal the process ignored when the first was armed stays
+ * ignored. A file is removed through a descriptor of the folder it was
+ * made in (unlinkat), so a folder renamed or replaced while the command
+ * runs does not keep it. While a folder is filled (nctmpd), whose tree
+ * a signal handler cannot remove safely, a signal is held: the command
+ * stops at its next step (ncstop), removes the folder, and then ends as
+ * the signal would have ended it. Only SIGKILL or a power cut can leave
+ * a temporary name behind (and on Windows a signal, as an open file
+ * cannot be removed there, and a folder renamed while the command runs,
+ * which has no unlinkat). */
 /* FreeBSD, OpenBSD and DragonFly show SIGXFSZ only to XSI or BSD code,
  * not under the plain POSIX this file asks for; its number is 25 on
  * each of them */
@@ -293,7 +305,14 @@ static volatile sig_atomic_t pon[NCPEND];
 static FILE *pfh[NCPEND];      /* the output written to pnd[i], or NULL */
 static int pfrc[NCPEND];       /* its force */
 static char pfin[NCPEND][4200]; /* the name it gets */
+static int pown[NCPEND]; /* made here (not ncpend alone): removed at exit */
+static int pisd[NCPEND]; /* a folder (nctmpd) */
+#ifndef _WIN32
+static int pdfd[NCPEND]; /* the folder it is in, open; -1: by its path */
+static size_t pbs[NCPEND]; /* where its last component starts in pnd */
+#endif
 static int npon = 0, pexit = 0;
+static volatile sig_atomic_t pheld = 0, pgot = 0;
 static const int psig[] = {SIGINT, SIGTERM
 #ifdef SIGHUP
                            , SIGHUP
@@ -305,21 +324,151 @@ static const int psig[] = {SIGINT, SIGTERM
 #define NPSIG (sizeof psig / sizeof psig[0])
 static void (*pold[NPSIG])(int);
 
+static int addf(char ***v, size_t *n, size_t *cap, const char *p);
+
+/* removes the file of slot i; async-signal-safe on POSIX */
+static void rmone(int i) {
+#ifdef _WIN32
+  (void)rmpath(pnd[i]);
+#else
+  if (pdfd[i] >= 0)
+    (void)unlinkat(pdfd[i], pnd[i] + pbs[i], 0);
+  else
+    (void)unlink(pnd[i]);
+#endif
+}
+
+/* removes the folder p (cap bytes of room, used to build the paths
+ * below it and restored) and everything in it; a link in it is removed,
+ * never followed. The names of a folder are read before any is removed,
+ * so one descriptor is open at a time, however deep the tree. */
+static void rmtree(char *p, size_t cap) {
+  char **nm = NULL;
+  size_t n = 0, c = 0, i, l = strlen(p);
+#ifdef _WIN32
+  char pat[4200];
+  wchar_t *w = wide(p);
+  WIN32_FIND_DATAW fd;
+  HANDLE h;
+  DWORD a = w != NULL ? GetFileAttributesW(w) : INVALID_FILE_ATTRIBUTES;
+  if (a == INVALID_FILE_ATTRIBUTES) {
+    free(w);
+    return;
+  }
+  if (!(a & FILE_ATTRIBUTE_DIRECTORY) || (a & FILE_ATTRIBUTE_REPARSE_POINT)) {
+    /* a file, or a junction or link itself, not what it leads to */
+    if (a & FILE_ATTRIBUTE_DIRECTORY)
+      (void)_wrmdir(w);
+    else
+      (void)_wunlink(w);
+    free(w);
+    return;
+  }
+  free(w);
+  snprintf(pat, sizeof pat, "%s/*", p);
+  w = wide(pat);
+  h = w != NULL ? FindFirstFileW(w, &fd) : INVALID_HANDLE_VALUE;
+  free(w);
+  if (h != INVALID_HANDLE_VALUE) {
+    do {
+      char u[1024];
+      if (wcscmp(fd.cFileName, L".") == 0 || wcscmp(fd.cFileName, L"..") == 0)
+        continue;
+      if (WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, u, sizeof u, NULL,
+                              NULL) <= 0 ||
+          addf(&nm, &n, &c, u) != NCOK)
+        break;
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+  }
+#else
+  struct stat st;
+  struct dirent *e;
+  DIR *d;
+  if (lstat(p, &st) != 0)
+    return;
+  if (!S_ISDIR(st.st_mode)) {
+    (void)unlink(p);
+    return;
+  }
+  if ((d = opendir(p)) != NULL) {
+    while ((e = readdir(d)) != NULL) {
+      if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
+        continue;
+      if (addf(&nm, &n, &c, e->d_name) != NCOK)
+        break;
+    }
+    closedir(d);
+  }
+#endif
+  for (i = 0; i < n; i++) {
+    if (l + 1 + strlen(nm[i]) < cap) {
+      p[l] = '/';
+      strcpy(p + l + 1, nm[i]);
+      rmtree(p, cap);
+      p[l] = '\0';
+    }
+    free(nm[i]);
+  }
+  free(nm);
+  (void)ncrmdir(p);
+}
+
 static void onpend(int s) {
   int i;
+  if (pheld) {
+    /* a folder is being filled: the command removes it and then ends
+     * (ncdone); a write over ulimit -f fails meanwhile */
+    if (!pgot)
+      pgot = s;
+    signal(s, onpend);
+    return;
+  }
   for (i = 0; i < NCPEND; i++)
-    if (pon[i])
+    if (pon[i] && !pisd[i]) {
+#ifdef _WIN32
       remove(pnd[i]);
+#else
+      rmone(i);
+#endif
+    }
   signal(s, SIG_DFL);
   raise(s);
 }
 
 static void atpend(void) {
   int i;
-  for (i = 0; i < NCPEND; i++)
-    if (pon[i] && pfh[i] != NULL)
-      (void)rmpath(pnd[i]);
+  for (i = 0; i < NCPEND; i++) {
+    if (!pon[i] || !pown[i])
+      continue;
+    if (pisd[i])
+      rmtree(pnd[i], sizeof pnd[i]);
+    else
+      rmone(i);
+  }
 }
+
+/* signals held back while a slot is filled in, so the handler never
+ * sees one half made */
+#ifndef _WIN32
+static int hold(sigset_t *os) {
+  sigset_t bs;
+  size_t k;
+  sigemptyset(&bs);
+  for (k = 0; k < NPSIG; k++)
+    sigaddset(&bs, psig[k]);
+  return sigprocmask(SIG_BLOCK, &bs, os) == 0;
+}
+#define HOLD sigset_t os_; int held_ = hold(&os_)
+#define UNHOLD                                                               \
+  do {                                                                       \
+    if (held_)                                                               \
+      (void)sigprocmask(SIG_SETMASK, &os_, NULL);                            \
+  } while (0)
+#else
+#define HOLD int held_ = 0
+#define UNHOLD (void)held_
+#endif
 
 int ncpend(const char *path) {
   size_t k;
@@ -333,6 +482,12 @@ int ncpend(const char *path) {
   /* the length was checked above */
   snprintf(pnd[i], sizeof pnd[i], "%s", path);
   pfh[i] = NULL;
+  pown[i] = 0;
+  pisd[i] = 0;
+#ifndef _WIN32
+  pdfd[i] = -1;
+  pbs[i] = 0;
+#endif
   if (npon++ == 0) {
     for (k = 0; k < NPSIG; k++) {
       pold[k] = signal(psig[k], onpend);
@@ -350,28 +505,48 @@ void ncunpend(int i) {
     return;
   pon[i] = 0;
   pfh[i] = NULL;
+#ifndef _WIN32
+  if (pdfd[i] >= 0)
+    close(pdfd[i]);
+  pdfd[i] = -1;
+#endif
   if (--npon == 0) {
     for (k = 0; k < NPSIG; k++)
       signal(psig[k], pold[k] == SIG_ERR ? SIG_DFL : pold[k]);
   }
 }
 
-void ncpendseal(const char *dir, int sl[2]) {
-  static const char *const nm[] = {"noqtis.json", "noqtis.sig"};
+int ncpendown(const char *dir, const char *name) {
   char p[4200];
   unsigned long pid;
-  int i, n;
+  int n;
 #ifdef _WIN32
   pid = (unsigned long)GetCurrentProcessId();
 #else
   pid = (unsigned long)getpid();
 #endif
-  for (i = 0; i < 2; i++) {
-    sl[i] = -1;
-    n = snprintf(p, sizeof p, "%s/.%s.%lu.0.tmp", dir, nm[i], pid);
-    if (n > 0 && (size_t)n < sizeof p)
-      sl[i] = ncpend(p);
-  }
+  n = snprintf(p, sizeof p, "%s/.%s.%lu.0.tmp", dir, name, pid);
+  return n > 0 && (size_t)n < sizeof p ? ncpend(p) : -1;
+}
+
+void ncpendseal(const char *dir, int sl[2]) {
+  sl[0] = ncpendown(dir, "noqtis.json");
+  sl[1] = ncpendown(dir, "noqtis.sig");
+}
+
+int ncpendrec(const char *dir) {
+  char p[4200];
+  unsigned long pid;
+  int n;
+#ifdef _WIN32
+  pid = (unsigned long)GetCurrentProcessId();
+#else
+  pid = (unsigned long)getpid();
+#endif
+  /* the first name nqd writes a record through (qdwriteat, nqd/fs.c) */
+  n = snprintf(p, sizeof p, "%s/.noqtis.%08lx00000000.tmp", dir,
+               pid & 0xffffffffUL);
+  return n > 0 && (size_t)n < sizeof p ? ncpend(p) : -1;
 }
 
 /* the temporary name of path into t: ".noqtis.<16 hex>.tmp" beside it */
@@ -399,6 +574,25 @@ static int tmpnm(const char *path, char *t, size_t cap) {
   return n < 0 || (size_t)n >= cap ? NCUSE : NCOK;
 }
 
+#ifndef _WIN32
+/* the folder of path, opened, and where path's last component starts */
+static int dirof(const char *path, size_t *bs) {
+  const char *b = strrchr(path, '/');
+  char d[4200];
+  size_t n;
+  *bs = 0;
+  if (b == NULL)
+    return open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  n = (size_t)(b - path);
+  *bs = n + 1;
+  if (n >= sizeof d)
+    return -1;
+  memcpy(d, path, n);
+  d[n] = '\0';
+  return open(n == 0 ? "/" : d, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+}
+#endif
+
 /* gives the whole temporary file t its name p: over a file there only
  * with force, and never through a link at p */
 static int place(const char *t, const char *p, int force) {
@@ -425,52 +619,131 @@ static int place(const char *t, const char *p, int force) {
 #endif
 }
 
+/* gives the filled temporary folder t its name p, which must not be
+ * there: a folder is never replaced (rename would take an empty one) */
+static int placed(const char *t, const char *p) {
+#ifdef _WIN32
+  wchar_t *wt = wide(t), *wp = wide(p);
+  int ok = wt != NULL && wp != NULL && MoveFileExW(wt, wp, 0);
+  free(wt);
+  free(wp);
+  return ok ? NCOK : NCUSE;
+#else
+  struct stat st;
+  if (lstat(p, &st) == 0)
+    return NCUSE;
+  return rename(t, p) == 0 ? NCOK : NCUSE;
+#endif
+}
+
+/* a signal held while a folder was filled ends the process now, as it
+ * would have: what is still pending is removed first */
+static void ncdone(void) {
+  int s = pgot, i;
+  if (pheld || !s)
+    return;
+  for (i = 0; i < NCPEND; i++)
+    if (pon[i] && pown[i] && pisd[i])
+      rmtree(pnd[i], sizeof pnd[i]);
+    else if (pon[i] && pown[i])
+      rmone(i);
+  for (i = 0; i < NCPEND; i++)
+    if (pon[i] && !pown[i])
+      rmone(i);
+  signal(s, SIG_DFL);
+  raise(s);
+}
+
+/* removes what slot i holds and frees it */
+static void drop(int i) {
+  int d;
+  if (i < 0 || i >= NCPEND || !pon[i])
+    return;
+  d = pisd[i];
+  if (d)
+    rmtree(pnd[i], sizeof pnd[i]);
+  else
+    rmone(i);
+  ncunpend(i);
+  if (d) {
+    pheld--;
+    ncdone();
+  }
+}
+
+/* fills in slot i for the output path (force), whose temporary name it
+ * holds; dfd/bs: its folder, as dirof gives */
+static void own(int i, const char *path, int force, int dfd, size_t bs) {
+  /* shorter than its temporary name, which fitted in the same size */
+  snprintf(pfin[i], sizeof pfin[i], "%s", path);
+  pfrc[i] = force;
+  pown[i] = 1;
+#ifndef _WIN32
+  pbs[i] = bs;
+  pdfd[i] = dfd;
+#else
+  (void)dfd;
+  (void)bs;
+#endif
+  if (!pexit)
+    pexit = atexit(atpend) == 0;
+}
+
 FILE *ncopen(const char *path, int force, int sec) {
   char t[4200];
-  int fd = -1, tries, i;
+  int fd = -1, dfd = -1, tries, i;
+  size_t bs = 0;
   FILE *f;
-#ifndef _WIN32
-  sigset_t bs, os;
-  size_t k;
-  int held = 0;
-#endif
   /* refused at once, not after the output is written */
   if (!force && ncexist(path))
     return NULL;
-  /* The file is made and its name noted for removal with the signals
-   * held back: one that arrived between the two would end the process
-   * with the temporary file there and nothing to remove it. Held back,
-   * it is delivered once the name is noted. */
-#ifndef _WIN32
-  sigemptyset(&bs);
-  for (k = 0; k < NPSIG; k++)
-    sigaddset(&bs, psig[k]);
-  held = sigprocmask(SIG_BLOCK, &bs, &os) == 0;
-#endif
-  for (tries = 0; tries < 4 && fd < 0; tries++) {
-    if (tmpnm(path, t, sizeof t) != NCOK)
-      break;
-#ifdef _WIN32
-    {
-      wchar_t *p = wide(t);
-      if (p == NULL)
+  /* a signal held back ends the command at its next output */
+  if (pgot)
+    return NULL;
+  {
+    /* The file is made and its name noted for removal with the signals
+     * held back: one that arrived between the two would end the process
+     * with the temporary file there and nothing to remove it. Held back,
+     * it is delivered once the name is noted. */
+    HOLD;
+    for (tries = 0; tries < 4 && fd < 0; tries++) {
+      if (tmpnm(path, t, sizeof t) != NCOK)
         break;
-      /* owner-only on Windows comes from the folder's ACL */
-      fd = _wopen(p, _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY,
-                  _S_IREAD | _S_IWRITE);
-      free(p);
-    }
+#ifdef _WIN32
+      {
+        wchar_t *p = wide(t);
+        if (p == NULL)
+          break;
+        /* owner-only on Windows comes from the folder's ACL */
+        fd = _wopen(p, _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY,
+                    _S_IREAD | _S_IWRITE);
+        free(p);
+      }
 #else
-    fd = open(t, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
-              sec ? (mode_t)0600 : (mode_t)0666);
+      /* made in the folder it is removed from, by descriptor */
+      if (tries == 0)
+        dfd = dirof(t, &bs);
+      if (dfd >= 0)
+        fd = openat(dfd, t + bs,
+                    O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+                    sec ? (mode_t)0600 : (mode_t)0666);
+      else
+        fd = open(t, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+                  sec ? (mode_t)0600 : (mode_t)0666);
 #endif
-    if (fd < 0 && errno != EEXIST)
-      break;
+      if (fd < 0 && errno != EEXIST)
+        break;
+    }
+    i = fd >= 0 ? ncpend(t) : -1;
+    if (i >= 0) {
+      own(i, path, force, dfd, bs);
+      dfd = -1;
+    }
+    UNHOLD;
   }
-  i = fd >= 0 ? ncpend(t) : -1;
 #ifndef _WIN32
-  if (held)
-    (void)sigprocmask(SIG_SETMASK, &os, NULL);
+  if (dfd >= 0)
+    close(dfd);
 #endif
   if (fd < 0)
     return NULL;
@@ -488,8 +761,7 @@ FILE *ncopen(const char *path, int force, int sec) {
    * group- or world-writable (a .pub is a trust anchor), a secret 0600 */
   if (fchmod(fd, sec ? (mode_t)0600 : (mode_t)0644) != 0) {
     close(fd);
-    (void)rmpath(t);
-    ncunpend(i);
+    drop(i);
     return NULL;
   }
 #endif
@@ -503,22 +775,16 @@ FILE *ncopen(const char *path, int force, int sec) {
     close(fd);
 #endif
   if (f == NULL) {
-    (void)rmpath(t);
-    ncunpend(i);
+    drop(i);
     return NULL;
   }
   if (sec)
     setvbuf(f, NULL, _IONBF, 0);
-  if (!pexit)
-    pexit = atexit(atpend) == 0;
-  /* shorter than its temporary name, which fitted in the same size */
-  snprintf(pfin[i], sizeof pfin[i], "%s", path);
-  pfrc[i] = force;
   pfh[i] = f;
   return f;
 }
 
-int ncclose(FILE *f, const char *path, int bad) {
+int nckeep(FILE *f, int bad) {
   int i;
   for (i = 0; i < NCPEND && !(pon[i] && pfh[i] == f); i++)
     ;
@@ -526,17 +792,106 @@ int ncclose(FILE *f, const char *path, int bad) {
     bad = 1;
   if (fclose(f) != 0)
     bad = 1;
+  if (i == NCPEND)
+    return -1;
+  pfh[i] = NULL;
+  if (bad) {
+    drop(i);
+    return -1;
+  }
+  return i;
+}
+
+int ncput(const int *sl, int n) {
+  int k, j;
+  /* held back, no signal falls between two of the names: the outputs
+   * are all there or none is */
+  HOLD;
+  for (k = 0; k < n; k++) {
+    int i = sl[k];
+    /* a folder filled while a signal waited is removed, not named */
+    if (i < 0 || i >= NCPEND || !pon[i] || !pown[i] || (pisd[i] && pgot) ||
+        (pisd[i] ? placed(pnd[i], pfin[i])
+                 : place(pnd[i], pfin[i], pfrc[i])) != NCOK)
+      break;
+  }
+  for (j = 0; j < n; j++) {
+    int i = sl[j];
+    if (j >= k) {
+      drop(i);
+    } else {
+      int d = pisd[i];
+      ncunpend(i);
+      if (d)
+        pheld--;
+    }
+  }
+  UNHOLD;
+  ncdone();
+  return k;
+}
+
+void ncdrop(int sl) {
+  drop(sl);
+}
+
+int nctmpf(const char *path, int force, char *t, size_t cap) {
+  int i, dfd = -1;
+  size_t bs = 0;
+  if ((!force && ncexist(path)) || pgot ||
+      tmpnm(path, t, cap) != NCOK)
+    return -1;
+  {
+    HOLD;
+    i = ncpend(t);
+#ifndef _WIN32
+    if (i >= 0)
+      dfd = dirof(t, &bs);
+#endif
+    if (i >= 0)
+      own(i, path, force, dfd, bs);
+    UNHOLD;
+  }
+  return i;
+}
+
+int nctmpd(const char *path, char *t, size_t cap) {
+  int i;
+  if (ncexist(path) || pgot ||
+      tmpnm(path, t, cap) != NCOK)
+    return -1;
+  {
+    HOLD;
+    i = ncpend(t);
+    if (i >= 0) {
+      own(i, path, 0, -1, 0);
+      pisd[i] = 1;
+      pheld++;
+    }
+    UNHOLD;
+  }
+  return i;
+}
+
+int ncstop(void) {
+  return pgot != 0;
+}
+
+int ncclose(FILE *f, const char *path, int bad) {
+  int i;
+  for (i = 0; i < NCPEND && !(pon[i] && pfh[i] == f); i++)
+    ;
   if (i == NCPEND) { /* not from ncopen */
+    if (fflush(f) != 0 || ferror(f))
+      bad = 1;
+    if (fclose(f) != 0)
+      bad = 1;
     if (bad)
       (void)rmpath(path);
     return bad ? NQEIO : NQOK;
   }
-  if (!bad && place(pnd[i], pfin[i], pfrc[i]) != NCOK)
-    bad = 1;
-  if (bad)
-    (void)rmpath(pnd[i]);
-  ncunpend(i);
-  return bad ? NQEIO : NQOK;
+  i = nckeep(f, bad);
+  return i >= 0 && ncput(&i, 1) == 1 ? NQOK : NQEIO;
 }
 
 int ncwr(const char *path, const uint8_t *b, size_t len, int force,

@@ -1299,6 +1299,8 @@ int nccommit(int argc, char **argv) {
   size_t n;
   char hx[65], e[2048], t[21], why[600], sp[4200];
   nqdrec *r;
+  FILE *sf;
+  int sl;
   ncopt o[] = {{0, "kind", 1, &kind, NULL},
                {0, "label", 1, &lab, NULL},
                {0, "after", 1, &after, NULL},
@@ -1365,16 +1367,28 @@ int nccommit(int argc, char **argv) {
     nqwipe(salt, sizeof salt);
     return NCUSE;
   }
-  /* the salt first: a record that names a commitment nobody can open
-   * would be worse than none */
-  if (ncwr(out, salt, sizeof salt, force, 1) != NCOK) {
-    nqwipe(salt, sizeof salt);
+  /* the salt is written first and kept under its temporary name while
+   * the record is saved, then named: a failed save leaves the old salt
+   * file (with --force) and the old record as they were, and a record
+   * never names a commitment whose salt was not written */
+  sf = ncopen(out, force, 1);
+  sl = sf == NULL ? -1
+                  : nckeep(sf, fwrite(salt, 1, sizeof salt, sf) != sizeof salt);
+  nqwipe(salt, sizeof salt);
+  if (sl < 0) {
     nqdrfree(r);
     return ncwfail("commit", out, force);
   }
-  nqwipe(salt, sizeof salt);
   rc = ncdsave("commit", argv[0], r);
   nqdrfree(r);
+  if (rc != NCOK) {
+    ncdrop(sl);
+  } else if (ncput(&sl, 1) != 1) {
+    ncmsg("commit", "%s names the new commitment, but its salt could not "
+          "be written to %s: remove the commitment (`noqtis data del`)",
+          argv[0], out);
+    rc = NCUSE;
+  }
   if (rc == NCOK)
     ncmsg("commit", "committed to %s (SHA3-256 %.16s...); the salt is in "
           "%s: keep it secret and outside the capsule until the reveal",

@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 14, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-KEYGEN 1
 .Os
 .Sh NAME
@@ -68,8 +68,20 @@ read it with the same options; the passphrase is at most 4096 bytes and
 never empty, and is never echoed or printed.
 .It Fl f , Fl -force
 Replace existing files.
-The old files are removed first.
+Nothing is removed first: the new files replace the old ones only once
+both are written.
 .El
+.Pp
+Both keys are written under temporary names in their folders and kept
+until both are whole; only then are they renamed into place, the public
+key first and the secret key last, with SIGINT, SIGTERM and SIGHUP held
+back between the two renames.
+A run that fails or is stopped leaves the old pair (or none), never a
+new secret key beside an old public key.
+Only a failure of the second rename itself (the folder made read-only
+in between, say), or SIGKILL or a power cut in that moment, can leave
+the new public key beside the old secret key: the command then says so,
+and exits 2.
 .Pp
 The secret key is written with mode 0600 and the public key with 0644,
 whatever the umask: the public key is a trust anchor, and must not be

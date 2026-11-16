@@ -42,6 +42,8 @@ int ncenc(int argc, char **argv) {
   nqksz z = {0, 0, 0, 0};
   uint8_t *ct = NULL, *ss = NULL;
   const char *sp;
+  FILE *f;
+  int sl[2] = {-1, -1}, nk;
 
   if (ncargs("enc", argc, argv, o, sizeof o / sizeof o[0], &np,
              &help) != NCOK)
@@ -81,11 +83,35 @@ int ncenc(int argc, char **argv) {
     nclib("enc", "encapsulation", rc);
     goto done;
   }
-  if (ncwr(cp, ct, z.ct, force, 0) != NQOK) {
+  /* The ciphertext is kept under its temporary name until the shared
+   * secret is out, then named last (cli/io.c): a failed enc never
+   * leaves a ciphertext whose secret was lost. */
+  if ((f = ncopen(cp, force, 0)) == NULL ||
+      (sl[1] = nckeep(f, fwrite(ct, 1, z.ct, f) != z.ct)) < 0) {
     ncwfail("enc", cp, force);
     goto done;
   }
-  ret = ssout("enc", sp, force, ss, z.ss);
+  if (sp == NULL) {
+    if ((ret = ssout("enc", NULL, force, ss, z.ss)) != NCOK)
+      ncdrop(sl[1]);
+    else if (ncput(&sl[1], 1) != 1)
+      ret = ncwfail("enc", cp, force);
+    goto done;
+  }
+  if ((f = ncopen(sp, force, 1)) == NULL ||
+      (sl[0] = nckeep(f, fwrite(ss, 1, z.ss, f) != z.ss)) < 0) {
+    ncdrop(sl[1]);
+    ncwfail("enc", sp, force);
+    goto done;
+  }
+  nk = ncput(sl, 2);
+  if (nk == 0)
+    ncwfail("enc", sp, force);
+  else if (nk == 1)
+    ncmsg("enc", "cannot write %s, after %s was written: encapsulate "
+          "again", cp, sp);
+  else
+    ret = NCOK;
 done:
   nckfree(&k);
   free(ct);
