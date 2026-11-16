@@ -120,6 +120,18 @@ int ncwr(const char *path, const uint8_t *b, size_t len, int force,
 FILE *ncopenat(const char *dir, const char *rel, int force, int sec);
 int ncwrat(const char *dir, const char *rel, const uint8_t *b, size_t len,
            int force, int sec);
+/* path, a temporary folder of the command's own about to be made, noted
+ * for removal (with everything in it) as nctmpd's: the slot for ncdrop,
+ * or -1. A signal is held back until ncdrop, or until ncbail */
+int nctmpin(const char *path);
+/* When a signal was held back, removes every pending output and folder
+ * and ends the process as the signal would have; called where a long
+ * step can stop (the library's progress calls). */
+void ncbail(void);
+/* on: what is made from now on is owner-only (umask 077), for a
+ * plaintext copy made in a shared temporary folder; off: the umask as it
+ * was. A no-op on Windows, where %TEMP% is the user's own. */
+void ncpriv(int on);
 /* Makes the folder path (owner-only on POSIX). NCOK or NCUSE. */
 int ncmkdir(const char *path);
 /* Removes the file path, or the empty folder path; 0 on success. */
@@ -248,11 +260,14 @@ int ncisbnd(const char *path);
  * replacing a file there when force: NCOK or NCUSE, with why printed */
 int ncbwr(const char *cmd, const char *dir, int files, const char *out,
           int force);
-/* unpacks the bundle file into a new temporary folder, its path in dir:
- * NCOK, NCBAD for a file that is not a bundle, NCUSE */
-int ncbget(const char *cmd, const char *file, char *dir, size_t cap);
-/* removes what ncbget wrote */
-void ncbdone(const char *file, const char *dir);
+/* unpacks the bundle file into a new temporary folder, its path in dir,
+ * owner-only (a plaintext copy of the files) and removed by a signal
+ * (nctmpin), its slot in *sl: NCOK, NCBAD for a file that is not a
+ * bundle, NCUSE */
+int ncbget(const char *cmd, const char *file, char *dir, size_t cap,
+           int *sl);
+/* removes the folder of ncbget's slot sl and everything in it */
+void ncbdone(int sl);
 
 /* ---- algorithms and keys (key.c) ---- */
 

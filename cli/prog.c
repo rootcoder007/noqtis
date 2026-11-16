@@ -112,6 +112,15 @@ static void draw(int stage, uint64_t done, uint64_t total, void *user) {
   drawn = 1;
 }
 
+/* every progress call, bar or not: the long steps of the library are
+ * where a signal held back for a temporary folder (cli/io.c) can end the
+ * command without waiting for the step to finish */
+static void tick(int stage, uint64_t done, uint64_t total, void *user) {
+  ncbail();
+  if (on)
+    draw(stage, done, total, user);
+}
+
 void ncprog(void) {
   const char *e = getenv("NOQTIS_PROGRESS");
 #ifdef _WIN32
@@ -119,6 +128,7 @@ void ncprog(void) {
 #else
   int tty = isatty(STDERR_FILENO);
 #endif
+  nqsetprog(tick, NULL);
   if (e != NULL && strcmp(e, "0") == 0)
     return;
   /* NOQTIS_PROGRESS=1 draws to a stderr that is not a terminal too (the
@@ -126,7 +136,6 @@ void ncprog(void) {
   if (!tty && !(e != NULL && strcmp(e, "1") == 0))
     return;
   on = 1;
-  nqsetprog(draw, NULL);
 }
 
 void ncpread(uint64_t done, uint64_t total) {

@@ -721,6 +721,9 @@ static int xfer(const ncurl *u, const char *head, size_t hn,
   }
   for (;;) {
     int r;
+    /* a signal held while a temporary folder is pending stops a long
+     * download here, not after it */
+    ncbail();
     if ((rm = room(buf, &bc, *got, max)) <= 0) {
       if (rm < 0)
         say(err, cap, "out of memory");

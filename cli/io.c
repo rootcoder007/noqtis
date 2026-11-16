@@ -1061,6 +1061,46 @@ int ncstop(void) {
   return pgot != 0;
 }
 
+int nctmpin(const char *path) {
+  int i;
+  if (pgot)
+    return -1;
+  {
+    HOLD;
+    i = ncpend(path);
+    if (i >= 0) {
+      own(i, path, 0, -1, 0);
+      pisd[i] = 1;
+      pheld++;
+    }
+    UNHOLD;
+  }
+  return i;
+}
+
+void ncbail(void) {
+  /* outside the handler, where the folders can be removed */
+  if (!pgot)
+    return;
+  pheld = 0;
+  ncdone();
+}
+
+void ncpriv(int on) {
+#ifndef _WIN32
+  static mode_t was;
+  static int set = 0;
+  if (on && !set)
+    was = umask(077);
+  else if (!on && set)
+    (void)umask(was);
+  set = on != 0;
+#else
+  /* the temporary folder is the user's own (%TEMP%, by its ACL) */
+  (void)on;
+#endif
+}
+
 int ncclose(FILE *f, const char *path, int bad) {
   int i;
   for (i = 0; i < NCPEND && !(pon[i] && pfh[i] == f); i++)

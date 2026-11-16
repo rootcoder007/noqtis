@@ -181,7 +181,7 @@ static int pcheck(int argc, char **argv) {
   const char *pp = NULL;
   char *av[5], bdir[1024];
   const char *dir;
-  int np, help, rc, ret, a = 0, env = 0, e;
+  int np, help, rc, ret, a = 0, env = 0, e, bsl = -1;
   size_t i, locks = 0;
   nqdrec *r = NULL;
   nqdrep *rep = NULL;
@@ -210,7 +210,8 @@ static int pcheck(int argc, char **argv) {
   /* the data record, and what a bundle needs of it */
   dir = argv[0];
   if (!ncisdir(dir)) {
-    if ((rc = ncbget("pack check", argv[0], bdir, sizeof bdir)) != NCOK)
+    if ((rc = ncbget("pack check", argv[0], bdir, sizeof bdir, &bsl)) !=
+        NCOK)
       return rc;
     dir = bdir;
   }
@@ -232,7 +233,7 @@ static int pcheck(int argc, char **argv) {
     env = nqdlen(r, "env") == 1;
   nqdrfree(r);
   if (dir == bdir)
-    ncbdone(argv[0], bdir);
+    ncbdone(bsl);
   printf("%-4s  pack  %s\n", env ? "ok" : "FAIL",
          env ? "the environment is recorded" : "no environment recorded");
   printf("%-4s  pack  %lu lock files recorded\n", locks ? "ok" : "FAIL",

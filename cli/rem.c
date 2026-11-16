@@ -20,6 +20,7 @@ struct ncrem {
   char **made;     /* everything written, in order */
   unsigned char *isd;
   size_t n, cap;
+  int sl; /* the folder's slot (nctmpin): removed if a signal stops us */
 };
 
 int ncisurl(const char *s) {
@@ -53,6 +54,7 @@ static int keep(ncrem *m, const char *path, int isdir) {
 
 void ncremfree(ncrem *m) {
   size_t i;
+  int sl;
   if (m == NULL) return;
   for (i = m->n; i > 0; i--) {
     if (m->isd[i - 1])
@@ -63,7 +65,10 @@ void ncremfree(ncrem *m) {
   }
   free(m->made);
   free(m->isd);
+  /* last: a signal held meanwhile ends the process here */
+  sl = m->sl;
   free(m);
+  ncdrop(sl);
 }
 
 const char *ncremdir(const ncrem *m) {
@@ -121,6 +126,7 @@ static int pull(ncrem *m, const char *rel, size_t max) {
   uint8_t *b = NULL;
   size_t n = 0;
   int ok = 0;
+  ncbail(); /* a signal held back: remove the folder and stop now */
   if (urlof(m, rel, u, sizeof u) != NCOK ||
       place(m, rel, p, sizeof p) != NCOK) {
     ncmsg("check", "%s: the path is too long to fetch", ncesc(rel));
@@ -188,6 +194,7 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out) {
   }
   m = (ncrem *)calloc(1, sizeof *m);
   if (m == NULL) return NCUSE;
+  m->sl = -1;
   if (ul + 2 > sizeof m->base) {
     ncmsg("check", "the URL is too long");
     free(m);
@@ -199,7 +206,10 @@ int ncremget(const char *url, const nqcopt *co, ncrem **out) {
     free(m);
     return NCUSE;
   }
-  if (ncmkdir(m->dir) != NCOK || keep(m, m->dir, 1) != NCOK) {
+  /* noted before it is made, so a signal never leaves it behind: one
+   * that comes is held until the next file (pull) */
+  m->sl = nctmpin(m->dir);
+  if (m->sl < 0 || ncmkdir(m->dir) != NCOK || keep(m, m->dir, 1) != NCOK) {
     ncmsg("check", "%s: cannot make a temporary folder", ncesc(m->dir));
     ncremfree(m);
     return NCUSE;
@@ -295,16 +305,28 @@ int ncbwr(const char *cmd, const char *dir, int files, const char *out,
   return NCOK;
 }
 
-int ncbget(const char *cmd, const char *file, char *dir, size_t cap) {
+int ncbget(const char *cmd, const char *file, char *dir, size_t cap,
+           int *sl) {
   char why[600];
   int rc;
+  *sl = -1;
   if (nctmp(dir, cap) != NCOK) return NCUSE;
+  /* a plaintext copy of the bundle's files: removed if a signal stops
+   * the command, and owner-only meanwhile, whatever the umask */
+  if ((*sl = nctmpin(dir)) < 0) {
+    ncmsg(cmd, "%s: cannot unpack it into a temporary folder", file);
+    return NCUSE;
+  }
+  ncpriv(1);
   rc = nqdunpack(file, dir, 0, why, sizeof why);
+  ncpriv(0);
   if (rc == NQOK) return NCOK;
+  ncdrop(*sl);
+  *sl = -1;
   ncmsg(cmd, "%s: %s", file, why[0] ? why : nqerr(rc));
   return rc == NQEDEC || rc == NQELIM ? NCBAD : NCUSE;
 }
 
-void ncbdone(const char *file, const char *dir) {
-  (void)nqdunpack(file, dir, 1, NULL, 0);
+void ncbdone(int sl) {
+  ncdrop(sl);
 }

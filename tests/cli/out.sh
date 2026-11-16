@@ -330,6 +330,61 @@ if [ -w /dev/full ]; then
   full check -p "$w/s.pub" "$c"
 fi
 
+# ---- a bundle check stopped by a signal ----
+
+# check <bundle> unpacks a plaintext copy into $TMPDIR: owner-only while
+# it is there, whatever the umask, and removed when INT, TERM or HUP
+# stops the check, at any moment (the delays put the signal in the
+# unpack, in the check, or after it)
+ok 0 "keygen for the bundle" "$nq" keygen -a ML-DSA-44 -o "$w/bk"
+c=$w/bcap
+mkdir -p "$c" "$w/btmp"
+i=0
+while [ $i -lt 16 ]; do
+  dd if=/dev/zero of="$c/f$i" bs=65536 count=16 2>/dev/null
+  i=$((i + 1))
+done
+ok 0 "seal for the bundle" "$nq" seal -k "$w/bk" "$c"
+ok 0 "export the bundle" "$nq" export --as bundle -o "$w/b.nqb" "$c"
+chmod 600 "$w/b.nqb"
+for s in INT TERM HUP; do
+  for d in 0 0.05 0.1 0.2; do
+    (umask 022 && TMPDIR=$w/btmp exec "$nq" check -p "$w/bk.pub" \
+      "$w/b.nqb") >/dev/null 2>&1 &
+    pid=$!
+    sleep $d
+    # the folder may go between the look and the ls: only what ls saw
+    for x in "$w"/btmp/noqtis-* "$w"/btmp/noqtis-*/f0; do
+      m=$(ls -ld "$x" 2>/dev/null) || continue
+      n=$((n + 1))
+      case $m in
+      drwx------* | -rw-------*) ;;
+      *)
+        bad=$((bad + 1))
+        echo "FAIL a bundle's unpacked copy is not owner-only: $m" >&2
+        ;;
+      esac
+    done
+    kill -s "$s" $pid 2>/dev/null
+    wait $pid
+    n=$((n + 1))
+    if [ -n "$(ls -A "$w/btmp")" ]; then
+      bad=$((bad + 1))
+      echo "FAIL check of a bundle stopped by SIG$s after $d s left:" >&2
+      ls -lA "$w/btmp" >&2
+      rm -rf "$w/btmp"/*
+    fi
+  done
+done
+TMPDIR=$w/btmp "$nq" check -p "$w/bk.pub" "$w/b.nqb" >/dev/null 2>&1 &
+pid=$!
+wait $pid
+n=$((n + 1))
+if [ -n "$(ls -A "$w/btmp")" ]; then
+  bad=$((bad + 1))
+  echo "FAIL a whole bundle check left its folder" >&2
+fi
+
 if [ $bad -gt 0 ]; then
   echo "out.sh: $bad of $n checks failed" >&2
   exit 1

@@ -104,6 +104,9 @@ a bundle from
 it is read into a new temporary folder, refused whole when it is
 malformed or names a path that would leave that folder (exit 1), checked
 as that folder, and removed again; the report names the file.
+The folder and its files are the user's alone (modes 0700 and 0600,
+whatever the umask), as they are a plaintext copy of the bundle, and
+SIGINT, SIGTERM or SIGHUP removes them before the command ends.
 A bundle is checked in full: a listed file it does not carry fails its
 .Ql file
 row, and a file it carries that the manifest does not list fails an
@@ -142,7 +145,8 @@ manifest check are the listed files fetched (with
 only those), each by its path under the URL, percent-encoded, and at most
 its listed size, a file over 1 GiB or past the 10000th not at all.
 The folder is then checked as any other, so a file the server lacks or
-changed fails its row, and everything written to it is removed after.
+changed fails its row, and everything written to it is removed after,
+or by SIGINT, SIGTERM or SIGHUP before the command ends.
 The report names the URL.
 Redirects are followed, at most five, and only on the same server (the
 same host and port, or

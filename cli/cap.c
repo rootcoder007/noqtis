@@ -951,6 +951,7 @@ int ncchk(int argc, char **argv) {
   ncrem *rm = NULL;
   uint8_t *pb = NULL;
   char bdir[1024];
+  int bsl = -1;
   size_t n = 0, i, j, w = 5, nf = 0, pn = 0;
   int part = 0;
   const char *kn = NULL, *kalg = NULL, *dir = NULL, *ldir = NULL;
@@ -1082,7 +1083,7 @@ int ncchk(int argc, char **argv) {
     dir = ncremdir(rm);
   } else if (dir != NULL && !ncisdir(dir)) {
     /* a bundle: checked as the folder it unpacks to */
-    if ((ret = ncbget("check", dir, bdir, sizeof bdir)) != NCOK) {
+    if ((ret = ncbget("check", dir, bdir, sizeof bdir, &bsl)) != NCOK) {
       nckfree(&pk);
       ancfree(&an);
       ncfree(pb, pn, 0);
@@ -1111,7 +1112,7 @@ int ncchk(int argc, char **argv) {
     cok = cardrow(dir, cvr, cwhy, &card, cdet, sizeof cdet);
   ncremfree(rm);
   if (dir == bdir)
-    ncbdone(argv[0], bdir);
+    ncbdone(bsl);
   kn = pp != NULL ? pk.a.name : NULL;
   nckfree(&pk);
   ancfree(&an);

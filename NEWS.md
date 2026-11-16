@@ -1,5 +1,6 @@
 # Unreleased
 
+- Fixed: `check <bundle>` and `pack check <bundle>` unpacked the bundle into `$TMPDIR` with the usual modes (0755 and 0644), readable by other local users while it was checked, and left that plaintext copy behind when stopped by SIGINT, SIGTERM or SIGHUP. The copy is now owner-only (0700 and 0600) and removed on those signals; so is the temporary folder of `check <url>`.
 - Fixed: `data check` passed a recorded check it could not recompute (only one of `expected` and `observed`, or a number against a string) on its recorded status. Such a check now fails.
 - Fixed: an RFC 3161 token was refused when its certificates included one not on the path to the anchor (another certificate of the TSA's CA, a cross-certificate), or one that did not parse. Such a certificate is now left out; the signer and its path to a configured anchor are checked as before.
 - Docs: the reproducibility-bundle example (`docs/guides/data.md`, `noqtis-pack(1)`) failed at `pack check`, as no lock file was made; it now makes `renv.lock` before `pack build`, and says the lock file is the project's own. `pack check` without a recorded lock file now says to make one (or name it with `pack build --lock`), not to run `pack build` again.
