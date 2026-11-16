@@ -223,7 +223,7 @@ export function algs() {
   return out;
 }
 
-/** The library version, "0.1.4". */
+/** The library version, "0.2.0". */
 export function version() {
   need();
   return M.UTF8ToString(M._nqver());

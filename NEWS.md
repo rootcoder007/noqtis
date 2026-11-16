@@ -1,4 +1,4 @@
-# Unreleased
+# noqtis 0.2.0
 
 - Fixed: without the TLS client, `check https://...` of a capsule (and `src fetch` of an https source) gave advice about a TSA token; the refusal now fits every URL.
 - Fixed: `check <bundle>` and `pack check <bundle>` unpacked the bundle into `$TMPDIR` with the usual modes (0755 and 0644), readable by other local users while it was checked, and left that plaintext copy behind when stopped by SIGINT, SIGTERM or SIGHUP. The copy is now owner-only (0700 and 0600) and removed on those signals; so is the temporary folder of `check <url>`.

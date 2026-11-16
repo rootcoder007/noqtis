@@ -1,3 +1,15 @@
+noqtis (0.2.0-1) unstable; urgency=medium
+
+  * A check of a bundle fails when a listed file is missing or an unlisted
+    file is present; src fetch, src add and src refresh never write through
+    a symbolic link (security).
+  * A bundle is unpacked into a private folder, removed on a signal.
+  * A partial check says so (PARTIAL OK).
+  * Data layer: noqtis data, pack, src, env, commit and diff.
+  * Signing and verifying in pieces; files of any size sealed to a key.
+
+ -- rootcoder007 <278967282+rootcoder007@users.noreply.github.com>  Mon, 16 Nov 2026 12:00:00 -0500
+
 noqtis (0.1.4-1) unstable; urgency=medium
 
   * Ed25519, SLH-DSA PRF and HQC decapsulation masked against power analysis.

@@ -1,4 +1,4 @@
-# Unreleased
+# noqtis 0.2.0
 
 * Secret keys under a passphrase: `nqpwenc()`, `nqpwdec()` and `pass =`
   for `nqreadkey()` and `nqwritekey()`, in the format `noqtis keygen
