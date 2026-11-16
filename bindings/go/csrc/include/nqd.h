@@ -117,6 +117,13 @@ NQDAPI int nqdset(nqdrec *r, const char *member, const char *key,
  * between folders) in its "sources" element, keeping the element's
  * other fields (url, retrieved, ...), or adds the element. NQEARG for a
  * path a capsule cannot hold, NQEIO when the file cannot be read. */
+/* The SHA-256 and size (*size, when not NULL) of the file path in dir
+ * ('/' between folders), opened as every member of a capsule is: no
+ * folder on the way and not the file itself followed when it is a link.
+ * NQEARG for a link, anything but a plain file or a path a capsule
+ * cannot hold, NQEIO when it is not there or cannot be read. */
+NQDAPI int nqdsha(const char *dir, const char *path, uint8_t h[32],
+                  uint64_t *size);
 NQDAPI int nqdsrc(nqdrec *r, const char *dir, const char *path, char *why,
                   size_t cap);
 
@@ -193,6 +200,13 @@ typedef struct {
  * both cases. */
 NQDAPI int nqddrift(const char *stats, size_t n, const char *file,
                     const nqdcsvopt *o, const nqddopt *d, nqdrep **rep);
+/* nqddrift of the file path in dir ('/' between folders), opened as
+ * every member of a capsule is: a link on the way or in its place, or
+ * anything but a plain file, is a failed row saying it is refused,
+ * never followed. With dir NULL, nqddrift of the file at path. */
+NQDAPI int nqddriftat(const char *stats, size_t n, const char *dir,
+                      const char *path, const nqdcsvopt *o,
+                      const nqddopt *d, nqdrep **rep);
 
 /* Calibrates the warnings of the "stats" element stats (n bytes) on the
  * nf CSV files files[] known not to have drifted from it (o as for
@@ -228,6 +242,12 @@ NQDAPI int nqdchunk(const char *dir, const char *path, uint64_t chunk,
  * there was one, NQEVRFY otherwise, *rep set in both cases. */
 NQDAPI int nqdpiece(const char *elem, size_t n, const char *piece,
                     uint64_t off, nqdrep **rep);
+/* nqdpiece of the whole file path in dir ('/' between folders), opened
+ * as every member of a capsule is (a link on the way or in its place, or
+ * anything but a plain file, is a failed row saying it is refused); a
+ * file shorter than the recorded size fails. NQEARG when dir is NULL. */
+NQDAPI int nqdpieceat(const char *elem, size_t n, const char *dir,
+                      const char *path, nqdrep **rep);
 
 /* ---- commitments and citations ---- */
 

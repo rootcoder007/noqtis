@@ -331,7 +331,7 @@ static int ddel(int argc, char **argv) {
 static int dfmt(int argc, char **argv) {
   int np, help, rc, e;
   nqdrec *r;
-  uint8_t *b;
+  uint8_t *b, h[32];
   size_t n;
   char p[4200], why[600];
   if (ncargs("data fmt", argc, argv, NULL, 0, &np, &help) != NCOK)
@@ -345,6 +345,13 @@ static int dfmt(int argc, char **argv) {
     return NCUSE;
   }
   snprintf(p, sizeof p, "%s/%s", argv[0], NQDFILE);
+  /* the record as every command opens it: a link is refused, not
+   * followed (nqdload would refuse the record not yet in canonical form,
+   * which is what fmt is for) */
+  if (nqdsha(argv[0], NQDFILE, h, NULL) == NQEARG) {
+    ncmsg("data fmt", "%s: a link or not a plain file, refused", p);
+    return NCUSE;
+  }
   if (ncrdx(p, 0, NQDMAX, &b, &n) != NQOK) {
     ncmsg("data fmt", "%s: missing, unreadable or over 64 MiB", p);
     return NCUSE;
@@ -905,7 +912,6 @@ static int dchk(int argc, char **argv) {
       } else if (pp != NULL) {
         size_t m = 0;
         pp += 9;
-        m = (size_t)snprintf(cur, sizeof cur, "%s/", argv[0]);
         /* paths of a record have no quote or backslash escapes but \"
          * and \\; copy until the closing quote */
         while (*pp && *pp != '"' && m + 2 < sizeof cur) {
@@ -915,7 +921,10 @@ static int dchk(int argc, char **argv) {
         }
         cur[m] = '\0';
       }
-      rc = nqddrift(e, l, cur, &co, &d, &rs[nr]);
+      /* a file named with = is the user's, opened by its path; the
+       * record's file is a member of the folder, never through a link */
+      rc = alt != NULL ? nqddrift(e, l, cur, &co, &d, &rs[nr])
+                       : nqddriftat(e, l, argv[0], cur, &co, &d, &rs[nr]);
       if (rs[nr] == NULL) {
         ret = nclib("drift check", cur, rc);
       } else {
@@ -1248,24 +1257,27 @@ static int denv(int argc, char **argv) {
     for (i = 0; i < n; i++) {
       const char *f = nl > 0 ? lk[i] : known[i];
       char p[4200], hx[65], e[4400], *q;
-      uint8_t *buf, h[32];
-      size_t bl, j;
+      uint8_t h[32];
+      size_t j;
+      int hr;
       snprintf(p, sizeof p, "%s/%s", argv[0], f);
-      if (!ncisreg(p)) {
-        if (nl > 0) {
-          ncmsg("env", "--lock %s: not a file in %s", f, argv[0]);
-          nqdrfree(r);
-          return NCUSE;
-        }
-        continue;
-      }
-      if (ncrdx(p, 0, NCRDMAX, &buf, &bl) != NCOK ||
-          nqhash(NQS256, buf, bl, h, 32) != NQOK) {
-        ncmsg("env", "%s: cannot be read", p);
+      /* a member of dir: a link on the way or in its place is refused,
+       * never followed */
+      if ((hr = nqdsha(argv[0], f, h, NULL)) == NQEARG) {
+        ncmsg("env", "%s: a link or not a plain file, refused", p);
         nqdrfree(r);
         return NCUSE;
       }
-      ncfree(buf, bl, 0);
+      if (hr != NQOK && nl == 0 && !ncexist(p))
+        continue;
+      if (hr != NQOK) {
+        if (nl > 0 && !ncexist(p))
+          ncmsg("env", "--lock %s: not a file in %s", f, argv[0]);
+        else
+          ncmsg("env", "%s: cannot be read", p);
+        nqdrfree(r);
+        return NCUSE;
+      }
       for (j = 0; j < 32; j++)
         snprintf(hx + 2 * j, 3, "%02x", h[j]);
       if ((q = ncjq(f)) == NULL)
@@ -1692,7 +1704,7 @@ static int ccheck(int argc, char **argv) {
   int np, help, json = 0, rc, e;
   nqdrec *r;
   nqdrep *rep = NULL;
-  char p[4200], *b;
+  char *b;
   size_t n = 0;
   ncopt o[] = {{0, "at", 1, &atv, NULL}, {'j', "json", 0, NULL, &json}};
   if (ncargs("chunk check", argc, argv, o, 2, &np, &help) != NCOK)
@@ -1723,12 +1735,11 @@ static int ccheck(int argc, char **argv) {
   }
   e = nqdkey(r, "chunks", argv[1], b, n + 1, &n);
   nqdrfree(r);
-  if (np == 3)
-    snprintf(p, sizeof p, "%s", argv[2]);
-  else
-    snprintf(p, sizeof p, "%s/%s", argv[0], argv[1]);
+  /* a piece is the user's file, opened by its path; the whole file is a
+   * member of the folder, never read through a link */
   if (e == NQOK)
-    e = nqdpiece(b, n, p, off, &rep);
+    e = np == 3 ? nqdpiece(b, n, argv[2], off, &rep)
+                : nqdpieceat(b, n, argv[0], argv[1], &rep);
   free(b);
   if (rep == NULL)
     return nclib("chunk check", argv[1], e);

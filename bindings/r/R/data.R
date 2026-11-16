@@ -190,7 +190,9 @@ nqschk <- function(dir, files = NULL) {
 #'
 #' @inheritParams nqschema
 #' @param current `NULL`, or one path per file: the file to compare in
-#'   its place (a new download of the same source, say).
+#'   its place (a new download of the same source, say), read by its
+#'   path. Without it each file is read inside `dir`, never through a
+#'   symbolic link: a link is a failed row.
 #' @param psiwarn,psifail PSI from which a column warns, and fails (when
 #'   both samples have `minn` values).
 #' @param alpha A KS or chi-square p-value below it warns.
@@ -256,8 +258,11 @@ nqdrift <- function(dir, files = NULL, current = NULL, psiwarn = 0.1,
         call. = FALSE
       )
     }
-    cur <- if (is.null(current)) file.path(d, files[i]) else current[i]
-    .drep(.Call(Cddrift, s, cur, delim, !isTRUE(header), lv))
+    # a file of the capsule is opened inside it, never through a link;
+    # one given in current is the user's, opened by its path
+    at <- if (is.null(current)) list(d, enc2utf8(files[i])) else
+      list(NULL, current[i])
+    .drep(.Call(Cddrift, s, at[[1]], at[[2]], delim, !isTRUE(header), lv))
   })
   out <- do.call(rbind, rs)
   rownames(out) <- NULL

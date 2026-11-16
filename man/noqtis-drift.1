@@ -42,6 +42,16 @@ that file instead of the one in
 .Ar dir ,
 such as a new download of the same source) with its summary, one row
 per column.
+A file in
+.Ar dir
+is opened from
+.Ar dir
+without following a symbolic link
+.Pq Xr noqtis-data 5 :
+a link to a file or a folder, or anything but a plain file, is a failed
+row saying it is refused; a
+.Ar current-file
+is read by its path.
 .Cm cal
 calibrates the warnings of the summary of each
 .Ar file
@@ -232,7 +242,9 @@ when calibrated, and
 .It 0
 nothing drifted
 .It 1
-a column failed
+a column failed, or a file in
+.Ar dir
+was refused
 .It 3
 a column warned, none failed
 .It 2

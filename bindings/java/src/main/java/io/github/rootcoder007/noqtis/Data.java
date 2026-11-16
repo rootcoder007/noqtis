@@ -165,8 +165,9 @@ public final class Data {
     static final MethodHandle SRC = fn("nqdsrc", I, P, P, P, P, Z);
     static final MethodHandle INFER = fn("nqdinfer", I, P, P, P, P, Z, P, P, Z);
     static final MethodHandle STATS = fn("nqdstats", I, P, P, P, P, Z, P, P, Z);
-    static final MethodHandle DRIFT = fn("nqddrift", I, P, Z, P, P, P, P);
+    static final MethodHandle DRIFT = fn("nqddriftat", I, P, Z, P, P, P, P, P);
     static final MethodHandle DIFF = fn("nqddiff", I, P, P, P);
+    static final MethodHandle SHA = fn("nqdsha", I, P, P, P, P);
     static final MethodHandle CHK = fn("nqdchk", I, P, P);
     static final MethodHandle REPN = fn("nqdrepn", Z, P);
     static final MethodHandle REPI = fn("nqdrepi", I, P, Z, P, P, P);
@@ -338,6 +339,21 @@ public final class Data {
       throw new NoqtisException(c);
     }
     return Optional.of((String) x);
+  }
+
+  /** The SHA-256 of the file f in dir, opened from dir without following a link (nqdsha). */
+  private static byte[] sha(Path dir, String f) {
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment h = m.allocate(32);
+      int c = (int) N.SHA.invoke(cs(m, dir.toString()), cs(m, f), h, MemorySegment.NULL);
+      if (c != 0) {
+        throw new NoqtisException(
+            c, f + (c == -1 ? ": a link or not a plain file, refused" : ": cannot be read"));
+      }
+      return h.toArray(JAVA_BYTE);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
   }
 
   /** The report the library made at *rp (freed here), or its error. */
@@ -764,9 +780,12 @@ public final class Data {
               key(m, r, "stats", f)
                   .orElseThrow(
                       () -> new NoqtisException(-1, "no summary of " + f + ": pin one first"));
-          Path p = cur ? current.get(i) : dir.resolve(f);
+          // a file of the capsule is opened inside dir, never through a
+          // link; a file of current is the caller's, opened by its path
+          MemorySegment dc = cur ? MemorySegment.NULL : cs(m, dir.toString());
+          MemorySegment fc = cs(m, cur ? current.get(i).toString() : f);
           MemorySegment rp = m.allocate(ADDRESS);
-          int c = (int) N.DRIFT.invoke(cs(m, s), blen(s), cs(m, p.toString()), co, x, rp);
+          int c = (int) N.DRIFT.invoke(cs(m, s), blen(s), dc, fc, co, x, rp);
           Report y = report(c, rp);
           if (code == 0) {
             code = y.code();
@@ -1515,12 +1534,9 @@ public final class Data {
         }
         continue;
       }
-      try {
-        String h = java.util.HexFormat.of().formatHex(Noqtis.hash("SHA-256", Files.readAllBytes(fp)));
-        lk.add("{\"path\":" + js(f) + ",\"sha256\":\"" + h + "\"}");
-      } catch (java.io.IOException x) {
-        throw new NoqtisException(-7, fp + ": " + x.getMessage());
-      }
+      // opened from dir, never through a link (nqdsha)
+      String h = java.util.HexFormat.of().formatHex(sha(dir, f));
+      lk.add("{\"path\":" + js(f) + ",\"sha256\":\"" + h + "\"}");
     }
     if (!lk.isEmpty()) {
       e.append(",\"locks\":[").append(String.join(",", lk)).append(']');

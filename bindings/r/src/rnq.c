@@ -1232,7 +1232,9 @@ SEXP Cdwb(SEXP url);
 SEXP Cdchk(SEXP dir);
 SEXP Cdinfer(SEXP dir, SEXP path, SEXP delim, SEXP noh, SEXP ranges);
 SEXP Cdstats(SEXP dir, SEXP path, SEXP delim, SEXP noh);
-SEXP Cddrift(SEXP stats, SEXP file, SEXP delim, SEXP noh, SEXP lv);
+SEXP Cddrift(SEXP stats, SEXP dir, SEXP file, SEXP delim, SEXP noh,
+             SEXP lv);
+SEXP Cdsha(SEXP dir, SEXP path);
 SEXP Cddiff(SEXP a, SEXP b);
 SEXP Cdparse(SEXP text);
 SEXP Cdschk(SEXP dir, SEXP schema);
@@ -1262,7 +1264,7 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cdload, 1), CDEF(Cdput, 3), CDEF(Cdadd, 4), CDEF(Cddel, 3),
   CDEF(Cdkey, 3), CDEF(Cdaddr, 2), CDEF(Cdvrfy, 3), CDEF(Cdfld, 4),
   CDEF(Cdrslv, 1), CDEF(Cdrsp, 2), CDEF(Cdwb, 1), CDEF(Cdchk, 1), CDEF(Cdinfer, 5), CDEF(Cdstats, 4),
-  CDEF(Cddrift, 5), CDEF(Cddiff, 2),
+  CDEF(Cddrift, 6), CDEF(Cdsha, 2), CDEF(Cddiff, 2),
   CDEF(Cb2b, 3), CDEF(Ca2id, 6), CDEF(Ccteq, 2), CDEF(Cpwenc, 4),
   CDEF(Cpwdec, 3), CDEF(Csmu, 5), CDEF(Csignmu, 4), CDEF(Cvrfymu, 4),
   CDEF(Csini, 5), CDEF(Csupd, 2), CDEF(Csfin, 4), CDEF(Cvfin, 3),

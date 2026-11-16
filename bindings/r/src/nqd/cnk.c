@@ -3,7 +3,7 @@
  * SHA-256 of each run of chunk bytes, so that a piece of the file (a
  * range fetched alone, the part that survived) can be checked without
  * the rest. The file is never split: nqdchunk reads it once, nqdpiece
- * reads only the piece. A capsule's seal covers the digests through the
+ * reads only the piece, nqdpieceat the member of the folder. A capsule's seal covers the digests through the
  * record (check it with `noqtis check --only noqtis.data.json`). */
 #include "int.h"
 
@@ -208,8 +208,9 @@ int qdpiece(nqdrep *rep, const djs *e, const char *dir, const char *piece,
   return rc;
 }
 
-int nqdpiece(const char *elem, size_t n, const char *piece, uint64_t off,
-             nqdrep **rep) {
+/* nqdpiece, and with dir the whole member piece of dir (nqdpieceat) */
+static int pieceof(const char *elem, size_t n, const char *dir,
+                   const char *piece, uint64_t off, nqdrep **rep) {
   djs *e = NULL;
   nqdrep *r;
   char why[600];
@@ -230,7 +231,7 @@ int nqdpiece(const char *elem, size_t n, const char *piece, uint64_t off,
     qdrepadd(r, "chunk", 0, "the chunks element: %s", why);
     return qdrepout(r, rep, NQEVRFY);
   }
-  rc = qdpiece(r, e, NULL, piece, off, 0);
+  rc = qdpiece(r, e, dir, piece, off, dir != NULL);
   qdjfree(e);
   if (rc == NQEMEM) {
     nqdrepfree(r);
@@ -242,4 +243,16 @@ int nqdpiece(const char *elem, size_t n, const char *piece, uint64_t off,
     bad += !ok;
   }
   return qdrepout(r, rep, bad ? NQEVRFY : NQOK);
+}
+
+int nqdpiece(const char *elem, size_t n, const char *piece, uint64_t off,
+             nqdrep **rep) {
+  return pieceof(elem, n, NULL, piece, off, rep);
+}
+
+int nqdpieceat(const char *elem, size_t n, const char *dir,
+               const char *file, nqdrep **rep) {
+  if (dir == NULL)
+    return NQEARG;
+  return pieceof(elem, n, dir, file, 0, rep);
 }

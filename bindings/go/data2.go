@@ -488,6 +488,30 @@ func archname() string {
 	return "other"
 }
 
+// dsha is the SHA-256 of the file f in dir, opened from dir without
+// following a link (nqdsha), and the library's code
+func dsha(dir, f string) ([]byte, C.int, error) {
+	var m cmem
+	defer m.free()
+	dc, err := m.str(dir)
+	if err != nil {
+		return nil, -1, err
+	}
+	fc, err := m.str(f)
+	if err != nil {
+		return nil, -1, err
+	}
+	h := make([]byte, 32)
+	c := C.nqdsha(dc, fc, (*C.uint8_t)(unsafe.Pointer(&h[0])), nil)
+	switch c {
+	case 0:
+		return h, 0, nil
+	case -1:
+		return nil, c, why(-1, "%s: a link or not a plain file, refused", f)
+	}
+	return nil, c, why(int(c), "%s: cannot be read", f)
+}
+
 // Env records the environment in the record's "env", as noqtis env does
 // (os, arch, noqtis, locale, tz, the lock files at the top of dir with
 // their SHA-256, the rng and its seed), with the Go runtime: its version
@@ -523,14 +547,16 @@ func Env(dir string, o *EnvOpts) (string, error) {
 	}
 	var lk []map[string]string
 	for _, f := range want {
-		b, err := os.ReadFile(filepath.Join(dir, f))
-		if err != nil {
-			if o.Locks != nil {
-				return "", why(-1, "%s: not a file in %s", f, dir)
-			}
+		h, c, err := dsha(dir, f)
+		if c == -7 && o.Locks == nil {
 			continue
 		}
-		h, _ := Hash("SHA-256", b)
+		if c == -7 {
+			return "", why(-1, "%s: not a file in %s", f, dir)
+		}
+		if err != nil {
+			return "", err
+		}
 		lk = append(lk, map[string]string{"path": f, "sha256": hex.EncodeToString(h)})
 	}
 	sort.Slice(lk, func(i, j int) bool { return lk[i]["path"] < lk[j]["path"] })

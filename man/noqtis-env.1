@@ -58,6 +58,12 @@ and
 .Pa Manifest.toml
 found at the top of
 .Ar dir .
+Each is opened from
+.Ar dir
+without following a symbolic link
+.Pq Xr noqtis-data 5 :
+a lock file that is a link, or under a folder that is one, is refused
+and nothing is written.
 It replaces the
 .Cm env
 there.
@@ -66,7 +72,8 @@ The language runtime and its packages
 are filled by a binding, which knows them, with
 .Cm noqtis data put .
 .Sh EXIT STATUS
-0 when the record is written, 2 on a usage or file error.
+0 when the record is written, 2 on a usage or file error (a lock file
+refused as a link among them).
 .Sh SEE ALSO
 .Xr noqtis-data 1 ,
 .Xr noqtis-diff 1 ,

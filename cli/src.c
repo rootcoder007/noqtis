@@ -595,23 +595,35 @@ static const char *kname(int k) {
                                 : k == NQDAMIR ? "mirror" : "archived";
 }
 
-/* the file dir/path is the source's recorded bytes */
+/* 1 when the file dir/path is the source's recorded bytes (its SHA-256
+ * and size), 0 when not, -1 when it is a link or not a plain file: it is
+ * read from dir without following a link (nqdsha), so a link is never
+ * taken for the file */
 static int same(const nqdrec *r, const char *dir, const char *path) {
-  char p[4200];
-  uint8_t *b = NULL;
-  size_t n = 0;
-  int ok;
-  snprintf(p, sizeof p, "%s/%s", dir, path);
-  if (!ncisreg(p) || ncrdx(p, 0, (size_t)-1 >> 1, &b, &n) != NQOK) return 0;
-  ok = nqdvrfy(r, path, b, n) == NQOK;
-  ncfree(b, n, 0);
-  return ok;
+  char v[4200], hx[65];
+  uint8_t h[32];
+  uint64_t sz = 0;
+  size_t i, j, l, n = nqdlen(r, "sources");
+  int rc = nqdsha(dir, path, h, &sz);
+  if (rc != NQOK) return rc == NQEARG ? -1 : 0;
+  for (j = 0; j < 32; j++) snprintf(hx + 2 * j, 3, "%02x", h[j]);
+  for (i = 0; i < n; i++) {
+    if (nqdfld(r, "sources", i, "path", v, sizeof v, &l) != NQOK ||
+        strcmp(v, path) != 0)
+      continue;
+    if (nqdfld(r, "sources", i, "sha256", v, sizeof v, &l) != NQOK ||
+        strcmp(v, hx) != 0)
+      return 0;
+    return nqdfld(r, "sources", i, "size", v, sizeof v, &l) == NQOK &&
+           strtoull(v, NULL, 10) == sz;
+  }
+  return 0;
 }
 
 /* noqtis src fetch */
 static int sfetch(int argc, char **argv) {
   const char *mx = NULL, *to = NULL;
-  int np, help, json = 0, force = 0, rc, first = 1, bad = 0;
+  int np, help, json = 0, force = 0, rc, first = 1, bad = 0, sm;
   nqdrec *r = NULL;
   size_t *ix = NULL, n = 0, j;
   ncsopt so;
@@ -652,8 +664,13 @@ static int sfetch(int argc, char **argv) {
       continue;
     }
     snprintf(p, sizeof p, "%s/%s", argv[0], path);
-    if (same(r, argv[0], path)) {
-      row(json, &first, path, "present", syn, NULL, NULL, NULL);
+    if ((sm = same(r, argv[0], path)) != 0) {
+      if (sm > 0)
+        row(json, &first, path, "present", syn, NULL, NULL, NULL);
+      else
+        row(json, &first, path, "refused", 0, NULL, NULL,
+            "a link or not a plain file: never read or replaced");
+      bad |= sm < 0;
       free(path);
       continue;
     }

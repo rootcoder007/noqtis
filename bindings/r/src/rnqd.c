@@ -19,7 +19,9 @@ SEXP Cdkey(SEXP dir, SEXP member, SEXP key);
 SEXP Cdchk(SEXP dir);
 SEXP Cdinfer(SEXP dir, SEXP path, SEXP delim, SEXP noh, SEXP ranges);
 SEXP Cdstats(SEXP dir, SEXP path, SEXP delim, SEXP noh);
-SEXP Cddrift(SEXP stats, SEXP file, SEXP delim, SEXP noh, SEXP lv);
+SEXP Cddrift(SEXP stats, SEXP dir, SEXP file, SEXP delim, SEXP noh,
+             SEXP lv);
+SEXP Cdsha(SEXP dir, SEXP path);
 SEXP Cddiff(SEXP a, SEXP b);
 SEXP Cdaddr(SEXP dir, SEXP path);
 SEXP Cdvrfy(SEXP dir, SEXP path, SEXP raw);
@@ -293,8 +295,11 @@ SEXP Cdstats(SEXP dir, SEXP path, SEXP delim, SEXP noh) {
   return jfile(nqdstats, dir, path, &o);
 }
 
-/* lv: c(psiwarn, psifail, alpha, minn, benford) */
-SEXP Cddrift(SEXP stats, SEXP file, SEXP delim, SEXP noh, SEXP lv) {
+/* lv: c(psiwarn, psifail, alpha, minn, benford); dir NULL: file is the
+ * user's, by its path; else file is a member of dir, never through a
+ * link */
+SEXP Cddrift(SEXP stats, SEXP dir, SEXP file, SEXP delim, SEXP noh,
+             SEXP lv) {
   const char *s = s1(stats, "stats");
   nqdcsvopt o;
   nqddopt d;
@@ -308,8 +313,27 @@ SEXP Cddrift(SEXP stats, SEXP file, SEXP delim, SEXP noh, SEXP lv) {
   d.alpha = REAL(lv)[2];
   d.minn = REAL(lv)[3];
   d.benford = REAL(lv)[4] != 0;
-  rc = nqddrift(s, strlen(s), pth(file, "current"), &o, &d, &r);
+  if (Rf_isNull(dir))
+    rc = nqddrift(s, strlen(s), pth(file, "current"), &o, &d, &r);
+  else
+    rc = nqddriftat(s, strlen(s), pth(dir, "dir"), s1(file, "file"), &o, &d,
+                    &r);
   return drep(rc, r);
+}
+
+/* the SHA-256 (hex) of the file path in dir, never opened through a
+ * link */
+SEXP Cdsha(SEXP dir, SEXP path) {
+  const char *d = pth(dir, "dir"), *p = s1(path, "file");
+  uint8_t h[32];
+  char hx[65];
+  int rc = nqdsha(d, p, h, NULL), i;
+  if (rc != NQOK)
+    dfail(rc, p, rc == NQEARG ? "a link or not a plain file, refused"
+                              : "cannot be read");
+  for (i = 0; i < 32; i++)
+    snprintf(hx + 2 * i, 3, "%02x", h[i]);
+  return Rf_mkString(hx);
 }
 
 SEXP Cddiff(SEXP a, SEXP b) {

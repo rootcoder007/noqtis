@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Drift: the summaries a record keeps of a CSV file ("stats", made by
- * nqdstats) and the comparison of a later file with them (nqddrift):
+ * nqdstats) and the comparison of a later file with them (nqddrift,
+ * nqddriftat):
  * the two-sample Kolmogorov-Smirnov test from a quantile sketch, the
  * population stability index and Jensen-Shannon divergence over the
  * reference's bins or categories, the chi-square test of homogeneity
@@ -937,8 +938,9 @@ static int dcol(nqdrep *rep, const char *path, const djs *st,
   return rc;
 }
 
-int nqddrift(const char *stats, size_t n, const char *file,
-             const nqdcsvopt *o, const nqddopt *dopt, nqdrep **out) {
+int nqddriftat(const char *stats, size_t n, const char *dir,
+               const char *file, const nqdcsvopt *o, const nqddopt *dopt,
+               nqdrep **out) {
   djs *st = NULL;
   nqdrep *rep;
   qdccol *cs = NULL;
@@ -984,7 +986,7 @@ int nqddrift(const char *stats, size_t n, const char *file,
     if (hd != NULL && hd->t == DJFALSE)
       co.noheader = 1;
   }
-  rc = readcols(NULL, file, &co, &cs, &nc, &rows, why, sizeof why);
+  rc = readcols(dir, file, &co, &cs, &nc, &rows, why, sizeof why);
   if (rc != NQOK) {
     qdjfree(st);
     if (rc == NQEMEM) {
@@ -1052,6 +1054,11 @@ int nqddrift(const char *stats, size_t n, const char *file,
     bad |= !ok;
   }
   return qdrepout(rep, out, bad ? NQEVRFY : NQOK);
+}
+
+int nqddrift(const char *stats, size_t n, const char *file,
+             const nqdcsvopt *o, const nqddopt *dopt, nqdrep **out) {
+  return nqddriftat(stats, n, NULL, file, o, dopt, out);
 }
 
 /* ---- calibration ---- */

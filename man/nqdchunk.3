@@ -4,7 +4,8 @@
 .Os
 .Sh NAME
 .Nm nqdchunk ,
-.Nm nqdpiece
+.Nm nqdpiece ,
+.Nm nqdpieceat
 .Nd digests of the chunks of a large file, and a piece checked alone
 .Sh LIBRARY
 libnqd, \-lnqd \-lnoqtis
@@ -18,6 +19,11 @@ libnqd, \-lnqd \-lnoqtis
 .Ft int
 .Fo nqdpiece
 .Fa "const char *elem" "size_t n" "const char *piece" "uint64_t off"
+.Fa "nqdrep **rep"
+.Fc
+.Ft int
+.Fo nqdpieceat
+.Fa "const char *elem" "size_t n" "const char *dir" "const char *path"
 .Fa "nqdrep **rep"
 .Fc
 .Sh DESCRIPTION
@@ -65,6 +71,22 @@ rows name each chunk that differs, with its bytes (20 at most, then a
 count), or say which chunks and bytes match; a short run at the end of a
 piece that is not the end of the file is not checked, and a row says so.
 .Pp
+.Fn nqdpieceat
+checks the whole file
+.Fa path
+in
+.Fa dir
+.Pf ( Ql /
+between folders) the same way, from byte 0, opened as
+.Fn nqdchunk
+opens it: no folder on the way and not the file itself is followed when
+it is a symbolic link (on Windows, a reparse point), and a link or
+anything but a plain file is a failed row saying it is refused.
+A file shorter than the recorded size fails.
+Use it for a file of a capsule, and
+.Fn nqdpiece
+for a piece the caller names.
+.Pp
 A capsule's seal covers the digests through its data record, so
 .Xr nqchkx 3
 with
@@ -88,7 +110,9 @@ for a
 .Fa cap
 too small.
 .Pp
-.Fn nqdpiece :
+.Fn nqdpiece
+and
+.Fn nqdpieceat :
 .Dv NQOK
 when every chunk read matches and there was at least one (or the file is
 empty);

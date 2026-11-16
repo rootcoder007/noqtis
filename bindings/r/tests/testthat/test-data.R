@@ -242,3 +242,46 @@ test_that("nqdrift() refuses a level that is not one number", {
   }
   expect_true(attr(nqdrift(d), "ok"))
 })
+
+test_that("nqdrift() reads a file of the capsule, never through a link", {
+  skip_on_os("windows")
+  w <- tempfile("nqln")
+  d <- file.path(w, "d")
+  dir.create(file.path(d, "sub"), recursive = TRUE)
+  dir.create(file.path(w, "out"))
+  on.exit(unlink(w, recursive = TRUE))
+  x <- c("x", sprintf("%d", 1:20))
+  for (f in c("a.csv", "sub/a.csv", "../out/a.csv")) {
+    writeLines(x, file.path(d, f))
+  }
+  nqdpin(d, c("a.csv", "sub/a.csv"))
+  expect_true(attr(nqdrift(d), "ok"))
+  unlink(file.path(d, "a.csv"))
+  unlink(file.path(d, "sub"), recursive = TRUE)
+  file.symlink(file.path(w, "out", "a.csv"), file.path(d, "a.csv"))
+  file.symlink(file.path(w, "out"), file.path(d, "sub"))
+  for (f in c("a.csv", "sub/a.csv")) {
+    r <- nqdrift(d, f)
+    expect_false(attr(r, "ok"))
+    expect_match(r$detail[1], "a link or not a plain file, refused")
+  }
+  # a file the caller names is read by its path, a link or not
+  r <- nqdrift(d, "a.csv", current = file.path(d, "a.csv"))
+  expect_true(attr(r, "ok"))
+})
+
+test_that("nqdenv() reads a lock file inside dir, never through a link", {
+  skip_on_os("windows")
+  w <- tempfile("nqlk")
+  d <- file.path(w, "d")
+  dir.create(d, recursive = TRUE)
+  on.exit(unlink(w, recursive = TRUE))
+  writeLines("{}", file.path(w, "renv.lock"))
+  file.symlink(file.path(w, "renv.lock"), file.path(d, "renv.lock"))
+  p <- data.frame(name = "a", version = "1", source = "x")
+  expect_error(nqdenv(d, pkgs = p), "refused")
+  expect_error(nqdenv(d, locks = "renv.lock", pkgs = p), "refused")
+  unlink(file.path(d, "renv.lock"))
+  file.copy(file.path(w, "renv.lock"), file.path(d, "renv.lock"))
+  expect_match(nqdenv(d, pkgs = p), '"path":"renv.lock"', fixed = TRUE)
+})

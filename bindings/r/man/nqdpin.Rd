@@ -31,7 +31,9 @@ nqdrift(
 named V1, V2, ...).}
 
 \item{current}{\code{NULL}, or one path per file: the file to compare in
-its place (a new download of the same source, say).}
+its place (a new download of the same source, say), read by its
+path. Without it each file is read inside \code{dir}, never through a
+symbolic link: a link is a failed row.}
 
 \item{psiwarn, psifail}{PSI from which a column warns, and fails (when
 both samples have \code{minn} values).}

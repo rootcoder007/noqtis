@@ -136,6 +136,13 @@ printf '{"format":"noqtis-data-1","format":"noqtis-data-1"}' \
 ok 2 "data fmt refuses a duplicate key" "$nq" data fmt "$c"
 has "$w/err" "duplicate key" "says duplicate"
 cp "$w/keep.json" "$c/noqtis.data.json"
+# the record is never read through a link
+mv "$c/noqtis.data.json" "$w/keep2.json"
+ln -s "$w/keep2.json" "$c/noqtis.data.json"
+ok 2 "data fmt through a link" "$nq" data fmt "$c"
+has "$w/err" "a link or not a plain file, refused" "fmt refuses the link"
+rm "$c/noqtis.data.json"
+mv "$w/keep2.json" "$c/noqtis.data.json"
 
 # a changed file
 cp "$c/data/a.csv" "$w/a.csv"
@@ -923,6 +930,50 @@ has "$w/out" '"check":"chunk","ok":false' "json rows"
 ok 1 "data check, a changed file" "$nq" data check "$k"
 ok 2 "chunk nothing" "$nq" chunk nothing
 
+# ---- a file of the capsule is never read through a link ----
+
+# drift check, chunk check and env open a file of the folder from the
+# folder, as data add and schema check do: a link to a file or a folder
+# outside is refused, never followed; a file the user names is read by
+# its path
+q=$w/mb
+mkdir -p "$q/sub" "$w/mbout"
+printf 'x,y\n1,2\n3,4\n' >"$w/mbout/t.csv"
+cp "$w/mbout/t.csv" "$q/t.csv"
+cp "$w/mbout/t.csv" "$q/sub/t.csv"
+ok 0 "links: data init" "$nq" data init "$q"
+ok 0 "links: drift pin" "$nq" drift pin "$q" t.csv sub/t.csv
+ok 0 "links: chunk pin" "$nq" chunk pin "$q" t.csv sub/t.csv
+ok 0 "links: drift check" "$nq" drift check "$q"
+ok 0 "links: chunk check" "$nq" chunk check "$q" sub/t.csv
+rm "$q/t.csv"
+rm -r "$q/sub"
+ln -s "$w/mbout/t.csv" "$q/t.csv"
+ln -s "$w/mbout" "$q/sub"
+for lf in t.csv sub/t.csv; do
+  ok 1 "drift check $lf through a link" "$nq" drift check "$q" "$lf"
+  has "$w/out" "a link or not a plain file, refused" "drift: $lf refused"
+  ok 1 "chunk check $lf through a link" "$nq" chunk check "$q" "$lf"
+  has "$w/out" "a link or not a plain file, refused" "chunk: $lf refused"
+done
+ok 0 "drift check of a file named, a link" "$nq" drift check "$q" \
+  "t.csv=$q/t.csv"
+ok 0 "chunk check of a piece named, a link" "$nq" chunk check "$q" t.csv \
+  "$q/t.csv"
+printf 'lock\n' >"$w/mbout/renv.lock"
+ln -s "$w/mbout/renv.lock" "$q/renv.lock"
+ok 2 "env --lock through a link" "$nq" env --lock renv.lock "$q"
+has "$w/err" "a link or not a plain file, refused" "env: the lock refused"
+ok 2 "env, a known lock file a link" "$nq" env "$q"
+has "$w/err" "renv.lock: a link or not a plain file" "env: found and refused"
+ok 2 "env --lock in a linked folder" "$nq" env --lock sub/renv.lock "$q"
+ok 0 "links: show" "$nq" data show "$q"
+n=$((n + 1))
+if grep -q '"locks"' "$w/out"; then
+  bad=$((bad + 1))
+  echo "FAIL a lock file recorded through a link" >&2
+fi
+
 # ---- chain ----
 
 ok 0 "chain: second key" "$nq" keygen -a ML-DSA-44 -o "$w/k2"
@@ -1226,6 +1277,16 @@ if [ -n "$tsad" ]; then
   ok 0 "src fetch writes a new file beside it" "$nq" src fetch "$s3" \
     sub/new.csv
   same "$s3/sub/new.csv" "$ww/a.csv" "with the recorded bytes"
+  # a link to a file that holds the recorded bytes is not the file: it is
+  # refused, not reported present
+  s4=$w/srcsame
+  mkdir -p "$s4"
+  cp "$ww/a.csv" "$w/srcout/same.csv"
+  ln -s "$w/srcout/same.csv" "$s4/same.csv"
+  printf '{"format":"noqtis-data-1","sources":[{"path":"same.csv","sha256":"%s","size":%s,"url":"%s/a.csv"}]}' \
+    "$hs" "$sz" "$U" >"$s4/noqtis.data.json"
+  ok 1 "src fetch, the recorded bytes behind a link" "$nq" src fetch "$s4"
+  has "$w/out" "refused" "a link is not taken for the file"
   ok 0 "data check at the end" "$nq" data check "$s"
   ok 0 "help src" "$nq" help src
   has "$w/out" "noqtis src refresh" "help lists refresh"

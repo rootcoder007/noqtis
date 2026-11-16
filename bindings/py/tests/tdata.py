@@ -84,6 +84,22 @@ def test_drift_matches_r(tmp_path):
     assert abs(c["chisqp"] / float(ex["chi.p"]) - 1) < 1e-10
 
 
+@pytest.mark.skipif(os.name == "nt", reason="symbolic links")
+def test_drift_never_through_a_link(tmp_path):
+    # a file of the capsule is read inside it, never through a link; one
+    # the caller names is read by its path
+    d, o = tmp_path / "d", tmp_path / "o"
+    d.mkdir()
+    o.mkdir()
+    shutil.copy(V / "drift" / "ref.csv", d / "a.csv")
+    data.pin(d, ["a.csv"])
+    (d / "a.csv").rename(o / "a.csv")
+    (d / "a.csv").symlink_to(o / "a.csv")
+    r = data.drift(d)
+    assert not r.ok and "refused" in r.rows[0].detail
+    assert data.drift(d, ["a.csv"], [d / "a.csv"]).level == "ok"
+
+
 def test_diff(cap, tmp_path):
     data.add(cap, "data/a.csv")
     b = tmp_path / "b"

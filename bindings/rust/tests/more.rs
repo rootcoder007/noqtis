@@ -192,6 +192,20 @@ fn env_commit_cite_report() {
     let r = data::text(&c).unwrap();
     assert!(r.contains("\"rng\":{\"kind\":\"ChaCha20\",\"seed\":\"42\"}"));
     assert!(data::check(&c).unwrap().ok());
+    #[cfg(unix)]
+    {
+        // a lock file is read inside the folder, never through a link
+        let (l, o) = (c.join("Cargo.lock"), c.with_extension("lock"));
+        fs::rename(&l, &o).unwrap();
+        std::os::unix::fs::symlink(&o, &l).unwrap();
+        let e = data::env(&c, &data::Env::default()).unwrap_err();
+        assert!(
+            e.kind() == Code::Arg && e.to_string().contains("refused"),
+            "{e}"
+        );
+        fs::remove_file(&l).unwrap();
+        fs::rename(&o, &l).unwrap();
+    }
     let plan = b"arm A: 1, 4\n";
     let s = data::commit(
         &c,

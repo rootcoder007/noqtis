@@ -623,15 +623,28 @@ pub fn drift(
         let s = r
             .key("stats", f)?
             .ok_or_else(|| Error::why(-1, format!("no summary of {f}: pin one first")))?;
-        let p = if current.is_empty() {
-            cpath(&dir.join(f))?
+        // a file of the capsule is opened inside dir, never through a
+        // link; a file of current is the caller's, opened by its path
+        let (d, p) = if current.is_empty() {
+            (Some(cpath(dir)?), cs(f)?)
         } else {
-            cpath(&current[i])?
+            (None, cpath(&current[i])?)
         };
+        let dp = d.as_ref().map_or(ptr::null(), |d| d.as_ptr());
         let mut rp = ptr::null_mut();
-        // SAFETY: s is s.len() bytes; valid options; rp receives the report
-        let c =
-            unsafe { ffi::nqddrift(s.as_ptr().cast(), s.len(), p.as_ptr(), &co, &dop, &mut rp) };
+        // SAFETY: s is s.len() bytes; dp NULL or a valid string; valid
+        // options; rp receives the report
+        let c = unsafe {
+            ffi::nqddriftat(
+                s.as_ptr().cast(),
+                s.len(),
+                dp,
+                p.as_ptr(),
+                &co,
+                &dop,
+                &mut rp,
+            )
+        };
         let x = drep(c, rp)?;
         if out.code == 0 {
             out.code = x.code;
@@ -1296,11 +1309,20 @@ pub fn env(dir: impl AsRef<Path>, o: &Env) -> Result<String> {
             }
             continue;
         }
-        let b = std::fs::read(&fp).map_err(|x| Error::why(-7, format!("{}: {x}", fp.display())))?;
-        let h: String = crate::hash("SHA-256", &b, None)?
-            .iter()
-            .map(|x| format!("{x:02x}"))
-            .collect();
+        // opened from dir, never through a link (nqdsha)
+        let (dc, fc) = (cpath(dp)?, cs(f)?);
+        let mut d = [0u8; 32];
+        // SAFETY: valid strings; d has 32 bytes; size may be NULL
+        let c = unsafe { ffi::nqdsha(dc.as_ptr(), fc.as_ptr(), d.as_mut_ptr(), ptr::null_mut()) };
+        if c != 0 {
+            let w = if c == -1 {
+                "a link or not a plain file, refused"
+            } else {
+                "cannot be read"
+            };
+            return Err(Error::why(c, format!("{}: {w}", fp.display())));
+        }
+        let h: String = d.iter().map(|x| format!("{x:02x}")).collect();
         lk.push((f.clone(), h));
     }
     lk.sort();

@@ -5,6 +5,7 @@
 .Sh NAME
 .Nm nqdstats ,
 .Nm nqddrift ,
+.Nm nqddriftat ,
 .Nm nqddcal
 .Nd summarise a CSV file, compare a later one with the summary, and calibrate it
 .Sh LIBRARY
@@ -28,6 +29,11 @@ typedef struct {
 .Ft int
 .Fo nqddrift
 .Fa "const char *stats" "size_t n" "const char *file"
+.Fa "const nqdcsvopt *o" "const nqddopt *d" "nqdrep **rep"
+.Fc
+.Ft int
+.Fo nqddriftat
+.Fa "const char *stats" "size_t n" "const char *dir" "const char *path"
 .Fa "const nqdcsvopt *o" "const nqddopt *d" "nqdrep **rep"
 .Fc
 .Ft int
@@ -80,6 +86,27 @@ the defaults above).
 .Xr noqtis-drift 1
 defines the summaries, the tests, the levels and the error of the
 sketch.
+.Pp
+.Fn nqddriftat
+does the same with the file
+.Fa path
+in
+.Fa dir
+.Pf ( Ql /
+between folders), opened as
+.Fn nqdstats
+opens it: no folder on the way and not the file itself is followed when
+it is a symbolic link (on Windows, a reparse point), and a link or
+anything but a plain file is a failed row saying it is refused.
+Use it for a file of a capsule, and
+.Fn nqddrift
+for a file the caller names; with
+.Fa dir
+.Dv NULL
+it is
+.Fn nqddrift
+of
+.Fa path .
 .Pp
 .Fn nqddcal
 calibrates the warnings of the
@@ -137,13 +164,15 @@ for a file that cannot be read,
 .Dv NQELIM
 over the reader's limits.
 .Fn nqddrift
-returns
+and
+.Fn nqddriftat
+return
 .Dv NQOK
 when no row failed and
 .Dv NQEVRFY
 when one did (an element that is not
 .Ql stats ,
-or a file that cannot be read, is a failed row), with
+a file that cannot be read, or one refused, is a failed row), with
 .Fa *rep
 set.
 .Fn nqddcal

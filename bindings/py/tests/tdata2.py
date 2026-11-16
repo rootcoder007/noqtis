@@ -49,6 +49,13 @@ def test_env(cap, monkeypatch):
     assert data.check(cap).ok
     with pytest.raises(ValueError):
         data.env(cap, locks=["nope.lock"])
+    if os.name != "nt":
+        # a lock file is read inside the folder, never through a link
+        out = cap.parent / "out.lock"
+        (cap / "uv.lock").rename(out)
+        (cap / "uv.lock").symlink_to(out)
+        with pytest.raises(noqtis.ArgError, match="refused"):
+            data.env(cap)
     with pytest.raises(ValueError):
         data.env(cap, seed=1)
 

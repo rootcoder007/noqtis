@@ -191,6 +191,24 @@ fn drift() {
     assert!(e.unwrap_err().to_string().contains("no summary of cur.csv"));
 }
 
+// a file of the capsule is read inside it, never through a link; one the
+// caller names is read by its path
+#[cfg(unix)]
+#[test]
+fn drift_link() {
+    let Some(v) = vec() else { return };
+    let (d, o) = (tmp("driftln"), tmp("driftlo"));
+    fs::copy(v.join("drift/ref.csv"), d.join("ref.csv")).unwrap();
+    data::pin(&d, &["ref.csv"], &data::Csv::default()).unwrap();
+    fs::rename(d.join("ref.csv"), o.join("ref.csv")).unwrap();
+    std::os::unix::fs::symlink(o.join("ref.csv"), d.join("ref.csv")).unwrap();
+    let (c, dr) = (data::Csv::default(), data::Drift::default());
+    let r = data::drift(&d, &[], &[], &c, &dr).unwrap();
+    assert!(!r.ok() && r.rows[0].detail.contains("refused"), "{r:?}");
+    let r = data::drift(&d, &["ref.csv"], &[d.join("ref.csv")], &c, &dr).unwrap();
+    assert_eq!(r.level(), "ok", "{r:?}");
+}
+
 #[test]
 fn diff() {
     let Some(v) = vec() else { return };

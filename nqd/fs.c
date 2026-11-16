@@ -661,3 +661,11 @@ int qdshaat(const char *dir, const char *rel, uint8_t h[32],
     return rc;
   return shaf(f, h, size);
 }
+
+int nqdsha(const char *dir, const char *path, uint8_t h[32],
+           uint64_t *size) {
+  uint64_t s;
+  if (dir == NULL || path == NULL || h == NULL)
+    return NQEARG;
+  return qdshaat(dir, path, h, size != NULL ? size : &s);
+}

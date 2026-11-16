@@ -30,13 +30,13 @@ set(NQMANAKA
   "nqseal2:nqcapid"
   "nqerr:nqver"
   "nqtlnew:nqtlct,nqtlhs,nqtlwr,nqtlrd,nqtlend,nqtlwhy,nqtlfree"
-  "nqdnew:nqdparse,nqdload,nqdjson,nqdsave,nqdrfree,nqdlen,nqdat,nqdkey,nqdput,nqdset,nqddel,nqdsrc"
+  "nqdnew:nqdparse,nqdload,nqdjson,nqdsave,nqdrfree,nqdlen,nqdat,nqdkey,nqdput,nqdset,nqddel,nqdsrc,nqdsha"
   "nqdchk:nqdrepn,nqdrepi,nqdrepj,nqdrepfree"
   "nqdinfer:nqdschk"
-  "nqdstats:nqddrift,nqddcal"
+  "nqdstats:nqddrift,nqddriftat,nqddcal"
   "nqdcommit:nqdreveal,nqdcite"
   "nqdpack:nqdunpack"
-  "nqdchunk:nqdpiece"
+  "nqdchunk:nqdpiece,nqdpieceat"
   "nqdaddr:nqdvrfy,nqdfld,nqdrslv,nqdrsp,nqdwb"
   "nqsetal:nqdsetal")
 foreach(e ${NQMANAKA})

@@ -155,6 +155,17 @@ func TestEnvCommitCiteReport(t *testing.T) {
 	if _, err := Env(c, &EnvOpts{Locks: []string{"none.lock"}}); code(err) != -1 {
 		t.Fatal("missing lock", err)
 	}
+	if runtime.GOOS != "windows" {
+		// a lock file is read inside the folder, never through a link
+		o := filepath.Join(t.TempDir(), "go.sum")
+		must(0, os.Rename(filepath.Join(c, "go.sum"), o))
+		must(0, os.Symlink(o, filepath.Join(c, "go.sum")))
+		if _, err := Env(c, nil); code(err) != -1 || !strings.Contains(err.Error(), "refused") {
+			t.Fatal("a lock file through a link", err)
+		}
+		must(0, os.Remove(filepath.Join(c, "go.sum")))
+		must(0, os.Rename(o, filepath.Join(c, "go.sum")))
+	}
 	plan := []byte("arm A: 1, 4\n")
 	s := must(Commit(c, plan, &CommitOpts{Kind: "randomisation", Label: "trial"}))
 	if i, ok := pair(Reveal(c, plan, s)); !ok || i != 0 {

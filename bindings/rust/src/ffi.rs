@@ -404,14 +404,16 @@ extern "C" {
         why: *mut c_char,
         wcap: usize,
     ) -> c_int;
-    pub fn nqddrift(
+    pub fn nqddriftat(
         stats: *const c_char,
         n: usize,
-        file: *const c_char,
+        dir: *const c_char,
+        path: *const c_char,
         o: *const Csvopt,
         d: *const Dopt,
         rep: *mut *mut Drep,
     ) -> c_int;
+    pub fn nqdsha(dir: *const c_char, path: *const c_char, h: *mut u8, size: *mut u64) -> c_int;
     pub fn nqddiff(a: *const c_char, b: *const c_char, rep: *mut *mut Drep) -> c_int;
     pub fn nqdchk(dir: *const c_char, rep: *mut *mut Drep) -> c_int;
     pub fn nqdrepn(r: *const Drep) -> usize;

@@ -205,9 +205,10 @@ def drift(dir: PathLike, files: Optional[Iterable[str]] = None,
         s = _c.dkey(d, "stats", f)
         if s is None:
             raise ValueError("no summary of %s: pin one first" % f)
-        p = path(cur[i]) if cur is not None else path(os.path.join(
-            os.fsdecode(d), f))
-        r = _rep(_c.ddrift(s, p, _dl(delim), not header, float(psiwarn),
+        # a file of the capsule is opened inside it, never through a
+        # link; a file of current is the caller's, opened by its path
+        at = (None, path(cur[i])) if cur is not None else (d, f.encode())
+        r = _rep(_c.ddrift(s, *at, _dl(delim), not header, float(psiwarn),
                            float(psifail), float(alpha), float(minn),
                            benford))
         code = code or r.code
@@ -434,7 +435,6 @@ def env(dir: PathLike, rng: Optional[str] = None,
     ``dir`` with their SHA-256, ``rng`` and its ``seed``), with the
     Python runtime: its version and ``pkgs`` (default: packages())."""
     import platform
-    from . import hash as _h
     if seed is not None and rng is None:
         raise ValueError("seed needs rng, the generator it seeds")
     d = os.fsdecode(path(dir))
@@ -455,8 +455,8 @@ def env(dir: PathLike, rng: Optional[str] = None,
             if locks is not None:
                 raise ValueError("%s: not a file in %s" % (f, d))
             continue
-        with open(fp, "rb") as fh:
-            lk.append({"path": f, "sha256": _h("SHA-256", fh.read()).hex()})
+        # opened from d, never through a link (nqdsha)
+        lk.append({"path": f, "sha256": _c.dsha(path(d), f).hex()})
     if lk:
         e["locks"] = sorted(lk, key=lambda x: x["path"])
     if rng is not None:

@@ -251,7 +251,8 @@ nqdreport <- function(dir, pk = NULL, format = c("md", "txt")) {
 #' @param seed `NULL`, or the seed (a number or one string).
 #' @param locks `NULL` for the known lock files present in `dir`
 #'   (`renv.lock`, `uv.lock`, `Cargo.lock`, ...), or the lock files to
-#'   record, paths in `dir`.
+#'   record, paths in `dir`. Each is read inside `dir`; one reached
+#'   through a symbolic link is refused (an error).
 #' @param pkgs `NULL` for `nqdpkgs()`, or a data frame with the columns
 #'   `name`, `version` and `source`.
 #' @param which The packages to list: names, or `NULL` for those loaded.
@@ -359,9 +360,8 @@ nqdenv <- function(dir, rng = NULL, seed = NULL, locks = NULL,
     return(character(0))
   }
   f <- sort(f)
-  h <- vapply(f, function(x) {
-    nqhash(file.path(d, x), file = TRUE, hex = TRUE)
-  }, "")
+  # each opened from d, never through a link
+  h <- vapply(f, function(x) .Call(Cdsha, d, enc2utf8(x)), "")
   el <- sprintf('{"path":%s,"sha256":"%s"}', vapply(f, .jstr, ""), h)
   paste0('"locks":[', paste(el, collapse = ","), "]")
 }

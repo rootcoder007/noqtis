@@ -103,6 +103,16 @@ final class More2 {
     Data.env(c, null, null, null, null);
     ok(Data.check(c).ok(), "record after env");
     eq(fails(() -> Data.env(c, null, null, List.of("none.lock"), null)), Code.ARG, "missing lock");
+    if (!System.getProperty("os.name").startsWith("Windows")) {
+      // a lock file is read inside the folder, never through a link
+      Path o = Files.createTempFile("nqlk", ".lock");
+      Files.delete(c.resolve("uv.lock"));
+      Files.createSymbolicLink(c.resolve("uv.lock"), o);
+      eq(fails(() -> Data.env(c, null, null, null, null)), Code.ARG, "a lock file through a link");
+      Files.delete(c.resolve("uv.lock"));
+      Files.delete(o);
+      Files.writeString(c.resolve("uv.lock"), "lock\n");
+    }
     byte[] plan = b("arm A: 1, 4\n");
     byte[] s = Data.commit(c, plan, "randomisation", "trial", null);
     eq(Data.reveal(c, plan, s), 0, "reveal");

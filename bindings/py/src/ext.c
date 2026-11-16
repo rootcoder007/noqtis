@@ -1199,23 +1199,44 @@ static PyObject *pdstats(PyObject *self, PyObject *args) {
   return djfile(nqdstats, dir, p, &o);
 }
 
+/* the SHA-256 of the file p in dir, never opened through a link */
+static PyObject *pdsha(PyObject *self, PyObject *args) {
+  const char *dir, *p;
+  uint8_t h[32];
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ys", &dir, &p)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqdsha(dir, p, h, NULL);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK)
+    return dfail(rc, rc == NQEARG ? "a link or not a plain file, refused"
+                                  : "cannot be read");
+  return PyBytes_FromStringAndSize((const char *)h, 32);
+}
+
+/* dir None: file is the caller's, by its path; else file is a member
+ * of dir, never opened through a link */
 static PyObject *pddrift(PyObject *self, PyObject *args) {
-  const char *st, *file;
+  const char *st, *file, *dir = NULL;
+  PyObject *od;
   int dl, noh, ben;
   nqdcsvopt o;
   nqddopt d;
   nqdrep *r = NULL;
   int rc;
   (void)self;
-  if (!PyArg_ParseTuple(args, "syCpddddp", &st, &file, &dl, &noh,
+  if (!PyArg_ParseTuple(args, "sOyCpddddp", &st, &od, &file, &dl, &noh,
                         &d.psiwarn, &d.psifail, &d.alpha, &d.minn, &ben))
+    return NULL;
+  if (od != Py_None && (dir = PyBytes_AsString(od)) == NULL)
     return NULL;
   memset(&o, 0, sizeof o);
   o.delim = (char)dl;
   o.noheader = noh;
   d.benford = ben;
   Py_BEGIN_ALLOW_THREADS
-  rc = nqddrift(st, strlen(st), file, &o, &d, &r);
+  rc = nqddriftat(st, strlen(st), dir, file, &o, &d, &r);
   Py_END_ALLOW_THREADS
   return ddone(rc, r);
 }
@@ -2202,7 +2223,8 @@ static PyMethodDef meths[] = {
   {"dchk", pdchk, METH_VARARGS, "nqdchk"},
   {"dinfer", pdinfer, METH_VARARGS, "nqdinfer"},
   {"dstats", pdstats, METH_VARARGS, "nqdstats"},
-  {"ddrift", pddrift, METH_VARARGS, "nqddrift"},
+  {"ddrift", pddrift, METH_VARARGS, "nqddriftat"},
+  {"dsha", pdsha, METH_VARARGS, "nqdsha"},
   {"ddiff", pddiff, METH_VARARGS, "nqddiff"},
   {"daddr", pdaddr, METH_VARARGS, "nqdaddr"},
   {"dvrfy", pdvrfy, METH_VARARGS, "nqdvrfy"},

@@ -11,7 +11,6 @@ import "C"
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -600,17 +599,20 @@ func Drift(dir string, files, current []string, o *CSVOpts, do *DriftOpts) (*DRe
 		if !ok {
 			return nil, why(-1, "no summary of %s: pin one first", f)
 		}
-		p := filepath.Join(dir, filepath.FromSlash(f))
+		// a file of the capsule is opened inside dir, never through a
+		// link; a file of current is the caller's, opened by its path
+		dc, fc := (*C.char)(nil), (*C.char)(nil)
 		if len(current) != 0 {
-			p = current[i]
+			fc, err = m.str(current[i])
+		} else if dc, err = m.str(dir); err == nil {
+			fc, err = m.str(f)
 		}
-		pc, err := m.str(p)
 		if err != nil {
 			return nil, err
 		}
 		sc, _ := m.str(s)
 		var rp *C.nqdrep
-		c := C.nqddrift(sc, C.size_t(len(s)), pc, co, dop, &rp)
+		c := C.nqddriftat(sc, C.size_t(len(s)), dc, fc, co, dop, &rp)
 		x, err := dreport(c, rp)
 		if err != nil {
 			return nil, err

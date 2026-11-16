@@ -43,6 +43,18 @@ Only that is read, so a range fetched alone, or the part of a file that
 survived, can be checked without the rest.
 A short run at the end of a piece that is not the file's end is not
 checked, and a row says so.
+Without a
+.Ar piece ,
+.Ar file
+is read whole from
+.Ar dir
+without following a symbolic link
+.Pq Xr noqtis-data 5 :
+a link to a file or a folder, or anything but a plain file, is a failed
+row saying it is refused, and a file shorter than recorded fails.
+A
+.Ar piece
+is read by its path.
 .Pp
 To trust the digests without the file, check the record's seal alone:
 .Ql noqtis check --only noqtis.data.json .
@@ -55,7 +67,7 @@ checks each file whole against its chunks.
 Recorded; or every chunk read matches.
 .It 1
 A chunk differs, the piece runs past the file, or it holds no whole
-chunk.
+chunk; the file is shorter than recorded, or refused as a link.
 .It 2
 A usage or file error, or no chunks recorded for
 .Ar file .

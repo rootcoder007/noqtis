@@ -110,6 +110,24 @@ static void piece(void) {
   NQTEQI(nqdpiece(e, n, at("big.bin"), 0, &r), NQOK);
   NQTCHK(rows(r, "chunks 0 to 4 of 5 match (bytes 0 to 4999)"));
   nqdrepfree(r);
+  /* the same file as a member of the folder; a path out of it refused */
+  NQTEQI(nqdpieceat(e, n, tmp, "big.bin", &r), NQOK);
+  NQTCHK(rows(r, "chunks 0 to 4 of 5 match (bytes 0 to 4999)"));
+  nqdrepfree(r);
+  NQTEQI(nqdpieceat(e, n, tmp, "../big.bin", &r), NQEVRFY);
+  NQTCHK(rows(r, "refused"));
+  nqdrepfree(r);
+  NQTEQI(nqdpieceat(e, n, NULL, "big.bin", &r), NQEARG);
+  {
+    uint8_t h[32], w[32];
+    uint64_t sz = 0;
+    NQTEQI(nqdsha(tmp, "big.bin", h, &sz), NQOK);
+    NQTEQI(nqhash(NQS256, data, sizeof data, w, 32), NQOK);
+    NQTCHK(sz == sizeof data && memcmp(h, w, 32) == 0);
+    NQTEQI(nqdsha(tmp, "none", h, NULL), NQEIO);
+    NQTEQI(nqdsha(tmp, "../big.bin", h, NULL), NQEARG);
+    NQTEQI(nqdsha(NULL, "big.bin", h, NULL), NQEARG);
+  }
   /* chunks 2 and 3, alone */
   NQTEQI(qdwrite(at("p23"), (const char *)data + 2048, 2048), NQOK);
   NQTEQI(nqdpiece(e, n, at("p23"), 2048, &r), NQOK);
@@ -165,6 +183,13 @@ static void piece(void) {
   NQTEQI(qdwrite(at("big.bin"), (const char *)data, 4096), NQOK);
   NQTEQI(nqdchk(tmp, &r), NQEVRFY);
   NQTCHK(rows(r, "4096 bytes, the record says 5000"));
+  nqdrepfree(r);
+  /* nqdpieceat reads the member whole: a file cut at a chunk's end
+   * fails, where nqdpiece of it as a piece passes */
+  NQTEQI(nqdpieceat(e, n, tmp, "big.bin", &r), NQEVRFY);
+  NQTCHK(rows(r, "4096 bytes, the record says 5000"));
+  nqdrepfree(r);
+  NQTEQI(nqdpiece(e, n, at("big.bin"), 0, &r), NQOK);
   nqdrepfree(r);
 }
 

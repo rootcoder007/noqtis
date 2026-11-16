@@ -1,5 +1,10 @@
 # noqtis 0.2.0
 
+* `nqdrift()` reads each summarised file inside `dir` and refuses one
+  reached through a symbolic link (a failed row), as `nqdpin()` does;
+  it followed the link before. A file given in `current` is still read
+  by its path. `nqdenv()` likewise refuses a lock file reached through
+  a link, where it recorded the digest of the file behind it.
 * `nqdrift()` refuses a `psiwarn`, `psifail`, `alpha` or `minn` that is not one number, zero or more: an `NA` or a text value was taken with a warning and every column then read as not drifted.
 
 * Secret keys under a passphrase: `nqpwenc()`, `nqpwdec()` and `pass =`

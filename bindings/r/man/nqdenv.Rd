@@ -19,7 +19,8 @@ is R's, \code{RNGkind()[1]}, when \code{seed} is given.}
 
 \item{locks}{\code{NULL} for the known lock files present in \code{dir}
 (\code{renv.lock}, \code{uv.lock}, \code{Cargo.lock}, ...), or the lock files to
-record, paths in \code{dir}.}
+record, paths in \code{dir}. Each is read inside \code{dir}; one reached
+through a symbolic link is refused (an error).}
 
 \item{pkgs}{\code{NULL} for \code{nqdpkgs()}, or a data frame with the columns
 \code{name}, \code{version} and \code{source}.}

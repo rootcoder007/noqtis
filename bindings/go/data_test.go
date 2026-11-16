@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -186,6 +187,30 @@ func TestDataDrift(t *testing.T) {
 	near(t, jnum(t, c, "psi"), dexp(t, v, "cat.psi"), 1e-12, "cat.psi")
 	if _, err := Drift(d, []string{"cur.csv"}, nil, nil, nil); err == nil || !strings.Contains(err.Error(), "no summary of cur.csv") {
 		t.Errorf("no summary: %v", err)
+	}
+}
+
+// a file of the capsule is read inside it, never through a link; one the
+// caller names is read by its path
+func TestDataDriftLink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic links")
+	}
+	v := nqdvec(t)
+	d, o := t.TempDir(), t.TempDir()
+	ref := must(os.ReadFile(filepath.Join(v, "drift", "ref.csv")))
+	must(0, os.WriteFile(filepath.Join(d, "ref.csv"), ref, 0o644))
+	must(0, Pin(d, []string{"ref.csv"}, nil))
+	must(0, os.WriteFile(filepath.Join(o, "ref.csv"), ref, 0o644))
+	must(0, os.Remove(filepath.Join(d, "ref.csv")))
+	must(0, os.Symlink(filepath.Join(o, "ref.csv"), filepath.Join(d, "ref.csv")))
+	r := must(Drift(d, nil, nil, nil, nil))
+	if r.OK() || len(r.Rows) == 0 || !strings.Contains(r.Rows[0].Detail, "refused") {
+		t.Errorf("read through a link: %+v", r)
+	}
+	r = must(Drift(d, []string{"ref.csv"}, []string{filepath.Join(d, "ref.csv")}, nil, nil))
+	if r.Level() != "ok" {
+		t.Errorf("a file named: %+v", r)
 	}
 }
 

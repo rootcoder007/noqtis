@@ -15,7 +15,8 @@
 .Nm nqdput ,
 .Nm nqdset ,
 .Nm nqddel ,
-.Nm nqdsrc
+.Nm nqdsrc ,
+.Nm nqdsha
 .Nd make, read and change a data record
 .Sh LIBRARY
 libnqd, \-lnqd \-lnoqtis
@@ -66,6 +67,10 @@ libnqd, \-lnqd \-lnoqtis
 .Fo nqdsrc
 .Fa "nqdrec *r" "const char *dir" "const char *path"
 .Fa "char *why" "size_t cap"
+.Fc
+.Ft int
+.Fo nqdsha
+.Fa "const char *dir" "const char *path" "uint8_t h[32]" "uint64_t *size"
 .Fc
 .Sh DESCRIPTION
 A
@@ -210,6 +215,26 @@ records the SHA-256 and size of the file
 between folders) in its
 .Ql sources
 element, keeping the element's other fields, or adds the element.
+.Pp
+.Fn nqdsha
+writes the SHA-256 of the file
+.Fa path
+in
+.Fa dir
+to
+.Fa h
+and its size to
+.Fa *size
+(when not
+.Dv NULL ) ,
+for an element the caller builds, such as the lock files of
+.Ql env .
+Like
+.Fn nqdsrc
+and every function that reads a file of a capsule, it opens it from
+.Fa dir
+without following a symbolic link (on Windows, a reparse point) on the
+way or in its place.
 .Sh RETURN VALUES
 .Dv NQOK
 on success;
@@ -225,8 +250,9 @@ for a record, element or file that is not there or cannot be read or
 written,
 .Dv NQEARG
 for an unknown member, a key that cannot change
-.Pq Fn nqdset No of Cm path No or Cm name
-or a path a capsule cannot hold,
+.Pq Fn nqdset No of Cm path No or Cm name ,
+a path a capsule cannot hold, or a file that is a link or not a plain
+file,
 .Dv NQEMEM
 when memory runs out.
 .Sh EXAMPLES

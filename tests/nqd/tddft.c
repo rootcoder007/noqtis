@@ -211,6 +211,20 @@ static void refusals(void) {
   NQTEQI(nqddrift("{}", 2, "vectors/nqd/cap/data/a.csv", NULL, NULL, &rep),
          NQEVRFY);
   nqdrepfree(rep);
+  /* the same file as a member of its folder; a path out of it refused */
+  NQTEQI(nqddriftat(st, strlen(st), "vectors/nqd/cap", "data/a.csv", NULL,
+                    NULL, &rep),
+         NQEVRFY);
+  nqdrepfree(rep);
+  NQTEQI(nqddriftat(st, strlen(st), "vectors/nqd/cap/data", "../../x.csv",
+                    NULL, NULL, &rep),
+         NQEVRFY);
+  {
+    const char *d = NULL;
+    nqdrepi(rep, 0, NULL, NULL, &d);
+    NQTCHK(d != NULL && strstr(d, "refused") != NULL);
+  }
+  nqdrepfree(rep);
 }
 
 static const djs *calof(const djs *st, const char *name) {

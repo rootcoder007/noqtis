@@ -178,7 +178,8 @@ test_that("the C interface refuses what R would never pass", {
   expect_error(C("Cdparse", 1), "must be one string")
   expect_error(C("Cdpack", 1, TRUE, "x"), "must be one path")
   expect_error(C("Cdinfer", ".", "a", "ab", FALSE, FALSE), "one byte")
-  expect_error(C("Cddrift", "{}", "a", ",", FALSE, 1), "five numbers")
+  expect_error(C("Cddrift", "{}", NULL, "a", ",", FALSE, 1), "five numbers")
+  expect_error(C("Cdsha", tempdir(), "none"), "none: cannot be read")
   expect_error(C("Cdadd", ".", "a", "f", character()), "each field")
   expect_error(C("Cdadd", tempdir(), NA_character_, character(), character()),
                "must not hold NA")
