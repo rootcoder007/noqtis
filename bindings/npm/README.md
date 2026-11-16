@@ -120,7 +120,7 @@ and Merkle audit path, and nothing of the other files.
 the capsules one was made from; `check(files, { lineage: [raw] })` finds
 each among those capsules by id and checks it, to 64 levels.
 `check(files, { only: ['data/a.csv'] })` checks just those files and says
-so in `partial` rows.
+so in `partial` rows and in `partial: true` on the result.
 
 `capsule.rotate` and `capsule.revoke` write key statements; pass them to
 `check` as `keys` with `trust`. A seal by a key the trusted key was

@@ -31,7 +31,9 @@ type Report struct {
 	Rows []Row
 }
 
-// OK reports whether the library passed the capsule as a whole.
+// OK reports whether every check made passed. With Partial true those
+// checks left files out (Only, a proof), and OK says nothing of the
+// others: the capsule passed as a whole only when OK() && !Partial().
 func (r *Report) OK() bool {
 	if r.Code != 0 {
 		return false
@@ -42,6 +44,13 @@ func (r *Report) OK() bool {
 		}
 	}
 	return true
+}
+
+// Partial reports whether only some files were checked (a "partial"
+// row says which were left out).
+func (r *Report) Partial() bool {
+	_, p := r.Get("partial")
+	return p
 }
 
 // Failed lists the rows that did not pass.

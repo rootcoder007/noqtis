@@ -1100,7 +1100,9 @@ export const capsule = Object.freeze({
    * from capsule.rotate / capsule.revoke, at most 32; they need `trust`),
    * `proof` (a proof from capsule.prove: checked instead of the files,
    * which may then be null; given, the proven files are checked too).
-   * Returns { ok, code, checks: [{ check, ok, detail }] }.
+   * Returns { ok, code, checks: [{ check, ok, detail }], partial }: ok when
+   * every check made passed, partial when they left files out (only, a
+   * proof), so the capsule passed as a whole only when ok && !partial.
    */
   check(files, opts = {}) {
     const pf = opts.proof === undefined ? null : bytes(opts.proof, 'proof');
@@ -1143,7 +1145,10 @@ export const capsule = Object.freeze({
         : M._nqchkp(h.put(pf), pf.length, o, dir, rp);
       const checks = report(h, rp);
       if (rc !== CODES.OK && rc !== CODES.EVRFY) throw new NoqtisError(rc);
-      return { ok: rc === CODES.OK, code: rc, checks };
+      // a pass of some files only (opts.only, a proof) is not a pass of
+      // the capsule: partial says so
+      return { ok: rc === CODES.OK, code: rc, checks,
+        partial: checks.some((r) => r.check === 'partial') };
     }));
   },
 
@@ -1303,7 +1308,7 @@ export const capsule = Object.freeze({
       const rc = M._nqinsp(h.str(dir), rp);
       const checks = report(h, rp);
       if (rc !== CODES.OK && rc !== CODES.EDEC) throw new NoqtisError(rc);
-      return { ok: rc === CODES.OK, code: rc, checks };
+      return { ok: rc === CODES.OK, code: rc, checks, partial: false };
     }));
   },
 

@@ -376,14 +376,14 @@ func TestSealAndCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	o := &CheckOpts{Trust: pk}
-	if r := must(Check(d, o)); !r.OK() {
+	if r := must(Check(d, o)); !r.OK() || r.Partial() {
 		t.Fatal(r)
 	}
 	if x, _ := must(Inspect(d)).Get("info.meta"); x.Detail != `{"project":"go"}` {
 		t.Fatal(x)
 	}
 	r := must(Check(d, &CheckOpts{Trust: pk, Only: []string{"a.txt"}}))
-	if !strings.Contains(r.String(), "partial") {
+	if !strings.Contains(r.String(), "partial") || !r.OK() || !r.Partial() {
 		t.Fatal(r)
 	}
 	os.WriteFile(filepath.Join(d, "new.txt"), []byte("x"), 0o644)

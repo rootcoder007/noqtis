@@ -74,10 +74,12 @@ def test_prove(tmp_path, key):
     assert j["format"] == "noqtis-proof-1"
     r = noqtis.check(proof=p, pk=pk)
     assert r.ok, str(r)
+    assert r.partial  # no file was read
     assert len(rows(r, "proof.entry")) == 2
     # with the files: checked against their entries
     r = noqtis.check(d, pk, proof=p)
-    assert r.ok, str(r)
+    assert r.ok and r.partial, str(r)
+    assert not noqtis.check(d, pk).partial
     pf = tmp_path / "p.json"
     pf.write_bytes(p)
     assert noqtis.check(proof=pf, pk=pk).ok
@@ -115,6 +117,9 @@ def test_only(tmp_path, key, fmt):
     r = noqtis.check(d, pk, only=["f1.csv", "f2.csv"])
     assert r.ok, str(r)
     assert rows(r, "partial")
+    # the pass is of those files only, and says so: not the capsule's
+    assert r.partial
+    assert "partial=True" in repr(r)
     assert noqtis.check(d, pk, only="f1.csv").ok
     assert not noqtis.check(d, pk, only=["f0.csv"]).ok
     assert not noqtis.check(d, pk, only=["missing.csv"]).ok

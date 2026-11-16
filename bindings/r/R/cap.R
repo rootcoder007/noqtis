@@ -69,7 +69,9 @@
 #' @return `nqseal()`: the paths of the two files written, invisibly.
 #'   `nqcheck()`: a data frame with one row per check and the columns
 #'   `check`, `ok` (logical) and `detail`; its attribute `"ok"` is `TRUE`
-#'   only when every check passed.
+#'   only when every check passed, and its attribute `"partial"` is `TRUE`
+#'   when those checks left files out (`only`, a `proof`): `"ok"` then
+#'   says nothing of the other files.
 #'
 #' @section Errors:
 #' `nqseal()`: keys that are not a pair, a folder that holds something a
@@ -108,8 +110,9 @@
 #' r <- nqcheck(d, k$pk)
 #' r[!r$ok, ]
 #' attr(r, "ok")
-#' # a partial check reads only the files named
-#' attr(nqcheck(d, k$pk, only = "data/b.csv"), "ok")
+#' # a partial check reads only the files named, and says so
+#' r <- nqcheck(d, k$pk, only = "data/b.csv")
+#' c(attr(r, "ok"), attr(r, "partial"))
 #' # another key is refused
 #' other <- nqkeygen("ML-DSA-44")
 #' attr(nqcheck(d, other$pk), "ok")
@@ -310,13 +313,15 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
   floor(as.double(at))
 }
 
-#' A capsule report as a data frame with the attribute "ok".
+#' A capsule report as a data frame with the attributes "ok" and
+#' "partial" (some files were left out: a "partial" row).
 #' @noRd
 .rep <- function(r) {
   out <- data.frame(
     check = r[[2]], ok = r[[3]], detail = r[[4]]
   )
   attr(out, "ok") <- r[[1]] == 0L && nrow(out) > 0L && all(out$ok)
+  attr(out, "partial") <- any(out$check == "partial")
   out
 }
 

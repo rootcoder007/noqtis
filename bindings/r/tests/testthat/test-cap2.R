@@ -58,6 +58,7 @@ test_that("proofs", {
   expect_false(grepl("f0.csv", t, fixed = TRUE))
   r <- nqcheck(NULL, k$pk, proof = p)
   expect_true(attr(r, "ok"))
+  expect_true(attr(r, "partial")) # no file was read
   expect_identical(nrow(rows(r, "proof.entry")), 2L)
   expect_true(attr(nqcheck(d, k$pk, proof = p), "ok"))
   pf <- tempfile(fileext = ".json")
@@ -90,10 +91,14 @@ test_that("partial checks", {
     nqseal(d, k$sk, k$pk, "ML-DSA-44", format = fmt)
     writeLines("changed", file.path(d, "f0.csv"))
     unlink(file.path(d, "sub", "y.bin"))
-    expect_false(attr(nqcheck(d, k$pk), "ok"))
+    r <- nqcheck(d, k$pk)
+    expect_false(attr(r, "ok"))
+    expect_false(attr(r, "partial"))
     r <- nqcheck(d, k$pk, only = c("f1.csv", "f2.csv"))
     expect_true(attr(r, "ok"))
     expect_gt(nrow(rows(r, "partial")), 0L)
+    # a pass of those files only, and the report says so
+    expect_true(attr(r, "partial"))
     expect_false(attr(nqcheck(d, k$pk, only = "f0.csv"), "ok"))
     expect_false(attr(nqcheck(d, k$pk, only = "missing"), "ok"))
   }

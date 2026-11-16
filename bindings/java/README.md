@@ -161,7 +161,7 @@ FAIL file report.txt: size differs
   `detail`) also when the capsule fails; `ok()` is true only when every
   check passed. `Capsule.check(dir)` (or no `withTrust`) accepts the key
   in the seal, and the `key` row says so. `Capsule.Opts` also takes TSA
-  anchors (`withAnchors`, DER), a partial check (`withOnly`), folders to
+  anchors (`withAnchors`, DER), a partial check (`withOnly`; `partial()` then says only some files were checked), folders to
   find a format 2 capsule's inputs in (`withLineage`) and key statements
   (`withStmts`).
 - `seal2(dir, alg, sk, pk, meta, inputs)` seals in format 2 (a Merkle

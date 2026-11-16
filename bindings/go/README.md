@@ -123,7 +123,7 @@ for _, row := range r.Failed() {
   `Detail`) also when the capsule fails; `Report.OK()` is true only when
   every check passed. A nil `*CheckOpts` (or a nil `Trust`) accepts the
   key in the seal, and the `key` row says so. `CheckOpts` also takes TSA
-  `Anchors` (DER), `Only` (a partial check), `Lineage` (folders to find
+  `Anchors` (DER), `Only` (a partial check: `Partial()` then says only some files were checked), `Lineage` (folders to find
   a format 2 capsule's inputs in) and key statements (`Stmts`).
 - `Seal2(dir, alg, sk, pk, meta, inputs)` seals in format 2 (a Merkle
   tree over the files), recording the capsules it was made from

@@ -100,6 +100,8 @@ test('partial checks', () => {
     const r = capsule.check(f, { only: ['f1.csv'] });
     assert.equal(r.ok, true, JSON.stringify(r.checks));
     assert.ok(rows(r, 'partial').length > 0);
+    assert.equal(r.partial, true);
+    assert.equal(capsule.check(f).partial, false);
     assert.equal(capsule.check(f, { only: ['f0.csv'] }).ok, false);
     assert.equal(capsule.check(f, { only: ['missing'] }).ok, false);
   }

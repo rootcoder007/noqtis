@@ -1489,7 +1489,7 @@ static void tremote(void) {
   want(0, "prove -p q.c.pub -o q.pf qref a.txt", NULL);
   wantts(0, "www", ".",
          "check -p q.c.pub --proof http://127.0.0.1:@PORT@/q.pf");
-  ok(has("q.out", "q.pf: OK ("), "check --proof <url>");
+  ok(has("q.out", "q.pf: PARTIAL OK ("), "check --proof <url>");
   remove("q.pf");
   wantts(1, "www", ".", "check -p q.c.pub http://127.0.0.1:@PORT@/none");
   ok(has("q.err", "HTTP 404"), "check <url>: nothing there");
@@ -1647,8 +1647,11 @@ static void trefuse(void) {
   ok(!has("q.pf", "a.txt") && !has("q.pf", "c.txt"),
      "prove: the proof names no other file");
   want(0, "check -p q.c.pub --proof q.pf", NULL);
-  ok(has("q.out", "proof.entry") && has("q.out", "q.pf: OK"),
-     "check --proof: the proof alone checks");
+  ok(has("q.out", "proof.entry") && has("q.out", "q.pf: PARTIAL OK"),
+     "check --proof: the proof alone checks, and no file: partial");
+  want(0, "check -j -p q.c.pub --proof q.pf", NULL);
+  ok(has("q.out", "\"ok\":true,\"partial\":true"),
+     "check --proof -j: the proof alone is partial in JSON too");
   want(0, "check -p q.c.pub --proof q.pf qref", NULL);
   ok(has("q.out", "partial"), "check --proof <dir>: says it is partial");
   want(1, "check -p q.c2.pub --proof q.pf", NULL);

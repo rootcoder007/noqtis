@@ -98,7 +98,7 @@ noqtis.check("results/", pk, proof=proof).ok           # and the files
 this one was made from, by id (`noqtis.capid(dir)`, 32 bytes);
 `check(dir, pk, lineage=["raw/", "clean/"])` finds each input among those
 folders and checks it, to 64 levels. `check(dir, pk, only=["a.csv"])`
-checks just those files (a "partial" row says so). `noqtis.files(dir)`
+checks just those files: a "partial" row and `Report.partial` say so, and `ok` is then about those files only. `noqtis.files(dir)`
 lists what the manifest holds, `File(path, size, sha256)`, with nothing
 checked.
 

@@ -201,6 +201,9 @@ export interface CheckResult {
   /** 0 (NQOK) or -3 (NQEVRFY). */
   code: number;
   checks: CheckRow[];
+  /** true when the checks left files out (only, a proof): ok then says
+   * nothing of the others. */
+  partial: boolean;
 }
 
 export interface CheckOptions {

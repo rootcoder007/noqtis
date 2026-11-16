@@ -248,7 +248,14 @@ With
 .Ar dir ,
 the proven files there are also checked against their entries, and a
 .Ql partial
-row says the capsule's other files are not in the proof.
+row says the capsule's other files are not in the proof; without it no
+file is checked, and the
+.Ql partial
+row says that.
+Either way the summary is
+.Ql PARTIAL OK
+and the JSON
+.Ql \(dqpartial\(dq:true .
 .Fl -only ,
 .Fl -lineage ,
 .Fl -keys

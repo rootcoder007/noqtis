@@ -2264,7 +2264,13 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
     pent(r, nqjat(es, i), (uint64_t)lvs, root, lok ? dir : NULL,
          lok ? &l : NULL, seen, e);
   }
-  if (dir != NULL && lok) {
+  /* a proof covers its files only, and without the folder not even
+   * those were read: either way the pass is partial and says so */
+  if (dir == NULL) {
+    add(r, "partial", 1, "no file was checked: only the proof's entries "
+        "against the signed head (give the folder to check the files)",
+        NULL, NULL);
+  } else if (lok) {
     add(r, "partial", 1, "only the proven files were checked: the "
         "capsule's other files are not in the proof", NULL, NULL);
   }

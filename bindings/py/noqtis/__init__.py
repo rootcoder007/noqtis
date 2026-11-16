@@ -144,7 +144,10 @@ class Row(NamedTuple):
 
 class Report:
     """What ``check`` found: ``rows`` lists every check; ``ok`` is True
-    only when the library passed the capsule as a whole."""
+    when every check made passed, and ``partial`` is True when those
+    checks left files out (``only=``, a proof), so that ``ok`` then says
+    nothing of the other files: the capsule passed as a whole only when
+    ``ok and not partial``."""
 
     __slots__ = ("rows", "code")
 
@@ -155,6 +158,11 @@ class Report:
     @property
     def ok(self) -> bool:
         return self.code == 0 and all(r.ok for r in self.rows)
+
+    @property
+    def partial(self) -> bool:
+        """True when only some files were checked (a "partial" row)."""
+        return any(r.check == "partial" for r in self.rows)
 
     @property
     def failed(self) -> List[Row]:
@@ -171,8 +179,8 @@ class Report:
         return len(self.rows)
 
     def __repr__(self) -> str:
-        return "<noqtis.Report ok=%s rows=%d failed=%d>" % (
-            self.ok, len(self.rows), len(self.failed))
+        return "<noqtis.Report ok=%s partial=%s rows=%d failed=%d>" % (
+            self.ok, self.partial, len(self.rows), len(self.failed))
 
     def __str__(self) -> str:
         return "\n".join("%-4s %s: %s" % ("ok" if r.ok else "FAIL", r.check,

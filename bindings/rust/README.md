@@ -134,7 +134,7 @@ FAIL file report.txt: size differs
   also when the capsule fails; `Report::ok()` is true only when every
   check passed. Without `trust`, the key in the seal is accepted and the
   `key` row says so. `cap::Opts` also takes TSA `anchors` (DER), `only`
-  (a partial check), `lineage` (folders to find a format 2 capsule's
+  (a partial check: `partial()` then says only some files were checked), `lineage` (folders to find a format 2 capsule's
   inputs in) and key statements (`stmts`).
 - `seal2(dir, alg, sk, pk, meta, inputs)` seals in format 2 (a Merkle
   tree over the files), recording the capsules it was made from

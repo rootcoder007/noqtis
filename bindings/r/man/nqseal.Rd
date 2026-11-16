@@ -79,7 +79,9 @@ then be \code{NULL}; given, the proven files in it are checked too.
 \code{nqseal()}: the paths of the two files written, invisibly.
 \code{nqcheck()}: a data frame with one row per check and the columns
 \code{check}, \code{ok} (logical) and \code{detail}; its attribute \code{"ok"} is \code{TRUE}
-only when every check passed.
+only when every check passed, and its attribute \code{"partial"} is \code{TRUE}
+when those checks left files out (\code{only}, a \code{proof}): \code{"ok"} then
+says nothing of the other files.
 }
 \description{
 A capsule is a signed record of the exact files in a folder.
@@ -138,8 +140,9 @@ writeLines("hellO", file.path(d, "a.txt"))
 r <- nqcheck(d, k$pk)
 r[!r$ok, ]
 attr(r, "ok")
-# a partial check reads only the files named
-attr(nqcheck(d, k$pk, only = "data/b.csv"), "ok")
+# a partial check reads only the files named, and says so
+r <- nqcheck(d, k$pk, only = "data/b.csv")
+c(attr(r, "ok"), attr(r, "partial"))
 # another key is refused
 other <- nqkeygen("ML-DSA-44")
 attr(nqcheck(d, other$pk), "ok")

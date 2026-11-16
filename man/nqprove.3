@@ -80,7 +80,12 @@ each proven file there is also checked against its entry
 .Pq Ql file
 rows, and a
 .Ql partial
-row says the capsule's other files are not in the proof.
+row says the capsule's other files are not in the proof; with
+.Fa dir
+.Dv NULL
+the
+.Ql partial
+row says no file was checked.
 .Sh RETURN VALUES
 .Fn nqprove :
 .Bl -tag -width NQENOSUP

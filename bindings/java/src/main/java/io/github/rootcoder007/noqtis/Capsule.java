@@ -40,10 +40,21 @@ public final class Capsule {
    */
   public record Report(int code, List<Row> rows) {
     /**
-     * @return true only when the library passed the capsule as a whole
+     * @return true when every check made passed; with {@link #partial()}
+     *     true those checks left files out (only, a proof) and this says
+     *     nothing of the others: the capsule passed as a whole only when
+     *     {@code ok() && !partial()}
      */
     public boolean ok() {
       return code == 0 && rows.stream().allMatch(Row::ok);
+    }
+
+    /**
+     * @return true when only some files were checked (a "partial" row says
+     *     which were left out)
+     */
+    public boolean partial() {
+      return rows.stream().anyMatch(r -> r.check().equals("partial"));
     }
 
     /**

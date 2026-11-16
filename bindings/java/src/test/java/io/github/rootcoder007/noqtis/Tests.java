@@ -327,6 +327,8 @@ public final class Tests {
     ok(Capsule.check(d, o).ok(), "sealed");
     eq(Capsule.inspect(d).get("info.meta").orElseThrow().detail(), "{\"project\":\"java\"}", "meta");
     ok(Capsule.check(d, o.withOnly(List.of("a.txt"))).toString().contains("partial"), "only");
+    ok(Capsule.check(d, o.withOnly(List.of("a.txt"))).partial(), "only: partial");
+    ok(!Capsule.check(d, o).partial(), "a full check is not partial");
     Files.writeString(d.resolve("new.txt"), "x");
     ok(!Capsule.check(d, o).ok(), "an added file");
     fails(() -> Capsule.seal(d, "ML-DSA-65", k.sk(), k.pk(), "[1]"));

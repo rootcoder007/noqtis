@@ -43,9 +43,18 @@ pub struct Report {
 }
 
 impl Report {
-    /// `true` only when the library passed the capsule as a whole.
+    /// `true` when every check made passed. With [`Report::partial`]
+    /// `true` those checks left files out (`only`, a proof) and `ok` says
+    /// nothing of the others: the capsule passed as a whole only when
+    /// `ok() && !partial()`.
     pub fn ok(&self) -> bool {
         self.code == 0 && self.rows.iter().all(|r| r.ok)
+    }
+
+    /// `true` when only some files were checked (a "partial" row says
+    /// which were left out).
+    pub fn partial(&self) -> bool {
+        self.get("partial").is_some()
     }
 
     /// The rows that did not pass.

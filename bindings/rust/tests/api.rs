@@ -422,6 +422,8 @@ fn seal_and_check() {
         .rows
         .iter()
         .any(|x| x.check.starts_with("partial")));
+    assert!(cap::check(&d, &p).unwrap().partial());
+    assert!(!cap::check(&d, &o).unwrap().partial());
     fs::write(d.join("new.txt"), "x").unwrap();
     assert!(!cap::check(&d, &o).unwrap().ok());
     // bad meta, a missing folder, the wrong algorithm
