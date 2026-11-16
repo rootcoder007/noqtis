@@ -2,6 +2,9 @@
 /* noqtis: files. UTF-8 paths everywhere, owner-only secret files, and no
  * overwrite unless asked. Platform-specific, as net.c is. */
 #ifndef _WIN32
+#if defined(__linux__)
+#define _GNU_SOURCE /* syscall(), for a rename that never replaces */
+#endif
 #define _POSIX_C_SOURCE 200809L
 /* NetBSD hides POSIX 2008 calls (symlink, dirfd) under that alone */
 #if defined(__NetBSD__)
@@ -29,8 +32,12 @@
 #else
 #include <dirent.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#if defined(__linux__)
+#include <sys/syscall.h>
+#endif
 #endif
 
 #ifdef _WIN32
@@ -382,16 +389,27 @@ static void rmtree(char *p, size_t cap) {
     FindClose(h);
   }
 #else
-  struct stat st;
   struct dirent *e;
-  DIR *d;
-  if (lstat(p, &st) != 0)
-    return;
-  if (!S_ISDIR(st.st_mode)) {
-    (void)unlink(p);
-    return;
+  DIR *d = NULL;
+  /* p is opened as a folder, without following a link: what it is is
+   * learnt from the descriptor read below, not from a look at the name
+   * that a change of the name could outdate */
+  int fd = open(p, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (fd < 0) {
+    int isf = errno == ENOTDIR || errno == ELOOP || errno == EMLINK;
+#ifdef EFTYPE
+    isf = isf || errno == EFTYPE;
+#endif
+    if (isf) {
+      (void)unlink(p);
+      return;
+    }
+    if (errno == ENOENT)
+      return;
+  } else if ((d = fdopendir(fd)) == NULL) {
+    (void)close(fd);
   }
-  if ((d = opendir(p)) != NULL) {
+  if (d != NULL) {
     while ((e = readdir(d)) != NULL) {
       if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
         continue;
@@ -593,6 +611,31 @@ static int dirof(const char *path, size_t *bs) {
 }
 #endif
 
+#ifndef _WIN32
+/* gives t the name p only when nothing has that name. Where the kernel
+ * has a rename that refuses to replace (Linux 3.15, macOS 10.12) it
+ * decides, in one step; elsewhere, and on a file system without one,
+ * the name is looked at first and a name made in between is replaced. */
+static int mvnew(const char *t, const char *p) {
+  struct stat st;
+#if defined(__linux__) && defined(SYS_renameat2)
+  /* 1 is RENAME_NOREPLACE */
+  if (syscall(SYS_renameat2, AT_FDCWD, t, AT_FDCWD, p, 1u) == 0)
+    return NCOK;
+  if (errno != ENOSYS && errno != EINVAL && errno != EPERM)
+    return NCUSE;
+#elif defined(__APPLE__) && defined(RENAME_EXCL)
+  if (renamex_np(t, p, RENAME_EXCL) == 0)
+    return NCOK;
+  if (errno != ENOTSUP)
+    return NCUSE;
+#endif
+  if (lstat(p, &st) == 0)
+    return NCUSE;
+  return rename(t, p) == 0 ? NCOK : NCUSE;
+}
+#endif
+
 /* gives the whole temporary file t its name p: over a file there only
  * with force, and never through a link at p */
 static int place(const char *t, const char *p, int force) {
@@ -604,18 +647,17 @@ static int place(const char *t, const char *p, int force) {
   free(wp);
   return ok ? NCOK : NCUSE;
 #else
-  struct stat st;
   if (force)
     return rename(t, p) == 0 ? NCOK : NCUSE;
   /* a hard link fails on a name that is there (even a link); a file
-   * system without hard links gets the rename, after a last look */
+   * system without hard links gets a rename that does not replace */
   if (link(t, p) == 0) {
     (void)unlink(t);
     return NCOK;
   }
-  if (errno == EEXIST || lstat(p, &st) == 0)
+  if (errno == EEXIST)
     return NCUSE;
-  return rename(t, p) == 0 ? NCOK : NCUSE;
+  return mvnew(t, p);
 #endif
 }
 
@@ -629,10 +671,7 @@ static int placed(const char *t, const char *p) {
   free(wp);
   return ok ? NCOK : NCUSE;
 #else
-  struct stat st;
-  if (lstat(p, &st) == 0)
-    return NCUSE;
-  return rename(t, p) == 0 ? NCOK : NCUSE;
+  return mvnew(t, p);
 #endif
 }
 
