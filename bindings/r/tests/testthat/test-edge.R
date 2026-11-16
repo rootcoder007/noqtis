@@ -221,19 +221,27 @@ test_that("library failures come back as errors", {
 })
 
 test_that("a record that cannot be written is an error, root or not", {
-  # a folder where the record's temporary file goes: no user can write it
+  # the record is written through a temporary file beside it, one of
+  # sixteen names made from the process id (.noqtis.<pid><k>.tmp, both in
+  # eight hex digits): with a folder at each of them no user can write it
   d <- tempfile("nqwr")
-  dir.create(file.path(d, "noqtis.data.json.tmp"), recursive = TRUE)
+  dir.create(d)
   on.exit(unlink(d, recursive = TRUE), add = TRUE)
-  writeLines("x", file.path(d, "noqtis.data.json.tmp", "keep"))
+  tn <- file.path(d, sprintf(".noqtis.%08x%08x.tmp", Sys.getpid(), 0:15))
+  blk <- function() {
+    for (f in tn) {
+      dir.create(f)
+      writeLines("x", file.path(f, "keep"))
+    }
+  }
+  blk()
   writeLines(c("x", "1"), file.path(d, "a.csv"))
   expect_error(nqdadd(d, "a.csv"), "cannot write")
   expect_error(nqdput(d, "checks", '{"name":"y","status":"pass"}'),
                "cannot write")
-  unlink(file.path(d, "noqtis.data.json.tmp"), recursive = TRUE)
+  unlink(tn, recursive = TRUE)
   nqdput(d, "checks", '{"name":"y","status":"pass"}')
-  dir.create(file.path(d, "noqtis.data.json.tmp"))
-  writeLines("x", file.path(d, "noqtis.data.json.tmp", "keep"))
+  blk()
   expect_error(nqdput(d, "checks", NULL, key = "y"), "cannot write")
 })
 

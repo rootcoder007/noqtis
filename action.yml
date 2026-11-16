@@ -250,7 +250,7 @@ runs:
         # folder changes between two runs
         md="$RUNNER_TEMP/noqtis-report.md"
         rc=0
-        out=$("$NQBIN" report --json --github -o "$md" "$@" -- "$NQDIR") || rc=$?
+        out=$("$NQBIN" report --json --github --force -o "$md" "$@" -- "$NQDIR") || rc=$?
         printf '%s\n' "$out"
         if [ "$rc" -gt 1 ]; then
           echo "status=error" >> "$GITHUB_OUTPUT"
