@@ -69,8 +69,15 @@ static int chkrow(nqdrep *rep, const djs *e) {
   const djs *tl = qdjget(e, "tol");
   char a[40], b[40], t[40];
   int holds, pass = strcmp(st, "pass") == 0;
-  if (ex == NULL || ob == NULL || ex->t != ob->t)
+  if (ex == NULL && ob == NULL)
     return qdrepadd(rep, "recorded", strcmp(st, "fail") != 0, "%s: %s",
+                    name, st);
+  /* a result that claims a value but cannot be recomputed from it is
+   * not taken on trust */
+  if (ex == NULL || ob == NULL || ex->t != ob->t)
+    return qdrepadd(rep, "recorded", 0,
+                    "%s: recorded as %s, but cannot be recomputed (expected "
+                    "and observed must both be numbers or both strings)",
                     name, st);
   if (ex->t == DJNUM) {
     double tol = tl != NULL ? tl->d : 0;

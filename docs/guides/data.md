@@ -41,7 +41,9 @@ Results computed elsewhere (a published total, a falsification test)
 go in as recorded checks, with what was expected, what was observed and
 the tolerance, so that a later reader can recompute them. `data check`
 does: a check recorded as `pass` whose observed number is further from
-the expected one than `tol` fails, as does one recorded as `fail`:
+the expected one than `tol` fails, as does one recorded as `fail`, and
+so does one that cannot be recomputed (only one of `expected` and
+`observed`, or a number against a string):
 
 ```sh
 echo '{"name":"total","status":"pass","expected":1204,"observed":1203.5,"tol":0.5}' |

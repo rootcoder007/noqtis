@@ -303,6 +303,17 @@ printf '{"name":"code","status":"pass","expected":"AB","observed":"AB"}' \
 ok 0 "rec: put it equal" "$nq" data put "$k2" checks "$w/c2.json"
 ok 0 "rec: strings equal" "$nq" data check "$k2"
 has "$w/out" "code: pass (observed and expected equal)" "strings equal"
+# a recorded result that cannot be recomputed fails, whatever its status
+for c in '"expected":1,"observed":"1"' '"expected":1' '"observed":"5"' \
+  '"expected":"5","observed":5,"tol":100'; do
+  printf '{"name":"odd","status":"pass",%s}' "$c" >"$w/c4.json"
+  ok 0 "rec: put a check of $c" "$nq" data put "$k2" checks "$w/c4.json"
+  ok 1 "rec: $c cannot be recomputed" "$nq" data check "$k2"
+  has "$w/out" "odd: recorded as pass, but cannot be recomputed" "$c fails"
+done
+ok 0 "rec: drop the check that cannot be recomputed" "$nq" data del "$k2" \
+  checks odd
+ok 0 "rec: and the rest passes again" "$nq" data check "$k2"
 printf '{"name":"t","status":"pass","expected":1,"observed":1,"tol":-1}' \
   >"$w/c3.json"
 ok 2 "rec: a negative tol" "$nq" data put "$k2" checks "$w/c3.json"

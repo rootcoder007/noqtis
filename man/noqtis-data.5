@@ -437,6 +437,14 @@ numbers it holds when
 .Ql |observed - expected| <= tol
 .Pq Cm tol No 0 when not given ,
 with strings when they are equal.
+A check that gives only one of
+.Cm expected
+and
+.Cm observed ,
+or a number and a string, cannot be recomputed and fails its row in
+.Cm noqtis data check ,
+whatever its
+.Cm status .
 A check recorded as
 .Ql fail
 fails its row in
