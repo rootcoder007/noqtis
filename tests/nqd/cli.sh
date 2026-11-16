@@ -859,6 +859,10 @@ ok 0 "pack check after build" "$nq" pack check -p "$w/k.pub" "$p"
 ok 0 "pack build python, no lock" "$nq" pack build -k "$w/k" "$w/py"
 ok 1 "pack check without a lock file" "$nq" pack check "$w/py"
 has "$w/out" "0 lock files recorded" "no lock file fails"
+# after a build, the advice is to make the lock file, not to build alone
+has "$w/err" "no lock file is recorded: make the project's own" \
+  "the advice names what is missing"
+has "$w/err" "pack build --lock" "and how to name one"
 ok 2 "pack nothing" "$nq" pack nothing
 ok 0 "help pack" "$nq" help pack
 has "$w/out" "noqtis pack build" "help lists build"

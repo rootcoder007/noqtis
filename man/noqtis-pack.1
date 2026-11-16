@@ -95,6 +95,9 @@ sources, schemas, chunks, and each lock file against the digest
 recorded
 .Pc ,
 and that the environment and at least one lock file are recorded.
+The lock file is the project's own, made by its package manager before
+.Cm build ;
+noqtis records it but cannot make it.
 .Ar file
 is a bundle; a bundle without its files has no data to check, and
 fails here.
@@ -129,6 +132,7 @@ A usage error, or a file or folder that cannot be read or written.
 .Bd -literal -offset indent
 $ noqtis pack init --template r study
 $ noqtis data add --url https://example.org/a.csv study data/a.csv
+$ (cd study && Rscript -e 'renv::init()')   # writes study/renv.lock
 $ noqtis pack build -k me -o study.nqb study
 $ noqtis pack check -p me.pub study.nqb
 .Ed

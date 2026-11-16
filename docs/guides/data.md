@@ -201,17 +201,22 @@ part of a file that survived, can be checked without the rest.
 ```sh
 noqtis pack init --template r study
 noqtis data add --url https://example.org/a.csv study data/a.csv
+(cd study && Rscript -e 'renv::init()')   # writes study/renv.lock
 noqtis pack build -k me -o study.nqb study
 noqtis pack check -p me.pub study.nqb
 noqtis check -p me.pub study.nqb      # what a reader runs
 ```
 
 `pack init` lays out `data/`, the code folder and `output/` with a
-README and an empty record. `pack build` records the environment and
-lock files (`noqtis env`), seals the folder and writes it as one file
-(`noqtis export --as bundle`); `pack check` checks the capsule, the
-record and each lock file, and that an environment and a lock file are
-recorded. `noqtis check` reads the bundle file as it is; `noqtis pack
+README and an empty record. The lock file is the project's own (here
+`renv.lock`, from `renv::init()` or `renv::snapshot()`; `uv.lock` or
+`requirements.txt` for Python): noqtis records it but cannot make it.
+`pack build` records the environment and the lock files at the top of
+the folder (`noqtis env`; others with `--lock`), seals the folder and
+writes it as one file (`noqtis export --as bundle`); `pack check` checks
+the capsule, the record and each lock file, and that an environment and
+a lock file are recorded, so a bundle built before the lock file was
+made is not ready to ship. `noqtis check` reads the bundle file as it is; `noqtis pack
 unpack` opens it into a folder, refusing any path that would leave it.
 The format is in the capsule specification, section 14.
 

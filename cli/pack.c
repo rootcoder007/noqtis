@@ -237,13 +237,18 @@ static int pcheck(int argc, char **argv) {
          env ? "the environment is recorded" : "no environment recorded");
   printf("%-4s  pack  %lu lock files recorded\n", locks ? "ok" : "FAIL",
          (unsigned long)locks);
-  if (!env || !locks) {
-    ncmsg("pack check", "a bundle records its environment and lock files: "
-          "run `noqtis pack build` (or `noqtis env --lock <file>`), then "
-          "seal again");
-    if (ret == NCOK)
-      ret = NCBAD;
-  }
+  /* pack build records the environment whatever the folder holds, but a
+   * lock file only when the project has made one: the advice differs */
+  if (!env)
+    ncmsg("pack check", "no environment is recorded: run `noqtis pack "
+          "build` on the folder");
+  else if (!locks)
+    ncmsg("pack check", "no lock file is recorded: make the project's own "
+          "(renv.lock from renv::snapshot() in R; uv.lock, or pip freeze > "
+          "requirements.txt, in Python) at the top of the folder, or name "
+          "it with `noqtis pack build --lock <file>`, then build again");
+  if ((!env || !locks) && ret == NCOK)
+    ret = NCBAD;
   printf("%s: %s\n", ncesc(argv[0]),
          ret == NCOK ? "ready to ship" : "not ready to ship");
   return ret;
