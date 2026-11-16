@@ -340,6 +340,7 @@ static int bcp(const char *dir, const char *bag, const char *rel,
   if (in == NULL || out == NULL || nqhini(&h, NQS256) != NQOK) ok = 0;
   while (ok && (k = fread(buf, 1, cap, in)) > 0) {
     if (nqhupd(&h, buf, k) != NQOK || fwrite(buf, 1, k, out) != k) ok = 0;
+    if (ncstop()) ok = 0; /* a signal waits: stop here */
   }
   if (ok && ferror(in)) ok = 0;
   if (ok && nqhfin(&h, md, 32) != NQOK) ok = 0;
@@ -361,7 +362,41 @@ static int bcp(const char *dir, const char *bag, const char *rel,
   return ok ? NCOK : NCUSE;
 }
 
+static int bagin(const char *dir, const char *bag, const cinfo *ci);
+
+/* The bag is made under a temporary name beside bag and named bag only
+ * once it is whole (cli/io.c), so a failed or stopped export leaves no
+ * folder that looks like a bag: what was made is removed. */
 static int bagit(const char *dir, const char *bag, const cinfo *ci) {
+  char t[4200];
+  int sl, rc;
+  if (ncexist(bag)) {
+    ncmsg("export", "%s exists: a bag goes into a new folder", ncesc(bag));
+    return NCUSE;
+  }
+  if ((sl = nctmpd(bag, t, sizeof t)) < 0 || ncmkdir(t) != NCOK) {
+    ncdrop(sl);
+    ncmsg("export", "%s: cannot make the folder", ncesc(bag));
+    return NCUSE;
+  }
+  rc = bagin(dir, t, ci);
+  if (rc != NCOK) {
+    ncdrop(sl);
+    ncmsg("export", "%s: not made (nothing of it is left); export again",
+          ncesc(bag));
+    return rc;
+  }
+  if (ncput(&sl, 1) != 1) {
+    ncmsg("export", "%s: cannot be made (is it there now?)", ncesc(bag));
+    return NCUSE;
+  }
+  printf("bagged %s into %s: %lu files, %llu bytes\n", ncesc(dir), ncesc(bag),
+         (unsigned long)ci->nfiles, ci->bytes);
+  return NCOK;
+}
+
+/* fills the new folder bag */
+static int bagin(const char *dir, const char *bag, const cinfo *ci) {
   static const char bt[] = "BagIt-Version: 1.0\n"
                            "Tag-File-Character-Encoding: UTF-8\n";
   tbuf man, info, tag;
@@ -375,14 +410,6 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
   time_t now = time(NULL);
   struct tm gt, *g = &gt;
   int rc = NCUSE;
-  if (ncexist(bag)) {
-    ncmsg("export", "%s exists: a bag goes into a new folder", ncesc(bag));
-    return NCUSE;
-  }
-  if (ncmkdir(bag) != NCOK) {
-    ncmsg("export", "%s: cannot make the folder", ncesc(bag));
-    return NCUSE;
-  }
   {
     tbuf d;
     int ok;
@@ -392,7 +419,7 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
     ok = !d.bad && ncmkdir(d.p) == NCOK;
     free(d.p);
     if (!ok) {
-      ncmsg("export", "%s: cannot make its data folder", ncesc(bag));
+      ncmsg("export", "cannot make the bag's data folder");
       return NCUSE;
     }
   }
@@ -402,7 +429,7 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
   buf = (uint8_t *)malloc(1 << 16);
   if (buf == NULL) return nclib("export", "memory", NQEMEM);
   while (file(ci, &at, &sz, hx, &p)) {
-    if (bcp(dir, bag, p, hx, buf, 1 << 16) != NCOK) goto out;
+    if (ncstop() || bcp(dir, bag, p, hx, buf, 1 << 16) != NCOK) goto out;
     tstr(&man, hx);
     tstr(&man, "  data/");
     bpath(&man, p);
@@ -473,13 +500,8 @@ static int bagit(const char *dir, const char *bag, const cinfo *ci) {
       bwrite(bag, "tagmanifest-sha256.txt", tag.p, tag.n) != NCOK) {
     goto out;
   }
-  printf("bagged %s into %s: %lu files, %llu bytes\n", ncesc(dir), ncesc(bag),
-         (unsigned long)ci->nfiles, ci->bytes);
   rc = NCOK;
 out:
-  if (rc != NCOK)
-    ncmsg("export", "%s: the bag is incomplete; remove it and export again",
-          ncesc(bag));
   free(buf);
   free(man.p);
   free(info.p);

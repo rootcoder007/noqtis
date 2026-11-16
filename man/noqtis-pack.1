@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 13, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-PACK 1
 .Os
 .Sh NAME
@@ -75,7 +75,7 @@ write the bundle file
 .Xr noqtis-export 1
 .Fl -as Cm bundle ;
 .Fl f
-replaces a file there,
+replaces a file there once the new bundle is whole,
 .Fl -no-files
 leaves out every file but the data record
 .Pc .
@@ -107,6 +107,10 @@ into the new folder
 refusing it whole for anything malformed, and for any path that would
 leave
 .Ar dir .
+The folder is filled under a temporary name beside
+.Ar dir
+and given its name only when whole: an unpack that fails or is stopped
+leaves nothing.
 Check the folder after with
 .Xr noqtis-check 1 .
 .El

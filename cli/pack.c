@@ -250,8 +250,8 @@ static int pcheck(int argc, char **argv) {
 }
 
 static int punpack(int argc, char **argv) {
-  char why[600];
-  int np, help, rc;
+  char why[600], t[4200];
+  int np, help, rc, sl;
   if (ncargs("pack unpack", argc, argv, NULL, 0, &np, &help) != NCOK)
     return NCUSE;
   if (help) {
@@ -262,10 +262,25 @@ static int punpack(int argc, char **argv) {
     ncmsg("pack unpack", "give the bundle file and a new folder");
     return NCUSE;
   }
-  rc = nqdunpack(argv[0], argv[1], 0, why, sizeof why);
+  if (ncexist(argv[1])) {
+    ncmsg("pack unpack", "%s: it must not exist yet", argv[1]);
+    return NCUSE;
+  }
+  /* unpacked under a temporary name beside the folder and named only
+   * when whole (cli/io.c): a failed or stopped unpack leaves nothing */
+  if ((sl = nctmpd(argv[1], t, sizeof t)) < 0) {
+    ncmsg("pack unpack", "cannot write %s", argv[1]);
+    return NCUSE;
+  }
+  rc = nqdunpack(argv[0], t, 0, why, sizeof why);
   if (rc != NQOK) {
+    ncdrop(sl);
     ncmsg("pack unpack", "%s: %s", argv[0], why[0] ? why : nqerr(rc));
     return rc == NQEDEC || rc == NQELIM ? NCBAD : NCUSE;
+  }
+  if (ncput(&sl, 1) != 1) {
+    ncmsg("pack unpack", "cannot write %s", argv[1]);
+    return NCUSE;
   }
   printf("%s: unpacked into %s; check it with `noqtis check %s`\n",
          ncesc(argv[0]), ncesc(argv[1]), ncesc(argv[1]));

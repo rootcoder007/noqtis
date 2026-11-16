@@ -275,12 +275,15 @@ int ncisbnd(const char *path) {
 
 int ncbwr(const char *cmd, const char *dir, int files, const char *out,
           int force) {
-  int rc;
-  if (ncexist(out)) {
-    if (!force || !ncisreg(out) || ncrmfile(out) != 0)
-      return ncwfail(cmd, out, force);
-  }
-  rc = nqdpack(dir, files, out);
+  char t[4200];
+  int rc, sl;
+  /* written under a temporary name beside out and named only when
+   * whole (cli/io.c): a bundle there is replaced, with --force, only by
+   * a whole one, and a failed or stopped export leaves none */
+  if (!force && ncexist(out)) return ncwfail(cmd, out, force);
+  if ((sl = nctmpf(out, force, t, sizeof t)) < 0) return ncwfail(cmd, out, force);
+  rc = nqdpack(dir, files, t);
+  if (rc != NQOK) ncdrop(sl);
   if (rc == NQEARG) {
     ncmsg(cmd, "%s lists no data record (%s): a bundle without the files "
           "carries the record, so add one (`noqtis data init`) and seal "
@@ -288,6 +291,7 @@ int ncbwr(const char *cmd, const char *dir, int files, const char *out,
     return NCUSE;
   }
   if (rc != NQOK) return nclib(cmd, out, rc);
+  if (ncput(&sl, 1) != 1) return ncwfail(cmd, out, force);
   return NCOK;
 }
 

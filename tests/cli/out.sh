@@ -218,6 +218,40 @@ ok 153 "report -o over ulimit -f" sh -c 'ulimit -f 1; exec "$@"' sh \
 no "$d/r.md" "a cut report is not left"
 notmp "$d" "report -o over ulimit -f"
 
+# export --as bundle and pack build: a bundle replaced only by a whole
+# one (N2)
+ok 0 "export a bundle" "$nq" export --as bundle -p "$w/sk.pub" \
+  -o "$w/keep.nqb" "$c"
+cp "$w/keep.nqb" "$w/keep0"
+ok 2 "export --no-files -f of a capsule without a record" "$nq" export \
+  --as bundle --no-files -f -p "$w/sk.pub" -o "$w/keep.nqb" "$w/nr"
+same "$w/keep.nqb" "$w/keep0" "the old bundle is kept"
+d=$w/bn
+mkdir "$d"
+ok 153 "export a bundle over ulimit -f" sh -c 'ulimit -f 4; exec "$@"' sh \
+  "$nq" export --as bundle -p "$w/sk.pub" -o "$d/cut.nqb" "$c"
+no "$d/cut.nqb" "a cut bundle is not left"
+notmp "$d" "export a bundle over ulimit -f"
+ok 153 "export --force over ulimit -f" sh -c 'ulimit -f 4; exec "$@"' sh \
+  "$nq" export --as bundle -f -p "$w/sk.pub" -o "$w/keep.nqb" "$c"
+same "$w/keep.nqb" "$w/keep0" "the old bundle is kept whole"
+notmp "$w" "export --force over ulimit -f"
+ok 153 "export --as bagit over ulimit -f" sh -c 'ulimit -f 4; exec "$@"' sh \
+  "$nq" export --as bagit -p "$w/sk.pub" -o "$d/bag" "$c"
+no "$d/bag" "a cut bag is not left"
+notmp "$d" "export --as bagit over ulimit -f"
+ok 0 "export --as bagit" "$nq" export --as bagit -p "$w/sk.pub" \
+  -o "$d/bag" "$c"
+ok 0 "the bag is whole" test -f "$d/bag/tagmanifest-sha256.txt"
+notmp "$d" "export --as bagit"
+ok 153 "pack unpack over ulimit -f" sh -c 'ulimit -f 4; exec "$@"' sh \
+  "$nq" pack unpack "$w/keep.nqb" "$d/un"
+no "$d/un" "a cut unpack is not left"
+notmp "$d" "pack unpack over ulimit -f"
+ok 0 "pack unpack" "$nq" pack unpack "$w/keep.nqb" "$d/un"
+ok 0 "the unpacked capsule checks" "$nq" check -p "$w/sk.pub" "$d/un"
+notmp "$d" "pack unpack"
+
 # two outputs: the first is not named until the second is written (N4)
 d=$w/two
 mkdir "$d"

@@ -245,11 +245,8 @@ static int put(const char *cmd, const char *dir, const char *path,
     }
     p[i] = '/';
   }
-  if (force && ncexist(p) && ncisreg(p) && ncrmfile(p) != 0) {
-    ncmsg(cmd, "%s: cannot be replaced", ncesc(p));
-    return NCUSE;
-  }
-  if (ncwr(p, b, n, 0, 0) != NCOK) return ncwfail(cmd, p, 0);
+  /* the old file stays until the new one is whole (cli/io.c) */
+  if (ncwr(p, b, n, force, 0) != NCOK) return ncwfail(cmd, p, force);
   return NCOK;
 }
 

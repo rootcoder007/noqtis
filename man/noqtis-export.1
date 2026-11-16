@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 13, 2026
+.Dd November 15, 2026
 .Dt NOQTIS-EXPORT 1
 .Os
 .Sh NAME
@@ -65,6 +65,10 @@ each checked against the manifest's SHA-256 as it is copied, its
 .Pa bagit.txt ,
 and the seal and the manifest as tag files listed in
 .Pa tagmanifest-sha256.txt .
+The bag is made under a temporary name beside
+.Fl o
+and given its name only when whole; an export that fails or is stopped
+removes what it made.
 .It Cm bundle
 The capsule in the one file
 .Fl o
@@ -101,7 +105,8 @@ the bag's folder, which must not exist.
 .It Fl f , Fl -force
 Replace
 .Ar file
-if it exists.
+if it exists, once the new one is whole: an export that fails or is
+stopped leaves the old file as it was.
 .It Fl -no-files
 For
 .Cm bundle :
