@@ -206,15 +206,18 @@ itself) in its last line and in
 and standard error ends with how many passed and failed.
 It never follows a link: each folder is opened from the one above it
 without following links, when it is listed and again when it is
-checked, so a link inside
-.Ar dir ,
+checked, so a link to a folder inside
 .Ar dir
-itself as a link, or a folder replaced by a link in between is refused.
+(on Windows, a reparse point),
+.Ar dir
+itself as a link, or a folder replaced by a link in between is refused:
+it is named on standard error, counted as failed, and nothing behind it
+is read.
 .Ar dir
 comes last.
 The exit status is the worst of the checks; no capsule under
-.Ar dir
-is 2.
+.Ar dir ,
+or a link refused, is 2.
 .It Fl -anchor Ar der-file
 A TSA trust anchor: the root or issuing certificate of a time-stamping
 authority, DER-encoded (convert PEM with
@@ -450,7 +453,8 @@ signed by
 .It 2
 A usage error,
 .Ar dir
-does not exist, a key that is not a public signature key, an anchor that
+does not exist, a link to a folder under it met by
+.Fl r , a key that is not a public signature key, an anchor that
 cannot be read or is not DER, or a library error such as running out of
 memory.
 .El

@@ -157,9 +157,12 @@ int64_t ncnow(void);
 int ncclose(FILE *f, const char *path, int bad);
 /* dir and every folder under it, 64 levels deep at most, without
  * following links, deepest first (free each and the list); NCUSE over
- * NCWALKMAX folders or when memory runs out */
+ * NCWALKMAX folders or when memory runs out. A link to a folder (on
+ * Windows, a reparse point) is said on standard error for cmd and
+ * counted in *nl, never followed. */
 #define NCWALKMAX ((size_t)100000)
-int ncwalk(const char *dir, char ***out, size_t *n);
+int ncwalk(const char *cmd, const char *dir, char ***out, size_t *n,
+           size_t *nl);
 /* POSIX: makes the folder path (one ncwalk listed under top) the
  * working folder, reached from top by descriptor with O_NOFOLLOW at
  * every step, and returns "." to give the command; NULL when a step is

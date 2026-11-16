@@ -1159,7 +1159,8 @@ static int addf(char ***v, size_t *n, size_t *cap, const char *p) {
 
 #ifdef _WIN32
 /* the folders inside dir (one level), not reparse points, appended to v */
-static int subdirs(const char *dir, char ***v, size_t *n, size_t *cap) {
+static int subdirs(const char *cmd, const char *dir, char ***v, size_t *n,
+                   size_t *cap, size_t *nl) {
   char pat[4200];
   wchar_t *w;
   WIN32_FIND_DATAW fd;
@@ -1175,13 +1176,20 @@ static int subdirs(const char *dir, char ***v, size_t *n, size_t *cap) {
   do {
     char nm[1024], p[4200];
     if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
-        (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ||
         wcscmp(fd.cFileName, L".") == 0 || wcscmp(fd.cFileName, L"..") == 0)
       continue;
     if (WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, nm, sizeof nm,
                             NULL, NULL) <= 0)
       continue;
     snprintf(p, sizeof p, "%s/%s", dir, nm);
+    if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+      /* a link or junction to a folder: named and refused, never
+       * followed */
+      ncmsg(cmd, "-r: %s is a link to a folder: refused, not followed",
+            ncesc(p));
+      (*nl)++;
+      continue;
+    }
     rc = addf(v, n, cap, p);
   } while (rc == NCOK && FindNextFileW(h, &fd));
   FindClose(h);
@@ -1226,7 +1234,8 @@ static int wpush(ncwlv *l, int fd, size_t plen) {
 }
 #endif
 
-int ncwalk(const char *dir, char ***out, size_t *n) {
+int ncwalk(const char *cmd, const char *dir, char ***out, size_t *n,
+           size_t *nl) {
   char **v = NULL;
   size_t nv = 0, cap = 0, i;
   int rc;
@@ -1239,7 +1248,7 @@ int ncwalk(const char *dir, char ***out, size_t *n) {
     for (p = v[i] + strlen(dir); *p; p++)
       dep += *p == '/';
     if (dep < 64)
-      rc = subdirs(v[i], &v, &nv, &cap);
+      rc = subdirs(cmd, v[i], &v, &nv, &cap, nl);
     if (nv > NCWALKMAX)
       rc = NCUSE;
   }
@@ -1273,8 +1282,20 @@ int ncwalk(const char *dir, char ***out, size_t *n) {
     }
     if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
       continue;
-    if (fstatat(st[top].fd, e->d_name, &sb, AT_SYMLINK_NOFOLLOW) != 0 ||
-        !S_ISDIR(sb.st_mode))
+    if (fstatat(st[top].fd, e->d_name, &sb, AT_SYMLINK_NOFOLLOW) != 0)
+      continue;
+    if (S_ISLNK(sb.st_mode)) {
+      /* a link to a folder: named and refused, never followed (only its
+       * target's type is looked at) */
+      if (fstatat(st[top].fd, e->d_name, &sb, 0) == 0 &&
+          S_ISDIR(sb.st_mode)) {
+        ncmsg(cmd, "-r: %s/%s is a link to a folder: refused, not "
+              "followed", ncesc(path), ncesc(e->d_name));
+        (*nl)++;
+      }
+      continue;
+    }
+    if (!S_ISDIR(sb.st_mode))
       continue;
     l = st[top].plen;
     if (l + 1 + strlen(e->d_name) >= sizeof path)

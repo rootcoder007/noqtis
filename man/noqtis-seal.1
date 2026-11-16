@@ -226,15 +226,17 @@ itself) that holds
 sealed before the one that holds it.
 The search stops 64 levels down and never follows a link: each folder is
 opened from the one above it without following links, when it is listed
-and again when it is sealed, so a link inside
-.Ar dir ,
+and again when it is sealed, so a link to a folder inside
+.Ar dir
+(on Windows, a reparse point),
 .Ar dir
 itself as a link, or a folder replaced by a link in between is refused,
-never sealed through.
+never sealed through: it is named on standard error, counted as failed,
+and nothing behind it is read.
 .Ar dir
 comes last.
 Standard error ends with how many were sealed and failed; the exit
-status is the worst of them.
+status is the worst of them, and 2 when a link was refused.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds
@@ -253,7 +255,8 @@ the seal
 .Sh EXIT STATUS
 0 when the capsule was written (with its timestamp, when
 .Fl -tsa
-was given); 2 on a usage error, keys that are not a signature key pair,
+was given); 2 on a usage error, a link to a folder met by
+.Fl r , keys that are not a signature key pair,
 an unsealable folder, a limit, a file that cannot be read or written, or
 no TSA that gave a timestamp.
 .Sh EXAMPLES

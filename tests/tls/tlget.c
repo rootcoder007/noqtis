@@ -14,7 +14,7 @@
 
 #include <stdio.h>
 
-/* io.c reports through ncmsg */
+/* io.c reports through ncmsg, naming paths with ncesc */
 void ncmsg(const char *cmd, const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
@@ -22,6 +22,10 @@ void ncmsg(const char *cmd, const char *fmt, ...) {
   vfprintf(stderr, fmt, ap);
   fputc('\n', stderr);
   va_end(ap);
+}
+
+const char *ncesc(const char *s) {
+  return s;
 }
 
 int main(int argc, char **argv) {

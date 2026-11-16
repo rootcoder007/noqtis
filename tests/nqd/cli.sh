@@ -616,18 +616,28 @@ has "$w/out" '"capsule":"a","ok":true' "-j names the one that passed"
 ok 2 "check -r, nothing" "$nq" check -r "$t/c"
 has "$w/err" "no capsule under" "check -r says none"
 
-# -r never follows a link: not one inside the tree, not the top folder,
-# not a folder that turns into a link after the walk
+# -r never follows a link: not one inside the tree, which is named and
+# refused (exit 2), not the top folder, not a folder that turns into a
+# link after the walk
 o=$w/outside
 mkdir -p "$o/cap" "$t/l"
 printf 'z\n' >"$o/cap/f.txt"
 ok 0 "-r: data init outside" "$nq" data init "$o/cap"
 ln -s "$o" "$t/l/out"
-ok 0 "seal -r with a link inside" "$nq" seal -k "$w/k" -r "$t"
-has "$w/err" "2 capsules, 2 sealed, 0 failed" "the link is not descended"
+ln -s "$o/cap/f.txt" "$t/l/file"
+ok 2 "seal -r with a link inside" "$nq" seal -k "$w/k" -r "$t"
+has "$w/err" "l/out is a link to a folder: refused" "seal -r names the link"
+has "$w/err" "3 capsules, 2 sealed, 1 failed" "the link is not descended"
 ok 1 "nothing written outside" test -f "$o/cap/noqtis.json"
-ok 0 "check -r with a link inside" "$nq" check -p "$w/k.pub" -r "$t"
-has "$w/err" "2 capsules, 2 OK, 0 failed" "check -r skips the link"
+ok 2 "check -r with a link inside" "$nq" check -p "$w/k.pub" -r "$t"
+has "$w/err" "l/out is a link to a folder: refused" "check -r names the link"
+has "$w/err" "3 capsules, 2 OK, 1 failed" "check -r refuses the link"
+n=$((n + 1))
+if grep -q "l/file" "$w/err"; then
+  bad=$((bad + 1))
+  echo "FAIL check -r: a link to a file is not a folder to refuse" >&2
+fi
+rm "$t/l/out" "$t/l/file"
 ln -s "$t" "$w/tlink"
 ok 2 "seal -r on a link" "$nq" seal -k "$w/k" -r "$w/tlink"
 has "$w/err" "without following links" "a top link is refused"

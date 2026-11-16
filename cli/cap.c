@@ -340,13 +340,17 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
     ret = NCUSE;
     goto out;
   }
-  if (ncwalk(a[n - 1], &fs, &nf) != NCOK) {
+  if (ncwalk(cmd, a[n - 1], &fs, &nf, &nref) != NCOK) {
     ncmsg(cmd, "-r: cannot list the folders under %s without following "
           "links (it may be a link itself), or there are over %lu",
           a[n - 1], (unsigned long)NCWALKMAX);
     ret = NCUSE;
     goto out;
   }
+  /* each link to a folder, already named, is refused and fails */
+  nbad += nref;
+  if (nref > 0)
+    ret = NCUSE;
   if ((home = nchome()) < 0) {
     ret = nclib(cmd, "the working folder", NQEIO);
     goto out;
