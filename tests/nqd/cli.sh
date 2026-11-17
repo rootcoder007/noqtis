@@ -1532,7 +1532,9 @@ ok 0 "cite bibtex, a control character" "$nq" cite --format bibtex "$w/ce"
 has "$w/out" "{a b}" "cite bibtex writes a space for it"
 printf 'a\n1\n' >"$w/ce/u.csv"
 chmod 000 "$w/ce/u.csv"
-if [ ! -r "$w/ce/u.csv" ]; then
+# only where the mode keeps the file from being read: root reads it all the
+# same, and the test -r of one shell answers by the mode bits alone
+if ! cat "$w/ce/u.csv" >/dev/null 2>&1; then
   for cmd in "data add" "schema infer" "drift pin" "chunk pin"; do
     ok 2 "$cmd, a file that may not be read" "$nq" $cmd "$w/ce" u.csv
     has "$w/err" "u.csv: cannot be read" "$cmd says it cannot be read"
