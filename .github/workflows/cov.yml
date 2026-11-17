@@ -45,7 +45,11 @@ jobs:
       - name: Report
         if: always()
         run: |
+          # a run a signal ends writes its counters from the handler, with
+          # functions still open: gcov then derives a negative count for a
+          # branch or two (GCC bug 68080), which is warned of, not fatal
           gcovr --root . --object-directory build \
+            --gcov-ignore-parse-errors=negative_hits.warn \
             --filter 'src/' --filter 'cli/' --filter 'nqd/' \
             --exclude-unreachable-branches --print-summary \
             --merge-mode-functions=separate \
