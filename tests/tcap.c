@@ -1811,6 +1811,82 @@ static void tprog(const key *k, const key *slh) {
   NQTCHK(pn == 0);
 }
 
+/* ---- temporary files (nqsettmp) ---- */
+
+#define TTMAX 16
+static int tev[TTMAX];
+static char tpth[TTMAX][600];
+static int tn;
+
+static void trec(int ev, const char *p, void *user) {
+  NQTCHK(user == (void *)&tn);
+  if (tn < TTMAX) snprintf(tpth[tn], sizeof tpth[tn], "%s", p);
+  if (tn < TTMAX) tev[tn] = ev;
+  tn++;
+}
+
+/* events i to j - 1 name the same path */
+static int tsame(int i, int j) {
+  int k;
+  for (k = i + 1; k < j; k++)
+    if (strcmp(tpth[k], tpth[i]) != 0) return 0;
+  return 1;
+}
+
+/* the hook is told of each temporary file before and after it is made,
+ * and once it is renamed; a name that is taken is NQTNOT, and the file
+ * there is left as it was */
+static void ttmp(const key *k) {
+  static const int one[] = {NQTPRE, NQTNEW, NQTPRE, NQTNEW, NQTEND, NQTEND};
+  static const int two[] = {NQTPRE, NQTNOT, NQTPRE, NQTNEW,
+                            NQTPRE, NQTNEW, NQTEND, NQTEND};
+  char d[600], planted[600];
+  FILE *f;
+  int i;
+  fresh(d, sizeof d);
+  NQTEQI(nqsettmp(trec, &tn), NQOK);
+  tn = 0;
+  NQTEQI(sealk(d, k, NULL), NQOK);
+  NQTEQI(tn, 6);
+  for (i = 0; i < 6 && i < tn; i++) NQTEQI(tev[i], one[i]);
+  /* manifest, signature, and each ended by its own path */
+  NQTCHK(strstr(tpth[0], "/.noqtis.json.") != NULL);
+  NQTCHK(strstr(tpth[2], "/.noqtis.sig.") != NULL);
+  NQTCHK(tsame(0, 2) && tsame(2, 4));
+  NQTCHK(strcmp(tpth[4], tpth[0]) == 0 && strcmp(tpth[5], tpth[2]) == 0);
+#if !defined(__wasi__)
+  /* the manifest's first name taken: the next is made, the file kept
+   * (WASI draws each name at random: no first name to take) */
+  snprintf(planted, sizeof planted, "%s", tpth[0]);
+  f = fopen(planted, "wb");
+  NQTCHK(f != NULL);
+  if (f == NULL) return;
+  fputs("planted\n", f);
+  fclose(f);
+  track(planted);
+  ws(d, "a.txt", "changed\n");
+  tn = 0;
+  NQTEQI(sealk(d, k, NULL), NQOK);
+  NQTEQI(tn, 8);
+  for (i = 0; i < 8 && i < tn; i++) NQTEQI(tev[i], two[i]);
+  NQTCHK(strcmp(tpth[0], planted) == 0 && tsame(0, 2));
+  NQTCHK(strcmp(tpth[2], planted) != 0 && tsame(2, 4));
+  NQTCHK(strcmp(tpth[6], tpth[2]) == 0 && strcmp(tpth[7], tpth[4]) == 0);
+  f = fopen(planted, "rb");
+  NQTCHK(f != NULL);
+  if (f != NULL) fclose(f);
+#else
+  (void)two;
+  (void)planted;
+  (void)f;
+#endif
+  /* NULL stops the calls */
+  NQTEQI(nqsettmp(NULL, NULL), NQOK);
+  tn = 0;
+  NQTEQI(sealk(d, k, NULL), NQOK);
+  NQTEQI(tn, 0);
+}
+
 static void tfs(int gen) {
   key m44, m65, slh, other;
   const char *t = getenv("TMPDIR");
@@ -1853,6 +1929,7 @@ static void tfs(int gen) {
   tstamp(&m44);
   roundtrip(&m44, NULL);
   tprog(&m44, &slh);
+  ttmp(&m44);
   tcut(&m44);
   roundtrip(&m65, GMETA);
   roundtrip(&slh, "{}");

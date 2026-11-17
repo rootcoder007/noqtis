@@ -83,6 +83,21 @@ void nqpend(void) {
   pstage = 0;
 }
 
+/* ---- temporary files (nqsettmp) ---- */
+
+static nqtmpfn tmpfn = NULL;
+static void *tmpuser = NULL;
+
+int nqsettmp(nqtmpfn fn, void *user) {
+  tmpfn = fn;
+  tmpuser = fn != NULL ? user : NULL;
+  return NQOK;
+}
+
+void nqtmpev(int ev, const char *path) {
+  if (tmpfn != NULL) tmpfn(ev, path, tmpuser);
+}
+
 int nqrand(uint8_t *buf, size_t len) {
   if (buf == NULL && len != 0) {
     return NQEARG;

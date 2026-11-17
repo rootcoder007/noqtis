@@ -808,7 +808,11 @@ static int wtmp(const char *dir, const char *name, const char *buf,
       wfree(o);
       return NQEMEM;
     }
+    /* the caller learns the name before and after the attempt, so it can
+     * remove the file a signal leaves, and never one that was there */
+    nqtmpev(NQTPRE, o->tmp);
     f = openw(o->tmp);
+    nqtmpev(f != NULL ? NQTNEW : NQTNOT, o->tmp);
   }
   if (f == NULL) {
     wfree(o);
@@ -819,6 +823,7 @@ static int wtmp(const char *dir, const char *name, const char *buf,
   if (fclose(f) != 0) rc = NQEIO;
   if (rc != NQOK) {
     droptmp(o->tmp);
+    nqtmpev(NQTEND, o->tmp);
     wfree(o);
   }
   return rc;
@@ -830,6 +835,7 @@ int nqcwrite(const char *dir, const char *name, const char *buf, size_t n) {
   if (rc != NQOK) return rc;
   rc = replacef(o.tmp, o.full);
   if (rc != NQOK) droptmp(o.tmp);
+  nqtmpev(NQTEND, o.tmp);
   wfree(&o);
   return rc;
 }
@@ -842,6 +848,7 @@ int nqcwrite2(const char *dir, const char *n1, const char *b1, size_t l1,
   rc = wtmp(dir, n2, b2, l2, &b);
   if (rc != NQOK) {
     droptmp(a.tmp);
+    nqtmpev(NQTEND, a.tmp);
     wfree(&a);
     return rc;
   }
@@ -850,8 +857,10 @@ int nqcwrite2(const char *dir, const char *n1, const char *b1, size_t l1,
    * old */
   rc = replacef(a.tmp, a.full);
   if (rc != NQOK) droptmp(a.tmp);
+  nqtmpev(NQTEND, a.tmp);
   if (rc == NQOK) rc = replacef(b.tmp, b.full);
   if (rc != NQOK) droptmp(b.tmp);
+  nqtmpev(NQTEND, b.tmp);
   wfree(&a);
   wfree(&b);
   return rc;

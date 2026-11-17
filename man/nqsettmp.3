@@ -1,0 +1,98 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 17, 2026
+.Dt NQSETTMP 3
+.Os
+.Sh NAME
+.Nm nqsettmp ,
+.Nm nqdsettmp
+.Nd learn of the temporary files the library writes through
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.In nqd.h
+.Vt typedef void (*nqtmpfn)(int ev, const char *path, void *user);
+.Ft int
+.Fn nqsettmp "nqtmpfn fn" "void *user"
+.Ft int
+.Fn nqdsettmp "nqtmpfn fn" "void *user"
+.Sh DESCRIPTION
+The capsule layer writes each file of a seal
+.Po
+.Xr nqseal 3 ,
+.Fn nqseal2 ,
+.Xr nqtsput 3 ,
+.Xr nqersput 3
+.Pc
+to a new temporary file beside it, made with
+.Dv O_EXCL ,
+and renames it into place once it is whole; the data layer does the
+same for the data record and the files it writes
+.Pq Xr nqdsave 3 , Xr nqdsyn 3 .
+A temporary name that is taken is never written: the next of up to 16
+names is tried.
+.Fn nqsettmp
+and
+.Fn nqdsettmp
+set a function each layer calls about these files, so that a caller
+that is stopped by a signal can remove the one being written, and never
+a file that only has the same name:
+.Fa fn
+is called from the thread doing the work with the event
+.Fa ev ,
+the file's path (the folder as given, a slash, and the name) and
+.Fa user .
+The events:
+.Bl -tag -width NQTNEW
+.It Dv NQTPRE
+Right before an attempt to make
+.Fa path .
+.It Dv NQTNEW
+The attempt made it: the file is the library's.
+.It Dv NQTNOT
+The attempt did not (the name was taken, or another error): the file of
+that name, if any, is not the library's.
+.It Dv NQTEND
+The file was renamed into place, or removed.
+.El
+.Pp
+.Dv NQTPRE
+is always followed by
+.Dv NQTNEW
+or
+.Dv NQTNOT
+for the same path, with nothing done in between, so a caller that holds
+its signals from
+.Dv NQTPRE
+until the next event never misses the file nor takes another one for
+it.
+.Xr noqtis 1
+does that.
+The function must not call back into the library.
+The settings are global and not synchronised, as
+.Xr nqsetprog 3 :
+set them once, before any thread uses the library.
+A
+.Dv NULL
+.Fa fn
+stops the calls.
+.Sh RETURN VALUES
+Both return
+.Dv NQOK .
+.Sh EXAMPLES
+.Bd -literal -offset indent
+static void note(int ev, const char *path, void *u) {
+  (void)u;
+  fprintf(stderr, "%s %s\en", ev == NQTPRE ? "try" : ev == NQTNEW ? "made"
+          : ev == NQTNOT ? "not made" : "done", path);
+}
+\&...
+nqsettmp(note, NULL);
+nqdsettmp(note, NULL);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis 3 ,
+.Xr nqdnew 3 ,
+.Xr nqseal 3 ,
+.Xr nqsetprog 3

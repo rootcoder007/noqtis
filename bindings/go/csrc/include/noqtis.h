@@ -99,6 +99,23 @@ typedef void (*nqprogfn)(int stage, uint64_t done, uint64_t total,
                          void *user);
 NQAPI int nqsetprog(nqprogfn fn, void *user);
 
+/* The temporary files the capsule layer writes a file through before it
+ * renames it into place (nqseal, nqseal2, nqtsput, nqersput: a new name
+ * beside it, made with O_EXCL), for a caller that removes them when a
+ * signal stops it: fn(ev, path, user) with NQTPRE right before each
+ * attempt to make path, NQTNEW once it is made (the library's file),
+ * NQTNOT when it is not (the name was taken, or another error: never the
+ * library's file), and NQTEND once it is renamed into place or removed.
+ * NQTPRE is always followed by NQTNEW or NQTNOT, with nothing between.
+ * Called from the thread doing the work; fn must not call back into the
+ * library. Global and not synchronised, as nqsetprog; NULL stops it. */
+#define NQTPRE 0
+#define NQTNEW 1
+#define NQTNOT 2
+#define NQTEND 3
+typedef void (*nqtmpfn)(int ev, const char *path, void *user);
+NQAPI int nqsettmp(nqtmpfn fn, void *user);
+
 /* Replaces the allocator the capsule and parser layers and Argon2id
  * (nqa2id, nqpwenc, nqpwdec) use; NULL for both
  * restores malloc/free. Not thread safe: call before anything else. */

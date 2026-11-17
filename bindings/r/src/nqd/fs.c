@@ -185,8 +185,8 @@ int qdread(const char *path, size_t max, char **buf, size_t *len) {
 /* The k-th name (0 to 15) a file is written through before it is
  * renamed into place: ".noqtis.<pid, 8 hex><k, 8 hex>.tmp" in its folder.
  * The tool's own temporary files share the ".noqtis.<16 hex>.tmp" shape,
- * so a seal never takes one left behind for data (nqctmpnm), and the
- * tool knows the first name to remove when a signal stops the write.
+ * so a seal never takes one left behind for data (nqctmpnm); the hook
+ * nqdsettmp sets is told which one is made.
  * WASI has no process ids: random bits stand in. */
 static void tmpnm(char *out, size_t cap, unsigned k) {
   unsigned long pid;
@@ -201,6 +201,23 @@ static void tmpnm(char *out, size_t cap, unsigned k) {
   pid = (unsigned long)getpid();
 #endif
   snprintf(out, cap, ".noqtis.%08lx%08x.tmp", pid & 0xffffffffUL, k);
+}
+
+/* the hook nqdsettmp sets: told of each temporary file qdwrite and
+ * qdwriteat make, so the tool removes the one it made when a signal
+ * stops the write, and never one that was there */
+static nqtmpfn qdtmpf = NULL;
+static void *qdtmpu = NULL;
+
+int nqdsettmp(nqtmpfn fn, void *user) {
+  qdtmpf = fn;
+  qdtmpu = fn != NULL ? user : NULL;
+  return NQOK;
+}
+
+static void tmpev(int ev, const char *path) {
+  if (qdtmpf != NULL)
+    qdtmpf(ev, path, qdtmpu);
 }
 
 int qdwrite(const char *path, const char *b, size_t len) {
@@ -223,7 +240,9 @@ int qdwrite(const char *path, const char *b, size_t len) {
       return NQELIM;
     memcpy(tmp, path, dl);
     strcpy(tmp + dl, nm);
+    tmpev(NQTPRE, tmp);
     f = qdfnew(tmp);
+    tmpev(f != NULL ? NQTNEW : NQTNOT, tmp);
   }
   if (f == NULL)
     return NQEIO;
@@ -231,8 +250,10 @@ int qdwrite(const char *path, const char *b, size_t len) {
   bad |= fclose(f) != 0;
   if (bad || drename(tmp, path) != 0) {
     dremove(tmp);
+    tmpev(NQTEND, tmp);
     return NQEIO;
   }
+  tmpev(NQTEND, tmp);
   return NQOK;
 }
 
@@ -601,7 +622,8 @@ int qdwriteat(const char *dir, const char *rel, const char *b, size_t len) {
   {
     int pfd, fd, bad = 0;
     const char *last;
-    char tmp[40];
+    char tmp[40], tp[4200];
+    size_t dl = (size_t)(strrchr(p, '/') - p) + 1;
     struct stat st;
     size_t done = 0;
     unsigned j;
@@ -617,8 +639,17 @@ int qdwriteat(const char *dir, const char *rel, const char *b, size_t len) {
      * its place */
     for (j = 0, fd = -1; j < 16 && fd < 0; j++) {
       tmpnm(tmp, sizeof tmp, j);
+      /* its path, as the hook is told it: p's folder and the name */
+      if (dl + strlen(tmp) >= sizeof tp) {
+        close(pfd);
+        return NQELIM;
+      }
+      memcpy(tp, p, dl);
+      strcpy(tp + dl, tmp);
+      tmpev(NQTPRE, tp);
       fd = openat(pfd, tmp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW |
                   O_CLOEXEC, 0644);
+      tmpev(fd >= 0 ? NQTNEW : NQTNOT, tp);
     }
     if (fd < 0) {
       close(pfd);
@@ -635,9 +666,11 @@ int qdwriteat(const char *dir, const char *rel, const char *b, size_t len) {
     bad |= close(fd) != 0;
     if (bad || renameat(pfd, tmp, pfd, last) != 0) {
       unlinkat(pfd, tmp, 0);
+      tmpev(NQTEND, tp);
       close(pfd);
       return NQEIO;
     }
+    tmpev(NQTEND, tp);
     close(pfd);
     return NQOK;
   }

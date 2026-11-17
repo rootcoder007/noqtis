@@ -339,6 +339,70 @@ static void mkw(void) {
   nqdrfree(r);
 }
 
+/* ---- nqdsettmp: the temporary file the record is written through ---- */
+
+static int tev[8];
+static char tpth[8][600];
+static int tn;
+
+static void trec(int ev, const char *p, void *user) {
+  NQTCHK(user == (void *)&tn);
+  if (tn < 8) {
+    tev[tn] = ev;
+    qdwhy(tpth[tn], sizeof tpth[tn], "%s", p);
+  }
+  tn++;
+}
+
+/* told before and after the file is made and once it is renamed; a name
+ * that is taken is NQTNOT, the next one is made, and the file that had
+ * the name is left */
+static void ttmp(void) {
+  nqdrec *r = NULL;
+  FILE *f;
+  NQTEQI(nqdload(at("w"), &r, why, sizeof why), NQOK);
+  NQTEQI(nqdsettmp(trec, &tn), NQOK);
+  tn = 0;
+  NQTEQI(nqdsave(r, at("w")), NQOK);
+  NQTEQI(tn, 3);
+  NQTEQI(tev[0], NQTPRE);
+  NQTEQI(tev[1], NQTNEW);
+  NQTEQI(tev[2], NQTEND);
+  NQTCHK(strcmp(tpth[1], tpth[0]) == 0 && strcmp(tpth[2], tpth[0]) == 0);
+  NQTCHK(strstr(tpth[0], "/.noqtis.") != NULL);
+#ifdef __wasi__
+  /* each name is drawn at random there: no first name to take */
+  f = NULL;
+#else
+  f = fopen(tpth[0], "wb");
+  NQTCHK(f != NULL);
+#endif
+  if (f != NULL) {
+    fputs("planted\n", f);
+    fclose(f);
+    tn = 0;
+    NQTEQI(nqdsave(r, at("w")), NQOK);
+    NQTEQI(tn, 5);
+    NQTEQI(tev[0], NQTPRE);
+    NQTEQI(tev[1], NQTNOT);
+    NQTEQI(tev[2], NQTPRE);
+    NQTEQI(tev[3], NQTNEW);
+    NQTEQI(tev[4], NQTEND);
+    NQTCHK(strcmp(tpth[1], tpth[0]) == 0 && strcmp(tpth[2], tpth[0]) != 0);
+    NQTCHK(strcmp(tpth[3], tpth[2]) == 0 && strcmp(tpth[4], tpth[2]) == 0);
+    f = fopen(tpth[0], "rb");
+    NQTCHK(f != NULL);
+    if (f != NULL)
+      fclose(f);
+    qdrm(tpth[0], 0);
+  }
+  NQTEQI(nqdsettmp(NULL, NULL), NQOK);
+  tn = 0;
+  NQTEQI(nqdsave(r, at("w")), NQOK);
+  NQTEQI(tn, 0);
+  nqdrfree(r);
+}
+
 static void rmw(void) {
   qdrm(at("w/data/a.csv"), 0);
   qdrm(at("w/data"), 1);
@@ -426,6 +490,7 @@ int main(void) {
   memcpy(st, out, on + 1);
   stn = on;
   mkw();
+  ttmp();
   NQTEQI(live, 0);
   sweep("nqdparse, nqdjson", fparse, NULL);
   sweep("nqdnew, nqdsrc, nqdset, nqdput, nqddel, nqdsave, nqdload", fedit,

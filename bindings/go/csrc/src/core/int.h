@@ -13,6 +13,9 @@ void *nqmal(size_t size);
 void nqpbeg(int stage, uint64_t total);
 void nqpstep(uint64_t n);
 void nqpend(void);
+/* Tells nqsettmp's hook (rand.c) of a temporary file: ev is NQTPRE,
+ * NQTNEW, NQTNOT or NQTEND. A no-op without a hook. */
+void nqtmpev(int ev, const char *path);
 /* Wipes, then frees; size is the size passed to nqmal. */
 void nqfree(void *ptr, size_t size);
 
