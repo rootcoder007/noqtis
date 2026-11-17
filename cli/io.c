@@ -453,8 +453,90 @@ static void rmtree(char *p, size_t cap) {
   (void)ncrmdir(p);
 }
 
-/* writes slot i's kept bytes over its file: open, write and close only,
- * which a signal handler may call */
+#ifndef _WIN32
+/* puts the n bytes b back at path with their mode, or removes path when b
+ * is NULL: calls a signal handler may make. A file that is still what it
+ * was is not written (under ulimit -f the write would cut it to the
+ * limit), and the bytes are written beside it and renamed over it, so a
+ * write that stops short replaces nothing. */
+static void putbk(const char *path, const uint8_t *b, size_t n, int mode) {
+  char t[4300], buf[4096];
+  size_t o = 0, at = 0, l, j;
+  ssize_t r = 0;
+  int fd, same = 1;
+  if (b == NULL) {
+    (void)unlink(path);
+    return;
+  }
+  fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+  if (fd >= 0) {
+    while (same && (r = read(fd, buf, sizeof buf)) > 0) {
+      if (at + (size_t)r > n) {
+        same = 0;
+        break;
+      }
+      for (j = 0; j < (size_t)r; j++)
+        if ((uint8_t)buf[j] != b[at + j]) {
+          same = 0;
+          break;
+        }
+      at += (size_t)r;
+    }
+    if (r < 0 || at != n)
+      same = 0;
+    (void)close(fd);
+    if (same) {
+      (void)chmod(path, (mode_t)mode);
+      return;
+    }
+  }
+  l = strlen(path);
+  if (l + 8 > sizeof t)
+    return;
+  memcpy(t, path, l);
+  memcpy(t + l, ".nqback", 8);
+  fd = open(t, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0600);
+  if (fd < 0)
+    return;
+  while (o < n) {
+    ssize_t w = write(fd, b + o, n - o);
+    if (w <= 0)
+      break;
+    o += (size_t)w;
+  }
+  if (o == n && fchmod(fd, (mode_t)mode) == 0) {
+    (void)close(fd);
+    if (rename(t, path) != 0)
+      (void)unlink(t);
+  } else {
+    (void)close(fd);
+    (void)unlink(t);
+  }
+}
+
+/* files a run over several capsules keeps until its last step (nctree) */
+typedef struct {
+  char *p;
+  uint8_t *b;
+  size_t n;
+  int mode, had;
+} keptf;
+static keptf *volatile kept;
+static volatile sig_atomic_t nkept;
+static size_t ckept;
+static int keepon;
+
+static void keptback(void) {
+  int k;
+  for (k = (int)nkept - 1; k >= 0; k--)
+    putbk(kept[k].p,
+          !kept[k].had ? NULL
+          : kept[k].b != NULL ? kept[k].b : (const uint8_t *)"",
+          kept[k].n, kept[k].mode);
+}
+#endif
+
+/* writes slot i's kept bytes over its file */
 static void putback(int i) {
 #ifdef _WIN32
   FILE *f = fopen(pnd[i], "wb");
@@ -463,18 +545,7 @@ static void putback(int i) {
     (void)fclose(f);
   }
 #else
-  size_t o = 0;
-  int fd = open(pnd[i], O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW,
-                (mode_t)pbkm[i]);
-  if (fd < 0)
-    return;
-  while (o < pbkn[i]) {
-    ssize_t w = write(fd, pbk[i] + o, pbkn[i] - o);
-    if (w <= 0)
-      break;
-    o += (size_t)w;
-  }
-  (void)close(fd);
+  putbk(pnd[i], pbk[i], pbkn[i], pbkm[i]);
 #endif
 }
 
@@ -500,6 +571,9 @@ static void onpend(int s) {
       rmone(i);
 #endif
     }
+#ifndef _WIN32
+  keptback();
+#endif
   signal(s, SIG_DFL);
   raise(s);
 }
@@ -780,6 +854,9 @@ static void ncdone(void) {
   for (i = 0; i < NCPEND; i++)
     if (pon[i] && !pown[i])
       rmone(i);
+#ifndef _WIN32
+  keptback();
+#endif
   signal(s, SIG_DFL);
   raise(s);
 }
@@ -1513,6 +1590,13 @@ int ncsnapput(ncsnap *s) {
         rc = NCUSE;
 #endif
     }
+#ifndef _WIN32
+    else {
+      /* rewritten with the bytes it had (a record made again within the
+       * same second): only its mode is the new file's */
+      (void)chmod(s->p, (mode_t)s->mode);
+    }
+#endif
   } else if (ncexist(s->p) && remove(s->p) != 0) {
     rc = NCUSE;
   }
@@ -1531,6 +1615,73 @@ int ncsnappend(const ncsnap *s) {
   }
   UNHOLD;
   return i;
+}
+
+void nctreeon(void) {
+#ifndef _WIN32
+  keepon = 1;
+#endif
+}
+
+void nctree(ncsnap *s) {
+#ifndef _WIN32
+  char cwd[4200], *p;
+  size_t n;
+  if (!keepon)
+    return;
+  cwd[0] = '\0';
+  if (s->p[0] != '/' && getcwd(cwd, sizeof cwd) == NULL)
+    return;
+  n = strlen(cwd) + strlen(s->p) + 2;
+  if ((p = (char *)malloc(n)) == NULL)
+    return;
+  snprintf(p, n, "%s%s%s", cwd, cwd[0] != '\0' ? "/" : "", s->p);
+  {
+    HOLD;
+    if ((size_t)nkept == ckept) {
+      keptf *g = (keptf *)realloc(kept, (ckept + 16) * sizeof *g);
+      if (g == NULL) {
+        UNHOLD;
+        free(p);
+        return;
+      }
+      kept = g;
+      ckept += 16;
+    }
+    kept[nkept].p = p;
+    kept[nkept].b = s->b;
+    kept[nkept].n = s->n;
+    kept[nkept].mode = s->mode;
+    kept[nkept].had = s->had;
+    nkept++;
+    UNHOLD;
+  }
+  /* the bytes are the list's now */
+  s->b = NULL;
+  s->n = 0;
+  s->had = 0;
+#else
+  (void)s;
+#endif
+}
+
+void nctreeend(void) {
+#ifndef _WIN32
+  size_t k, n;
+  HOLD;
+  n = (size_t)nkept;
+  nkept = 0;
+  for (k = 0; k < n; k++) {
+    free(kept[k].p);
+    if (kept[k].b != NULL)
+      ncfree(kept[k].b, kept[k].n, 0);
+  }
+  free(kept);
+  kept = NULL;
+  ckept = 0;
+  keepon = 0;
+  UNHOLD;
+#endif
 }
 
 void ncsnapfree(ncsnap *s) {

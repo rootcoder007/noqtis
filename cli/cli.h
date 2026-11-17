@@ -89,6 +89,14 @@ int ncsnapget(ncsnap *s, const char *dir, const char *name);
 int ncsnapput(ncsnap *s);
 void ncsnapfree(ncsnap *s);
 int ncsnappend(const ncsnap *s);
+/* A run over several capsules (seal -r) leaves the tree as it found it
+ * when it is interrupted: after nctreeon, nctree takes a file's earlier
+ * state from each capsule done, and an interrupt puts every one back (or
+ * removes the file where there was none); nctreeend, at the end of the
+ * run, lets them go. Without nctreeon, nctree does nothing. */
+void nctreeon(void);
+void nctree(ncsnap *s);
+void nctreeend(void);
 /* whether a and b name one file: by its identity where both exist, else by
  * the name */
 int ncsame(const char *a, const char *b);

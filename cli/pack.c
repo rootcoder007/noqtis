@@ -210,9 +210,9 @@ static int pbuild(int argc, char **argv) {
     }
   }
   /* an interrupt puts them back too */
+  /* and removes the ones the build makes where there were none */
   for (k = 0; k < 3; k++)
-    if (was[k].had)
-      ps[k] = ncsnappend(&was[k]);
+    ps[k] = ncsnappend(&was[k]);
   /* noqtis env [--lock <file>]... <dir> */
   a = 0;
   av[a++] = arg("env");

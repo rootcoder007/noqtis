@@ -401,6 +401,8 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
     b[n - 1] = (char *)(uintptr_t)d;
     b[n] = NULL;
     /* the capsule's name in reports: its path under the folder given */
+    if (seal)
+      nctreeon();
     nclab = fs[i] + strlen(a[n - 1]);
     while (*nclab == '/')
       nclab++;
@@ -422,6 +424,7 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
     else if (rc == NCBAD && ret == NCOK)
       ret = NCBAD;
   }
+  nctreeend();
   ncunhome(home);
   for (i = 0; i < nf; i++)
     free(fs[i]);
@@ -610,6 +613,10 @@ int ncseal(int argc, char **argv) {
   }
   ret = NCOK;
   if (nt == 0 || (rc = stamp("seal", argv[0], tsa, nt, &an)) == NCOK) {
+    /* under -r the earlier seal is kept until the whole tree is done: a
+     * capsule resealed inside one not yet resealed fails that one's check */
+    nctree(&old[0]);
+    nctree(&old[1]);
     disarm();
     printf("sealed %s with %s%s\n", ncesc(nclab != NULL ? nclab : argv[0]),
            sk.a.name,

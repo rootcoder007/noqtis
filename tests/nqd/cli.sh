@@ -1629,6 +1629,30 @@ if ! cat "$w/ce/u.csv" >/dev/null 2>&1; then
 fi
 chmod 600 "$w/ce/u.csv"
 
+# a build stopped by a file size limit leaves the record and the seal whole:
+# the handler put back files the build had not replaced, and its own write
+# was cut at the limit
+if (ulimit -f 20) 2>/dev/null; then
+  x="$w/xf"
+  "$nq" keygen -a ML-DSA-44 -o "$w/xk" >/dev/null 2>&1
+  "$nq" pack init "$x" >/dev/null 2>&1
+  echo "{}" > "$x/renv.lock"
+  i=0
+  while [ $i -lt 300 ]; do
+    echo $i > "$x/data/file_with_a_longish_name_$i"
+    i=$((i + 1))
+  done
+  (cd "$x" && "$nq" data add . data/* >/dev/null 2>&1)
+  "$nq" pack build -k "$w/xk" "$x" >/dev/null 2>&1
+  s1=$(cksum < "$x/noqtis.data.json")
+  s2=$(cksum < "$x/noqtis.json")
+  (ulimit -f 20; exec "$nq" pack build -k "$w/xk" "$x") >/dev/null 2>&1
+  ok 0 "a build cut by ulimit -f leaves the record whole" \
+    test "$s1" = "$(cksum < "$x/noqtis.data.json")"
+  ok 0 "and the seal" test "$s2" = "$(cksum < "$x/noqtis.json")"
+  ok 0 "and the capsule checks" "$nq" check -p "$w/xk.pub" "$x"
+fi
+
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"
 ok 2 "data nothing" "$nq" data nothing "$c"
