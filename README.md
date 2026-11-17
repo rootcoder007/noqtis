@@ -16,7 +16,7 @@ anyone can check later, offline, that nothing changed.**
 
 **N**otary **o**f **Q**uantum-Safe **T**raceable **I**nputs and **S**eals.
 
-![NOQTIS in 30 seconds: make a key, seal a folder, check it, change one file, the check fails](docs/demo.svg)
+![NOQTIS in a minute: make a key, pin a table schema, seal a folder, check it, change one file, the check fails, then a table that no longer fits its schema](docs/demo.svg)
 
 A sealed folder (a capsule) carries a manifest of every file and a
 signature over it, so a check finds any file that changed, was added or
