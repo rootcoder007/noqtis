@@ -757,6 +757,17 @@ static void putback(int i) {
  * so every line the handler and the put-back run would count as never
  * run. They are written here, before the signal is raised again. */
 void __gcov_dump(void);
+#ifndef _WIN32
+/* A counter file is written whole or not at all: a second signal, or one
+ * that comes while the process is ending by itself, would cut one off in
+ * the middle, and gcov cannot read such a file. Signals are held back
+ * while the counters are written (here, and from exit on). */
+static void covhold(void) {
+  sigset_t m;
+  sigfillset(&m);
+  (void)sigprocmask(SIG_BLOCK, &m, NULL);
+}
+#endif
 #endif
 
 static void die(int s) {
@@ -775,7 +786,18 @@ static void die(int s) {
   (void)sigaction(s, &sa, NULL);
 #endif
 #ifdef NQCOV
+#ifndef _WIN32
+  covhold();
+#endif
   __gcov_dump();
+#ifndef _WIN32
+  {
+    sigset_t m;
+    sigemptyset(&m);
+    sigaddset(&m, s);
+    (void)sigprocmask(SIG_UNBLOCK, &m, NULL);
+  }
+#endif
 #endif
   raise(s);
 }
@@ -867,6 +889,13 @@ static void sigs(void) {
 #endif
   if (want == pinst)
     return;
+#if defined(NQCOV) && !defined(_WIN32)
+  {
+    static int held;
+    if (!held)
+      held = atexit(covhold) == 0;
+  }
+#endif
   siglist();
   for (k = 0; k < npsig; k++) {
 #ifdef _WIN32
