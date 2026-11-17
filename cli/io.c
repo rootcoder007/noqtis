@@ -513,8 +513,10 @@ static int bksame(const bkent *e) {
   }
   if (same) {
     /* the group first: a change of group may clear the set-ID bits */
-    if ((long)st.st_gid != e->gid)
-      (void)fchown(fd, (uid_t)-1, (gid_t)e->gid);
+    if ((long)st.st_gid != e->gid &&
+        fchown(fd, (uid_t)-1, (gid_t)e->gid) != 0) {
+      /* a group this user may not give: the file keeps the one it has */
+    }
     if ((int)(st.st_mode & 0777) != e->mode)
       (void)fchmod(fd, (mode_t)e->mode);
   }
@@ -550,7 +552,9 @@ static int bkwrite(bkent *e) {
       break;
     o += (size_t)w;
   }
-  (void)fchown(fd, (uid_t)-1, (gid_t)e->gid);
+  if (fchown(fd, (uid_t)-1, (gid_t)e->gid) != 0) {
+    /* a group this user may not give: the file keeps the one it has */
+  }
   ok = o == e->n && fchmod(fd, (mode_t)e->mode) == 0;
   ok = close(fd) == 0 && ok;
   if (!ok)
