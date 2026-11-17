@@ -79,6 +79,20 @@ replaces a file there once the new bundle is whole,
 .Fl -no-files
 leaves out every file but the data record
 .Pc .
+A step that refuses, or
+.Dv SIGINT ,
+.Dv SIGTERM ,
+.Dv SIGHUP
+or
+.Dv SIGXFSZ
+before the build is done, puts the data record,
+.Pa noqtis.json
+and
+.Pa noqtis.sig
+back as they were, together, as
+.Xr noqtis-seal 1
+describes for a seal (and removes those the build made where there were
+none); standard error names the folder when they cannot be put back.
 .It Cm check
 Before shipping: the capsule
 .Po

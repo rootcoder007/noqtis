@@ -36,7 +36,9 @@ typedef int iolen; /* send and recv take an int length */
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <poll.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -208,6 +210,7 @@ static long left(void) {
   return now >= dline ? 0 : (long)(dline - now);
 }
 
+#ifdef _WIN32
 /* FD_SET: on 32-bit musl the macro converts the descriptor to unsigned,
  * which -Wsign-conversion refuses; the conversion is of a valid socket */
 #if defined(__GNUC__)
@@ -220,10 +223,23 @@ static void fdadd(sockt s, fd_set *f) {
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
+#endif
 
 /* waits until s is readable (rd) or writable, at most NCWAIT seconds and
  * never past the deadline; 0 when it is */
 static int await(sockt s, int rd) {
+#ifndef _WIN32
+  /* poll, not select: seal -r keeps a folder open for each capsule it
+   * resealed, so a socket can have a number past FD_SETSIZE */
+  struct pollfd p;
+  long l = left();
+  if (l <= 0)
+    return -1;
+  p.fd = s;
+  p.events = rd ? POLLIN : POLLOUT;
+  p.revents = 0;
+  return poll(&p, 1, (int)((l < NCWAIT ? l : NCWAIT) * 1000)) > 0 ? 0 : -1;
+#else
   fd_set f, x;
   struct timeval tv;
   long l = left();
@@ -239,6 +255,7 @@ static int await(sockt s, int rd) {
   if (select((int)s + 1, rd ? &f : NULL, rd ? NULL : &f, &x, &tv) <= 0)
     return -1;
   return 0;
+#endif
 }
 
 /* connects to one address within NCWAIT seconds */
@@ -478,9 +495,18 @@ static int lookup(const char *host, const char *port,
   {
     pthread_t t;
     struct timespec ts;
+    sigset_t all, was;
+    int made;
     pthread_mutex_init(&q->mu, NULL);
     pthread_cond_init(&q->cv, NULL);
-    if (pthread_create(&t, NULL, lkrun, q) != 0) {
+    /* the lookup runs with every signal held back, so the interrupt
+     * handler (cli/io.c) runs in this thread alone, where the signals
+     * are held while what it puts back is noted */
+    sigfillset(&all);
+    pthread_sigmask(SIG_BLOCK, &all, &was);
+    made = pthread_create(&t, NULL, lkrun, q) == 0;
+    pthread_sigmask(SIG_SETMASK, &was, NULL);
+    if (!made) {
       lkfree(q);
       return 0;
     }

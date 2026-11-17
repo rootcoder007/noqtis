@@ -77,8 +77,42 @@ is renamed into place, and
 last.
 A re-seal that fails or is stopped while it writes leaves the old
 capsule as it was.
-Only a stop in the moment between the two renames (or a failure of the
-second) leaves the new
+From before the first file is written until the seal is whole (and
+stamped, with
+.Fl -tsa ) ,
+.Dv SIGINT ,
+.Dv SIGTERM ,
+.Dv SIGHUP
+and
+.Dv SIGXFSZ
+put back the
+.Pa noqtis.json
+and
+.Pa noqtis.sig
+the folder had, or remove the new ones where it had none, before the
+command ends by the signal.
+The two are put back together: each that changed is first written
+whole under a new name of the shape
+.Pa .noqtis.<16 hex digits>.tmp
+(made with
+.Dv O_EXCL ,
+so no other file is ever written), and only then are both renamed into
+place.
+They are put back in the folder that was read, through a descriptor of
+it opened before anything was written, so a folder renamed or replaced
+by a link meanwhile is never written through.
+A file put back keeps its permission bits and, where its owner may give
+it, its group; its hard links, ACLs and extended attributes are not
+kept, nor its owner when another user made it.
+When they cannot be put back (a write over
+.Ic ulimit -f ,
+a folder that may not be written), neither is renamed, so the folder
+keeps what the seal had written, and standard error says
+.Ql noqtis: Ar dir : stopped, and its files could not be put back as they were: check it .
+Only
+.Dv SIGKILL
+or a power cut in the moment between the two renames, a failure of the
+second, or such a failed put-back then, leaves the new
 .Pa noqtis.json
 beside the old
 .Pa noqtis.sig :
@@ -238,6 +272,16 @@ and nothing behind it is read.
 comes last.
 Standard error ends with how many were sealed and failed; the exit
 status is the worst of them, and 2 when a link was refused.
+A capsule that fails is left as it was, and the others are sealed.
+Until the last capsule is done, the earlier seal of every capsule
+resealed so far is kept, with its folder open: an interrupt at any
+moment of the run, between two capsules too, puts each of them back as
+described above, so a tree that passed
+.Xr noqtis-check 1
+.Fl r
+before still does.
+The command raises its limit of open files to the hard limit for this;
+a capsule past it fails, and is left as it was.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds

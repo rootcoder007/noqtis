@@ -665,6 +665,103 @@ if [ -n "$nqt" ]; then
   ok 0 "check -r after the swaps" "$nq" check -p "$w/k.pub" -r "$t"
 fi
 
+# ---- an interrupt puts every capsule back ----
+# The test hook (NQTESTKILL=<point>:<n>) sends SIGTERM at a set point:
+# "between" two capsules of seal -r, or "sealed", a seal just written.
+if [ -n "$nqt" ]; then
+  r=$w/intr
+  mkdir -p "$r/t/a" "$r/t/b" "$r/v"
+  echo a >"$r/t/a/f"
+  echo b >"$r/t/b/f"
+  echo t >"$r/t/f"
+  echo victim >"$r/v/noqtis.json"
+  echo victim >"$r/v/noqtis.sig"
+  "$nq" seal -k "$w/k" "$r/t/a" >/dev/null 2>&1
+  "$nq" seal -k "$w/k" "$r/t/b" >/dev/null 2>&1
+  "$nq" seal -k "$w/k" "$r/t" >/dev/null 2>&1
+  for x in a/f b/f f; do echo n >>"$r/t/$x"; done
+  mkdir "$r/was"
+  for x in . a b; do
+    mkdir -p "$r/was/$x"
+    cp "$r/t/$x/noqtis.json" "$r/t/$x/noqtis.sig" "$r/was/$x/"
+  done
+  # every capsule's seal is the one it had, and no temporary file is left
+  tsame() {
+    for x in . a b; do
+      same "$r/was/$x/noqtis.json" "$r/t/$x/noqtis.json" "$1: $x/noqtis.json"
+      same "$r/was/$x/noqtis.sig" "$r/t/$x/noqtis.sig" "$1: $x/noqtis.sig"
+    done
+    ok 1 "$1: no temporary file left" sh -c 'ls -a "$1" "$1/a" "$1/b" |
+      grep -q "\.tmp$"' sh "$r/t"
+  }
+  for p in between:1 between:2 sealed:1 sealed:2 sealed:3; do
+    ok 143 "seal -r stopped at $p" env NQTESTKILL=$p "$nqt" seal \
+      -k "$w/k" -r "$r/t"
+    tsame "seal -r stopped at $p"
+  done
+  ok 143 "seal stopped once written" env NQTESTKILL=sealed:1 "$nqt" seal \
+    -k "$w/k" "$r/t/a"
+  tsame "seal stopped once written"
+  # a capsule moved away and replaced by a link before the interrupt: the
+  # put-back goes to the capsule where it now is, never through the link
+  ok 143 "seal -r stopped after a capsule was swapped for a link" \
+    env NQTESTKILL=between:2 NQTESTKILLMV="$r/t/a" NQTESTSWAPTO="$r/v" \
+    "$nqt" seal -k "$w/k" -r "$r/t"
+  has "$r/v/noqtis.json" victim "nothing put back through the link"
+  has "$r/v/noqtis.sig" victim "nor its seal"
+  same "$r/was/a/noqtis.json" "$r/t/a.was/noqtis.json" \
+    "the moved capsule is put back"
+  same "$r/was/a/noqtis.sig" "$r/t/a.was/noqtis.sig" "with its seal"
+  rm "$r/t/a"
+  mv "$r/t/a.was" "$r/t/a"
+  tsame "after the swap"
+  # the put-back keeps the group of the files
+  g=$(id -G 2>/dev/null | awk '{print $2}')
+  if [ -n "$g" ] && chgrp "$g" "$r/t/a/noqtis.json" "$r/t/a/noqtis.sig" \
+    2>/dev/null; then
+    ok 143 "seal -r stopped, files of another group" \
+      env NQTESTKILL=between:2 "$nqt" seal -k "$w/k" -r "$r/t"
+    ok 0 "the group is kept" test "$(ls -ln "$r/t/a/noqtis.json" |
+      awk '{print $4}')" = "$g"
+    ok 0 "for both files" test "$(ls -ln "$r/t/a/noqtis.sig" |
+      awk '{print $4}')" = "$g"
+  fi
+  # a pack build stopped in its seal puts the record and the seal back
+  p=$r/p
+  "$nq" pack init "$p" >/dev/null 2>&1
+  echo "{}" >"$p/renv.lock"
+  echo x >"$p/data/x"
+  (cd "$p" && "$nq" data add . data/x >/dev/null 2>&1)
+  "$nq" pack build -k "$w/k" "$p" >/dev/null 2>&1
+  echo "{\"a\":1}" >"$p/renv.lock"
+  for x in noqtis.data.json noqtis.json noqtis.sig; do cp "$p/$x" "$r/p.$x"; done
+  ok 143 "pack build stopped in its seal" env NQTESTKILL=sealed:1 "$nqt" \
+    pack build -k "$w/k" "$p"
+  for x in noqtis.data.json noqtis.json noqtis.sig; do
+    same "$r/p.$x" "$p/$x" "pack build stopped: $x put back"
+  done
+  # a put-back that cannot be written (a file size limit under the
+  # earlier noqtis.json) leaves the new pair whole and says so
+  if (ulimit -f 30) 2>/dev/null; then
+    q=$r/q
+    mkdir -p "$q/a"
+    i=0
+    while [ $i -lt 600 ]; do
+      echo $i >"$q/a/file_with_a_longish_name_$i"
+      i=$((i + 1))
+    done
+    "$nq" seal -k "$w/k" "$q/a" >/dev/null 2>&1
+    rm "$q"/a/file_with_a_longish_name_*
+    echo a >"$q/a/f"
+    ok 143 "seal -r stopped, the put-back cut by ulimit -f" sh -c \
+      'ulimit -f 30; NQTESTKILL=between:1 exec "$1" seal -k "$2" -r "$3"' \
+      sh "$nqt" "$w/k" "$q"
+    has "$w/err" "could not be put back" "the failed put-back is named"
+    ok 0 "the capsule keeps a whole new seal" "$nq" check -p "$w/k.pub" \
+      "$q/a"
+  fi
+fi
+
 # ---- env, commit, reveal, cite ----
 
 e=$w/env

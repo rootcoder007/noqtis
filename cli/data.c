@@ -1430,7 +1430,7 @@ int nccommit(int argc, char **argv) {
   } else if (ncput(&sl, 1) != 1) {
     /* a record must not name a commitment whose salt was not kept: the
      * record is put back as it was */
-    if (ncsnapput(&was) == NCOK)
+    if (ncsnapput(&was, 1) == NCOK)
       ncmsg("commit", "the salt could not be written to %s; %s is left as "
             "it was", out, argv[0]);
     else

@@ -138,14 +138,9 @@ static int pkeys(const char *kp, const char *pp) {
 }
 
 /* A build that a step refused: the record and the seal are put back as
- * they were, and rc is returned. */
-static int pundo(ncsnap was[3], const int ps[3], const char *dir, int rc) {
-  int k, bad = 0;
-  for (k = 0; k < 3; k++) {
-    ncunpend(ps[k]);
-    bad |= ncsnapput(&was[k]) != NCOK;
-  }
-  if (bad)
+ * they were, together, and rc is returned. */
+static int pundo(ncsnap was[3], const char *dir, int rc) {
+  if (ncsnapput(was, 3) != NCOK)
     ncmsg("pack build", "%s could not be put back as it was: check it "
           "(`noqtis check`) and build again", dir);
   else
@@ -159,7 +154,6 @@ static int pbuild(int argc, char **argv) {
   char *av[2 * NCMAXV + 8];
   static const char *const keep[3] = {NQDFILE, "noqtis.json", "noqtis.sig"};
   ncsnap was[3];
-  int ps[3] = {-1, -1, -1};
   int np, help, nl = 0, force = 0, nof = 0, rc, k, a;
   ncopt o[] = {{'k', "key", 1, &kp, NULL},
                {'p', "pub", 1, &pp, NULL},
@@ -209,10 +203,13 @@ static int pbuild(int argc, char **argv) {
       return NCUSE;
     }
   }
-  /* an interrupt puts them back too */
-  /* and removes the ones the build makes where there were none */
-  for (k = 0; k < 3; k++)
-    ps[k] = ncsnappend(&was[k]);
+  /* an interrupt puts them back too, together, and removes the ones the
+   * build makes where there were none */
+  if (ncsnappend(was, 3, ncesc(argv[0])) != NCOK) {
+    for (k = 0; k < 3; k++)
+      ncsnapfree(&was[k]);
+    return nclib("pack build", "memory", NQEMEM);
+  }
   /* noqtis env [--lock <file>]... <dir> */
   a = 0;
   av[a++] = arg("env");
@@ -223,7 +220,7 @@ static int pbuild(int argc, char **argv) {
   av[a++] = argv[0];
   av[a] = NULL;
   if ((rc = ncenv(a, av)) != NCOK)
-    return pundo(was, ps, argv[0], rc);
+    return pundo(was, argv[0], rc);
   /* noqtis seal -k <key> [-p <key.pub>] [--format <n>] <dir> */
   a = 0;
   av[a++] = arg("seal");
@@ -240,14 +237,12 @@ static int pbuild(int argc, char **argv) {
   av[a++] = argv[0];
   av[a] = NULL;
   if ((rc = ncseal(a, av)) != NCOK)
-    return pundo(was, ps, argv[0], rc);
+    return pundo(was, argv[0], rc);
   if (out != NULL &&
       (rc = ncbwr("pack build", argv[0], !nof, out, force)) != NCOK)
-    return pundo(was, ps, argv[0], rc);
-  for (k = 0; k < 3; k++) {
-    ncunpend(ps[k]);
+    return pundo(was, argv[0], rc);
+  for (k = 0; k < 3; k++)
     ncsnapfree(&was[k]);
-  }
   if (out != NULL)
     printf("%s: bundle written (%s)\n", ncesc(out),
            nof ? "the seal, the manifest and the data record"

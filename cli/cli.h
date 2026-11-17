@@ -69,33 +69,48 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
           size_t *len);
 #define NCRDMAX ((size_t)1 << 30) /* a message or list: 1 GiB */
 /* A file of a capsule as it was before a command of several steps began,
- * to put back when a later step refuses: the command then leaves the
- * folder as it found it. ncsnapget reads dir/name (NCOK also when there
- * is no such file; NCUSE when it is there and cannot be read, or the path
- * is too long, or it is a link, a pipe or any file that is not a plain one).
- * ncsnapput writes it back with its mode when the file is no longer what it
- * was (a file that was not touched is left alone), or removes the file the
- * command made where there was none, and frees; ncsnapfree only frees.
- * ncsnappend makes an interrupt put the file back as well (a slot for
- * ncunpend, or -1): the bytes must stay allocated until then. */
+ * to put back when a later step refuses or the command is interrupted:
+ * the command then leaves the folder as it found it. ncsnapget reads
+ * dir/name (NCOK also when there is no such file; NCUSE when it is there
+ * and cannot be read, or the path is too long, or it is a link, a pipe or
+ * any file that is not a plain one; NCBAD, on POSIX, when the folder
+ * cannot be opened). On POSIX it keeps the folder open, and everything
+ * put back goes there by descriptor, never by the path, with the file's
+ * mode and, where the owner may give it, its group.
+ * ncsnappend notes n snapshots (at most 4, of one folder) as one group
+ * that an interrupt puts back together, before the command changes
+ * anything: every file that is no longer what it was is written whole
+ * under a name of the tool's temporary shape (.noqtis.<16 hex>.tmp, made
+ * new) and only then are they renamed over their names, and a file there
+ * was none of is removed; when that cannot be done, nothing is renamed
+ * and "noqtis: <who>: stopped, ..." goes to standard error. NCOK, or
+ * NCUSE (out of memory; nothing noted). The bytes must stay allocated
+ * until the group is let go: ncsnapfree of any of them lets it go.
+ * ncsnapput puts the n back the same way now, with the signals held, then
+ * lets them go and frees them: NCOK when they are back (a file that was
+ * not touched is left alone). ncsnapfree lets go and frees. */
 typedef struct {
   char p[4200];
   uint8_t *b;
   size_t n;
   int had;
   int mode; /* its permission bits, put back with it */
+  long gid; /* its group (POSIX) */
+  int dfd;  /* its folder, open (POSIX), or -1 */
+  int sl;   /* what ncsnappend noted it as, or -1 */
 } ncsnap;
 int ncsnapget(ncsnap *s, const char *dir, const char *name);
-int ncsnapput(ncsnap *s);
+int ncsnappend(ncsnap *s, int n, const char *who);
+int ncsnapput(ncsnap *s, int n);
 void ncsnapfree(ncsnap *s);
-int ncsnappend(const ncsnap *s);
 /* A run over several capsules (seal -r) leaves the tree as it found it
- * when it is interrupted: after nctreeon, nctree takes a file's earlier
- * state from each capsule done, and an interrupt puts every one back (or
- * removes the file where there was none); nctreeend, at the end of the
- * run, lets them go. Without nctreeon, nctree does nothing. */
+ * when it is interrupted: after nctreeon, nctree takes over a group
+ * noted by ncsnappend from each capsule done (with its open folder), and
+ * the handler stays in place and puts every one back until nctreeend, at
+ * the end of the run, lets them go. Without nctreeon, nctree lets the
+ * group go at once (the capsule keeps its new files) and frees it. */
 void nctreeon(void);
-void nctree(ncsnap *s);
+void nctree(ncsnap *s, int n);
 void nctreeend(void);
 /* whether a and b name one file: by its identity where both exist, else by
  * the name */
@@ -211,6 +226,7 @@ void ncunhome(int fd);
 char *ncabs(const char *p);
 #ifdef NQTEST
 void nctswap(const char *path);
+void nctkill(const char *at);
 #endif
 /* runs cmd (ncseal or ncchk) on every capsule folder under the folder
  * that is its last argument: those holding the file mark (seal: a

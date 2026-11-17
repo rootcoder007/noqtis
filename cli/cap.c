@@ -6,51 +6,45 @@
 /* the longest input name nqseal2 takes */
 #define NQCNAMEMAXC 255
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-/* ---- a seal waiting for its timestamp ---- */
+/* ---- a seal and what an interrupt puts back ---- */
 
-/* While seal --tsa waits for a TSA, an interrupt (Ctrl-C, SIGTERM,
- * SIGHUP) removes the new noqtis.json and noqtis.sig before the process
- * ends (ncpend, cli/io.c), so the folder is not left sealed without the
- * timestamp asked for; and while any seal writes, the temporary files
- * it writes them through are removed the same way, so a stopped seal
- * leaves none in the folder. Only SIGKILL (or a power cut) can still
- * leave either. */
-static int pslot[4] = {-1, -1, -1, -1};
-
-static void disarm(void);
-
-static int arm(const char *dir, int tsa, const ncsnap *old) {
-  char p[2][4200];
-  ncpendseal(dir, pslot + 2);
-  if (!tsa)
-    return 1;
-  if (snprintf(p[0], sizeof p[0], "%s/noqtis.sig", dir) >=
-          (int)sizeof p[0] ||
-      snprintf(p[1], sizeof p[1], "%s/noqtis.json", dir) >=
-          (int)sizeof p[1]) {
-    disarm();
-    return 0;
-  }
-  /* an interrupt removes the new seal; where the folder had one, it puts
-   * that one back (old[0] is noqtis.json, old[1] noqtis.sig) */
-  pslot[0] = old != NULL && old[1].had ? ncsnappend(&old[1]) : ncpend(p[0]);
-  pslot[1] = old != NULL && old[0].had ? ncsnappend(&old[0]) : ncpend(p[1]);
-  if (pslot[0] >= 0 && pslot[1] >= 0)
-    return 1;
-  disarm();
-  return 0;
-}
+/* From before the seal is written until it is whole (and stamped, with
+ * --tsa), an interrupt (Ctrl-C, SIGTERM, SIGHUP, SIGXFSZ) puts back the
+ * noqtis.json and noqtis.sig the folder had, together, or removes the new
+ * ones where it had none (ncsnappend, cli/io.c), and removes the
+ * temporary files the library writes them through: a stopped seal leaves
+ * the folder as it was. Under -r the earlier seal of each capsule is kept
+ * until the whole tree is done (nctree). Only SIGKILL (or a power cut) can
+ * still leave a new seal or a temporary file. */
+static int pslot[2] = {-1, -1};
 
 static void disarm(void) {
   int i;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 2; i++) {
     ncunpend(pslot[i]);
     pslot[i] = -1;
   }
+}
+
+/* old[0] is noqtis.json, old[1] noqtis.sig; who names the capsule */
+static int arm(const char *dir, int tsa, ncsnap *old, const char *who) {
+  ncpendseal(dir, pslot);
+#ifdef _WIN32
+  /* on Windows only while it waits for a TSA, as before */
+  if (!tsa)
+    return 1;
+#else
+  (void)tsa;
+#endif
+  if (ncsnappend(old, 2, who) == NCOK)
+    return 1;
+  disarm();
+  return 0;
 }
 
 /* ---- TSA anchors (--anchor, DER certificates) ---- */
@@ -411,6 +405,10 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
     rc = fn(n, b);
     nclab = NULL;
     free(b);
+#ifdef NQTEST
+    if (seal)
+      nctkill("between");
+#endif
     if (ncback(home) != NCOK) {
       ret = nclib(cmd, "the working folder", NQEIO);
       break;
@@ -468,10 +466,12 @@ int ncseal(int argc, char **argv) {
   uint8_t *meta = NULL;
   size_t mn = 0;
   char *dp = NULL;
+  const char *who;
   ncsnap old[2];
 
   old[0].b = old[1].b = NULL;
   old[0].had = old[1].had = 0;
+  old[0].dfd = old[1].dfd = old[0].sl = old[1].sl = -1;
   if (hasrec(argc, argv))
     return ncrec("seal", ncseal, argc, argv);
   an.k = 0;
@@ -569,32 +569,37 @@ int ncseal(int argc, char **argv) {
             pk.a.name);
     goto done;
   }
-  /* armed before the seal is written, so no interrupt can fall between
-   * writing it and waiting for the TSA */
-  /* a seal the folder already has is kept: a TSA that does not answer
-   * must not cost the capsule the seal (and the timestamp) it had */
-  if (ncsnapget(&old[0], argv[0], "noqtis.json") != NCOK ||
-      ncsnapget(&old[1], argv[0], "noqtis.sig") != NCOK) {
-    ncmsg("seal", "%s: its noqtis.json or noqtis.sig is not a plain file "
-          "that can be read (a link, a pipe, a folder): remove it and seal "
-          "again", argv[0]);
+  /* the seal the folder already has is kept, and an interrupt or a
+   * refusal from here on puts it back: a TSA that does not answer must
+   * not cost the capsule the seal (and the timestamp) it had */
+  who = ncesc(nclab != NULL ? nclab : argv[0]);
+  if ((rc = ncsnapget(&old[0], argv[0], "noqtis.json")) != NCOK ||
+      (rc = ncsnapget(&old[1], argv[0], "noqtis.sig")) != NCOK) {
+    if (rc == NCBAD)
+      ncmsg("seal", "%s: cannot open the folder: %s", argv[0],
+            strerror(errno));
+    else
+      ncmsg("seal", "%s: its noqtis.json or noqtis.sig is not a plain file "
+            "that can be read (a link, a pipe, a folder): remove it and "
+            "seal again", argv[0]);
     goto done;
   }
-  if (!arm(argv[0], nt > 0, old)) {
-    ncmsg("seal", "%s: path too long", argv[0]);
+  if (!arm(argv[0], nt > 0, old, who)) {
+    ncmsg("seal", "%s: path too long, or out of memory", argv[0]);
     goto done;
   }
   rc = fmt == 2 ? nqseal2(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
                          (const char *)meta, ins, (size_t)ni)
                  : nqseal(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
                           (const char *)meta, NULL);
+#ifdef NQTEST
+  if (rc == NQOK)
+    nctkill("sealed");
+#endif
   if (rc != NQOK) {
-    disarm();
     /* a seal that stopped part-way leaves the one the folder had */
-    if (old[0].had || old[1].had) {
-      (void)ncsnapput(&old[0]);
-      (void)ncsnapput(&old[1]);
-    }
+    int back = ncsnapput(old, 2) == NCOK;
+    disarm();
     if (rc == NQEARG)
       sealwhy(argv[0], kp, pp);
     else if (rc == NQESTATE)
@@ -609,47 +614,37 @@ int ncseal(int argc, char **argv) {
             "folder", argv[0]);
     else
       nclib("seal", argv[0], rc);
+    if (!back)
+      ncmsg("seal", "%s: its earlier noqtis.json and noqtis.sig could not "
+            "be put back: check it", argv[0]);
     goto done;
   }
   ret = NCOK;
   if (nt == 0 || (rc = stamp("seal", argv[0], tsa, nt, &an)) == NCOK) {
     /* under -r the earlier seal is kept until the whole tree is done: a
      * capsule resealed inside one not yet resealed fails that one's check */
-    nctree(&old[0]);
-    nctree(&old[1]);
+    nctree(old, 2);
     disarm();
     printf("sealed %s with %s%s\n", ncesc(nclab != NULL ? nclab : argv[0]),
            sk.a.name,
            nt > 0 ? " and a timestamp" : "");
   } else {
-    /* a seal asked to carry a timestamp never stays without one */
-    char *f;
+    /* a seal asked to carry a timestamp never stays without one: the
+     * folder gets back the seal it had, or none */
+    int had = old[0].had || old[1].had,
+        back = ncsnapput(old, 2) == NCOK;
     disarm();
-    if (old[0].had || old[1].had) {
-      int back = ncsnapput(&old[0]) == NCOK;
-      back = ncsnapput(&old[1]) == NCOK && back;
+    if (had)
       ncmsg("seal", "no --tsa gave a timestamp; %s", back
             ? "the seal the folder had is kept: try again, or give "
               "another --tsa"
             : "the seal the folder had could not be put back: seal again");
-      ret = NCUSE;
-      goto done;
-    }
-    size_t fn = strlen(argv[0]) + 16;
-    f = (char *)malloc(fn);
-    int gone = f != NULL;
-    if (f != NULL) {
-      snprintf(f, fn, "%s/noqtis.sig", argv[0]);
-      gone = remove(f) == 0;
-      snprintf(f, fn, "%s/noqtis.json", argv[0]);
-      gone = remove(f) == 0 && gone;
-      free(f);
-    }
-    ncmsg("seal", "no --tsa gave a timestamp; %s", gone
-          ? "removed noqtis.json and noqtis.sig, so the folder is not left "
-            "sealed without one: try again, or give another --tsa"
-          : "could not remove noqtis.json and noqtis.sig: delete them, "
-            "or seal again");
+    else
+      ncmsg("seal", "no --tsa gave a timestamp; %s", back
+            ? "removed noqtis.json and noqtis.sig, so the folder is not "
+              "left sealed without one: try again, or give another --tsa"
+            : "could not remove noqtis.json and noqtis.sig: delete them, "
+              "or seal again");
     ret = NCUSE;
   }
 done:

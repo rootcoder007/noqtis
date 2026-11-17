@@ -32,7 +32,9 @@
 #else
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #if defined(__linux__)
@@ -330,16 +332,43 @@ static int pfrc[NCPEND];       /* its force */
 static char pfin[NCPEND][4200]; /* the name it gets */
 static int pown[NCPEND]; /* made here (not ncpend alone): removed at exit */
 static int pisd[NCPEND]; /* a folder (nctmpd) */
+#ifdef _WIN32
 /* a file an interrupt puts back as it was instead of removing it: its
- * bytes, their count and its mode (ncsnappend) */
+ * bytes and their count (ncsnappend) */
 static const uint8_t *volatile pbk[NCPEND];
 static volatile size_t pbkn[NCPEND];
-static volatile int pbkm[NCPEND];
-#ifndef _WIN32
+#else
 static int pdfd[NCPEND]; /* the folder it is in, open; -1: by its path */
 static size_t pbs[NCPEND]; /* where its last component starts in pnd */
+/* The files an interrupt puts back as they were (ncsnappend, nctree):
+ * each in the folder it was read from, through a descriptor of that
+ * folder opened before the command changed anything, so a folder renamed
+ * or replaced by a link since cannot take the write elsewhere. The
+ * entries of one group (a seal's noqtis.json and noqtis.sig) come back
+ * together or, said on standard error, not at all. The list changes only
+ * with the signals held, and the handler is in place for as long as it
+ * holds anything (sigs). */
+typedef struct {
+  int dfd;         /* the folder */
+  int grp;         /* the group: entries next to each other */
+  int mine;        /* 1: the list frees b and closes dfd (nctree), 2: b
+                    * only, dfd being the one of the group's first entry */
+  int had;         /* 0: there was no such file; the put-back removes it */
+  int mode;        /* its permission bits */
+  long gid;        /* its group */
+  const uint8_t *b; /* its bytes */
+  size_t n;
+  int st;          /* in bkput: 1 written under tn, 2 to be removed */
+  char nm[64];     /* its name in the folder */
+  char tn[32];     /* .noqtis.<16 hex>.tmp: the put-back's own file */
+  char *msg;       /* the group's first entry: said when it fails */
+} bkent;
+static bkent *bk;
+static volatile sig_atomic_t nbk;
+static size_t cbk;
+static int ngrp, keepon;
 #endif
-static int npon = 0, pexit = 0;
+static int npon = 0, pexit = 0, pinst = 0;
 static volatile sig_atomic_t pheld = 0, pgot = 0;
 static const int psig[] = {SIGINT, SIGTERM
 #ifdef SIGHUP
@@ -350,7 +379,11 @@ static const int psig[] = {SIGINT, SIGTERM
 #endif
 };
 #define NPSIG (sizeof psig / sizeof psig[0])
+#ifdef _WIN32
 static void (*pold[NPSIG])(int);
+#else
+static struct sigaction pold[NPSIG];
+#endif
 
 static int addf(char ***v, size_t *n, size_t *cap, const char *p);
 
@@ -454,128 +487,203 @@ static void rmtree(char *p, size_t cap) {
 }
 
 #ifndef _WIN32
-/* puts the n bytes b back at path with their mode, or removes path when b
- * is NULL: calls a signal handler may make. A file that is still what it
- * was is not written (under ulimit -f the write would cut it to the
- * limit), and the bytes are written beside it and renamed over it, so a
- * write that stops short replaces nothing. */
-static void putbk(const char *path, const uint8_t *b, size_t n, int mode) {
-  char t[4300], buf[4096];
-  size_t o = 0, at = 0, l, j;
-  ssize_t r = 0;
-  int fd, same = 1;
-  if (b == NULL) {
-    (void)unlink(path);
-    return;
-  }
-  fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
-  if (fd >= 0) {
-    while (same && (r = read(fd, buf, sizeof buf)) > 0) {
-      if (at + (size_t)r > n) {
-        same = 0;
-        break;
-      }
-      for (j = 0; j < (size_t)r; j++)
-        if ((uint8_t)buf[j] != b[at + j]) {
-          same = 0;
-          break;
-        }
-      at += (size_t)r;
-    }
-    if (r < 0 || at != n)
-      same = 0;
-    (void)close(fd);
-    if (same) {
-      (void)chmod(path, (mode_t)mode);
-      return;
-    }
-  }
-  l = strlen(path);
-  if (l + 8 > sizeof t)
-    return;
-  memcpy(t, path, l);
-  memcpy(t + l, ".nqback", 8);
-  fd = open(t, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0600);
+/* Whether entry e's file is, right now, the bytes it had; when it is, it
+ * gets its group and mode back (a refused build may have rewritten it
+ * with the same bytes). Like everything bkput calls, async-signal-safe. */
+static int bksame(const bkent *e) {
+  char buf[4096];
+  struct stat st;
+  size_t at = 0;
+  ssize_t r;
+  int same, fd = openat(e->dfd, e->nm,
+                        O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
   if (fd < 0)
-    return;
-  while (o < n) {
-    ssize_t w = write(fd, b + o, n - o);
+    return 0;
+  same = fstat(fd, &st) == 0 && S_ISREG(st.st_mode) &&
+         (uintmax_t)st.st_size == (uintmax_t)e->n;
+  while (same && at < e->n) {
+    r = read(fd, buf, sizeof buf);
+    if (r < 0 && errno == EINTR)
+      continue;
+    if (r <= 0 || (size_t)r > e->n - at ||
+        memcmp(buf, e->b + at, (size_t)r) != 0)
+      same = 0;
+    else
+      at += (size_t)r;
+  }
+  if (same) {
+    /* the group first: a change of group may clear the set-ID bits */
+    if ((long)st.st_gid != e->gid)
+      (void)fchown(fd, (uid_t)-1, (gid_t)e->gid);
+    if ((int)(st.st_mode & 0777) != e->mode)
+      (void)fchmod(fd, (mode_t)e->mode);
+  }
+  (void)close(fd);
+  return same;
+}
+
+/* writes entry e's bytes, with its group (where the owner may give it)
+ * and its mode, to a new file of the tool's temporary shape, made with
+ * O_EXCL so no file of the user's is ever written: 0, or -1 with nothing
+ * left behind */
+static int bkwrite(bkent *e) {
+  size_t o = 0;
+  int fd = -1, k, ok;
+  for (k = 0; k < 8 && fd < 0; k++) {
+    fd = openat(e->dfd, e->tn,
+                O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0 && errno != EEXIST)
+      return -1;
+    /* the name is taken: the next of the same shape */
+    if (fd < 0)
+      e->tn[8 + k] = e->tn[8 + k] == '9'   ? 'a'
+                     : e->tn[8 + k] == 'f' ? '0'
+                                           : (char)(e->tn[8 + k] + 1);
+  }
+  if (fd < 0)
+    return -1;
+  while (o < e->n) {
+    ssize_t w = write(fd, e->b + o, e->n - o);
+    if (w < 0 && errno == EINTR)
+      continue;
     if (w <= 0)
       break;
     o += (size_t)w;
   }
-  if (o == n && fchmod(fd, (mode_t)mode) == 0) {
-    (void)close(fd);
-    if (rename(t, path) != 0)
-      (void)unlink(t);
-  } else {
-    (void)close(fd);
-    (void)unlink(t);
+  (void)fchown(fd, (uid_t)-1, (gid_t)e->gid);
+  ok = o == e->n && fchmod(fd, (mode_t)e->mode) == 0;
+  ok = close(fd) == 0 && ok;
+  if (!ok)
+    (void)unlinkat(e->dfd, e->tn, 0);
+  return ok ? 0 : -1;
+}
+
+/* Puts the entries a to z - 1 (one group) back as they were. Each file
+ * that is no longer what it was is first written whole under a name of
+ * its own; only when all are written are they renamed over their names
+ * (and a file there was none of removed), so the group comes back
+ * together. When it cannot, nothing is renamed and, with say, the
+ * group's message goes to standard error. 1 when the group is back. */
+static int bkput(size_t a, size_t z, int say) {
+  size_t k;
+  int ok = 1;
+  for (k = a; k < z; k++) {
+    bkent *e = &bk[k];
+    e->st = !e->had ? 2 : bksame(e) ? 0 : bkwrite(e) == 0 ? 1 : -1;
+    if (e->st < 0)
+      ok = 0;
+  }
+  for (k = a; k < z; k++) {
+    bkent *e = &bk[k];
+    if (e->st == 1 &&
+        (!ok || renameat(e->dfd, e->tn, e->dfd, e->nm) != 0)) {
+      ok = 0;
+      (void)unlinkat(e->dfd, e->tn, 0);
+    } else if (ok && e->st == 2 && unlinkat(e->dfd, e->nm, 0) != 0 &&
+               errno != ENOENT) {
+      ok = 0;
+    }
+  }
+  if (!ok && say && bk[a].msg != NULL) {
+    ssize_t w = write(2, bk[a].msg, strlen(bk[a].msg));
+    (void)w;
+  }
+  return ok;
+}
+
+/* puts every group back, the last noted first: the group of a build is
+ * noted before the one of the seal inside it, and wins */
+static void bkall(int say) {
+  size_t z = (size_t)nbk, a;
+  while (z > 0) {
+    for (a = z - 1; a > 0 && bk[a - 1].grp == bk[z - 1].grp; a--)
+      ;
+    (void)bkput(a, z, say);
+    z = a;
   }
 }
 
-/* files a run over several capsules keeps until its last step (nctree) */
-typedef struct {
-  char *p;
-  uint8_t *b;
-  size_t n;
-  int mode, had;
-} keptf;
-static keptf *volatile kept;
-static volatile sig_atomic_t nkept;
-static size_t ckept;
-static int keepon;
+/* the entries of group g: a to z - 1 (a == z when there are none) */
+static void bkfind(int g, size_t *a, size_t *z) {
+  size_t k;
+  for (k = 0; k < (size_t)nbk && bk[k].grp != g; k++)
+    ;
+  *a = k;
+  while (k < (size_t)nbk && bk[k].grp == g)
+    k++;
+  *z = k;
+}
 
-static void keptback(void) {
-  int k;
-  for (k = (int)nkept - 1; k >= 0; k--)
-    putbk(kept[k].p,
-          !kept[k].had ? NULL
-          : kept[k].b != NULL ? kept[k].b : (const uint8_t *)"",
-          kept[k].n, kept[k].mode);
+#ifdef SIGXFSZ
+/* SIGXFSZ ignored, so a put-back write over ulimit -f fails with EFBIG
+ * and raises no second signal; was gets the disposition it had. Set
+ * again after the writes, it also drops one that came while held. */
+static void noxfsz(struct sigaction *was) {
+  struct sigaction sa;
+  memset(&sa, 0, sizeof sa);
+  sa.sa_handler = SIG_IGN;
+  sigemptyset(&sa.sa_mask);
+  (void)sigaction(SIGXFSZ, &sa, was);
 }
 #endif
-
+#else
 /* writes slot i's kept bytes over its file */
 static void putback(int i) {
-#ifdef _WIN32
   FILE *f = fopen(pnd[i], "wb");
   if (f != NULL) {
     (void)fwrite(pbk[i], 1, pbkn[i], f);
     (void)fclose(f);
   }
-#else
-  putbk(pnd[i], pbk[i], pbkn[i], pbkm[i]);
+}
 #endif
+
+/* ends the process by signal s, as it would have ended without the
+ * handler (on return from it, or at once outside it) */
+static void die(int s) {
+#ifdef _WIN32
+  signal(s, SIG_DFL);
+#else
+  struct sigaction sa;
+  memset(&sa, 0, sizeof sa);
+  sa.sa_handler = SIG_DFL;
+  sigemptyset(&sa.sa_mask);
+  (void)sigaction(s, &sa, NULL);
+#endif
+  raise(s);
 }
 
 static void onpend(int s) {
-  int i;
+  int i, e = errno;
   if (pheld) {
     /* a folder is being filled: the command removes it and then ends
      * (ncdone); a write over ulimit -f fails meanwhile */
     if (!pgot)
       pgot = s;
+#ifdef _WIN32
     signal(s, onpend);
+#endif
+    errno = e;
     return;
   }
+#if !defined(_WIN32) && defined(SIGXFSZ)
+  noxfsz(NULL);
+#endif
   for (i = 0; i < NCPEND; i++)
     if (pon[i] && !pisd[i]) {
+#ifdef _WIN32
       if (pbk[i] != NULL) {
         putback(i);
         continue;
       }
-#ifdef _WIN32
       remove(pnd[i]);
 #else
       rmone(i);
 #endif
     }
 #ifndef _WIN32
-  keptback();
+  bkall(1);
 #endif
-  signal(s, SIG_DFL);
-  raise(s);
+  die(s);
 }
 
 static void atpend(void) {
@@ -612,8 +720,54 @@ static int hold(sigset_t *os) {
 #define UNHOLD (void)held_
 #endif
 
-int ncpend(const char *path) {
+/* The handler is in place exactly while a slot is pending or a file is
+ * kept to put back: sigs runs after one is noted, before the command
+ * changes anything, and after one is let go, when nothing is left to
+ * undo; the dispositions the process had come back then. A signal the
+ * process ignored stays ignored. While the handler runs, the others of
+ * these signals wait, so one put-back runs at a time. */
+static void sigs(void) {
   size_t k;
+  int want = npon > 0;
+#ifndef _WIN32
+  want = want || nbk > 0;
+#endif
+  if (want == pinst)
+    return;
+  for (k = 0; k < NPSIG; k++) {
+#ifdef _WIN32
+    if (want) {
+      pold[k] = signal(psig[k], onpend);
+      if (pold[k] == SIG_IGN)
+        signal(psig[k], SIG_IGN);
+    } else {
+      signal(psig[k], pold[k] == SIG_ERR ? SIG_DFL : pold[k]);
+    }
+#else
+    if (want) {
+      struct sigaction sa;
+      size_t j;
+      memset(&pold[k], 0, sizeof pold[k]);
+      pold[k].sa_handler = SIG_DFL;
+      if (sigaction(psig[k], NULL, &pold[k]) != 0 ||
+          pold[k].sa_handler == SIG_IGN)
+        continue;
+      memset(&sa, 0, sizeof sa);
+      sa.sa_handler = onpend;
+      sigemptyset(&sa.sa_mask);
+      for (j = 0; j < NPSIG; j++)
+        sigaddset(&sa.sa_mask, psig[j]);
+      sa.sa_flags = SA_RESTART;
+      (void)sigaction(psig[k], &sa, NULL);
+    } else {
+      (void)sigaction(psig[k], &pold[k], NULL);
+    }
+#endif
+  }
+  pinst = want;
+}
+
+int ncpend(const char *path) {
   int i;
   if (strlen(path) >= sizeof pnd[0])
     return -1;
@@ -626,38 +780,32 @@ int ncpend(const char *path) {
   pfh[i] = NULL;
   pown[i] = 0;
   pisd[i] = 0;
+#ifdef _WIN32
   pbk[i] = NULL;
-#ifndef _WIN32
+#else
   pdfd[i] = -1;
   pbs[i] = 0;
 #endif
-  if (npon++ == 0) {
-    for (k = 0; k < NPSIG; k++) {
-      pold[k] = signal(psig[k], onpend);
-      if (pold[k] == SIG_IGN)
-        signal(psig[k], SIG_IGN);
-    }
-  }
+  npon++;
+  sigs();
   pon[i] = 1;
   return i;
 }
 
 void ncunpend(int i) {
-  size_t k;
   if (i < 0 || i >= NCPEND || !pon[i])
     return;
   pon[i] = 0;
-  pbk[i] = NULL;
   pfh[i] = NULL;
-#ifndef _WIN32
+#ifdef _WIN32
+  pbk[i] = NULL;
+#else
   if (pdfd[i] >= 0)
     close(pdfd[i]);
   pdfd[i] = -1;
 #endif
-  if (--npon == 0) {
-    for (k = 0; k < NPSIG; k++)
-      signal(psig[k], pold[k] == SIG_ERR ? SIG_DFL : pold[k]);
-  }
+  npon--;
+  sigs();
 }
 
 int ncpendown(const char *dir, const char *name) {
@@ -846,19 +994,27 @@ static void ncdone(void) {
   int s = (int)pgot, i;
   if (pheld || !s)
     return;
-  for (i = 0; i < NCPEND; i++)
-    if (pon[i] && pown[i] && pisd[i])
-      rmtree(pnd[i], sizeof pnd[i]);
-    else if (pon[i] && pown[i])
-      rmone(i);
-  for (i = 0; i < NCPEND; i++)
-    if (pon[i] && !pown[i])
-      rmone(i);
-#ifndef _WIN32
-  keptback();
+  {
+    /* held back, no other signal breaks into the put-back; the one
+     * raised at the end ends the process once they are let through */
+    HOLD;
+#if !defined(_WIN32) && defined(SIGXFSZ)
+    noxfsz(NULL);
 #endif
-  signal(s, SIG_DFL);
-  raise(s);
+    for (i = 0; i < NCPEND; i++)
+      if (pon[i] && pown[i] && pisd[i])
+        rmtree(pnd[i], sizeof pnd[i]);
+      else if (pon[i] && pown[i])
+        rmone(i);
+    for (i = 0; i < NCPEND; i++)
+      if (pon[i] && !pown[i])
+        rmone(i);
+#ifndef _WIN32
+    bkall(1);
+#endif
+    die(s);
+    UNHOLD;
+  }
 }
 
 /* removes what slot i holds and frees it */
@@ -1519,30 +1675,104 @@ char *ncabs(const char *p) {
 }
 
 #ifdef NQTEST
-/* a test hook for -r (tests/nqd/cli.sh): when path is the folder
- * NQTESTSWAP names, it is renamed and a link to NQTESTSWAPTO put in its
- * place, between the walk and the run on it, without timing */
-void nctswap(const char *path) {
+/* renames path to path.was and puts a link to t in its place */
+static void swapto(const char *path, const char *t) {
 #ifndef _WIN32
-  const char *s = getenv("NQTESTSWAP"), *t = getenv("NQTESTSWAPTO");
   char was[4200];
-  if (s == NULL || t == NULL || strcmp(s, path) != 0)
-    return;
   snprintf(was, sizeof was, "%s.was", path);
   if (rename(path, was) != 0 || symlink(t, path) != 0)
     fprintf(stderr, "nctswap: %s: %s\n", path, strerror(errno));
 #else
   (void)path;
+  (void)t;
 #endif
+}
+
+/* a test hook for -r (tests/nqd/cli.sh): when path is the folder
+ * NQTESTSWAP names, it is renamed and a link to NQTESTSWAPTO put in its
+ * place, between the walk and the run on it, without timing */
+void nctswap(const char *path) {
+  const char *s = getenv("NQTESTSWAP"), *t = getenv("NQTESTSWAPTO");
+  if (s != NULL && t != NULL && strcmp(s, path) == 0)
+    swapto(path, t);
+}
+
+/* a test hook for interrupts (tests/nqd/cli.sh): NQTESTKILL=<at>:<n>
+ * sends the process SIGTERM the n-th time it reaches the point at
+ * ("sealed": a seal just written; "between": seal -r between two
+ * capsules), after NQTESTKILLMV, when set, is swapped for a link to
+ * NQTESTSWAPTO */
+void nctkill(const char *at) {
+  static int seen;
+  const char *v = getenv("NQTESTKILL"), *m = getenv("NQTESTKILLMV"),
+             *t = getenv("NQTESTSWAPTO");
+  size_t l = strlen(at);
+  if (v == NULL || strncmp(v, at, l) != 0 || v[l] != ':' ||
+      ++seen != atoi(v + l + 1))
+    return;
+  if (m != NULL && t != NULL)
+    swapto(m, t);
+  raise(SIGTERM);
+}
+#endif
+
+#ifndef _WIN32
+/* reads all of fd, a plain file of about hint bytes, up to max bytes,
+ * into a new buffer */
+static int rdall(int fd, size_t hint, size_t max, uint8_t **out,
+                 size_t *len) {
+  uint8_t *b = NULL;
+  size_t n = 0, cap = hint < max ? hint + 1 : max + 1;
+  for (;;) {
+    ssize_t r;
+    if (n == cap) {
+      uint8_t *g;
+      if (n > max || cap > (size_t)-1 / 2) {
+        free(b);
+        return NQELIM;
+      }
+      cap *= 2;
+      if ((g = (uint8_t *)realloc(b, cap)) == NULL) {
+        free(b);
+        return NQEMEM;
+      }
+      b = g;
+    } else if (b == NULL && (b = (uint8_t *)malloc(cap)) == NULL) {
+      return NQEMEM;
+    }
+    r = read(fd, b + n, cap - n);
+    if (r < 0 && errno == EINTR)
+      continue;
+    if (r < 0) {
+      free(b);
+      return NQEIO;
+    }
+    if (r == 0)
+      break;
+    n += (size_t)r;
+  }
+  if (n > max) {
+    free(b);
+    return NQELIM;
+  }
+  *out = b;
+  *len = n;
+  return NQOK;
 }
 #endif
 
 int ncsnapget(ncsnap *s, const char *dir, const char *name) {
   struct stat st;
+#ifndef _WIN32
+  int fd, rc;
+#endif
   s->b = NULL;
   s->n = 0;
   s->had = 0;
   s->mode = 0644;
+  s->gid = -1;
+  s->dfd = -1;
+  s->sl = -1;
   if (snprintf(s->p, sizeof s->p, "%s/%s", dir, name) >= (int)sizeof s->p)
     return NCUSE;
 #ifdef _WIN32
@@ -1550,21 +1780,40 @@ int ncsnapget(ncsnap *s, const char *dir, const char *name) {
     return NCOK;
   if ((st.st_mode & S_IFMT) != S_IFREG)
     return NCUSE;
-#else
-  /* the name itself, not what a link leads to: a link, a pipe or a folder
-   * is no file to keep (a pipe would be read for ever) */
-  if (lstat(s->p, &st) != 0)
-    return errno == ENOENT ? NCOK : NCUSE;
-  if (!S_ISREG(st.st_mode))
-    return NCUSE;
-#endif
   s->mode = (int)(st.st_mode & 0777);
   if (ncrdx(s->p, 0, NCRDMAX, &s->b, &s->n) != NQOK)
     return NCUSE;
+#else
+  /* the folder is kept open: what an interrupt puts back goes to this
+   * folder, whatever is renamed or linked in its place meanwhile */
+  if (strlen(name) >= sizeof bk->nm)
+    return NCUSE;
+  if ((s->dfd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC)) < 0)
+    return NCBAD;
+  /* the name itself, not what a link leads to: a link, a pipe or a folder
+   * is no file to keep (a pipe would be read for ever) */
+  fd = openat(s->dfd, name, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+  if (fd < 0 && errno == ENOENT)
+    return NCOK;
+  rc = fd >= 0 && fstat(fd, &st) == 0 && S_ISREG(st.st_mode);
+  if (rc) {
+    s->mode = (int)(st.st_mode & 0777);
+    s->gid = (long)st.st_gid;
+    rc = rdall(fd, (size_t)st.st_size, NCRDMAX, &s->b, &s->n) == NQOK;
+  }
+  if (fd >= 0)
+    close(fd);
+  if (!rc) {
+    close(s->dfd);
+    s->dfd = -1;
+    return NCUSE;
+  }
+#endif
   s->had = 1;
   return NCOK;
 }
 
+#ifdef _WIN32
 /* whether the file of s is, right now, the bytes that were kept */
 static int snapsame(const ncsnap *s) {
   uint8_t *b = NULL;
@@ -1577,114 +1826,228 @@ static int snapsame(const ncsnap *s) {
   return same;
 }
 
-int ncsnapput(ncsnap *s) {
-  int rc = NCOK;
-  if (s->had) {
-    /* a file the command never changed is not written again: in a folder
-     * that may not be written the build was refused, and nothing is wrong */
-    if (!snapsame(s)) {
-      if (ncwr(s->p, s->b, s->n, 1, 0) != NQOK)
-        rc = NCUSE;
-#ifndef _WIN32
-      else if (chmod(s->p, (mode_t)s->mode) != 0)
-        rc = NCUSE;
-#endif
+int ncsnappend(ncsnap *s, int n, const char *who) {
+  int k;
+  (void)who;
+  for (k = 0; k < n; k++) {
+    HOLD;
+    s[k].sl = ncpend(s[k].p);
+    if (s[k].sl >= 0 && s[k].had) {
+      pbkn[s[k].sl] = s[k].n;
+      pbk[s[k].sl] = s[k].b != NULL ? s[k].b : (const uint8_t *)"";
     }
-#ifndef _WIN32
-    else {
-      /* rewritten with the bytes it had (a record made again within the
-       * same second): only its mode is the new file's */
-      (void)chmod(s->p, (mode_t)s->mode);
+    UNHOLD;
+    if (s[k].sl < 0) {
+      while (k-- > 0) {
+        ncunpend(s[k].sl);
+        s[k].sl = -1;
+      }
+      return NCUSE;
     }
-#endif
-  } else if (ncexist(s->p) && remove(s->p) != 0) {
-    rc = NCUSE;
   }
-  ncsnapfree(s);
-  return rc;
+  return NCOK;
 }
 
-int ncsnappend(const ncsnap *s) {
-  int i;
-  HOLD;
-  i = ncpend(s->p);
-  if (i >= 0 && s->had) {
-    pbkn[i] = s->n;
-    pbkm[i] = s->mode;
-    pbk[i] = s->b != NULL ? s->b : (const uint8_t *)"";
+int ncsnapput(ncsnap *s, int n) {
+  int k, rc = NCOK;
+  for (k = 0; k < n; k++) {
+    /* a file the command never changed is not written again: in a folder
+     * that may not be written the build was refused, and nothing is
+     * wrong */
+    if (s[k].had ? !snapsame(&s[k]) &&
+                       ncwr(s[k].p, s[k].b, s[k].n, 1, 0) != NQOK
+                 : ncexist(s[k].p) && remove(s[k].p) != 0)
+      rc = NCUSE;
   }
-  UNHOLD;
-  return i;
+  for (k = 0; k < n; k++)
+    ncsnapfree(&s[k]);
+  return rc;
 }
+#else
+int ncsnappend(ncsnap *s, int n, const char *who) {
+  char tn[4][32], *msg = NULL;
+  int k, g;
+  if (n <= 0 || n > 4)
+    return NCUSE;
+  for (k = 0; k < n; k++)
+    if (s[k].dfd < 0 || tmpnm(strrchr(s[k].p, '/') + 1, tn[k],
+                              sizeof tn[k]) != NCOK)
+      return NCUSE;
+  if (who != NULL) {
+    size_t l = strlen(who) + 160;
+    if ((msg = (char *)malloc(l)) == NULL)
+      return NCUSE;
+    snprintf(msg, l, "noqtis: %s: stopped, and %s could not be put back "
+             "as %s: check it\n", who,
+             n == 1 ? "its file" : "its files",
+             n == 1 ? "it was" : "they were");
+  }
+  {
+    HOLD;
+    if ((size_t)nbk + (size_t)n > cbk) {
+      bkent *e = (bkent *)realloc(bk, (cbk + (size_t)n + 16) * sizeof *e);
+      if (e == NULL) {
+        UNHOLD;
+        free(msg);
+        return NCUSE;
+      }
+      bk = e;
+      cbk += (size_t)n + 16;
+    }
+    g = ++ngrp;
+    for (k = 0; k < n; k++) {
+      bkent *e = &bk[(size_t)nbk + (size_t)k];
+      memset(e, 0, sizeof *e);
+      e->dfd = s[k].dfd;
+      e->grp = g;
+      e->had = s[k].had;
+      e->mode = s[k].mode;
+      e->gid = s[k].gid;
+      e->b = s[k].b;
+      e->n = s[k].n;
+      snprintf(e->nm, sizeof e->nm, "%s", strrchr(s[k].p, '/') + 1);
+      memcpy(e->tn, tn[k], sizeof e->tn);
+      e->msg = k == 0 ? msg : NULL;
+      s[k].sl = g;
+    }
+    nbk = (sig_atomic_t)(nbk + n);
+    sigs();
+    UNHOLD;
+  }
+  return NCOK;
+}
+
+/* lets group g go, with the signals held: its message is freed, and the
+ * bytes and folder the list took over (nctree) */
+static void bkdel(int g) {
+  size_t a, z, k;
+  bkfind(g, &a, &z);
+  for (k = a; k < z; k++) {
+    free(bk[k].msg);
+    if (bk[k].mine)
+      ncfree((void *)(uintptr_t)bk[k].b, bk[k].n, 0);
+    if (bk[k].mine == 1)
+      close(bk[k].dfd);
+  }
+  if (a == z)
+    return;
+  memmove(&bk[a], &bk[z], ((size_t)nbk - z) * sizeof *bk);
+  nbk = (sig_atomic_t)((size_t)nbk - (z - a));
+  if (nbk == 0) {
+    free(bk);
+    bk = NULL;
+    cbk = 0;
+  }
+  sigs();
+}
+
+int ncsnapput(ncsnap *s, int n) {
+  int k, ok = 0;
+  /* held back, the handler cannot run during the put-back, nor between it
+   * and letting the files go: it is one step */
+  HOLD;
+  if (s[0].sl >= 0 || ncsnappend(s, n, NULL) == NCOK) {
+    size_t a, z;
+#ifdef SIGXFSZ
+    struct sigaction xf;
+    noxfsz(&xf);
+#endif
+    bkfind(s[0].sl, &a, &z);
+    ok = z > a && bkput(a, z, 0);
+#ifdef SIGXFSZ
+    noxfsz(NULL);
+    (void)sigaction(SIGXFSZ, &xf, NULL);
+#endif
+  }
+  for (k = 0; k < n; k++)
+    ncsnapfree(&s[k]);
+  UNHOLD;
+  return ok ? NCOK : NCUSE;
+}
+#endif
 
 void nctreeon(void) {
 #ifndef _WIN32
+  /* the folder of each capsule resealed stays open until the run ends */
+  static int up;
+  struct rlimit rl;
+  if (!up && getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_cur < rl.rlim_max) {
+    rlim_t want = rl.rlim_max;
+    rl.rlim_cur = want;
+#ifdef OPEN_MAX
+    /* macOS takes no more than OPEN_MAX */
+    if (setrlimit(RLIMIT_NOFILE, &rl) != 0 && want > OPEN_MAX)
+      rl.rlim_cur = OPEN_MAX;
+#endif
+    (void)setrlimit(RLIMIT_NOFILE, &rl);
+  }
+  up = 1;
   keepon = 1;
 #endif
 }
 
-void nctree(ncsnap *s) {
+void nctree(ncsnap *s, int n) {
+  int k;
 #ifndef _WIN32
-  char cwd[4200], *p;
-  size_t n;
-  if (!keepon)
-    return;
-  cwd[0] = '\0';
-  if (s->p[0] != '/' && getcwd(cwd, sizeof cwd) == NULL)
-    return;
-  n = strlen(cwd) + strlen(s->p) + 2;
-  if ((p = (char *)malloc(n)) == NULL)
-    return;
-  snprintf(p, n, "%s%s%s", cwd, cwd[0] != '\0' ? "/" : "", s->p);
-  {
+  if (keepon && n > 0 && s[0].sl >= 0) {
+    size_t a, z, j;
+    struct stat s0, sj;
     HOLD;
-    if ((size_t)nkept == ckept) {
-      keptf *g = (keptf *)realloc(kept, (ckept + 16) * sizeof *g);
-      if (g == NULL) {
-        UNHOLD;
-        free(p);
-        return;
+    bkfind(s[0].sl, &a, &z);
+    for (j = a; j < z; j++) {
+      bk[j].mine = 1;
+      /* one descriptor for the folder of the group */
+      if (j > a && fstat(bk[a].dfd, &s0) == 0 && fstat(bk[j].dfd, &sj) == 0 &&
+          s0.st_dev == sj.st_dev && s0.st_ino == sj.st_ino) {
+        close(bk[j].dfd);
+        bk[j].dfd = bk[a].dfd;
+        bk[j].mine = 2;
       }
-      kept = g;
-      ckept += 16;
     }
-    kept[nkept].p = p;
-    kept[nkept].b = s->b;
-    kept[nkept].n = s->n;
-    kept[nkept].mode = s->mode;
-    kept[nkept].had = s->had;
-    nkept++;
+    /* the bytes and the folders are the list's now */
+    for (k = 0; k < n; k++) {
+      s[k].b = NULL;
+      s[k].n = 0;
+      s[k].had = 0;
+      s[k].dfd = -1;
+      s[k].sl = -1;
+    }
     UNHOLD;
   }
-  /* the bytes are the list's now */
-  s->b = NULL;
-  s->n = 0;
-  s->had = 0;
-#else
-  (void)s;
 #endif
+  for (k = 0; k < n; k++)
+    ncsnapfree(&s[k]);
 }
 
 void nctreeend(void) {
 #ifndef _WIN32
-  size_t k, n;
+  size_t k = 0;
   HOLD;
-  n = (size_t)nkept;
-  nkept = 0;
-  for (k = 0; k < n; k++) {
-    free(kept[k].p);
-    if (kept[k].b != NULL)
-      ncfree(kept[k].b, kept[k].n, 0);
+  while (k < (size_t)nbk) {
+    if (bk[k].mine)
+      bkdel(bk[k].grp);
+    else
+      k++;
   }
-  free(kept);
-  kept = NULL;
-  ckept = 0;
   keepon = 0;
   UNHOLD;
 #endif
 }
 
 void ncsnapfree(ncsnap *s) {
+#ifndef _WIN32
+  if (s->sl >= 0) {
+    HOLD;
+    bkdel(s->sl);
+    UNHOLD;
+  }
+  if (s->dfd >= 0)
+    close(s->dfd);
+  s->dfd = -1;
+#else
+  ncunpend(s->sl);
+#endif
+  s->sl = -1;
   if (s->b != NULL)
     ncfree(s->b, s->n, 0);
   s->b = NULL;
