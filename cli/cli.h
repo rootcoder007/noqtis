@@ -72,17 +72,26 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
  * to put back when a later step refuses: the command then leaves the
  * folder as it found it. ncsnapget reads dir/name (NCOK also when there
  * is no such file; NCUSE when it is there and cannot be read, or the path
- * is too long). ncsnapput writes it back, or removes the file the command
- * made where there was none, and frees; ncsnapfree only frees. */
+ * is too long, or it is a link, a pipe or any file that is not a plain one).
+ * ncsnapput writes it back with its mode when the file is no longer what it
+ * was (a file that was not touched is left alone), or removes the file the
+ * command made where there was none, and frees; ncsnapfree only frees.
+ * ncsnappend makes an interrupt put the file back as well (a slot for
+ * ncunpend, or -1): the bytes must stay allocated until then. */
 typedef struct {
   char p[4200];
   uint8_t *b;
   size_t n;
   int had;
+  int mode; /* its permission bits, put back with it */
 } ncsnap;
 int ncsnapget(ncsnap *s, const char *dir, const char *name);
 int ncsnapput(ncsnap *s);
 void ncsnapfree(ncsnap *s);
+int ncsnappend(const ncsnap *s);
+/* whether a and b name one file: by its identity where both exist, else by
+ * the name */
+int ncsame(const char *a, const char *b);
 #define NCRDSMALL ((size_t)1 << 20) /* a key, signature, anchor: 1 MiB */
 /* Creates path for writing: refuses an existing file unless force; sec
  * gives owner-only permissions (0600 on POSIX). The bytes go to a new

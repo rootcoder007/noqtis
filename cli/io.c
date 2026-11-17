@@ -330,6 +330,11 @@ static int pfrc[NCPEND];       /* its force */
 static char pfin[NCPEND][4200]; /* the name it gets */
 static int pown[NCPEND]; /* made here (not ncpend alone): removed at exit */
 static int pisd[NCPEND]; /* a folder (nctmpd) */
+/* a file an interrupt puts back as it was instead of removing it: its
+ * bytes, their count and its mode (ncsnappend) */
+static const uint8_t *volatile pbk[NCPEND];
+static volatile size_t pbkn[NCPEND];
+static volatile int pbkm[NCPEND];
 #ifndef _WIN32
 static int pdfd[NCPEND]; /* the folder it is in, open; -1: by its path */
 static size_t pbs[NCPEND]; /* where its last component starts in pnd */
@@ -448,6 +453,31 @@ static void rmtree(char *p, size_t cap) {
   (void)ncrmdir(p);
 }
 
+/* writes slot i's kept bytes over its file: open, write and close only,
+ * which a signal handler may call */
+static void putback(int i) {
+#ifdef _WIN32
+  FILE *f = fopen(pnd[i], "wb");
+  if (f != NULL) {
+    (void)fwrite(pbk[i], 1, pbkn[i], f);
+    (void)fclose(f);
+  }
+#else
+  size_t o = 0;
+  int fd = open(pnd[i], O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW,
+                (mode_t)pbkm[i]);
+  if (fd < 0)
+    return;
+  while (o < pbkn[i]) {
+    ssize_t w = write(fd, pbk[i] + o, pbkn[i] - o);
+    if (w <= 0)
+      break;
+    o += (size_t)w;
+  }
+  (void)close(fd);
+#endif
+}
+
 static void onpend(int s) {
   int i;
   if (pheld) {
@@ -460,6 +490,10 @@ static void onpend(int s) {
   }
   for (i = 0; i < NCPEND; i++)
     if (pon[i] && !pisd[i]) {
+      if (pbk[i] != NULL) {
+        putback(i);
+        continue;
+      }
 #ifdef _WIN32
       remove(pnd[i]);
 #else
@@ -518,6 +552,7 @@ int ncpend(const char *path) {
   pfh[i] = NULL;
   pown[i] = 0;
   pisd[i] = 0;
+  pbk[i] = NULL;
 #ifndef _WIN32
   pdfd[i] = -1;
   pbs[i] = 0;
@@ -538,6 +573,7 @@ void ncunpend(int i) {
   if (i < 0 || i >= NCPEND || !pon[i])
     return;
   pon[i] = 0;
+  pbk[i] = NULL;
   pfh[i] = NULL;
 #ifndef _WIN32
   if (pdfd[i] >= 0)
@@ -1425,29 +1461,76 @@ void nctswap(const char *path) {
 #endif
 
 int ncsnapget(ncsnap *s, const char *dir, const char *name) {
+  struct stat st;
   s->b = NULL;
   s->n = 0;
   s->had = 0;
+  s->mode = 0644;
   if (snprintf(s->p, sizeof s->p, "%s/%s", dir, name) >= (int)sizeof s->p)
     return NCUSE;
-  if (!ncexist(s->p))
+#ifdef _WIN32
+  if (stat(s->p, &st) != 0)
     return NCOK;
+  if ((st.st_mode & S_IFMT) != S_IFREG)
+    return NCUSE;
+#else
+  /* the name itself, not what a link leads to: a link, a pipe or a folder
+   * is no file to keep (a pipe would be read for ever) */
+  if (lstat(s->p, &st) != 0)
+    return errno == ENOENT ? NCOK : NCUSE;
+  if (!S_ISREG(st.st_mode))
+    return NCUSE;
+#endif
+  s->mode = (int)(st.st_mode & 0777);
   if (ncrdx(s->p, 0, NCRDMAX, &s->b, &s->n) != NQOK)
     return NCUSE;
   s->had = 1;
   return NCOK;
 }
 
+/* whether the file of s is, right now, the bytes that were kept */
+static int snapsame(const ncsnap *s) {
+  uint8_t *b = NULL;
+  size_t n = 0;
+  int same;
+  if (ncrdx(s->p, 0, NCRDMAX, &b, &n) != NQOK)
+    return 0;
+  same = n == s->n && (n == 0 || memcmp(b, s->b, n) == 0);
+  ncfree(b, n, 0);
+  return same;
+}
+
 int ncsnapput(ncsnap *s) {
   int rc = NCOK;
   if (s->had) {
-    if (ncwr(s->p, s->b, s->n, 1, 0) != NQOK)
-      rc = NCUSE;
+    /* a file the command never changed is not written again: in a folder
+     * that may not be written the build was refused, and nothing is wrong */
+    if (!snapsame(s)) {
+      if (ncwr(s->p, s->b, s->n, 1, 0) != NQOK)
+        rc = NCUSE;
+#ifndef _WIN32
+      else if (chmod(s->p, (mode_t)s->mode) != 0)
+        rc = NCUSE;
+#endif
+    }
   } else if (ncexist(s->p) && remove(s->p) != 0) {
     rc = NCUSE;
   }
   ncsnapfree(s);
   return rc;
+}
+
+int ncsnappend(const ncsnap *s) {
+  int i;
+  HOLD;
+  i = ncpend(s->p);
+  if (i >= 0 && s->had) {
+    pbkn[i] = s->n;
+    pbkm[i] = s->mode;
+    pbk[i] = s->b != NULL ? s->b : (const uint8_t *)"";
+  }
+  UNHOLD;
+  return i;
 }
 
 void ncsnapfree(ncsnap *s) {
@@ -1456,4 +1539,13 @@ void ncsnapfree(ncsnap *s) {
   s->b = NULL;
   s->n = 0;
   s->had = 0;
+}
+
+int ncsame(const char *a, const char *b) {
+#ifndef _WIN32
+  struct stat sa, sb;
+  if (stat(a, &sa) == 0 && stat(b, &sb) == 0)
+    return sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino;
+#endif
+  return strcmp(a, b) == 0;
 }

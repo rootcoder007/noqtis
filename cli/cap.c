@@ -23,7 +23,7 @@ static int pslot[4] = {-1, -1, -1, -1};
 
 static void disarm(void);
 
-static int arm(const char *dir, int tsa) {
+static int arm(const char *dir, int tsa, const ncsnap *old) {
   char p[2][4200];
   ncpendseal(dir, pslot + 2);
   if (!tsa)
@@ -35,8 +35,10 @@ static int arm(const char *dir, int tsa) {
     disarm();
     return 0;
   }
-  pslot[0] = ncpend(p[0]);
-  pslot[1] = ncpend(p[1]);
+  /* an interrupt removes the new seal; where the folder had one, it puts
+   * that one back (old[0] is noqtis.json, old[1] noqtis.sig) */
+  pslot[0] = old != NULL && old[1].had ? ncsnappend(&old[1]) : ncpend(p[0]);
+  pslot[1] = old != NULL && old[0].had ? ncsnappend(&old[0]) : ncpend(p[1]);
   if (pslot[0] >= 0 && pslot[1] >= 0)
     return 1;
   disarm();
@@ -568,12 +570,14 @@ int ncseal(int argc, char **argv) {
    * writing it and waiting for the TSA */
   /* a seal the folder already has is kept: a TSA that does not answer
    * must not cost the capsule the seal (and the timestamp) it had */
-  if (nt > 0 && (ncsnapget(&old[0], argv[0], "noqtis.json") != NCOK ||
-                 ncsnapget(&old[1], argv[0], "noqtis.sig") != NCOK)) {
-    ncmsg("seal", "%s: its seal cannot be read", argv[0]);
+  if (ncsnapget(&old[0], argv[0], "noqtis.json") != NCOK ||
+      ncsnapget(&old[1], argv[0], "noqtis.sig") != NCOK) {
+    ncmsg("seal", "%s: its noqtis.json or noqtis.sig is not a plain file "
+          "that can be read (a link, a pipe, a folder): remove it and seal "
+          "again", argv[0]);
     goto done;
   }
-  if (!arm(argv[0], nt > 0)) {
+  if (!arm(argv[0], nt > 0, old)) {
     ncmsg("seal", "%s: path too long", argv[0]);
     goto done;
   }
@@ -583,6 +587,11 @@ int ncseal(int argc, char **argv) {
                           (const char *)meta, NULL);
   if (rc != NQOK) {
     disarm();
+    /* a seal that stopped part-way leaves the one the folder had */
+    if (old[0].had || old[1].had) {
+      (void)ncsnapput(&old[0]);
+      (void)ncsnapput(&old[1]);
+    }
     if (rc == NQEARG)
       sealwhy(argv[0], kp, pp);
     else if (rc == NQESTATE)
@@ -609,7 +618,7 @@ int ncseal(int argc, char **argv) {
     /* a seal asked to carry a timestamp never stays without one */
     char *f;
     disarm();
-    if (old[0].had && old[1].had) {
+    if (old[0].had || old[1].had) {
       int back = ncsnapput(&old[0]) == NCOK;
       back = ncsnapput(&old[1]) == NCOK && back;
       ncmsg("seal", "no --tsa gave a timestamp; %s", back

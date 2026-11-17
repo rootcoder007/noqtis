@@ -924,6 +924,34 @@ if [ "$c0" != "$(cksum <"$p/noqtis.data.json")" ] ||
   echo "FAIL an undone pack build changed the record or the seal" >&2
 fi
 ok 0 "check after undone builds" "$nq" check -p "$w/k.pub" "$p"
+# the files put back keep their mode
+chmod 600 "$p/noqtis.data.json"
+ok 2 "pack build, a bundle in a missing folder, a private record" \
+  env TZ=Asia/Tokyo "$nq" pack build -k "$w/k" -o "$w/nodir/b.nqb" "$p"
+n=$((n + 1))
+case $(ls -l "$p/noqtis.data.json") in
+-rw-------*) ;;
+*)
+  bad=$((bad + 1))
+  echo "FAIL an undone pack build changed the record's mode" >&2
+  ;;
+esac
+chmod 644 "$p/noqtis.data.json"
+# a seal file that is a link is refused before the seal is rewritten
+j0=$(cksum <"$p/noqtis.json")
+mv "$p/noqtis.sig" "$w/sig.keep"
+if ln -s "$w/sig.keep" "$p/noqtis.sig" 2>/dev/null && [ -L "$p/noqtis.sig" ]; then
+  ok 2 "seal, noqtis.sig a link" "$nq" seal -k "$w/k" "$p"
+  has "$w/err" "not a plain file" "seal says its seal file is no plain file"
+  n=$((n + 1))
+  if [ "$j0" != "$(cksum <"$p/noqtis.json")" ]; then
+    bad=$((bad + 1))
+    echo "FAIL a refused seal rewrote noqtis.json" >&2
+  fi
+fi
+rm -f "$p/noqtis.sig"
+mv "$w/sig.keep" "$p/noqtis.sig"
+ok 0 "check after the refused seal" "$nq" check -p "$w/k.pub" "$p"
 # a TSA that does not answer leaves the seal the folder had
 ok 2 "seal --tsa, no TSA answers" "$nq" seal -k "$w/k" \
   --tsa http://127.0.0.1:1/ "$p"
@@ -1564,6 +1592,26 @@ has "$w/out" 'a b\\textbraceleft{}c' "cite bibtex writes a lone brace as a comma
 c1=$(cksum <"$w/ce/noqtis.data.json")
 ok 2 "commit -f -o a folder" "$nq" commit -f -o "$w/ce" "$w/ce" "$w/ce.json"
 has "$w/err" "is a folder" "commit says the salt file is a folder"
+# --force never replaces the record or the file committed to
+cp "$w/ce.json" "$w/ce/f.json"
+f0=$(cksum <"$w/ce/f.json")
+ok 2 "commit -f -o the record" "$nq" commit -f -o "$w/ce/noqtis.data.json" \
+  "$w/ce" "$w/ce/f.json"
+has "$w/err" "the capsule's record" "commit refuses the record as its salt file"
+ok 2 "commit -f -o the file committed to" "$nq" commit -f -o "$w/ce/f.json" \
+  "$w/ce" "$w/ce/f.json"
+n=$((n + 1))
+if [ "$f0" != "$(cksum <"$w/ce/f.json")" ]; then
+  bad=$((bad + 1))
+  echo "FAIL commit --force replaced the file committed to" >&2
+fi
+# a salt file that cannot be named leaves the record as it was
+if ln -s "$w/nowhere/salt" "$w/ce.dangling" 2>/dev/null &&
+  [ -L "$w/ce.dangling" ]; then
+  ok 2 "commit -o a dangling link" "$nq" commit -o "$w/ce.dangling" \
+    "$w/ce" "$w/ce/f.json"
+fi
+rm -f "$w/ce/f.json"
 n=$((n + 1))
 if [ "$c1" != "$(cksum <"$w/ce/noqtis.data.json")" ]; then
   bad=$((bad + 1))

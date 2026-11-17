@@ -1316,10 +1316,11 @@ int nccommit(int argc, char **argv) {
   char *q = NULL;
   uint8_t *m, salt[32];
   size_t n;
-  char hx[65], e[2048], t[21], why[600], sp[4200];
+  char hx[65], e[2048], t[21], why[600], sp[4200], rp[4400];
   nqdrec *r;
   FILE *sf;
   int sl;
+  ncsnap was;
   ncopt o[] = {{0, "kind", 1, &kind, NULL},
                {0, "label", 1, &lab, NULL},
                {0, "after", 1, &after, NULL},
@@ -1383,14 +1384,30 @@ int nccommit(int argc, char **argv) {
     nqwipe(salt, sizeof salt);
     return NCUSE;
   }
+  /* --force replaces a salt file, never the file committed to or the
+   * capsule's record */
+  snprintf(rp, sizeof rp, "%s/%s", argv[0], NQDFILE);
+  if (ncsame(out, argv[1]) || ncsame(out, rp)) {
+    ncmsg("commit", "%s is the file committed to or the capsule's record: "
+          "name another file to keep the salt in", out);
+    nqwipe(salt, sizeof salt);
+    return NCUSE;
+  }
+  if (ncsnapget(&was, argv[0], NQDFILE) != NCOK) {
+    ncmsg("commit", "%s cannot be read", rp);
+    nqwipe(salt, sizeof salt);
+    return NCUSE;
+  }
   if ((rc = ncdload("commit", argv[0], 1, &r)) != NCOK) {
     nqwipe(salt, sizeof salt);
+    ncsnapfree(&was);
     return rc;
   }
   if (nqdput(r, "commits", e, strlen(e), why, sizeof why) != NQOK) {
     ncmsg("commit", "%s", why);
     nqdrfree(r);
     nqwipe(salt, sizeof salt);
+    ncsnapfree(&was);
     return NCUSE;
   }
   /* the salt is written first and kept under its temporary name while
@@ -1403,6 +1420,7 @@ int nccommit(int argc, char **argv) {
   nqwipe(salt, sizeof salt);
   if (sl < 0) {
     nqdrfree(r);
+    ncsnapfree(&was);
     return ncwfail("commit", out, force);
   }
   rc = ncdsave("commit", argv[0], r);
@@ -1410,11 +1428,18 @@ int nccommit(int argc, char **argv) {
   if (rc != NCOK) {
     ncdrop(sl);
   } else if (ncput(&sl, 1) != 1) {
-    ncmsg("commit", "%s names the new commitment, but its salt could not "
-          "be written to %s: remove the commitment (`noqtis data del`)",
-          argv[0], out);
+    /* a record must not name a commitment whose salt was not kept: the
+     * record is put back as it was */
+    if (ncsnapput(&was) == NCOK)
+      ncmsg("commit", "the salt could not be written to %s; %s is left as "
+            "it was", out, argv[0]);
+    else
+      ncmsg("commit", "%s names the new commitment, but its salt could not "
+            "be written to %s: remove the commitment (`noqtis data del`)",
+            argv[0], out);
     rc = NCUSE;
   }
+  ncsnapfree(&was);
   if (rc == NCOK)
     ncmsg("commit", "committed to %s (SHA3-256 %.16s...); the salt is in "
           "%s: keep it secret and outside the capsule until the reveal",
