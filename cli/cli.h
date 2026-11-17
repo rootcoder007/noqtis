@@ -126,6 +126,9 @@ extern int ncnofd;
  * deeper than that can still run out; the run then puts every capsule
  * back (ncnofd). */
 #define NCFDRES 16
+/* 1 when e is how open(O_NOFOLLOW | O_DIRECTORY) says the name is a link
+ * (ELOOP; EMLINK on FreeBSD; EFTYPE on NetBSD) or no folder (ENOTDIR). */
+int nclnk(int e);
 /* Says why ncsnapget refused (rc): not a plain file (NCUSE), or the
  * error errno holds, by name, never a guess. NCUSE. */
 int ncsnapsay(const char *cmd, const ncsnap *s, int rc);

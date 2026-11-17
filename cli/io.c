@@ -546,7 +546,7 @@ static void rmtree(char *p, size_t cap) {
    * that a change of the name could outdate */
   int fd = open(p, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0) {
-    int isf = errno == ENOTDIR || errno == ELOOP || errno == EMLINK;
+    int isf = nclnk(errno);
 #ifdef EFTYPE
     isf = isf || errno == EFTYPE;
 #endif
@@ -1748,8 +1748,7 @@ int ncwalk(const char *cmd, const char *dir, char ***out, size_t *n,
                  O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (nfd < 0) {
       /* a link now, or gone: not listed; anything else stops the walk */
-      if (errno != ENOENT && errno != ELOOP && errno != ENOTDIR &&
-          errno != EMLINK) {
+      if (errno != ENOENT && !nclnk(errno)) {
         werr = errno;
         rc = NCUSE;
       }
@@ -1964,6 +1963,14 @@ static int rdall(int fd, size_t hint, size_t max, uint8_t **out,
   return NQOK;
 }
 #endif
+
+int nclnk(int e) {
+#ifdef EFTYPE
+  if (e == EFTYPE)
+    return 1;
+#endif
+  return e == ELOOP || e == ENOTDIR || e == EMLINK;
+}
 
 int ncsnapsay(const char *cmd, const ncsnap *s, int rc) {
   int e = errno;

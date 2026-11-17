@@ -336,7 +336,7 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
     if (e == E2BIG)
       ncmsg(cmd, "-r: there are over %lu folders under %s",
             (unsigned long)NCWALKMAX, a[n - 1]);
-    else if (e == ELOOP || e == ENOTDIR || e == EMLINK)
+    else if (nclnk(e))
       ncmsg(cmd, "-r: cannot list the folders under %s without following "
             "links: it is a link itself", a[n - 1]);
     else
