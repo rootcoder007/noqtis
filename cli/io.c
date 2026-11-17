@@ -752,6 +752,13 @@ static void putback(int i) {
 
 /* ends the process by signal s, as it would have ended without the
  * handler (on return from it, or at once outside it) */
+#ifdef NQCOV
+/* the coverage build only: a process a signal ends writes no counters,
+ * so every line the handler and the put-back run would count as never
+ * run. They are written here, before the signal is raised again. */
+void __gcov_dump(void);
+#endif
+
 static void die(int s) {
 #ifdef _WIN32
   signal(s, SIG_DFL);
@@ -766,6 +773,9 @@ static void die(int s) {
   sa.sa_handler = SIG_DFL;
   sigemptyset(&sa.sa_mask);
   (void)sigaction(s, &sa, NULL);
+#endif
+#ifdef NQCOV
+  __gcov_dump();
 #endif
   raise(s);
 }

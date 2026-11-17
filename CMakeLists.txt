@@ -139,6 +139,8 @@ if(NQSAN AND NOT MSVC)
 endif()
 if(NQCOV AND NOT MSVC)
   add_compile_options(--coverage -O0)
+  # a run a signal ends writes its counters first (cli/io.c, die)
+  add_compile_definitions(NQCOV)
   add_link_options(--coverage)
 endif()
 
