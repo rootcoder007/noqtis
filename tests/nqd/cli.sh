@@ -905,6 +905,29 @@ if [ "$c0" != "$(cksum <"$p/noqtis.data.json")" ]; then
   echo "FAIL a refused pack build changed the record" >&2
 fi
 ok 0 "check after refused builds" "$nq" check -p "$w/k.pub" "$p"
+# a step that refuses later (a link among the files, a bundle that cannot
+# be written) is undone: the record and the seal are put back
+s0=$(cksum <"$p/noqtis.sig")
+if ln -s "$w/k.pub" "$p/lnk" 2>/dev/null && [ -L "$p/lnk" ]; then
+  ok 2 "pack build, a link among the files" env TZ=Asia/Tokyo "$nq" \
+    pack build -k "$w/k" "$p"
+  has "$w/err" "is left as it was" "pack build says the folder is as it was"
+fi
+rm -f "$p/lnk"
+ok 2 "pack build, a bundle in a missing folder" env TZ=Asia/Tokyo "$nq" \
+  pack build -k "$w/k" -o "$w/nodir/b.nqb" "$p"
+has "$w/err" "is left as it was" "pack build undoes a bundle it cannot write"
+n=$((n + 1))
+if [ "$c0" != "$(cksum <"$p/noqtis.data.json")" ] ||
+  [ "$s0" != "$(cksum <"$p/noqtis.sig")" ]; then
+  bad=$((bad + 1))
+  echo "FAIL an undone pack build changed the record or the seal" >&2
+fi
+ok 0 "check after undone builds" "$nq" check -p "$w/k.pub" "$p"
+# a TSA that does not answer leaves the seal the folder had
+ok 2 "seal --tsa, no TSA answers" "$nq" seal -k "$w/k" \
+  --tsa http://127.0.0.1:1/ "$p"
+ok 0 "the earlier seal is kept" "$nq" check -p "$w/k.pub" "$p"
 ok 0 "pack check after build" "$nq" pack check -p "$w/k.pub" "$p"
 ok 0 "pack build python, no lock" "$nq" pack build -k "$w/k" "$w/py"
 ok 1 "pack check without a lock file" "$nq" pack check "$w/py"
@@ -1530,6 +1553,22 @@ ok 0 "cite, a control character" "$nq" cite "$w/ce"
 has "$w/out" 'a\\x1Bb' "cite writes a control character escaped"
 ok 0 "cite bibtex, a control character" "$nq" cite --format bibtex "$w/ce"
 has "$w/out" "{a b}" "cite bibtex writes a space for it"
+# a C1 control character and a lone brace
+printf '{"title":"a\\u009bb{c","authors":["A"],"year":2026}' >"$w/ce.json"
+ok 0 "cite: data put, C1 and a brace" "$nq" data put "$w/ce" cite "$w/ce.json"
+ok 0 "cite, a C1 control character" "$nq" cite "$w/ce"
+has "$w/out" 'a\\x9Bb{c' "cite writes a C1 control character escaped"
+ok 0 "cite bibtex, a lone brace" "$nq" cite --format bibtex "$w/ce"
+has "$w/out" 'a b\\textbraceleft{}c' "cite bibtex writes a lone brace as a command"
+# a salt cannot be kept in a folder: refused before the record names it
+c1=$(cksum <"$w/ce/noqtis.data.json")
+ok 2 "commit -f -o a folder" "$nq" commit -f -o "$w/ce" "$w/ce" "$w/ce.json"
+has "$w/err" "is a folder" "commit says the salt file is a folder"
+n=$((n + 1))
+if [ "$c1" != "$(cksum <"$w/ce/noqtis.data.json")" ]; then
+  bad=$((bad + 1))
+  echo "FAIL a refused commit changed the record" >&2
+fi
 printf 'a\n1\n' >"$w/ce/u.csv"
 chmod 000 "$w/ce/u.csv"
 # only where the mode keeps the file from being read: root reads it all the

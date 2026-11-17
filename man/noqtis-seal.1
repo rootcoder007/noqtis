@@ -118,7 +118,8 @@ When none does, the new
 and
 .Pa noqtis.sig
 are removed, so the folder is never left sealed without the timestamp
-that was asked for, and the exit status is 2.
+that was asked for, and the exit status is 2; a seal the folder had
+before is put back as it was.
 An interrupt while it waits (Ctrl-C, SIGTERM, SIGHUP) removes them too;
 only SIGKILL or a power cut can leave the folder sealed without one.
 A TSA has 120 seconds in all for one request, the name lookup included

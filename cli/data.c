@@ -1376,6 +1376,13 @@ int nccommit(int argc, char **argv) {
   snprintf(sp, sizeof sp, "%s.salt", argv[1]);
   if (out == NULL)
     out = sp;
+  /* before the record names the commitment: a salt cannot be kept in a
+   * folder, with --force or without */
+  if (ncisdir(out)) {
+    ncmsg("commit", "%s is a folder: name the file to keep the salt in", out);
+    nqwipe(salt, sizeof salt);
+    return NCUSE;
+  }
   if ((rc = ncdload("commit", argv[0], 1, &r)) != NCOK) {
     nqwipe(salt, sizeof salt);
     return rc;

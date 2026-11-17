@@ -463,7 +463,10 @@ int ncseal(int argc, char **argv) {
   uint8_t *meta = NULL;
   size_t mn = 0;
   char *dp = NULL;
+  ncsnap old[2];
 
+  old[0].b = old[1].b = NULL;
+  old[0].had = old[1].had = 0;
   if (hasrec(argc, argv))
     return ncrec("seal", ncseal, argc, argv);
   an.k = 0;
@@ -563,6 +566,13 @@ int ncseal(int argc, char **argv) {
   }
   /* armed before the seal is written, so no interrupt can fall between
    * writing it and waiting for the TSA */
+  /* a seal the folder already has is kept: a TSA that does not answer
+   * must not cost the capsule the seal (and the timestamp) it had */
+  if (nt > 0 && (ncsnapget(&old[0], argv[0], "noqtis.json") != NCOK ||
+                 ncsnapget(&old[1], argv[0], "noqtis.sig") != NCOK)) {
+    ncmsg("seal", "%s: its seal cannot be read", argv[0]);
+    goto done;
+  }
   if (!arm(argv[0], nt > 0)) {
     ncmsg("seal", "%s: path too long", argv[0]);
     goto done;
@@ -599,6 +609,16 @@ int ncseal(int argc, char **argv) {
     /* a seal asked to carry a timestamp never stays without one */
     char *f;
     disarm();
+    if (old[0].had && old[1].had) {
+      int back = ncsnapput(&old[0]) == NCOK;
+      back = ncsnapput(&old[1]) == NCOK && back;
+      ncmsg("seal", "no --tsa gave a timestamp; %s", back
+            ? "the seal the folder had is kept: try again, or give "
+              "another --tsa"
+            : "the seal the folder had could not be put back: seal again");
+      ret = NCUSE;
+      goto done;
+    }
     size_t fn = strlen(argv[0]) + 16;
     f = (char *)malloc(fn);
     int gone = f != NULL;
@@ -617,6 +637,8 @@ int ncseal(int argc, char **argv) {
     ret = NCUSE;
   }
 done:
+  ncsnapfree(&old[0]);
+  ncsnapfree(&old[1]);
   nckfree(&sk);
   nckfree(&pk);
 out:

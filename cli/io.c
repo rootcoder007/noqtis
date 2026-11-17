@@ -1423,3 +1423,37 @@ void nctswap(const char *path) {
 #endif
 }
 #endif
+
+int ncsnapget(ncsnap *s, const char *dir, const char *name) {
+  s->b = NULL;
+  s->n = 0;
+  s->had = 0;
+  if (snprintf(s->p, sizeof s->p, "%s/%s", dir, name) >= (int)sizeof s->p)
+    return NCUSE;
+  if (!ncexist(s->p))
+    return NCOK;
+  if (ncrdx(s->p, 0, NCRDMAX, &s->b, &s->n) != NQOK)
+    return NCUSE;
+  s->had = 1;
+  return NCOK;
+}
+
+int ncsnapput(ncsnap *s) {
+  int rc = NCOK;
+  if (s->had) {
+    if (ncwr(s->p, s->b, s->n, 1, 0) != NQOK)
+      rc = NCUSE;
+  } else if (ncexist(s->p) && remove(s->p) != 0) {
+    rc = NCUSE;
+  }
+  ncsnapfree(s);
+  return rc;
+}
+
+void ncsnapfree(ncsnap *s) {
+  if (s->b != NULL)
+    ncfree(s->b, s->n, 0);
+  s->b = NULL;
+  s->n = 0;
+  s->had = 0;
+}

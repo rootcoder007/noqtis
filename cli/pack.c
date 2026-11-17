@@ -137,10 +137,26 @@ static int pkeys(const char *kp, const char *pp) {
   return rc;
 }
 
+/* A build that a step refused: the record and the seal are put back as
+ * they were, and rc is returned. */
+static int pundo(ncsnap was[3], const char *dir, int rc) {
+  int k, bad = 0;
+  for (k = 0; k < 3; k++)
+    bad |= ncsnapput(&was[k]) != NCOK;
+  if (bad)
+    ncmsg("pack build", "%s could not be put back as it was: check it "
+          "(`noqtis check`) and build again", dir);
+  else
+    ncmsg("pack build", "%s is left as it was", dir);
+  return rc;
+}
+
 static int pbuild(int argc, char **argv) {
   const char *kp = NULL, *pp = NULL, *fv = NULL, *out = NULL,
              *lk[NCMAXV];
   char *av[2 * NCMAXV + 8];
+  static const char *const keep[3] = {NQDFILE, "noqtis.json", "noqtis.sig"};
+  ncsnap was[3];
   int np, help, nl = 0, force = 0, nof = 0, rc, k, a;
   ncopt o[] = {{'k', "key", 1, &kp, NULL},
                {'p', "pub", 1, &pp, NULL},
@@ -179,6 +195,17 @@ static int pbuild(int argc, char **argv) {
     return ncwfail("pack build", out, force);
   if ((rc = pkeys(kp, pp)) != NCOK)
     return rc;
+  /* what no check ahead can foresee (a link among the files, a bundle
+   * that cannot be written) is undone: the record and the seal are kept
+   * as they were and put back when a step refuses */
+  for (k = 0; k < 3; k++) {
+    if (ncsnapget(&was[k], argv[0], keep[k]) != NCOK) {
+      ncmsg("pack build", "%s/%s cannot be read", argv[0], keep[k]);
+      while (k-- > 0)
+        ncsnapfree(&was[k]);
+      return NCUSE;
+    }
+  }
   /* noqtis env [--lock <file>]... <dir> */
   a = 0;
   av[a++] = arg("env");
@@ -189,7 +216,7 @@ static int pbuild(int argc, char **argv) {
   av[a++] = argv[0];
   av[a] = NULL;
   if ((rc = ncenv(a, av)) != NCOK)
-    return rc;
+    return pundo(was, argv[0], rc);
   /* noqtis seal -k <key> [-p <key.pub>] [--format <n>] <dir> */
   a = 0;
   av[a++] = arg("seal");
@@ -206,14 +233,17 @@ static int pbuild(int argc, char **argv) {
   av[a++] = argv[0];
   av[a] = NULL;
   if ((rc = ncseal(a, av)) != NCOK)
-    return rc;
-  if (out == NULL)
-    return NCOK;
-  if ((rc = ncbwr("pack build", argv[0], !nof, out, force)) == NCOK)
+    return pundo(was, argv[0], rc);
+  if (out != NULL &&
+      (rc = ncbwr("pack build", argv[0], !nof, out, force)) != NCOK)
+    return pundo(was, argv[0], rc);
+  for (k = 0; k < 3; k++)
+    ncsnapfree(&was[k]);
+  if (out != NULL)
     printf("%s: bundle written (%s)\n", ncesc(out),
            nof ? "the seal, the manifest and the data record"
                : "every file");
-  return rc;
+  return NCOK;
 }
 
 static int pcheck(int argc, char **argv) {

@@ -78,19 +78,37 @@ int nqdreveal(const nqdrec *r, const uint8_t *salt, size_t sl,
  * The text is another party's: a control character is written as YAML's
  * \xNN, and as a space in BibTeX, which has no escape for one */
 static void esc(dbuf *b, const char *s, int bib) {
+  const char *t;
+  int depth = 0, bal = 1;
+  /* braces that pair off are written \\{ and \\}, which BibTeX counts
+   * and finds even; one without its partner would cut the entry short */
+  for (t = s; *t; t++) {
+    depth += *t == '{' ? 1 : *t == '}' ? -1 : 0;
+    if (depth < 0)
+      bal = 0;
+  }
+  bal = bal && depth == 0;
   for (; *s; s++) {
-    unsigned char c = (unsigned char)*s;
-    if (c < 0x20 || c == 0x7f) {
+    unsigned char c = (unsigned char)*s, d = (unsigned char)s[1];
+    /* C0, DEL, and C1 (U+0080 to U+009F, in UTF-8 0xC2 and one byte) */
+    int c1 = c == 0xc2 && d >= 0x80 && d <= 0x9f;
+    if (c < 0x20 || c == 0x7f || c1) {
       char x[8];
-      snprintf(x, sizeof x, "\\x%02X", (unsigned)c);
+      snprintf(x, sizeof x, "\\x%02X", (unsigned)(c1 ? d : c));
       qdbstr(b, bib ? " " : x);
+      s += c1;
       continue;
     }
-    if (!bib && (*s == '"' || *s == '\\'))
+    if (!bib && (c == '"' || c == '\\'))
       qdbch(b, '\\');
-    if (bib && (*s == '{' || *s == '}' || *s == '\\')) {
-      qdbch(b, '\\');
+    /* BibTeX counts braces whatever stands before them, so a lone one is
+     * written as the command that prints it (its own braces balance) */
+    if (bib && !bal && (c == '{' || c == '}')) {
+      qdbstr(b, c == '{' ? "\\textbraceleft{}" : "\\textbraceright{}");
+      continue;
     }
+    if (bib && (c == '{' || c == '}' || c == '\\'))
+      qdbch(b, '\\');
     qdbch(b, *s);
   }
 }

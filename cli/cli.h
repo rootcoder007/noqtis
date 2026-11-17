@@ -68,6 +68,21 @@ int ncrdfd(int fd, uint8_t *b, size_t cap, size_t *n);
 int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
           size_t *len);
 #define NCRDMAX ((size_t)1 << 30) /* a message or list: 1 GiB */
+/* A file of a capsule as it was before a command of several steps began,
+ * to put back when a later step refuses: the command then leaves the
+ * folder as it found it. ncsnapget reads dir/name (NCOK also when there
+ * is no such file; NCUSE when it is there and cannot be read, or the path
+ * is too long). ncsnapput writes it back, or removes the file the command
+ * made where there was none, and frees; ncsnapfree only frees. */
+typedef struct {
+  char p[4200];
+  uint8_t *b;
+  size_t n;
+  int had;
+} ncsnap;
+int ncsnapget(ncsnap *s, const char *dir, const char *name);
+int ncsnapput(ncsnap *s);
+void ncsnapfree(ncsnap *s);
 #define NCRDSMALL ((size_t)1 << 20) /* a key, signature, anchor: 1 MiB */
 /* Creates path for writing: refuses an existing file unless force; sec
  * gives owner-only permissions (0600 on POSIX). The bytes go to a new

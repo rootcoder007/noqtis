@@ -966,8 +966,11 @@ static void tts(void) {
   want(1, "check -p q.c.pub --anchor q.ar.der qts", NULL);
   wantts(2, "ossl", "q.a.rcmd",
          "seal -k q.c --tsa http://127.0.0.1:@PORT@/ --anchor q.br.der qts");
+  /* refused, and the seal the folder had (under the second authority)
+   * is put back: it still checks */
   ok(has("q.err", "no valid path to a given anchor") &&
-     !exists("qts/noqtis.sig"), "seal --anchor refuses another TSA");
+     exists("qts/noqtis.sig"), "seal --anchor refuses another TSA");
+  want(0, "check -p q.c.pub --anchor q.ar.der --anchor q.br.der qts", NULL);
   /* anchors that are not DER certificates */
   wantts(0, "ossl", "q.a.rcmd",
          "seal -k q.c --tsa http://127.0.0.1:@PORT@/ qts");

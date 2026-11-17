@@ -1,5 +1,9 @@
 # noqtis 0.2.0
 
+- Fixed: `pack build` refused by its seal or by the bundle it could not write (a link or an unreadable file in the folder, `-o` in a folder that is missing or may not be written, `-o` naming a folder) left the rewritten data record behind, and with `-o` the new seal. The record and the seal are put back as they were whichever step refuses.
+- Fixed: `seal --tsa` that got no timestamp removed `noqtis.json` and `noqtis.sig`, and with them a seal the folder already had; a TSA that did not answer unsealed a sealed capsule. The earlier seal is put back.
+- Fixed: `cite` printed the C1 control characters (U+0080 to U+009F, among them the terminal's CSI) as they were, and `cite --format bibtex` wrote a lone `{` or `}` as `\{` or `\}`, which BibTeX still counts: the entry was cut short. They are written as `\xNN` (a space in BibTeX) and, for a brace without its partner, as `\textbraceleft{}` or `\textbraceright{}`.
+- Fixed: `commit -f -o <a folder>` named the commitment in the record and then could not write its salt; a folder is refused first.
 - Fixed: `pack build` rewrote the data record, and with `-o` resealed the folder, before it looked at its keys and at the file to write; refused (swapped keys, a bundle that exists without `--force`, a bad `--format`), it left a capsule that no longer checked or no longer matched its bundle. It now refuses first and leaves the folder as it was.
 - Fixed: `cite` printed the control characters of a record's citation as they were, so text from another party's capsule could reach the terminal and the CITATION.cff was not YAML. They are written as `\xNN` in CFF and as a space in BibTeX.
 - Fixed: `seal -r` named every capsule `.` on standard output; each is named by its path under the folder given, as `check -r` names it.
