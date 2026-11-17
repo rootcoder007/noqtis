@@ -592,7 +592,8 @@ int ncseal(int argc, char **argv) {
   ret = NCOK;
   if (nt == 0 || (rc = stamp("seal", argv[0], tsa, nt, &an)) == NCOK) {
     disarm();
-    printf("sealed %s with %s%s\n", ncesc(argv[0]), sk.a.name,
+    printf("sealed %s with %s%s\n", ncesc(nclab != NULL ? nclab : argv[0]),
+           sk.a.name,
            nt > 0 ? " and a timestamp" : "");
   } else {
     /* a seal asked to carry a timestamp never stays without one */

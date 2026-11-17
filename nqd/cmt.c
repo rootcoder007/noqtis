@@ -74,9 +74,18 @@ int nqdreveal(const nqdrec *r, const uint8_t *salt, size_t sl,
   return NQOK;
 }
 
-/* s escaped for a quoted YAML scalar ("...") or a BibTeX braced value */
+/* s escaped for a quoted YAML scalar ("...") or a BibTeX braced value.
+ * The text is another party's: a control character is written as YAML's
+ * \xNN, and as a space in BibTeX, which has no escape for one */
 static void esc(dbuf *b, const char *s, int bib) {
   for (; *s; s++) {
+    unsigned char c = (unsigned char)*s;
+    if (c < 0x20 || c == 0x7f) {
+      char x[8];
+      snprintf(x, sizeof x, "\\x%02X", (unsigned)c);
+      qdbstr(b, bib ? " " : x);
+      continue;
+    }
     if (!bib && (*s == '"' || *s == '\\'))
       qdbch(b, '\\');
     if (bib && (*s == '{' || *s == '}' || *s == '\\')) {

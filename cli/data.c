@@ -1688,7 +1688,11 @@ static int cpin(int argc, char **argv) {
       free(b);
     }
     if (e != NQOK) {
-      ncmsg("chunk pin", "%s: %s", argv[i], why[0] ? why : nqerr(e));
+      /* the reason names the file itself */
+      if (why[0])
+        ncmsg("chunk pin", "%s", why);
+      else
+        ncmsg("chunk pin", "%s: %s", argv[i], nqerr(e));
       rc = NCUSE;
     }
   }

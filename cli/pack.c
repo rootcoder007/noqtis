@@ -108,6 +108,35 @@ static int pinit(int argc, char **argv) {
   return rc;
 }
 
+/* The keys of a build, read as seal will read them: NCOK when they are a
+ * signature key pair, else the reason said and NCUSE. */
+static int pkeys(const char *kp, const char *pp) {
+  nckey sk = {{0, 0, NULL}, 0, NULL, 0}, pk = {{0, 0, NULL}, 0, NULL, 0};
+  char dp[4200];
+  int rc = NCUSE;
+  if (pp == NULL) {
+    if (snprintf(dp, sizeof dp, "%s.pub", kp) >= (int)sizeof dp) {
+      ncmsg("pack build", "the key's path is too long");
+      return NCUSE;
+    }
+    pp = dp;
+  }
+  if (nckrd("pack build", pp, 0, &pk) != NCOK)
+    return NCUSE;
+  if (nckrd("pack build", kp, 1, &sk) != NCOK) {
+    nckfree(&pk);
+    return NCUSE;
+  }
+  if (sk.a.kem || pk.a.kem || sk.a.alg != pk.a.alg)
+    ncmsg("pack build", "%s (%s) and %s (%s) are not a signature key pair",
+          kp, sk.a.name, pp, pk.a.name);
+  else
+    rc = NCOK;
+  nckfree(&sk);
+  nckfree(&pk);
+  return rc;
+}
+
 static int pbuild(int argc, char **argv) {
   const char *kp = NULL, *pp = NULL, *fv = NULL, *out = NULL,
              *lk[NCMAXV];
@@ -140,6 +169,16 @@ static int pbuild(int argc, char **argv) {
     ncmsg("pack build", "%s is not a folder", argv[0]);
     return NCUSE;
   }
+  /* what the later steps would refuse is refused here, before the
+   * record is rewritten: a refused build leaves the folder as it was */
+  if (fv != NULL && strcmp(fv, "1") != 0 && strcmp(fv, "2") != 0) {
+    ncmsg("pack build", "--format %s: give 1 or 2", fv);
+    return NCUSE;
+  }
+  if (out != NULL && !force && ncexist(out))
+    return ncwfail("pack build", out, force);
+  if ((rc = pkeys(kp, pp)) != NCOK)
+    return rc;
   /* noqtis env [--lock <file>]... <dir> */
   a = 0;
   av[a++] = arg("env");

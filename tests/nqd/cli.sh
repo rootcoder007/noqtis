@@ -601,6 +601,7 @@ ok 0 "-r: data init b" "$nq" data init "$t/b/inner"
 printf 'no capsule\n' >"$t/c/g.txt"
 ok 0 "seal -r" "$nq" seal -k "$w/k" -r "$t"
 has "$w/err" "2 capsules, 2 sealed, 0 failed" "seal -r counts"
+has "$w/out" "sealed b/inner with" "seal -r names the capsule sealed"
 ok 1 "c not sealed" test -f "$t/c/noqtis.sig"
 ok 0 "check -r" "$nq" check -p "$w/k.pub" -r "$t"
 has "$w/err" "2 capsules, 2 OK, 0 failed" "check -r counts"
@@ -889,6 +890,21 @@ ok 1 "pack check, lock changed after env" "$nq" pack check -p "$w/k.pub" \
 has "$w/out" "renv.lock: SHA-256 is" "the changed lock file fails"
 has "$w/err" "noqtis env" "and says to record it again"
 ok 0 "pack build again" "$nq" pack build -k "$w/k" "$p"
+# a refused build leaves the folder as it was
+c0=$(cksum <"$p/noqtis.data.json")
+ok 2 "pack build, keys swapped" env TZ=Asia/Tokyo "$nq" pack build \
+  -k "$w/k.pub" -p "$w/k" "$p"
+ok 2 "pack build, the bundle exists" env TZ=Asia/Tokyo "$nq" pack build \
+  -k "$w/k" -o "$w/p.nqb" "$p"
+has "$w/err" "exists (use --force" "pack build says the bundle exists"
+ok 2 "pack build, a bad format" env TZ=Asia/Tokyo "$nq" pack build \
+  -k "$w/k" --format 3 "$p"
+n=$((n + 1))
+if [ "$c0" != "$(cksum <"$p/noqtis.data.json")" ]; then
+  bad=$((bad + 1))
+  echo "FAIL a refused pack build changed the record" >&2
+fi
+ok 0 "check after refused builds" "$nq" check -p "$w/k.pub" "$p"
 ok 0 "pack check after build" "$nq" pack check -p "$w/k.pub" "$p"
 ok 0 "pack build python, no lock" "$nq" pack build -k "$w/k" "$w/py"
 ok 1 "pack check without a lock file" "$nq" pack check "$w/py"
@@ -1503,6 +1519,26 @@ for cmd in "data show" "drift check"; do
     od -c "$w/err" | head -5 >&2
   fi
 done
+
+# ---- a citation's control characters, a file that may not be read ----
+
+mkdir -p "$w/ce"
+ok 0 "cite: data init" "$nq" data init "$w/ce"
+printf '{"title":"a\\u001bb","authors":["A"],"year":2026}' >"$w/ce.json"
+ok 0 "cite: data put" "$nq" data put "$w/ce" cite "$w/ce.json"
+ok 0 "cite, a control character" "$nq" cite "$w/ce"
+has "$w/out" 'a\\x1Bb' "cite writes a control character escaped"
+ok 0 "cite bibtex, a control character" "$nq" cite --format bibtex "$w/ce"
+has "$w/out" "{a b}" "cite bibtex writes a space for it"
+printf 'a\n1\n' >"$w/ce/u.csv"
+chmod 000 "$w/ce/u.csv"
+if [ ! -r "$w/ce/u.csv" ]; then
+  for cmd in "data add" "schema infer" "drift pin" "chunk pin"; do
+    ok 2 "$cmd, a file that may not be read" "$nq" $cmd "$w/ce" u.csv
+    has "$w/err" "u.csv: cannot be read" "$cmd says it cannot be read"
+  done
+fi
+chmod 600 "$w/ce/u.csv"
 
 ok 0 "help data" "$nq" help data
 has "$w/out" "noqtis data check" "help lists check"

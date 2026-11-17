@@ -410,10 +410,13 @@ void nqdrepfree(nqdrep *r) {
 
 /* NQEARG when name exists in the folder fd but could not be opened as
  * asked (a link, or a file where a folder is wanted), NQEIO when it is
- * not there */
-static int whyat(int fd, const char *name) {
+ * not there, or is what was asked for (dir: a folder, else a plain file)
+ * and may not be read */
+static int whyat(int fd, const char *name, int dir) {
   struct stat st;
-  return fstatat(fd, name, &st, AT_SYMLINK_NOFOLLOW) == 0 ? NQEARG : NQEIO;
+  if (fstatat(fd, name, &st, AT_SYMLINK_NOFOLLOW) != 0)
+    return NQEIO;
+  return (dir ? S_ISDIR(st.st_mode) : S_ISREG(st.st_mode)) ? NQEIO : NQEARG;
 }
 
 /* The folder that holds rel's last component, opened from dir one
@@ -439,7 +442,7 @@ static int parentat(const char *dir, const char *rel, int *pfd,
     nm[cl] = '\0';
     nfd = openat(fd, nm, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (nfd < 0) {
-      rc = whyat(fd, nm);
+      rc = whyat(fd, nm, 1);
       close(fd);
       return rc;
     }
@@ -540,7 +543,7 @@ int qdopen(const char *dir, const char *rel, FILE **f) {
       return rc;
     /* O_NONBLOCK keeps a FIFO from blocking the open; cleared after */
     fd = openat(pfd, last, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
-    rc = fd < 0 ? whyat(pfd, last) : NQOK;
+    rc = fd < 0 ? whyat(pfd, last, 0) : NQOK;
     close(pfd);
     if (fd < 0)
       return rc;
