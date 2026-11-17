@@ -38,7 +38,8 @@ nqsealwhy <- function(dir) {
     return(NULL)
   }
   w <- c("link", "odd", "name", "case", "key")
-  list(why = if (r[[1]] <= 5L) w[r[[1]]] else as.character(r[[1]]),
+  # a reason this version has no word for is given by its number
+  list(why = c(w, as.character(r[[1]]))[min(r[[1]], length(w) + 1L)],
        path = r[[2]])
 }
 

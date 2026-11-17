@@ -93,6 +93,7 @@ test_that("streamed signatures are the one-call ones", {
   expect_identical(s, nqsign(k$sk, msg, "ML-DSA-44", det = TRUE))
   expect_true(nqverifyfile(f, k$pk, s, "ML-DSA-44"))
   expect_output(print(nqsigner(k$sk, "ML-DSA-44")), "sign stream")
+  expect_output(print(nqverifier(k$pk, "ML-DSA-44")), "verify stream")
 })
 
 test_that("sealed messages open to the known answers", {

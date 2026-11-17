@@ -29,6 +29,12 @@ test_that("inspect and sealwhy", {
   expect_identical(q[1], as.raw(0x30))
   expect_false(identical(q, nqtsreq(d)))
   expect_identical(nqersreq(d)[1], as.raw(0x30))
+  # the hash of the record is the caller's to choose
+  h <- nqersreq(d, hash = "sha512")
+  expect_identical(h[1], as.raw(0x30))
+  expect_false(identical(h, nqersreq(d, hash = "sha256")))
+  expect_error(nqersput(d, as.raw(c(0x30, 0)), hash = "sha512"))
+  expect_error(nqersreq(d, hash = "md5"), "unknown hash")
   expect_error(nqtsput(d, as.raw(c(0x30, 0))))
   expect_error(nqersput(d, as.raw(c(0x30, 0))))
   expect_error(nqtsreq(d, nonce = "x"), "raw vector")
@@ -146,6 +152,10 @@ test_that("commitments, citation, report and the environment", {
   expect_error(nqdenv(d, pkgs = list()), "data frame")
   nqdenv(d)
   expect_true("noqtis" %in% nqdpkgs()$name)
+  # the packages named, in order of name
+  two <- nqdpkgs(c("utils", "stats"))
+  expect_identical(two$name, c("stats", "utils"))
+  expect_identical(two$source, c("base", "base"))
   expect_true(attr(nqdcheck(d), "ok"))
   expect_error(nqdenv(d, locks = "none.lock"), "files in")
   expect_error(nqdreport(d), NA)

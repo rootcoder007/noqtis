@@ -218,7 +218,7 @@ nqfiles <- function(dir) {
   r <- .Call(Cfiles, .dir(dir))
   bad <- !r[[3]]
   if (r[[1]] != 0L || any(bad)) {
-    why <- if (any(bad)) r[[4]][bad][1] else "the manifest does not parse"
+    why <- c(r[[4]][bad], "the manifest does not parse")[1]
     stop(sprintf("noqtis: nqfiles: %s", why), call. = FALSE)
   }
   d <- r[[4]][r[[2]] == "info.file"]
