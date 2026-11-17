@@ -767,23 +767,22 @@ if [ -n "$nqt" ]; then
       cp "$r/was/$x/noqtis.json" "$r/was/$x/noqtis.sig" "$r/t/$x/"
     done
   }
-  # SIGQUIT (Ctrl-\), SIGPIPE, SIGUSR1, SIGALRM, SIGXCPU and, on Linux, a
-  # real-time signal (34) at the hook's points: the exit status of the
+  # SIGQUIT (Ctrl-\), SIGPIPE, SIGUSR1, SIGALRM, SIGXCPU and, with glibc,
+  # a real-time signal (34) at the hook's points: the exit status of the
   # signal, every capsule put back (no core dump: ulimit -c 0). The
-  # numbers are asked of this system, where they differ (10 is SIGUSR1 on
-  # Linux and SIGBUS, a fault, on macOS and the BSDs).
-  sigs=
-  for n in QUIT PIPE USR1 ALRM XCPU; do
-    (
-      ulimit -c 0 2>/dev/null
-      sh -c 'kill -s "$1" $$' sh "$n"
-    ) 2>/dev/null
-    sigs="$sigs $(($? - 128))"
+  # numbers come from the names, as they differ between systems: 10 is
+  # SIGUSR1 on Linux and SIGBUS, a fault, on macOS and the BSDs; 34 is
+  # SIGRTMIN with glibc only (musl keeps it for itself).
+  sl=""
+  for nm in QUIT PIPE USR1 ALRM XCPU; do
+    i=1
+    while [ $i -lt 64 ] && [ "$(kill -l $i 2>/dev/null)" != $nm ]; do
+      i=$((i + 1))
+    done
+    sl="$sl $i"
   done
-  if [ "$(uname -s)" = Linux ]; then
-    sigs="$sigs 34"
-  fi
-  for s in $sigs; do
+  case $(getconf GNU_LIBC_VERSION 2>/dev/null) in glibc*) sl="$sl 34" ;; esac
+  for s in $sl; do
     for pt in between:1 between:2 sealed:1 sealed:3; do
       ok $((128 + s)) "seal -r stopped by signal $s at $pt" sh -c \
         'ulimit -c 0 2>/dev/null; NQTESTKILL=$1 NQTESTSIG=$2 exec "$3" seal \
@@ -853,22 +852,22 @@ if [ -n "$nqt" ]; then
   # few descriptors: a tree with more capsules than the limit allows is
   # refused before anything is written, and a capsule that finds none
   # left stops the run with every capsule put back
-  if sh -c 'ulimit -n 66' 2>/dev/null; then
+  if sh -c 'ulimit -n 18' 2>/dev/null; then
     ok 2 "seal -r over the open-file limit" sh -c \
-      'ulimit -n 66; exec "$1" seal -k "$2" -r "$3"' sh "$nq" "$w/k" "$r/t"
+      'ulimit -n 18; exec "$1" seal -k "$2" -r "$3"' sh "$nq" "$w/k" "$r/t"
     has "$w/err" "nothing was sealed" "the limit is named"
     tsame "seal -r over the open-file limit"
   fi
   for k in 1 3 5 6; do
     ok 2 "seal -r out of descriptors at its $k-th read" env \
       NQTESTFAIL=snap:$k "$nqt" seal -k "$w/k" -r "$r/t"
-    has "$w/err" "Too many open files" "the reason is said ($k)"
+    has "$w/err" "open-file limit" "the reason is said ($k)"
     has "$w/err" "every capsule is put back" "and the put-back ($k)"
     tsame "seal -r out of descriptors ($k)"
   done
   ok 2 "seal out of descriptors" env NQTESTFAIL=snap:1 "$nqt" seal \
     -k "$w/k" "$r/t/a"
-  has "$w/err" "Too many open files" "a seal out of descriptors says so"
+  has "$w/err" "open-file limit" "a seal out of descriptors says so"
   ok 1 "and never says to remove the seal" grep -q "remove it" "$w/err"
   i=5
   while [ $i -le 10 ]; do

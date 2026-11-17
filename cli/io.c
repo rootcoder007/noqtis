@@ -417,7 +417,7 @@ static volatile sig_atomic_t pheld = 0, pgot = 0;
  * the list (or the heap) in a state no handler can trust, so they end
  * the process as SIGKILL does. noqtis-seal(1) lists them; keep the two
  * in step. */
-#define NPSIGMAX 64
+#define NPSIGMAX 128
 static int psig[NPSIGMAX];
 static size_t npsig;
 #ifdef _WIN32

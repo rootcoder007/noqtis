@@ -302,7 +302,7 @@ puts each of them back as described above, so a tree that passed
 .Fl r
 before still does.
 The command raises its soft limit of open files to the hard limit for
-this, and needs one descriptor per capsule to seal plus 64 for the rest
+this, and needs one descriptor per capsule to seal plus 16 for the rest
 of the run (the walk of the tree first needs two per folder level): a
 tree with more capsules than that is refused before anything is
 written, with a message naming how many capsules the limit allows and

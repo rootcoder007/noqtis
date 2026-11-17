@@ -125,7 +125,7 @@ extern int ncnofd;
  * down to the depth most trees have, a key, a TSA's socket). A tree
  * deeper than that can still run out; the run then puts every capsule
  * back (ncnofd). */
-#define NCFDRES 64
+#define NCFDRES 16
 /* Says why ncsnapget refused (rc): not a plain file (NCUSE), or the
  * error errno holds, by name, never a guess. NCUSE. */
 int ncsnapsay(const char *cmd, const ncsnap *s, int rc);
