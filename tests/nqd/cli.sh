@@ -767,10 +767,23 @@ if [ -n "$nqt" ]; then
       cp "$r/was/$x/noqtis.json" "$r/was/$x/noqtis.sig" "$r/t/$x/"
     done
   }
-  # SIGQUIT (3, Ctrl-\), SIGPIPE (13), SIGUSR1 (10), SIGALRM (14), SIGXCPU
-  # (24), a real-time signal (34) at the hook's points: the exit status of
-  # the signal, every capsule put back (no core dump: ulimit -c 0)
-  for s in 3 13 10 14 24 34; do
+  # SIGQUIT (Ctrl-\), SIGPIPE, SIGUSR1, SIGALRM, SIGXCPU and, on Linux, a
+  # real-time signal (34) at the hook's points: the exit status of the
+  # signal, every capsule put back (no core dump: ulimit -c 0). The
+  # numbers are asked of this system, where they differ (10 is SIGUSR1 on
+  # Linux and SIGBUS, a fault, on macOS and the BSDs).
+  sigs=
+  for n in QUIT PIPE USR1 ALRM XCPU; do
+    (
+      ulimit -c 0 2>/dev/null
+      sh -c 'kill -s "$1" $$' sh "$n"
+    ) 2>/dev/null
+    sigs="$sigs $(($? - 128))"
+  done
+  if [ "$(uname -s)" = Linux ]; then
+    sigs="$sigs 34"
+  fi
+  for s in $sigs; do
     for pt in between:1 between:2 sealed:1 sealed:3; do
       ok $((128 + s)) "seal -r stopped by signal $s at $pt" sh -c \
         'ulimit -c 0 2>/dev/null; NQTESTKILL=$1 NQTESTSIG=$2 exec "$3" seal \

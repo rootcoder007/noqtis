@@ -251,6 +251,7 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
   int std = strcmp(path, "-") == 0;
   *buf = NULL;
   *len = 0;
+  ncerr = 0; /* a reason left by an earlier call is not this one */
   f = std ? stdin : ncfopen(path, "rb");
   if (f == NULL)
     return NQEIO;
