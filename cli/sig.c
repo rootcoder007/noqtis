@@ -26,7 +26,7 @@ static int seedrd(const char *cmd, const char *arg, uint8_t *seed,
     uint8_t *b;
     size_t bn;
     if (ncrdx(arg, 1, 4096, &b, &bn) != NQOK) {
-      ncmsg(cmd, "cannot read seed file %s", arg);
+      ncmsg(cmd, "cannot read seed file %s%s", arg, ncwhy());
       return NCUSE;
     }
     if (bn == 0 || bn > NCSEEDX) {
@@ -96,7 +96,7 @@ static int rdmsg(const char *cmd, const char *path, const ncalg *a,
     return NCUSE;
   }
   if (rc != NQOK) {
-    ncmsg(cmd, "cannot read %s", path);
+    ncmsg(cmd, "cannot read %s%s", path, ncwhy());
     return NCUSE;
   }
   return NCOK;
@@ -110,7 +110,7 @@ static int feed(const char *cmd, const char *path, nqsctx *s, nqsctx *v) {
   uint8_t *b;
   uint64_t done = 0, total = 0;
   if (f == NULL) {
-    ncmsg(cmd, "cannot read %s", path);
+    ncmsg(cmd, "cannot read %s%s", path, ncwhy());
     return NCUSE;
   }
   ncbin();
@@ -129,7 +129,7 @@ static int feed(const char *cmd, const char *path, nqsctx *s, nqsctx *v) {
     int rc = NQOK;
     if (n == 0) {
       if (ferror(f)) {
-        ncmsg(cmd, "cannot read %s", path);
+        ncmsg(cmd, "cannot read %s%s", path, ncwhy());
         ret = NCUSE;
       }
       break;
@@ -252,7 +252,7 @@ int nckeygen(int argc, char **argv) {
                                  : "memory",
             wrc);
     else
-      ncmsg("keygen", "cannot write %s", out);
+      ncmsg("keygen", "cannot write %s%s", out, ncwhy());
     goto done;
   }
   rc = nckwr(fp, &a, 0, pk, pkn);
@@ -260,12 +260,12 @@ int nckeygen(int argc, char **argv) {
   fp = NULL;
   if (sl[0] < 0) {
     ncdrop(sl[1]);
-    ncmsg("keygen", "cannot write %s", pp);
+    ncmsg("keygen", "cannot write %s%s", pp, ncwhy());
     goto done;
   }
   k = ncput(sl, 2);
   if (k == 0) {
-    ncmsg("keygen", "cannot write %s", pp);
+    ncmsg("keygen", "cannot write %s%s", pp, ncwhy());
     goto done;
   }
   if (k == 1) {
@@ -596,7 +596,7 @@ int ncvrfy(int argc, char **argv) {
     goto done;
   }
   if (ncrdx(sp, 0, NCRDSMALL, &sig, &sn) != NQOK) {
-    ncmsg("verify", "cannot read %s", sp);
+    ncmsg("verify", "cannot read %s%s", sp, ncwhy());
     goto done;
   }
   if (sn != z.sig) {

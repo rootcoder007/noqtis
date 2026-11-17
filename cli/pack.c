@@ -66,7 +66,7 @@ static int pinit(int argc, char **argv) {
     return NCUSE;
   }
   if (!ncisdir(argv[0]) && ncmkdir(argv[0]) != NCOK) {
-    ncmsg("pack init", "cannot make the folder %s", argv[0]);
+    ncmsg("pack init", "cannot make the folder %s%s", argv[0], ncwhy());
     return NCUSE;
   }
   sub[0] = "data";
@@ -75,7 +75,7 @@ static int pinit(int argc, char **argv) {
   for (i = 0; i < 3; i++) {
     snprintf(p, sizeof p, "%s/%s", argv[0], sub[i]);
     if (!ncisdir(p) && ncmkdir(p) != NCOK) {
-      ncmsg("pack init", "cannot make the folder %s", p);
+      ncmsg("pack init", "cannot make the folder %s%s", p, ncwhy());
       return NCUSE;
     }
   }
@@ -348,7 +348,7 @@ static int punpack(int argc, char **argv) {
   /* unpacked under a temporary name beside the folder and named only
    * when whole (cli/io.c): a failed or stopped unpack leaves nothing */
   if ((sl = nctmpd(argv[1], t, sizeof t)) < 0) {
-    ncmsg("pack unpack", "cannot write %s", argv[1]);
+    ncmsg("pack unpack", "cannot write %s%s", argv[1], ncwhy());
     return NCUSE;
   }
   rc = nqdunpack(argv[0], t, 0, why, sizeof why);
@@ -358,7 +358,7 @@ static int punpack(int argc, char **argv) {
     return rc == NQEDEC || rc == NQELIM ? NCBAD : NCUSE;
   }
   if (ncput(&sl, 1) != 1) {
-    ncmsg("pack unpack", "cannot write %s", argv[1]);
+    ncmsg("pack unpack", "cannot write %s%s", argv[1], ncwhy());
     return NCUSE;
   }
   printf("%s: unpacked into %s; check it with `noqtis check %s`\n",

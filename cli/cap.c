@@ -58,8 +58,8 @@ static int ancrd(const char *cmd, const char *const *p, int np, ncanc *a) {
     uint8_t *b = NULL;
     size_t n = 0;
     if (ncrdx(p[i], 0, NCRDSMALL, &b, &n) != NQOK) {
-      ncmsg(cmd, "cannot read TSA anchor %s (give the path to the TSA's "
-            "root or issuing certificate, DER)", p[i]);
+      ncmsg(cmd, "cannot read TSA anchor %s%s (give the path to the TSA's "
+            "root or issuing certificate, DER)", p[i], ncwhy());
       ancfree(a);
       return NCUSE;
     }
@@ -583,7 +583,7 @@ int ncseal(int argc, char **argv) {
   if (mp != NULL) {
     uint8_t *m;
     if (ncrdx(mp, 0, NCRDSMALL, &meta, &mn) != NQOK) {
-      ncmsg("seal", "cannot read %s", mp);
+      ncmsg("seal", "cannot read %s%s", mp, ncwhy());
       goto out;
     }
     m = (uint8_t *)realloc(meta, mn + 1);

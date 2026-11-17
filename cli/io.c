@@ -67,17 +67,31 @@ void ncbin(void) {
 #endif
 }
 
+/* why the last file helper here failed (errno), for ncwhy */
+static int ncerr;
+
+const char *ncwhy(void) {
+  static char b[256];
+  if (ncerr == 0)
+    return "";
+  snprintf(b, sizeof b, ": %s", strerror(ncerr));
+  return b;
+}
+
 FILE *ncfopen(const char *path, const char *mode) {
 #ifdef _WIN32
   wchar_t *p = wide(path), *m = wide(mode);
   FILE *f = NULL;
   if (p != NULL && m != NULL)
     f = _wfopen(p, m);
+  ncerr = f == NULL ? (errno != 0 ? errno : EINVAL) : 0;
   free(p);
   free(m);
   return f;
 #else
-  return fopen(path, mode);
+  FILE *f = fopen(path, mode);
+  ncerr = f == NULL ? errno : 0;
+  return f;
 #endif
 }
 
@@ -159,10 +173,13 @@ int ncmkdir(const char *path) {
 #ifdef _WIN32
   wchar_t *p = wide(path);
   int r = p != NULL && _wmkdir(p) == 0;
+  ncerr = r ? 0 : errno;
   free(p);
   return r ? NCOK : NCUSE;
 #else
-  return mkdir(path, 0700) == 0 ? NCOK : NCUSE;
+  int r = mkdir(path, 0700) == 0;
+  ncerr = r ? 0 : errno;
+  return r ? NCOK : NCUSE;
 #endif
 }
 
@@ -276,6 +293,7 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
     }
   }
   if (ferror(f)) {
+    ncerr = errno;
     ncfree(b, cap, sec);
     if (!std)
       fclose(f);
@@ -1177,11 +1195,13 @@ static FILE *openin(const char *path, int force, int sec, int dfd,
   FILE *f;
   /* refused at once, not after the output is written (with dfd, the
    * caller looked at the name in the folder) */
+  ncerr = 0;
   if ((dfd < 0 && !force && ncexist(path)) || pgot) {
 #ifndef _WIN32
     if (dfd >= 0)
       close(dfd);
 #endif
+    ncerr = pgot ? EINTR : EEXIST;
     return NULL;
   }
   {
@@ -1218,6 +1238,8 @@ static FILE *openin(const char *path, int force, int sec, int dfd,
       if (fd < 0 && errno != EEXIST)
         break;
     }
+    if (fd < 0)
+      ncerr = errno;
     i = fd >= 0 ? ncpend(t) : -1;
     if (i >= 0) {
       own(i, path, force, dfd, bs);
@@ -1356,12 +1378,17 @@ int ncwrat(const char *dir, const char *rel, const uint8_t *b, size_t len,
 
 int nckeep(FILE *f, int bad) {
   int i;
+  ncerr = 0;
   for (i = 0; i < NCPEND && !(pon[i] && pfh[i] == f); i++)
     ;
-  if (fflush(f) != 0 || ferror(f))
+  if (fflush(f) != 0 || ferror(f)) {
+    ncerr = errno;
     bad = 1;
-  if (fclose(f) != 0)
+  }
+  if (fclose(f) != 0) {
+    ncerr = errno;
     bad = 1;
+  }
   if (i == NCPEND)
     return -1;
   pfh[i] = NULL;
@@ -1381,8 +1408,10 @@ int ncput(const int *sl, int n) {
     int i = sl[k];
     /* a folder filled while a signal waited is removed, not named */
     if (i < 0 || i >= NCPEND || !pon[i] || !pown[i] || (pisd[i] && pgot) ||
-        (pisd[i] ? placed(pnd[i], pfin[i]) : place(i)) != NCOK)
+        (pisd[i] ? placed(pnd[i], pfin[i]) : place(i)) != NCOK) {
+      ncerr = errno;
       break;
+    }
   }
   for (j = 0; j < n; j++) {
     int i = sl[j];
@@ -1426,8 +1455,8 @@ int nctmpf(const char *path, int force, char *t, size_t cap) {
 
 int nctmpd(const char *path, char *t, size_t cap) {
   int i;
-  if (ncexist(path) || pgot ||
-      tmpnm(path, t, cap) != NCOK)
+  ncerr = ncexist(path) ? EEXIST : pgot ? EINTR : 0;
+  if (ncerr != 0 || tmpnm(path, t, cap) != NCOK)
     return -1;
   {
     HOLD;
@@ -1491,10 +1520,15 @@ int ncclose(FILE *f, const char *path, int bad) {
   for (i = 0; i < NCPEND && !(pon[i] && pfh[i] == f); i++)
     ;
   if (i == NCPEND) { /* not from ncopen */
-    if (fflush(f) != 0 || ferror(f))
+    ncerr = 0;
+    if (fflush(f) != 0 || ferror(f)) {
+      ncerr = errno;
       bad = 1;
-    if (fclose(f) != 0)
+    }
+    if (fclose(f) != 0) {
+      ncerr = errno;
       bad = 1;
+    }
     if (bad)
       (void)rmpath(path);
     return bad ? NQEIO : NQOK;
@@ -1515,7 +1549,7 @@ int ncwfail(const char *cmd, const char *path, int force) {
   if (!force && ncexist(path))
     ncmsg(cmd, "%s exists (use --force to replace it)", path);
   else
-    ncmsg(cmd, "cannot write %s", path);
+    ncmsg(cmd, "cannot write %s%s", path, ncwhy());
   return NCUSE;
 }
 

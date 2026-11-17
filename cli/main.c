@@ -2,6 +2,8 @@
 /* noqtis: entry point, help, option parsing, version and algs. */
 #include "cli.h"
 
+#include <errno.h>
+
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -528,7 +530,13 @@ void ncmsg(const char *cmd, const char *fmt, ...) {
 }
 
 int nclib(const char *cmd, const char *what, int rc) {
-  ncmsg(cmd, "%s: %s", what, nqerr(rc));
+  /* out of descriptors is said as such: errno holds nothing else that
+   * could be taken for it */
+  int e = errno;
+  if (rc == NQEIO && (e == EMFILE || e == ENFILE))
+    ncmsg(cmd, "%s: %s: %s", what, nqerr(rc), strerror(e));
+  else
+    ncmsg(cmd, "%s: %s", what, nqerr(rc));
   return NCUSE;
 }
 

@@ -108,7 +108,7 @@ static int check(const char *cmd, nqhalg h, size_t dn, const char *list,
   uint8_t *t, want[NCDX], got[NCDX];
   size_t tn, i = 0, w, line = 0;
   if (ncrd(list, 0, &t, &tn) != NQOK) {
-    ncmsg(cmd, "cannot read %s", list);
+    ncmsg(cmd, "cannot read %s%s", list, ncwhy());
     return NCUSE;
   }
   {
@@ -221,7 +221,7 @@ int nchash(int argc, char **argv) {
       continue;
     }
     if (digest(h, argv[i], d, dn) != NQOK) {
-      ncmsg("hash", "cannot read %s", argv[i]);
+      ncmsg("hash", "cannot read %s%s", argv[i], ncwhy());
       ret = NCUSE;
       continue;
     }

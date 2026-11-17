@@ -100,8 +100,8 @@ int nckrdp(const char *cmd, const char *path, int sec, const uint8_t *pw,
   k->sec = sec;
   rc = ncrdx(path, 1, NCRDSMALL, &t, &tn);
   if (rc != NQOK) {
-    ncmsg(cmd, "cannot read key file %s (missing or unreadable; give a key "
-          "file `noqtis keygen` wrote)", path);
+    ncmsg(cmd, "cannot read key file %s%s (give a key file `noqtis keygen` "
+          "wrote)", path, ncwhy());
     return NCUSE;
   }
   for (hl = 0; hl < tn && t[hl] != '\n'; hl++)

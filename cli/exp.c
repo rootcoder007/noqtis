@@ -636,7 +636,7 @@ int ncvdsse(const char *kp, const char *env, const char *out, int quiet) {
     return NCUSE;
   }
   if (ncrdx(env, 0, NCRDMAX, &e, &en) != NCOK) {
-    ncmsg("verify", "cannot read %s", env);
+    ncmsg("verify", "cannot read %s%s", env, ncwhy());
     nckfree(&k);
     return NCUSE;
   }

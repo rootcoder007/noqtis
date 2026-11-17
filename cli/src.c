@@ -258,7 +258,7 @@ static int put(const char *cmd, const char *dir, const char *path, FILE *f,
   char p[4200];
   snprintf(p, sizeof p, "%s/%s", dir, path);
   if (ncclose(f, p, fwrite(b, 1, n, f) != n) != NQOK) {
-    ncmsg(cmd, "cannot write %s", ncesc(p));
+    ncmsg(cmd, "cannot write %s%s", ncesc(p), ncwhy());
     return NCUSE;
   }
   return NCOK;

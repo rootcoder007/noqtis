@@ -174,7 +174,7 @@ int ncdec(int argc, char **argv) {
     goto done;
   }
   if (ncrdx(argv[0], 0, NCRDSMALL, &ct, &cn) != NQOK) {
-    ncmsg("dec", "cannot read %s", argv[0]);
+    ncmsg("dec", "cannot read %s%s", argv[0], ncwhy());
     goto done;
   }
   if (cn != z.ct) {

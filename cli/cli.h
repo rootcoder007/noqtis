@@ -197,6 +197,11 @@ int ncmkdir(const char *path);
 /* Removes the file path, or the empty folder path; 0 on success. */
 int ncrmfile(const char *path);
 int ncrmdir(const char *path);
+/* ": <the reason>" for the last failure of the file helpers here
+ * (ncfopen, ncrdx, ncopen, ncclose, ncmkdir), from its errno, or ""
+ * when none is known: what a "cannot read" or "cannot write" message
+ * ends with, never a guess. */
+const char *ncwhy(void);
 /* Prints why path could not be created; returns NCUSE. */
 int ncwfail(const char *cmd, const char *path, int force);
 /* 1 when path names an existing file. */

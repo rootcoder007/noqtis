@@ -30,7 +30,7 @@ static int peek(FILE *f, uint8_t *c) {
 
 static FILE *opin(const char *cmd, const char *p) {
   FILE *f = strcmp(p, "-") == 0 ? stdin : ncfopen(p, "rb");
-  if (f == NULL) ncmsg(cmd, "cannot read %s", p);
+  if (f == NULL) ncmsg(cmd, "cannot read %s%s", p, ncwhy());
   return f;
 }
 
@@ -48,7 +48,7 @@ static void endout(const char *cmd, FILE *f, const char *p, int bad,
   if (f == stdout) {
     if (fflush(f) != 0) *ret = NCUSE;
   } else if (ncclose(f, p, bad) != NQOK && !bad) {
-    ncmsg(cmd, "cannot write %s", p);
+    ncmsg(cmd, "cannot write %s%s", p, ncwhy());
     *ret = NCUSE;
   }
 }
@@ -133,7 +133,7 @@ int ncbox(int argc, char **argv) {
     goto done;
   }
   if (fwrite(h, 1, hl, of) != hl) {
-    ncmsg("box", "cannot write %s", out);
+    ncmsg("box", "cannot write %s%s", out, ncwhy());
     nqwipe(&c, sizeof c);
     goto done;
   }
@@ -145,7 +145,7 @@ int ncbox(int argc, char **argv) {
       pre = 1;
     }
     if (fill(in, a + pre, chunk - pre, &got) != NQOK) {
-      ncmsg("box", "cannot read %s", argv[0]);
+      ncmsg("box", "cannot read %s%s", argv[0], ncwhy());
       nqwipe(&c, sizeof c);
       goto done;
     }
@@ -158,7 +158,7 @@ int ncbox(int argc, char **argv) {
       goto done;
     }
     if (fwrite(e, 1, en, of) != en) {
-      ncmsg("box", "cannot write %s", out);
+      ncmsg("box", "cannot write %s%s", out, ncwhy());
       if (more) nqwipe(&c, sizeof c);
       goto done;
     }
@@ -270,7 +270,7 @@ int ncunbox(int argc, char **argv) {
       pre = 1;
     }
     if (fill(in, e + pre, (size_t)chunk + 16 - pre, &got) != NQOK) {
-      ncmsg("unbox", "cannot read %s", argv[0]);
+      ncmsg("unbox", "cannot read %s%s", argv[0], ncwhy());
       nqwipe(&c, sizeof c);
       goto done;
     }
@@ -286,7 +286,7 @@ int ncunbox(int argc, char **argv) {
       goto done;
     }
     if (fwrite(a, 1, an, of) != an) {
-      ncmsg("unbox", "cannot write %s", out);
+      ncmsg("unbox", "cannot write %s%s", out, ncwhy());
       if (more) nqwipe(&c, sizeof c);
       goto done;
     }

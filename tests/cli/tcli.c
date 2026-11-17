@@ -1858,8 +1858,10 @@ static void trefuse(void) {
   ok(has("q.err", "not a folder (give the folder that holds"),
      "check: a folder that is not there");
   want(2, "check -p q.none qref", NULL);
-  ok(has("q.err", "cannot read key file q.none (missing or unreadable; "
-     "give a key file `noqtis keygen` wrote)"), "check: a missing key");
+  /* with the system's reason, whose words differ between systems */
+  ok(has("q.err", "cannot read key file q.none: ") &&
+     has("q.err", " (give a key file `noqtis keygen` wrote)"),
+     "check: a missing key");
   want(2, "check -p q.ck.pub qref", NULL);
   ok(has("q.err", "not a signature key; give the signer's .pub"),
      "check: a KEM key");

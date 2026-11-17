@@ -568,9 +568,15 @@ int qdopen(const char *dir, const char *rel, FILE **f) {
     close(pfd);
     if (fd < 0)
       return rc;
-    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
-        (fl = fcntl(fd, F_GETFL)) < 0 ||
-        fcntl(fd, F_SETFL, fl & ~O_NONBLOCK) != 0) {
+    /* NQEARG only for what is not a plain file; a failure of the calls
+     * themselves is an I/O error, not a guess at the file's kind */
+    if (fstat(fd, &st) != 0 || (S_ISREG(st.st_mode) &&
+        ((fl = fcntl(fd, F_GETFL)) < 0 ||
+         fcntl(fd, F_SETFL, fl & ~O_NONBLOCK) != 0))) {
+      close(fd);
+      return NQEIO;
+    }
+    if (!S_ISREG(st.st_mode)) {
       close(fd);
       return NQEARG;
     }
