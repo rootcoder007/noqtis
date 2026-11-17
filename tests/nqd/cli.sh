@@ -760,6 +760,155 @@ if [ -n "$nqt" ]; then
     ok 0 "the capsule keeps a whole new seal" "$nq" check -p "$w/k.pub" \
       "$q/a"
   fi
+  # ---- every signal that ends the process, a closed pipe, few descriptors ----
+  # back to the seals the tree had
+  tback() {
+    for x in . a b; do
+      cp "$r/was/$x/noqtis.json" "$r/was/$x/noqtis.sig" "$r/t/$x/"
+    done
+  }
+  # SIGQUIT (3, Ctrl-\), SIGPIPE (13), SIGUSR1 (10), SIGALRM (14), SIGXCPU
+  # (24), a real-time signal (34) at the hook's points: the exit status of
+  # the signal, every capsule put back (no core dump: ulimit -c 0)
+  for s in 3 13 10 14 24 34; do
+    for pt in between:1 between:2 sealed:1 sealed:3; do
+      ok $((128 + s)) "seal -r stopped by signal $s at $pt" sh -c \
+        'ulimit -c 0 2>/dev/null; NQTESTKILL=$1 NQTESTSIG=$2 exec "$3" seal \
+          -k "$4" -r "$5"' sh "$pt" "$s" "$nqt" "$w/k" "$r/t"
+      tsame "seal -r stopped by signal $s at $pt"
+    done
+  done
+  # a real closed pipe on standard output, then on standard error: the
+  # tree is whole, old or new, and never a mix (the old seals do not
+  # cover the changed files: new is what check -r passes)
+  twhole() {
+    o=1
+    for x in . a b; do
+      if [ "$("$nq" hash <"$r/was/$x/noqtis.json")" != \
+        "$("$nq" hash <"$r/t/$x/noqtis.json")" ]; then
+        o=0
+      fi
+    done
+    if [ $o = 0 ]; then
+      ok 0 "$1: the tree is all new" "$nq" check -p "$w/k.pub" -r "$r/t"
+    fi
+    ok 1 "$1: no temporary file left" sh -c 'ls -a "$1" "$1/a" "$1/b" |
+      grep -q "\.tmp$"' sh "$r/t"
+    tback
+  }
+  i=0
+  while [ $i -lt 3 ]; do
+    i=$((i + 1))
+    ok 0 "seal -r | true" sh -c '"$1" seal -k "$2" -r "$3" | true' sh \
+      "$nq" "$w/k" "$r/t"
+    twhole "seal -r, standard output closed ($i)"
+    ok 0 "seal -r 2>&1 >/dev/null | true" sh -c \
+      '"$1" seal -k "$2" -r "$3" 2>&1 >/dev/null | true' sh "$nq" "$w/k" \
+      "$r/t"
+    twhole "seal -r, standard error closed ($i)"
+  done
+  # seal --tsa refused (nothing listens on port 1) with standard error a
+  # closed pipe: the old seal comes back however the report of the
+  # failure ends
+  ok 0 "seal --tsa refused, stderr closed" sh -c \
+    '"$1" seal -k "$2" --tsa http://127.0.0.1:1/ "$3" 2>&1 >/dev/null |
+      true' sh "$nq" "$w/k" "$r/t/a"
+  same "$r/was/a/noqtis.json" "$r/t/a/noqtis.json" \
+    "seal --tsa refused, stderr closed: noqtis.json put back"
+  same "$r/was/a/noqtis.sig" "$r/t/a/noqtis.sig" \
+    "seal --tsa refused, stderr closed: noqtis.sig put back"
+  # a pack build refused at -o, with standard error a closed pipe: the
+  # record is put back with the seal (env rewrites it, TZ differs)
+  for x in noqtis.data.json noqtis.json noqtis.sig; do cp "$p/$x" "$r/p.$x"; done
+  ok 0 "pack build -o refused, stderr closed" sh -c \
+    'TZ=Asia/Tokyo "$1" pack build -k "$2" -o "$3/nodir/x.nqb" "$4" 2>&1 \
+      >/dev/null | true' sh "$nq" "$w/k" "$r" "$p"
+  for x in noqtis.data.json noqtis.json noqtis.sig; do
+    same "$r/p.$x" "$p/$x" "pack build -o refused, stderr closed: $x"
+  done
+  # set-ID bits come back with the file
+  if chmod 2644 "$r/t/a/noqtis.json" "$r/t/a/noqtis.sig" 2>/dev/null &&
+    [ "$(ls -l "$r/t/a/noqtis.json" | cut -c1-10)" = "-rw-r-Sr--" ]; then
+    ok 143 "seal stopped, set-group-ID seal files" env \
+      NQTESTKILL=sealed:1 "$nqt" seal -k "$w/k" "$r/t/a"
+    ok 0 "the set-group-ID bit is put back" test \
+      "$(ls -l "$r/t/a/noqtis.json" | cut -c1-10)" = "-rw-r-Sr--"
+    ok 0 "on both files" test \
+      "$(ls -l "$r/t/a/noqtis.sig" | cut -c1-10)" = "-rw-r-Sr--"
+    chmod 644 "$r/t/a/noqtis.json" "$r/t/a/noqtis.sig"
+  fi
+  # few descriptors: a tree with more capsules than the limit allows is
+  # refused before anything is written, and a capsule that finds none
+  # left stops the run with every capsule put back
+  if sh -c 'ulimit -n 66' 2>/dev/null; then
+    ok 2 "seal -r over the open-file limit" sh -c \
+      'ulimit -n 66; exec "$1" seal -k "$2" -r "$3"' sh "$nq" "$w/k" "$r/t"
+    has "$w/err" "nothing was sealed" "the limit is named"
+    tsame "seal -r over the open-file limit"
+  fi
+  for k in 1 3 5 6; do
+    ok 2 "seal -r out of descriptors at its $k-th read" env \
+      NQTESTFAIL=snap:$k "$nqt" seal -k "$w/k" -r "$r/t"
+    has "$w/err" "Too many open files" "the reason is said ($k)"
+    has "$w/err" "every capsule is put back" "and the put-back ($k)"
+    tsame "seal -r out of descriptors ($k)"
+  done
+  ok 2 "seal out of descriptors" env NQTESTFAIL=snap:1 "$nqt" seal \
+    -k "$w/k" "$r/t/a"
+  has "$w/err" "Too many open files" "a seal out of descriptors says so"
+  ok 1 "and never says to remove the seal" grep -q "remove it" "$w/err"
+  i=5
+  while [ $i -le 10 ]; do
+    if sh -c "ulimit -n $i" 2>/dev/null; then
+      sh -c 'ulimit -n $1; exec "$2" seal -k "$3" "$4"' sh $i "$nq" \
+        "$w/k" "$r/t/a" >"$w/out" 2>"$w/err"
+      ok 1 "ulimit -n $i: no advice to remove a valid seal" grep -q \
+        "remove it" "$w/err"
+    fi
+    i=$((i + 1))
+  done
+  # the runs with enough descriptors resealed it
+  tback
+  # a file left under the name of a temporary file is never removed by a
+  # signal: the one the command made is (record of nqd; seal's manifest)
+  if (ulimit -f 30) 2>/dev/null; then
+    d=$r/dd
+    mkdir -p "$d"
+    "$nq" data init "$d" >/dev/null 2>&1
+    i=0
+    l=""
+    while [ $i -lt 301 ]; do
+      echo "a,b" >"$d/x$i.csv"
+      [ $i -lt 300 ] && l="$l x$i.csv"
+      i=$((i + 1))
+    done
+    # shellcheck disable=SC2086
+    (cd "$d" && "$nq" data add . $l) >/dev/null 2>&1
+    ok 153 "data add stopped by ulimit -f, a temporary name taken" sh -c \
+      'echo planted >"$1/.noqtis.$(printf %08x $$)00000000.tmp"
+       ulimit -f 4; exec "$2" data add "$1" x300.csv' sh "$d" "$nq"
+    ok 0 "the file that had the name is kept" sh -c \
+      'ls -a "$1" | grep -q "^\.noqtis\.[0-9a-f]*00000000\.tmp$"' sh "$d"
+    ok 0 "and nothing else is left" test "$(ls -a "$d" |
+      grep -c '^\.noqtis\..*\.tmp$')" = 1
+    # a manifest over 4 blocks, so its temporary file meets ulimit -f
+    q=$r/qq
+    mkdir -p "$q"
+    i=0
+    while [ $i -lt 600 ]; do
+      echo $i >"$q/file_with_a_longish_name_$i"
+      i=$((i + 1))
+    done
+    "$nq" seal -k "$w/k" "$q" >/dev/null 2>&1
+    echo n >>"$q/file_with_a_longish_name_0"
+    ok 153 "seal stopped by ulimit -f, a temporary name taken" sh -c \
+      'echo planted >"$1/.noqtis.json.$$.0.tmp"
+       ulimit -f 4; exec "$2" seal -k "$3" "$1"' sh "$q" "$nq" "$w/k"
+    ok 0 "the seal's: the file that had the name is kept" sh -c \
+      'ls -a "$1" | grep -q "^\.noqtis\.json\.[0-9]*\.0\.tmp$"' sh "$q"
+    ok 0 "the seal's: nothing else is left" test "$(ls -a "$q" |
+      grep -c '\.tmp$')" = 1
+  fi
 fi
 
 # ---- env, commit, reveal, cite ----

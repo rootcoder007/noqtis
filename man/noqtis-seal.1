@@ -61,13 +61,10 @@ the name the tool's other outputs and the data record are written
 through;
 .Xr noqtis-check 1
 still fails either as a file the manifest does not list, so remove it.
-A seal stopped by
-.Dv SIGINT ,
-.Dv SIGTERM ,
-.Dv SIGHUP
-or
-.Dv SIGXFSZ
-removes its own temporary files first.
+A seal stopped by a signal
+.Xr noqtis 1
+lists as handled under SIGNALS removes its own temporary files first:
+the ones it made, never a file that had the name before.
 .Pp
 The new manifest and the new seal are both written whole under their
 temporary names before either is renamed; then
@@ -80,12 +77,23 @@ capsule as it was.
 From before the first file is written until the seal is whole (and
 stamped, with
 .Fl -tsa ) ,
+every signal
+.Xr noqtis 1
+lists as handled under SIGNALS
+.Po
 .Dv SIGINT ,
+.Dv SIGQUIT ,
+.Dv SIGPIPE ,
 .Dv SIGTERM ,
-.Dv SIGHUP
-and
-.Dv SIGXFSZ
-put back the
+.Dv SIGHUP ,
+.Dv SIGXFSZ ,
+.Dv SIGXCPU ,
+.Dv SIGALRM ,
+.Dv SIGUSR1 ,
+.Dv SIGUSR2
+and the others there
+.Pc
+puts back the
 .Pa noqtis.json
 and
 .Pa noqtis.sig
@@ -101,17 +109,18 @@ place.
 They are put back in the folder that was read, through a descriptor of
 it opened before anything was written, so a folder renamed or replaced
 by a link meanwhile is never written through.
-A file put back keeps its permission bits and, where its owner may give
-it, its group; its hard links, ACLs and extended attributes are not
+A file put back keeps its permission bits, the set-user-ID, set-group-ID
+and sticky bits too (set after its group, whose change would clear
+them), and, where its owner may give it, its group; its hard links, ACLs and extended attributes are not
 kept, nor its owner when another user made it.
 When they cannot be put back (a write over
 .Ic ulimit -f ,
 a folder that may not be written), neither is renamed, so the folder
 keeps what the seal had written, and standard error says
 .Ql noqtis: Ar dir : stopped, and its files could not be put back as they were: check it .
-Only
-.Dv SIGKILL
-or a power cut in the moment between the two renames, a failure of the
+Only a signal that is not handled
+.Pq Dv SIGKILL , No a fault such as Dv SIGSEGV ,
+or a power cut, in the moment between the two renames, a failure of the
 second, or such a failed put-back then, leaves the new
 .Pa noqtis.json
 beside the old
@@ -154,8 +163,15 @@ and
 are removed, so the folder is never left sealed without the timestamp
 that was asked for, and the exit status is 2; a seal the folder had
 before is put back as it was.
-An interrupt while it waits (Ctrl-C, SIGTERM, SIGHUP) removes them too;
-only SIGKILL or a power cut can leave the folder sealed without one.
+A handled signal while it waits (Ctrl-C,
+.Dv SIGTERM ,
+.Dv SIGHUP ,
+a standard error that is a closed pipe when the failure is reported,
+and the others of SIGNALS in
+.Xr noqtis 1 )
+does the same; only a signal that is not handled
+.Pq Dv SIGKILL , No a fault
+or a power cut can leave the folder sealed without one.
 A TSA has 120 seconds in all for one request, the name lookup included
 (30 seconds at most for any one step).
 .Pp
@@ -274,14 +290,29 @@ Standard error ends with how many were sealed and failed; the exit
 status is the worst of them, and 2 when a link was refused.
 A capsule that fails is left as it was, and the others are sealed.
 Until the last capsule is done, the earlier seal of every capsule
-resealed so far is kept, with its folder open: an interrupt at any
-moment of the run, between two capsules too, puts each of them back as
-described above, so a tree that passed
+resealed so far is kept, with its folder open: a handled signal at any
+moment of the run, between two capsules too (a message or a
+.Ql sealed
+line written to a pipe whose reader is gone, as in
+.Ql noqtis seal -r tree | head ,
+is
+.Dv SIGPIPE ) ,
+puts each of them back as described above, so a tree that passed
 .Xr noqtis-check 1
 .Fl r
 before still does.
-The command raises its limit of open files to the hard limit for this;
-a capsule past it fails, and is left as it was.
+The command raises its soft limit of open files to the hard limit for
+this, and needs one descriptor per capsule to seal plus 64 for the rest
+of the run (the walk of the tree first needs two per folder level): a
+tree with more capsules than that is refused before anything is
+written, with a message naming how many capsules the limit allows and
+the
+.Ic ulimit -n
+to give.
+When a capsule still finds no descriptor left
+.Pq Er EMFILE , Er ENFILE ,
+the run stops there, says so, and puts back every capsule it had
+resealed, so the whole tree is as it was.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds

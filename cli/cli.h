@@ -71,10 +71,10 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
 /* A file of a capsule as it was before a command of several steps began,
  * to put back when a later step refuses or the command is interrupted:
  * the command then leaves the folder as it found it. ncsnapget reads
- * dir/name (NCOK also when there is no such file; NCUSE when it is there
- * and cannot be read, or the path is too long, or it is a link, a pipe or
- * any file that is not a plain one; NCBAD, on POSIX, when the folder
- * cannot be opened). On POSIX it keeps the folder open, and everything
+ * dir/name (NCOK also when there is no such file; NCUSE when it is a
+ * link, a pipe, a folder or any file that is not a plain one; NCBAD when
+ * the folder or the file cannot be opened or read, errno saying why, and
+ * s->p naming which). On POSIX it keeps the folder open, and everything
  * put back goes there by descriptor, never by the path, with the file's
  * mode and, where the owner may give it, its group.
  * ncsnappend notes n snapshots (at most 4, of one folder) as one group
@@ -109,9 +109,26 @@ void ncsnapfree(ncsnap *s);
  * the handler stays in place and puts every one back until nctreeend, at
  * the end of the run, lets them go. Without nctreeon, nctree lets the
  * group go at once (the capsule keeps its new files) and frees it. */
-void nctreeon(void);
+size_t nctreeon(unsigned long *lim);
 void nctree(ncsnap *s, int n);
-void nctreeend(void);
+void nctreeend(int back);
+/* nctreeon gives how many capsules one run can keep this way (the
+ * open-file limit, raised to the hard one and put in *lim, less what the
+ * rest of the run needs): seal -r refuses a larger tree before it
+ * writes anything. A capsule that fails because no descriptor is left
+ * sets ncnofd; the run then stops, and nctreeend(1) puts back every
+ * capsule it resealed before letting them go. */
+extern int ncnofd;
+/* the descriptors a run of seal -r needs besides the folders it keeps:
+ * the standard three, the starting folder, and what one capsule's seal
+ * opens at a time (its folder twice, a file, the folders of the walk
+ * down to the depth most trees have, a key, a TSA's socket). A tree
+ * deeper than that can still run out; the run then puts every capsule
+ * back (ncnofd). */
+#define NCFDRES 64
+/* Says why ncsnapget refused (rc): not a plain file (NCUSE), or the
+ * error errno holds, by name, never a guess. NCUSE. */
+int ncsnapsay(const char *cmd, const ncsnap *s, int rc);
 /* whether a and b name one file: by its identity where both exist, else by
  * the name */
 int ncsame(const char *a, const char *b);
@@ -120,21 +137,17 @@ int ncsame(const char *a, const char *b);
  * gives owner-only permissions (0600 on POSIX). The bytes go to a new
  * temporary name beside path (".noqtis.<16 hex>.tmp"), which ncclose
  * renames to path once the file is whole and removes otherwise; a
- * signal (SIGINT, SIGTERM, SIGHUP, SIGXFSZ) removes it too. */
+ * signal (see psig, cli/io.c) removes it too. */
 FILE *ncopen(const char *path, int force, int sec);
-/* path is removed on SIGINT, SIGTERM or SIGHUP until ncunpend(slot):
+/* path is removed on a signal (see psig, cli/io.c) until ncunpend(slot):
  * the slot, or -1 when all 8 are taken or path is too long */
 int ncpend(const char *path);
 void ncunpend(int slot);
-/* ncpend for the temporary files the library writes a seal of dir
- * through (.noqtis.json.<pid>.0.tmp, .noqtis.sig.<pid>.0.tmp): two
- * slots into sl, -1 where none was free */
-void ncpendseal(const char *dir, int sl[2]);
-/* the same for one of them, name (noqtis.sig, noqtis.ers): the slot */
-int ncpendown(const char *dir, const char *name);
-/* ncpend for the temporary file nqd writes a file of folder dir through
- * (.noqtis.<pid, 8 hex>00000000.tmp, as a data record): the slot, or -1 */
-int ncpendrec(const char *dir);
+/* The hook the library and nqd tell of each temporary file they make
+ * (nqsettmp, nqdsettmp, set once in main.c before any command runs):
+ * the file is then removed on a signal until it is renamed into place,
+ * the one made, never a file that had its name. */
+void nctmpev(int ev, const char *path, void *user);
 /* Closes f (from ncopen) and keeps it, when whole, under its temporary
  * name for ncput: its slot; -1 when it is bad or the close fails (it is
  * removed then). */
@@ -227,6 +240,7 @@ char *ncabs(const char *p);
 #ifdef NQTEST
 void nctswap(const char *path);
 void nctkill(const char *at);
+int nctfail(const char *at);
 #endif
 /* runs cmd (ncseal or ncchk) on every capsule folder under the folder
  * that is its last argument: those holding the file mark (seal: a

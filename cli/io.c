@@ -305,10 +305,14 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
  * leaves none of them. A file the library writes, or a folder the tool
  * fills, gets its temporary name the same way (nctmpf, nctmpd).
  *
- * The paths in pnd are removed on SIGINT, SIGTERM, SIGHUP and SIGXFSZ
- * (and, for an output of this file's own, at exit) before the process
- * ends; a signal the process ignored when the first was armed stays
- * ignored. A file is removed through a descriptor of the folder it was
+ * The paths in pnd are removed on a signal of psig (siglist: every
+ * signal whose default action ends the process and that can be caught;
+ * on Windows SIGINT and SIGTERM) and, for an output of this file's own,
+ * at exit, before the process ends; a signal the process ignored or
+ * handled itself when the first was armed is left as it was. A file
+ * the library writes through a temporary name of its own is noted when
+ * it is made (nctmpev), so the one removed is the one made, never a
+ * file that had that name. A file is removed through a descriptor of the folder it was
  * made in (unlinkat), so a folder renamed or replaced while the command
  * runs does not keep it. While a folder is filled (nctmpd), whose tree
  * a signal handler cannot remove safely, a signal is held: the command
@@ -324,6 +328,18 @@ int ncrdx(const char *path, int sec, size_t max, uint8_t **buf,
                           defined(__DragonFly__))
 #define SIGXFSZ 25
 #endif
+#if !defined(SIGXCPU) && (defined(__FreeBSD__) || defined(__OpenBSD__) || \
+                          defined(__DragonFly__))
+#define SIGXCPU 24
+#endif
+#if !defined(SIGVTALRM) && (defined(__FreeBSD__) || defined(__OpenBSD__) || \
+                            defined(__DragonFly__))
+#define SIGVTALRM 26
+#endif
+#if !defined(SIGPROF) && (defined(__FreeBSD__) || defined(__OpenBSD__) || \
+                          defined(__DragonFly__))
+#define SIGPROF 27
+#endif
 #define NCPEND 8
 static char pnd[NCPEND][4200];
 static volatile sig_atomic_t pon[NCPEND];
@@ -332,6 +348,7 @@ static int pfrc[NCPEND];       /* its force */
 static char pfin[NCPEND][4200]; /* the name it gets */
 static int pown[NCPEND]; /* made here (not ncpend alone): removed at exit */
 static int pisd[NCPEND]; /* a folder (nctmpd) */
+static int ptmp[NCPEND]; /* a temporary file the library made (nctmpev) */
 #ifdef _WIN32
 /* a file an interrupt puts back as it was instead of removing it: its
  * bytes and their count (ncsnappend) */
@@ -354,7 +371,7 @@ typedef struct {
   int mine;        /* 1: the list frees b and closes dfd (nctree), 2: b
                     * only, dfd being the one of the group's first entry */
   int had;         /* 0: there was no such file; the put-back removes it */
-  int mode;        /* its permission bits */
+  int mode;        /* its permission bits, set-ID and sticky ones too */
   long gid;        /* its group */
   const uint8_t *b; /* its bytes */
   size_t n;
@@ -370,20 +387,80 @@ static int ngrp, keepon;
 #endif
 static int npon = 0, pexit = 0, pinst = 0;
 static volatile sig_atomic_t pheld = 0, pgot = 0;
-static const int psig[] = {SIGINT, SIGTERM
-#ifdef SIGHUP
-                           , SIGHUP
+/* The signals the handler takes: every one whose default action ends the
+ * process and that a handler can take safely. Left out: SIGKILL and
+ * SIGSTOP (no handler can take them), the stops SIGTSTP, SIGTTIN and
+ * SIGTTOU (the process waits and goes on with SIGCONT; one that ends it
+ * meanwhile acts once it goes on), the ones ignored by default (SIGCHLD,
+ * SIGCONT, SIGURG, SIGWINCH, SIGIO outside Linux), and the faults
+ * SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGABRT, SIGSYS and SIGTRAP: raised by
+ * a bug, a debugger or the kernel in the middle of any call, they leave
+ * the list (or the heap) in a state no handler can trust, so they end
+ * the process as SIGKILL does. noqtis-seal(1) lists them; keep the two
+ * in step. */
+#define NPSIGMAX 64
+static int psig[NPSIGMAX];
+static size_t npsig;
+#ifdef _WIN32
+static void (*pold[NPSIGMAX])(int);
+#else
+static struct sigaction pold[NPSIGMAX];
+static int pmine[NPSIGMAX]; /* the handler was put in place for it */
+static int phome = -1;      /* the folder the command started in, open */
 #endif
+
+static void addsig(int s) {
+  size_t k;
+  for (k = 0; k < npsig; k++)
+    if (psig[k] == s)
+      return;
+  if (npsig < NPSIGMAX)
+    psig[npsig++] = s;
+}
+
+/* fills psig, once */
+static void siglist(void) {
+  static const int fx[] = {SIGINT, SIGTERM
+#ifndef _WIN32
+                           , SIGHUP, SIGQUIT, SIGPIPE, SIGALRM, SIGUSR1,
+                           SIGUSR2
 #ifdef SIGXFSZ
                            , SIGXFSZ /* a write over ulimit -f */
 #endif
-};
-#define NPSIG (sizeof psig / sizeof psig[0])
-#ifdef _WIN32
-static void (*pold[NPSIG])(int);
-#else
-static struct sigaction pold[NPSIG];
+#ifdef SIGXCPU
+                           , SIGXCPU /* ulimit -t */
 #endif
+#ifdef SIGVTALRM
+                           , SIGVTALRM
+#endif
+#ifdef SIGPROF
+                           , SIGPROF
+#endif
+#ifdef SIGPOLL
+                           , SIGPOLL /* SIGIO on Linux */
+#endif
+#ifdef SIGSTKFLT
+                           , SIGSTKFLT
+#endif
+#ifdef SIGPWR
+                           , SIGPWR
+#endif
+#endif
+  };
+  size_t k;
+  if (npsig > 0)
+    return;
+  for (k = 0; k < sizeof fx / sizeof fx[0]; k++)
+    addsig(fx[k]);
+#if !defined(_WIN32) && defined(SIGRTMIN) && defined(SIGRTMAX)
+  {
+    /* the real-time signals end the process too */
+    int s;
+    for (s = SIGRTMIN; s <= SIGRTMAX; s++)
+      addsig(s);
+  }
+#endif
+}
 
 static int addf(char ***v, size_t *n, size_t *cap, const char *p);
 
@@ -517,7 +594,7 @@ static int bksame(const bkent *e) {
         fchown(fd, (uid_t)-1, (gid_t)e->gid) != 0) {
       /* a group this user may not give: the file keeps the one it has */
     }
-    if ((int)(st.st_mode & 0777) != e->mode)
+    if ((int)(st.st_mode & 07777) != e->mode)
       (void)fchmod(fd, (mode_t)e->mode);
   }
   (void)close(fd);
@@ -555,6 +632,7 @@ static int bkwrite(bkent *e) {
   if (fchown(fd, (uid_t)-1, (gid_t)e->gid) != 0) {
     /* a group this user may not give: the file keeps the one it has */
   }
+  /* the mode after the group, whose change clears the set-ID bits */
   ok = o == e->n && fchmod(fd, (mode_t)e->mode) == 0;
   ok = close(fd) == 0 && ok;
   if (!ok)
@@ -630,6 +708,18 @@ static void noxfsz(struct sigaction *was) {
   (void)sigaction(SIGXFSZ, &sa, was);
 }
 #endif
+
+/* SIGPIPE ignored for the rest of the process, which is ending: the
+ * message of a put-back that fails, written to a standard error that is
+ * a closed pipe, fails with EPIPE instead of ending the process before
+ * the other groups are back; one held meanwhile is dropped */
+static void nopipe(void) {
+  struct sigaction sa;
+  memset(&sa, 0, sizeof sa);
+  sa.sa_handler = SIG_IGN;
+  sigemptyset(&sa.sa_mask);
+  (void)sigaction(SIGPIPE, &sa, NULL);
+}
 #else
 /* writes slot i's kept bytes over its file */
 static void putback(int i) {
@@ -648,6 +738,11 @@ static void die(int s) {
   signal(s, SIG_DFL);
 #else
   struct sigaction sa;
+  /* a core dump (SIGQUIT, SIGXCPU, SIGXFSZ) goes to the folder the
+   * command started in, never into a capsule seal -r is in */
+  if (phome >= 0 && fchdir(phome) != 0) {
+    /* it stays where it is */
+  }
   memset(&sa, 0, sizeof sa);
   sa.sa_handler = SIG_DFL;
   sigemptyset(&sa.sa_mask);
@@ -671,6 +766,9 @@ static void onpend(int s) {
   }
 #if !defined(_WIN32) && defined(SIGXFSZ)
   noxfsz(NULL);
+#endif
+#ifndef _WIN32
+  nopipe();
 #endif
   for (i = 0; i < NCPEND; i++)
     if (pon[i] && !pisd[i]) {
@@ -708,8 +806,9 @@ static void atpend(void) {
 static int hold(sigset_t *os) {
   sigset_t bs;
   size_t k;
+  siglist();
   sigemptyset(&bs);
-  for (k = 0; k < NPSIG; k++)
+  for (k = 0; k < npsig; k++)
     sigaddset(&bs, psig[k]);
   return sigprocmask(SIG_BLOCK, &bs, os) == 0;
 }
@@ -728,7 +827,8 @@ static int hold(sigset_t *os) {
  * kept to put back: sigs runs after one is noted, before the command
  * changes anything, and after one is let go, when nothing is left to
  * undo; the dispositions the process had come back then. A signal the
- * process ignored stays ignored. While the handler runs, the others of
+ * process ignored, or that has a handler of its own (a profiler's
+ * SIGPROF), is left as it is. While the handler runs, the others of
  * these signals wait, so one put-back runs at a time. */
 static void sigs(void) {
   size_t k;
@@ -738,7 +838,8 @@ static void sigs(void) {
 #endif
   if (want == pinst)
     return;
-  for (k = 0; k < NPSIG; k++) {
+  siglist();
+  for (k = 0; k < npsig; k++) {
 #ifdef _WIN32
     if (want) {
       pold[k] = signal(psig[k], onpend);
@@ -753,18 +854,20 @@ static void sigs(void) {
       size_t j;
       memset(&pold[k], 0, sizeof pold[k]);
       pold[k].sa_handler = SIG_DFL;
+      pmine[k] = 0;
       if (sigaction(psig[k], NULL, &pold[k]) != 0 ||
-          pold[k].sa_handler == SIG_IGN)
+          (pold[k].sa_flags & SA_SIGINFO) || pold[k].sa_handler != SIG_DFL)
         continue;
       memset(&sa, 0, sizeof sa);
       sa.sa_handler = onpend;
       sigemptyset(&sa.sa_mask);
-      for (j = 0; j < NPSIG; j++)
+      for (j = 0; j < npsig; j++)
         sigaddset(&sa.sa_mask, psig[j]);
       sa.sa_flags = SA_RESTART;
-      (void)sigaction(psig[k], &sa, NULL);
-    } else {
+      pmine[k] = sigaction(psig[k], &sa, NULL) == 0;
+    } else if (pmine[k]) {
       (void)sigaction(psig[k], &pold[k], NULL);
+      pmine[k] = 0;
     }
 #endif
   }
@@ -784,6 +887,7 @@ int ncpend(const char *path) {
   pfh[i] = NULL;
   pown[i] = 0;
   pisd[i] = 0;
+  ptmp[i] = 0;
 #ifdef _WIN32
   pbk[i] = NULL;
 #else
@@ -812,37 +916,42 @@ void ncunpend(int i) {
   sigs();
 }
 
-int ncpendown(const char *dir, const char *name) {
-  char p[4200];
-  unsigned long pid;
-  int n;
-#ifdef _WIN32
-  pid = (unsigned long)GetCurrentProcessId();
-#else
-  pid = (unsigned long)getpid();
+/* Told by the library of each temporary file it writes a file through
+ * (nqsettmp, nqdsettmp): with the signals held from just before the
+ * attempt to make it until its name is noted, a signal either finds the
+ * file not yet made or noted for removal, and a name that was taken
+ * (the attempt failed) is never noted. Once the file is renamed into
+ * place or removed, its name is let go. */
+#ifndef _WIN32
+static sigset_t tmask;
+static int tblk;
 #endif
-  n = snprintf(p, sizeof p, "%s/.%s.%lu.0.tmp", dir, name, pid);
-  return n > 0 && (size_t)n < sizeof p ? ncpend(p) : -1;
-}
 
-void ncpendseal(const char *dir, int sl[2]) {
-  sl[0] = ncpendown(dir, "noqtis.json");
-  sl[1] = ncpendown(dir, "noqtis.sig");
-}
-
-int ncpendrec(const char *dir) {
-  char p[4200];
-  unsigned long pid;
-  int n;
-#ifdef _WIN32
-  pid = (unsigned long)GetCurrentProcessId();
-#else
-  pid = (unsigned long)getpid();
+void nctmpev(int ev, const char *path, void *user) {
+  int i;
+  (void)user;
+  if (ev == NQTPRE) {
+#ifndef _WIN32
+    tblk = hold(&tmask);
 #endif
-  /* the first name nqd writes a record through (qdwriteat, nqd/fs.c) */
-  n = snprintf(p, sizeof p, "%s/.noqtis.%08lx00000000.tmp", dir,
-               pid & 0xffffffffUL);
-  return n > 0 && (size_t)n < sizeof p ? ncpend(p) : -1;
+    return;
+  }
+  if (ev == NQTNEW) {
+    if ((i = ncpend(path)) >= 0)
+      ptmp[i] = 1;
+  } else if (ev == NQTEND) {
+    for (i = 0; i < NCPEND; i++)
+      if (pon[i] && ptmp[i] && strcmp(pnd[i], path) == 0) {
+        ncunpend(i);
+        break;
+      }
+    return;
+  }
+#ifndef _WIN32
+  if (tblk)
+    (void)sigprocmask(SIG_SETMASK, &tmask, NULL);
+  tblk = 0;
+#endif
 }
 
 /* the temporary name of path into t: ".noqtis.<16 hex>.tmp" beside it */
@@ -1004,6 +1113,9 @@ static void ncdone(void) {
     HOLD;
 #if !defined(_WIN32) && defined(SIGXFSZ)
     noxfsz(NULL);
+#endif
+#ifndef _WIN32
+    nopipe();
 #endif
     for (i = 0; i < NCPEND; i++)
       if (pon[i] && pown[i] && pisd[i])
@@ -1493,14 +1605,16 @@ typedef struct {
 } ncwlv;
 
 static int wpush(ncwlv *l, int fd, size_t plen) {
-  int dd = dup(fd);
+  int dd = dup(fd), e;
   l->fd = fd;
   l->plen = plen;
   l->d = dd < 0 ? NULL : fdopendir(dd);
   if (l->d == NULL) {
+    e = errno;
     if (dd >= 0)
       close(dd);
     close(fd);
+    errno = e; /* why, for the caller */
     return NCUSE;
   }
   return NCOK;
@@ -1522,8 +1636,10 @@ int ncwalk(const char *cmd, const char *dir, char ***out, size_t *n,
       dep += *p == '/';
     if (dep < 64)
       rc = subdirs(cmd, v[i], &v, &nv, &cap, nl);
-    if (nv > NCWALKMAX)
+    if (nv > NCWALKMAX) {
+      errno = E2BIG;
       rc = NCUSE;
+    }
   }
 #else
   /* by descriptor, depth first over an explicit stack of at most 64
@@ -1531,22 +1647,37 @@ int ncwalk(const char *cmd, const char *dir, char ***out, size_t *n,
    * openat(O_DIRECTORY | O_NOFOLLOW) from the one above it, never by its
    * path, so a folder swapped for a link is not followed, here or one
    * level down */
+  /* A folder that cannot be opened or read for any reason but being gone
+   * or a link now (no descriptor left, no permission, an I/O error)
+   * stops the walk with that reason in errno: a capsule under it is
+   * never skipped without a word. */
   ncwlv st[64];
-  int top = 0, fd;
+  int top = 0, fd, werr = 0;
   char path[4200];
-  if (strlen(dir) >= sizeof path)
+  if (strlen(dir) >= sizeof path) {
+    errno = ENAMETOOLONG;
     return NCUSE;
+  }
   strcpy(path, dir);
   fd = open(dir, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0 || wpush(&st[0], fd, strlen(path)) != NCOK)
     return NCUSE;
   rc = addf(&v, &nv, &cap, path);
+  if (rc != NCOK)
+    werr = ENOMEM;
   while (top >= 0) {
-    struct dirent *e;
+    struct dirent *e = NULL;
     struct stat sb;
     size_t l;
     int nfd;
-    if (rc != NCOK || (e = readdir(st[top].d)) == NULL) {
+    if (rc == NCOK) {
+      errno = 0;
+      if ((e = readdir(st[top].d)) == NULL && errno != 0) {
+        werr = errno;
+        rc = NCUSE;
+      }
+    }
+    if (rc != NCOK || e == NULL) {
       closedir(st[top].d);
       close(st[top].fd);
       if (--top >= 0)
@@ -1555,8 +1686,13 @@ int ncwalk(const char *cmd, const char *dir, char ***out, size_t *n,
     }
     if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
       continue;
-    if (fstatat(st[top].fd, e->d_name, &sb, AT_SYMLINK_NOFOLLOW) != 0)
+    if (fstatat(st[top].fd, e->d_name, &sb, AT_SYMLINK_NOFOLLOW) != 0) {
+      if (errno != ENOENT) {
+        werr = errno;
+        rc = NCUSE;
+      }
       continue;
+    }
     if (S_ISLNK(sb.st_mode)) {
       /* a link to a folder: named and refused, never followed (only its
        * target's type is looked at) */
@@ -1575,13 +1711,24 @@ int ncwalk(const char *cmd, const char *dir, char ***out, size_t *n,
       continue;
     nfd = openat(st[top].fd, e->d_name,
                  O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-    if (nfd < 0)
-      continue; /* a link now, or gone: not listed */
+    if (nfd < 0) {
+      /* a link now, or gone: not listed; anything else stops the walk */
+      if (errno != ENOENT && errno != ELOOP && errno != ENOTDIR &&
+          errno != EMLINK) {
+        werr = errno;
+        rc = NCUSE;
+      }
+      continue;
+    }
     path[l] = '/';
     strcpy(path + l + 1, e->d_name);
     rc = addf(&v, &nv, &cap, path);
-    if (rc == NCOK && nv > NCWALKMAX)
+    if (rc != NCOK)
+      werr = ENOMEM;
+    if (rc == NCOK && nv > NCWALKMAX) {
+      werr = E2BIG;
       rc = NCUSE;
+    }
     if (rc != NCOK || top + 1 >= 64) {
       /* listed, not descended: 64 levels at most */
       close(nfd);
@@ -1589,17 +1736,21 @@ int ncwalk(const char *cmd, const char *dir, char ***out, size_t *n,
       continue;
     }
     if (wpush(&st[top + 1], nfd, strlen(path)) != NCOK) {
+      werr = errno;
       rc = NCUSE;
       path[l] = '\0';
       continue;
     }
     top++;
   }
+  errno = werr;
 #endif
   if (rc != NCOK) {
+    int e = errno;
     for (i = 0; i < nv; i++)
       free(v[i]);
     free(v);
+    errno = e;
     return NCUSE;
   }
   qsort(v, nv, sizeof *v, bydepth);
@@ -1637,7 +1788,9 @@ int nchome(void) {
 #ifdef _WIN32
   return 0;
 #else
-  return open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  /* also where a signal's core dump goes (die) */
+  phome = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  return phome;
 #endif
 }
 
@@ -1645,6 +1798,8 @@ void ncunhome(int fd) {
 #ifdef _WIN32
   (void)fd;
 #else
+  if (fd >= 0 && fd == phome)
+    phome = -1;
   if (fd >= 0)
     close(fd);
 #endif
@@ -1702,21 +1857,31 @@ void nctswap(const char *path) {
 }
 
 /* a test hook for interrupts (tests/nqd/cli.sh): NQTESTKILL=<at>:<n>
- * sends the process SIGTERM the n-th time it reaches the point at
- * ("sealed": a seal just written; "between": seal -r between two
- * capsules), after NQTESTKILLMV, when set, is swapped for a link to
- * NQTESTSWAPTO */
+ * sends the process SIGTERM, or the signal numbered NQTESTSIG, the n-th
+ * time it reaches the point at ("sealed": a seal just written;
+ * "between": seal -r between two capsules), after NQTESTKILLMV, when
+ * set, is swapped for a link to NQTESTSWAPTO */
 void nctkill(const char *at) {
   static int seen;
   const char *v = getenv("NQTESTKILL"), *m = getenv("NQTESTKILLMV"),
-             *t = getenv("NQTESTSWAPTO");
+             *t = getenv("NQTESTSWAPTO"), *s = getenv("NQTESTSIG");
   size_t l = strlen(at);
   if (v == NULL || strncmp(v, at, l) != 0 || v[l] != ':' ||
       ++seen != atoi(v + l + 1))
     return;
   if (m != NULL && t != NULL)
     swapto(m, t);
-  raise(SIGTERM);
+  raise(s != NULL && atoi(s) > 0 ? atoi(s) : SIGTERM);
+}
+
+/* NQTESTFAIL=<at>:<n>: 1 the n-th time the point at is reached ("snap":
+ * ncsnapget, which then fails as with no descriptor left, EMFILE) */
+int nctfail(const char *at) {
+  static int seen;
+  const char *v = getenv("NQTESTFAIL");
+  size_t l = strlen(at);
+  return v != NULL && strncmp(v, at, l) == 0 && v[l] == ':' &&
+         ++seen == atoi(v + l + 1);
 }
 #endif
 
@@ -1765,6 +1930,21 @@ static int rdall(int fd, size_t hint, size_t max, uint8_t **out,
 }
 #endif
 
+int ncsnapsay(const char *cmd, const ncsnap *s, int rc) {
+  int e = errno;
+  if (rc == NCUSE)
+    ncmsg(cmd, "%s is not a plain file that can be read (a link, a pipe, "
+          "a folder): move it out of the way and run the command again",
+          s->p);
+  else if (e == EMFILE || e == ENFILE)
+    ncmsg(cmd, "cannot read %s: %s: raise the open-file limit (ulimit -n) "
+          "and run the command again; nothing was changed", s->p,
+          strerror(e));
+  else
+    ncmsg(cmd, "cannot read %s: %s", s->p, strerror(e));
+  return NCUSE;
+}
+
 int ncsnapget(ncsnap *s, const char *dir, const char *name) {
   struct stat st;
 #ifndef _WIN32
@@ -1777,41 +1957,89 @@ int ncsnapget(ncsnap *s, const char *dir, const char *name) {
   s->gid = -1;
   s->dfd = -1;
   s->sl = -1;
-  if (snprintf(s->p, sizeof s->p, "%s/%s", dir, name) >= (int)sizeof s->p)
-    return NCUSE;
+  if (snprintf(s->p, sizeof s->p, "%s/%s", dir, name) >= (int)sizeof s->p) {
+    errno = ENAMETOOLONG;
+    return NCBAD;
+  }
 #ifdef _WIN32
-  if (stat(s->p, &st) != 0)
-    return NCOK;
+  if (stat(s->p, &st) != 0) {
+    if (errno == ENOENT)
+      return NCOK;
+    return NCBAD;
+  }
   if ((st.st_mode & S_IFMT) != S_IFREG)
     return NCUSE;
-  s->mode = (int)(st.st_mode & 0777);
-  if (ncrdx(s->p, 0, NCRDMAX, &s->b, &s->n) != NQOK)
-    return NCUSE;
+  s->mode = (int)(st.st_mode & 07777);
+  if (ncrdx(s->p, 0, NCRDMAX, &s->b, &s->n) != NQOK) {
+    errno = EIO;
+    return NCBAD;
+  }
 #else
   /* the folder is kept open: what an interrupt puts back goes to this
    * folder, whatever is renamed or linked in its place meanwhile */
-  if (strlen(name) >= sizeof bk->nm)
-    return NCUSE;
-  if ((s->dfd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC)) < 0)
+  if (strlen(name) >= sizeof bk->nm) {
+    errno = ENAMETOOLONG;
     return NCBAD;
+  }
+#ifdef NQTEST
+  if (nctfail("snap")) {
+    errno = EMFILE;
+    return NCBAD;
+  }
+#endif
+  if ((s->dfd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC)) < 0) {
+    snprintf(s->p, sizeof s->p, "%s", dir);
+    return NCBAD;
+  }
   /* the name itself, not what a link leads to: a link, a pipe or a folder
    * is no file to keep (a pipe would be read for ever) */
   fd = openat(s->dfd, name, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
-  if (fd < 0 && errno == ENOENT)
-    return NCOK;
-  rc = fd >= 0 && fstat(fd, &st) == 0 && S_ISREG(st.st_mode);
-  if (rc) {
-    s->mode = (int)(st.st_mode & 0777);
-    s->gid = (long)st.st_gid;
-    rc = rdall(fd, (size_t)st.st_size, NCRDMAX, &s->b, &s->n) == NQOK;
-  }
-  if (fd >= 0)
-    close(fd);
-  if (!rc) {
+  if (fd < 0) {
+    int e = errno, odd = e == ELOOP || e == EMLINK || e == ENXIO;
+#ifdef EFTYPE
+    odd = odd || e == EFTYPE;
+#endif
+    if (e == ENOENT)
+      return NCOK;
     close(s->dfd);
     s->dfd = -1;
-    return NCUSE;
+    /* a link (ELOOP; EMLINK, EFTYPE on BSD) or a socket (ENXIO) is not
+     * a plain file; anything else (no descriptor left, no permission,
+     * an I/O error) is said as it is */
+    errno = e;
+    return odd ? NCUSE : NCBAD;
   }
+  rc = fstat(fd, &st) == 0 ? NCOK : NCBAD;
+  if (rc == NCOK && !S_ISREG(st.st_mode))
+    rc = NCUSE;
+  if (rc == NCOK) {
+    s->mode = (int)(st.st_mode & 07777);
+    s->gid = (long)st.st_gid;
+    switch (rdall(fd, (size_t)st.st_size, NCRDMAX, &s->b, &s->n)) {
+    case NQOK:
+      break;
+    case NQEMEM:
+      errno = ENOMEM;
+      rc = NCBAD;
+      break;
+    case NQELIM:
+      errno = EFBIG;
+      rc = NCBAD;
+      break;
+    default:
+      rc = NCBAD; /* the read's errno */
+      break;
+    }
+  }
+  if (rc != NCOK) {
+    int e = errno;
+    close(fd);
+    close(s->dfd);
+    s->dfd = -1;
+    errno = e;
+    return rc;
+  }
+  close(fd);
 #endif
   s->had = 1;
   return NCOK;
@@ -1970,11 +2198,14 @@ int ncsnapput(ncsnap *s, int n) {
 }
 #endif
 
-void nctreeon(void) {
+int ncnofd = 0;
+
+size_t nctreeon(unsigned long *lim) {
 #ifndef _WIN32
   /* the folder of each capsule resealed stays open until the run ends */
   static int up;
   struct rlimit rl;
+  *lim = 0;
   if (!up && getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_cur < rl.rlim_max) {
     rlim_t want = rl.rlim_max;
     rl.rlim_cur = want;
@@ -1987,6 +2218,14 @@ void nctreeon(void) {
   }
   up = 1;
   keepon = 1;
+  if (getrlimit(RLIMIT_NOFILE, &rl) != 0 || rl.rlim_cur == RLIM_INFINITY ||
+      rl.rlim_cur > (rlim_t)((size_t)-1 / 2))
+    return (size_t)-1;
+  *lim = (unsigned long)rl.rlim_cur;
+  return rl.rlim_cur > NCFDRES ? (size_t)rl.rlim_cur - NCFDRES : 0;
+#else
+  *lim = 0;
+  return (size_t)-1;
 #endif
 }
 
@@ -2023,10 +2262,28 @@ void nctree(ncsnap *s, int n) {
     ncsnapfree(&s[k]);
 }
 
-void nctreeend(void) {
+void nctreeend(int back) {
 #ifndef _WIN32
-  size_t k = 0;
+  size_t k = 0, a, z = (size_t)nbk;
   HOLD;
+  if (back) {
+#ifdef SIGXFSZ
+    struct sigaction xf;
+    noxfsz(&xf);
+#endif
+    /* the last noted first, as bkall */
+    while (z > 0) {
+      for (a = z - 1; a > 0 && bk[a - 1].grp == bk[z - 1].grp; a--)
+        ;
+      if (bk[a].mine)
+        (void)bkput(a, z, 1);
+      z = a;
+    }
+#ifdef SIGXFSZ
+    noxfsz(NULL);
+    (void)sigaction(SIGXFSZ, &xf, NULL);
+#endif
+  }
   while (k < (size_t)nbk) {
     if (bk[k].mine)
       bkdel(bk[k].grp);
@@ -2035,6 +2292,8 @@ void nctreeend(void) {
   }
   keepon = 0;
   UNHOLD;
+#else
+  (void)back;
 #endif
 }
 

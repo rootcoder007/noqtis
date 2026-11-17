@@ -196,8 +196,8 @@ static int pbuild(int argc, char **argv) {
    * that cannot be written) is undone: the record and the seal are kept
    * as they were and put back when a step refuses */
   for (k = 0; k < 3; k++) {
-    if (ncsnapget(&was[k], argv[0], keep[k]) != NCOK) {
-      ncmsg("pack build", "%s/%s cannot be read", argv[0], keep[k]);
+    if ((rc = ncsnapget(&was[k], argv[0], keep[k])) != NCOK) {
+      (void)ncsnapsay("pack build", &was[k], rc);
       while (k-- > 0)
         ncsnapfree(&was[k]);
       return NCUSE;

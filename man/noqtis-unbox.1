@@ -32,11 +32,9 @@ When a chunk does not verify (the file was changed, cut, reordered or
 lengthened, or is not for this key or context), the command stops with
 exit status 2 and removes
 .Ar out ,
-as it does when stopped by
-.Dv SIGINT ,
-.Dv SIGTERM
-or
-.Dv SIGHUP :
+as it does when stopped by a signal
+.Xr noqtis 1
+lists as handled under SIGNALS:
 the plaintext is written under a temporary name beside
 .Ar out
 and renamed only once whole

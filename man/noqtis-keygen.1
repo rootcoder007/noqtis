@@ -74,12 +74,14 @@ both are written.
 .Pp
 Both keys are written under temporary names in their folders and kept
 until both are whole; only then are they renamed into place, the public
-key first and the secret key last, with SIGINT, SIGTERM and SIGHUP held
-back between the two renames.
+key first and the secret key last, with the signals
+.Xr noqtis 1
+lists as handled under SIGNALS held back between the two renames.
 A run that fails or is stopped leaves the old pair (or none), never a
 new secret key beside an old public key.
 Only a failure of the second rename itself (the folder made read-only
-in between, say), or SIGKILL or a power cut in that moment, can leave
+in between, say), or a signal that is not handled (SIGKILL, a fault) or
+a power cut in that moment, can leave
 the new public key beside the old secret key: the command then says so,
 and exits 2.
 .Pp

@@ -281,22 +281,22 @@ and the files of
 are written through
 .Pa .noqtis. Ns Ar pid Ns Ar k Ns Pa .tmp
 (16 hex digits as well) and renamed into place.
-When the command fails, or is stopped by
-.Dv SIGINT ,
+When the command fails, or is stopped by one of the signals
+.Sx SIGNALS
+lists as handled (Ctrl-C, Ctrl-\e,
 .Dv SIGTERM ,
-.Dv SIGHUP
-or
-.Dv SIGXFSZ
-(a write over
-.Ic ulimit -f ) ,
-the temporary file or folder is removed, so a cut output never stands
+a closed pipe, a write over
+.Ic ulimit -f ,
+and the others), the temporary file or folder is removed, so a cut output never stands
 under the name asked for; a temporary file is removed through the folder
 it was made in, so that holds even when the folder is renamed while the
 command runs.
 While a folder is filled, a signal ends the command at its next step,
 once what it made is removed.
-Only
-.Dv SIGKILL
+Only a signal
+.Sx SIGNALS
+lists as not handled
+.Pq Dv SIGKILL , No a fault such as Dv SIGSEGV
 or a power cut can leave a temporary name behind (on Windows, a signal
 too, as an open file cannot be removed there, and a folder renamed while
 the command runs); a seal never takes such a name in as data, and
@@ -310,6 +310,126 @@ No secret is printed: a shared secret reaches standard output only with
 .Pp
 On Windows, arguments are read as UTF-16 and passed on as UTF-8, and
 standard input and output are in binary mode.
+.Sh SIGNALS
+From its first write to its last, a command that changes files
+.Po
+.Cm seal , pack build , data , env , commit , timestamp , ers ,
+and every command that writes an output file
+.Pc
+handles each signal whose
+default action ends the process and that can be caught:
+.Dv SIGHUP ,
+.Dv SIGINT
+(Ctrl-C),
+.Dv SIGQUIT
+(Ctrl-\e),
+.Dv SIGPIPE
+(standard output or error a pipe whose reader is gone, as in
+.Ql noqtis seal -r tree | head ) ,
+.Dv SIGTERM ,
+.Dv SIGXFSZ
+(a write over
+.Ic ulimit -f ) ,
+.Dv SIGXCPU
+.Pq Ic ulimit -t ,
+.Dv SIGALRM ,
+.Dv SIGVTALRM ,
+.Dv SIGPROF ,
+.Dv SIGUSR1 ,
+.Dv SIGUSR2 ,
+.Dv SIGPOLL
+where the system has it (the same signal as
+.Dv SIGIO
+on Linux), on Linux
+.Dv SIGSTKFLT
+and
+.Dv SIGPWR ,
+and the real-time signals
+.Dv SIGRTMIN
+to
+.Dv SIGRTMAX .
+On such a signal it removes its temporary files and puts back every file
+it had changed (each capsule of a
+.Cm seal -r
+run as well), as
+.Xr noqtis-seal 1
+describes, and then ends by that same signal, so the exit status a shell
+shows is 128 plus its number (141 for
+.Dv SIGPIPE ,
+131 for
+.Dv SIGQUIT ) ;
+the core dump of
+.Dv SIGQUIT ,
+.Dv SIGXCPU
+and
+.Dv SIGXFSZ ,
+where the system makes one, goes to the folder the command started in.
+A message the put-back writes to a standard error that is a closed pipe
+fails without stopping it.
+Once the work is done (the last capsule sealed, the outputs named), a
+signal finds nothing to put back and ends the command as it would any
+program: the files then hold the complete new state.
+A signal that was ignored when the command started (as
+.Xr nohup 1
+ignores
+.Dv SIGHUP ,
+or a parent ignores
+.Dv SIGPIPE )
+stays ignored: with
+.Dv SIGPIPE
+ignored, a write to a closed pipe fails, the command finishes its work,
+and, when standard output was that pipe, exits 2 with
+.Ql cannot write to stdout .
+A signal another part of the process already handles (a profiler's
+.Dv SIGPROF )
+is left to it.
+.Pp
+.Dv SIGTSTP
+(Ctrl-Z),
+.Dv SIGTTIN
+and
+.Dv SIGTTOU
+stop the command, which goes on where it was at
+.Dv SIGCONT ;
+a signal sent while it is stopped acts once it goes on.
+.Dv SIGCHLD ,
+.Dv SIGCONT ,
+.Dv SIGURG
+and
+.Dv SIGWINCH
+(and
+.Dv SIGIO
+and
+.Dv SIGINFO
+on the BSDs and macOS) are ignored by default and change nothing.
+.Pp
+Not handled:
+.Dv SIGKILL
+and
+.Dv SIGSTOP ,
+which no program can catch, and the faults
+.Dv SIGSEGV ,
+.Dv SIGBUS ,
+.Dv SIGFPE ,
+.Dv SIGILL ,
+.Dv SIGABRT ,
+.Dv SIGSYS
+and
+.Dv SIGTRAP ,
+which a bug, a debugger or the kernel raises in the middle of any step,
+when the command's own state cannot be trusted to put anything back.
+Like a power cut, these can leave a temporary file, a seal written but
+not stamped, or some capsules of a
+.Cm seal -r
+run resealed and others not;
+.Xr noqtis-check 1
+names each such state and says what to do (sealing again repairs it).
+.Pp
+On Windows only
+.Dv SIGINT
+and
+.Dv SIGTERM
+are handled.
 .Sh ENVIRONMENT
 .Bl -tag -width NOQTIS_PROGRESS
 .It Ev NOQTIS_PROGRESS

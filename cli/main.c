@@ -750,6 +750,8 @@ static int run(int argc, char **argv) {
     return outend(NULL, NCOK);
   }
   ncprog();
+  nqsettmp(nctmpev, NULL);
+  nqdsettmp(nctmpev, NULL);
   for (i = 0; i < NCNCMD; i++) {
     if (strcmp(cmds[i].name, argv[1]) == 0)
       return outend(cmds[i].name, cmds[i].run(argc - 1, argv + 1));

@@ -14,26 +14,18 @@
 /* ---- a seal and what an interrupt puts back ---- */
 
 /* From before the seal is written until it is whole (and stamped, with
- * --tsa), an interrupt (Ctrl-C, SIGTERM, SIGHUP, SIGXFSZ) puts back the
- * noqtis.json and noqtis.sig the folder had, together, or removes the new
- * ones where it had none (ncsnappend, cli/io.c), and removes the
- * temporary files the library writes them through: a stopped seal leaves
- * the folder as it was. Under -r the earlier seal of each capsule is kept
- * until the whole tree is done (nctree). Only SIGKILL (or a power cut) can
- * still leave a new seal or a temporary file. */
-static int pslot[2] = {-1, -1};
-
-static void disarm(void) {
-  int i;
-  for (i = 0; i < 2; i++) {
-    ncunpend(pslot[i]);
-    pslot[i] = -1;
-  }
-}
+ * --tsa), a signal that ends the process (Ctrl-C, SIGQUIT, SIGTERM,
+ * SIGHUP, SIGPIPE, SIGXFSZ and the others of psig, cli/io.c) puts back
+ * the noqtis.json and noqtis.sig the folder had, together, or removes the
+ * new ones where it had none (ncsnappend, cli/io.c), and removes the
+ * temporary files the library writes them through (nctmpev): a stopped
+ * seal leaves the folder as it was. Under -r the earlier seal of each
+ * capsule is kept until the whole tree is done (nctree). Only SIGKILL,
+ * the faults (SIGSEGV and the like) or a power cut can still leave a new
+ * seal or a temporary file. */
 
 /* old[0] is noqtis.json, old[1] noqtis.sig; who names the capsule */
-static int arm(const char *dir, int tsa, ncsnap *old, const char *who) {
-  ncpendseal(dir, pslot);
+static int arm(int tsa, ncsnap *old, const char *who) {
 #ifdef _WIN32
   /* on Windows only while it waits for a TSA, as before */
   if (!tsa)
@@ -41,10 +33,7 @@ static int arm(const char *dir, int tsa, ncsnap *old, const char *who) {
 #else
   (void)tsa;
 #endif
-  if (ncsnappend(old, 2, who) == NCOK)
-    return 1;
-  disarm();
-  return 0;
+  return ncsnappend(old, 2, who) == NCOK;
 }
 
 /* ---- TSA anchors (--anchor, DER certificates) ---- */
@@ -336,10 +325,26 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
     ret = NCUSE;
     goto out;
   }
+  if (seal) {
+    /* the limit is raised before the walk, which opens folders too */
+    unsigned long lim;
+    (void)nctreeon(&lim);
+  }
+  errno = 0;
   if (ncwalk(cmd, a[n - 1], &fs, &nf, &nref) != NCOK) {
-    ncmsg(cmd, "-r: cannot list the folders under %s without following "
-          "links (it may be a link itself), or there are over %lu",
-          a[n - 1], (unsigned long)NCWALKMAX);
+    int e = errno;
+    if (e == E2BIG)
+      ncmsg(cmd, "-r: there are over %lu folders under %s",
+            (unsigned long)NCWALKMAX, a[n - 1]);
+    else if (e == ELOOP || e == ENOTDIR || e == EMLINK)
+      ncmsg(cmd, "-r: cannot list the folders under %s without following "
+            "links: it is a link itself", a[n - 1]);
+    else
+      ncmsg(cmd, "-r: cannot list the folders under %s: %s%s", a[n - 1],
+            e != 0 ? strerror(e) : "out of memory",
+            e == EMFILE || e == ENFILE
+                ? " (raise the open-file limit, ulimit -n, and run it again)"
+                : "");
     ret = NCUSE;
     goto out;
   }
@@ -347,6 +352,37 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
   nbad += nref;
   if (nref > 0)
     ret = NCUSE;
+  if (seal) {
+    /* each capsule resealed keeps its folder open until the run ends, so
+     * that a stop puts the whole tree back: a tree with more capsules
+     * than the open-file limit allows is refused before anything is
+     * written, never found out half way */
+    unsigned long lim;
+    size_t room = nctreeon(&lim), want = 0;
+    for (i = 0; i < nf; i++) {
+      char p[4200], q[4200];
+      snprintf(p, sizeof p, "%s/noqtis.json", fs[i]);
+      snprintf(q, sizeof q, "%s/" NQDFILE, fs[i]);
+      if (ncexist(p) || ncexist(q))
+        want++;
+    }
+    if (want > room) {
+      ncmsg(cmd, "-r: %s holds %lu capsules, and one run keeps the folder "
+            "of each open until it ends (so that a stop puts the whole "
+            "tree back): under the open-file limit of %lu (ulimit -n), "
+            "less %d for the rest of the run, it can seal %lu; nothing was "
+            "sealed: raise the limit (ulimit -n %lu, as root above the "
+            "hard limit) and seal again",
+            a[n - 1], (unsigned long)want, lim, NCFDRES,
+            (unsigned long)room, (unsigned long)want + NCFDRES);
+      for (i = 0; i < nf; i++)
+        free(fs[i]);
+      free(fs);
+      ret = NCUSE;
+      goto out;
+    }
+  }
+  ncnofd = 0;
   if ((home = nchome()) < 0) {
     ret = nclib(cmd, "the working folder", NQEIO);
     goto out;
@@ -395,8 +431,6 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
     b[n - 1] = (char *)(uintptr_t)d;
     b[n] = NULL;
     /* the capsule's name in reports: its path under the folder given */
-    if (seal)
-      nctreeon();
     nclab = fs[i] + strlen(a[n - 1]);
     while (*nclab == '/')
       nclab++;
@@ -421,8 +455,18 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
       ret = NCUSE;
     else if (rc == NCBAD && ret == NCOK)
       ret = NCBAD;
+    if (seal && ncnofd) {
+      /* out of descriptors: the run stops, and every capsule is put back */
+      ncmsg(cmd, "-r: stopped at %s, out of open files: every capsule "
+            "is put back as it was; raise the open-file limit (ulimit -n) "
+            "and seal again", ncesc(fs[i]));
+      nbad += nok;
+      nok = 0;
+      ret = NCUSE;
+      break;
+    }
   }
-  nctreeend();
+  nctreeend(seal && ncnofd);
   ncunhome(home);
   for (i = 0; i < nf; i++)
     free(fs[i]);
@@ -467,7 +511,7 @@ int ncseal(int argc, char **argv) {
   size_t mn = 0;
   char *dp = NULL;
   const char *who;
-  ncsnap old[2];
+  ncsnap old[2], *bad;
 
   old[0].b = old[1].b = NULL;
   old[0].had = old[1].had = 0;
@@ -573,21 +617,26 @@ int ncseal(int argc, char **argv) {
    * refusal from here on puts it back: a TSA that does not answer must
    * not cost the capsule the seal (and the timestamp) it had */
   who = ncesc(nclab != NULL ? nclab : argv[0]);
-  if ((rc = ncsnapget(&old[0], argv[0], "noqtis.json")) != NCOK ||
-      (rc = ncsnapget(&old[1], argv[0], "noqtis.sig")) != NCOK) {
-    if (rc == NCBAD)
-      ncmsg("seal", "%s: cannot open the folder: %s", argv[0],
-            strerror(errno));
-    else
-      ncmsg("seal", "%s: its noqtis.json or noqtis.sig is not a plain file "
-            "that can be read (a link, a pipe, a folder): remove it and "
-            "seal again", argv[0]);
+  bad = &old[0];
+  if ((rc = ncsnapget(&old[0], argv[0], "noqtis.json")) == NCOK) {
+    bad = &old[1];
+    rc = ncsnapget(&old[1], argv[0], "noqtis.sig");
+  }
+  if (rc != NCOK) {
+    /* said as it is: a seal that cannot be read for lack of a descriptor
+     * is no reason to remove it */
+    if (rc == NCBAD && (errno == EMFILE || errno == ENFILE))
+      ncnofd = 1;
+    (void)ncsnapsay("seal", bad, rc);
     goto done;
   }
-  if (!arm(argv[0], nt > 0, old, who)) {
+  if (!arm(nt > 0, old, who)) {
     ncmsg("seal", "%s: path too long, or out of memory", argv[0]);
     goto done;
   }
+  /* errno is cleared so a failure of the call itself is told apart from
+   * one before it (ncnofd) */
+  errno = 0;
   rc = fmt == 2 ? nqseal2(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
                          (const char *)meta, ins, (size_t)ni)
                  : nqseal(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
@@ -598,9 +647,12 @@ int ncseal(int argc, char **argv) {
 #endif
   if (rc != NQOK) {
     /* a seal that stopped part-way leaves the one the folder had */
-    int back = ncsnapput(old, 2) == NCOK;
-    disarm();
-    if (rc == NQEARG)
+    int e = errno, back = ncsnapput(old, 2) == NCOK;
+    if (rc == NQEIO && (e == EMFILE || e == ENFILE)) {
+      ncnofd = 1;
+      ncmsg("seal", "%s: %s: raise the open-file limit (ulimit -n) and "
+            "seal again", argv[0], strerror(e));
+    } else if (rc == NQEARG)
       sealwhy(argv[0], kp, pp);
     else if (rc == NQESTATE)
       ncmsg("seal", "%s has an evidence record (noqtis.ers) over its "
@@ -624,7 +676,6 @@ int ncseal(int argc, char **argv) {
     /* under -r the earlier seal is kept until the whole tree is done: a
      * capsule resealed inside one not yet resealed fails that one's check */
     nctree(old, 2);
-    disarm();
     printf("sealed %s with %s%s\n", ncesc(nclab != NULL ? nclab : argv[0]),
            sk.a.name,
            nt > 0 ? " and a timestamp" : "");
@@ -633,7 +684,6 @@ int ncseal(int argc, char **argv) {
      * folder gets back the seal it had, or none */
     int had = old[0].had || old[1].had,
         back = ncsnapput(old, 2) == NCOK;
-    disarm();
     if (had)
       ncmsg("seal", "no --tsa gave a timestamp; %s", back
             ? "the seal the folder had is kept: try again, or give "
@@ -1649,13 +1699,9 @@ int ncts(int argc, char **argv) {
   }
   if (ancrd("timestamp", anc, na, &an) != NCOK)
     return NCUSE;
-  {
-    /* the temporary file nqtsput writes noqtis.sig through is removed
-     * if a signal stops the write (cli/io.c) */
-    int sl = ncpendown(argv[0], "noqtis.sig");
-    rc = stamp("timestamp", argv[0], tsa, nt, &an);
-    ncunpend(sl);
-  }
+  /* the temporary file nqtsput writes noqtis.sig through is removed if a
+   * signal stops the write (nctmpev) */
+  rc = stamp("timestamp", argv[0], tsa, nt, &an);
   ancfree(&an);
   if (rc != NCOK) {
     ncmsg("timestamp", "no --tsa gave a timestamp; %s is unchanged: try "
@@ -1752,13 +1798,9 @@ int ncers(int argc, char **argv) {
       ncmsg("ers", "%s: %s", tsa[i], err);
       continue;
     }
-    {
-      /* as for timestamp: its temporary file goes on a signal */
-      int sl = ncpendown(argv[0], "noqtis.ers");
-      rc = nqersput(argv[0], h, rsp, rn, nonce, sizeof nonce,
-                    (const uint8_t *const *)an.b, an.n, an.k, &gt, &hw, &why);
-      ncunpend(sl);
-    }
+    /* as for timestamp: its temporary file goes on a signal (nctmpev) */
+    rc = nqersput(argv[0], h, rsp, rn, nonce, sizeof nonce,
+                  (const uint8_t *const *)an.b, an.n, an.k, &gt, &hw, &why);
     free(rsp);
     if (rc != NQOK) {
       ncmsg("ers", "%s: refused its reply: %s", tsa[i],

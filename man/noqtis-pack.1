@@ -79,12 +79,19 @@ replaces a file there once the new bundle is whole,
 .Fl -no-files
 leaves out every file but the data record
 .Pc .
-A step that refuses, or
+A step that refuses, or a signal
+.Xr noqtis 1
+lists as handled under SIGNALS
+.Po
 .Dv SIGINT ,
+.Dv SIGQUIT ,
+.Dv SIGPIPE
+(a note or message written to a pipe whose reader is gone),
 .Dv SIGTERM ,
-.Dv SIGHUP
-or
+.Dv SIGHUP ,
 .Dv SIGXFSZ
+and the others there
+.Pc
 before the build is done, puts the data record,
 .Pa noqtis.json
 and
