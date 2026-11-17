@@ -99,6 +99,10 @@ int main(int argc, char **argv) {
     rc = connect(s, (struct sockaddr *)&sa, sizeof sa);
   }
   if (s < 0 || rc != 0) {
+    /* everything freed on every path: a leak report under ASan would
+     * come ahead of this line, which srv.sh reads to retry */
+    if (s >= 0) close(s);
+    nqfree(ca, can + 1);
     printf("fail: cannot connect\n");
     return 1;
   }
@@ -108,6 +112,7 @@ int main(int argc, char **argv) {
   rc = nqtlmk(&t, argv[a], (const uint8_t *)ca, can, &io);
   nqfree(ca, can + 1);
   if (rc != NQOK) {
+    close(s);
     printf("fail: nqtlmk %s\n", nqerr(rc));
     return 1;
   }
@@ -124,6 +129,8 @@ int main(int argc, char **argv) {
            argv[a]);
   if ((rc = nqtlw(t, (const uint8_t *)req, strlen(req))) != NQOK) {
     printf("fail: %s\n", t->why);
+    nqtlfree(t);
+    close(s);
     return 1;
   }
   for (;;) {
