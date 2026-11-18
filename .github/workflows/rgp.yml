@@ -37,12 +37,22 @@ jobs:
       - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
       # R CMD check builds the PDF manual: the runner has no TeX, so the TeX
       # Live packages the review bot's image (Ubuntu 24.04) has
+      # The install has hung for the whole job more than once (a stalled
+      # mirror, or a package's setup waiting): each try gets 15 minutes and
+      # asks nothing, and a try that stops is finished off and made again.
       - name: TeX for the PDF manual
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends texlive-latex-base \
-            texlive-latex-recommended texlive-latex-extra \
-            texlive-fonts-recommended texlive-fonts-extra
+          n=0
+          until sudo env DEBIAN_FRONTEND=noninteractive timeout -k 30 900 \
+            apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 \
+            -o Dpkg::Use-Pty=0 install -y --no-install-recommends \
+            texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-fonts-recommended texlive-fonts-extra; do
+            n=$((n + 1))
+            [ "$n" -lt 3 ] || exit 1
+            sudo env DEBIAN_FRONTEND=noninteractive dpkg --configure -a || true
+          done
       - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
         with:
           use-public-rspm: true
