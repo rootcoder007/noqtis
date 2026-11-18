@@ -41,7 +41,7 @@ q=io/github/rootcoder007/noqtis
 has CITATION.cff "version: $v"
 # the consumer test asks for this minor version: the package version file
 # accepts a request only within one minor version
-has tests/consumer/CMakeLists.txt "find_package(noqtis $maj.$min CONFIG REQUIRED)"
+has tests/consumer/CMakeLists.txt "set(NQWANT $maj.$min CACHE STRING"
 has tests/tcore.c "strcmp(nqver(), \"$v\")"
 has flake.nix "version = \"$v\";"
 has bindings/go/noqtis.go "\"$v\""
