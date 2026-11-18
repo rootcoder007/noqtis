@@ -68,7 +68,7 @@ grep -v ' var/adm/' /var/adm/flists/noqtis
 
 echo "== use"
 noqtis --version
-sh /nq/tests/consumer/run.sh /usr /tmp/use
+NQWANT=installed sh /nq/tests/consumer/run.sh /usr /tmp/use
 echo "== t2 package ok"
 
 # T2 builds with -O2 or -Os (SDECFG_OPT) and its wrapper drops -Werror, so

@@ -41,7 +41,14 @@ else
   echo "== pkg-config: not installed, skipped"
 fi
 
-echo "== find_package(noqtis CONFIG)"
+# NQWANT: the version find_package asks for. Unset, it is this tree's;
+# "installed" asks for the version of the package that is installed, which
+# is what a recipe of the last release is tested against until the next
+# release is published.
+if [ "${NQWANT:-}" = installed ]; then
+  NQWANT=$(sed -n 's/^Version: *\([0-9]*\.[0-9]*\).*/\1/p' "$libdir/pkgconfig/noqtis.pc")
+fi
+echo "== find_package(noqtis ${NQWANT:-of this tree} CONFIG)"
 cmake -S "$here" -B "$work/cm" -DCMAKE_PREFIX_PATH="$prefix" ${NQWANT:+-DNQWANT="$NQWANT"} >/dev/null
 cmake --build "$work/cm" >/dev/null
 "$work/cm/use"
