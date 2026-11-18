@@ -162,10 +162,31 @@ jobs:
           path: ${{ steps.a.outputs.file }}
           if-no-files-found: error
           retention-days: 7
+      # the runner image this archive was built on, for the job that builds
+      # it again: runner images are rolled out over days, so two jobs of one
+      # run can have different compilers
+      - name: the image of this runner
+        if: startsWith(matrix.target, 'linux-')
+        run: |
+          mkdir -p "$RUNNER_TEMP/tool"
+          echo "${ImageOS:-} ${ImageVersion:-}" > "$RUNNER_TEMP/tool/image"
+          cat "$RUNNER_TEMP/tool/image"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: startsWith(matrix.target, 'linux-')
+        with:
+          name: tool-${{ matrix.target }}
+          path: ${{ runner.temp }}/tool/image
+          if-no-files-found: error
+          retention-days: 7
 
   repro:
     # the Linux archives again, on a fresh runner from a fresh checkout
-    # in another directory: they must match the build job's byte for byte
+    # in another directory: they must match the build job's byte for byte.
+    # When this runner has another image than the build job's (another
+    # compiler, so other bytes, and no fault of the tree), the archive is
+    # built a second time here, from another copy of the tree in another
+    # directory, and those two must match byte for byte; the build job's
+    # archive must then still list the same files.
     name: reproduce ${{ matrix.target }}
     needs: [meta, build]
     runs-on: ${{ matrix.os }}
@@ -189,6 +210,10 @@ jobs:
         with:
           name: dist-${{ matrix.target }}
           path: first
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tool-${{ matrix.target }}
+          path: tool
       - name: rebuild and compare
         env:
           SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.sde }}
@@ -197,8 +222,24 @@ jobs:
           NQDIST: ${{ runner.temp }}/elsewhere/work
         working-directory: again/src
         run: |
+          # another copy of the tree, taken before anything is built in it
+          mkdir -p "$RUNNER_TEMP/other"
+          cp -R . "$RUNNER_TEMP/other/src"
           b=$(packaging/dist.sh "$T" "$RUNNER_TEMP/second")
           a="$GITHUB_WORKSPACE/first/$(basename "$b")"
+          theirs=$(cat "$GITHUB_WORKSPACE/tool/image")
+          mine="${ImageOS:-} ${ImageVersion:-}"
+          echo "build job: $theirs; this job: $mine"
+          if [ "$mine" != "$theirs" ]; then
+            echo "::notice::the build job ran on image $theirs and this one on $mine: the archive is built twice here and the two are compared"
+            a=$(cd "$RUNNER_TEMP/other/src" &&
+              NQDIST="$RUNNER_TEMP/yonder/work" packaging/dist.sh "$T" "$RUNNER_TEMP/third")
+            f="$GITHUB_WORKSPACE/first/$(basename "$b")"
+            if ! diff <(tar -tzf "$f" | sort) <(tar -tzf "$b" | sort); then
+              echo "::error::$(basename "$b") does not list the files of the build job's archive"
+              exit 1
+            fi
+          fi
           sha256sum "$a" "$b"
           if ! cmp "$a" "$b"; then
             echo "::error::$(basename "$b") is not reproducible"
