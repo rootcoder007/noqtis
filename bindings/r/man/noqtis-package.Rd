@@ -138,6 +138,7 @@ specification version 5.0.0 of 2025-08-22.
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://noqtis.dev}
   \item \url{https://github.com/rootcoder007/noqtis}
   \item Report bugs at \url{https://github.com/rootcoder007/noqtis/issues}
 }

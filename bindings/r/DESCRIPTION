@@ -19,7 +19,7 @@ Description: A post-quantum cryptography toolkit for R, built on the
     operating system's random generator, not from the one in R.
 License: Apache License (== 2.0)
 Copyright: see file inst/COPYRIGHTS
-URL: https://github.com/rootcoder007/noqtis
+URL: https://noqtis.dev, https://github.com/rootcoder007/noqtis
 BugReports: https://github.com/rootcoder007/noqtis/issues
 Depends: R (>= 4.1)
 Imports: utils
