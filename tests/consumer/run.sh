@@ -42,6 +42,6 @@ else
 fi
 
 echo "== find_package(noqtis CONFIG)"
-cmake -S "$here" -B "$work/cm" -DCMAKE_PREFIX_PATH="$prefix" >/dev/null
+cmake -S "$here" -B "$work/cm" -DCMAKE_PREFIX_PATH="$prefix" ${NQWANT:+-DNQWANT="$NQWANT"} >/dev/null
 cmake --build "$work/cm" >/dev/null
 "$work/cm/use"

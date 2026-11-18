@@ -167,7 +167,7 @@ static void ttamper(void) {
     unsigned x;
     for (x = 0; x < 2; x++) {
       memcpy(f, f0, sizeof f0);
-      f[i] ^= x == 0 ? 0x01 : 0xff;
+      f[i] = (uint8_t)(f[i] ^ (x == 0 ? 0x01 : 0xff));
       rc = dec(f, sizeof f0, out);
       if (rc == NQOK) bad++;
       /* magic, version, KDF, AEAD: refused as another format */

@@ -19,8 +19,12 @@ tar=${NQTAR:-$(packaging/tarball.sh "$w")}
 v=$(sed -n 's/^project(noqtis VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
 sum=$(sha256sum "$tar" 2>/dev/null || shasum -a 256 "$tar")
 sum=${sum%% *}
+# A package is tested at its own version: a recipe under packaging/community
+# stays at the last release until the next one is published.
 consumer() {
-  sh "$root/tests/consumer/run.sh" "$1" "$w/use"
+  NQWANT=$(cat "$1"/lib*/pkgconfig/noqtis.pc "$1"/lib/*/pkgconfig/noqtis.pc 2>/dev/null |
+    sed -n 's/^Version: *\([0-9]*\.[0-9]*\).*/\1/p' | head -n 1) \
+    sh "$root/tests/consumer/run.sh" "$1" "$w/use"
 }
 
 case $kind in

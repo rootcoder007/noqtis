@@ -146,7 +146,7 @@ static void ttamper(void) {
     unsigned x;
     for (x = 0; x < 2; x++) {
       memcpy(f, out, on);
-      f[i] ^= x == 0 ? 0x01 : 0x80;
+      f[i] = (uint8_t)(f[i] ^ (x == 0 ? 0x01 : 0x80));
       memset(back, 0xee, sizeof back);
       rc = nqkopen(NQMLKEM512, sk, z.sk, ctx, sizeof ctx - 1, f, on, back,
                    sizeof back, &bn);
