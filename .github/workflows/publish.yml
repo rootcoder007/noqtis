@@ -11,7 +11,7 @@
 # (CARGO_REGISTRY_TOKEN, a token scoped to publish-update of noqtis) and
 # Fedora COPR builds RPMs for Fedora and EPEL from the release tarball
 # (NQ_COPR_CONFIG, the text of ~/.config/copr; the COPR project
-# rootcoder007/noqtis must exist), the Java jar with its six libraries
+# rootcoder007/noqtis must exist), the Java jar with its twelve libraries
 # goes to Maven Central (NQ_MAVEN_USER, NQ_MAVEN_PASS, NQ_MAVEN_GPG_KEY,
 # NQ_MAVEN_GPG_PASS), and the openSUSE Build Service gets the RPM and
 # Debian sources (NQ_OBS_USER, NQ_OBS_PASS). Without a secret the job builds and
@@ -264,12 +264,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { pl: linux-x86_64, os: ubuntu-22.04, f: libnoqtis.so }
-          - { pl: linux-arm64, os: ubuntu-22.04-arm, f: libnoqtis.so }
-          - { pl: macos-arm64, os: macos-15, f: libnoqtis.dylib }
-          - { pl: macos-x86_64, os: macos-15-intel, f: libnoqtis.dylib }
-          - { pl: windows-x86_64, os: windows-2025, f: noqtis-0.dll, a: x64 }
-          - { pl: windows-arm64, os: windows-2025, f: noqtis-0.dll, a: ARM64 }
+          - { pl: linux-x86_64, os: ubuntu-22.04, f: libnoqtis.so, d: libnqd.so }
+          - { pl: linux-arm64, os: ubuntu-22.04-arm, f: libnoqtis.so, d: libnqd.so }
+          - { pl: macos-arm64, os: macos-15, f: libnoqtis.dylib, d: libnqd.dylib }
+          - { pl: macos-x86_64, os: macos-15-intel, f: libnoqtis.dylib, d: libnqd.dylib }
+          - { pl: windows-x86_64, os: windows-2025, f: noqtis-0.dll, d: nqd-0.dll, a: x64 }
+          - { pl: windows-arm64, os: windows-2025, f: noqtis-0.dll, d: nqd-0.dll, a: ARM64 }
     defaults:
       run:
         shell: bash
@@ -282,6 +282,7 @@ jobs:
         env:
           A: ${{ matrix.a }}
           F: ${{ matrix.f }}
+          D: ${{ matrix.d }}
           PL: ${{ matrix.pl }}
         run: |
           set -- -DCMAKE_BUILD_TYPE=Release -DNQSHARED=ON -DNQTESTS=OFF \
@@ -298,11 +299,19 @@ jobs:
           for s in "b/$F" "b/Release/$F"; do
             if [ -f "$s" ]; then cp -L "$s" "out/native/$PL/$F"; fi
           done
-          if [ -n "$A" ] && grep -aqiE "vcruntime[0-9]*[.]dll|msvcp[0-9]*[.]dll|api-ms-win-crt" "out/native/$PL/$F"; then
-            echo "$F needs the Visual C++ runtime" >&2
-            exit 1
-          fi
-          ls -l "out/native/$PL/$F"
+          # the data layer, a library of its own that the jar carries too
+          for s in "b/nqd/$D" "b/nqd/Release/$D"; do
+            if [ -f "$s" ]; then cp -L "$s" "out/native/$PL/$D"; fi
+          done
+          # on macOS it looks for libnoqtis beside itself
+          sh bindings/java/nqdmac.sh "out/native/$PL/$D"
+          for x in "$F" "$D"; do
+            if [ -n "$A" ] && grep -aqiE "vcruntime[0-9]*[.]dll|msvcp[0-9]*[.]dll|api-ms-win-crt" "out/native/$PL/$x"; then
+              echo "$x needs the Visual C++ runtime" >&2
+              exit 1
+            fi
+            ls -l "out/native/$PL/$x"
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: jnat-${{ matrix.pl }}
@@ -311,7 +320,7 @@ jobs:
           retention-days: 7
 
   maven:
-    # io.github.rootcoder007:noqtis on Maven Central: the jar with all six
+    # io.github.rootcoder007:noqtis on Maven Central: the jar with all twelve
     # libraries, the sources and javadoc jars and the POM, each signed with
     # the release key (NQ_MAVEN_GPG_KEY, NQ_MAVEN_GPG_PASS) and uploaded
     # with the Central Portal user token (NQ_MAVEN_USER, NQ_MAVEN_PASS).
@@ -342,7 +351,8 @@ jobs:
         run: |
           v=${TAG#v}
           n=$(find jn/native -type f | wc -l)
-          [ "$n" -eq 6 ] || { echo "::error::expected 6 libraries, found $n"; exit 1; }
+          # libnoqtis and the data layer, for each of the six platforms
+          [ "$n" -eq 12 ] || { echo "::error::expected 12 libraries, found $n"; exit 1; }
           d="m/io/github/rootcoder007/noqtis/$v"
           mkdir -p "$d" c t
           # shellcheck disable=SC2046 # no path has a space
@@ -359,7 +369,7 @@ jobs:
           # the published jar's own library, with no library given
           # shellcheck disable=SC2046
           javac --release 22 -cp "$d/noqtis-$v.jar" -d t $(find src/test/java -name '*.java' | sort)
-          env -u NOQTIS_LIBRARY java --enable-native-access=ALL-UNNAMED \
+          env -u NOQTIS_LIBRARY -u NOQTIS_NQD java --enable-native-access=ALL-UNNAMED \
             -Dnoqtis.repo=../.. -cp "$d/noqtis-$v.jar:t" io.github.rootcoder007.noqtis.Tests
           ls -l "$d"
       - name: sign, checksums, bundle (secrets NQ_MAVEN_GPG_KEY, NQ_MAVEN_GPG_PASS)

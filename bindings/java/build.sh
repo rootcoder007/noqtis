@@ -5,8 +5,9 @@
 # later), all under build/ (or $NQJB). Then, with "test", runs the tests;
 # with "examples", the three examples. The library is passed to Java as
 # -Dnoqtis.library, so nothing is installed. With "bundled", the jar also
-# carries the library (native/<os>-<arch>/, as the Maven Central jar does)
-# and the tests run with no library given, so they use that copy.
+# carries the library and the data layer (native/<os>-<arch>/, as the Maven
+# Central jar does) and the tests run with no library given, so they use
+# those copies.
 #   sh build.sh [test] [examples] [bundled]
 set -eu
 
@@ -104,16 +105,30 @@ for w in "$@"; do
     cp -R "$b/classes" "$b/bclasses"
     mkdir -p "$b/bclasses/native/$os-$arch"
     cp -L "$lib" "$b/bclasses/native/$os-$arch/$f"
+    case $os in
+    linux) cp -L "$nqd" "$b/bclasses/native/$os-$arch/libnqd.so" ;;
+    macos)
+      cp -L "$nqd" "$b/bclasses/native/$os-$arch/libnqd.dylib"
+      sh nqdmac.sh "$b/bclasses/native/$os-$arch/libnqd.dylib"
+      ;;
+    windows) cp -L "$nqd" "$b/bclasses/native/$os-$arch/nqd-0.dll" ;;
+    esac
     jar --create --file "$b/noqtis-bundled.jar" -C "$b/bclasses" .
     test -d "$b/tclasses" || {
       echo "build.sh: run the test step before bundled" >&2
       exit 2
     }
-    # no -Dnoqtis.library and no NOQTIS_LIBRARY: the jar's own copy
-    # the jar carries no data layer: the tests take the one built here
-    env -u NOQTIS_LIBRARY java --enable-native-access=ALL-UNNAMED -Dnoqtis.nqd="$nqd" \
+    # no library given in any way: the jar's own copies of libnoqtis and
+    # of the data layer, as a user of the Maven Central jar has them
+    # and the build's own libraries out of reach while it runs, so nothing
+    # but the jar can supply them
+    mv "$b/lib" "$b/lib.away"
+    rc=0
+    env -u NOQTIS_LIBRARY -u NOQTIS_NQD java --enable-native-access=ALL-UNNAMED \
       -Dnoqtis.repo=../.. -cp "$b/noqtis-bundled.jar$sep$b/tclasses" \
-      io.github.rootcoder007.noqtis.Tests
+      io.github.rootcoder007.noqtis.Tests || rc=$?
+    mv "$b/lib.away" "$b/lib"
+    test "$rc" -eq 0 || exit "$rc"
     ;;
   *)
     echo "build.sh: unknown step $w (test, examples, bundled)" >&2

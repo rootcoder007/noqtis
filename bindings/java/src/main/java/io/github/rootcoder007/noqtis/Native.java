@@ -100,26 +100,42 @@ final class Native {
     if (pl == null) {
       return null;
     }
-    String file = System.mapLibraryName("noqtis");
-    if (pl.startsWith("windows")) {
-      file = "noqtis-0.dll";
+    String file = pl.startsWith("windows") ? "noqtis-0.dll" : System.mapLibraryName("noqtis");
+    try {
+      Path f = unpack(file);
+      return f == null ? null : SymbolLookup.libraryLookup(f, Arena.global());
+    } catch (IOException | IllegalArgumentException e) {
+      tried.add("jar:/native/" + pl + "/" + file);
+      return null;
     }
-    String res = "/native/" + pl + "/" + file;
-    try (InputStream in = Native.class.getResourceAsStream(res)) {
+  }
+
+  // the folder the jar's libraries are unpacked to: one for all of them
+  private static Path dir;
+
+  /**
+   * A library the jar carries for this platform, unpacked to a fresh folder
+   * only this user can open; null when the jar has none of that name. The
+   * file and the folder are deleted at exit.
+   */
+  static synchronized Path unpack(String file) throws IOException {
+    String pl = platform();
+    if (pl == null) {
+      return null;
+    }
+    try (InputStream in = Native.class.getResourceAsStream("/native/" + pl + "/" + file)) {
       if (in == null) {
         return null;
       }
-      // a fresh folder only this user can open; the library is not left behind
-      Path d = Files.createTempDirectory("noqtis");
-      Path f = d.resolve(file);
+      if (dir == null) {
+        dir = Files.createTempDirectory("noqtis");
+        dir.toFile().deleteOnExit();
+      }
+      Path f = dir.resolve(file);
       Files.copy(in, f, StandardCopyOption.REPLACE_EXISTING);
-      // deleted at exit in the reverse order: the file, then its folder
-      d.toFile().deleteOnExit();
+      // registered after the folder, so deleted before it
       f.toFile().deleteOnExit();
-      return SymbolLookup.libraryLookup(f, Arena.global());
-    } catch (IOException | IllegalArgumentException e) {
-      tried.add("jar:" + res);
-      return null;
+      return f;
     }
   }
 

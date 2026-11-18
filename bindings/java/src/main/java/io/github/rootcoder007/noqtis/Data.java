@@ -214,6 +214,20 @@ public final class Data {
         System.mapLibraryName("nqd"), "libnqd.so.0", "libnqd.0.dylib", "nqd-0.dll", "libnqd-0.dll"
       };
       String q = prop("noqtis.library", "NOQTIS_LIBRARY");
+      if (q == null) {
+        // the copy the jar carries, beside its libnoqtis (already loaded)
+        String pl = Native.platform();
+        String file =
+            pl != null && pl.startsWith("windows") ? "nqd-0.dll" : System.mapLibraryName("nqd");
+        try {
+          Path f = Native.unpack(file);
+          if (f != null) {
+            return SymbolLookup.libraryLookup(f, Arena.global());
+          }
+        } catch (java.io.IOException | IllegalArgumentException e) {
+          tried.add("jar:" + file);
+        }
+      }
       if (q != null) {
         Path d = Path.of(q).toAbsolutePath().getParent();
         for (Path dd : new Path[] {d, d.resolve("nqd")}) {
