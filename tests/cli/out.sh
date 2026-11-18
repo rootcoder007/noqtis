@@ -213,7 +213,7 @@ if [ -h "$w/rl" ] || ! grep -q "noqtis report" "$w/rl"; then
 fi
 d=$w/rp
 mkdir "$d"
-ok 153 "report -o over ulimit -f" sh -c 'ulimit -f 1; exec "$@"' sh \
+ok 153 "report -o over ulimit -f" sh -c 'ulimit -S -f 1; exec "$@"' sh \
   "$nq" report -p "$w/sk.pub" -o "$d/r.md" "$c"
 no "$d/r.md" "a cut report is not left"
 notmp "$d" "report -o over ulimit -f"
@@ -228,15 +228,15 @@ ok 2 "export --no-files -f of a capsule without a record" "$nq" export \
 same "$w/keep.nqb" "$w/keep0" "the old bundle is kept"
 d=$w/bn
 mkdir "$d"
-ok 153 "export a bundle over ulimit -f" sh -c 'ulimit -f 4; exec "$@"' sh \
+ok 153 "export a bundle over ulimit -f" sh -c 'ulimit -S -f 4; exec "$@"' sh \
   "$nq" export --as bundle -p "$w/sk.pub" -o "$d/cut.nqb" "$c"
 no "$d/cut.nqb" "a cut bundle is not left"
 notmp "$d" "export a bundle over ulimit -f"
-ok 153 "export --force over ulimit -f" sh -c 'ulimit -f 4; exec "$@"' sh \
+ok 153 "export --force over ulimit -f" sh -c 'ulimit -S -f 4; exec "$@"' sh \
   "$nq" export --as bundle -f -p "$w/sk.pub" -o "$w/keep.nqb" "$c"
 same "$w/keep.nqb" "$w/keep0" "the old bundle is kept whole"
 notmp "$w" "export --force over ulimit -f"
-ok 153 "export --as bagit over ulimit -f" sh -c 'ulimit -f 4; exec "$@"' sh \
+ok 153 "export --as bagit over ulimit -f" sh -c 'ulimit -S -f 4; exec "$@"' sh \
   "$nq" export --as bagit -p "$w/sk.pub" -o "$d/bag" "$c"
 no "$d/bag" "a cut bag is not left"
 notmp "$d" "export --as bagit over ulimit -f"
@@ -244,7 +244,7 @@ ok 0 "export --as bagit" "$nq" export --as bagit -p "$w/sk.pub" \
   -o "$d/bag" "$c"
 ok 0 "the bag is whole" test -f "$d/bag/tagmanifest-sha256.txt"
 notmp "$d" "export --as bagit"
-ok 153 "pack unpack over ulimit -f" sh -c 'ulimit -f 4; exec "$@"' sh \
+ok 153 "pack unpack over ulimit -f" sh -c 'ulimit -S -f 4; exec "$@"' sh \
   "$nq" pack unpack "$w/keep.nqb" "$d/un"
 no "$d/un" "a cut unpack is not left"
 notmp "$d" "pack unpack over ulimit -f"

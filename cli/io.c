@@ -758,14 +758,22 @@ static void putback(int i) {
  * run. They are written here, before the signal is raised again. */
 void __gcov_dump(void);
 #ifndef _WIN32
-/* A counter file is written whole or not at all: a second signal, or one
- * that comes while the process is ending by itself, would cut one off in
- * the middle, and gcov cannot read such a file. Signals are held back
- * while the counters are written (here, and from exit on). */
+/* A counter file is written whole or not at all, or gcov cannot read it.
+ * Two things cut one off: a signal that ends the process while it writes
+ * (a second one, or one that comes while the process is ending by
+ * itself), and a limit on the size of a file (the tests run commands under
+ * `ulimit -S -f` of a few blocks, and a counter file is larger). While the
+ * counters are written (here, and from exit on) signals are held back and
+ * the soft limit is raised to the hard one. */
 static void covhold(void) {
   sigset_t m;
+  struct rlimit rl;
   sigfillset(&m);
   (void)sigprocmask(SIG_BLOCK, &m, NULL);
+  if (getrlimit(RLIMIT_FSIZE, &rl) == 0 && rl.rlim_cur != rl.rlim_max) {
+    rl.rlim_cur = rl.rlim_max;
+    (void)setrlimit(RLIMIT_FSIZE, &rl);
+  }
 }
 #endif
 #endif

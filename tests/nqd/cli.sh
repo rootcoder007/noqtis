@@ -530,7 +530,7 @@ rm "$z/.noqtis.json.12345.0.tmp"
 ok 0 "check without it" "$nq" check -p "$w/k.pub" "$z"
 rm "$z/noqtis.json" "$z/noqtis.sig"
 # stopped by SIGXFSZ while it writes the manifest (over 512 bytes)
-ok 153 "a seal stopped while writing" sh -c 'ulimit -f 1; exec "$@"' sh \
+ok 153 "a seal stopped while writing" sh -c 'ulimit -S -f 1; exec "$@"' sh \
   "$nq" seal -k "$w/k" "$z"
 n=$((n + 1))
 if ls -a "$z" | grep -q '^\.noqtis\.[a-z]*\.[0-9]*\.[0-9]*\.tmp$'; then
@@ -549,7 +549,7 @@ ok 0 "re-seal: the first seal" "$nq" seal -k "$w/k" "$r"
 cp "$r/noqtis.json" "$w/rs.json"
 cp "$r/noqtis.sig" "$w/rs.sig"
 printf 'b\n' >"$r/b"
-ok 153 "re-seal: stopped while writing" sh -c 'ulimit -f 2; exec "$@"' sh \
+ok 153 "re-seal: stopped while writing" sh -c 'ulimit -S -f 2; exec "$@"' sh \
   "$nq" seal -k "$w/k" "$r"
 same "$r/noqtis.json" "$w/rs.json" "re-seal: the old manifest stays"
 same "$r/noqtis.sig" "$w/rs.sig" "re-seal: the old seal stays"
@@ -571,7 +571,7 @@ while [ $i -lt 40 ]; do
 done
 printf '%s\n%s\n%s\n' "$hd" "$row" "$row" >"$q/d.csv"
 ok 153 "drift pin stopped while it writes the record" \
-  sh -c 'ulimit -f 1; exec "$@"' sh "$nq" drift pin "$q" d.csv
+  sh -c 'ulimit -S -f 1; exec "$@"' sh "$nq" drift pin "$q" d.csv
 n=$((n + 1))
 if ls -a "$q" | grep -q 'tmp$'; then
   bad=$((bad + 1))
@@ -742,7 +742,7 @@ if [ -n "$nqt" ]; then
   done
   # a put-back that cannot be written (a file size limit under the
   # earlier noqtis.json) leaves the new pair whole and says so
-  if (ulimit -f 30) 2>/dev/null; then
+  if (ulimit -S -f 30) 2>/dev/null; then
     q=$r/q
     mkdir -p "$q/a"
     i=0
@@ -754,7 +754,7 @@ if [ -n "$nqt" ]; then
     rm "$q"/a/file_with_a_longish_name_*
     echo a >"$q/a/f"
     ok 143 "seal -r stopped, the put-back cut by ulimit -f" sh -c \
-      'ulimit -f 30; NQTESTKILL=between:1 exec "$1" seal -k "$2" -r "$3"' \
+      'ulimit -S -f 30; NQTESTKILL=between:1 exec "$1" seal -k "$2" -r "$3"' \
       sh "$nqt" "$w/k" "$q"
     has "$w/err" "could not be put back" "the failed put-back is named"
     ok 0 "the capsule keeps a whole new seal" "$nq" check -p "$w/k.pub" \
@@ -883,7 +883,7 @@ if [ -n "$nqt" ]; then
   tback
   # a file left under the name of a temporary file is never removed by a
   # signal: the one the command made is (record of nqd; seal's manifest)
-  if (ulimit -f 30) 2>/dev/null; then
+  if (ulimit -S -f 30) 2>/dev/null; then
     d=$r/dd
     mkdir -p "$d"
     "$nq" data init "$d" >/dev/null 2>&1
@@ -898,7 +898,7 @@ if [ -n "$nqt" ]; then
     (cd "$d" && "$nq" data add . $l) >/dev/null 2>&1
     ok 153 "data add stopped by ulimit -f, a temporary name taken" sh -c \
       'echo planted >"$1/.noqtis.$(printf %08x $$)00000000.tmp"
-       ulimit -f 4; exec "$2" data add "$1" x300.csv' sh "$d" "$nq"
+       ulimit -S -f 4; exec "$2" data add "$1" x300.csv' sh "$d" "$nq"
     ok 0 "the file that had the name is kept" sh -c \
       'ls -a "$1" | grep -q "^\.noqtis\.[0-9a-f]*00000000\.tmp$"' sh "$d"
     ok 0 "and nothing else is left" test "$(ls -a "$d" |
@@ -915,7 +915,7 @@ if [ -n "$nqt" ]; then
     echo n >>"$q/file_with_a_longish_name_0"
     ok 153 "seal stopped by ulimit -f, a temporary name taken" sh -c \
       'echo planted >"$1/.noqtis.json.$$.0.tmp"
-       ulimit -f 4; exec "$2" seal -k "$3" "$1"' sh "$q" "$nq" "$w/k"
+       ulimit -S -f 4; exec "$2" seal -k "$3" "$1"' sh "$q" "$nq" "$w/k"
     ok 0 "the seal's: the file that had the name is kept" sh -c \
       'ls -a "$1" | grep -q "^\.noqtis\.json\.[0-9]*\.0\.tmp$"' sh "$q"
     ok 0 "the seal's: nothing else is left" test "$(ls -a "$q" |
@@ -1890,7 +1890,7 @@ chmod 600 "$w/ce/u.csv"
 # a build stopped by a file size limit leaves the record and the seal whole:
 # the handler put back files the build had not replaced, and its own write
 # was cut at the limit
-if (ulimit -f 20) 2>/dev/null; then
+if (ulimit -S -f 20) 2>/dev/null; then
   x="$w/xf"
   "$nq" keygen -a ML-DSA-44 -o "$w/xk" >/dev/null 2>&1
   "$nq" pack init "$x" >/dev/null 2>&1
@@ -1904,7 +1904,7 @@ if (ulimit -f 20) 2>/dev/null; then
   "$nq" pack build -k "$w/xk" "$x" >/dev/null 2>&1
   s1=$(cksum < "$x/noqtis.data.json")
   s2=$(cksum < "$x/noqtis.json")
-  (ulimit -f 20; exec "$nq" pack build -k "$w/xk" "$x") >/dev/null 2>&1
+  (ulimit -S -f 20; exec "$nq" pack build -k "$w/xk" "$x") >/dev/null 2>&1
   ok 0 "a build cut by ulimit -f leaves the record whole" \
     test "$s1" = "$(cksum < "$x/noqtis.data.json")"
   ok 0 "and the seal" test "$s2" = "$(cksum < "$x/noqtis.json")"
