@@ -1,0 +1,55 @@
+---
+title: "The library: algorithms, version and self-test"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The library: algorithms, version and self-test}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# the vignette runs in full in GitHub CI and for the package tarball (NOT_CRAN),
+# on r-universe (MY_UNIVERSE), on the package website (IN_PKGDOWN) and in an
+# interactive session; when CRAN re-builds it in its check, none of these is set
+# and only this chunk runs
+if (!interactive() &&
+      !any(nzchar(Sys.getenv(c("NOT_CRAN", "MY_UNIVERSE", "IN_PKGDOWN"))))) {
+  knitr::knit_exit()
+}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 88)
+library(noqtis)
+```
+
+Which algorithms the bundled library has and their sizes, its version, and the known-answer test that shows it computes them correctly.
+
+Each section is one help page: what its functions are for, and the example
+of the page as it runs. `?name` gives the arguments and the value in full.
+
+## Algorithms and their sizes
+
+`nqalgs()`: Lists every signature and key encapsulation algorithm the bundled library provides, with the sizes in bytes of its keys, signatures, ciphertexts and shared secrets.
+
+```{r nqalgs}
+a <- nqalgs()
+a[a$type == "sig", c("name", "pk", "sk", "sig")]
+a[a$type == "kem", c("name", "pk", "sk", "ct", "ss")]
+```
+
+## Version of the bundled noqtis library
+
+`nqver()`: The version of the noqtis C library compiled into this package, which is also the package's own version.
+
+```{r nqver}
+nqver()
+utils::packageVersion("noqtis") == nqver()
+```
+
+## Known-answer self-test of the bundled noqtis library
+
+`nqselftest()`: Runs fixed inputs through every algorithm family and compares the outputs with stored answers, the power-on self-test a FIPS 140-3 cryptographic module runs before it is used.
+
+```{r nqselftest}
+nqselftest()
+system.time(nqselftest())
+```

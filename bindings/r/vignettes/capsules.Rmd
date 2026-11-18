@@ -1,0 +1,127 @@
+---
+title: "Capsules: sealing a folder and checking it later"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Capsules: sealing a folder and checking it later}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# the vignette runs in full in GitHub CI and for the package tarball (NOT_CRAN),
+# on r-universe (MY_UNIVERSE), on the package website (IN_PKGDOWN) and in an
+# interactive session; when CRAN re-builds it in its check, none of these is set
+# and only this chunk runs
+if (!interactive() &&
+      !any(nzchar(Sys.getenv(c("NOT_CRAN", "MY_UNIVERSE", "IN_PKGDOWN"))))) {
+  knitr::knit_exit()
+}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 88)
+library(noqtis)
+```
+
+Sealing every file of a folder under one signature, checking it, proving some files without the rest, bundling capsules and comparing two of them.
+
+Each section is one help page: what its functions are for, and the example
+of the page as it runs. `?name` gives the arguments and the value in full.
+
+## Seal and check a capsule
+
+`nqseal()`, `nqcheck()`: A capsule is a signed record of the exact files in a folder. `nqseal()` writes `noqtis.json` (the manifest: every regular file with its size, SHA-256 and SHA3-256) and `noqtis.sig` (the signature over the manifest) into the folder. `nqcheck()` checks a folder against its seal and reports every check.
+
+```{r nqseal}
+d <- tempfile("capsule")
+dir.create(d)
+writeLines("hello", file.path(d, "a.txt"))
+dir.create(file.path(d, "data"))
+writeLines("1,2", file.path(d, "data", "b.csv"))
+k <- nqkeygen("ML-DSA-44")
+nqseal(d, k$sk, k$pk, "ML-DSA-44", meta = '{"project":"demo"}')
+r <- nqcheck(d, k$pk)
+r
+attr(r, "ok")
+# a changed file fails its row, and the whole check
+writeLines("hellO", file.path(d, "a.txt"))
+r <- nqcheck(d, k$pk)
+r[!r$ok, ]
+attr(r, "ok")
+# a partial check reads only the files named, and says so
+r <- nqcheck(d, k$pk, only = "data/b.csv")
+c(attr(r, "ok"), attr(r, "partial"))
+# another key is refused
+other <- nqkeygen("ML-DSA-44")
+attr(nqcheck(d, other$pk), "ok")
+unlink(d, recursive = TRUE)
+```
+
+## Inspect a capsule, and why a folder cannot be sealed
+
+`nqinspect()`, `nqsealwhy()`: `nqinspect()` reads what the capsule in `dir` says, with nothing checked (no digest, signature, timestamp or file): its format, algorithm, key fingerprint, creation time, number of files and bytes, whether it has a timestamp, and its meta. `nqsealwhy()` says why `nqseal()` refused a folder: the first thing in it a capsule cannot hold.
+
+```{r nqinspect}
+d <- file.path(tempdir(), "insp")
+dir.create(d)
+writeLines("hello", file.path(d, "a.txt"))
+nqsealwhy(d)
+k <- nqkeygen("ML-DSA-44")
+nqseal(d, k$sk, k$pk, "ML-DSA-44")
+nqinspect(d)
+unlink(d, recursive = TRUE)
+```
+
+## Capsule ids, files and proofs
+
+`nqcapid()`, `nqfiles()`, `nqprove()`: `nqcapid()` gives a capsule's id: the SHA-256 of the bytes its seal signs, which `nqseal()` records for its `inputs`. `nqfiles()` lists the files a capsule's manifest holds. Neither checks anything: use `nqcheck()` for that.
+
+```{r nqcapid}
+d <- tempfile("proved")
+dir.create(d)
+writeLines("one", file.path(d, "a.txt"))
+writeLines("two", file.path(d, "b.txt"))
+k <- nqkeygen("ML-DSA-44")
+nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 2)
+nqfiles(d)
+p <- nqprove(d, "a.txt")
+grepl("b.txt", rawToChar(p), fixed = TRUE)
+attr(nqcheck(NULL, k$pk, proof = p), "ok")
+nqcapid(d)
+unlink(d, recursive = TRUE)
+```
+
+## Bundles and chains of capsules
+
+`nqpack()`, `nqunpack()`, `nqcheckpack()`, `nqchain()`: `nqpack()` writes the capsule in `dir` as one file (noqtis-bundle-1, the format of noqtis pack): its seal, manifest, evidence record and every listed file, or with `files = FALSE` only its data record; the same folder gives the same bytes. `nqunpack()` reads a bundle into a new folder, refusing it whole when any path or size is not one a capsule holds. `nqcheckpack()` checks the capsule in a bundle in place: it is unpacked to a temporary folder, checked with `nqcheck()` and removed. `nqchain()` checks an append-only chain of capsules, oldest first: each sealed in format 2 with the one before as its only input, all by the first one's key.
+
+```{r nqpack}
+d <- file.path(tempdir(), "pk")
+dir.create(d)
+writeLines("hello", file.path(d, "a.txt"))
+k <- nqkeygen("ML-DSA-44")
+nqseal(d, k$sk, k$pk, "ML-DSA-44")
+b <- tempfile(fileext = ".nqb")
+nqpack(d, b)
+attr(nqcheckpack(b, k$pk), "ok")
+u <- file.path(tempdir(), "pku")
+nqunpack(b, u)
+list.files(u)
+unlink(c(d, u), recursive = TRUE)
+unlink(b)
+```
+
+## What changed between two capsules
+
+`nqdiff()`: The files added, removed or changed between the two capsules' manifests (when both are sealed), and what differs in their data records: sources, schemas, summaries (counts, medians, PSI between them), environment, steps, checks, commitments and citation. Nothing is checked: run `nqcheck()` and `nqdcheck()` first.
+
+```{r nqdiff}
+a <- file.path(tempdir(), "da")
+b <- file.path(tempdir(), "db")
+dir.create(a)
+dir.create(b)
+writeLines("x", file.path(a, "f.txt"))
+writeLines("y", file.path(b, "f.txt"))
+nqdadd(a, "f.txt")
+nqdadd(b, "f.txt")
+nqdiff(a, b)
+unlink(c(a, b), recursive = TRUE)
+```

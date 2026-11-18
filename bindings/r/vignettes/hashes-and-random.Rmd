@@ -1,0 +1,68 @@
+---
+title: "Hashes, password hashing and random bytes"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Hashes, password hashing and random bytes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# the vignette runs in full in GitHub CI and for the package tarball (NOT_CRAN),
+# on r-universe (MY_UNIVERSE), on the package website (IN_PKGDOWN) and in an
+# interactive session; when CRAN re-builds it in its check, none of these is set
+# and only this chunk runs
+if (!interactive() &&
+      !any(nzchar(Sys.getenv(c("NOT_CRAN", "MY_UNIVERSE", "IN_PKGDOWN"))))) {
+  knitr::knit_exit()
+}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 88)
+library(noqtis)
+```
+
+SHA-2, SHA-3 and SHAKE with HMAC, BLAKE2b and Argon2id, comparison in constant time, and random bytes from the operating system.
+
+Each section is one help page: what its functions are for, and the example
+of the page as it runs. `?name` gives the arguments and the value in full.
+
+## Hashes and HMAC
+
+`nqhash()`, `nqhmac()`: `nqhash()` computes a SHA-2 (FIPS 180-4), SHA-3 or SHAKE (FIPS 202) digest of a raw vector, a string or a file; `nqhmac()` computes an HMAC (RFC 2104) with a SHA-2 or SHA-3 hash.
+
+```{r nqhash}
+nqhash("abc", hex = TRUE)
+nqhash(charToRaw("abc"), "sha3-256")
+nqhash("abc", "shake128", len = 16)
+nqhash("abc", "sha512-256", hex = TRUE)
+f <- tempfile()
+writeBin(charToRaw("abc"), f)
+identical(nqhash(f, file = TRUE), nqhash("abc"))
+unlink(f)
+nqhmac("key", "The quick brown fox jumps over the lazy dog", hex = TRUE)
+nqhmac(as.raw(1:64), "data", "sha3-256", hex = TRUE)
+```
+
+## BLAKE2b, Argon2id and constant-time comparison
+
+`nqblake2b()`, `nqargon2id()`, `nqcteq()`: `nqblake2b()` is BLAKE2b (RFC 7693): an `n`-byte digest of `x`, keyed (a MAC) with up to 64 bytes of `key`. `nqargon2id()` is Argon2id (RFC 9106, version 0x13), the memory-hard password hash: `n` bytes from the password and the salt, `t` passes over `m` KiB of memory in `p` lanes, with an optional secret key and associated data. `nqcteq()` compares two raw vectors in time that depends only on their length; compare MACs and tags with it.
+
+```{r nqblake2b}
+nqblake2b("abc")
+nqblake2b("abc", key = as.raw(1:32), n = 32)
+nqargon2id("password", as.raw(1:16), t = 1, m = 8, p = 1)
+nqcteq(nqblake2b("a"), nqblake2b("a"))
+```
+
+## Random bytes from the operating system
+
+`nqrand()`: Bytes from the operating system's cryptographically secure generator, the same source key generation, hedged signing and encapsulation use (`getrandom()` on Linux, `arc4random_buf()` on macOS and the BSDs, `BCryptGenRandom()` on Windows), read through the library's `nqrand()`. Independent of `set.seed()` and of R's own generator; suitable for keys, nonces and salts.
+
+```{r nqrand}
+nqrand(16)
+set.seed(1)
+a <- nqrand(8)
+set.seed(1)
+b <- nqrand(8)
+identical(a, b)
+```

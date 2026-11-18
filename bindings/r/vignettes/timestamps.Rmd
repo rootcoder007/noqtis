@@ -1,0 +1,43 @@
+---
+title: "Timestamps and evidence records"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Timestamps and evidence records}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# the vignette runs in full in GitHub CI and for the package tarball (NOT_CRAN),
+# on r-universe (MY_UNIVERSE), on the package website (IN_PKGDOWN) and in an
+# interactive session; when CRAN re-builds it in its check, none of these is set
+# and only this chunk runs
+if (!interactive() &&
+      !any(nzchar(Sys.getenv(c("NOT_CRAN", "MY_UNIVERSE", "IN_PKGDOWN"))))) {
+  knitr::knit_exit()
+}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 88)
+library(noqtis)
+```
+
+Asking a time-stamping authority to date a capsule, and renewing that evidence so it outlives the algorithms it was made with.
+
+Each section is one help page: what its functions are for, and the example
+of the page as it runs. `?name` gives the arguments and the value in full.
+
+## Timestamps and evidence records
+
+`nqtsreq()`, `nqtsput()`, `nqersreq()`, `nqersput()`: The library makes no network request: `nqtsreq()` writes the RFC 3161 TimeStampReq for a sealed capsule's signature, which the caller sends to a time-stamping authority, and `nqtsput()` checks the authority's reply and stores it as the seal's timestamp. `nqersreq()` and `nqersput()` do the same for the archive timestamps of the capsule's RFC 4998 evidence record (`noqtis.ers`), which keeps the seal provable after its algorithm or the authority's certificate ages: a renewal with the same `hash` renews the timestamp, another `hash` the hash tree.
+
+```{r nqtsreq}
+d <- file.path(tempdir(), "ts")
+dir.create(d)
+writeLines("hello", file.path(d, "a.txt"))
+k <- nqkeygen("ML-DSA-44")
+nqseal(d, k$sk, k$pk, "ML-DSA-44")
+q <- nqtsreq(d, nonce = as.raw(1:8))
+length(q)
+length(nqersreq(d))
+unlink(d, recursive = TRUE)
+```

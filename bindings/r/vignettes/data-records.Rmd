@@ -1,0 +1,138 @@
+---
+title: "Data records: sources, schemas, drift and the environment"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Data records: sources, schemas, drift and the environment}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# the vignette runs in full in GitHub CI and for the package tarball (NOT_CRAN),
+# on r-universe (MY_UNIVERSE), on the package website (IN_PKGDOWN) and in an
+# interactive session; when CRAN re-builds it in its check, none of these is set
+# and only this chunk runs
+if (!interactive() &&
+      !any(nzchar(Sys.getenv(c("NOT_CRAN", "MY_UNIVERSE", "IN_PKGDOWN"))))) {
+  knitr::knit_exit()
+}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 88)
+library(noqtis)
+```
+
+What a capsule says of its data: where each file came from, the schema of its tables, summaries that show drift later, the environment of the run, and commitments.
+
+Each section is one help page: what its functions are for, and the example
+of the page as it runs. `?name` gives the arguments and the value in full.
+
+## The data record of a capsule
+
+`nqdata()`, `nqdadd()`, `nqdput()`, `nqdcheck()`: A capsule's data record, `noqtis.data.json` in its folder, says where each data file came from, the schema of its CSV files, summaries that show drift later, and the steps and checks made with it (the format `noqtis-data-1`). It is a file of the capsule like any other: seal the folder (`nqseal()`) after changing the record, and the seal covers it. The record is canonical JSON, the same bytes the `noqtis` tool and every other binding write.
+
+```{r nqdata}
+d <- file.path(tempdir(), "cap")
+dir.create(file.path(d, "data"), recursive = TRUE)
+writeLines(c("x,y", "1,a", "2,b"), file.path(d, "data", "a.csv"))
+nqdadd(d, "data/a.csv", url = "https://example.org/a.csv")
+nqdata(d)
+nqdcheck(d)
+unlink(d, recursive = TRUE)
+```
+
+## Sources: where a file can be fetched, and the portals' resolvers
+
+`nqdaddr()`, `nqdverify()`, `nqdfield()`, `nqdrslv()`, `nqdreply()`, `nqdwayback()`: A source of the data record names where its file came from. These functions make no network request: they say what to fetch and read what came back, as the noqtis src command does (the C functions are `nqdaddr(3)`).
+
+```{r nqdaddr}
+rs <- '{"base":"https://data.example.org","id":"abcd-1234","kind":"socrata"}'
+nqdrslv(rs)
+nqdreply(rs, charToRaw('{"id":"abcd-1234","name":"Crimes"}'))
+nqdwayback("http://web.archive.org/web/2024/https://example.org/a.csv")
+```
+
+## Pin and check the schema of CSV files
+
+`nqschema()`, `nqschk()`: `nqschema()` reads each CSV file (RFC 4180) and returns its schema as JSON: the columns, the narrowest type each fits (`bool`, `int`, `real`, `date`, `text`; a leading zero keeps a code text), whether each has missing values (`""` and `NA`), the number of rows, and with `ranges` each number and date range. With `put`, it records them in the data record instead. `nqschk()` checks the files against the schemas the record pins: header, types, missing values, ranges, sets, row counts and rules (add rules with `nqdput()`).
+
+```{r nqschema}
+d <- file.path(tempdir(), "sch")
+dir.create(d)
+writeLines(c("id,when", "1,2024-01-02", "2,2024-02-29"),
+           file.path(d, "a.csv"))
+nqschema(d, "a.csv")
+nqschema(d, "a.csv", put = TRUE)
+nqschk(d)
+unlink(d, recursive = TRUE)
+```
+
+## Summaries that show drift later, and the check against them
+
+`nqdpin()`, `nqdrift()`: `nqdpin()` records in the data record summaries of each CSV file, of a fixed size whatever the file's: for a numeric column a quantile sketch of 1,001 points (every distinct value when there are at most 1,001), the population stability index's decile bins and first-digit counts; for any other column the counts of its 1,000 most frequent values. `nqdrift()` compares each summarised file (or `current`, a later copy) with its summary: the two-sample Kolmogorov-Smirnov test, PSI and Jensen-Shannon divergence, the chi-square test of homogeneity, and Benford's first-digit test. The tests and their error are defined in the manual page `noqtis-drift(1)`; on the test vectors they match R's `stats::ks.test()` and `stats::chisq.test()` to 1e-9.
+
+```{r nqdpin}
+d <- file.path(tempdir(), "dft")
+dir.create(d)
+write.csv(data.frame(x = round(stats::qnorm(ppoints(200)), 6)),
+          file.path(d, "a.csv"), row.names = FALSE, quote = FALSE)
+nqdpin(d, "a.csv")
+nqdrift(d)
+unlink(d, recursive = TRUE)
+```
+
+## More of the data record: parse, synthetic data, calibration, chunks
+
+`nqdparse()`, `nqdschk()`, `nqdsyn()`, `nqdcal()`, `nqdchunk()`, `nqdpiece()`: `nqdparse()` reads JSON text as a data record, as noqtis data check reads one, and returns it in canonical form (an error says what is wrong and where). `nqdschk()` checks the CSV file of one `"schemas"` element against it. `nqdsyn()` writes a synthetic stand-in for a CSV file from the schema the record pins for it (the same bytes for the same seed) and records it as a synthetic source; real data is never replaced. `nqdcal()` calibrates the drift warnings of a file's summary on files known not to have drifted from it, so `nqdrift()` then warns only beyond what they showed. `nqdchunk()` records the SHA-256 of each run of `chunk` bytes of a large file, and `nqdpiece()` checks a piece of that file (the bytes from `off` on) against them, reading only the piece.
+
+```{r nqdparse}
+d <- file.path(tempdir(), "dx")
+dir.create(file.path(d, "data"), recursive = TRUE)
+writeLines(c("id,x", "1,0.5", "2,1.5", "3,2.5"), file.path(d, "a.csv"))
+nqdparse('{"format":"noqtis-data-1"}')
+s <- nqschema(d, "a.csv")
+attr(nqdschk(d, s), "ok")
+nqdput(d, "schemas", sub('"a.csv"', '"data/s.csv"', s, fixed = TRUE))
+nqdsyn(d, "data/s.csv", seed = 7)
+readLines(file.path(d, "data", "s.csv"))
+nqdpin(d, "a.csv")
+invisible(nqdcal(d, "a.csv", file.path(d, "a.csv")))
+writeBin(as.raw(rep(0:255, 8)), file.path(d, "big.bin"))
+invisible(nqdchunk(d, "big.bin", chunk = 1024))
+p <- tempfile()
+writeBin(as.raw(rep(0:255, 4)), p)
+attr(nqdpiece(d, "big.bin", p, off = 1024), "ok")
+unlink(c(d, p), recursive = TRUE)
+```
+
+## Record the environment of a run
+
+`nqdenv()`, `nqdpkgs()`: `nqdenv()` records in the data record's `"env"` the environment of a run, as noqtis env does (the platform, the noqtis version, the locale and time zone, the SHA-256 of the lock files at the top of `dir`, the random number generator and its seed), and fills the runtime: R, its version, and the packages. `nqdpkgs()` lists the packages: by default those loaded in this session, each with its version and where it came from (`"CRAN"` or the repository its description names, `"github"` and the like for a remote install, `"base"` for R's own, else `"local"`). Nothing is fetched.
+
+```{r nqdenv}
+d <- file.path(tempdir(), "env")
+dir.create(d)
+writeLines("{}", file.path(d, "renv.lock"))
+head(nqdpkgs())
+e <- nqdenv(d, seed = 42)
+substr(e, 1, 60)
+unlink(d, recursive = TRUE)
+```
+
+## Commitments, citation and the report of a capsule
+
+`nqdcommit()`, `nqdreveal()`, `nqdcite()`, `nqdreport()`: `nqdcommit()` commits to some content (a randomisation list, an analysis plan) in the data record, as noqtis commit does: the record gets the SHA3-256 of the content under a fresh 32-byte secret salt, which is returned; keep the salt and the content out of the capsule until the reveal, and seal the capsule (with a timestamp) so the commitment is dated. Without the salt the record says nothing of the content. `nqdreveal()` finds the commitment that content and salt match, comparing every recorded digest in constant time. `nqdcite()` writes how to cite the data, from the record's `"cite"`. `nqdreport()` checks the capsule and its record and writes a report of both, as noqtis report does.
+
+```{r nqdcommit}
+d <- file.path(tempdir(), "cm")
+dir.create(d)
+writeLines("x", file.path(d, "a.txt"))
+s <- nqdcommit(d, "arm A: 1, 4\narm B: 2, 3\n", kind = "randomisation")
+nqdreveal(d, "arm A: 1, 4\narm B: 2, 3\n", s)
+nqdreveal(d, "something else", s)
+nqdput(d, "cite", '{"title":"T","authors":["A. Author"],"year":2026}')
+cat(nqdcite(d))
+k <- nqkeygen("ML-DSA-44")
+nqseal(d, k$sk, k$pk, "ML-DSA-44")
+cat(nqdreport(d, k$pk, format = "txt"))
+unlink(d, recursive = TRUE)
+```

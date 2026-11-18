@@ -1,0 +1,104 @@
+---
+title: "Signatures: ML-DSA, SLH-DSA, Ed25519 and hybrids"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Signatures: ML-DSA, SLH-DSA, Ed25519 and hybrids}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# the vignette runs in full in GitHub CI and for the package tarball (NOT_CRAN),
+# on r-universe (MY_UNIVERSE), on the package website (IN_PKGDOWN) and in an
+# interactive session; when CRAN re-builds it in its check, none of these is set
+# and only this chunk runs
+if (!interactive() &&
+      !any(nzchar(Sys.getenv(c("NOT_CRAN", "MY_UNIVERSE", "IN_PKGDOWN"))))) {
+  knitr::knit_exit()
+}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 88)
+library(noqtis)
+```
+
+Signing and verifying a message, whole or in pieces, with the post-quantum and hybrid algorithms, and the DSSE envelope that carries a signed statement.
+
+Each section is one help page: what its functions are for, and the example
+of the page as it runs. `?name` gives the arguments and the value in full.
+
+## Sign and verify
+
+`nqsign()`, `nqverify()`: `nqsign()` signs a message with ML-DSA (FIPS 204), SLH-DSA (FIPS 205), Ed25519 (RFC 8032) or a hybrid ML-DSA+Ed25519, whose signature verifies only when both parts do; `nqverify()` checks such a signature.
+
+```{r nqsign}
+k <- nqkeygen("ML-DSA-44")
+s <- nqsign(k$sk, "hello", "ML-DSA-44")
+nqverify(k$pk, "hello", s, "ML-DSA-44")
+nqverify(k$pk, "hellO", s, "ML-DSA-44")
+# a context binds the signature to one purpose
+s2 <- nqsign(k$sk, "hello", "ML-DSA-44", ctx = "invoices")
+nqverify(k$pk, "hello", s2, "ML-DSA-44", ctx = "invoices")
+nqverify(k$pk, "hello", s2, "ML-DSA-44")
+# deterministic signatures repeat; hedged ones do not
+identical(
+  nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE),
+  nqsign(k$sk, "hello", "ML-DSA-44", det = TRUE)
+)
+# pre-hash: HashML-DSA with SHA-512
+s3 <- nqsign(k$sk, "hello", "ML-DSA-44", ph = "sha512")
+nqverify(k$pk, "hello", s3, "ML-DSA-44", ph = "sha512")
+# a hybrid needs both halves to verify
+h <- nqkeygen("ML-DSA-44+Ed25519")
+nqverify(h$pk, "hello", nqsign(h$sk, "hello", h$alg), h$alg)
+# SLH-DSA, hash-based
+sl <- nqkeygen("SLH-DSA-SHAKE-128f")
+length(nqsign(sl$sk, "hello", sl$alg))
+```
+
+## Sign and verify a message given in pieces
+
+`nqsigner()`, `nqverifier()`, `nqupdate()`, `nqfinish()`, `nqsignfile()`, `nqverifyfile()`: `nqsigner()` and `nqverifier()` start a signature or its check over a message that arrives in pieces; `nqupdate()` adds each piece, and `nqfinish()` gives the signature (the bytes `nqsign()` gives for the whole message with the same randomness) or whether it verifies. Only the piece at hand is held in memory. `nqsignfile()` and `nqverifyfile()` do it for a file, 64 KiB at a time.
+
+```{r nqsigner}
+k <- nqkeygen("ML-DSA-44")
+s <- nqsigner(k$sk, "ML-DSA-44")
+nqupdate(s, "part one, ")
+nqupdate(s, "part two")
+sig <- nqfinish(s, det = TRUE)
+identical(sig, nqsign(k$sk, "part one, part two", "ML-DSA-44", det = TRUE))
+v <- nqverifier(k$pk, "ML-DSA-44")
+nqupdate(v, "part one, part two")
+nqfinish(v, sig = sig)
+f <- tempfile()
+writeBin(as.raw(0:255), f)
+nqverifyfile(f, k$pk, nqsignfile(f, k$sk, "ML-DSA-44"), "ML-DSA-44")
+unlink(f)
+```
+
+## ML-DSA with an external mu
+
+`nqmu()`, `nqsignmu()`, `nqverifymu()`: `nqmu()` computes the 64-byte message representative mu of FIPS 204 for a message under a public key, as `nqsign()` computes it, so that a large message can be hashed apart from where the secret key is (a token, a hardware module). `nqsignmu()` signs that mu: the signature is the one `nqsign()` gives for the message with the same randomness. `nqverifymu()` checks a signature against a mu.
+
+```{r nqmu}
+k <- nqkeygen("ML-DSA-44")
+mu <- nqmu(k$pk, "a long message", "ML-DSA-44")
+s <- nqsignmu(k$sk, mu, "ML-DSA-44", det = TRUE)
+identical(s, nqsign(k$sk, "a long message", "ML-DSA-44", det = TRUE))
+nqverifymu(k$pk, mu, s, "ML-DSA-44")
+```
+
+## DSSE envelopes
+
+`nqdsse()`, `nqdsseverify()`: `nqdsse()` wraps a payload in a DSSE envelope (Dead Simple Signing Envelope, the signing wrapper of in-toto and SLSA), signed with any signature algorithm of `nqalgs()`; `nqdsseverify()` checks one.
+
+```{r nqdsse}
+k <- nqkeygen("ML-DSA-65")
+e <- nqdsse(k$sk, k$pk, '{"a":1}', "application/json", "ML-DSA-65")
+cat(rawToChar(e))
+v <- nqdsseverify(k$pk, e, "ML-DSA-65")
+v$type
+rawToChar(v$payload)
+# another key does not verify it
+other <- nqkeygen("ML-DSA-65")
+is.null(nqdsseverify(other$pk, e, "ML-DSA-65"))
+```

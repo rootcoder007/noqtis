@@ -1,0 +1,103 @@
+---
+title: "Keys: making, storing, identifying and replacing them"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Keys: making, storing, identifying and replacing them}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# the vignette runs in full in GitHub CI and for the package tarball (NOT_CRAN),
+# on r-universe (MY_UNIVERSE), on the package website (IN_PKGDOWN) and in an
+# interactive session; when CRAN re-builds it in its check, none of these is set
+# and only this chunk runs
+if (!interactive() &&
+      !any(nzchar(Sys.getenv(c("NOT_CRAN", "MY_UNIVERSE", "IN_PKGDOWN"))))) {
+  knitr::knit_exit()
+}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 88)
+library(noqtis)
+```
+
+Key pairs, the key files of the command-line tool, identity cards that say whose key it is, and statements that rotate or revoke a seal key.
+
+Each section is one help page: what its functions are for, and the example
+of the page as it runs. `?name` gives the arguments and the value in full.
+
+## Generate a key pair
+
+`nqkeygen()`: Generates a signature key pair (ML-DSA, SLH-DSA, Ed25519, the hybrids ML-DSA-44/65/87+Ed25519) or a key encapsulation key pair (ML-KEM, HQC).
+
+```{r nqkeygen}
+k <- nqkeygen("ML-DSA-44")
+c(pk = length(k$pk), sk = length(k$sk))
+# the same seed gives the same key pair
+s <- as.raw(0:31)
+identical(
+  nqkeygen("ML-DSA-44", seed = s)$pk,
+  nqkeygen("ML-DSA-44", seed = s)$pk
+)
+nqkeygen("ML-KEM-512", seed = as.raw(0:63))$alg
+h <- nqkeygen("ml-dsa-65+ed25519")
+h$alg
+```
+
+## Read and write the command-line tool's key files
+
+`nqreadkey()`, `nqwritekey()`, `nqpwenc()`, `nqpwdec()`: `nqreadkey()` reads a key file written by noqtis keygen (or by `nqwritekey()`), as strictly as the command-line tool reads it: the exact header line noqtis-key-1 <algorithm> <pub|sec>, then the key as padded base64 (RFC 4648) with LF or CRLF line ends and no other character, canonical padding, and exactly the algorithm's key size. `nqwritekey()` writes one. With `pass`, a secret key file is kept under a passphrase (noqtis-pwkey-1, as noqtis keygen --pass-fd writes it: Argon2id of the passphrase, 64 MiB and 3 passes, then ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read it. `nqpwenc()` and `nqpwdec()` are that protection on its own, for a key kept elsewhere.
+
+```{r nqreadkey}
+k <- nqkeygen("ML-DSA-44")
+f <- tempfile()
+nqwritekey(f, k$sk, "ML-DSA-44", "sec")
+identical(nqreadkey(f)$key, k$sk)
+readLines(f, n = 1)
+g <- tempfile()
+nqwritekey(g, k$pk, "ML-DSA-44", "pub")
+nqreadkey(g)$kind
+unlink(c(f, g))
+# under a passphrase (light Argon2id parameters for the example)
+x <- nqpwenc(k$sk, "a passphrase", m = 8192, t = 1, p = 1)
+identical(nqpwdec(x, "a passphrase"), k$sk)
+h <- tempfile()
+nqwritekey(h, k$sk, "ML-DSA-44", "sec", pass = "a passphrase")
+identical(nqreadkey(h, pass = "a passphrase")$key, k$sk)
+unlink(h)
+```
+
+## Identity cards for a signing key
+
+`nqidcard()`, `nqidcheck()`: An identity card (`noqtis-idcard-1`, canonical JSON) ties a signing key to who holds it: a name and, when given, an ORCID iD, an e-mail address, a web page and an affiliation, signed by the key itself under the card's own context, so that a card is never taken for a seal or a key statement. `nqidcard()` makes one; `nqidcheck()` checks one.
+
+```{r nqidcard}
+k <- nqkeygen("ML-DSA-44")
+card <- nqidcard(k$sk, k$pk, "ML-DSA-44", "Ada Lovelace",
+  orcid = "0000-0002-1825-0097", affil = "Analytical Engines"
+)
+v <- nqidcheck(card, k$pk)
+v$name
+v$orcid
+v$key_sha256
+# the card is for this key only
+other <- nqkeygen("ML-DSA-44")
+is.null(nqidcheck(card, other$pk))
+```
+
+## Rotate or revoke a seal key
+
+`nqrotate()`, `nqrevoke()`: A key statement (`noqtis-keys-1`, canonical JSON) says that a signing key is replaced by a new one from a given time (`nqrotate()`, signed by both keys) or revoked from then (`nqrevoke()`, signed by the key). `nqcheck()` follows statements from a trusted key with its `keys` argument.
+
+```{r nqrotate}
+old <- nqkeygen("ML-DSA-44")
+new <- nqkeygen("ML-DSA-65")
+s <- nqrotate(old$sk, old$pk, "ML-DSA-44", new$sk, new$pk, "ML-DSA-65",
+  reason = "yearly"
+)
+cat(rawToChar(s))
+r <- nqrevoke(old$sk, old$pk, "ML-DSA-44",
+  at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost"
+)
+substr(rawToChar(r), 1, 60)
+```
