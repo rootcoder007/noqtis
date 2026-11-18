@@ -42,7 +42,7 @@ unlink(d, recursive = TRUE)
 
 ## Sources: where a file can be fetched, and the portals' resolvers
 
-`nqdaddr()`, `nqdverify()`, `nqdfield()`, `nqdrslv()`, `nqdreply()`, `nqdwayback()`: A source of the data record names where its file came from. These functions make no network request: they say what to fetch and read what came back, as the noqtis src command does (the C functions are `nqdaddr(3)`).
+`nqdaddr()`, `nqdverify()`, `nqdfield()`, `nqdrslv()`, `nqdreply()`, `nqdwayback()`: A source of the data record names where its file came from. These functions make no network request: they say what to fetch and read what came back, as the `noqtis src` command does (the C functions are `nqdaddr(3)`).
 
 ```{r nqdaddr}
 rs <- '{"base":"https://data.example.org","id":"abcd-1234","kind":"socrata"}'
@@ -82,7 +82,7 @@ unlink(d, recursive = TRUE)
 
 ## More of the data record: parse, synthetic data, calibration, chunks
 
-`nqdparse()`, `nqdschk()`, `nqdsyn()`, `nqdcal()`, `nqdchunk()`, `nqdpiece()`: `nqdparse()` reads JSON text as a data record, as noqtis data check reads one, and returns it in canonical form (an error says what is wrong and where). `nqdschk()` checks the CSV file of one `"schemas"` element against it. `nqdsyn()` writes a synthetic stand-in for a CSV file from the schema the record pins for it (the same bytes for the same seed) and records it as a synthetic source; real data is never replaced. `nqdcal()` calibrates the drift warnings of a file's summary on files known not to have drifted from it, so `nqdrift()` then warns only beyond what they showed. `nqdchunk()` records the SHA-256 of each run of `chunk` bytes of a large file, and `nqdpiece()` checks a piece of that file (the bytes from `off` on) against them, reading only the piece.
+`nqdparse()`, `nqdschk()`, `nqdsyn()`, `nqdcal()`, `nqdchunk()`, `nqdpiece()`: `nqdparse()` reads JSON text as a data record, as `noqtis data check` reads one, and returns it in canonical form (an error says what is wrong and where). `nqdschk()` checks the CSV file of one `"schemas"` element against it. `nqdsyn()` writes a synthetic stand-in for a CSV file from the schema the record pins for it (the same bytes for the same seed) and records it as a synthetic source; real data is never replaced. `nqdcal()` calibrates the drift warnings of a file's summary on files known not to have drifted from it, so `nqdrift()` then warns only beyond what they showed. `nqdchunk()` records the SHA-256 of each run of `chunk` bytes of a large file, and `nqdpiece()` checks a piece of that file (the bytes from `off` on) against them, reading only the piece.
 
 ```{r nqdparse}
 d <- file.path(tempdir(), "dx")
@@ -106,7 +106,7 @@ unlink(c(d, p), recursive = TRUE)
 
 ## Record the environment of a run
 
-`nqdenv()`, `nqdpkgs()`: `nqdenv()` records in the data record's `"env"` the environment of a run, as noqtis env does (the platform, the noqtis version, the locale and time zone, the SHA-256 of the lock files at the top of `dir`, the random number generator and its seed), and fills the runtime: R, its version, and the packages. `nqdpkgs()` lists the packages: by default those loaded in this session, each with its version and where it came from (`"CRAN"` or the repository its description names, `"github"` and the like for a remote install, `"base"` for R's own, else `"local"`). Nothing is fetched.
+`nqdenv()`, `nqdpkgs()`: `nqdenv()` records in the data record's `"env"` the environment of a run, as `noqtis env` does (the platform, the noqtis version, the locale and time zone, the SHA-256 of the lock files at the top of `dir`, the random number generator and its seed), and fills the runtime: R, its version, and the packages. `nqdpkgs()` lists the packages: by default those loaded in this session, each with its version and where it came from (`"CRAN"` or the repository its description names, `"github"` and the like for a remote install, `"base"` for R's own, else `"local"`). Nothing is fetched.
 
 ```{r nqdenv}
 d <- file.path(tempdir(), "env")
@@ -120,7 +120,7 @@ unlink(d, recursive = TRUE)
 
 ## Commitments, citation and the report of a capsule
 
-`nqdcommit()`, `nqdreveal()`, `nqdcite()`, `nqdreport()`: `nqdcommit()` commits to some content (a randomisation list, an analysis plan) in the data record, as noqtis commit does: the record gets the SHA3-256 of the content under a fresh 32-byte secret salt, which is returned; keep the salt and the content out of the capsule until the reveal, and seal the capsule (with a timestamp) so the commitment is dated. Without the salt the record says nothing of the content. `nqdreveal()` finds the commitment that content and salt match, comparing every recorded digest in constant time. `nqdcite()` writes how to cite the data, from the record's `"cite"`. `nqdreport()` checks the capsule and its record and writes a report of both, as noqtis report does.
+`nqdcommit()`, `nqdreveal()`, `nqdcite()`, `nqdreport()`: `nqdcommit()` commits to some content (a randomisation list, an analysis plan) in the data record, as `noqtis commit` does: the record gets the SHA3-256 of the content under a fresh 32-byte secret salt, which is returned; keep the salt and the content out of the capsule until the reveal, and seal the capsule (with a timestamp) so the commitment is dated. Without the salt the record says nothing of the content. `nqdreveal()` finds the commitment that content and salt match, comparing every recorded digest in constant time. `nqdcite()` writes how to cite the data, from the record's `"cite"`. `nqdreport()` checks the capsule and its record and writes a report of both, as `noqtis report` does.
 
 ```{r nqdcommit}
 d <- file.path(tempdir(), "cm")

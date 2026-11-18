@@ -46,7 +46,7 @@ identical(nqdecap(h$sk, eh$ct, "HQC-128"), eh$ss)
 
 ## Seal a message or a file to an ML-KEM key
 
-`nqkseal()`, `nqkopen()`, `nqbox()`, `nqunbox()`: `nqkseal()` encrypts a message to an ML-KEM public key (noqtis-kseal-1: ML-KEM, then ChaCha20-Poly1305 under a key derived with HKDF-SHA-256); only the holder of the secret key opens it with `nqkopen()`, and only with the same context. `nqbox()` encrypts a file of any size the same way, in chunks, in the format of noqtis box (noqtis-kstream-1), holding one chunk in memory; `nqunbox()` opens it, writing each chunk only once its tag verifies, and removes what it wrote when one does not.
+`nqkseal()`, `nqkopen()`, `nqbox()`, `nqunbox()`: `nqkseal()` encrypts a message to an ML-KEM public key (noqtis-kseal-1: ML-KEM, then ChaCha20-Poly1305 under a key derived with HKDF-SHA-256); only the holder of the secret key opens it with `nqkopen()`, and only with the same context. `nqbox()` encrypts a file of any size the same way, in chunks, in the format of `noqtis box` (noqtis-kstream-1), holding one chunk in memory; `nqunbox()` opens it, writing each chunk only once its tag verifies, and removes what it wrote when one does not.
 
 ```{r nqkseal}
 k <- nqkeygen("ML-KEM-768")

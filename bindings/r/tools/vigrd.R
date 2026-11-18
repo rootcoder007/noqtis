@@ -13,12 +13,23 @@ esc <- function(s) {
   s <- gsub("\r", "", s, fixed = TRUE)
   gsub("\n", "\\n", s, fixed = TRUE)
 }
+# Rd2txt() prints \verb{} bare, so a command line written in backticks in
+# the source would reach a guide as prose; as \code{} it keeps its quotes
+ascode <- function(x) {
+  if (is.list(x)) {
+    at <- attributes(x)
+    x <- lapply(x, ascode)
+    attributes(x) <- at
+  }
+  if (identical(attr(x, "Rd_tag"), "\\verb")) attr(x, "Rd_tag") <- "\\code"
+  x
+}
 txt <- function(rd, tag) {
   i <- which(vapply(rd, function(x) identical(attr(x, "Rd_tag"), tag), NA))
   if (!length(i)) return("")
   tf <- tempfile()
   on.exit(unlink(tf))
-  x <- rd[[i[1L]]]
+  x <- ascode(rd[[i[1L]]])
   s <- paste(utils::capture.output(tools::Rd2txt(
     structure(list(x), class = "Rd"), fragment = TRUE,
     options = list(underline_titles = FALSE, width = 10000L,

@@ -91,7 +91,7 @@ unlink(d, recursive = TRUE)
 
 ## Bundles and chains of capsules
 
-`nqpack()`, `nqunpack()`, `nqcheckpack()`, `nqchain()`: `nqpack()` writes the capsule in `dir` as one file (noqtis-bundle-1, the format of noqtis pack): its seal, manifest, evidence record and every listed file, or with `files = FALSE` only its data record; the same folder gives the same bytes. `nqunpack()` reads a bundle into a new folder, refusing it whole when any path or size is not one a capsule holds. `nqcheckpack()` checks the capsule in a bundle in place: it is unpacked to a temporary folder, checked with `nqcheck()` and removed. `nqchain()` checks an append-only chain of capsules, oldest first: each sealed in format 2 with the one before as its only input, all by the first one's key.
+`nqpack()`, `nqunpack()`, `nqcheckpack()`, `nqchain()`: `nqpack()` writes the capsule in `dir` as one file (noqtis-bundle-1, the format of `noqtis pack`): its seal, manifest, evidence record and every listed file, or with `files = FALSE` only its data record; the same folder gives the same bytes. `nqunpack()` reads a bundle into a new folder, refusing it whole when any path or size is not one a capsule holds. `nqcheckpack()` checks the capsule in a bundle in place: it is unpacked to a temporary folder, checked with `nqcheck()` and removed. `nqchain()` checks an append-only chain of capsules, oldest first: each sealed in format 2 with the one before as its only input, all by the first one's key.
 
 ```{r nqpack}
 d <- file.path(tempdir(), "pk")

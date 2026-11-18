@@ -46,7 +46,7 @@ h$alg
 
 ## Read and write the command-line tool's key files
 
-`nqreadkey()`, `nqwritekey()`, `nqpwenc()`, `nqpwdec()`: `nqreadkey()` reads a key file written by noqtis keygen (or by `nqwritekey()`), as strictly as the command-line tool reads it: the exact header line noqtis-key-1 <algorithm> <pub|sec>, then the key as padded base64 (RFC 4648) with LF or CRLF line ends and no other character, canonical padding, and exactly the algorithm's key size. `nqwritekey()` writes one. With `pass`, a secret key file is kept under a passphrase (noqtis-pwkey-1, as noqtis keygen --pass-fd writes it: Argon2id of the passphrase, 64 MiB and 3 passes, then ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read it. `nqpwenc()` and `nqpwdec()` are that protection on its own, for a key kept elsewhere.
+`nqreadkey()`, `nqwritekey()`, `nqpwenc()`, `nqpwdec()`: `nqreadkey()` reads a key file written by `noqtis keygen` (or by `nqwritekey()`), as strictly as the command-line tool reads it: the exact header line `noqtis-key-1 <algorithm> <pub|sec>`, then the key as padded base64 (RFC 4648) with LF or CRLF line ends and no other character, canonical padding, and exactly the algorithm's key size. `nqwritekey()` writes one. With `pass`, a secret key file is kept under a passphrase (noqtis-pwkey-1, as `noqtis keygen --pass-fd` writes it: Argon2id of the passphrase, 64 MiB and 3 passes, then ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read it. `nqpwenc()` and `nqpwdec()` are that protection on its own, for a key kept elsewhere.
 
 ```{r nqreadkey}
 k <- nqkeygen("ML-DSA-44")
