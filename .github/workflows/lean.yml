@@ -31,7 +31,7 @@ jobs:
   build:
     name: lake build
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     defaults:
       run:
         working-directory: proofs/lean

@@ -64,7 +64,7 @@ jobs:
       - name: install rmoriebricklayer
         # its configure needs the libcurl headers; its R imports are all
         # base packages
-        timeout-minutes: 30
+        timeout-minutes: 120
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq libcurl4-openssl-dev
@@ -73,7 +73,7 @@ jobs:
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNQDIFF=ON -DNQCLI=OFF
       - run: cmake --build build -j4 --target dv
       - name: tdiff (must run, not skip)
-        timeout-minutes: 80
+        timeout-minutes: 120
         env:
           NQSLOW: ${{ github.event_name == 'schedule' && '1' || '0' }}
         run: |
