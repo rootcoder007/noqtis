@@ -250,7 +250,7 @@ int qdkcmp(const char *a, size_t al, const char *b, size_t bl) {
   size_t i = 0, j = 0;
   uint32_t pa = 0, pb = 0;
   for (;;) {
-    uint32_t ua, ub;
+    uint32_t ua = 0, ub = 0;
     int ha = u16next(x, al, &i, &pa, &ua);
     int hb = u16next(y, bl, &j, &pb, &ub);
     if (!ha || !hb)
