@@ -67,7 +67,7 @@ public final class Noqtis {
   /**
    * The library's version.
    *
-   * @return "0.2.0"
+   * @return "0.2.1"
    */
   public static String version() {
     try {

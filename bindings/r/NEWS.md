@@ -1,3 +1,7 @@
+# noqtis 0.2.1
+
+- No change to the R package: the version follows the library, whose Java package now carries the data layer.
+
 # noqtis 0.2.0
 
 * `nqdrift()` reads each summarised file inside `dir` and refuses one
