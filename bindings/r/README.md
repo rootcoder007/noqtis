@@ -52,3 +52,12 @@ reach the rest of the capsule functions; `nqdparse()`, `nqdschk()`,
 `nqdsyn()`, `nqdcal()`, `nqdchunk()`, `nqdpiece()`, `nqdcommit()`,
 `nqdreveal()`, `nqdcite()`, `nqdreport()` and `nqdenv()` the rest of
 the data record (`nqdenv()` records R and its loaded packages).
+
+## Citation
+
+> Ruhela, V. S. (2026). *NOQTIS: Notary of Quantum-Safe Traceable Inputs
+> and Seals.* <https://github.com/rootcoder007/noqtis>
+
+[CITATION.cff](https://github.com/rootcoder007/noqtis/blob/main/CITATION.cff)
+in the repository holds the same reference, with the version, for
+reference managers.

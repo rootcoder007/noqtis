@@ -256,3 +256,12 @@ value (-1 for NQEARG, ...), `kind()` the same as a `noqtis::Code`
   `sh tools/vendor.sh` first (it copies `../../src` to `vendor/`).
 
 Licensed under Apache-2.0 WITH LLVM-exception.
+
+## Citation
+
+> Ruhela, V. S. (2026). *NOQTIS: Notary of Quantum-Safe Traceable Inputs
+> and Seals.* <https://github.com/rootcoder007/noqtis>
+
+[CITATION.cff](https://github.com/rootcoder007/noqtis/blob/main/CITATION.cff)
+in the repository holds the same reference, with the version, for
+reference managers.

@@ -246,6 +246,15 @@ sh build.sh     # dist/noqtis.wasm from ../../src
 npm test        # NOQTIS_CLI=/path/to/noqtis also runs the CLI cross-checks
 ```
 
+## Citation
+
+> Ruhela, V. S. (2026). *NOQTIS: Notary of Quantum-Safe Traceable Inputs
+> and Seals.* <https://github.com/rootcoder007/noqtis>
+
+[CITATION.cff](https://github.com/rootcoder007/noqtis/blob/main/CITATION.cff)
+in the repository holds the same reference, with the version, for
+reference managers.
+
 ## License
 
 Apache-2.0 WITH LLVM-exception. See LICENSE and NOTICE.
