@@ -1,5 +1,6 @@
 # NOQTIS <img src="docs/logo/noqtis-hex.svg" align="right" height="139" alt="NOQTIS hex logo" />
 
+[![Website](https://img.shields.io/badge/website-noqtis.dev-12706b)](https://noqtis.dev/)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16049/badge)](https://www.bestpractices.dev/projects/16049)
 [![Release](https://img.shields.io/github/v/release/rootcoder007/noqtis?label=release&color=2ea44f)](https://github.com/rootcoder007/noqtis/releases/latest)
 [![PyPI](https://img.shields.io/pypi/v/noqtis?label=PyPI&color=3775a9)](https://pypi.org/project/noqtis/)
