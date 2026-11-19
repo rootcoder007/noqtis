@@ -35,4 +35,4 @@ recipes (`packaging/vercheck.sh` fails while `[V]` or the `[D]` file name
 lags them); the new checksum is the line T2's `scripts/Download -mk-cksum`
 prints for the new tarball.
 
-Status: not yet submitted to T2.
+Status: submitted, rxrbln/t2sde pull request 515.
