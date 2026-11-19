@@ -22,10 +22,10 @@
 [F] CROSS OBJDIR
 
 [L] APL
-[V] 0.1.4
+[V] 0.2.2
 [P] X -----5---9 200.000
 
-[D] 2530d741c84158a893674549077e4b0d924c7709ab80036a83f02ebf noqtis-0.1.4.tar.gz https://github.com/rootcoder007/noqtis/releases/download/v0.1.4/
+[D] f41d65ed90d8a2aa721bfeb30db26ae008f53ce529f7d2b2c1220977 noqtis-0.2.2.tar.gz https://github.com/rootcoder007/noqtis/releases/download/v0.2.2/
 
 var_append cmakeopt ' ' -DNQSHARED=ON
 [ "$SDECFG_DO_CHECK" = 1 ] || var_append cmakeopt ' ' -DNQTESTS=OFF
