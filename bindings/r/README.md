@@ -1,5 +1,8 @@
 # noqtis <img src="man/figures/logo.png" align="right" height="139" alt="NOQTIS hex logo" />
 
+[![Website](https://img.shields.io/badge/website-noqtis.dev-12706b)](https://noqtis.dev/)
+[![r-universe](https://rootcoder007.r-universe.dev/badges/noqtis)](https://rootcoder007.r-universe.dev/noqtis)
+
 Seal the exact files behind a result with a post-quantum signature, so
 anyone can check later, offline, that nothing changed. The `noqtis` R
 package bundles the NOQTIS C library: ML-DSA (FIPS 204) and SLH-DSA
