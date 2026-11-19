@@ -192,7 +192,12 @@ jobs:
     steps:
       - name: move the major tag to the release
         env:
-          GH_TOKEN: ${{ github.token }}
+          # GitHub refused the workflow's own token this move once (0.2.1,
+          # "Resource not accessible by integration"). With the secret
+          # NQ_TAG_TOKEN set (a fine-grained token for this repository
+          # alone: contents and workflows, read and write) the move is made
+          # with it; without it, with the workflow's token as before.
+          GH_TOKEN: ${{ secrets.NQ_TAG_TOKEN || github.token }}
           REPO: ${{ github.repository }}
         run: |
           set -eu
