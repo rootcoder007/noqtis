@@ -176,6 +176,23 @@ nqrepfree(rep);
 - [SECURITY.md](SECURITY.md): report a vulnerability privately.
 - [CITATION.cff](CITATION.cff): how to cite NOQTIS.
 
+## Acknowledgements
+
+NOQTIS implements published standards and is checked against other
+people's work.
+
+- The algorithms are those of NIST's FIPS 203 (ML-KEM), FIPS 204 (ML-DSA)
+  and FIPS 205 (SLH-DSA), which standardise the designs of the
+  CRYSTALS-Kyber, CRYSTALS-Dilithium and SPHINCS+ teams; HQC, by its
+  submitters to the NIST process; SHA-2 and SHA-3 (FIPS 180-4, FIPS 202);
+  and Ed25519 (RFC 8032; Bernstein, Duif, Lange, Schwabe and Yang).
+- The test vectors are NIST's, from the Automated Cryptographic Validation
+  Protocol, and those of Project Wycheproof.
+- The checks run on CBMC (bounded proofs), dudect and Valgrind (timing),
+  libFuzzer and OSS-Fuzz (fuzzing) and OpenSSL 3.5 (agreement on the same
+  inputs). None of them is needed to build or use NOQTIS.
+- Timestamps and evidence records follow RFC 3161 and RFC 4998.
+
 ## Licence
 
 Apache-2.0 WITH LLVM-exception. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
