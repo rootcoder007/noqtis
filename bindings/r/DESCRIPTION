@@ -6,22 +6,28 @@ Authors@R: c(
     person(c("Vansh", "Singh"), "Ruhela", email = "vsruhela@proton.me",
            role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0009-0004-1750-3592", GitHub = "rootcoder007")))
-Description: A post-quantum cryptography toolkit built on the
-    dependency-free 'NOQTIS' C library. Generate key pairs,
-    then sign and verify with lattice-based 'ML-DSA', hash-based
-    'SLH-DSA', 'Ed25519' or hybrid 'ML-DSA'+'Ed25519' signatures
-    that need both halves to verify; establish shared secrets
-    with 'ML-KEM' or 'HQC' key encapsulation, and seal a message
-    or a file to an 'ML-KEM' key; hash with 'SHA-2', 'SHA-3',
-    'SHAKE' or 'BLAKE2b', with 'HMAC', and keep secret keys under
-    a passphrase with 'Argon2id'. A whole directory can be sealed
-    under one signature and later verified offline; a 'Merkle'
-    proof shows chosen files to someone without revealing the
-    others, and signed statements rotate or revoke a sealing
-    key. Tables can be pinned to a schema and to summaries that
-    show later drift, and results wrapped in 'DSSE' envelopes.
-    Keys and 'nonces' come from the operating system's random
-    generator, not from the one in R.
+Description: Post-quantum signatures, key encapsulation and sealed records,
+    built on the dependency-free 'NOQTIS' C library. Generate key pairs,
+    then sign and verify with the Module-Lattice-Based Digital Signature
+    Algorithm (ML-DSA) of the National Institute of Standards and Technology
+    (2024) <doi:10.6028/NIST.FIPS.204>, its Stateless Hash-Based Digital
+    Signature Algorithm (SLH-DSA; 2024) <doi:10.6028/NIST.FIPS.205>, the
+    Ed25519 signatures of Bernstein, Duif, Lange, Schwabe and Yang (2012)
+    <doi:10.1007/s13389-012-0027-1>, or hybrid signatures of ML-DSA with
+    Ed25519 that need both halves to verify; establish shared secrets with
+    the Module-Lattice-Based Key-Encapsulation Mechanism (ML-KEM; National
+    Institute of Standards and Technology, 2024) <doi:10.6028/NIST.FIPS.203>
+    or with Hamming Quasi-Cyclic (HQC) key encapsulation, and seal a message
+    or a file to an ML-KEM key; hash with the Secure Hash Algorithms SHA-2
+    and SHA-3, the extendable-output functions SHAKE, or BLAKE2b; authenticate
+    with a keyed-hash message authentication code (HMAC), and keep secret keys
+    under a passphrase with Argon2id. A whole directory can be sealed under
+    one signature and later verified offline; a Merkle proof shows chosen
+    files to someone without revealing the others, and signed statements
+    rotate or revoke a sealing key. Tables can be pinned to a schema and
+    to summaries that show later drift, and results wrapped in Dead Simple
+    Signing Envelopes (DSSE). Keys and nonces come from the operating system's
+    random generator.
 License: Apache License (== 2.0)
 Copyright: see file inst/COPYRIGHTS
 URL: https://noqtis.dev, https://github.com/rootcoder007/noqtis
