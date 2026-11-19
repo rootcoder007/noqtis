@@ -196,9 +196,10 @@ people's work.
 Thanks, too, to the people who gave their time: Uwe Ligges and his
 colleagues at CRAN; Jeroen Ooms, for R-universe; Mark Padgham and Mauro
 Lepore, in rOpenSci's review, whose reviews and tools shaped the checks
-here; the Fedora community, who sorted out the account behind the COPR
-builds; the maintainers of the CRAN Task Views and of the distributions'
-package collections who answered and reviewed the requests; and everyone
+here; the Fedora community, and especially its system administrators,
+for their help with COPR; the maintainers of the CRAN Task Views and of
+the distributions' package collections who answered and reviewed the
+requests; and everyone
 who reviewed this work.
 
 ## Licence
