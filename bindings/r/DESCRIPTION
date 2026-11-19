@@ -6,19 +6,22 @@ Authors@R: c(
     person(c("Vansh", "Singh"), "Ruhela", email = "vsruhela@proton.me",
            role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0009-0004-1750-3592", GitHub = "rootcoder007")))
-Description: A post-quantum cryptography toolkit built on the dependency-free
-    'NOQTIS' C library. Generate key pairs, then sign and verify with
-    lattice-based 'ML-DSA', hash-based 'SLH-DSA', 'Ed25519' or hybrid
-    'ML-DSA'+'Ed25519' signatures that need both halves to verify; establish
-    shared secrets with 'ML-KEM' or 'HQC' key encapsulation, and seal a
-    message or a file to an 'ML-KEM' key; hash with 'SHA-2', 'SHA-3', 'SHAKE'
-    or 'BLAKE2b', with 'HMAC', and keep secret keys under a passphrase with
-    'Argon2id'. A whole directory can be sealed under one signature and later
-    verified offline; a 'Merkle' proof shows chosen files to someone without
-    revealing the others, and signed statements rotate or revoke a sealing
-    key. Tables can be pinned to a schema and to summaries that show later
-    drift, and results wrapped in 'DSSE' envelopes. Keys and 'nonces' come
-    from the operating system's random generator, not from the one in R.
+Description: A post-quantum cryptography toolkit built on the
+    dependency-free 'NOQTIS' C library. Generate key pairs,
+    then sign and verify with lattice-based 'ML-DSA', hash-based
+    'SLH-DSA', 'Ed25519' or hybrid 'ML-DSA'+'Ed25519' signatures
+    that need both halves to verify; establish shared secrets
+    with 'ML-KEM' or 'HQC' key encapsulation, and seal a message
+    or a file to an 'ML-KEM' key; hash with 'SHA-2', 'SHA-3',
+    'SHAKE' or 'BLAKE2b', with 'HMAC', and keep secret keys under
+    a passphrase with 'Argon2id'. A whole directory can be sealed
+    under one signature and later verified offline; a 'Merkle'
+    proof shows chosen files to someone without revealing the
+    others, and signed statements rotate or revoke a sealing
+    key. Tables can be pinned to a schema and to summaries that
+    show later drift, and results wrapped in 'DSSE' envelopes.
+    Keys and 'nonces' come from the operating system's random
+    generator, not from the one in R.
 License: Apache License (== 2.0)
 Copyright: see file inst/COPYRIGHTS
 URL: https://noqtis.dev, https://github.com/rootcoder007/noqtis
