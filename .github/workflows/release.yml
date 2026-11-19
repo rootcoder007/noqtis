@@ -73,16 +73,18 @@ jobs:
             sh packaging/vercheck.sh
           fi
           if [ "$REFTYPE" = tag ]; then
-            # the Go binding's own tag goes up with the release tag, on the
-            # same commit: the Go proxy remembers a version it was asked
-            # for before its tag existed as missing
+            # the Go binding's own tag, bindings/go/vX.Y.Z, is the Go
+            # module's publication: the Go proxy and checksum database keep
+            # a version for good once anyone asks for it. So it is not
+            # pushed with the release tag; publish.yml makes it when the
+            # release is published. Here it must not exist on another commit.
             g=bindings/go/v$v
             # an annotated tag's commit is on its peeled ^{} line
             gs=$(git ls-remote origin "refs/tags/$g*" | awk -v r="refs/tags/$g" '
               $2 == r { c = $1 } $2 == r "^{}" { p = $1 }
               END { print p ? p : c }')
-            if [ "$gs" != "$(git rev-parse HEAD)" ]; then
-              echo "::error::push $g with $REFNAME, on the same commit (it is at '${gs:-nothing}')"
+            if [ -n "$gs" ] && [ "$gs" != "$(git rev-parse HEAD)" ]; then
+              echo "::error::$g exists on another commit ($gs): a Go version cannot be moved, release a new version"
               exit 1
             fi
           fi

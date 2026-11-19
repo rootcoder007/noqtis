@@ -1,4 +1,4 @@
-noqtis (0.2.1-1) unstable; urgency=medium
+noqtis (0.2.2-1) unstable; urgency=medium
 
   * The Java package on Maven Central carries the data layer.
 

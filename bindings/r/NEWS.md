@@ -1,4 +1,4 @@
-# noqtis 0.2.1
+# noqtis 0.2.2
 
 - No change to the R package: the version follows the library, whose Java package now carries the data layer.
 
