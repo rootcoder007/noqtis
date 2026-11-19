@@ -70,6 +70,9 @@ export NQSLSUB=8 NQFAST=1
 
 %changelog
 * Wed Nov 18 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.2.2-1
+- The Go module is published with the release; every binding names noqtis.dev
+
+* Wed Nov 18 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.2.1-1
 - The Java package on Maven Central carries the data layer
 
 * Mon Nov 16 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.2.0-1

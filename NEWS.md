@@ -1,6 +1,9 @@
 # noqtis 0.2.2
 
-- The version after 0.2.0 is 0.2.2. The tag of the Go module for 0.2.1 went up before that release was published, and a Go version, once fetched, cannot be changed; 0.2.1 was not released anywhere else, and the Go module 0.2.1 is retracted. The Go module's tag is now made when a release is published, with every other package.
+- The Go module is published with the rest. Its version is the tag `bindings/go/vX.Y.Z`, which the Go proxy keeps for good once it is asked for; that tag used to go up with the release tag, before the release was reviewed and published. It is now made when the release is published, on the release tag commit, and a release whose Go tag sits on another commit is refused.
+- Every binding names the website: the README of the Go, Java, JavaScript, Python and Rust bindings, the homepage of the crate, the npm package, the Python package and the Java project, and the Rust and Go package docs point to noqtis.dev.
+# noqtis 0.2.1
+
 - Fixed: the Java package carries the data layer. The jar for Maven Central held `libnoqtis` for each platform but not `libnqd`, the library of the data layer that 0.2.0 added, so `Data` could not be loaded from the jar alone (`UnsatisfiedLinkError`: cannot load the data layer) and 0.2.0 was not published to Maven Central. The jar now holds both libraries for each of its six platforms and unpacks the data layer beside `libnoqtis`; `-Dnoqtis.nqd` and `NOQTIS_NQD` still name another copy.
 - Tests: the Java binding is tested from the jar alone on Linux, macOS and Windows, with no library given in any way, on every change (`build.sh bundled`); that test used to be handed the data layer of the build folder.
 

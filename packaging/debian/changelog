@@ -1,5 +1,12 @@
 noqtis (0.2.2-1) unstable; urgency=medium
 
+  * The Go module is published with the release; every binding names
+    noqtis.dev.
+
+ -- rootcoder007 <278967282+rootcoder007@users.noreply.github.com>  Wed, 18 Nov 2026 23:30:00 -0500
+
+noqtis (0.2.1-1) unstable; urgency=medium
+
   * The Java package on Maven Central carries the data layer.
 
  -- rootcoder007 <278967282+rootcoder007@users.noreply.github.com>  Wed, 18 Nov 2026 16:00:00 -0500
