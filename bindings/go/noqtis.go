@@ -5,6 +5,8 @@
 // encapsulation (ML-KEM, HQC), SHA-2 and SHA-3 hashes and HMAC, sealed
 // file capsules, and the CLI's key files.
 //
+// Documentation and guides: https://noqtis.dev/
+//
 // The library is compiled into the package with cgo, from the copy in
 // csrc/ (tools/vendor.sh makes it); a C11 compiler is all it needs.
 // Algorithms are named as `noqtis algs` lists them ("ML-DSA-65",

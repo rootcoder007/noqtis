@@ -30,7 +30,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rootcoder007/noqtis"
+Homepage = "https://noqtis.dev/"
+Repository = "https://github.com/rootcoder007/noqtis"
 Source = "https://github.com/rootcoder007/noqtis/tree/main/bindings/py"
 Issues = "https://github.com/rootcoder007/noqtis/issues"
 Security = "https://github.com/rootcoder007/noqtis/blob/main/SECURITY.md"

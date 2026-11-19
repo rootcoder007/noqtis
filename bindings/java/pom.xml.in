@@ -11,7 +11,7 @@
   <packaging>jar</packaging>
   <name>noqtis</name>
   <description>Post-quantum signatures (ML-DSA, SLH-DSA, hybrids with Ed25519), ML-KEM and HQC, SHA-2/SHA-3 and sealed file capsules, from the NOQTIS C11 library through the Foreign Function and Memory API (JDK 22 or later); the jar carries the library for Linux, macOS and Windows on x86-64 and arm64.</description>
-  <url>https://github.com/rootcoder007/noqtis</url>
+  <url>https://noqtis.dev/</url>
   <licenses>
     <license>
       <name>Apache-2.0 WITH LLVM-exception</name>

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //! noqtis: post-quantum signatures, KEMs, hashes and sealed file capsules.
 //!
+//! Documentation and guides: <https://noqtis.dev/>.
+//!
 //! The Rust binding of the noqtis C library (FIPS 203, 204, 205, 202,
 //! 180-4, RFC 8032 and HQC), compiled into the crate by its build script;
 //! no other dependencies.

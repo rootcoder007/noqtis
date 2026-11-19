@@ -1,5 +1,9 @@
 # noqtis for Java <img src="https://raw.githubusercontent.com/rootcoder007/noqtis/main/docs/logo/noqtis-hex-512.png" align="right" height="139" alt="NOQTIS hex logo" />
 
+[![Website](https://img.shields.io/badge/website-noqtis.dev-12706b)](https://noqtis.dev/)
+
+Documentation and guides: <https://noqtis.dev/>.
+
 Post-quantum signatures, key encapsulation, hashes and sealed file
 capsules, from the [noqtis](https://github.com/rootcoder007/noqtis) C
 library, through the Foreign Function and Memory API (JDK 22 or later):
