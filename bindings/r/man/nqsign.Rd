@@ -76,7 +76,9 @@ Ed25519 takes neither a context nor a pre-hash in this interface.
 \code{nqsign()}: an unknown algorithm, a secret key of the wrong length, a
 context over 255 bytes (241 for a hybrid), an unknown pre-hash, \code{rnd}
 of the wrong length,
-or \code{"noqtis: ...: the signature failed the check after signing (a fault)"}. \code{nqverify()} returns \code{FALSE} rather than an error for any
+or \verb{"noqtis: ...: the signature} \verb{failed the check after}
+\verb{signing (a fault)"}. \code{nqverify()} returns \code{FALSE} rather than an error for
+any
 signature that does not verify.
 }
 

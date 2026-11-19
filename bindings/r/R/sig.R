@@ -1,4 +1,8 @@
-#' Algorithms and their sizes
+## The page below is the first of the PDF manual. The \if{latex} line in
+# its description lets the lines of the whole manual stretch where a word
+# cannot be broken (a formula in code font, a DOI), so none runs off the
+# page; the lint job checks that the first page still carries it.
+' Algorithms and their sizes
 #'
 #' Lists every signature and key encapsulation algorithm the bundled
 #' library provides, with the sizes in bytes of its keys, signatures,
@@ -13,6 +17,7 @@
 #' ML-DSA-65+Ed25519 and ML-DSA-87+Ed25519, whose signature verifies only
 #' when both halves do. The key encapsulation mechanisms are ML-KEM-512,
 #' 768 and 1024 (FIPS 203) and HQC-128, 192 and 256.
+#' \if{latex}{\out{\global\emergencystretch=8em}}
 #'
 #' @return A data frame with one row per algorithm and the columns `name`,
 #'   `type` (`"sig"` or `"kem"`), `pk`, `sk`, `sig`, `ct` and `ss` (sizes
@@ -141,8 +146,9 @@ nqkeygen <- function(alg, seed = NULL) {
 #' `nqsign()`: an unknown algorithm, a secret key of the wrong length, a
 #' context over 255 bytes (241 for a hybrid), an unknown pre-hash, `rnd`
 #' of the wrong length,
-#' or `"noqtis: ...: the signature failed the check after signing (a
-#' fault)"`. `nqverify()` returns `FALSE` rather than an error for any
+#' or `"noqtis: ...: the signature` `failed the check after`
+#' `signing (a fault)"`. `nqverify()` returns `FALSE` rather than an error for
+#' any
 #' signature that does not verify.
 #'
 #' @references

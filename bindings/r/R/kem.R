@@ -90,7 +90,7 @@ nqdecap <- function(sk, ct, alg) {
 #'
 #' @section Errors:
 #' `n` not one non-negative whole number, or
-#' `"noqtis: ...: the operating system's random source failed"`.
+#' `"noqtis: ...: the operating` `system's random source` `failed"`.
 #'
 #' @family library functions
 #'

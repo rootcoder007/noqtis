@@ -157,7 +157,7 @@ nqver <- function() .Call(Cver)
 #' @return `TRUE`, invisibly, when every answer matches.
 #'
 #' @section Errors:
-#' `"noqtis: self-test: a self-test known answer did not match"` when one
+#' `"noqtis: self-test: a` `self-test known answer did` `not match"` when one
 #' does not.
 #'
 #' @references

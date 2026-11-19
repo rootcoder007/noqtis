@@ -32,7 +32,7 @@ Do not use the package on that machine until the cause is found.
 }
 \section{Errors}{
 
-\code{"noqtis: self-test: a self-test known answer did not match"} when one
+\verb{"noqtis: self-test: a} \verb{self-test known answer did} \verb{not match"} when one
 does not.
 }
 

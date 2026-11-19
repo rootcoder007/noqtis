@@ -23,7 +23,7 @@ keys, nonces and salts.
 \section{Errors}{
 
 \code{n} not one non-negative whole number, or
-\code{"noqtis: ...: the operating system's random source failed"}.
+\verb{"noqtis: ...: the operating} \verb{system's random source} \verb{failed"}.
 }
 
 \examples{
