@@ -193,6 +193,14 @@ people's work.
   inputs). None of them is needed to build or use NOQTIS.
 - Timestamps and evidence records follow RFC 3161 and RFC 4998.
 
+Thanks, too, to the people who gave their time: Uwe Ligges and his
+colleagues at CRAN; Jeroen Ooms, for R-universe; Mark Padgham and Mauro
+Lepore, in rOpenSci's review, whose reviews and tools shaped the checks
+here; the Fedora community, who sorted out the account behind the COPR
+builds; the maintainers of the CRAN Task Views and of the distributions'
+package collections who answered and reviewed the requests; and everyone
+who reviewed this work.
+
 ## Licence
 
 Apache-2.0 WITH LLVM-exception. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
