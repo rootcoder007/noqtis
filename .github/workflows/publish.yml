@@ -205,8 +205,13 @@ jobs:
           sha=$(gh api "repos/$REPO/commits/$TAG" -q .sha)
           echo "$m -> $sha ($TAG)"
           if [ "$DRY" = true ]; then echo "dry run: $m not moved"; exit 0; fi
-          gh api -X PATCH "repos/$REPO/git/refs/tags/$m" -f sha="$sha" -F force=true >/dev/null 2>&1 ||
-            gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$m" -f sha="$sha" >/dev/null
+          # the tag is moved when it exists and made when it does not; what
+          # GitHub answers to a refused move is shown, not hidden
+          if gh api "repos/$REPO/git/ref/tags/$m" >/dev/null 2>&1; then
+            gh api -X PATCH "repos/$REPO/git/refs/tags/$m" -f sha="$sha" -F force=true -q .object.sha
+          else
+            gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$m" -f sha="$sha" -q .object.sha
+          fi
           test "$(gh api "repos/$REPO/commits/$m" -q .sha)" = "$sha"
 
   crate:
