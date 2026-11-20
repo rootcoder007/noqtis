@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+
+PackageIdentifier: rootcoder007.noqtis
+PackageVersion: 0.0.0
+InstallerType: zip
+NestedInstallerType: portable
+Commands:
+- noqtis
+ReleaseDate: 2026-11-01
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/rootcoder007/noqtis/releases/download/v0.0.0/noqtis-0.0.0-windows-x86_64.zip
+  InstallerSha256: FILL_WIN64_SHA256U
+  NestedInstallerFiles:
+  - RelativeFilePath: noqtis-0.0.0-windows-x86_64\bin\noqtis.exe
+    PortableCommandAlias: noqtis
+- Architecture: arm64
+  InstallerUrl: https://github.com/rootcoder007/noqtis/releases/download/v0.0.0/noqtis-0.0.0-windows-arm64.zip
+  InstallerSha256: FILL_ARM64_SHA256U
+  NestedInstallerFiles:
+  - RelativeFilePath: noqtis-0.0.0-windows-arm64\bin\noqtis.exe
+    PortableCommandAlias: noqtis
+ManifestType: installer
+ManifestVersion: 1.10.0

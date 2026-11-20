@@ -22,7 +22,46 @@ permissions:
   contents: read
 
 jobs:
+  fill:
+    # packaging/community keeps the recipes with the version 0.0.0 and a
+    # name where a checksum goes. This job fills them in (fill.py) from the
+    # files of the release just published, or of the latest one, and the
+    # jobs below build what it wrote: the files that are sent out.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      v: ${{ steps.f.outputs.v }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: the files of the release, and the recipes filled in from them
+        id: f
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          [ -n "$TAG" ] || TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          v=${TAG#v}
+          mkdir a
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir a \
+            --pattern "noqtis-$v.tar.gz" --pattern "noqtis-$v-windows-x86_64.zip" \
+            --pattern "noqtis-$v-windows-arm64.zip"
+          curl -fsSL --retry 5 -o "a/noqtis-$v-github.tar.gz" \
+            "https://github.com/$GITHUB_REPOSITORY/archive/refs/tags/$TAG.tar.gz"
+          python3 packaging/community/fill.py "$v" a recipes
+          echo "v=$v" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: recipes
+          path: recipes
+          if-no-files-found: error
+          retention-days: 7
+
   alpine:
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     # alpine:edge
@@ -31,6 +70,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: abuild, check, install, use
         run: |
           apk add -q alpine-sdk sudo pkgconf cmake samurai
@@ -42,11 +87,14 @@ jobs:
           chown -R b /home/b
           su b -c "abuild-keygen -a -i -n; cd ~/aports/testing/noqtis && abuild verify && REPODEST=/home/b/packages abuild -r"
           ls /home/b/packages/testing/x86_64/
-          apk add --allow-untrusted /home/b/packages/testing/x86_64/noqtis-0.2.2-r0.apk /home/b/packages/testing/x86_64/noqtis-dev-0.2.2-r0.apk
+          apk add --allow-untrusted /home/b/packages/testing/x86_64/noqtis-${V}-r0.apk /home/b/packages/testing/x86_64/noqtis-dev-${V}-r0.apk
           noqtis --version
           NQWANT=installed sh tests/consumer/run.sh /usr /tmp/use
 
   aur:
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     # archlinux:base-devel
@@ -55,6 +103,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: makepkg, check, install, use, .SRCINFO
         run: |
           pacman -Syu --noconfirm --needed cmake pkgconf git
@@ -64,7 +118,7 @@ jobs:
           chown -R b /b
           su b -c "cd /b && makepkg --noconfirm && makepkg --printsrcinfo > .SRCINFO"
           cp /b/.SRCINFO "$GITHUB_WORKSPACE/SRCINFO"
-          pacman -U --noconfirm /b/noqtis-0.2.2-*.pkg.tar.*
+          pacman -U --noconfirm /b/noqtis-${V}-*.pkg.tar.*
           noqtis --version
           NQWANT=installed sh tests/consumer/run.sh /usr /tmp/use
           cat /b/.SRCINFO
@@ -75,6 +129,9 @@ jobs:
 
   void:
     # as void-packages' own CI (.github/workflows/build.yaml, common/travis/)
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     container:
@@ -117,6 +174,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: xbps-src pkg noqtis (with checks)
         run: |
           git clone -q --depth 1 https://github.com/void-linux/void-packages.git /vp
@@ -174,12 +237,22 @@ jobs:
           - { os: ubuntu-24.04, arch: x86_64 }
           - { os: ubuntu-24.04-arm, arch: aarch64 }
     name: wolfi (${{ matrix.arch }})
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        shell: bash
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: melange build (with the recipe's tests)
         run: |
           mkdir w
@@ -198,6 +271,9 @@ jobs:
           ls -lR w/packages
 
   gentoo:
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     # gentoo/stage3:latest, as in ci.yml
@@ -208,6 +284,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: Manifest, pkgcheck, build with tests, install
         run: |
           mkdir -p /var/db/repos/guru/dev-libs/noqtis /var/db/repos/guru/metadata /var/db/repos/guru/profiles
@@ -220,7 +302,7 @@ jobs:
           printf '[guru]\nlocation = /var/db/repos/guru\n' > /etc/portage/repos.conf/guru.conf
           cp packaging/community/guru/dev-libs/noqtis/* /var/db/repos/guru/dev-libs/noqtis/
           cd /var/db/repos/guru/dev-libs/noqtis
-          ebuild noqtis-0.2.2.ebuild manifest
+          ebuild noqtis-${V}.ebuild manifest
           cat Manifest
           mkdir -p /etc/portage/package.accept_keywords
           echo 'dev-libs/noqtis ~amd64' > /etc/portage/package.accept_keywords/noqtis
@@ -261,12 +343,22 @@ jobs:
             iso: t2-26.7-arm64-base-wayland-bootstrap-gcc.iso
             sum: 388c2c2142c6409ac5a22308356a25f2ee8d4e6eb7517a18de5710707a9f6eb1
     name: t2 (${{ matrix.arch }})
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        shell: bash
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: T2 userland from the ISO
         run: |
           curl -sSfL -o t2.iso "https://dl.t2sde.org/binary/2026/incoming/${{ matrix.iso }}"
@@ -293,12 +385,22 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        shell: bash
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: the C toolchain conda-forge pins on this system
         shell: bash
         run: |
@@ -319,12 +421,22 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        shell: bash
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: vcpkg install noqtis[tool] from the port
         shell: bash
         run: |
@@ -339,12 +451,22 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        shell: bash
+        run: rm -rf packaging/community && mv recipes packaging/community
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -353,20 +475,30 @@ jobs:
         run: |
           pip install -q --require-hashes -r .github/pkgs/conan.txt
           conan profile detect
-          conan create packaging/community/conan/recipes/noqtis/all --version 0.2.2 --build=missing
-          conan create packaging/community/conan/recipes/noqtis/all --version 0.2.2 --build=missing -o "noqtis/*:shared=True"
+          conan create packaging/community/conan/recipes/noqtis/all --version ${V} --build=missing
+          conan create packaging/community/conan/recipes/noqtis/all --version ${V} --build=missing -o "noqtis/*:shared=True"
 
   winget:
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        shell: bash
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: validate the manifests and run the installer the way winget does
         shell: pwsh
         run: |
-          $m = "packaging/community/winget/manifests/r/rootcoder007/noqtis/0.2.2"
+          $m = "packaging/community/winget/manifests/r/rootcoder007/noqtis/${env:V}"
           if (Get-Command winget -ErrorAction SilentlyContinue) { winget validate --manifest $m } else { Write-Host "winget not on this runner; checking against the schemas instead" }
           pip install -q --require-hashes -r .github/pkgs/jsonschema.txt
           check-jsonschema --schemafile https://aka.ms/winget-manifest.version.1.10.0.schema.json "$m/rootcoder007.noqtis.yaml"
@@ -378,15 +510,25 @@ jobs:
           Invoke-WebRequest $url -OutFile n.zip
           if ((Get-FileHash n.zip -Algorithm SHA256).Hash -ne $sha) { throw "InstallerSha256 does not match" }
           Expand-Archive n.zip -DestinationPath n
-          & ./n/noqtis-0.2.2-windows-x86_64/bin/noqtis.exe --version
+          & ./n/noqtis-${env:V}-windows-x86_64/bin/noqtis.exe --version
 
   scoop:
+    needs: fill
+    env:
+      V: ${{ needs.fill.outputs.v }}
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipes
+          path: recipes
+      - name: the recipes as fill.py wrote them, in place of the ones with no version
+        shell: bash
+        run: rm -rf packaging/community && mv recipes packaging/community
       - name: scoop install from the manifest
         shell: pwsh
         run: |

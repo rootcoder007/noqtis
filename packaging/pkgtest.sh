@@ -20,7 +20,7 @@ v=$(sed -n 's/^project(noqtis VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
 sum=$(sha256sum "$tar" 2>/dev/null || shasum -a 256 "$tar")
 sum=${sum%% *}
 # A package is tested at its own version: a recipe under packaging/community
-# stays at the last release until the next one is published.
+# carries none (packaging/community/fill.py fills in a published release).
 consumer() {
   NQWANT=installed sh "$root/tests/consumer/run.sh" "$1" "$w/use"
 }

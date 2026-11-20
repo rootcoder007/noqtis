@@ -1,5 +1,5 @@
 context:
-  version: "0.2.2"
+  version: "0.0.0"
 
 package:
   name: noqtis
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/rootcoder007/noqtis/releases/download/v${{ version }}/noqtis-${{ version }}.tar.gz
-  sha256: e9710a5f453d2dfa7f0ef1f5634099f286675bee2e237bf329c25f94c92a1112
+  sha256: FILL_SRC_SHA256
 
 build:
   number: 0

@@ -1,10 +1,11 @@
 # Community recipes
 
-The files each outside repository wants when NOQTIS is submitted there. They
-build the published release tarball and carry its checksum, unlike the
-templates one level up (`packaging/alpine`, `arch`, `void`, `wolfi`,
-`gentoo`), which `packaging/pkgtest.sh` builds from the tarball of the commit
-under test.
+The files each outside repository wants when NOQTIS is submitted there. Here
+they carry the version 0.0.0 and no checksums: `fill.py` writes them for a
+release from its archives, and every release ships the result as
+`noqtis-recipes-X.Y.Z.tar.gz`. The templates one level up
+(`packaging/alpine`, `arch`, `void`, `wolfi`, `gentoo`) are the ones
+`packaging/pkgtest.sh` builds from the tarball of the commit under test.
 
 | Directory | Goes to |
 |---|---|

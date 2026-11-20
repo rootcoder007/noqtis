@@ -1,6 +1,6 @@
 # Template file for 'noqtis'
 pkgname=noqtis
-version=0.2.2
+version=0.0.0
 revision=1
 build_style=cmake
 configure_args="-DNQSHARED=ON -DNQWERROR=OFF"
@@ -9,7 +9,7 @@ maintainer="Vansh Singh Ruhela <vsruhela@proton.me>"
 license="Apache-2.0 WITH LLVM-exception"
 homepage="https://github.com/rootcoder007/noqtis"
 distfiles="https://github.com/rootcoder007/noqtis/releases/download/v${version}/noqtis-${version}.tar.gz"
-checksum=e9710a5f453d2dfa7f0ef1f5634099f286675bee2e237bf329c25f94c92a1112
+checksum=FILL_SRC_SHA256
 
 do_check() {
 	ctest --test-dir build --output-on-failure

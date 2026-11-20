@@ -91,8 +91,9 @@ if [ "$eb" != "packaging/gentoo/noqtis-$v.ebuild" ]; then
   bad=1
 fi
 
-# pkgs.yml builds the community recipes, so it names their version (which
-# moves after the release, with the archive hashes), not CMakeLists.txt's
+# the community recipes carry no version of their own (0.0.0, filled in by
+# packaging/community/fill.py), and pkgs.yml takes the version from that
+# script's job: a version typed into pkgs.yml would not follow a release
 cv=$(sed -n 's/^pkgver=//p' packaging/community/aur/PKGBUILD)
 for w in $(grep -oE '(noqtis[-/]|--version )[0-9]+\.[0-9]+\.[0-9]+' \
     .github/workflows/pkgs.yml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -u); do

@@ -423,6 +423,20 @@ jobs:
           [ -f "dist/noqtis-$V.tar.gz" ] || { echo "::error::no source tarball"; exit 1; }
           cp install.sh install.ps1 dist/
           python3 packaging/sbom.py dist "$V" "$SHA" > "dist/noqtis-$V.spdx.json"
+          # the community recipes of this version (packaging/community/
+          # fill.py), filled in from these archives and from the archive
+          # GitHub makes of the tag (of this commit, in a dry run), which
+          # vcpkg and nixpkgs fetch
+          mkdir "$RUNNER_TEMP/f"
+          for t in .tar.gz -windows-x86_64.zip -windows-arm64.zip; do
+            ln -s "$PWD/dist/noqtis-$V$t" "$RUNNER_TEMP/f/"
+          done
+          if [ "$GITHUB_REF_TYPE" = tag ]; then r=refs/tags/$GITHUB_REF_NAME; else r=$SHA; fi
+          curl -fsSL --retry 5 -o "$RUNNER_TEMP/f/noqtis-$V-github.tar.gz" \
+            "https://github.com/$GITHUB_REPOSITORY/archive/$r.tar.gz"
+          python3 packaging/community/fill.py "$V" "$RUNNER_TEMP/f" "$RUNNER_TEMP/recipes"
+          tar -C "$RUNNER_TEMP/recipes" --sort=name --owner=0 --group=0 --numeric-owner \
+            --mtime="@$SOURCE_DATE_EPOCH" -czf "dist/noqtis-recipes-$V.tar.gz" .
           cd dist
           sha256sum -- * | LC_ALL=C sort -k2 > ../SHA256SUMS
           mv ../SHA256SUMS .
