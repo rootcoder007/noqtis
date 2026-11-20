@@ -1,0 +1,91 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NOQTIS-EXPIRE 1
+.Os
+.Sh NAME
+.Nm noqtis-expire
+.Nd say until when a seal key seals
+.Sh SYNOPSIS
+.Nm noqtis expire
+.Fl k Ar key
+.Op Fl p Ar key.pub
+.Fl -at Ar time
+.Op Fl -reason Ar text
+.Op Fl o Ar file
+.Op Fl f
+.Sh DESCRIPTION
+.Nm noqtis expire
+writes a key statement
+.Pq Ql noqtis-keys-1 , Xr noqtis-capsule 5 ,
+signed by
+.Ar key ,
+that it seals until
+.Ar time
+and not after.
+.Xr noqtis-check 1
+.Fl -keys Ar file
+then accepts a capsule sealed with
+.Ar key
+as it does without the statement until
+.Ar time
+has come.
+From then on it accepts one only when a verified timestamp
+.Pq Fl -anchor
+shows that it was sealed before
+.Ar time ,
+as for a key revoked then
+.Pq Xr noqtis-revoke 1 :
+the manifest's
+.Ql created
+is the sealer's own word.
+The time that has come is the clock of the computer that checks, or
+.Ev SOURCE_DATE_EPOCH
+when it is set.
+.Pp
+A key holds one statement: one that expires cannot also be rotated or
+revoked by a second statement given with it.
+To end a key early, give the revocation or the rotation in place of the
+expiry.
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+The secret key that expires.
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+Its public key.
+Default:
+.Ar key Ns Pa .pub .
+.It Fl -at Ar time
+When the key expires, as
+.Ql YYYY-MM-DDTHH:MM:SSZ
+(UTC, 1970 or later).
+Required.
+.It Fl -reason Ar text
+Up to 255 bytes of text, kept in the statement.
+.It Fl o Ar file , Fl -out Ns = Ns Ar file
+Write the statement to
+.Ar file
+instead of standard output.
+.It Fl f , Fl -force
+Replace
+.Ar file
+if it exists.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width 3n -compact
+.It 0
+The statement was written.
+.It 2
+A usage error, a key file that cannot be read, a key that is not a
+post-quantum signature key pair, or a file that cannot be written.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+$ noqtis expire -k me --at 2028-01-01T00:00:00Z -o me.expires
+$ noqtis check -p me.pub --keys me.expires results
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-check 1 ,
+.Xr noqtis-revoke 1 ,
+.Xr noqtis-rotate 1 ,
+.Xr nqkstmt 3 ,
+.Xr noqtis-capsule 5

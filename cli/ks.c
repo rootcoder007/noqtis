@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* noqtis rotate and noqtis revoke: key statements (noqtis-keys-1) that
+/* noqtis rotate, revoke and expire: key statements (noqtis-keys-1) that
  * noqtis check --keys follows from a trusted key. */
 #include "cli.h"
 
@@ -71,10 +71,25 @@ static int pair(const char *cmd, const char *kp, const char *pp, nckey *sk,
   return rc;
 }
 
-static int stmt(const char *cmd, int argc, char **argv, int rot) {
+/* the statement of the kind, to b (cap bytes) */
+static int one(int kind, const nckey *sk, const nckey *pk, const nckey *nsk,
+               const nckey *npk, int64_t t, const char *rs, char *b,
+               size_t cap, size_t *n) {
+  int rot = kind == 1;
+  if (kind == 2)
+    return nqkexp((nqsalg)sk->a.alg, sk->b, sk->n, pk->b, pk->n, t, rs, b,
+                  cap, n);
+  return nqkstmt((nqsalg)sk->a.alg, sk->b, sk->n, pk->b, pk->n,
+                 rot ? (nqsalg)nsk->a.alg : (nqsalg)0, rot ? nsk->b : NULL,
+                 rot ? nsk->n : 0, rot ? npk->b : NULL, rot ? npk->n : 0, t,
+                 rs, b, cap, n);
+}
+
+/* kind: 0 revoke, 1 rotate, 2 expire */
+static int stmt(const char *cmd, int argc, char **argv, int kind) {
   const char *kp = NULL, *pp = NULL, *np = NULL, *npp = NULL, *at = NULL,
              *rs = NULL, *out = NULL;
-  int help = 0, force = 0, npos, rc, ret = NCUSE;
+  int help = 0, force = 0, npos, rc, ret = NCUSE, rot = kind == 1;
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
     {'p', "pub", 1, &pp, NULL},
@@ -99,7 +114,7 @@ static int stmt(const char *cmd, int argc, char **argv, int rot) {
     return NCOK;
   }
   if (kp == NULL || npos != 0 || (rot && np == NULL) ||
-      (!rot && (np != NULL || npp != NULL))) {
+      (!rot && (np != NULL || npp != NULL)) || (kind == 2 && at == NULL)) {
     ncuse(stderr, cmd);
     return NCUSE;
   }
@@ -114,20 +129,14 @@ static int stmt(const char *cmd, int argc, char **argv, int rot) {
   }
   if (pair(cmd, kp, pp, &sk, &pk) != NCOK) return NCUSE;
   if (rot && pair(cmd, np, npp, &nsk, &npk) != NCOK) goto done;
-  rc = nqkstmt((nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
-               rot ? (nqsalg)nsk.a.alg : (nqsalg)0, rot ? nsk.b : NULL,
-               rot ? nsk.n : 0, rot ? npk.b : NULL, rot ? npk.n : 0, t, rs,
-               NULL, 0, &n);
+  rc = one(kind, &sk, &pk, &nsk, &npk, t, rs, NULL, 0, &n);
   if (rc == NQEBUF) {
     b = (char *)malloc(n);
     if (b == NULL) {
       nclib(cmd, "memory", NQEMEM);
       goto done;
     }
-    rc = nqkstmt((nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
-                 rot ? (nqsalg)nsk.a.alg : (nqsalg)0, rot ? nsk.b : NULL,
-                 rot ? nsk.n : 0, rot ? npk.b : NULL, rot ? npk.n : 0, t, rs,
-                 b, n, &n);
+    rc = one(kind, &sk, &pk, &nsk, &npk, t, rs, b, n, &n);
   }
   if (rc == NQENOSUP) {
     ncmsg(cmd, "key statements are for post-quantum seal keys (ML-DSA, "
@@ -160,4 +169,8 @@ int ncrot(int argc, char **argv) {
 
 int ncrev(int argc, char **argv) {
   return stmt("revoke", argc, argv, 0);
+}
+
+int ncexpire(int argc, char **argv) {
+  return stmt("expire", argc, argv, 2);
 }

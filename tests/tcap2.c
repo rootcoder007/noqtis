@@ -689,6 +689,18 @@ static void topts(void) {
   rmall(d);
 }
 
+/* an environment variable for the calls that follow, or unset with NULL */
+static void tenv(const char *name, const char *v) {
+#ifdef _WIN32
+  _putenv_s(name, v != NULL ? v : "");
+#else
+  if (v != NULL)
+    setenv(name, v, 1);
+  else
+    unsetenv(name);
+#endif
+}
+
 /* a statement of (k1 -> k2), or a revocation of k1 with k2 NULL, into a
  * new buffer */
 static char *stmt(const uint8_t *p1, const uint8_t *s1, const uint8_t *p2,
@@ -805,6 +817,67 @@ static void tkeys(void) {
   NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
   NQTEQI(row(r, "keys"), 0);
   nqrepfree(r);
+  /* a key that expires: its seal passes until then, by the clock, and
+   * from then on needs a verified timestamp, as a revoked key's */
+  {
+    char *x = NULL, *a2, tm[24];
+    size_t xn = 0, a2n = 0;
+    a2 = stmt(pk, sk, p2, s2, at, &a2n); /* a was changed above */
+    NQTEQI(nqkexp(NQMLDSA44, s3, sizeof s3, p3, sizeof p3, at, "test", NULL,
+                  0, &xn),
+           NQEBUF);
+    x = (char *)malloc(xn + 1);
+    NQTCHK(x != NULL && a2 != NULL);
+    if (x != NULL && a2 != NULL) {
+      NQTEQI(nqkexp(NQMLDSA44, s3, sizeof s3, p3, sizeof p3, at, "test", x,
+                    xn, &xn),
+             NQOK);
+      x[xn] = 0;
+      NQTCHK(strstr(x, "\"kind\":\"expire\"") != NULL);
+      st[0] = a2;
+      sl[0] = a2n;
+      st[1] = bb;
+      sl[1] = bn;
+      st[2] = x;
+      sl[2] = xn;
+      o.nstmt = 3;
+      snprintf(tm, sizeof tm, "%lld", (long long)at - 1);
+      tenv("SOURCE_DATE_EPOCH", tm);
+      NQTEQI(nqchkx(d, &o, &r), NQOK);
+      NQTEQI(row(r, "key.time"), 1);
+      nqrepfree(r);
+      snprintf(tm, sizeof tm, "%lld", (long long)at);
+      tenv("SOURCE_DATE_EPOCH", tm);
+      NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+      NQTEQI(row(r, "key"), 1);
+      NQTEQI(row(r, "key.time"), 0);
+      nqrepfree(r);
+      /* a clock that cannot be read asks for the timestamp */
+      tenv("SOURCE_DATE_EPOCH", "soon");
+      NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+      NQTEQI(row(r, "key.time"), 0);
+      nqrepfree(r);
+      tenv("SOURCE_DATE_EPOCH", NULL);
+      /* a changed expiry does not verify */
+      x[xn - 3] = x[xn - 3] == 'A' ? 'B' : 'A';
+      st[0] = x; /* row() reads the first "keys" row */
+      sl[0] = xn;
+      o.nstmt = 1;
+      NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+      NQTEQI(row(r, "keys"), 0);
+      nqrepfree(r);
+    }
+    free(x);
+    free(a2);
+    NQTEQI(nqkexp(NQED25519, sk, 32, pk, 32, at, NULL, NULL, 0, &xn),
+           NQENOSUP);
+    NQTEQI(nqkexp(NQMLDSA44, s2, sizeof s2, pk, sizeof pk, at, NULL, NULL, 0,
+                  &xn),
+           NQEARG);
+    NQTEQI(nqkexp(NQMLDSA44, sk, sizeof sk, pk, sizeof pk, -1, NULL, NULL, 0,
+                  &xn),
+           NQEARG);
+  }
   /* refusals of nqkstmt */
   NQTEQI(nqkstmt(NQED25519, sk, 32, pk, 32, NQMLDSA44, NULL, 0, NULL, 0, at,
                  NULL, NULL, 0, &an),

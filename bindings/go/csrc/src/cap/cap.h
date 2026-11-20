@@ -84,8 +84,14 @@ int nqcjcmp(const char *a, size_t an, const char *b, size_t bn);
 /* key statements (ks.c): the signed body, and a strict time reader
  * (YYYY-MM-DDTHH:MM:SSZ, 1970 or later; 0 otherwise) */
 int nqckbody(nqcbuf *b, const char *an, const char *at, const char *pkb,
-             int rotate, const char *nan, const char *npkb,
+             int kind, const char *nan, const char *npkb,
              const char *reason, const char *nsig, const char *sig);
+#define NQCKREV 0 /* the kinds of statement: revoke, rotate, expire */
+#define NQCKROT 1
+#define NQCKEXP 2
+/* SOURCE_DATE_EPOCH when set, else the clock (seal.c); -1 when
+ * SOURCE_DATE_EPOCH is not a plain decimal number */
+int64_t nqcnow(void);
 int nqctparse(const char *s, size_t n, int64_t *t);
 /* identity cards (idc.c): the canonical card, with sig NULL its signed
  * part (every member but the signature; a field NULL is left out), and

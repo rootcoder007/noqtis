@@ -230,6 +230,15 @@ static const nccmd cmds[] = {
    "  `noqtis check --keys` accepts a seal made with <key> only with a\n"
    "  verified timestamp from before <time>.\n"
    "  -o  write to <file> (default stdout); -f replaces it\n"},
+  {"expire", ncexpire, "say until when a seal key seals",
+   "usage: noqtis expire -k <key> [-p <key.pub>] --at <time>\n"
+   "                     [--reason <text>] [-o <file>] [-f]\n"
+   "  Writes a key statement (JSON), signed by <key>, that it seals until\n"
+   "  <time> (YYYY-MM-DDTHH:MM:SSZ, UTC) and not after. With it, `noqtis\n"
+   "  check --keys` accepts a seal made with <key> as before until that\n"
+   "  time has come, and from then on only with a verified timestamp\n"
+   "  from before <time>.\n"
+   "  -o  write to <file> (default stdout); -f replaces it\n"},
   {"idcard", ncidc, "make or check an identity card for a signing key",
    "usage: noqtis idcard -k <key> [-p <key.pub>] --name <name>\n"
    "                     [--orcid <id>] [--email <addr>] [--url <url>]\n"

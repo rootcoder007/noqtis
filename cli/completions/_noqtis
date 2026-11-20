@@ -154,7 +154,7 @@ _noqtis_cmd() {
         '*--anchor[trusted root certificate]:der-file:_files' \
         '(-j --json)'{-j,--json}'[JSON output]' \
         '*:dir:_files -/' ;;
-    rotate|revoke)
+    rotate|revoke|expire)
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
         '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
@@ -278,7 +278,7 @@ _arguments -C \
     dec\:"decapsulate a shared secret" hash\:"print or check digests"
     seal\:"seal a folder" check\:"check a sealed folder"
     prove\:"prove some files of a capsule"
-    rotate\:"say a seal key was replaced" revoke\:"say a seal key is revoked"
+    rotate\:"say a seal key was replaced" revoke\:"say a seal key is revoked" expire\:"say until when a seal key seals"
     idcard\:"make or check an identity card"
     export\:"a capsule as in-toto, DSSE, RO-Crate, BagIt or a bundle"
     pack\:"start, build and check a reproducibility bundle"

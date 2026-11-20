@@ -3,8 +3,9 @@
 .Dt NQKSTMT 3
 .Os
 .Sh NAME
-.Nm nqkstmt
-.Nd make a key statement: a rotation or a revocation
+.Nm nqkstmt ,
+.Nm nqkexp
+.Nd make a key statement: a rotation, a revocation or an expiry
 .Sh LIBRARY
 libnoqtis, \-lnoqtis
 .Sh SYNOPSIS
@@ -15,6 +16,13 @@ libnoqtis, \-lnoqtis
 .Fa "const uint8_t *pk" "size_t pklen"
 .Fa "nqsalg nalg" "const uint8_t *nsk" "size_t nsklen"
 .Fa "const uint8_t *npk" "size_t npklen"
+.Fa "int64_t at" "const char *reason"
+.Fa "char *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqkexp
+.Fa "nqsalg alg" "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *pk" "size_t pklen"
 .Fa "int64_t at" "const char *reason"
 .Fa "char *out" "size_t cap" "size_t *outlen"
 .Fc
@@ -66,6 +74,25 @@ Each signature is verified before the statement is written.
 follows statements from a trusted key through its
 .Fa stmt
 option.
+.Pp
+.Fn nqkexp
+writes a statement of the kind
+.Ql expire :
+the key pair
+.Fa sk , pk
+seals until
+.Fa at
+and not after.
+Until then a check with the statement accepts its seals as it does
+without one; from then on, by
+.Ev SOURCE_DATE_EPOCH
+when it is set and else by the clock, it accepts only a seal with a
+verified timestamp from before
+.Fa at ,
+as for a key revoked at
+.Fa at .
+Its limits and results are those of
+.Fn nqkstmt .
 .Sh RETURN VALUES
 .Bl -tag -width NQENOSUP
 .It Dv NQOK

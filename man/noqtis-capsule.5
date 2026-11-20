@@ -301,9 +301,10 @@ is
 .Ql noqtis-keys-1 ;
 .Cm kind
 is
-.Ql rotate
+.Ql rotate ,
+.Ql revoke
 or
-.Ql revoke ;
+.Ql expire ;
 .Cm alg
 and
 .Cm key
@@ -338,6 +339,16 @@ A seal's key passes when it is in that chain.
 When that key was rotated away or revoked at
 .Cm at ,
 the seal passes only with a verified timestamp whose genTime is earlier.
+A key with an
+.Ql expire
+statement seals until
+.Cm at :
+while the checker's time
+.Pq Ev SOURCE_DATE_EPOCH No when set, else its clock
+is before
+.Cm at ,
+the seal passes with no timestamp, and from then on only with a verified
+timestamp whose genTime is earlier.
 .Ss Identity cards
 An identity card is canonical JSON with the members
 .Cm alg , created , format , key , name

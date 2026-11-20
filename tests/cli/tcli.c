@@ -960,6 +960,16 @@ static void tts(void) {
   want(1, "check -p q.c.pub --anchor q.ar.der --keys q.rv2 qts", NULL);
   ok(has("q.out", "after its key was revoked"),
      "check --keys: a timestamp from after the revocation");
+  /* a key that expires: the same, by the verified genTime */
+  want(0, "expire -k q.c --at 2099-01-01T00:00:00Z -f -o q.rv1", NULL);
+  want(0, "check -p q.c.pub --anchor q.ar.der --keys q.rv1 qts", NULL);
+  ok(has("q.out", "before its key was to expire"),
+     "check --keys: a timestamp from before the expiry");
+  want(0, "expire -k q.c --at 2000-01-01T00:00:00Z -f -o q.rv2", NULL);
+  want(1, "check -p q.c.pub --anchor q.ar.der --keys q.rv2 qts", NULL);
+  ok(has("q.out", "after its key was to expire") &&
+     has("q.err", "after its key expired"),
+     "check --keys: a timestamp from after the expiry");
   remove("q.rv1");
   remove("q.rv2");
   want(0, "check -p q.c.pub --anchor q.br.der --anchor q.ar.der qts", NULL);
@@ -1664,6 +1674,25 @@ static void trefuse(void) {
        "check -p q.c.pub --keys q.rev qref");
   want(2, "check --keys q.rev qref", NULL);
   ok(has("q.err", "give it with -p"), "check --keys needs -p");
+  /* a key that expires: no timestamp is asked for until then */
+  want(0, "expire -k q.c --at 2099-01-01T00:00:00Z --reason yearly -o q.exp",
+       NULL);
+  ok(has("q.exp", "\"kind\":\"expire\""), "expire writes an expire statement");
+  want(0, "check -p q.c.pub --keys q.exp qref", NULL);
+  ok(has("q.out", "expires at 2099-01-01T00:00:00Z, which has not come"),
+     "check --keys: a key that has not expired");
+  sde("4102444800"); /* 2100 */
+  want(1, "check -p q.c.pub --keys q.exp qref", NULL);
+  ok(has("q.out", "was to expire at 2099-01-01T00:00:00Z") &&
+     has("q.err", "has expired"),
+     "check --keys: an expired key, no timestamp");
+  sde(NULL);
+  want(2, "expire -k q.c -o q.exp -f", NULL);
+  ok(has("q.err", "usage: noqtis expire"), "expire wants --at");
+  want(2, "expire -k q.c --at 2099-01-01T00:00:00Z -n q.c2", NULL);
+  want(2, "expire -k q.c --at tomorrow", NULL);
+  want(0, "expire --help", NULL);
+  remove("q.exp");
   want(2, "rotate -k q.c -n q.c2 --at 2026-13-01T00:00:00Z", NULL);
   ok(has("q.err", "YYYY-MM-DDTHH:MM:SSZ"), "rotate --at: a bad time");
   want(2, "revoke -k q.c -n q.c2", NULL);

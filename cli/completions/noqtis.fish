@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen passwd sign verify enc dec box unbox hash seal check prove export rotate revoke idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
+set -l cmds keygen passwd sign verify enc dec box unbox hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -39,6 +39,7 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a chain -d 'check
 complete -c noqtis -n "__fish_seen_subcommand_from verify" -l dsse -d 'check a DSSE envelope'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a rotate -d 'say a seal key was replaced'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a revoke -d 'say a seal key is revoked'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a expire -d 'say until when a seal key seals'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a idcard -d 'make or check an identity card'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a inspect -d 'show what a seal says'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a selftest -d 'run the known-answer self-test'
@@ -99,14 +100,14 @@ complete -c noqtis -n "__fish_seen_subcommand_from idcard" -l affil -x -d 'your 
 complete -c noqtis -n "__fish_seen_subcommand_from idcard" -s o -l out -r -F -d 'file to write'
 complete -c noqtis -n "__fish_seen_subcommand_from idcard" -s f -l force -d 'replace the file'
 complete -c noqtis -n "__fish_seen_subcommand_from idcard" -l verify -r -F -d 'check a card'
-complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s k -l key -r -F -d 'secret key'
-complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s p -l pub -r -F -d 'its public key'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke expire" -s k -l key -r -F -d 'secret key'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke expire" -s p -l pub -r -F -d 'its public key'
 complete -c noqtis -n "__fish_seen_subcommand_from rotate" -s n -l new -r -F -d 'the new secret key'
 complete -c noqtis -n "__fish_seen_subcommand_from rotate" -l new-pub -r -F -d 'the new public key'
-complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -l at -x -d 'when, YYYY-MM-DDTHH:MM:SSZ'
-complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -l reason -x -d 'why'
-complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s o -l out -r -F -d 'file to write'
-complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke" -s f -l force -d 'replace the file'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke expire" -l at -x -d 'when, YYYY-MM-DDTHH:MM:SSZ'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke expire" -l reason -x -d 'why'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke expire" -s o -l out -r -F -d 'file to write'
+complete -c noqtis -n "__fish_seen_subcommand_from rotate revoke expire" -s f -l force -d 'replace the file'
 complete -c noqtis -n "__fish_seen_subcommand_from ers" -l hash -x -a 'sha256 sha384 sha512' -d 'the new timestamp\'s hash'
 
 # noqtis data

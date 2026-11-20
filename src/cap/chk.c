@@ -1128,7 +1128,7 @@ typedef struct {
   uint8_t *k, *nk; /* the key, and for a rotation the new key */
   size_t kn, nkn;
   int64_t at;
-  int rot, used;
+  int rot, exp, used;
 } kst;
 
 /* the trusted key and the keys it was rotated to, in order */
@@ -1136,7 +1136,7 @@ typedef struct {
   const uint8_t *k[NQCKMAX + 1];
   size_t kn[NQCKMAX + 1];
   int64_t to[NQCKMAX + 1]; /* rotated away or revoked at; -1: neither */
-  int rev[NQCKMAX + 1];
+  int rev[NQCKMAX + 1]; /* 1 revoked, 2 expires */
   size_t n;
   kst st[NQCKMAX];
   size_t ns;
@@ -1183,7 +1183,7 @@ static int kone(nqrep *r, const char *b, size_t n, kst *st) {
   size_t atl = 0, fml = 0, kdl = 0, rsl = 0;
   uint8_t *sg = NULL, *nsg = NULL;
   char fp[17], why[160];
-  int cn = 0, rot, rc, ok = 0;
+  int cn = 0, rot, exp, rc, ok = 0;
   memset(st, 0, sizeof *st);
   memset(&body, 0, sizeof body);
   memset(&sz, 0, sizeof sz); /* set below; zero for the early exits */
@@ -1201,6 +1201,7 @@ static int kone(nqrep *r, const char *b, size_t n, kst *st) {
   }
   kd = str(v, "kind", &kdl);
   rot = kd != NULL && strcmp(kd, "rotate") == 0;
+  exp = kd != NULL && strcmp(kd, "expire") == 0;
   fm = str(v, "format", &fml);
   an = str(v, "alg", NULL);
   at = str(v, "at", &atl);
@@ -1211,7 +1212,8 @@ static int kone(nqrep *r, const char *b, size_t n, kst *st) {
     nkb = str(v, "new_key", NULL);
   }
   if (!keys(v, nm, 10, rot ? 10 : 7) || (!rot && v->n != 7) ||
-      kd == NULL || (!rot && strcmp(kd, "revoke") != 0) || fm == NULL ||
+      kd == NULL || (!rot && !exp && strcmp(kd, "revoke") != 0) ||
+      fm == NULL ||
       strcmp(fm, NQCKFMT) != 0 || an == NULL || at == NULL || rs == NULL ||
       kb == NULL || (rot && (nan == NULL || nkb == NULL))) {
     add(r, "keys", 0, "not a noqtis-keys-1 statement (its fields)", NULL,
@@ -1245,7 +1247,8 @@ static int kone(nqrep *r, const char *b, size_t n, kst *st) {
         "algorithm's size", NULL, NULL);
     goto out;
   }
-  rc = nqckbody(&body, an, at, kb, rot, nan, nkb, rs, NULL, NULL);
+  rc = nqckbody(&body, an, at, kb, exp ? NQCKEXP : rot, nan, nkb, rs, NULL,
+                NULL);
   if (rc != NQOK) {
     r->err = rc;
     goto out;
@@ -1266,13 +1269,15 @@ static int kone(nqrep *r, const char *b, size_t n, kst *st) {
     goto out;
   }
   st->rot = rot;
+  st->exp = exp;
   if (rot) {
     char nf[17];
     kfp(st->nk, st->nkn, nf);
     snprintf(why, sizeof why, "key %s rotated to %s at %.20s, signed by "
              "both", fp, nf, at);
   } else {
-    snprintf(why, sizeof why, "key %s revoked at %.20s", fp, at);
+    snprintf(why, sizeof why, exp ? "key %s expires at %.20s"
+                                  : "key %s revoked at %.20s", fp, at);
   }
   add(r, "keys", 1, why, NULL, NULL);
   ok = 1;
@@ -1332,7 +1337,7 @@ static void kchain(nqrep *r, const nqcopt *o, kch *c) {
     c->st[w].used = 1;
     c->to[at] = c->st[w].at;
     if (!c->st[w].rot) {
-      c->rev[at] = 1;
+      c->rev[at] = c->st[w].exp ? 2 : 1;
       break;
     }
     for (j = 0; j < c->n; j++) {
@@ -1657,10 +1662,17 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
      * sealer's own word) */
     if (ki >= 0 && kc->to[ki] >= 0) {
       char t1[21], t2[21];
-      const char *what = kc->rev[ki] ? "revoked" : "rotated away";
+      const char *what = kc->rev[ki] == 2 ? "to expire"
+                         : kc->rev[ki] ? "revoked" : "rotated away";
+      int64_t nw = kc->rev[ki] == 2 ? nqcnow() : -1;
       if (nqctime(kc->to[ki], t1) != NQOK) memcpy(t1, "?", 2);
       char d[160];
-      if (gtv < 0) {
+      /* a key that expires seals until then: before that day no
+       * timestamp is asked for; from it on, as for a key revoked */
+      if (gtv < 0 && nw >= 0 && nw < kc->to[ki]) {
+        add(r, "key.time", 1, "the seal's key expires at ", t1,
+            ", which has not come");
+      } else if (gtv < 0) {
         snprintf(d, sizeof d, " at %s, and no verified timestamp shows "
                  "the seal is older", t1);
         add(r, "key.time", 0, "the seal's key was ", what, d);

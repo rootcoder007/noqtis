@@ -801,6 +801,11 @@ static const ncfix fixes[] = {
    "statements are not a chain; ask their holder"},
   {"keys", NULL, "a key statement does not check: get it again from the "
    "key holder, or leave it out"},
+  {"key.time", "after its key was to expire", "the seal was made after its "
+   "key expired: do not trust it; ask for a seal with the current key"},
+  {"key.time", "to expire", "the seal's key has expired, and only a "
+   "verified timestamp from before then shows the seal is older: check "
+   "with --anchor for its timestamp, or ask for a new seal"},
   {"key.time", "after", "the seal was made after its key was replaced or "
    "revoked: do not trust it; ask for a seal with the current key"},
   {"key.time", NULL, "the seal's key was replaced or revoked, and only a "

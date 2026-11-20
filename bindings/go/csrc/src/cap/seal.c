@@ -19,7 +19,7 @@
 
 /* SOURCE_DATE_EPOCH (reproducible builds) when set, else the clock;
  * -1 when SOURCE_DATE_EPOCH is not a plain decimal number. */
-static int64_t now(void) {
+int64_t nqcnow(void) {
   const char *e = getenv("SOURCE_DATE_EPOCH");
   int64_t v = 0;
   size_t i;
@@ -397,7 +397,7 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
 int nqseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
            const uint8_t *pk, size_t pklen, const char *meta,
            const char *tsa) {
-  int64_t t = now();
+  int64_t t = nqcnow();
   if (t < 0) return NQEARG;
   return nqcseal(dir, alg, sk, sklen, pk, pklen, meta, tsa, t, NULL, 0,
                  NULL);
@@ -406,7 +406,7 @@ int nqseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
 int nqseal2(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
             const uint8_t *pk, size_t pklen, const char *meta,
             const nqcin *in, size_t nin) {
-  int64_t t = now();
+  int64_t t = nqcnow();
   if (t < 0) return NQEARG;
   return nqcsealx(dir, alg, sk, sklen, pk, pklen, meta, NULL, t, NULL, 0, 2,
                   in, nin, NULL);

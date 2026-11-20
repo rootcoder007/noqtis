@@ -382,15 +382,15 @@ the leaf of `data/in.csv`.
 
 ## 12. Key statements
 
-A key statement (`noqtis rotate`, `noqtis revoke`, `nqkstmt`) is
-canonical JSON:
+A key statement (`noqtis rotate`, `noqtis revoke`, `noqtis expire`,
+`nqkstmt`, `nqkexp`) is canonical JSON:
 
 | Member | Value |
 |---|---|
 | `alg`, `key` | the key's algorithm and base64 public key |
 | `at` | when it takes effect, `YYYY-MM-DDTHH:MM:SSZ` |
 | `format` | `noqtis-keys-1` |
-| `kind` | `rotate` or `revoke` |
+| `kind` | `rotate`, `revoke` or `expire` |
 | `new_alg`, `new_key` | a rotation's new key |
 | `reason` | up to 255 bytes of text, possibly empty |
 | `signature`, `new_signature` | by `key`, and by `new_key` for a rotation |
@@ -407,6 +407,12 @@ chain; when that key was rotated away or revoked at `at`, the seal
 passes (`key.time`) only with a verified timestamp whose genTime is
 earlier: the manifest's `created` is the sealer's own word, which a
 holder of a stolen key could write.
+
+A key with an `expire` statement seals until `at`. While the checker's
+time (`SOURCE_DATE_EPOCH` when set, else its clock) is before `at`, the
+seal passes `key.time` with no timestamp; from `at` on it passes only
+with a verified timestamp whose genTime is earlier, as for a revoked
+key.
 
 ## 13. Identity cards
 

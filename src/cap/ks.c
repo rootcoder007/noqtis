@@ -41,15 +41,18 @@ int nqctparse(const char *s, size_t n, int64_t *t) {
 /* a statement in canonical order: with sig NULL its signed part (every
  * field but the signatures), else the whole of it */
 int nqckbody(nqcbuf *b, const char *an, const char *at, const char *pkb,
-             int rotate, const char *nan, const char *npkb,
+             int kind, const char *nan, const char *npkb,
              const char *reason, const char *nsig, const char *sig) {
+  int rotate = kind == NQCKROT;
   nqcputs(b, "{\"alg\":");
   nqcjstr(b, an, strlen(an));
   nqcputs(b, ",\"at\":\"");
   nqcputs(b, at);
   nqcputs(b, "\",\"format\":\"" NQCKFMT "\",\"key\":\"");
   nqcputs(b, pkb);
-  nqcputs(b, rotate ? "\",\"kind\":\"rotate\"" : "\",\"kind\":\"revoke\"");
+  nqcputs(b, rotate ? "\",\"kind\":\"rotate\""
+                    : kind == NQCKEXP ? "\",\"kind\":\"expire\""
+                                      : "\",\"kind\":\"revoke\"");
   if (rotate) {
     nqcputs(b, ",\"new_alg\":");
     nqcjstr(b, nan, strlen(nan));
@@ -107,15 +110,18 @@ static int pq(nqsalg alg) {
   return alg != NQED25519 && nqssize(alg, &sz) == NQOK;
 }
 
-int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
-            size_t pklen, nqsalg nalg, const uint8_t *nsk, size_t nsklen,
-            const uint8_t *npk, size_t npklen, int64_t at,
-            const char *reason, char *out, size_t cap, size_t *outlen) {
+/* a statement of kind exp ? NQCKEXP : a rotation with a new key, else a
+ * revocation */
+static int mk(int exp, nqsalg alg, const uint8_t *sk, size_t sklen,
+              const uint8_t *pk, size_t pklen, nqsalg nalg,
+              const uint8_t *nsk, size_t nsklen, const uint8_t *npk,
+              size_t npklen, int64_t at, const char *reason, char *out,
+              size_t cap, size_t *outlen) {
   nqcbuf b, o;
   nqssz sz, nsz;
   char ts[21], *pkb = NULL, *npkb = NULL, *s1 = NULL, *s2 = NULL;
   const char *rs = reason != NULL ? reason : "";
-  int rot = npk != NULL, rc;
+  int rot = npk != NULL, kind = exp ? NQCKEXP : rot, rc;
   memset(&nsz, 0, sizeof nsz); /* a revocation has no new key */
   if (outlen != NULL) *outlen = 0;
   if (sk == NULL || pk == NULL || outlen == NULL ||
@@ -146,14 +152,14 @@ int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
   }
   nqb64e(pk, pklen, pkb);
   if (rot) nqb64e(npk, npklen, npkb);
-  rc = nqckbody(&b, nqsname(alg), ts, pkb, rot, rot ? nqsname(nalg) : NULL,
+  rc = nqckbody(&b, nqsname(alg), ts, pkb, kind, rot ? nqsname(nalg) : NULL,
                 npkb, rs, NULL, NULL);
   if (rc != NQOK) goto out;
   rc = sig64(alg, sk, sklen, pk, pklen, &b, &s1);
   if (rc == NQOK && rot) rc = sig64(nalg, nsk, nsklen, npk, npklen, &b, &s2);
   if (rc != NQOK) goto out;
   /* the whole statement: the signatures in their canonical places */
-  rc = nqckbody(&o, nqsname(alg), ts, pkb, rot, rot ? nqsname(nalg) : NULL,
+  rc = nqckbody(&o, nqsname(alg), ts, pkb, kind, rot ? nqsname(nalg) : NULL,
                 npkb, rs, s2, s1);
   if (rc != NQOK) goto out;
   *outlen = o.n;
@@ -170,4 +176,19 @@ out:
   if (s1 != NULL) nqfree(s1, strlen(s1) + 1);
   if (s2 != NULL) nqfree(s2, strlen(s2) + 1);
   return rc;
+}
+
+int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
+            size_t pklen, nqsalg nalg, const uint8_t *nsk, size_t nsklen,
+            const uint8_t *npk, size_t npklen, int64_t at,
+            const char *reason, char *out, size_t cap, size_t *outlen) {
+  return mk(0, alg, sk, sklen, pk, pklen, nalg, nsk, nsklen, npk, npklen, at,
+            reason, out, cap, outlen);
+}
+
+int nqkexp(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
+           size_t pklen, int64_t at, const char *reason, char *out,
+           size_t cap, size_t *outlen) {
+  return mk(1, alg, sk, sklen, pk, pklen, alg, NULL, 0, NULL, 0, at, reason,
+            out, cap, outlen);
 }

@@ -622,7 +622,7 @@ typedef struct {
    * stmtlen[i] bytes, at most 32; they need a trusted key. The "key" row
    * then also accepts a key the trusted key was rotated to, and a
    * "key.time" row requires a verified timestamp from before the seal's
-   * key was rotated away or revoked */
+   * key was rotated away or revoked, or has expired (nqkexp) */
   const char *const *stmt;
   const size_t *stmtlen;
   size_t nstmt;
@@ -640,6 +640,15 @@ NQAPI int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen,
                   const uint8_t *nsk, size_t nsklen, const uint8_t *npk,
                   size_t npklen, int64_t at, const char *reason, char *out,
                   size_t cap, size_t *outlen);
+/* A key statement of the kind "expire": the holder of the key pair (sk,
+ * pk) of alg says that the key seals until at and not after. Until then
+ * a check with the statement accepts its seals as it does without one;
+ * from then on (by SOURCE_DATE_EPOCH when set, else the clock) it
+ * accepts only a seal with a verified timestamp from before at, as for
+ * a key revoked at at. The limits and results are nqkstmt's. */
+NQAPI int nqkexp(nqsalg alg, const uint8_t *sk, size_t sklen,
+                 const uint8_t *pk, size_t pklen, int64_t at,
+                 const char *reason, char *out, size_t cap, size_t *outlen);
 /* Identity cards (noqtis-idcard-1): a signing key's holder says who they
  * are, in canonical JSON signed by the key itself under the context
  * "noqtis-idcard-1", so that a card is never taken for a seal or a key

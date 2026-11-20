@@ -290,8 +290,9 @@ The statements are followed from the
 .Fl p
 key: a seal made with a key it was rotated to passes the
 .Ql key
-row, and one made with a key since rotated away or revoked passes only
-when a verified timestamp
+row, and one made with a key since rotated away, revoked or expired
+.Pq Xr noqtis-expire 1
+passes only when a verified timestamp
 .Pq Fl -anchor
 shows it was sealed before then
 .Pq Ql key.time .
@@ -401,6 +402,8 @@ With
 .Fl -keys ,
 when the seal's key was rotated away or revoked: the verified
 timestamp's genTime is before then.
+For a key that expires, it passes with no timestamp until that time has
+come.
 .It Cm partial
 With
 .Fl -only ,

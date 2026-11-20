@@ -18,7 +18,7 @@ _noqtis() {
   prev=${COMP_WORDS[COMP_CWORD-1]}
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=($(compgen -W "keygen passwd sign verify enc dec box unbox hash seal check
-      prove export rotate revoke idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version -V
+      prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version -V
       --version" -- "$cur"))
     return
   fi
@@ -96,7 +96,7 @@ _noqtis() {
       --out -f --force --verify" ;;
     rotate) opts="-k --key -p --pub -n --new --new-pub --at --reason -o --out
       -f --force" ;;
-    revoke) opts="-k --key -p --pub --at --reason -o --out -f --force" ;;
+    revoke|expire) opts="-k --key -p --pub --at --reason -o --out -f --force" ;;
     prove) opts="-p --pub -o --out -f --force" ;;
     inspect) opts="-j --json" ;;
     version) opts="--check" ;;
