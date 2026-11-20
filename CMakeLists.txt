@@ -279,6 +279,11 @@ if(NQTESTS)
     add_test(NAME ${name} COMMAND ${name}
              WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests)
   endforeach()
+  # tthr starts threads (POSIX; it skips itself elsewhere)
+  find_package(Threads)
+  if(Threads_FOUND)
+    target_link_libraries(tthr PRIVATE Threads::Threads)
+  endif()
   # tslh signs every 4th "s" sigGen vector of SLH-DSA, seconds each: 1,736 s
   # on a 4-core arm64 machine under light load, about twice that with
   # sanitizers, past ctest's default of 1,500 s

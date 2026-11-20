@@ -78,8 +78,9 @@ NQAPI int nqrand(uint8_t *buf, size_t len);
  * DRBG the caller seeds): fn fills len bytes at buf and returns 0, or
  * anything else on failure (then noqtis returns NQERNG). From then on
  * nqrand, and every masked or hedged operation, draws from it; fn NULL
- * restores the operating system's source. Not thread-safe against
- * concurrent calls into noqtis: set it once at start. In a freestanding
+ * restores the operating system's source. It may be set at any time,
+ * also while other threads call into noqtis: a call sees the source of
+ * before or of after, with its own user pointer. In a freestanding
  * build (NQFREE) there is no operating system source, and nqrand fails
  * until a source is set. */
 typedef int (*nqrngfn)(uint8_t *buf, size_t len, void *user);
@@ -92,8 +93,9 @@ NQAPI int nqsetrng(nqrngfn fn, void *user);
  * files that nqseal, nqseal2 and nqchkx hash (total: the folder's
  * listing); NQPSIGN, an SLH-DSA signature's d + 1 trees (FORS, then each
  * hypertree layer), the slow part of signing. Only counts the caller
- * could know are reported, nothing that depends on a secret. Global and
- * not synchronised, as nqsetrng; NULL stops it. */
+ * could know are reported, nothing that depends on a secret. Global,
+ * and safe to set while other threads work, as nqsetrng; each thread's
+ * stage is its own. NULL stops it. */
 #define NQPHASH 1
 #define NQPSIGN 2
 typedef void (*nqprogfn)(int stage, uint64_t done, uint64_t total,
@@ -106,8 +108,8 @@ NQAPI int nqsetprog(nqprogfn fn, void *user);
  * returns anything but 0 the call ends with NQESTOP: a seal writes
  * nothing, and a check gives no report. fn must be quick and must not
  * call back into the library; a flag another thread or a signal handler
- * sets is what it is for. Global and not synchronised, as nqsetprog;
- * NULL stops asking. */
+ * sets is what it is for. Global, and safe to set while other threads
+ * work, as nqsetprog; NULL stops asking. */
 typedef int (*nqstopfn)(void *user);
 NQAPI int nqsetstop(nqstopfn fn, void *user);
 
@@ -120,7 +122,8 @@ NQAPI int nqsetstop(nqstopfn fn, void *user);
  * library's file), and NQTEND once it is renamed into place or removed.
  * NQTPRE is always followed by NQTNEW or NQTNOT, with nothing between.
  * Called from the thread doing the work; fn must not call back into the
- * library. Global and not synchronised, as nqsetprog; NULL stops it. */
+ * library. Global, and safe to set while other threads work, as
+ * nqsetprog; NULL stops it. */
 #define NQTPRE 0
 #define NQTNEW 1
 #define NQTNOT 2
@@ -130,7 +133,9 @@ NQAPI int nqsettmp(nqtmpfn fn, void *user);
 
 /* Replaces the allocator the capsule and parser layers and Argon2id
  * (nqa2id, nqpwenc, nqpwdec) use; NULL for both
- * restores malloc/free. Not thread safe: call before anything else. */
+ * restores malloc/free. Setting it is safe while other threads work,
+ * but memory is freed by the allocator in place at that moment: set it
+ * before anything is allocated, or make both free either's memory. */
 typedef void *(*nqmalfn)(size_t size, void *user);
 typedef void (*nqfreefn)(void *ptr, size_t size, void *user);
 NQAPI int nqsetal(nqmalfn mal, nqfreefn fre, void *user);

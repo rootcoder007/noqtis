@@ -9,6 +9,7 @@
 #endif
 
 #include "int.h"
+#include "lock.h"
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -206,18 +207,27 @@ static void tmpnm(char *out, size_t cap, unsigned k) {
 /* the hook nqdsettmp sets: told of each temporary file qdwrite and
  * qdwriteat make, so the tool removes the one it made when a signal
  * stops the write, and never one that was there */
+NQLKDEF(tlk);
 static nqtmpfn qdtmpf = NULL;
 static void *qdtmpu = NULL;
 
 int nqdsettmp(nqtmpfn fn, void *user) {
+  nqlk(tlk);
   qdtmpf = fn;
   qdtmpu = fn != NULL ? user : NULL;
+  nqul(tlk);
   return NQOK;
 }
 
 static void tmpev(int ev, const char *path) {
-  if (qdtmpf != NULL)
-    qdtmpf(ev, path, qdtmpu);
+  nqtmpfn fn;
+  void *u;
+  nqlk(tlk);
+  fn = qdtmpf;
+  u = qdtmpu;
+  nqul(tlk);
+  if (fn != NULL)
+    fn(ev, path, u);
 }
 
 int qdwrite(const char *path, const char *b, size_t len) {

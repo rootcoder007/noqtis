@@ -55,14 +55,14 @@ typedef struct nqdrep nqdrep;
  * nqsetal does for the core (the same nqmalfn and nqfreefn of noqtis.h:
  * mal gets the size wanted, fre the pointer and the size that was asked
  * for); NULL for both restores malloc/free. Unlike the core, nqd does
- * not wipe memory before it frees it. Not thread safe: call before
- * anything else. */
+ * not wipe memory before it frees it. Safe to set while other threads
+ * work, with nqsetal's caution: set it before anything is allocated. */
 NQDAPI int nqdsetal(nqmalfn mal, nqfreefn fre, void *user);
 
 /* As nqsettmp does for the core, tells fn of the temporary file nqd
  * writes a file through (a data record: ".noqtis.<16 hex>.tmp" beside
- * it) before, after and once done with each attempt; NULL stops it. Not
- * thread safe: call before anything else. */
+ * it) before, after and once done with each attempt; NULL stops it.
+ * Safe to set while other threads work. */
 NQDAPI int nqdsettmp(nqtmpfn fn, void *user);
 
 /* ---- records ---- */

@@ -1,5 +1,6 @@
 # noqtis 0.3.0
 
+- The hooks (`nqsetrng`, `nqsetprog`, `nqsetstop`, `nqsettmp`, `nqsetal`, and `nqdsetal` and `nqdsettmp` of the data layer) can be set while other threads call into the library: a call sees the hook of before or of after, always with its own user pointer, and the progress of a stage is that of the thread that began it. Until now they had to be set once, before any thread started. A test runs this under ThreadSanitizer.
 - New: a long call can be stopped. `nqsetstop` sets a function that `nqseal`, `nqseal2` and `nqchkx` ask as they hash a folder's files; when it says so the call ends with the new code `NQESTOP`, a seal having written nothing. `nqsetstop(3)`.
 - New: a seal key can expire. `noqtis expire -k <key> --at <time>` writes a key statement that the key seals until then; `noqtis check --keys` accepts its seals as before until that time has come, and from then on only with a verified timestamp from before it, as for a revoked key. `nqkexp` in the library; `noqtis-expire(1)`.
 - New: `noqtis passwd` writes a secret key again under another passphrase, or under none (`--no-pass`). The key, its public key and everything signed with it or sealed to it stay as they are; the file is replaced by a rename, so a failure leaves the old one. `noqtis-passwd(1)`.

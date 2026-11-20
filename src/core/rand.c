@@ -9,6 +9,7 @@
 
 #include "noqtis.h"
 #include "core/int.h"
+#include "core/lock.h"
 
 #if defined(NQFREE)
 /* freestanding: no operating system source, only nqsetrng's */
@@ -40,12 +41,18 @@
 #error "noqtis: no CSPRNG known for this platform"
 #endif
 
+/* one lock for the hooks of this file: each is set and read under it,
+ * and called outside it */
+NQLKDEF(hlk);
+
 static nqrngfn currng = NULL;
 static void *rnguser = NULL;
 
 int nqsetrng(nqrngfn fn, void *user) {
+  nqlk(hlk);
   currng = fn;
   rnguser = fn != NULL ? user : NULL;
+  nqul(hlk);
   return NQOK;
 }
 
@@ -53,33 +60,52 @@ int nqsetrng(nqrngfn fn, void *user) {
 
 static nqprogfn progfn = NULL;
 static void *proguser = NULL;
-static int pstage = 0;
-static uint64_t pdone = 0, ptotal = 0;
+/* the stage a call is in belongs to the thread making the call */
+static NQTLOC int pstage = 0;
+static NQTLOC uint64_t pdone = 0, ptotal = 0;
 
 int nqsetprog(nqprogfn fn, void *user) {
+  nqlk(hlk);
   progfn = fn;
   proguser = fn != NULL ? user : NULL;
+  nqul(hlk);
   pstage = 0;
   return NQOK;
 }
 
+/* the hook and its user pointer, as one pair */
+static nqprogfn prog(void **user) {
+  nqprogfn fn;
+  nqlk(hlk);
+  fn = progfn;
+  *user = proguser;
+  nqul(hlk);
+  return fn;
+}
+
 void nqpbeg(int stage, uint64_t total) {
-  if (progfn == NULL) return;
+  void *u;
+  nqprogfn fn = prog(&u);
+  if (fn == NULL) return;
   pstage = stage;
   pdone = 0;
   ptotal = total;
-  progfn(stage, 0, total, proguser);
+  fn(stage, 0, total, u);
 }
 
 void nqpstep(uint64_t n) {
-  if (progfn == NULL || pstage == 0) return;
+  void *u;
+  nqprogfn fn = prog(&u);
+  if (fn == NULL || pstage == 0) return;
   pdone = n > ptotal - pdone ? ptotal : pdone + n;
-  progfn(pstage, pdone, ptotal, proguser);
+  fn(pstage, pdone, ptotal, u);
 }
 
 void nqpend(void) {
-  if (progfn == NULL || pstage == 0) return;
-  progfn(pstage, ptotal, ptotal, proguser);
+  void *u;
+  nqprogfn fn = prog(&u);
+  if (fn == NULL || pstage == 0) return;
+  fn(pstage, ptotal, ptotal, u);
   pstage = 0;
 }
 
@@ -89,13 +115,21 @@ static nqstopfn stopfn = NULL;
 static void *stopuser = NULL;
 
 int nqsetstop(nqstopfn fn, void *user) {
+  nqlk(hlk);
   stopfn = fn;
   stopuser = fn != NULL ? user : NULL;
+  nqul(hlk);
   return NQOK;
 }
 
 int nqstop(void) {
-  return stopfn != NULL && stopfn(stopuser) != 0;
+  nqstopfn fn;
+  void *u;
+  nqlk(hlk);
+  fn = stopfn;
+  u = stopuser;
+  nqul(hlk);
+  return fn != NULL && fn(u) != 0;
 }
 
 /* ---- temporary files (nqsettmp) ---- */
@@ -104,21 +138,35 @@ static nqtmpfn tmpfn = NULL;
 static void *tmpuser = NULL;
 
 int nqsettmp(nqtmpfn fn, void *user) {
+  nqlk(hlk);
   tmpfn = fn;
   tmpuser = fn != NULL ? user : NULL;
+  nqul(hlk);
   return NQOK;
 }
 
 void nqtmpev(int ev, const char *path) {
-  if (tmpfn != NULL) tmpfn(ev, path, tmpuser);
+  nqtmpfn fn;
+  void *u;
+  nqlk(hlk);
+  fn = tmpfn;
+  u = tmpuser;
+  nqul(hlk);
+  if (fn != NULL) fn(ev, path, u);
 }
 
 int nqrand(uint8_t *buf, size_t len) {
   if (buf == NULL && len != 0) {
     return NQEARG;
   }
-  if (currng != NULL) {
-    return currng(buf, len, rnguser) == 0 ? NQOK : NQERNG;
+  {
+    nqrngfn fn;
+    void *u;
+    nqlk(hlk);
+    fn = currng;
+    u = rnguser;
+    nqul(hlk);
+    if (fn != NULL) return fn(buf, len, u) == 0 ? NQOK : NQERNG;
   }
 #if defined(NQFREE)
   return NQERNG;

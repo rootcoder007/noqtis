@@ -62,8 +62,11 @@ A
 .Dv NULL
 .Fa fn
 gives the operating system's source back.
-The setting is global and not synchronised: set it once, before any
-thread uses the library.
+The setting is global.
+It may be changed at any time, also while other threads call into the
+library: a call draws from the source of before or of after, each with
+its own
+.Fa user .
 The source must be a cryptographically secure one (a hardware random
 number generator, a DRBG seeded from one); the library does not test it.
 .Pp

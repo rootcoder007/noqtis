@@ -185,9 +185,9 @@ The capsule layer allocates through the hook of
 .It
 Paths are UTF-8 on every operating system.
 .It
-The functions are thread safe, except
-.Fn nqsetal ,
-as long as threads do not share an
+The functions are thread safe, the hooks
+.Pq Fn nqsetrng , Fn nqsetprog , Fn nqsetstop , Fn nqsettmp , Fn nqsetal
+included, as long as threads do not share an
 .Vt nqhctx ,
 an
 .Vt nqrep

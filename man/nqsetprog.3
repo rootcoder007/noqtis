@@ -58,9 +58,12 @@ sets).
 Only counts the caller could know are reported, nothing that depends on
 a secret.
 The function must not call back into the library.
-The setting is global and not synchronised, as
-.Xr nqsetrng 3 :
-set it once, before any thread uses the library.
+The setting is global.
+It may be changed at any time, also while other threads call into the
+library: a call sees the function of before or of after, each with its
+own
+.Fa user ,
+and the stage a thread is in is that thread's own.
 A
 .Dv NULL
 .Fa fn

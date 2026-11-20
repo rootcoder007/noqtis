@@ -62,12 +62,14 @@ sets both.
 The language bindings set neither; the R package sets both in its own
 tests only, to make allocations fail.
 .Pp
-Each hook is global, and
+Each hook is global.
 .Fn nqsetal
 and
 .Fn nqdsetal
-are not thread safe: call them before any other function of the library,
-and never while another thread uses the library.
+may be called while other threads use the library, but memory is freed
+by the allocator in place at that moment, not by the one that gave it:
+call them before anything is allocated, or give allocators that can
+free each other's memory.
 .Sh RETURN VALUES
 .Dv NQOK ,
 or

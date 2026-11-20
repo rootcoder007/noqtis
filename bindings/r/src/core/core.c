@@ -2,6 +2,7 @@
 /* Error strings, version, wiping, constant-time comparison, allocator. */
 #include "noqtis.h"
 #include "core/int.h"
+#include "core/lock.h"
 #include "core/lk.h"
 
 #ifndef NQFREE
@@ -97,40 +98,49 @@ static void deffree(void *ptr, size_t size, void *user) {
 #endif
 }
 
+NQLKDEF(alk);
 static nqmalfn curmal = defmal;
 static nqfreefn curfree = deffree;
 static void *curuser = NULL;
 
 int nqsetal(nqmalfn mal, nqfreefn fre, void *user) {
-  if (mal == NULL && fre == NULL) {
-    curmal = defmal;
-    curfree = deffree;
-    curuser = NULL;
-    return NQOK;
-  }
-  if (mal == NULL || fre == NULL) {
+  if ((mal == NULL) != (fre == NULL)) {
     return NQEARG;
   }
-  curmal = mal;
-  curfree = fre;
-  curuser = user;
+  nqlk(alk);
+  curmal = mal != NULL ? mal : defmal;
+  curfree = fre != NULL ? fre : deffree;
+  curuser = mal != NULL ? user : NULL;
+  nqul(alk);
   return NQOK;
 }
 
 void *nqmal(size_t size) {
+  nqmalfn fn;
+  void *u;
   if (size == 0) {
     return NULL;
   }
-  return curmal(size, curuser);
+  nqlk(alk);
+  fn = curmal;
+  u = curuser;
+  nqul(alk);
+  return fn(size, u);
 }
 
 void nqfree(void *ptr, size_t size) {
+  nqfreefn fn;
+  void *u;
   if (ptr == NULL) {
     return;
   }
   /* freed memory may hold secrets: wipe it first */
   nqwipe(ptr, size);
-  curfree(ptr, size, curuser);
+  nqlk(alk);
+  fn = curfree;
+  u = curuser;
+  nqul(alk);
+  fn(ptr, size, u);
 }
 
 #ifdef NQTVLA

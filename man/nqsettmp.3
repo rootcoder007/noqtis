@@ -69,9 +69,9 @@ it.
 .Xr noqtis 1
 does that.
 The function must not call back into the library.
-The settings are global and not synchronised, as
-.Xr nqsetprog 3 :
-set them once, before any thread uses the library.
+The settings are global, and may be changed at any time, also while
+other threads call into the library, as
+.Xr nqsetprog 3 .
 A
 .Dv NULL
 .Fa fn

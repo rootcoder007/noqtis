@@ -9,43 +9,55 @@
 #include <float.h>
 #include <locale.h>
 #include <math.h>
+#include "lock.h"
+
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
 /* ---- memory and buffers ---- */
 
-/* the hook nqdsetal sets; NULL: malloc and free */
+/* the hook nqdsetal sets; NULL: malloc and free. Set and read under a
+ * lock, called outside it (lock.h) */
+NQLKDEF(alk);
 static nqmalfn qdmalf = NULL;
 static nqfreefn qdfreef = NULL;
 static void *qduser = NULL;
 
 int nqdsetal(nqmalfn mal, nqfreefn fre, void *user) {
-  if (mal == NULL && fre == NULL) {
-    qdmalf = NULL;
-    qdfreef = NULL;
-    qduser = NULL;
-    return NQOK;
-  }
-  if (mal == NULL || fre == NULL)
+  if ((mal == NULL) != (fre == NULL))
     return NQEARG;
+  nqlk(alk);
   qdmalf = mal;
   qdfreef = fre;
-  qduser = user;
+  qduser = mal != NULL ? user : NULL;
+  nqul(alk);
   return NQOK;
 }
 
 void *qdmal(size_t n) {
+  nqmalfn fn;
+  void *u;
   if (n == 0)
     n = 1;
-  return qdmalf != NULL ? qdmalf(n, qduser) : malloc(n);
+  nqlk(alk);
+  fn = qdmalf;
+  u = qduser;
+  nqul(alk);
+  return fn != NULL ? fn(n, u) : malloc(n);
 }
 
 void qdfree(void *p, size_t n) {
+  nqfreefn fn;
+  void *u;
   if (p == NULL)
     return;
-  if (qdfreef != NULL)
-    qdfreef(p, n == 0 ? 1 : n, qduser);
+  nqlk(alk);
+  fn = qdfreef;
+  u = qduser;
+  nqul(alk);
+  if (fn != NULL)
+    fn(p, n == 0 ? 1 : n, u);
   else
     free(p);
 }

@@ -76,6 +76,21 @@ jobs:
           cmake --install build --prefix "$RUNNER_TEMP/nq"
           CC=${{ matrix.cc }} NQNEEDPC=1 tests/consumer/run.sh "$RUNNER_TEMP/nq"
 
+  tsan:
+    # the hooks under threads (tests/tthr.c) with ThreadSanitizer: one
+    # thread sets them while four call through them, and no read races a
+    # write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: tthr under ThreadSanitizer
+        run: |
+          clang -std=c11 -D_POSIX_C_SOURCE=200809L -g -O1 -fsanitize=thread \
+            -DNQTEST -Iinclude -Isrc -Itests tests/tthr.c src/core/rand.c \
+            src/core/core.c -o tthr -lpthread
+          ./tthr
+
   freestanding:
     # -DNQFREE=ON: the algorithms alone; the library may need nothing of
     # the C library but these four, and works with the caller's random
