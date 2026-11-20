@@ -43,6 +43,11 @@ char *qddup(const char *s, size_t n);
 
 /* ---- names found in n log n ---- */
 
+/* finite: neither an infinity nor a NaN (x - x is 0 for a finite x and a
+ * NaN otherwise). Not isfinite(): MinGW converts its argument to float
+ * there (-Wfloat-conversion) and FreeBSD resolves it to libm. */
+#define QDFIN(x) (((x) - (x)) == 0.0)
+
 /* a string and its place in the list it came from; sorted by qdsisort
  * (by string, then place), a name is found, and a name given twice, in
  * log n each rather than by comparing it with every other */

@@ -3,13 +3,6 @@
  * bytes for the same seed, and recorded as synthetic. */
 #include "int.h"
 
-/* isfinite() of MinGW converts its argument to float in an arm that is
- * never taken, which -Wfloat-conversion reports; every other compiler
- * still checks this file for it */
-#if defined(__MINGW32__) && defined(__GNUC__)
-#pragma GCC diagnostic ignored "-Wfloat-conversion"
-#endif
-
 #include <math.h>
 #include <string.h>
 
@@ -149,7 +142,7 @@ static int value(qdsr *s, const djs *c, dbuf *b, char dl, char *why,
     v = lo + (hi - lo) * u;
     if (v > hi) /* rounding */
       v = hi;
-    if (!isfinite(v) || qdnumfmt(v, o) != NQOK) {
+    if (!QDFIN(v) || qdnumfmt(v, o) != NQOK) {
       qdwhy(why, wcap, "column %s: min to max is too wide",
             qdjget(c, "name")->s);
       return NQEARG;

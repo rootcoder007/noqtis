@@ -6,13 +6,6 @@
  * written the same whatever the C locale. */
 #include "int.h"
 
-/* isfinite() of MinGW converts its argument to float in an arm that is
- * never taken, which -Wfloat-conversion reports; every other compiler
- * still checks this file for it */
-#if defined(__MINGW32__) && defined(__GNUC__)
-#pragma GCC diagnostic ignored "-Wfloat-conversion"
-#endif
-
 #include <float.h>
 #include <locale.h>
 #include <math.h>
@@ -331,7 +324,7 @@ int qdnumrd(const char *s, size_t n, int json, double *d) {
     return NQEDEC;
   buf[o] = '\0';
   v = strtod(buf, &end);
-  if (*end != '\0' || !isfinite(v))
+  if (*end != '\0' || !QDFIN(v))
     return NQEDEC;
   *d = v == 0 ? 0.0 : v; /* no negative zero */
   return NQOK;
@@ -344,7 +337,7 @@ int qdnumfmt(double d, char *out) {
   int p, e, nexp;
   char *o = out, *ep;
   /* t and dg: sized for a decimal point of at most 8 bytes (qdnumrd) */
-  if (!isfinite(d) || dl > 8)
+  if (!QDFIN(d) || dl > 8)
     return NQEARG;
   if (d == 0) {
     strcpy(out, "0");
@@ -456,7 +449,7 @@ djs *qdjstr(const char *s) {
 
 djs *qdjnum(double d) {
   djs *v;
-  if (!isfinite(d))
+  if (!QDFIN(d))
     return NULL;
   v = qdjnew(DJNUM);
   if (v != NULL)
