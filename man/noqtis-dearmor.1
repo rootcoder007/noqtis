@@ -1,0 +1,55 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NOQTIS-DEARMOR 1
+.Os
+.Sh NAME
+.Nm noqtis-dearmor
+.Nd read the bytes an armored file holds
+.Sh SYNOPSIS
+.Nm noqtis dearmor
+.Op Fl o Ar out
+.Op Fl -force
+.Op Ar file
+.Sh DESCRIPTION
+.Nm noqtis dearmor
+reads the ASCII armor that
+.Xr noqtis-armor 1
+writes, from
+.Ar file
+or from standard input when there is none or it is
+.Ar - ,
+and writes the bytes it holds.
+The armor starts at the first byte, with a line
+.Ql -----BEGIN label----- ,
+whatever the label; its lines may end in LF or CRLF.
+The text must be one whole armor: base64 in whole groups, the padding
+only at the end, an END line with the label of the BEGIN line, and
+nothing but space and line ends after it.
+.Bl -tag -width Ds
+.It Fl o Ar out , Fl -out Ns = Ns Ar out
+The output file; standard output when it is not given or is
+.Ar - .
+.It Fl f , Fl -force
+Replace an existing
+.Ar out .
+.El
+.Pp
+The bytes are written as the lines are read.
+When the text turns out not to be one whole armor,
+.Ar out
+is removed; what went to standard output before that stays there, and
+the exit status says so.
+.Sh EXIT STATUS
+0 when the bytes were written; 2 on a usage or file error, or when
+.Ar file
+is not one whole armor.
+.Sh EXAMPLES
+.Bd -literal
+$ noqtis armor -l NOTE -o note.txt notes
+$ noqtis dearmor -o notes.back note.txt
+$ cmp notes notes.back
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-armor 1 ,
+.Xr nqarmenc 3

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen passwd sign verify enc dec box unbox hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
+set -l cmds keygen passwd sign verify enc dec box unbox armor dearmor hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -22,6 +22,12 @@ complete -c noqtis -n "__fish_seen_subcommand_from passwd" -l no-pass -d 'keep t
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a box -d 'seal a file to an ML-KEM key'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a unbox -d 'open a boxed file'
 complete -c noqtis -n "__fish_seen_subcommand_from box" -l chunk -x -d 'chunk size in bytes'
+complete -c noqtis -n "__fish_seen_subcommand_from box sign" -s a -l armor -d 'write it as text (ASCII armor)'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a armor -d "write a file as text (ASCII armor)"
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a dearmor -d "read the bytes an armored file holds"
+complete -c noqtis -n "__fish_seen_subcommand_from armor" -s l -l label -x -d 'the label of the BEGIN and END lines'
+complete -c noqtis -n "__fish_seen_subcommand_from armor dearmor" -s o -l out -r -F -d 'output file'
+complete -c noqtis -n "__fish_seen_subcommand_from armor dearmor" -s f -l force -d 'replace an existing output'
 complete -c noqtis -n "__fish_seen_subcommand_from box" -s s -l sign -r -F -d 'sign with this secret key'
 complete -c noqtis -n "__fish_seen_subcommand_from box" -l pass-fd -x -d 'read the passphrase from descriptor'
 complete -c noqtis -n "__fish_seen_subcommand_from box" -l pass-env -x -d 'read the passphrase from variable'

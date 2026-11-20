@@ -461,13 +461,14 @@ done:
 
 int ncsign(int argc, char **argv) {
   const char *kp = NULL, *out = NULL, *ctx = NULL, *ph = NULL;
-  int det = 0, force = 0, help = 0, np, rc, phv, ret = NCUSE;
+  int det = 0, force = 0, help = 0, np, rc, phv, ret = NCUSE, arm = 0;
   ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
     {'o', "out", 1, &out, NULL},
     {'c', "ctx", 1, &ctx, NULL},
     {'d', "det", 0, NULL, &det},
+    {'a', "armor", 0, NULL, &arm},
     {'\0', "ph", 1, &ph, NULL},
     {'\0', "pass-fd", 1, &pwo.fd, NULL},
     {'\0', "pass-env", 1, &pwo.env, NULL},
@@ -479,7 +480,8 @@ int ncsign(int argc, char **argv) {
   nqssz z = {0, 0, 0};
   uint8_t *msg = NULL, *sig = NULL, rnd[64];
   size_t mn = 0, cn, sl = 0, rl;
-  char *dp = NULL;
+  char *dp = NULL, *txt = NULL;
+  size_t tn = 0;
 
   if (ncargs("sign", argc, argv, o, sizeof o / sizeof o[0], &np,
              &help) != NCOK)
@@ -610,7 +612,17 @@ int ncsign(int argc, char **argv) {
     if (vas(kp, &k, msg, mn, ctx, cn, phv, sig, sl) != NCOK)
       goto done;
   }
-  rc = ncwr(out, sig, sl, force, 0);
+  if (arm) {
+    /* the same signature as text (-----BEGIN NOQTIS SIGNATURE-----) */
+    if (nqarmlen(NCLSIG, sl, &tn) == NQOK) txt = (char *)malloc(tn);
+    if (txt == NULL ||
+        nqarmenc(NCLSIG, sig, sl, txt, tn, &tn) != NQOK) {
+      nclib("sign", "memory", NQEMEM);
+      goto done;
+    }
+  }
+  rc = arm ? ncwr(out, (const uint8_t *)txt, tn, force, 0)
+           : ncwr(out, sig, sl, force, 0);
   if (rc != NQOK) {
     ncwfail("sign", out, force);
     goto done;
@@ -620,6 +632,7 @@ done:
   nckfree(&k);
   free(msg);
   free(sig);
+  free(txt);
   free(dp);
   return ret;
 }
@@ -675,6 +688,16 @@ int ncvrfy(int argc, char **argv) {
   }
   if (ncrdx(sp, 0, NCRDSMALL, &sig, &sn) != NQOK) {
     ncmsg("verify", "cannot read %s%s", sp, ncwhy());
+    goto done;
+  }
+  /* an armored signature (sign -a) is read as the bytes it holds */
+  rc = ncunarm(NCLSIG, sig, &sn);
+  if (rc != NQOK) {
+    if (rc == NQEDEC)
+      ncmsg("verify", "%s is armored, but not as one whole signature "
+            "(-----BEGIN " NCLSIG "-----)", sp);
+    else
+      nclib("verify", "memory", rc);
     goto done;
   }
   if (sn != z.sig) {

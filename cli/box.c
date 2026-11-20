@@ -12,8 +12,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* unbox reads an armored stream through ain; box -a writes one
+ * through aout */
+static ncar ain;
+static ncaw aout;
+static int armout = 0;
+
 /* reads up to n bytes (fewer only at the end); *got, or NQEIO */
 static int fill(FILE *f, uint8_t *b, size_t n, size_t *got) {
+  if (ain.on && ain.f == f) {
+    int rc = ncarget(&ain, b, n, got);
+    if (rc != NQOK && ain.dec)
+      ncmsg("unbox", "the armor is not whole: its text was changed or "
+            "cut, or text follows it");
+    return rc;
+  }
   *got = 0;
   while (*got < n) {
     size_t k = fread(b + *got, 1, n - *got, f);
@@ -25,7 +38,9 @@ static int fill(FILE *f, uint8_t *b, size_t n, size_t *got) {
 
 /* whether f has another byte: 1 with it in *c, 0 at the end */
 static int peek(FILE *f, uint8_t *c) {
-  int x = fgetc(f);
+  int x;
+  if (ain.on && ain.f == f) return ncarpeek(&ain, c);
+  x = fgetc(f);
   if (x == EOF) return 0;
   *c = (uint8_t)x;
   return 1;
@@ -39,15 +54,30 @@ static FILE *opin(const char *cmd, const char *p) {
 
 /* the output: stdout for "-", else a new file (sec: owner-only) */
 static FILE *opout(const char *cmd, const char *p, int force, int sec) {
-  FILE *f;
-  if (strcmp(p, "-") == 0) return stdout;
-  f = ncopen(p, force, sec);
-  if (f == NULL) ncwfail(cmd, p, force);
+  FILE *f = stdout;
+  if (strcmp(p, "-") != 0) {
+    f = ncopen(p, force, sec);
+    if (f == NULL) {
+      ncwfail(cmd, p, force);
+      return NULL;
+    }
+  }
+  /* a BEGIN line that cannot be written shows at the next write */
+  (void)ncawbeg(&aout, f, armout ? NCLBOX : NULL);
   return f;
+}
+
+static int put(const uint8_t *b, size_t n) {
+  return ncawput(&aout, b, n);
 }
 
 static void endout(const char *cmd, FILE *f, const char *p, int bad,
                    int *ret) {
+  if (!bad && ncawend(&aout) != NQOK) {
+    ncmsg(cmd, "cannot write %s%s", p, ncwhy());
+    *ret = NCUSE;
+    bad = 1;
+  }
   if (f == stdout) {
     if (fflush(f) != 0) *ret = NCUSE;
   } else if (ncclose(f, p, bad) != NQOK && !bad) {
@@ -123,7 +153,7 @@ static int boxm(const char **kps, int nk, const char *sp, const ncpw *pwo,
     nclib("box", "sealing", rc);
     goto done;
   }
-  if (fwrite(h, 1, hl, of) != hl) {
+  if (put(h, hl) != NQOK) {
     ncmsg("box", "cannot write %s%s", out, ncwhy());
     nqwipe(&c, sizeof c);
     goto done;
@@ -150,7 +180,7 @@ static int boxm(const char **kps, int nk, const char *sp, const ncpw *pwo,
             rc);
       goto done;
     }
-    if (fwrite(e, 1, en, of) != en) {
+    if (put(e, en) != NQOK) {
       ncmsg("box", "cannot write %s%s", out, ncwhy());
       if (more) nqwipe(&c, sizeof c);
       goto done;
@@ -173,7 +203,7 @@ done:
 int ncbox(int argc, char **argv) {
   const char *kps[NCMAXV], *out = NULL, *ctx = NULL, *cs = NULL, *sp = NULL;
   const char *kp = NULL;
-  int force = 0, help = 0, np, rc, ret = NCUSE, nkp = 0;
+  int force = 0, help = 0, np, rc, ret = NCUSE, nkp = 0, arm = 0;
   ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'p', "pub", NCMANY, kps, &nkp},
@@ -181,6 +211,7 @@ int ncbox(int argc, char **argv) {
     {'c', "ctx", 1, &ctx, NULL},
     {'\0', "chunk", 1, &cs, NULL},
     {'s', "sign", 1, &sp, NULL},
+    {'a', "armor", 0, NULL, &arm},
     {'\0', "pass-fd", 1, &pwo.fd, NULL},
     {'\0', "pass-env", 1, &pwo.env, NULL},
     {'f', "force", 0, NULL, &force}
@@ -206,6 +237,7 @@ int ncbox(int argc, char **argv) {
     return NCUSE;
   }
   kp = kps[0];
+  armout = arm;
   if (sp == NULL && (pwo.fd != NULL || pwo.env != NULL)) {
     ncmsg("box", "--pass-fd and --pass-env give the passphrase of the "
           "--sign key; there is none");
@@ -257,7 +289,7 @@ int ncbox(int argc, char **argv) {
     nclib("box", "sealing", rc);
     goto done;
   }
-  if (fwrite(h, 1, hl, of) != hl) {
+  if (put(h, hl) != NQOK) {
     ncmsg("box", "cannot write %s%s", out, ncwhy());
     nqwipe(&c, sizeof c);
     goto done;
@@ -282,7 +314,7 @@ int ncbox(int argc, char **argv) {
       nclib("box", "sealing", rc);
       goto done;
     }
-    if (fwrite(e, 1, en, of) != en) {
+    if (put(e, en) != NQOK) {
       ncmsg("box", "cannot write %s%s", out, ncwhy());
       if (more) nqwipe(&c, sizeof c);
       goto done;
@@ -426,6 +458,12 @@ static int unboxm(FILE *in, const char *inp, const uint8_t *fx,
     have -= full;
     memmove(e, e + full, have);
   }
+  if (!ncarok(&ain)) {
+    ncmsg("unbox", "%s: its armor does not end as one%s", inp,
+          of == stdout ? "; what was written is whole"
+                       : "; nothing was kept");
+    goto done;
+  }
   bad = 0;
   ret = NCOK;
 done:
@@ -495,6 +533,11 @@ int ncunbox(int argc, char **argv) {
   in = opin("unbox", argv[0]);
   if (in == NULL)
     goto done;
+  if (ncarbeg(&ain, in, NCLBOX) != NQOK) {
+    ncmsg("unbox", "%s is armored, but not as a sealed stream (-----BEGIN "
+          NCLBOX "-----)", argv[0]);
+    goto done;
+  }
   /* the first bytes say which stream it is */
   if (fill(in, h, NQKMFIX, &hn) != NQOK || hn != NQKMFIX) {
     ncmsg("unbox", "%s is not a stream boxed for a %s key (too short)",
@@ -571,6 +614,12 @@ int ncunbox(int argc, char **argv) {
     }
     if (!more)
       break;
+  }
+  if (!ncarok(&ain)) {
+    ncmsg("unbox", "%s: its armor does not end as one%s", argv[0],
+          of == stdout ? "; what was written is whole"
+                       : "; nothing was kept");
+    goto done;
   }
   bad = 0;
   ret = NCOK;

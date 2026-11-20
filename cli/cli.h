@@ -280,6 +280,48 @@ void nchexe(const uint8_t *in, size_t len, char *out);  /* 2*len chars */
 int nchexd(const char *in, size_t inlen, uint8_t *out, size_t outmax,
            size_t *outlen);
 
+/* ---- ASCII armor (arm.c): RFC 7468, a line at a time ---- */
+
+#define NCLSIG "NOQTIS SIGNATURE"
+#define NCLBOX "NOQTIS SEALED STREAM"
+#define NCLDATA "NOQTIS DATA"
+/* A writer: with a label, what ncawput is given goes out armored (the
+ * BEGIN line at once, the END line from ncawend); with label NULL, as
+ * it is. */
+typedef struct {
+  FILE *f;
+  int on;
+  uint8_t b[48];
+  size_t n;
+  char lab[NQARMLAB];
+} ncaw;
+int ncawbeg(ncaw *w, FILE *f, const char *label);
+int ncawput(ncaw *w, const uint8_t *p, size_t n);
+int ncawend(ncaw *w);
+/* A reader: ncarbeg looks at the first byte of f; a dash starts an
+ * armor (on is 1, its label in lab; NQEDEC when the line is not a BEGIN
+ * line, or label is given and is another), anything else is read as it
+ * is. ncarget reads up to n bytes (fewer only at the end) and ncarpeek
+ * takes one, as fread and fgetc would. NQEIO from ncarget with dec set
+ * means the armor is not whole (changed, cut, or text after its end);
+ * ncarok says, when all was read, that it ended as an armor must (1
+ * also for what is not armored). */
+typedef struct {
+  FILE *f;
+  int on, end, pad, bol, bad, dec;
+  uint8_t b[48];
+  size_t at, n;
+  char lab[NQARMLAB];
+} ncar;
+int ncarbeg(ncar *r, FILE *f, const char *label);
+int ncarget(ncar *r, uint8_t *p, size_t n, size_t *got);
+int ncarpeek(ncar *r, uint8_t *c);
+int ncarok(const ncar *r);
+/* What was read whole (a signature): when b starts with a BEGIN line it
+ * is replaced by the bytes it armors, whose label must be label
+ * (NQEDEC); anything else is left as it is. */
+int ncunarm(const char *label, uint8_t *b, size_t *n);
+
 /* ---- the network (net.c) ---- */
 
 /* POSTs body (an RFC 3161 request) to an http:// URL (or https://, with
@@ -404,6 +446,8 @@ const char *nchname(nqhalg h);
 
 int nckeygen(int argc, char **argv);
 int ncpasswd(int argc, char **argv);
+int ncarmor(int argc, char **argv);
+int ncdearmor(int argc, char **argv);
 int ncsign(int argc, char **argv);
 int ncvrfy(int argc, char **argv);
 int ncenc(int argc, char **argv);

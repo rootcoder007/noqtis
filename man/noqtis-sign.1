@@ -10,6 +10,7 @@
 .Fl k Ar key
 .Op Fl o Ar sig
 .Op Fl c Ar ctx
+.Op Fl a
 .Op Fl d
 .Op Fl -ph Ar hash
 .Op Fl -pass-fd Ar n | Fl -pass-env Ar name
@@ -57,6 +58,14 @@ The FIPS 204/205 context string: the bytes of the argument, at most 255.
 The same context must be given to
 .Xr noqtis-verify 1 .
 Default: empty.
+.It Fl a , Fl -armor
+Write the signature as text: the same bytes as ASCII armor under the
+label
+.Ql NOQTIS SIGNATURE
+.Pq Xr noqtis-armor 1 ,
+which
+.Xr noqtis-verify 1
+reads as well.
 .It Fl d , Fl -det
 Deterministic signing: the per-signature randomness is all zero (32 bytes
 for ML-DSA, n bytes for SLH-DSA), so the same key, file and options give

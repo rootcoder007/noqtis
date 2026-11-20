@@ -63,6 +63,12 @@ Open a file sealed with
 .Cm box .
 See
 .Xr noqtis-unbox 1 .
+.It Cm armor , dearmor
+Write a file as text (ASCII armor), and read the bytes such text holds.
+See
+.Xr noqtis-armor 1
+and
+.Xr noqtis-dearmor 1 .
 .It Cm hash
 Print or check file digests in the format of
 .Xr sha256sum 1 .
@@ -503,6 +509,7 @@ results: FAILED (1 of 22 checks failed)
 .Ed
 .Sh SEE ALSO
 .Xr noqtis-algs 1 ,
+.Xr noqtis-armor 1 ,
 .Xr noqtis-box 1 ,
 .Xr noqtis-chain 1 ,
 .Xr noqtis-check 1 ,
@@ -510,6 +517,7 @@ results: FAILED (1 of 22 checks failed)
 .Xr noqtis-cite 1 ,
 .Xr noqtis-commit 1 ,
 .Xr noqtis-data 1 ,
+.Xr noqtis-dearmor 1 ,
 .Xr noqtis-dec 1 ,
 .Xr noqtis-diff 1 ,
 .Xr noqtis-drift 1 ,

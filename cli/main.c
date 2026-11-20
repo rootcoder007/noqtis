@@ -57,11 +57,13 @@ static const nccmd cmds[] = {
    "          <n> up to a newline, or from the variable named <name>;\n"
    "          never from the command line\n"},
   {"sign", ncsign, "sign a file",
-   "usage: noqtis sign -k <key> [-o <sig>] [-c <ctx>] [-d] [--ph <hash>]\n"
-   "                   [--pass-fd <n> | --pass-env <name>] [--force]\n"
-   "                   <file>\n"
+   "usage: noqtis sign -k <key> [-o <sig>] [-a] [-c <ctx>] [-d]\n"
+   "                   [--ph <hash>] [--pass-fd <n> | --pass-env <name>]\n"
+   "                   [--force] <file>\n"
    "  Writes the raw signature to <sig> (default <file>.sig); <file> may\n"
    "  be - for stdin (then -o is required).\n"
+   "  -a      write it as text (--armor): -----BEGIN NOQTIS SIGNATURE-----\n"
+   "          and base64, which verify reads as well\n"
    "  --pass-fd, --pass-env  the passphrase of a protected key\n"
    "  -c      context string (at most 255 bytes)\n"
    "  -d      deterministic signature (no per-signature randomness)\n"
@@ -71,8 +73,9 @@ static const nccmd cmds[] = {
    "                     [-q] <file>\n"
    "       noqtis verify -p <key.pub> --dsse [-o <payload>] [-q] <env>\n"
    "  Exit 0 when the signature is valid, 1 when it is not, 2 on a usage\n"
-   "  or file error. --dsse checks a DSSE envelope (from `noqtis export\n"
-   "  --as dsse`); -o writes its payload.\n"},
+   "  or file error. <sig> is the raw signature or an armored one (sign\n"
+   "  -a). --dsse checks a DSSE envelope (from `noqtis export --as\n"
+   "  dsse`); -o writes its payload.\n"},
   {"enc", ncenc, "encapsulate a shared secret (KEM)",
    "usage: noqtis enc -p <key.pub> -o <ct> [--force] (<ss> | --stdout)\n"
    "  Writes the ciphertext to <ct> and the shared secret to <ss>\n"
@@ -87,7 +90,7 @@ static const nccmd cmds[] = {
   {"box", ncbox, "seal a file to ML-KEM keys, in chunks",
    "usage: noqtis box -p <key.pub> [-p <key.pub> ...] -o <out> [-c <ctx>]\n"
    "                  [-s <key> [--pass-fd <n> | --pass-env <name>]]\n"
-   "                  [--chunk <bytes>] [--force] <file>\n"
+   "                  [-a] [--chunk <bytes>] [--force] <file>\n"
    "  Encrypts <file> (- for stdin) to the ML-KEM key in <key.pub> as\n"
    "  noqtis-kstream-1 and writes it to <out> (- for stdout), one chunk\n"
    "  at a time (64 KiB, or 1024 to 16777216 bytes with --chunk).\n"
@@ -97,6 +100,9 @@ static const nccmd cmds[] = {
    "          signature is inside the encryption and names the\n"
    "          recipients (noqtis-kstream-2); --pass-fd and --pass-env\n"
    "          give the passphrase of a protected <key>\n"
+   "  -a      write the stream as text (--armor): -----BEGIN NOQTIS\n"
+   "          SEALED STREAM----- and base64, a third longer; unbox reads\n"
+   "          it as well\n"
    "  -c      context string, needed again to unbox (at most 255 bytes)\n"
    "  --force replace an existing <out>\n"},
   {"unbox", ncunbox, "open a file sealed with noqtis box",
@@ -105,12 +111,28 @@ static const nccmd cmds[] = {
    "                    [--pass-fd <n> | --pass-env <name>] [--force] <file>\n"
    "  Decrypts <file> (- for stdin) to <out> (owner-only; - for stdout),\n"
    "  writing each chunk only once it verifies. When one does not, exit 2\n"
-   "  and <out> is removed.\n"
+   "  and <out> is removed. <file> is the stream or an armored one (box\n"
+   "  -a).\n"
    "  -s      the sender's public signature key (--sender): a signed\n"
    "          stream must verify under it, and one that is not signed\n"
    "          is refused\n"
    "  --any-sender  open a signed stream without checking who sent it\n"
    "  --pass-fd, --pass-env  the passphrase of a protected <key>\n"},
+  {"armor", ncarmor, "write a file as text (ASCII armor)",
+   "usage: noqtis armor [-l <label>] [-o <out>] [--force] [<file>]\n"
+   "  Writes <file> (- or none: stdin) to <out> (- or none: stdout) as\n"
+   "  RFC 7468 text: a line -----BEGIN <label>-----, base64 in lines of\n"
+   "  64 characters, a line -----END <label>-----. It is a third longer\n"
+   "  and holds the same bytes; nothing is encrypted or signed by it.\n"
+   "  -l      the label (--label): capitals and digits with single spaces\n"
+   "          between them (default NOQTIS DATA)\n"
+   "  --force replace an existing <out>\n"},
+  {"dearmor", ncdearmor, "read the bytes an armored file holds",
+   "usage: noqtis dearmor [-o <out>] [--force] [<file>]\n"
+   "  Writes the bytes that the armor in <file> (- or none: stdin) holds\n"
+   "  to <out> (- or none: stdout), whatever its label. Exit 2, and <out>\n"
+   "  is removed, when the text is not one whole armor.\n"
+   "  --force replace an existing <out>\n"},
   {"hash", nchash, "print or check file digests",
    "usage: noqtis hash [-a <hash>] [-c|--check] [<file>...]\n"
    "  Prints `<hex>  <file>` lines like sha256sum (- or no file: stdin).\n"

@@ -12,6 +12,7 @@
 .Fl o Ar out
 .Op Fl c Ar ctx
 .Op Fl s Ar key Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Op Fl a
 .Op Fl -chunk Ar bytes
 .Op Fl f | Fl -force
 .Ar file
@@ -77,6 +78,13 @@ for standard output.
 A context string (at most 255 bytes) that
 .Xr noqtis-unbox 1
 must be given too.
+.It Fl a , Fl -armor
+Write the stream as text: the same bytes as ASCII armor under the label
+.Ql NOQTIS SEALED STREAM
+.Pq Xr noqtis-armor 1 ,
+a third longer, which
+.Xr noqtis-unbox 1
+reads as well.
 .It Fl -chunk Ar bytes
 The chunk size, 1024 to 16777216 (default 65536).
 .It Fl f , Fl -force

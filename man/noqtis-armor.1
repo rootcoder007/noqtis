@@ -1,0 +1,82 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NOQTIS-ARMOR 1
+.Os
+.Sh NAME
+.Nm noqtis-armor
+.Nd write a file as text (ASCII armor)
+.Sh SYNOPSIS
+.Nm noqtis armor
+.Op Fl l Ar label
+.Op Fl o Ar out
+.Op Fl -force
+.Op Ar file
+.Sh DESCRIPTION
+.Nm noqtis armor
+writes the bytes of
+.Ar file ,
+or of standard input when there is none or it is
+.Ar - ,
+as text that mail and a terminal carry (RFC 7468): a line
+.Ql -----BEGIN label----- ,
+the bytes in base64 in lines of 64 characters, and a line
+.Ql -----END label----- .
+The text is a third longer than the bytes and holds exactly them:
+nothing is encrypted or signed by it.
+A file of any length is armored, a line at a time.
+.Bl -tag -width Ds
+.It Fl l Ar label , Fl -label Ns = Ns Ar label
+The label: capitals and digits with single spaces between them, at
+most 63 characters.
+Default:
+.Ql NOQTIS DATA .
+.It Fl o Ar out , Fl -out Ns = Ns Ar out
+The output file; standard output when it is not given or is
+.Ar - .
+.It Fl f , Fl -force
+Replace an existing
+.Ar out .
+.El
+.Pp
+.Xr noqtis-sign 1
+and
+.Xr noqtis-box 1
+write armor themselves with
+.Fl a ,
+under the labels
+.Ql NOQTIS SIGNATURE
+and
+.Ql NOQTIS SEALED STREAM ,
+and
+.Xr noqtis-verify 1
+and
+.Xr noqtis-unbox 1
+read it; a signature or a stream armored afterwards with the same label
+is the same text.
+Key files are text already
+.Pq Xr noqtis-keygen 1 .
+Do not armor a secret key with this command: its base64 is not
+constant time.
+.Sh EXIT STATUS
+0 when the text was written; 2 on a usage or file error.
+.Sh EXAMPLES
+.Bd -literal
+$ printf 'hello, stream\en' | noqtis armor -l NOTE
+-----BEGIN NOTE-----
+aGVsbG8sIHN0cmVhbQo=
+-----END NOTE-----
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-box 1 ,
+.Xr noqtis-dearmor 1 ,
+.Xr noqtis-sign 1 ,
+.Xr nqarmenc 3
+.Sh STANDARDS
+.Rs
+.%A S. Josefsson
+.%A S. Leonard
+.%T Textual Encodings of PKIX, PKCS, and CMS Structures
+.%R RFC 7468
+.%D April 2015
+.Re

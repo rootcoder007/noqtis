@@ -2517,6 +2517,153 @@ static void tbox(void) {
   want(2, "box -p q.kk.pub -p q.k2.pub -o q.s5 --force q.none", NULL);
 }
 
+/* ---- ASCII armor: sign -a, box -a, armor, dearmor ---- */
+
+/* p without its last n bytes, as to */
+static void cut(const char *p, const char *to, size_t n) {
+  size_t k = 0;
+  unsigned char *b = rd(p, &k);
+  wr(to, b, k > n ? k - n : 0);
+  free(b);
+}
+
+static void tarm(void) {
+  size_t n = 0, i, o = 0;
+  unsigned char *b, *c;
+  /* a signature as text, and back */
+  want(0, "sign -k q.sg -a -o q.as --force q.b4", NULL);
+  ok(has("q.as", "-----BEGIN NOQTIS SIGNATURE-----\n") &&
+     has("q.as", "\n-----END NOQTIS SIGNATURE-----\n"),
+     "sign -a writes an armored signature");
+  want(0, "verify -p q.sg.pub -s q.as q.b4", NULL);
+  want(1, "verify -p q.sg.pub -s q.as q.b1", NULL);
+  want(0, "dearmor -o q.rs --force q.as", NULL);
+  want(0, "verify -p q.sg.pub -s q.rs q.b4", NULL);
+  want(0, "sign -k q.sg -d -o q.r1 --force q.b4", NULL);
+  want(0, "sign -k q.sg -d -a -o q.r2 --force q.b4", NULL);
+  want(0, "dearmor -o q.r3 --force q.r2", NULL);
+  ok(same("q.r1", "q.r3"), "the armor holds the signature sign writes");
+  /* one character of it changed: still an armor, no longer the signature */
+  b = rd("q.as", &n);
+  b[40] = b[40] == 'A' ? 'B' : 'A';
+  wr("q.ax", b, n);
+  want(1, "verify -p q.sg.pub -s q.ax q.b4", NULL);
+  free(b);
+  /* CRLF line ends are read */
+  b = rd("q.as", &n);
+  c = (unsigned char *)malloc(2 * n);
+  if (c == NULL) exit(2);
+  for (i = 0; i < n; i++) {
+    if (b[i] == '\n') c[o++] = '\r';
+    c[o++] = b[i];
+  }
+  wr("q.ac", c, o);
+  free(b);
+  free(c);
+  want(0, "verify -p q.sg.pub -s q.ac q.b4", NULL);
+  /* another label, a cut one */
+  want(0, "armor -o q.ad --force q.rs", NULL);
+  ok(has("q.ad", "-----BEGIN NOQTIS DATA-----\n"), "armor: the default label");
+  want(2, "verify -p q.sg.pub -s q.ad q.b4", NULL);
+  ok(has("q.err", "is armored, but not as one whole signature"),
+     "verify: an armor under another label");
+  cut("q.as", "q.at", 12);
+  want(2, "verify -p q.sg.pub -s q.at q.b4", NULL);
+  /* a sealed stream as text: several keys and signed, one key, empty */
+  want(0, "box -p q.kk.pub -p q.k2.pub -s q.sg -a --chunk 1024 -o q.ab "
+          "--force q.b4", NULL);
+  ok(has("q.ab", "-----BEGIN NOQTIS SEALED STREAM-----\n") &&
+     has("q.ab", "\n-----END NOQTIS SEALED STREAM-----\n") &&
+     !has("q.ab", "NQKM"), "box -a writes an armored stream");
+  want(0, "unbox -k q.k2 -s q.sg.pub -o q.ya --force q.ab", NULL);
+  ok(same("q.b4", "q.ya"), "an armored signed stream opens");
+  want(0, "box -p q.kk.pub --armor -o q.a1 --force q.b1", NULL);
+  want(0, "unbox -k q.kk -o q.ya --force q.a1", NULL);
+  ok(same("q.b1", "q.ya"), "an armored stream to one key opens");
+  want(0, "box -p q.kk.pub -a -o q.a0 --force q.b0", NULL);
+  want(0, "unbox -k q.kk -o q.ya --force q.a0", NULL);
+  ok(same("q.b0", "q.ya"), "an armored empty stream opens");
+  want(0, "box -p q.kk.pub -a --chunk 1024 -o - -", "q.b4");
+  cp("q.out", "q.a2");
+  want(0, "unbox -k q.kk -o - -", "q.a2");
+  ok(same("q.out", "q.b4"), "armored, stdin to stdout");
+  /* the binary stream armored afterwards is the same thing */
+  want(0, "box -p q.kk.pub --chunk 1024 -c ctx -o q.xa --force q.b4", NULL);
+  want(0, "armor -l \"NOQTIS SEALED STREAM\" -o q.a3 --force q.xa", NULL);
+  want(0, "unbox -k q.kk -c ctx -o q.ya --force q.a3", NULL);
+  ok(same("q.b4", "q.ya"), "armor of a boxed file opens");
+  want(0, "dearmor -o q.d3 --force q.a3", NULL);
+  ok(same("q.d3", "q.xa"), "dearmor gives the boxed file back");
+  /* what unbox refuses: another label, a cut armor, text after it */
+  remove("q.ya");
+  want(0, "armor -o q.a4 --force q.xa", NULL);
+  want(2, "unbox -k q.kk -c ctx -o q.ya q.a4", NULL);
+  ok(has("q.err", "is armored, but not as a sealed stream") &&
+     !exists("q.ya"), "unbox: an armor under another label");
+  cut("q.a3", "q.a5", 30);
+  want(2, "unbox -k q.kk -c ctx -o q.ya q.a5", NULL);
+  ok(!exists("q.ya"), "unbox: an armor cut short keeps nothing");
+  cut("q.a3", "q.a5", 600);
+  want(2, "unbox -k q.kk -c ctx -o q.ya q.a5", NULL);
+  ok(!exists("q.ya"), "unbox: an armor cut in its base64 keeps nothing");
+  b = rd("q.a3", &n);
+  c = (unsigned char *)malloc(n + 5);
+  if (c == NULL) exit(2);
+  memcpy(c, b, n);
+  memcpy(c + n, "more\n", 5);
+  wr("q.a6", c, n + 5);
+  free(b);
+  free(c);
+  want(2, "unbox -k q.kk -c ctx -o q.ya q.a6", NULL);
+  ok(has("q.err", "the armor is not whole") && !exists("q.ya"),
+     "unbox: text after the armor keeps nothing");
+  wrs("q.a7", "-----BEGIN NOQTIS SEALED STREAM-----\n"
+              "-----END NOQTIS SEALED STREAM-----\n");
+  want(2, "unbox -k q.kk -o q.ya q.a7", NULL);
+  wrs("q.a7", "-----BEGIN\n");
+  want(2, "unbox -k q.kk -o q.ya q.a7", NULL);
+  wrs("q.a7", "-");
+  want(2, "unbox -k q.kk -o q.ya q.a7", NULL);
+  /* armor and dearmor: any bytes, stdin and stdout, their refusals */
+  want(0, "armor", "q.b4");
+  cp("q.out", "q.a8");
+  want(0, "dearmor", "q.a8");
+  ok(same("q.out", "q.b4"), "armor and dearmor, stdin to stdout");
+  want(0, "armor -o - -", "q.b0");
+  cp("q.out", "q.a8");
+  ok(has("q.a8", "-----BEGIN NOQTIS DATA-----\n"
+                 "-----END NOQTIS DATA-----\n"),
+     "armor of nothing is two lines");
+  want(0, "dearmor -o q.d0 --force q.a8", NULL);
+  ok(same("q.d0", "q.b0"), "dearmor of nothing");
+  want(0, "armor -l X9 -o q.a9 --force q.b1", NULL);
+  ok(has("q.a9", "-----BEGIN X9-----\naGVsbG8sIHN0cmVhbQo=\n"
+                 "-----END X9-----\n"), "armor: the exact text");
+  want(2, "armor -o q.a9 q.b1", NULL);
+  want(2, "armor -l lower -o q.a9 --force q.b1", NULL);
+  ok(has("q.err", "a label is capitals and digits"), "armor: a bad label");
+  want(2, "armor -l \"A  B\" -o q.a9 --force q.b1", NULL);
+  want(2, "armor q.b1 q.b4", NULL);
+  want(2, "armor q.none", NULL);
+  want(0, "armor --help", NULL);
+  want(0, "dearmor --help", NULL);
+  want(2, "dearmor -l X q.a8", NULL);
+  remove("q.d1");
+  want(2, "dearmor -o q.d1 q.b4", NULL);
+  ok(has("q.err", "is not armored") && !exists("q.d1"),
+     "dearmor: a file that is not armored");
+  want(2, "dearmor -o q.d1 q.b0", NULL);
+  cut("q.a3", "q.a5", 30);
+  want(2, "dearmor -o q.d1 q.a5", NULL);
+  ok(has("q.err", "is not one whole armor") && !exists("q.d1"),
+     "dearmor: an armor cut short keeps nothing");
+  want(2, "dearmor -o q.d1 q.a6", NULL);
+  ok(!exists("q.d1"), "dearmor: text after the armor keeps nothing");
+  want(2, "dearmor -o q.d0 q.a8", NULL);
+  want(2, "dearmor q.a8 q.a8", NULL);
+  want(2, "dearmor q.none", NULL);
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -2576,6 +2723,7 @@ int main(int argc, char **argv) {
   tpass();
   tstream();
   tbox();
+  tarm();
   for (i = 0; i < sizeof kems / sizeof kems[0]; i++)
     tkem(kems[i]);
   thash();
