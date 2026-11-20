@@ -1,0 +1,126 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQARMENC 3
+.Os
+.Sh NAME
+.Nm nqarmlen ,
+.Nm nqarmenc ,
+.Nm nqarmdec
+.Nd bytes as text, and back (ASCII armor)
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Fd #define NQARMLAB 64u
+.Ft int
+.Fn nqarmlen "const char *label" "size_t n" "size_t *len"
+.Ft int
+.Fn nqarmenc "const char *label" "const uint8_t *in" "size_t n" "char *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqarmdec "const char *in" "size_t n" "char *label" "size_t lcap" "uint8_t *out" "size_t cap" "size_t *outlen"
+.Sh DESCRIPTION
+These functions write bytes as text that mail and a terminal carry, as
+RFC 7468 does: a line
+.Ql -----BEGIN label----- ,
+the bytes in base64 (RFC 4648 section 4) in lines of 64 characters, and
+a line
+.Ql -----END label----- .
+There are no headers and no checksum.
+A
+.Fa label
+is 1 to
+.Dv NQARMLAB
+\- 1 capitals and digits with single spaces between them, such as
+.Ql NOQTIS SIGNATURE .
+.Pp
+.Fn nqarmlen
+gives in
+.Fa len
+the number of characters
+.Fn nqarmenc
+writes for
+.Fa n
+bytes under
+.Fa label .
+.Fn nqarmenc
+writes them to
+.Fa out ,
+which holds
+.Fa cap
+characters, and their number to
+.Fa outlen ;
+no NUL follows them.
+.Pp
+.Fn nqarmdec
+reads one armor from the
+.Fa n
+characters at
+.Fa in .
+Space, tabs and line ends (LF or CRLF) may come before it, after it and
+between the base64 characters; nothing else may, and the END label must
+be the BEGIN label.
+The bytes go to
+.Fa out
+and their number to
+.Fa outlen ;
+.Fa out
+never needs more than three bytes for every four characters of
+.Fa in .
+When
+.Fa lcap
+is not 0 the label, with a NUL, is written to
+.Fa label ,
+for which
+.Dv NQARMLAB
+characters are always enough.
+.Pp
+The base64 of these functions is not constant time.
+Armor what is public (a signature, a sealed stream, a public key),
+never a secret key.
+.Sh RETURN VALUES
+.Dv NQOK
+on success.
+.Dv NQEARG
+for a
+.Dv NULL
+pointer or a label that is not one;
+.Dv NQEBUF
+when
+.Fa out
+or
+.Fa label
+is too small;
+.Dv NQELIM
+for an
+.Fa n
+whose text has no
+.Vt size_t
+length;
+.Dv NQEDEC
+from
+.Fn nqarmdec
+for text that is not one armor as described.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+char txt[256], lab[NQARMLAB];
+uint8_t back[64];
+size_t n, k;
+
+nqarmenc("NOTE", (const uint8_t *)"hello", 5, txt, sizeof txt, &n);
+/* txt: -----BEGIN NOTE-----\enaGVsbG8=\en-----END NOTE-----\en */
+nqarmdec(txt, n, lab, sizeof lab, back, sizeof back, &k);
+/* k is 5, lab is "NOTE" */
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-armor 1 ,
+.Xr noqtis-dearmor 1 ,
+.Xr noqtis 3 ,
+.Xr nqerr 3
+.Sh STANDARDS
+.Rs
+.%A S. Josefsson
+.%A S. Leonard
+.%T Textual Encodings of PKIX, PKCS, and CMS Structures
+.%R RFC 7468
+.%D April 2015
+.Re

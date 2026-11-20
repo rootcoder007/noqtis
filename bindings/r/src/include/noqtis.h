@@ -892,6 +892,36 @@ NQAPI int nqersput(const char *dir, nqhalg h, const uint8_t *rsp,
                    const uint8_t *const *anc, const size_t *anclen,
                    size_t nanc, int64_t *gt, int *how, const char **why);
 
+/* ---- ASCII armor ---------------------------------------------------- */
+
+/* Bytes as text that mail and a terminal carry (RFC 7468): a line
+ * -----BEGIN <label>-----, the bytes in base64 (RFC 4648 section 4) in
+ * lines of 64 characters, a line -----END <label>-----. A label is 1 to
+ * NQARMLAB - 1 capitals and digits with single spaces between them
+ * ("NOQTIS SIGNATURE"). There are no headers and no checksum.
+ *
+ * nqarmlen gives the number of characters nqarmenc writes for n bytes;
+ * nqarmenc writes them (no NUL after them). nqarmdec reads one armor:
+ * space and line ends (LF or CRLF) may come before it, after it and
+ * between the base64 characters, nothing else may; the END label must
+ * be the BEGIN label. It writes the label, with a NUL, to label when
+ * lcap is not 0, and the bytes to out, which never needs more than
+ * three bytes for every four characters of in.
+ *
+ * The base64 here is not constant time: armor what is public (a
+ * signature, a sealed stream, a public key), never a secret key.
+ *
+ * Errors: NQEARG for a NULL pointer or a label that is not one; NQEBUF
+ * for an output, or a label buffer, that is too small; NQELIM for an n
+ * whose text has no size_t length; NQEDEC for text that is not one
+ * armor as described. */
+#define NQARMLAB 64u
+NQAPI int nqarmlen(const char *label, size_t n, size_t *len);
+NQAPI int nqarmenc(const char *label, const uint8_t *in, size_t n,
+                   char *out, size_t cap, size_t *outlen);
+NQAPI int nqarmdec(const char *in, size_t n, char *label, size_t lcap,
+                   uint8_t *out, size_t cap, size_t *outlen);
+
 /* ---- TLS 1.3 client ------------------------------------------------- */
 
 /* A TLS 1.3 client (RFC 8446): X25519MLKEM768 and X25519 key shares

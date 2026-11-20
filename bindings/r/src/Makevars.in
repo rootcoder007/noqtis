@@ -18,6 +18,7 @@ OBJECTS = \
   box/km.o \
   box/ks.o \
   box/pw.o \
+  cap/arm.o \
   cap/chk.o \
   cap/dsse.o \
   cap/ers.o \
