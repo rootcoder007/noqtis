@@ -62,13 +62,14 @@ for f in "$top"/nqd/*.c; do
   printf '%s %s\n' "$f" "$obj/nqd/$(basename "$f" .c).o"
 done > "$obj/nqd.lst"
 cat "$obj/lib.lst" "$obj/cli.lst" "$obj/nqd.lst" | xargs -P "$NQJ" -n 2 sh -c '
-  $CC $CFLAGS -std=c11 -DNQTEST -I"$top/include" -I"$top/src" -I"$top/cli" \
+  $CC $CFLAGS -std=c11 -DNQTEST -DNQNOUPD -I"$top/include" -I"$top/src" -I"$top/cli" \
     -c "$0" -o "$1"'
-# the whole tool, its main renamed, for fcli (fuzzed arguments)
+# the whole tool, its main renamed, for fcli (fuzzed arguments); NQNOUPD:
+# version --check would ask the network from inside the fuzzer
 for f in "$top"/cli/*.c; do
   printf '%s %s\n' "$f" "$obj/clif/$(basename "$f" .c).o"
 done | xargs -P "$NQJ" -n 2 sh -c '
-  $CC $CFLAGS -std=c11 -Dmain=nqclimain -I"$top/include" -I"$top/src" \
+  $CC $CFLAGS -std=c11 -Dmain=nqclimain -DNQNOUPD -I"$top/include" -I"$top/src" \
     -I"$top/cli" -c "$0" -o "$1"'
 rm -f "$obj/libnq.a" "$obj/libnqcli.a" "$obj/libnqd.a"
 ar rcs "$obj/libnq.a" "$obj"/lib/*.o

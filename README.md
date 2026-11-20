@@ -195,7 +195,7 @@ people's work.
   Protocol, and those of Project Wycheproof.
 - The checks run on CBMC (bounded proofs), dudect and Valgrind (timing),
   libFuzzer and OSS-Fuzz (fuzzing) and OpenSSL 3.5 (agreement on the same
-  inputs). None of them is needed to build or use NOQTIS.
+  inputs).
 - Timestamps and evidence records follow RFC 3161 and RFC 4998.
 
 Thanks, too, to the people who gave their time: Uwe Ligges and his

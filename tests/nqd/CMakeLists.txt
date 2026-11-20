@@ -44,7 +44,9 @@ if(NQCLI AND NOT WIN32 AND NOT EMSCRIPTEN)
   file(GLOB NQCSRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/cli/*.c)
   add_executable(nqclit ${NQCSRC})
   target_compile_definitions(nqclit PRIVATE NQTEST)
-  target_link_libraries(nqclit PRIVATE nqd noqtis)
+  # ${CMAKE_DL_LIBS}: cli/upd.c loads the libcurl of the system, and the
+  # loader is outside libc in glibc before 2.34
+  target_link_libraries(nqclit PRIVATE nqd noqtis ${CMAKE_DL_LIBS})
   set(THREADS_PREFER_PTHREAD_FLAG ON)
   find_package(Threads REQUIRED)
   target_link_libraries(nqclit PRIVATE Threads::Threads)
