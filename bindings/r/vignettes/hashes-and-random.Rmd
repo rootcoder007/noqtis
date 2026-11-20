@@ -1,8 +1,8 @@
 ---
-title: "Hashes, password hashing and random bytes"
+title: "Hashes, ciphers, password hashing and random bytes"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Hashes, password hashing and random bytes}
+  %\VignetteIndexEntry{Hashes, ciphers, password hashing and random bytes}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -21,7 +21,7 @@ options(width = 88)
 library(noqtis)
 ```
 
-SHA-2, SHA-3 and SHAKE with HMAC, BLAKE2b and Argon2id, comparison in constant time, and random bytes from the operating system.
+SHA-2, SHA-3 and SHAKE with HMAC, KangarooTwelve, BLAKE2b and Argon2id, comparison in constant time, AES-SIV, AES-GCM-SIV and ChaCha20, and random bytes from the operating system.
 
 Each section is one help page: what its functions are for, and the example
 of the page as it runs. `?name` gives the arguments and the value in full.
@@ -52,6 +52,26 @@ nqblake2b("abc")
 nqblake2b("abc", key = as.raw(1:32), n = 32)
 nqargon2id("password", as.raw(1:16), t = 1, m = 8, p = 1)
 nqcteq(nqblake2b("a"), nqblake2b("a"))
+```
+
+## KangarooTwelve, AES-SIV, AES-GCM-SIV and the ChaCha20 stream
+
+`nqkt()`, `nqsivenc()`, `nqsivdec()`, `nqgsivenc()`, `nqgsivdec()`, `nqchacha20()`: `nqkt()` is KangarooTwelve (RFC 9861): `n` bytes of KT128 (`bits = 128`) or KT256 (`bits = 256`), the tree hash and extendable-output function on Keccak with 12 rounds, with an optional customization string (a secret key there makes it a MAC). A shorter output is the start of a longer one.
+
+```{r nqkt}
+nqkt("abc")
+nqkt("abc", n = 64, bits = 256, custom = "my application")
+
+key <- as.raw(1:64)
+ct <- nqsivenc(key, "a message", ad = list("header"))
+rawToChar(nqsivdec(key, ct, ad = list("header")))
+
+nonce <- as.raw(1:12)
+ct <- nqgsivenc(key[1:32], nonce, "a message", ad = "header")
+rawToChar(nqgsivdec(key[1:32], nonce, ct, ad = "header"))
+
+ks <- nqchacha20(key[1:32], nonce, "not authenticated")
+rawToChar(nqchacha20(key[1:32], nonce, ks))
 ```
 
 ## Random bytes from the operating system
