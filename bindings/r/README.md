@@ -70,6 +70,11 @@ reach the rest of the capsule functions; `nqdparse()`, `nqdschk()`,
 `nqdreveal()`, `nqdcite()`, `nqdreport()` and `nqdenv()` the rest of
 the data record (`nqdenv()` records R and its loaded packages).
 
+`nqkt()` is KangarooTwelve (RFC 9861); `nqsivenc()` / `nqsivdec()`
+AES-SIV (RFC 5297) and `nqgsivenc()` / `nqgsivdec()` AES-GCM-SIV (RFC
+8452), authenticated encryption; `nqchacha20()` the ChaCha20 stream of
+RFC 8439, which is not authenticated.
+
 ## Citation
 
 > Ruhela, V. S. (2026). *NOQTIS: Notary of Quantum-Safe Traceable Inputs

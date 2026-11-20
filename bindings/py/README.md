@@ -218,6 +218,11 @@ functions, and `noqtis.data` the rest of the data record: `parse`,
 `reveal`, `commitment`, `cite`, `report` and `env`, which records the
 environment with the Python runtime and its installed distributions.
 
+`noqtis.kt128` and `kt256` are KangarooTwelve (RFC 9861); `sivenc` /
+`sivdec` AES-SIV (RFC 5297) and `gsivenc` / `gsivdec` AES-GCM-SIV (RFC
+8452), authenticated encryption; `chacha20` the ChaCha20 stream of RFC
+8439, which is not authenticated.
+
 ## Errors
 
 Every failure raises a subclass of `noqtis.NoqtisError`, one per library

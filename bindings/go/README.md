@@ -231,6 +231,11 @@ message; `Mu`, `SignMu` and `VerifyMu` ML-DSA with an external mu;
 `Chain` and `Env` the rest of the data layer (`Env` takes the modules
 from the program's build information).
 
+`KT128` and `KT256` are KangarooTwelve (RFC 9861); `SIVEncrypt` /
+`SIVDecrypt` AES-SIV (RFC 5297) and `GCMSIVEncrypt` / `GCMSIVDecrypt`
+AES-GCM-SIV (RFC 8452), authenticated encryption; `ChaCha20` the
+ChaCha20 stream of RFC 8439, which is not authenticated.
+
 ## Errors
 
 Every failure is an `*noqtis.Error`: `Code` is the library's `NQE*`

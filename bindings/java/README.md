@@ -277,6 +277,11 @@ rest of the capsule functions; `Data.checkSchema`, `synth`,
 rest of the data layer (`env` lists the boot layer's modules and the
 class path's jars).
 
+`Noqtis.kt128` and `kt256` are KangarooTwelve (RFC 9861); `sivenc` /
+`sivdec` AES-SIV (RFC 5297) and `gsivenc` / `gsivdec` AES-GCM-SIV (RFC
+8452), authenticated encryption; `chacha20` the ChaCha20 stream of RFC
+8439, which is not authenticated.
+
 ## Errors
 
 Every failure is a `NoqtisException` (unchecked): `code()` is the

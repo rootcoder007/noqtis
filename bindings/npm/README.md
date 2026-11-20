@@ -219,6 +219,11 @@ capsule functions (on files in memory, returning what changed);
 layer (`noqtis/node`'s `packages()` reads a `package-lock.json` for
 `env`).
 
+`kt128` and `kt256` are KangarooTwelve (RFC 9861); `sivenc` / `sivdec`
+AES-SIV (RFC 5297) and `gsivenc` / `gsivdec` AES-GCM-SIV (RFC 8452),
+authenticated encryption; `chacha20` the ChaCha20 stream of RFC 8439,
+which is not authenticated.
+
 ## Security notes
 
 - Randomness comes only from `crypto.getRandomValues`; if it is missing
