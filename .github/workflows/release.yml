@@ -547,4 +547,4 @@ jobs:
         run: |
           ls -l dist
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft \
-            --verify-tag --title "noqtis $V" --notes-file notes.md dist/*
+            --verify-tag --title "$V" --notes-file notes.md dist/*
