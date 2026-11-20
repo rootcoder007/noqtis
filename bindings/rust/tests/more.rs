@@ -94,6 +94,11 @@ fn key_statements_and_dsse() {
     assert!(String::from_utf8(r).unwrap().contains("noqtis-keys-1"));
     let v = cap::revoke("ML-DSA-44", &sk, &pk, 1_800_000_000, None).unwrap();
     assert!(String::from_utf8(v).unwrap().contains("noqtis-keys-1"));
+    let x = cap::expire("ML-DSA-44", &sk, &pk, 1_800_000_000, Some("yearly")).unwrap();
+    assert!(String::from_utf8(x)
+        .unwrap()
+        .contains("\"kind\":\"expire\""));
+    assert!(cap::expire("ML-DSA-44", &sk, &npk, 0, None).is_err());
     assert_eq!(
         cap::revoke("ML-DSA-44", &sk, &npk, 0, None)
             .unwrap_err()

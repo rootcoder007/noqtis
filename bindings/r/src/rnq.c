@@ -594,6 +594,10 @@ typedef struct {
 
 static int kscall(void *v, char *out, size_t cap, size_t *outlen) {
   ksarg *a = (ksarg *)v;
+  /* nalg -1: the statement that the key expires (nqkexp) */
+  if (a->nalg == -1)
+    return nqkexp((nqsalg)a->alg, rp(a->sk), rn(a->sk), rp(a->pk), rn(a->pk),
+                  a->at, a->why, out, cap, outlen);
   return nqkstmt((nqsalg)a->alg, rp(a->sk), rn(a->sk), rp(a->pk),
                  rn(a->pk), (nqsalg)a->nalg, rp(a->nsk), rn(a->nsk),
                  rp(a->npk), rn(a->npk), a->at, a->why, out, cap, outlen);

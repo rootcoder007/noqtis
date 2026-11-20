@@ -15,7 +15,7 @@ const FNS = [
   'nqhmac', 'nqssize', 'nqsname', 'nqskg', 'nqskgd', 'nqsign', 'nqsignd',
   'nqvrfy', 'nqksize', 'nqkname', 'nqkkg', 'nqkkgd', 'nqenc', 'nqencd',
   'nqdec', 'nqseal', 'nqseal2', 'nqcapid', 'nqchkt', 'nqchkx', 'nqchkp',
-  'nqprove', 'nqfiles', 'nqkstmt', 'nqdsse', 'nqdssevrfy', 'nqcard',
+  'nqprove', 'nqfiles', 'nqkstmt', 'nqkexp', 'nqdsse', 'nqdssevrfy', 'nqcard',
   'nqcardvrfy', 'nqrepn', 'nqrepi', 'nqrepfree', 'malloc', 'free',
   'nqdparse', 'nqdjson', 'nqdrfree', 'nqdput', 'nqdset', 'nqdsrc',
   'nqdchk', 'nqdinfer', 'nqdschk', 'nqdstats', 'nqddrift', 'nqddriftat',

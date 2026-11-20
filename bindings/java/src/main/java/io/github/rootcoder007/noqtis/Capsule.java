@@ -671,4 +671,39 @@ public final class Capsule {
   public static byte[] revoke(String alg, byte[] sk, byte[] pk, long at, String reason) {
     return kstmt(alg, sk, pk, null, null, null, at, reason);
   }
+
+  /**
+   * A key statement that the key pair (sk, pk) seals until at and not
+   * after, signed by it. {@link #check} accepts its seals as before until
+   * that time has come, and from then on only with a verified timestamp
+   * from before it.
+   *
+   * @param alg the pair's algorithm
+   * @param sk the secret key
+   * @param pk the public key
+   * @param at until when, in seconds since 1970
+   * @param reason up to 255 bytes of text, or null
+   * @return the statement
+   */
+  public static byte[] expire(String alg, byte[] sk, byte[] pk, long at, String reason) {
+    Noqtis.Alg a = Noqtis.find(alg, "sign");
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment r = reason == null ? MemorySegment.NULL : cs(m, reason);
+      MemorySegment k = Native.in(m, sk);
+      try {
+        return Native.sized(
+            m,
+            65536,
+            (o, cap, n) ->
+                (int)
+                    Native.NQKEXP.invoke(
+                        a.id(), k, (long) sk.length, Native.in(m, pk), (long) pk.length, at, r, o,
+                        cap, n));
+      } finally {
+        Native.wipe(k, sk.length);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
 }

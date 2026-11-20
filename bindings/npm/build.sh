@@ -28,7 +28,7 @@ fns='nqerr nqver nqselftest nqwipe nqrand nqhlen nqhash nqhmac
 nqssize nqsname nqskg nqskgd nqsign nqsignd nqvrfy
 nqksize nqkname nqkkg nqkkgd nqenc nqencd nqdec
 nqseal nqseal2 nqcapid nqchkt nqchkx nqchkp nqprove nqfiles
-nqkstmt nqdsse nqdssevrfy nqcard nqcardvrfy nqrepn nqrepi nqrepfree
+nqkstmt nqkexp nqdsse nqdssevrfy nqcard nqcardvrfy nqrepn nqrepi nqrepfree
 nqdparse nqdjson nqdrfree nqdput nqdset nqdsrc nqdchk nqdinfer nqdschk
 nqdstats nqddrift nqddriftat nqddiff nqdrepn nqdrepi nqdrepj nqdrepfree nqdaddr nqdvrfy
 nqdfld nqdrslv nqdrsp nqdwb

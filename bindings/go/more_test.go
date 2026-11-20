@@ -67,6 +67,13 @@ func TestStatementsDSSE(t *testing.T) {
 	if _, err := Revoke("ML-DSA-44", sk, npk, 0, ""); code(err) != -1 {
 		t.Fatal("not a pair", err)
 	}
+	x := must(Expire("ML-DSA-44", sk, pk, 1800000000, "yearly"))
+	if !bytes.Contains(x, []byte(`"kind":"expire"`)) {
+		t.Fatal("expire")
+	}
+	if _, err := Expire("ML-DSA-44", sk, npk, 0, ""); code(err) != -1 {
+		t.Fatal("expire, not a pair", err)
+	}
 	e := must(DSSE("ML-DSA-44", sk, pk, "text/plain", []byte("hello")))
 	typ, p, ok, err := DSSEVerify("ML-DSA-44", pk, e)
 	if err != nil || !ok || typ != "text/plain" || string(p) != "hello" {

@@ -674,3 +674,30 @@ pub fn revoke(alg: &str, sk: &[u8], pk: &[u8], at: i64, reason: Option<&str>) ->
     let a = crate::find(alg, crate::Kind::Sign)?;
     kstmt(a, sk, pk, None, at, reason)
 }
+
+/// A key statement that the key pair (`sk`, `pk`) seals until `at` and
+/// not after, signed by it; as [`rotate`]. [`check`] accepts its seals as
+/// before until that time has come, and from then on only with a verified
+/// timestamp from before it.
+pub fn expire(alg: &str, sk: &[u8], pk: &[u8], at: i64, reason: Option<&str>) -> Result<Vec<u8>> {
+    let a = crate::find(alg, crate::Kind::Sign)?;
+    let r = reason.map(|s| cs(s.as_bytes(), "reason")).transpose()?;
+    // SAFETY: the buffers are valid for the lengths passed
+    sized(
+        |o, c, l| unsafe {
+            ffi::nqkexp(
+                a.id,
+                sk.as_ptr(),
+                sk.len(),
+                pk.as_ptr(),
+                pk.len(),
+                at,
+                r.as_ref().map_or(ptr::null(), |s| s.as_ptr()),
+                o.cast(),
+                c,
+                l,
+            )
+        },
+        65536,
+    )
+}

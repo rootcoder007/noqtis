@@ -156,6 +156,16 @@ test_that("key statements", {
   expect_false(attr(r, "ok"))
   expect_false(all(rows(r, "key.time")$ok))
   expect_error(nqcheck(e, keys = list(rv)), "pk")
+  # a key that expires: its seals pass until then, then as a revoked one
+  ex <- nqexpire(k1$sk, k1$pk, "ML-DSA-44", at = 4102444800, reason = "yearly")
+  expect_match(rawToChar(ex), "\"kind\":\"expire\"", fixed = TRUE)
+  r <- nqcheck(e, k1$pk, keys = ex)
+  expect_true(attr(r, "ok"))
+  expect_true(all(rows(r, "key.time")$ok))
+  r <- nqcheck(e, k1$pk, keys = nqexpire(k1$sk, k1$pk, "ML-DSA-44", at = t0))
+  expect_false(attr(r, "ok"))
+  expect_false(all(rows(r, "key.time")$ok))
+  expect_error(nqexpire(k1$sk, k1$pk, "ML-DSA-44"), "at")
   expect_error(
     nqrotate(k1$sk, k1$pk, "ML-DSA-44", k1$sk, k1$pk, "ML-DSA-44", at = t0),
     "noqtis"

@@ -159,7 +159,7 @@ func sized(cp int, f func(o *C.char, cp C.size_t, n *C.size_t) C.int) ([]byte, e
 	return nil, cerr(-2)
 }
 
-func kstmt(alg string, sk, pk []byte, nalg string, nsk, npk []byte, at int64, reason string) ([]byte, error) {
+func kstmt(exp bool, alg string, sk, pk []byte, nalg string, nsk, npk []byte, at int64, reason string) ([]byte, error) {
 	a, err := find(alg, "sign")
 	if err != nil {
 		return nil, err
@@ -179,6 +179,9 @@ func kstmt(alg string, sk, pk []byte, nalg string, nsk, npk []byte, at int64, re
 		}
 	}
 	return sized(65536, func(o *C.char, cp C.size_t, n *C.size_t) C.int {
+		if exp {
+			return C.nqkexp(C.nqsalg(a.ID), u8(sk), sz(sk), u8(pk), sz(pk), C.int64_t(at), r, o, cp, n)
+		}
 		return C.nqkstmt(C.nqsalg(a.ID), u8(sk), sz(sk), u8(pk), sz(pk), C.nqsalg(na.ID),
 			u8(nsk), sz(nsk), u8(npk), sz(npk), C.int64_t(at), r, o, cp, n)
 	})
@@ -192,13 +195,21 @@ func Rotate(alg string, sk, pk []byte, nalg string, nsk, npk []byte, at int64, r
 	if len(nsk) == 0 || len(npk) == 0 {
 		return nil, why(-1, "the new key pair is needed")
 	}
-	return kstmt(alg, sk, pk, nalg, nsk, npk, at, reason)
+	return kstmt(false, alg, sk, pk, nalg, nsk, npk, at, reason)
 }
 
 // Revoke is a key statement that the key pair (sk, pk) is revoked from
 // at, signed by it; as Rotate.
 func Revoke(alg string, sk, pk []byte, at int64, reason string) ([]byte, error) {
-	return kstmt(alg, sk, pk, "", nil, nil, at, reason)
+	return kstmt(false, alg, sk, pk, "", nil, nil, at, reason)
+}
+
+// Expire is a key statement that the key pair (sk, pk) seals until at
+// and not after, signed by it; as Rotate. Check accepts its seals as
+// before until that time has come, and from then on only with a verified
+// timestamp from before it.
+func Expire(alg string, sk, pk []byte, at int64, reason string) ([]byte, error) {
+	return kstmt(true, alg, sk, pk, "", nil, nil, at, reason)
 }
 
 // DSSE is a DSSE envelope (canonical JSON) of payload of type typ (1 to

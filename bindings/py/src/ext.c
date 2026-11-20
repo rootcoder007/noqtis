@@ -653,6 +653,10 @@ typedef struct {
 
 static int kscall(void *v, char *out, size_t cap, size_t *outlen) {
   ksarg *a = (ksarg *)v;
+  /* nalg -1: the statement that the key expires (nqkexp) */
+  if (a->nalg == -1)
+    return nqkexp((nqsalg)a->alg, U8(a->sk), SZ(a->skl), U8(a->pk),
+                  SZ(a->pkl), (int64_t)a->at, a->why, out, cap, outlen);
   return nqkstmt((nqsalg)a->alg, U8(a->sk), SZ(a->skl), U8(a->pk),
                  SZ(a->pkl), (nqsalg)a->nalg, U8(a->nsk), SZ(a->nskl),
                  U8(a->npk), SZ(a->npkl), (int64_t)a->at, a->why, out, cap,
@@ -660,7 +664,7 @@ static int kscall(void *v, char *out, size_t cap, size_t *outlen) {
 }
 
 /* kstmt(alg, sk, pk, nalg, nsk or None, npk or None, at, reason or None)
- * -> statement */
+ * -> statement; nalg -1 for an expiry */
 static PyObject *pkstmt(PyObject *self, PyObject *args) {
   ksarg a;
   (void)self;

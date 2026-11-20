@@ -1,5 +1,6 @@
 # noqtis 0.3.0
 
+- New: `nqexpire()`, a key statement that a seal key seals until a given time. `nqcheck()` with it in `keys` accepts the key's seals as before until then, and afterwards only with a verified timestamp from before that time.
 - New: `nqkt()`, KangarooTwelve (RFC 9861, KT128 and KT256), the tree hash and extendable-output function, with an optional customization string.
 - New: `nqsivenc()` and `nqsivdec()`, AES-SIV (RFC 5297), deterministic authenticated encryption; `nqgsivenc()` and `nqgsivdec()`, AES-GCM-SIV (RFC 8452), authenticated encryption that resists a nonce used twice.
 - New: `nqchacha20()`, the ChaCha20 stream cipher of RFC 8439 on its own. It is not authenticated; its help page says what that means.

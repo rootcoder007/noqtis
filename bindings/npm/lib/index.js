@@ -1185,7 +1185,7 @@ function epoch(at) {
   return BigInt(at);
 }
 
-function kstmt(alg, secretKey, publicKey, nalg, nsk, npk, opts) {
+function kstmt(alg, secretKey, publicKey, nalg, nsk, npk, opts, exp = false) {
   const a = salg(alg);
   const b = nalg === null ? a : salg(nalg);
   const sk = key(secretKey, 'secretKey');
@@ -1202,6 +1202,10 @@ function kstmt(alg, secretKey, publicKey, nalg, nsk, npk, opts) {
     const psk = h.put(sk);
     const ppk = h.put(pk);
     const why = opts.reason === undefined ? 0 : h.str(opts.reason);
+    if (exp) {
+      return sized(h, (po, cap, pn) => M._nqkexp(a.id, psk, sk.length, ppk,
+        pk.length, at, why, po, cap, pn), 4 * pk.length + 16384);
+    }
     return sized(h, (po, cap, pn) => M._nqkstmt(a.id, psk, sk.length, ppk,
       pk.length, b.id, pns, ns ? ns.length : 0, pnp, np ? np.length : 0, at,
       why, po, cap, pn), 4 * (pk.length + (np ? np.length : 0)) + 16384);
@@ -1416,6 +1420,19 @@ export const capsule = Object.freeze({
   /** A key statement that the key pair is revoked from `opts.at`. */
   revoke(alg, secretKey, publicKey, opts = {}) {
     return kstmt(alg, secretKey, publicKey, null, null, null, opts);
+  },
+
+  /**
+   * A key statement that the key pair seals until `opts.at` (required)
+   * and not after. capsule.check accepts its seals as before until that
+   * time has come, and from then on only with a verified timestamp from
+   * before it.
+   */
+  expire(alg, secretKey, publicKey, opts = {}) {
+    if (opts.at === undefined) {
+      throw new TypeError('noqtis: at is needed: when the key expires');
+    }
+    return kstmt(alg, secretKey, publicKey, null, null, null, opts, true);
   },
   /**
    * What the capsule says, with nothing checked: { ok, code, checks } whose

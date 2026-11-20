@@ -162,6 +162,19 @@ test('key statements', () => {
   assert.equal(r2.ok, false);
   assert.ok(rows(r2, 'key.time').some((c) => !c.ok));
   assert.throws(() => capsule.check(e, { keys: [rv] }), err(codes.EARG));
+  // a key that expires: its seals pass until then, then as a revoked one
+  const ex = capsule.expire('ML-DSA-44', k1.secretKey, k1.publicKey,
+    { at: 4102444800, reason: 'yearly' });
+  assert.equal(JSON.parse(dec.decode(ex)).kind, 'expire');
+  const r3 = capsule.check(e, { trust: k1.publicKey, keys: [ex] });
+  assert.equal(r3.ok, true, JSON.stringify(r3.checks));
+  const r4 = capsule.check(e, { trust: k1.publicKey,
+    keys: [capsule.expire('ML-DSA-44', k1.secretKey, k1.publicKey,
+      { at: T0 })] });
+  assert.equal(r4.ok, false);
+  assert.ok(rows(r4, 'key.time').some((c) => !c.ok));
+  assert.throws(() => capsule.expire('ML-DSA-44', k1.secretKey,
+    k1.publicKey), TypeError);
   assert.throws(() => capsule.rotate('ML-DSA-44', k1.secretKey, k1.publicKey,
     'ML-DSA-44', k1.secretKey, k1.publicKey, { at: T0 }), err(codes.EARG));
   const ed = sign.keygen('Ed25519');

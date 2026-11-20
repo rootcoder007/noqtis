@@ -304,6 +304,7 @@ final class Native {
   static final MethodHandle NQERSPUT = fn("nqersput", I, P, I, P, Z, P, Z, P, P, Z, P, P, P);
   static final MethodHandle NQKSTMT =
       fn("nqkstmt", I, I, P, Z, P, Z, I, P, Z, P, Z, JAVA_LONG, P, P, Z, P);
+  static final MethodHandle NQKEXP = fn("nqkexp", I, I, P, Z, P, Z, JAVA_LONG, P, P, Z, P);
   static final MethodHandle NQDSSE = fn("nqdsse", I, I, P, Z, P, Z, P, P, Z, P, Z, P);
   static final MethodHandle NQDSSEVRFY = fn("nqdssevrfy", I, I, P, Z, P, Z, P, Z, P, P);
 }

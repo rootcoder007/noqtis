@@ -56,6 +56,8 @@ final class More2 {
     ok(new String(r).contains("noqtis-keys-1"), "rotate");
     ok(new String(Capsule.revoke("ML-DSA-44", k.sk(), k.pk(), 1800000000L, null)).contains("noqtis-keys-1"), "revoke");
     eq(fails(() -> Capsule.revoke("ML-DSA-44", k.sk(), n.pk(), 0, null)), Code.ARG, "not a pair");
+    ok(new String(Capsule.expire("ML-DSA-44", k.sk(), k.pk(), 1800000000L, "yearly")).contains("\"kind\":\"expire\""), "expire");
+    eq(fails(() -> Capsule.expire("ML-DSA-44", k.sk(), n.pk(), 0, null)), Code.ARG, "expire, not a pair");
     byte[] e = Dsse.sign("ML-DSA-44", k.sk(), k.pk(), "text/plain", b("hello"));
     var p = Dsse.verify("ML-DSA-44", k.pk(), e).get();
     ok(p.type().equals("text/plain") && new String(p.payload()).equals("hello"), "dsse");

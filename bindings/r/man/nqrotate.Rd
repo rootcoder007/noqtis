@@ -3,11 +3,14 @@
 \name{nqrotate}
 \alias{nqrotate}
 \alias{nqrevoke}
-\title{Rotate or revoke a seal key}
+\alias{nqexpire}
+\title{Rotate, revoke or expire a seal key}
 \usage{
 nqrotate(sk, pk, alg, nsk, npk, nalg, at = Sys.time(), reason = NULL)
 
 nqrevoke(sk, pk, alg, at = Sys.time(), reason = NULL)
+
+nqexpire(sk, pk, alg, at, reason = NULL)
 }
 \arguments{
 \item{sk, pk}{The key pair the statement is about.}
@@ -19,7 +22,7 @@ nqrevoke(sk, pk, alg, at = Sys.time(), reason = NULL)
 \item{nalg}{The new key pair's algorithm.}
 
 \item{at}{When the statement takes effect: a \code{POSIXct} time or seconds
-since 1970 (UTC); default now.}
+since 1970 (UTC); default now. \code{nqexpire()} has no default.}
 
 \item{reason}{\code{NULL}, or up to 255 bytes of text kept in the statement.}
 }
@@ -29,7 +32,9 @@ The statement, a raw vector (write it with \code{\link[=writeBin]{writeBin()}}).
 \description{
 A key statement (\code{noqtis-keys-1}, canonical JSON) says that a signing
 key is replaced by a new one from a given time (\code{nqrotate()}, signed by
-both keys) or revoked from then (\code{nqrevoke()}, signed by the key).
+both keys), revoked from then (\code{nqrevoke()}, signed by the key), or
+seals until a given time and not after (\code{nqexpire()}, signed by the
+key).
 \code{\link[=nqcheck]{nqcheck()}} follows statements from a trusted key with its \code{keys}
 argument.
 }
@@ -39,6 +44,8 @@ trusts the old key then accepts seals by the new one. A seal made with
 a key that was rotated away or revoked still passes when a verified
 RFC 3161 timestamp shows it was made before that time; without one it
 fails, since the seal's own creation time is only the sealer's word.
+A key that expires is treated the same from its time on; until then
+its seals pass as they do without the statement.
 Both signatures of a rotation are checked before it is returned. Both
 algorithms must be post-quantum: Ed25519 alone is refused.
 }
@@ -59,6 +66,10 @@ r <- nqrevoke(old$sk, old$pk, "ML-DSA-44",
   at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost"
 )
 substr(rawToChar(r), 1, 60)
+x <- nqexpire(new$sk, new$pk, "ML-DSA-65",
+  at = as.POSIXct("2030-01-01", tz = "UTC")
+)
+substr(rawToChar(x), 1, 60)
 }
 \seealso{
 Other capsule functions:

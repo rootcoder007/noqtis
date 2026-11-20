@@ -175,6 +175,17 @@ def test_keys(tmp_path):
     assert any(not x.ok for x in rows(r, "key.time"))
     with pytest.raises(noqtis.ArgError):
         noqtis.check(e, keys=[rv])  # statements need a trusted key
+    # a key that expires: its seals pass until then, and then as a revoked one
+    ex = noqtis.expire(sk1, pk1, at=4102444800, reason="yearly")
+    assert json.loads(ex)["kind"] == "expire"
+    r = noqtis.check(e, pk1, keys=[ex])
+    assert r.ok, str(r)
+    assert all(x.ok for x in rows(r, "key.time"))
+    r = noqtis.check(e, pk1, keys=[noqtis.expire(sk1, pk1, at=T0)])
+    assert not r.ok
+    assert any(not x.ok for x in rows(r, "key.time"))
+    with pytest.raises(TypeError):
+        noqtis.expire(sk1, pk1, at=None)
     with pytest.raises(noqtis.ArgError):
         noqtis.rotate(sk1, pk1, sk1, pk1, at=T0)  # the same key
     with pytest.raises(TypeError):

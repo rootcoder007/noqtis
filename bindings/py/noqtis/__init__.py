@@ -89,6 +89,7 @@ __all__ = [
     "inspect",
     "kem",
     "keyfile",
+    "expire",
     "pack",
     "prove",
     "rand",
@@ -442,6 +443,22 @@ def revoke(sk: Bytes, pk: Bytes,
     s, p = buf(sk, "sk"), buf(pk, "pk")
     a = _salg(s, p) if alg is None else find(alg, "sign")
     return _c.kstmt(a.id, s, p, a.id, None, None, _at(at), _reason(reason))
+
+
+def expire(sk: Bytes, pk: Bytes,
+           at: Union[int, float, datetime.datetime],
+           reason: Optional[str] = None,
+           alg: Optional[AlgLike] = None) -> bytes:
+    """A key statement (noqtis-keys-1, JSON) that the key pair (sk, pk)
+    seals until ``at`` and not after, signed by it; as ``rotate``.
+    ``check(keys=...)`` accepts its seals as before until that time has
+    come, and from then on only with a verified timestamp from before
+    it."""
+    if at is None:
+        raise TypeError("at: when the key expires")
+    s, p = buf(sk, "sk"), buf(pk, "pk")
+    a = _salg(s, p) if alg is None else find(alg, "sign")
+    return _c.kstmt(a.id, s, p, -1, None, None, _at(at), _reason(reason))
 
 
 class Card(NamedTuple):

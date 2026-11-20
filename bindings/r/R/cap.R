@@ -239,11 +239,13 @@ nqprove <- function(dir, paths) {
   .Call(Cprove, .dir(dir), enc2utf8(paths))
 }
 
-#' Rotate or revoke a seal key
+#' Rotate, revoke or expire a seal key
 #'
 #' A key statement (`noqtis-keys-1`, canonical JSON) says that a signing
 #' key is replaced by a new one from a given time (`nqrotate()`, signed by
-#' both keys) or revoked from then (`nqrevoke()`, signed by the key).
+#' both keys), revoked from then (`nqrevoke()`, signed by the key), or
+#' seals until a given time and not after (`nqexpire()`, signed by the
+#' key).
 #' [nqcheck()] follows statements from a trusted key with its `keys`
 #' argument.
 #'
@@ -252,6 +254,8 @@ nqprove <- function(dir, paths) {
 #' a key that was rotated away or revoked still passes when a verified
 #' RFC 3161 timestamp shows it was made before that time; without one it
 #' fails, since the seal's own creation time is only the sealer's word.
+#' A key that expires is treated the same from its time on; until then
+#' its seals pass as they do without the statement.
 #' Both signatures of a rotation are checked before it is returned. Both
 #' algorithms must be post-quantum: Ed25519 alone is refused.
 #'
@@ -260,7 +264,7 @@ nqprove <- function(dir, paths) {
 #' @param nsk,npk The new key pair.
 #' @param nalg The new key pair's algorithm.
 #' @param at When the statement takes effect: a `POSIXct` time or seconds
-#'   since 1970 (UTC); default now.
+#'   since 1970 (UTC); default now. `nqexpire()` has no default.
 #' @param reason `NULL`, or up to 255 bytes of text kept in the statement.
 #'
 #' @return The statement, a raw vector (write it with [writeBin()]).
@@ -282,6 +286,10 @@ nqprove <- function(dir, paths) {
 #'   at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost"
 #' )
 #' substr(rawToChar(r), 1, 60)
+#' x <- nqexpire(new$sk, new$pk, "ML-DSA-65",
+#'   at = as.POSIXct("2030-01-01", tz = "UTC")
+#' )
+#' substr(rawToChar(x), 1, 60)
 #' @export
 nqrotate <- function(sk, pk, alg, nsk, npk, nalg, at = Sys.time(),
                      reason = NULL) {
@@ -301,6 +309,16 @@ nqrevoke <- function(sk, pk, alg, at = Sys.time(), reason = NULL) {
   .rawarg(sk, "sk")
   .rawarg(pk, "pk")
   .Call(Ckstmt, a$id, sk, pk, a$id, NULL, NULL, .at(at), reason)
+}
+
+#' @rdname nqrotate
+#' @export
+nqexpire <- function(sk, pk, alg, at, reason = NULL) {
+  a <- .alg(alg, "sig")
+  .rawarg(sk, "sk")
+  .rawarg(pk, "pk")
+  # -1 in place of a new algorithm: the statement that the key expires
+  .Call(Ckstmt, a$id, sk, pk, -1L, NULL, NULL, .at(at), reason)
 }
 
 #' The time at, as whole seconds since 1970.

@@ -768,6 +768,18 @@ extern "C" {
         cap: usize,
         outlen: *mut usize,
     ) -> c_int;
+    pub fn nqkexp(
+        alg: c_int,
+        sk: *const u8,
+        skl: usize,
+        pk: *const u8,
+        pkl: usize,
+        at: i64,
+        reason: *const c_char,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
     pub fn nqdsse(
         alg: c_int,
         sk: *const u8,

@@ -277,6 +277,9 @@ export const capsule: {
   /** A key statement (JSON bytes) that the key pair is revoked. */
   revoke(alg: SignAlg, secretKey: Bytes, publicKey: Bytes,
     opts?: KeyOptions): Bytes;
+  /** A key statement (JSON bytes) that the key pair seals until opts.at. */
+  expire(alg: SignAlg, secretKey: Bytes, publicKey: Bytes,
+    opts: KeyOptions): Bytes;
   /** What the capsule says ("info.*" rows), with nothing checked. */
   inspect(files: Files): CheckResult;
   /** Why seal() refused the files, or null. */
