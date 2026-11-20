@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# bsd.yml -- the library and the command-line tool on FreeBSD, OpenBSD and
+# NetBSD, each in a virtual machine on the runner: built with the system's
+# own compiler through CMake, the whole test suite, an install into a
+# scratch root, and the installed tool run.
+name: bsd
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bsd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bsd:
+    name: ${{ matrix.os.name }} ${{ matrix.os.version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: cpa.sh {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { name: freebsd, version: "15.1", setup: "sudo pkg install -y cmake ninja" }
+          - { name: openbsd, version: "8.0", setup: "sudo pkg_add cmake ninja" }
+          - { name: netbsd, version: "11.0", setup: "sudo pkgin -y install cmake ninja-build" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cross-platform-actions/action@30cde56b87a128507bebea9531205087890ee360 # v1.8.0
+        with:
+          operating_system: ${{ matrix.os.name }}
+          version: ${{ matrix.os.version }}
+          architecture: x86-64
+          cpu_count: 4
+          memory: 8G
+      - name: the system
+        run: |
+          uname -a
+          cc --version | head -n 1
+          ${{ matrix.os.setup }}
+          cmake --version | head -n 1
+      - name: build, with warnings as errors
+        run: |
+          cmake -S . -B b -G Ninja -DCMAKE_BUILD_TYPE=Release -DNQSHARED=ON -DNQWERROR=ON
+          cmake --build b --parallel 4
+      - name: the test suite
+        run: |
+          # the slow SLH-DSA vectors sampled (every 32nd) and the short HQC
+          # rounds, as on the other slow machines of ci.yml
+          NQSLSUB=32 NQFAST=1 ctest --test-dir b --output-on-failure -j 4
+      - name: install into a scratch root and run what was installed
+        run: |
+          DESTDIR=/tmp/i cmake --install b
+          find /tmp/i -name 'noqtis' -type f | head -n 1
+          LD_LIBRARY_PATH=$(dirname "$(find /tmp/i -name 'libnoqtis.so*' | head -n 1)") \
+            "$(find /tmp/i -name noqtis -type f -perm -u+x | head -n 1)" --version
