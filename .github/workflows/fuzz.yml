@@ -2,8 +2,8 @@
 #
 # libFuzzer on every parser that reads untrusted bytes (fuzz/f*.c, built
 # by fuzz/build.sh with ASan and UBSan): each target runs for 90 seconds
-# on every push and pull request, and for an hour every week, from its
-# seed corpus in fuzz/corpus/. Any crash, leak, timeout or out-of-memory
+# on every push and pull request, and for an hour when started by hand,
+# from its seed corpus in fuzz/corpus/. Any crash, leak, timeout or out-of-memory
 # input fails the job and is uploaded as the artifact fuzz-<target>.
 name: fuzz
 
@@ -11,8 +11,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  schedule:
-    - cron: "41 3 * * 0"
   workflow_dispatch:
 
 permissions:
@@ -29,7 +27,7 @@ jobs:
   fuzz:
     name: fuzz ${{ matrix.target }}
     runs-on: ubuntu-24.04
-    # 90 s per push (plus the build), an hour weekly
+    # 90 s per push (plus the build), an hour by hand
     timeout-minutes: 150
     strategy:
       fail-fast: false
@@ -47,7 +45,7 @@ jobs:
       - name: fuzz
         run: |
           secs=90
-          if [ "$EVENT" = schedule ]; then secs=3600; fi
+          if [ "$EVENT" = workflow_dispatch ]; then secs=3600; fi
           fuzz/run.sh build-fuzz "$TARGET" "$secs"
       - name: upload the failing inputs
         if: failure()

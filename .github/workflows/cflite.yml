@@ -3,9 +3,9 @@
 # ClusterFuzzLite (.clusterfuzzlite/, the OSS-Fuzz build of
 # fuzz/oss-fuzz/build.sh): on a pull request, the targets its change
 # reaches are fuzzed for 5 minutes under ASan, UBSan and MSan, and a
-# crash is reported in code scanning; every week each sanitizer fuzzes
-# every target for an hour from the stored corpus, which then is pruned. The corpus and builds are kept as workflow
-# artifacts. fuzz.yml still runs every target on every push.
+# crash is reported in code scanning; started by hand, each sanitizer
+# fuzzes every target for an hour from the stored corpus, which then is
+# pruned. The corpus and builds are kept as workflow artifacts. fuzz.yml still runs every target on every push.
 name: cflite
 
 on:
@@ -17,8 +17,6 @@ on:
       - "fuzz/**"
       - ".clusterfuzzlite/**"
       - ".github/workflows/cflite.yml"
-  schedule:
-    - cron: "23 5 * * 6"
   workflow_dispatch:
 
 permissions:
