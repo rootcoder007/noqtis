@@ -49,6 +49,17 @@ static void thash(nqs2ctx *h, sbuf *b) {
     putrc(h, nqhash(hs[i], (const uint8_t *)"abc", 3, b->ss, n));
     put(h, b->ss, n);
   }
+  /* KangarooTwelve: one node, and a tree of two chunks with a
+   * customization string */
+  fill(b->sig, 9000, 3);
+  putrc(h, nqkt(128, (const uint8_t *)"abc", 3, NULL, 0, b->ss, 32));
+  put(h, b->ss, 32);
+  putrc(h, nqkt(256, (const uint8_t *)"abc", 3, NULL, 0, b->ss, 64));
+  put(h, b->ss, 64);
+  putrc(h, nqkt(128, b->sig, 9000, (const uint8_t *)"noqtis", 6, b->ss, 32));
+  put(h, b->ss, 32);
+  putrc(h, nqkt(256, b->sig, 9000, (const uint8_t *)"noqtis", 6, b->ss, 64));
+  put(h, b->ss, 64);
 }
 
 static void thmac(nqs2ctx *h, sbuf *b) {

@@ -159,6 +159,80 @@ NQAPI int nqhmac(nqhalg alg, const uint8_t *key, size_t keylen,
 NQAPI int nqb2b(const uint8_t *key, size_t keylen, const uint8_t *in,
                 size_t inlen, uint8_t *out, size_t outlen);
 
+/* ---- symmetric encryption: ChaCha20, AES-SIV, AES-GCM-SIV ----
+ *
+ * The two SIV modes are authenticated encryption that survives a nonce
+ * used twice, or needs none: use them where a nonce cannot be counted or
+ * remembered, and where the same message must give the same ciphertext.
+ * Decryption returns NQEVRFY for a ciphertext, key, nonce or associated
+ * data that does not verify, and the output is then all zero. out may
+ * not overlap in. All three are constant time in the key and the data. */
+
+/* The ChaCha20 stream cipher (RFC 8439 section 2.4): inlen bytes of in
+ * XORed with the key stream of the 32-byte key and the 12-byte nonce,
+ * from block counter ctr (a block is 64 bytes; RFC 8439 starts messages
+ * at 1). Decryption is the same call. out may be in.
+ *
+ * NOT AUTHENTICATED: a changed ciphertext decrypts to a changed
+ * plaintext with no error, and a (key, nonce, counter) used for two
+ * messages gives away their XOR. It is here for protocols that add
+ * their own authentication; to encrypt, use nqsivenc or nqgsivenc.
+ * NQEARG for another key or nonce length or a NULL pointer; NQELIM for
+ * more bytes than the 32-bit counter has blocks left. */
+NQAPI int nqcha20(const uint8_t *key, size_t keylen, const uint8_t *nonce,
+                  size_t nlen, uint32_t ctr, const uint8_t *in,
+                  size_t inlen, uint8_t *out);
+
+/* AES-SIV (RFC 5297), deterministic authenticated encryption. key is 32,
+ * 48 or 64 bytes: two AES-128, AES-192 or AES-256 keys. ad is nad
+ * associated strings of adlen[i] bytes each (0 to NQSIVADMAX of them;
+ * NULL when nad is 0), authenticated and not encrypted, each a separate
+ * input: a nonce, where there is one, is by convention the last. The
+ * output is the 16-byte synthetic IV, then inlen bytes of ciphertext:
+ * outlen must be inlen + 16 (nqsivenc) or inlen - 16 (nqsivdec).
+ * The same key, strings and plaintext always give the same output: it
+ * shows when two messages are equal, and nothing else. */
+#define NQSIVADMAX 126u
+NQAPI int nqsivenc(const uint8_t *key, size_t keylen,
+                   const uint8_t *const *ad, const size_t *adlen,
+                   size_t nad, const uint8_t *in, size_t inlen,
+                   uint8_t *out, size_t outlen);
+NQAPI int nqsivdec(const uint8_t *key, size_t keylen,
+                   const uint8_t *const *ad, const size_t *adlen,
+                   size_t nad, const uint8_t *in, size_t inlen,
+                   uint8_t *out, size_t outlen);
+
+/* AES-GCM-SIV (RFC 8452), authenticated encryption that resists nonce
+ * misuse. key is 16 or 32 bytes (AES-128 or AES-256), nonce 12 bytes, ad
+ * the associated data (NULL with length 0 for none). The output is inlen
+ * bytes of ciphertext, then the 16-byte tag: outlen must be inlen + 16
+ * (nqgsivenc) or inlen - 16 (nqgsivdec). A nonce should still be new for
+ * each message; one used twice with the same key shows only whether the
+ * two messages and their associated data were equal.
+ * NQELIM for a plaintext or associated data over 2^36 bytes. */
+NQAPI int nqgsivenc(const uint8_t *key, size_t keylen, const uint8_t *nonce,
+                    size_t nlen, const uint8_t *ad, size_t adlen,
+                    const uint8_t *in, size_t inlen, uint8_t *out,
+                    size_t outlen);
+NQAPI int nqgsivdec(const uint8_t *key, size_t keylen, const uint8_t *nonce,
+                    size_t nlen, const uint8_t *ad, size_t adlen,
+                    const uint8_t *in, size_t inlen, uint8_t *out,
+                    size_t outlen);
+
+/* KangarooTwelve (RFC 9861): outlen bytes (1 or more) of KT128 (bits
+ * 128) or KT256 (bits 256) of in, with the customization string custom
+ * (NULL with length 0 for none, the default). An extendable-output
+ * function on TurboSHAKE, Keccak with 12 rounds: a shorter output is the
+ * start of a longer one, and an input over 8192 bytes is hashed as a
+ * tree. 32 bytes of KT128 or 64 of KT256 give their full strength
+ * against collisions (128 and 256 bits). With a secret key as custom it
+ * is a MAC (RFC 9861 section 4): compare tags with nqcteq.
+ * NQEARG for other bits, an outlen of 0 or a NULL pointer; NQELIM when
+ * the lengths together do not fit in a size_t. */
+NQAPI int nqkt(unsigned bits, const uint8_t *in, size_t inlen,
+               const uint8_t *custom, size_t clen, uint8_t *out,
+               size_t outlen);
+
 /* Argon2id (RFC 9106, version 0x13) on that BLAKE2b: outlen bytes from
  * the password pw, the salt, the optional secret key and associated
  * data ad (NULL with length 0 for none), t passes over m KiB of memory

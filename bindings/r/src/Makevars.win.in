@@ -10,6 +10,7 @@ OBJECTS = \
   aead/aes.o \
   aead/ccp.o \
   aead/gcm.o \
+  aead/sym.o \
   api/kem.o \
   api/self.o \
   api/sig.o \
@@ -48,6 +49,7 @@ OBJECTS = \
   hash/hash.o \
   hash/hkdf.o \
   hash/hmac.o \
+  hash/kt.o \
   hash/sha1.o \
   hash/sha2.o \
   hash/sha3.o \

@@ -61,6 +61,8 @@ void nqs512(const uint8_t *in, size_t len, uint8_t out[64]);
 /* ---- Keccak ---- */
 
 void nqkeccak(uint64_t s[25]);
+/* Keccak-p[1600, 12]: the last 12 rounds of nqkeccak (TurboSHAKE). */
+void nqkeccak12(uint64_t s[25]);
 
 typedef struct {
   uint64_t s[25];
@@ -86,6 +88,26 @@ void nqksqz(nqkctx *c, uint8_t *out, size_t len);
 void nqs3(unsigned bits, const uint8_t *in, size_t len, uint8_t *out);
 void nqshk(unsigned bits, const uint8_t *in, size_t len, uint8_t *out,
            size_t outlen);
+
+/* ---- TurboSHAKE and KangarooTwelve (RFC 9861; kt.c) ---- */
+
+typedef struct {
+  uint64_t s[25];
+  size_t rate;      /* bytes per block: 168 (128) or 136 (256) */
+  size_t pos;       /* bytes absorbed into, or squeezed from, the block */
+} nqtsctx;
+
+/* TurboSHAKE128 / TurboSHAKE256: bits 128 or 256. */
+void nqtsini(nqtsctx *c, unsigned bits);
+/* Absorbs; only before nqtspad. */
+void nqtsabs(nqtsctx *c, const uint8_t *in, size_t len);
+/* Ends the input with the domain byte d (0x01 to 0x7f). */
+void nqtspad(nqtsctx *c, uint8_t d);
+/* Squeezes len more bytes; only after nqtspad. */
+void nqtssqz(nqtsctx *c, uint8_t *out, size_t len);
+/* The one-shot. */
+void nqtshk(unsigned bits, const uint8_t *in, size_t len, uint8_t d,
+          uint8_t *out, size_t outlen);
 
 /* ---- any fixed-size hash, and HMAC over it ---- */
 

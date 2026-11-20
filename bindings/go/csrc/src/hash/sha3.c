@@ -29,10 +29,12 @@ static uint64_t rol(uint64_t x, unsigned n) {
   return (x << n) | (x >> (64 - n));
 }
 
-void nqkeccak(uint64_t s[25]) {
+/* the rounds from r0 to the last: all 24 (Keccak-f[1600]), or the last
+ * 12 (Keccak-p[1600, 12], FIPS 202 section 3.3) */
+static void keccakp(uint64_t s[25], unsigned r0) {
   uint64_t b[5], t, u;
   unsigned r, i, j;
-  for (r = 0; r < 24; r++) {
+  for (r = r0; r < 24; r++) {
     /* theta */
     for (i = 0; i < 5; i++) {
       b[i] = s[i] ^ s[i + 5] ^ s[i + 10] ^ s[i + 15] ^ s[i + 20];
@@ -62,6 +64,14 @@ void nqkeccak(uint64_t s[25]) {
     /* iota */
     s[0] ^= rc[r];
   }
+}
+
+void nqkeccak(uint64_t s[25]) {
+  keccakp(s, 0);
+}
+
+void nqkeccak12(uint64_t s[25]) {
+  keccakp(s, 12);
 }
 
 static void xorb(nqkctx *c, size_t i, unsigned v) {
