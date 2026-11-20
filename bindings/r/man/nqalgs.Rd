@@ -2,9 +2,7 @@
 % Please edit documentation in R/sig.R
 \name{nqalgs}
 \alias{nqalgs}
-\title{Lists every signature and key encapsulation algorithm the bundled
-library provides, with the sizes in bytes of its keys, signatures,
-ciphertexts and shared secrets.}
+\title{Algorithms and their sizes}
 \usage{
 nqalgs()
 }
@@ -15,6 +13,11 @@ in bytes; \code{NA} where they do not apply) and \code{id} (the library's
 number for the algorithm).
 }
 \description{
+Lists every signature and key encapsulation algorithm the bundled
+library provides, with the sizes in bytes of its keys, signatures,
+ciphertexts and shared secrets.
+}
+\details{
 The signature algorithms are ML-DSA-44, 65 and 87 (FIPS 204, security
 categories 2, 3 and 5); the twelve SLH-DSA parameter sets (FIPS 205),
 \verb{SLH-DSA-SHA2-} and \verb{SLH-DSA-SHAKE-} followed by \code{128}, \code{192} or \code{256}

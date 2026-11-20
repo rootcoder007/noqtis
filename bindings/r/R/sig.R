@@ -2,7 +2,7 @@
 # its description lets the lines of the whole manual stretch where a word
 # cannot be broken (a formula in code font, a DOI), so none runs off the
 # page; the lint job checks that the first page still carries it.
-' Algorithms and their sizes
+#' Algorithms and their sizes
 #'
 #' Lists every signature and key encapsulation algorithm the bundled
 #' library provides, with the sizes in bytes of its keys, signatures,
