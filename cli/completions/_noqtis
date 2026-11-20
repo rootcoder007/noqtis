@@ -58,9 +58,12 @@ _noqtis_cmd() {
         '::ss:_files' ;;
     box)
       _arguments \
-        '(-p --pub)'{-p,--pub=}'[ML-KEM public key]:key.pub:_files' \
+        '*'{-p,--pub=}'[ML-KEM public key of a recipient]:key.pub:_files' \
         '(-o --out)'{-o,--out=}'[output]:out:_files' \
         '(-c --ctx)'{-c,--ctx=}'[context string]:ctx:' \
+        '(-s --sign)'{-s,--sign=}'[sign with this secret key]:key:_files' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '--chunk=[chunk size in bytes]:bytes:' \
         '(-f --force)'{-f,--force}'[replace an existing file]' \
         ':file:_files' ;;
@@ -69,6 +72,8 @@ _noqtis_cmd() {
         '(-k --key)'{-k,--key=}'[ML-KEM secret key]:key:_files' \
         '(-o --out)'{-o,--out=}'[output]:out:_files' \
         '(-c --ctx)'{-c,--ctx=}'[context string]:ctx:' \
+        '(-s --sender --any-sender)'{-s,--sender=}'[the sender public key]:sender.pub:_files' \
+        '(-s --sender)--any-sender[open a signed file whoever signed it]' \
         '--pass-fd=[read the passphrase from descriptor]:fd:' \
         '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '(-f --force)'{-f,--force}'[replace an existing file]' \

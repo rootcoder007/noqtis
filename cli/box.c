@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* noqtis box and unbox: a file sealed to an ML-KEM public key in chunks
- * (noqtis-kstream-1, nqkfeini(3)), in memory of one chunk. unbox writes
- * a chunk's plaintext only once its tag has verified, and on any
- * failure removes the output file it was writing (on stdout it stops:
- * what was written had verified, but the stream is cut). */
+ * (noqtis-kstream-1, nqkfeini(3)), in memory of one chunk; to several
+ * keys, or signed by its sender, it is noqtis-kstream-2 (nqkmeini(3)).
+ * unbox reads either, writes a chunk's plaintext only once its tag has
+ * verified, and on any failure, a signature that does not verify among
+ * them, removes the output file it was writing (on stdout it stops:
+ * what was written had verified, but the stream is cut or its sender is
+ * not known). */
 #include "cli.h"
 
 #include <stdlib.h>
@@ -64,14 +67,122 @@ static int kemkey(const char *cmd, const char *path, const nckey *k) {
   return NCOK;
 }
 
+/* box to several keys, or signed (noqtis-kstream-2): kps[0..nk) the
+ * recipients' public key files, sp the sender's secret key file or NULL */
+static int boxm(const char **kps, int nk, const char *sp, const ncpw *pwo,
+                const char *out, const char *ctx, size_t cl,
+                unsigned long chunk, int force, const char *inp) {
+  nckey k[NCMAXV], sk = {{0, 0, NULL}, 0, NULL, 0};
+  nqkrcp r[NCMAXV];
+  nqkmctx c;
+  nqssz sz = {0, 0, 0};
+  uint8_t *h = NULL, *a = NULL, *e = NULL, *pw = NULL, nx = 0;
+  size_t hl = 0, got = 0, en = 0, pn = 0, ecap;
+  FILE *in = NULL, *of = NULL;
+  int i, nr = 0, rc, ret = NCUSE, bad = 1, more;
+
+  for (i = 0; i < nk; i++) {
+    if (nckrd("box", kps[i], 0, &k[nr]) != NCOK) goto done;
+    nr++;
+    if (kemkey("box", kps[i], &k[i]) != NCOK) goto done;
+    r[i].alg = (nqkalg)k[i].a.alg;
+    r[i].pk = k[i].b;
+    r[i].pklen = k[i].n;
+  }
+  if (sp != NULL) {
+    if (ncpwget("box", pwo, &pw, &pn) != NCOK) goto done;
+    rc = nckrdp("box", sp, 1, pw, pn, &sk);
+    ncfree(pw, NQPWLEN, 1);
+    if (rc != NCOK) goto done;
+    if (sk.a.kem || nqssize((nqsalg)sk.a.alg, &sz) != NQOK) {
+      ncmsg("box", "%s is a %s key; --sign takes a signature key", sp,
+            sk.a.name);
+      goto done;
+    }
+  }
+  if (nqkmhlen(r, (size_t)nk, &hl) != NQOK) {
+    nclib("box", "the recipients", NQEARG);
+    goto done;
+  }
+  ncbin();
+  ecap = chunk + 16 + (sp != NULL ? sz.sig + 16 : 0);
+  h = (uint8_t *)malloc(hl);
+  a = (uint8_t *)malloc(chunk);
+  e = (uint8_t *)malloc(ecap);
+  if (h == NULL || a == NULL || e == NULL) {
+    nclib("box", "memory", NQEMEM);
+    goto done;
+  }
+  in = opin("box", inp);
+  if (in == NULL) goto done;
+  of = opout("box", out, force, 0);
+  if (of == NULL) goto done;
+  rc = nqkmeini(&c, r, (size_t)nk, sp != NULL ? (nqsalg)sk.a.alg : (nqsalg)0,
+                (const uint8_t *)ctx, cl, (uint32_t)chunk, h, hl, &hl);
+  if (rc != NQOK) {
+    nclib("box", "sealing", rc);
+    goto done;
+  }
+  if (fwrite(h, 1, hl, of) != hl) {
+    ncmsg("box", "cannot write %s%s", out, ncwhy());
+    nqwipe(&c, sizeof c);
+    goto done;
+  }
+  /* a chunk is the last when no byte follows it */
+  for (;;) {
+    size_t pre = 0;
+    if (got > 0) {
+      a[0] = nx;
+      pre = 1;
+    }
+    if (fill(in, a + pre, chunk - pre, &got) != NQOK) {
+      ncmsg("box", "cannot read %s%s", inp, ncwhy());
+      nqwipe(&c, sizeof c);
+      goto done;
+    }
+    got += pre;
+    more = got == chunk && peek(in, &nx);
+    rc = more ? nqkmeupd(&c, a, got, e, ecap, &en)
+              : nqkmefin(&c, a, got, sp != NULL ? sk.b : NULL,
+                         sp != NULL ? sk.n : 0, e, ecap, &en);
+    if (rc != NQOK) {
+      nclib("box", more || sp == NULL ? "sealing" : "sealing and signing",
+            rc);
+      goto done;
+    }
+    if (fwrite(e, 1, en, of) != en) {
+      ncmsg("box", "cannot write %s%s", out, ncwhy());
+      if (more) nqwipe(&c, sizeof c);
+      goto done;
+    }
+    if (!more) break;
+  }
+  bad = 0;
+  ret = NCOK;
+done:
+  if (of != NULL) endout("box", of, out, bad, &ret);
+  if (in != NULL && in != stdin) fclose(in);
+  if (a != NULL) ncfree(a, chunk, 1);
+  free(e);
+  free(h);
+  for (i = 0; i < nr; i++) nckfree(&k[i]);
+  nckfree(&sk);
+  return ret;
+}
+
 int ncbox(int argc, char **argv) {
-  const char *kp = NULL, *out = NULL, *ctx = NULL, *cs = NULL;
-  int force = 0, help = 0, np, rc, ret = NCUSE;
+  const char *kps[NCMAXV], *out = NULL, *ctx = NULL, *cs = NULL, *sp = NULL;
+  const char *kp = NULL;
+  int force = 0, help = 0, np, rc, ret = NCUSE, nkp = 0;
+  ncpw pwo = {NULL, NULL};
   ncopt o[] = {
-    {'p', "pub", 1, &kp, NULL},
+    {'p', "pub", NCMANY, kps, &nkp},
     {'o', "out", 1, &out, NULL},
     {'c', "ctx", 1, &ctx, NULL},
     {'\0', "chunk", 1, &cs, NULL},
+    {'s', "sign", 1, &sp, NULL},
+    {'\0', "pass-fd", 1, &pwo.fd, NULL},
+    {'\0', "pass-env", 1, &pwo.env, NULL},
     {'f', "force", 0, NULL, &force}
   };
   nckey k = {{0, 0, NULL}, 0, NULL, 0};
@@ -90,8 +201,19 @@ int ncbox(int argc, char **argv) {
     ncuse(stdout, "box");
     return NCOK;
   }
-  if (kp == NULL || out == NULL || np != 1) {
+  if (nkp == 0 || out == NULL || np != 1) {
     ncuse(stderr, "box");
+    return NCUSE;
+  }
+  kp = kps[0];
+  if (sp == NULL && (pwo.fd != NULL || pwo.env != NULL)) {
+    ncmsg("box", "--pass-fd and --pass-env give the passphrase of the "
+          "--sign key; there is none");
+    return NCUSE;
+  }
+  if (pwo.fd != NULL && strcmp(pwo.fd, "0") == 0 &&
+      strcmp(argv[0], "-") == 0) {
+    ncmsg("box", "--pass-fd 0 and a file on stdin cannot share it");
     return NCUSE;
   }
   cl = ctx != NULL ? strlen(ctx) : 0;
@@ -109,6 +231,9 @@ int ncbox(int argc, char **argv) {
       return NCUSE;
     }
   }
+  /* one key and no signature: the stream of one recipient, as before */
+  if (nkp > 1 || sp != NULL)
+    return boxm(kps, nkp, sp, &pwo, out, ctx, cl, chunk, force, argv[0]);
   if (nckrd("box", kp, 0, &k) != NCOK)
     return NCUSE;
   if (kemkey("box", kp, &k) != NCOK || nqksize((nqkalg)k.a.alg, &z) != NQOK)
@@ -179,14 +304,150 @@ done:
   return ret;
 }
 
+/* unbox of a stream to several keys (noqtis-kstream-2), whose first
+ * NQKMFIX bytes are at fx: k the reader's key; sp the sender's public
+ * key file or NULL, any 1 to open a signed stream without it */
+static int unboxm(FILE *in, const char *inp, const uint8_t *fx,
+                  const nckey *k, const char *sp, int any, const char *out,
+                  const char *ctx, size_t cl, int force) {
+  nckey spk = {{0, 0, NULL}, 0, NULL, 0};
+  nqkmctx c;
+  nqsalg sg = (nqsalg)0;
+  nqssz sz = {0, 0, 0};
+  uint8_t *h = NULL, *e = NULL, *a = NULL;
+  size_t hl = 0, nr = 0, got = 0, an = 0, rec = 0, full, win, have = 0;
+  uint32_t chunk = 0;
+  FILE *of = NULL;
+  int rc, ret = NCUSE, bad = 1;
+
+  rc = nqkmpeek(fx, NQKMFIX, &hl, &sg, &nr);
+  if (rc != NQOK) {
+    ncmsg("unbox", "%s is not a boxed stream this noqtis reads (%s)", inp,
+          rc == NQELIM ? "its sizes are out of range"
+          : rc == NQENOSUP ? "its signature algorithm is not known"
+                           : "another format");
+    return NCUSE;
+  }
+  if (sg != 0 && sp == NULL && !any) {
+    ncmsg("unbox", "%s is signed by its sender (%s): give the sender's "
+          "public key with -s, or --any-sender to open it without knowing "
+          "who sent it", inp, nqsname(sg));
+    return NCUSE;
+  }
+  if (sg == 0 && sp != NULL) {
+    ncmsg("unbox", "%s is not signed: nothing shows it comes from the "
+          "holder of %s; without -s it opens as a stream from anyone", inp,
+          sp);
+    return NCUSE;
+  }
+  if (sp != NULL) {
+    if (nckrd("unbox", sp, 0, &spk) != NCOK) return NCUSE;
+    if (spk.a.kem || spk.a.alg != (int)sg) {
+      ncmsg("unbox", "%s is signed with %s, and %s is a %s key", inp,
+            nqsname(sg), sp, spk.a.name);
+      goto done;
+    }
+  }
+  if (sg != 0) {
+    (void)nqssize(sg, &sz);
+    rec = sz.sig + 16;
+  }
+  h = (uint8_t *)malloc(hl);
+  if (h == NULL) {
+    nclib("unbox", "memory", NQEMEM);
+    goto done;
+  }
+  memcpy(h, fx, NQKMFIX);
+  if (fill(in, h + NQKMFIX, hl - NQKMFIX, &got) != NQOK ||
+      got != hl - NQKMFIX) {
+    ncmsg("unbox", "%s is cut short: its header is %lu bytes", inp,
+          (unsigned long)hl);
+    goto done;
+  }
+  rc = nqkmdini(&c, (nqkalg)k->a.alg, k->b, k->n, (const uint8_t *)ctx, cl,
+                h, hl, &chunk, NULL);
+  if (rc == NQEVRFY) {
+    ncmsg("unbox", "%s is not sealed to this key (it names %lu "
+          "recipient%s), or was sealed with another context", inp,
+          (unsigned long)nr, nr == 1 ? "" : "s");
+    goto done;
+  }
+  if (rc == NQEDEC || rc == NQELIM) {
+    ncmsg("unbox", "%s is not a boxed stream this noqtis reads (its "
+          "header is damaged)", inp);
+    goto done;
+  }
+  if (rc != NQOK) {
+    nclib("unbox", "opening", rc);
+    goto done;
+  }
+  /* the window: one chunk, the record after the last, and one byte
+   * more; full, a chunk is not the last */
+  full = (size_t)chunk + 16;
+  win = full + rec + 1;
+  e = (uint8_t *)malloc(win);
+  a = (uint8_t *)malloc(chunk);
+  if (e == NULL || a == NULL) {
+    nqwipe(&c, sizeof c);
+    nclib("unbox", "memory", NQEMEM);
+    goto done;
+  }
+  of = opout("unbox", out, force, 1);
+  if (of == NULL) {
+    nqwipe(&c, sizeof c);
+    goto done;
+  }
+  for (;;) {
+    int more;
+    if (fill(in, e + have, win - have, &got) != NQOK) {
+      ncmsg("unbox", "cannot read %s%s", inp, ncwhy());
+      nqwipe(&c, sizeof c);
+      goto done;
+    }
+    have += got;
+    more = have == win;
+    rc = more ? nqkmdupd(&c, e, full, a, chunk, &an)
+              : nqkmdfin(&c, e, have, sp != NULL ? spk.b : NULL,
+                         sp != NULL ? spk.n : 0, a, chunk, &an);
+    if (rc != NQOK) {
+      ncmsg("unbox", "%s does not verify: it was changed or cut%s%s", inp,
+            sp != NULL ? ", or was not signed by the holder of the -s key"
+                       : "",
+            of == stdout ? "; what was written before stops here"
+                         : "; nothing was kept");
+      goto done;
+    }
+    if (fwrite(a, 1, an, of) != an) {
+      ncmsg("unbox", "cannot write %s%s", out, ncwhy());
+      if (more) nqwipe(&c, sizeof c);
+      goto done;
+    }
+    if (!more) break;
+    have -= full;
+    memmove(e, e + full, have);
+  }
+  bad = 0;
+  ret = NCOK;
+done:
+  if (of != NULL) endout("unbox", of, out, bad, &ret);
+  if (ret != NCOK && of == stdout) ret = NCUSE;
+  if (a != NULL) ncfree(a, chunk, 1);
+  free(e);
+  free(h);
+  nckfree(&spk);
+  return ret;
+}
+
 int ncunbox(int argc, char **argv) {
-  const char *kp = NULL, *out = NULL, *ctx = NULL;
-  int force = 0, help = 0, np, rc, ret = NCUSE, bad = 1, more;
+  const char *kp = NULL, *out = NULL, *ctx = NULL, *sp = NULL;
+  int force = 0, help = 0, np, rc, ret = NCUSE, bad = 1, more, any = 0;
   ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
     {'o', "out", 1, &out, NULL},
     {'c', "ctx", 1, &ctx, NULL},
+    {'s', "sender", 1, &sp, NULL},
+    {'\0', "any-sender", 0, NULL, &any},
     {'\0', "pass-fd", 1, &pwo.fd, NULL},
     {'\0', "pass-env", 1, &pwo.env, NULL},
     {'f', "force", 0, NULL, &force}
@@ -206,7 +467,7 @@ int ncunbox(int argc, char **argv) {
     ncuse(stdout, "unbox");
     return NCOK;
   }
-  if (kp == NULL || out == NULL || np != 1) {
+  if (kp == NULL || out == NULL || np != 1 || (sp != NULL && any)) {
     ncuse(stderr, "unbox");
     return NCUSE;
   }
@@ -234,11 +495,29 @@ int ncunbox(int argc, char **argv) {
   in = opin("unbox", argv[0]);
   if (in == NULL)
     goto done;
-  if (fill(in, h, NQKFHDR + z.ct, &hn) != NQOK || hn != NQKFHDR + z.ct) {
+  /* the first bytes say which stream it is */
+  if (fill(in, h, NQKMFIX, &hn) != NQOK || hn != NQKMFIX) {
     ncmsg("unbox", "%s is not a stream boxed for a %s key (too short)",
           argv[0], k.a.name);
     goto done;
   }
+  if (memcmp(h, "NQKM", 4) == 0) {
+    ret = unboxm(in, argv[0], h, &k, sp, any, out, ctx, cl, force);
+    goto done;
+  }
+  if (sp != NULL) {
+    ncmsg("unbox", "%s is not signed (a stream to one key carries no "
+          "signature): nothing shows it comes from the holder of %s; "
+          "without -s it opens as a stream from anyone", argv[0], sp);
+    goto done;
+  }
+  if (fill(in, h + NQKMFIX, NQKFHDR + z.ct - NQKMFIX, &hn) != NQOK ||
+      hn != NQKFHDR + z.ct - NQKMFIX) {
+    ncmsg("unbox", "%s is not a stream boxed for a %s key (too short)",
+          argv[0], k.a.name);
+    goto done;
+  }
+  hn = NQKFHDR + z.ct;
   rc = nqkfdini(&c, (nqkalg)k.a.alg, k.b, k.n, (const uint8_t *)ctx, cl, h,
                 hn, &chunk);
   if (rc == NQEDEC || rc == NQELIM) {

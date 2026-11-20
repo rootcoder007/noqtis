@@ -110,6 +110,19 @@ static void flip(const char *p, size_t i) {
   free(b);
 }
 
+/* flips a bit of the byte i before the end of p */
+static void flipend(const char *p, size_t i) {
+  size_t n;
+  unsigned char *b = rd(p, &n);
+  if (b == NULL || n <= i) {
+    fprintf(stderr, "tcli: cannot read %s\n", p);
+    exit(2);
+  }
+  b[n - 1 - i] ^= 0x01;
+  wr(p, b, n);
+  free(b);
+}
+
 static void cp(const char *from, const char *to) {
   size_t n;
   unsigned char *b = rd(from, &n);
@@ -2417,6 +2430,91 @@ static void tbox(void) {
   want(2, "box -p q.kk.pub --chunk 10 -o q.x7 q.b1", NULL);
   want(2, "box -p q.kk -o q.x7 q.b1", NULL);
   want(2, "unbox -k q.kk.pub -o q.y7 q.x1", NULL);
+  /* several recipients and a sender's signature (noqtis-kstream-2) */
+  want(0, "keygen -a ML-KEM-512 -o q.k2 --force", NULL);
+  want(0, "keygen -a ML-KEM-1024 -o q.k3 --force", NULL);
+  want(0, "keygen -a ML-KEM-768 -o q.k4 --force", NULL);
+  want(0, "keygen -a ML-DSA-44 -o q.sg --force", NULL);
+  want(0, "keygen -a ML-DSA-44 -o q.sg2 --force", NULL);
+  want(0, "box -p q.kk.pub -p q.k2.pub -p q.k3.pub --chunk 1024 -c ctx "
+          "-o q.m4 --force q.b4", NULL);
+  ok(has("q.m4", "NQKM"), "box to several keys writes the second format");
+  want(0, "unbox -k q.kk -c ctx -o q.y8 --force q.m4", NULL);
+  ok(same("q.b4", "q.y8"), "the first recipient opens it");
+  want(0, "unbox -k q.k2 -c ctx -o q.y8 --force q.m4", NULL);
+  ok(same("q.b4", "q.y8"), "the second recipient opens it");
+  want(0, "unbox -k q.k3 -c ctx -o q.y8 --force q.m4", NULL);
+  ok(same("q.b4", "q.y8"), "the third recipient opens it");
+  remove("q.y8");
+  want(2, "unbox -k q.k4 -c ctx -o q.y8 q.m4", NULL);
+  ok(has("q.err", "not sealed to this key") && has("q.err", "3 recipients") &&
+     !exists("q.y8"), "a key that is not a recipient is told so");
+  want(2, "unbox -k q.kk -o q.y8 q.m4", NULL);
+  ok(!exists("q.y8"), "several keys: another context opens nothing");
+  want(2, "unbox -k q.kk -c ctx -s q.sg.pub -o q.y8 q.m4", NULL);
+  ok(has("q.err", "is not signed") && !exists("q.y8"),
+     "-s for a stream that is not signed is refused");
+  want(2, "unbox -k q.kk -s q.sg.pub -o q.y8 q.x0", NULL);
+  ok(has("q.err", "carries no signature"),
+     "-s for a stream to one key is refused");
+  flip("q.m4", 40); /* in the header: the first recipient's entry */
+  want(2, "unbox -k q.k3 -c ctx -o q.y8 q.m4", NULL);
+  ok(!exists("q.y8"), "a changed header fails for every recipient");
+  /* signed: the sender's key, another key, none, --any-sender */
+  want(0, "box -p q.kk.pub -p q.k2.pub -s q.sg --chunk 1024 -o q.s4 --force "
+          "q.b4", NULL);
+  want(0, "unbox -k q.k2 -s q.sg.pub -o q.y9 --force q.s4", NULL);
+  ok(same("q.b4", "q.y9"), "a signed stream opens under its sender's key");
+  remove("q.y9");
+  want(2, "unbox -k q.k2 -s q.sg2.pub -o q.y9 q.s4", NULL);
+  ok(has("q.err", "not signed by the holder") && !exists("q.y9"),
+     "another sender's key: nothing kept");
+  want(2, "unbox -k q.k2 -o q.y9 q.s4", NULL);
+  ok(has("q.err", "is signed by its sender (ML-DSA-44)") && !exists("q.y9"),
+     "a signed stream wants -s or --any-sender");
+  want(0, "unbox -k q.k2 --any-sender -o q.y9 q.s4", NULL);
+  ok(same("q.b4", "q.y9"), "--any-sender opens it");
+  want(2, "unbox -k q.k2 -s q.sg.pub --any-sender -o q.y9 --force q.s4",
+       NULL);
+  want(2, "unbox -k q.k2 -s q.kk.pub -o q.y9 --force q.s4", NULL);
+  ok(has("q.err", "is a ML-KEM-768 key"), "-s takes a signature key");
+  want(2, "unbox -k q.k2 -s q.none -o q.y9 --force q.s4", NULL);
+  /* one key and a signature is the second format too; stdin and stdout */
+  want(0, "box -p q.kk.pub -s q.sg -o - -", "q.b1");
+  ok(has("q.out", "NQKM"), "one recipient, signed: the second format");
+  cp("q.out", "q.s1");
+  want(0, "unbox -k q.kk -s q.sg.pub -o - -", "q.s1");
+  ok(same("q.out", "q.b1"), "signed, stdin to stdout");
+  want(0, "box -p q.kk.pub -s q.sg -o q.s0 --force q.b0", NULL);
+  want(0, "unbox -k q.kk -s q.sg.pub -o q.y0 --force q.s0", NULL);
+  ok(same("q.b0", "q.y0"), "an empty file, signed");
+  /* the record changed or cut off */
+  flipend("q.s4", 30);
+  remove("q.y9");
+  want(2, "unbox -k q.k2 -s q.sg.pub -o q.y9 q.s4", NULL);
+  ok(!exists("q.y9"), "a changed signature record: nothing kept");
+  want(2, "unbox -k q.k2 --any-sender -o q.y9 q.s4", NULL);
+  ok(!exists("q.y9"), "a changed record fails without -s too");
+  wrs("q.t", "NQKM");
+  want(2, "unbox -k q.kk -o q.y9 q.t", NULL);
+  /* a protected signing key, and the refusals */
+  penv("NQTBP", "box pass phrase");
+  want(0, "keygen -a ML-DSA-44 -o q.sgp --force --pass-env NQTBP", NULL);
+  want(2, "box -p q.kk.pub -s q.sgp -o q.s5 --force q.b1", NULL);
+  ok(has("q.err", "protected by a passphrase"), "box --sign: a protected key");
+  want(0, "box -p q.kk.pub -s q.sgp --pass-env NQTBP -o q.s5 --force q.b1",
+       NULL);
+  want(0, "unbox -k q.kk -s q.sgp.pub -o q.y9 --force q.s5", NULL);
+  ok(same("q.b1", "q.y9"), "signed with a protected key");
+  penv("NQTBP", NULL);
+  want(2, "box -p q.kk.pub --pass-env NQTBP -o q.s5 --force q.b1", NULL);
+  ok(has("q.err", "there is none"), "a passphrase without --sign");
+  want(2, "box -p q.kk.pub -s q.sg --pass-fd 0 -o q.s5 --force -", "q.b1");
+  want(2, "box -p q.kk.pub -s q.kk -o q.s5 --force q.b1", NULL);
+  ok(has("q.err", "--sign takes a signature key"), "box --sign: a KEM key");
+  want(2, "box -p q.kk.pub -p q.sg.pub -o q.s5 --force q.b1", NULL);
+  want(2, "box -p q.kk.pub -p q.none -o q.s5 --force q.b1", NULL);
+  want(2, "box -p q.kk.pub -p q.k2.pub -o q.s5 --force q.none", NULL);
 }
 
 int main(int argc, char **argv) {

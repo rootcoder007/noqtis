@@ -1,0 +1,248 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQKMEINI 3
+.Os
+.Sh NAME
+.Nm nqkmhlen ,
+.Nm nqkmpeek ,
+.Nm nqkmeini ,
+.Nm nqkmeupd ,
+.Nm nqkmefin ,
+.Nm nqkmdini ,
+.Nm nqkmdupd ,
+.Nm nqkmdfin
+.Nd a stream sealed to several ML-KEM public keys, signed or not
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Vt typedef struct { nqkalg alg; const uint8_t *pk; size_t pklen; } nqkrcp;
+.Ft int
+.Fn nqkmhlen "const nqkrcp *r" "size_t n" "size_t *hlen"
+.Ft int
+.Fo nqkmpeek
+.Fa "const uint8_t *in" "size_t n" "size_t *hlen" "nqsalg *sig"
+.Fa "size_t *nrcp"
+.Fc
+.Ft int
+.Fo nqkmeini
+.Fa "nqkmctx *c" "const nqkrcp *r" "size_t n" "nqsalg sig"
+.Fa "const uint8_t *ctx" "size_t ctxlen" "uint32_t chunk"
+.Fa "uint8_t *hdr" "size_t cap" "size_t *hlen"
+.Fc
+.Ft int
+.Fo nqkmeupd
+.Fa "nqkmctx *c" "const uint8_t *in" "size_t n"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqkmefin
+.Fa "nqkmctx *c" "const uint8_t *in" "size_t n"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqkmdini
+.Fa "nqkmctx *c" "nqkalg alg" "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *ctx" "size_t ctxlen"
+.Fa "const uint8_t *hdr" "size_t hlen" "uint32_t *chunk" "nqsalg *sig"
+.Fc
+.Ft int
+.Fo nqkmdupd
+.Fa "nqkmctx *c" "const uint8_t *in" "size_t n"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqkmdfin
+.Fa "nqkmctx *c" "const uint8_t *in" "size_t n"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Sh DESCRIPTION
+These functions seal a stream of any length, in chunks, to up to
+.Dv NQKMRCP
+(64) ML-KEM public keys at once, so that the secret key of any one of
+them opens it, and let its sender sign it.
+The format is noqtis-kstream-2; the stream to one key, not signed, is
+that of
+.Xr nqkfeini 3 .
+.Ss The format
+The stream is the STREAM construction of
+.Xr nqkfeini 3
+on ChaCha20-Poly1305, under a random 32-byte file key.
+The header is
+.Dv NQKMFIX
+(24) bytes, then one entry for each recipient:
+.Bl -column "offset" "bytes" "what"
+.It Sy offset Ta Sy bytes Ta Sy what
+.It 0 Ta 4 Ta Ql NQKM
+.It 4 Ta 1 Ta the version, 2
+.It 5 Ta 1 Ta the flags: bit 0 set when the stream is signed
+.It 6 Ta 4 Ta the chunk size, big-endian
+.It 10 Ta 7 Ta a random nonce prefix
+.It 17 Ta 1 Ta the signature algorithm (its Vt nqsalg ) , 0 when not signed
+.It 18 Ta 2 Ta the number of recipients, big-endian
+.It 20 Ta 4 Ta the whole header's length, big-endian
+.El
+.Pp
+An entry is the recipient's KEM (its
+.Vt nqkalg ,
+one byte), the first 8 bytes of the SHA3-256 of its public key, the
+ML-KEM ciphertext, and the file key under ChaCha20-Poly1305 with a nonce
+of zeros (48 bytes).
+The key that wraps the file key is HKDF-SHA-256 of the shared secret,
+with no salt and the info
+.Ql noqtis-kwrap-2 ,
+the SHA3-256 of the recipient's public key, the context's length (one
+byte) and the context, the 24 fixed bytes, and the KEM ciphertext.
+The stream's key is HKDF-SHA-256 of the file key, with no salt and the
+info
+.Ql noqtis-kstream-2 ,
+the context's length and the context, and the SHA3-256 of the whole
+header: a header changed anywhere, in another recipient's entry too,
+gives every recipient another key, and the first chunk fails.
+.Pp
+Chunk
+.Em i
+is sealed with the nonce prefix, then
+.Em i
+(32 bits, big-endian), then 1 for the last chunk and 0 for the others.
+A signed stream has one more record after its last chunk, of the
+signature's size plus 16 bytes, sealed with the same counter and the
+last byte 2: the sender's signature, with the context
+.Ql noqtis-kstream-2 ,
+of the SHA3-256 of the header's SHA3-256 followed by the whole
+plaintext.
+The signature is inside the encryption, so only a recipient learns who
+signed; it covers the header, so a recipient cannot seal the plaintext
+to someone else and keep the sender's signature.
+.Ss Sealing
+.Fn nqkmhlen
+gives in
+.Fa *hlen
+the header's size for the
+.Fa n
+recipients
+.Fa r .
+.Fn nqkmeini
+writes the header to
+.Fa hdr
+.Pq Fa cap No bytes , Fa *hlen No its size, also with Dv NQEBUF ;
+.Fa sig
+is the algorithm the sender will sign with, or 0 for a stream that is
+not signed;
+.Fa chunk
+is 0 for
+.Dv NQKFCHUNK
+or
+.Dv NQKFCMIN
+to
+.Dv NQKFCMAX .
+.Fn nqkmeupd
+seals one full chunk and
+.Fn nqkmefin
+the last
+.Pq Fa n No at most the chunk size ,
+each to
+.Fa out
+with its 16-byte tag.
+For a signed stream
+.Fn nqkmefin
+takes the sender's secret key
+.Fa sk
+and appends the record:
+.Fa out
+then needs
+.Fa n
++ 16 bytes plus the signature's size + 16.
+For a stream that is not signed
+.Fa sk
+is
+.Dv NULL .
+.Ss Opening
+.Fn nqkmpeek
+reads the first
+.Dv NQKMFIX
+bytes of a stream and gives the header's whole length, the signature
+algorithm (0: not signed) and the number of recipients, refusing sizes
+out of range before anything is read into them.
+.Fn nqkmdini
+opens the header
+.Pq Fa hlen No exactly that length
+with one recipient's secret key
+.Fa sk
+of
+.Fa alg
+and gives the chunk size.
+.Fn nqkmdupd
+opens one chunk of the chunk size plus 16 bytes.
+.Fn nqkmdfin
+opens the last, whose input, for a signed stream, also holds the record
+that follows it, and checks the signature under the sender's public key
+.Fa pk .
+With
+.Fa pk
+.Dv NULL
+the signature is not checked: the caller does not ask who sent the
+stream.
+.Pp
+A reader gets the plaintext chunk by chunk, before the signature at the
+end is checked.
+What it wrote is the sender's only once
+.Fn nqkmdfin
+returned
+.Dv NQOK ;
+on any error the last chunk's output is wiped, and the earlier chunks
+are the caller's to discard.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or:
+.Bl -tag -width NQENOSUP
+.It Dv NQEARG
+An argument out of range: no recipient or more than
+.Dv NQKMRCP ,
+a context over 255 bytes, a chunk size out of range, a part where a
+full chunk is wanted, a key given to
+.Fn nqkmefin
+for a stream that is not signed or none for one that is.
+.It Dv NQEBUF
+An output buffer too small; the size wanted is in
+.Fa *hlen
+or
+.Fa *outlen ,
+and the stream goes on.
+.It Dv NQEDEC
+A key of the wrong size; a header that is not noqtis-kstream-2, or
+whose entries do not add up to its length; a chunk of the wrong size.
+.It Dv NQEVRFY
+From
+.Fn nqkmdini :
+no entry opens with the key (it is not a recipient, or the context is
+another).
+From
+.Fn nqkmdupd
+and
+.Fn nqkmdfin :
+a chunk or the record does not verify; the signature does not verify
+under
+.Fa pk ;
+or
+.Fa pk
+is given for a stream that is not signed.
+.It Dv NQELIM
+From
+.Fn nqkmpeek :
+a number of recipients, a header length or a chunk size out of range.
+The 2^32nd chunk of a stream.
+.It Dv NQENOSUP
+A KEM that is not ML-KEM, or a signature algorithm this library does
+not know.
+.It Dv NQESTATE
+A context used out of order, or after its stream ended.
+.El
+.Sh SEE ALSO
+.Xr noqtis-box 1 ,
+.Xr noqtis-unbox 1 ,
+.Xr noqtis 3 ,
+.Xr nqkfeini 3 ,
+.Xr nqsign 3

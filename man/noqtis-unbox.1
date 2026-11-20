@@ -10,6 +10,7 @@
 .Fl k Ar key
 .Fl o Ar out
 .Op Fl c Ar ctx
+.Op Fl s Ar sender.pub | Fl -any-sender
 .Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl f | Fl -force
 .Ar file
@@ -43,6 +44,21 @@ on standard output, what was written had verified but the data is cut
 short, so check the exit status before using it.
 A header that names a chunk size outside 1024 to 16777216 bytes is
 refused before anything is allocated.
+.Pp
+A file sealed to several keys opens with the secret key of any one of
+them.
+A file its sender signed
+.Pq Xr noqtis-box 1 Fl s
+is opened only with
+.Fl s ,
+the sender's public key, or with
+.Fl -any-sender ;
+the signature is the last thing in the file, so the plaintext is
+written before it is checked, and
+.Ar out
+exists only once it verified.
+On standard output the plaintext is the sender's only when the exit
+status is 0.
 .Bl -tag -width Ds
 .It Fl k Ar key , Fl -key Ns = Ns Ar key
 The ML-KEM secret key file.
@@ -52,6 +68,12 @@ The output file, or
 .It Fl c Ar ctx , Fl -ctx Ns = Ns Ar ctx
 The context string given to
 .Xr noqtis-box 1 .
+.It Fl s Ar sender.pub , Fl -sender Ns = Ns Ar sender.pub
+The sender's public signature key: the file must be signed, and the
+signature must verify under this key.
+A file that is not signed is refused.
+.It Fl -any-sender
+Open a signed file without checking who signed it.
 .It Fl -pass-fd Ar n , Fl -pass-env Ar name
 The passphrase of a protected key, as in
 .Xr noqtis-dec 1 .
@@ -59,9 +81,12 @@ The passphrase of a protected key, as in
 Replace an existing output file.
 .El
 .Sh EXIT STATUS
-0 when every chunk verified; 2 otherwise, or on a usage, key or file
+0 when every chunk verified, and with
+.Fl s
+the sender's signature too; 2 otherwise, or on a usage, key or file
 error.
 .Sh SEE ALSO
 .Xr noqtis 1 ,
 .Xr noqtis-box 1 ,
-.Xr nqkfeini 3
+.Xr nqkfeini 3 ,
+.Xr nqkmeini 3

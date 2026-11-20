@@ -84,19 +84,33 @@ static const nccmd cmds[] = {
    "  with --stdout. A tampered ciphertext gives an unrelated secret\n"
    "  (implicit rejection), not an error. --pass-fd and --pass-env give\n"
    "  the passphrase of a protected key.\n"},
-  {"box", ncbox, "seal a file to an ML-KEM key, in chunks",
-   "usage: noqtis box -p <key.pub> -o <out> [-c <ctx>] [--chunk <bytes>]\n"
-   "                  [--force] <file>\n"
+  {"box", ncbox, "seal a file to ML-KEM keys, in chunks",
+   "usage: noqtis box -p <key.pub> [-p <key.pub> ...] -o <out> [-c <ctx>]\n"
+   "                  [-s <key> [--pass-fd <n> | --pass-env <name>]]\n"
+   "                  [--chunk <bytes>] [--force] <file>\n"
    "  Encrypts <file> (- for stdin) to the ML-KEM key in <key.pub> as\n"
    "  noqtis-kstream-1 and writes it to <out> (- for stdout), one chunk\n"
    "  at a time (64 KiB, or 1024 to 16777216 bytes with --chunk).\n"
-   "  -c      context string, needed again to unbox (at most 255 bytes)\n"},
+   "  -p      given more than once (up to 32): any one of the keys opens\n"
+   "          it (noqtis-kstream-2)\n"
+   "  -s      sign it with the secret signature key <key> (--sign): the\n"
+   "          signature is inside the encryption and names the\n"
+   "          recipients (noqtis-kstream-2); --pass-fd and --pass-env\n"
+   "          give the passphrase of a protected <key>\n"
+   "  -c      context string, needed again to unbox (at most 255 bytes)\n"
+   "  --force replace an existing <out>\n"},
   {"unbox", ncunbox, "open a file sealed with noqtis box",
    "usage: noqtis unbox -k <key> -o <out> [-c <ctx>]\n"
+   "                    [-s <sender.pub> | --any-sender]\n"
    "                    [--pass-fd <n> | --pass-env <name>] [--force] <file>\n"
    "  Decrypts <file> (- for stdin) to <out> (owner-only; - for stdout),\n"
    "  writing each chunk only once it verifies. When one does not, exit 2\n"
-   "  and <out> is removed.\n"},
+   "  and <out> is removed.\n"
+   "  -s      the sender's public signature key (--sender): a signed\n"
+   "          stream must verify under it, and one that is not signed\n"
+   "          is refused\n"
+   "  --any-sender  open a signed stream without checking who sent it\n"
+   "  --pass-fd, --pass-env  the passphrase of a protected <key>\n"},
   {"hash", nchash, "print or check file digests",
    "usage: noqtis hash [-a <hash>] [-c|--check] [<file>...]\n"
    "  Prints `<hex>  <file>` lines like sha256sum (- or no file: stdin).\n"

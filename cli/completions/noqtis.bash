@@ -63,8 +63,8 @@ _noqtis() {
       --out" ;;
     export) opts="--as -k --key -p --pub -o --out -f --force --no-files" ;;
     enc) opts="-p --pub -o --out --stdout -f --force" ;;
-    box) opts="-p --pub -o --out -c --ctx --chunk -f --force" ;;
-    unbox) opts="-k --key -o --out -c --ctx --pass-fd --pass-env -f --force" ;;
+    box) opts="-p --pub -o --out -c --ctx --chunk -s --sign --pass-fd --pass-env -f --force" ;;
+    unbox) opts="-k --key -o --out -c --ctx -s --sender --any-sender --pass-fd --pass-env -f --force" ;;
     dec) opts="-k --key -o --out --stdout --pass-fd --pass-env -f --force" ;;
     hash) opts="-a --alg -c --check" ;;
     seal) opts="-k --key -p --pub -m --meta --format --input --tsa

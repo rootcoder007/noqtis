@@ -1,15 +1,17 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd November 15, 2026
+.Dd November 20, 2026
 .Dt NOQTIS-BOX 1
 .Os
 .Sh NAME
 .Nm noqtis-box
-.Nd seal a file of any size to an ML-KEM public key
+.Nd seal a file of any size to ML-KEM public keys
 .Sh SYNOPSIS
 .Nm noqtis box
 .Fl p Ar key.pub
+.Op Fl p Ar key.pub ...
 .Fl o Ar out
 .Op Fl c Ar ctx
+.Op Fl s Ar key Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl -chunk Ar bytes
 .Op Fl f | Fl -force
 .Ar file
@@ -33,9 +35,40 @@ a header holding an ML-KEM ciphertext, then the file in chunks, each
 under ChaCha20-Poly1305 with its own nonce, so that changed, moved,
 repeated or dropped chunks and a cut stream are all detected.
 It reads and writes one chunk at a time, whatever the file's size.
+.Pp
+With
+.Fl p
+given more than once, or with
+.Fl s ,
+the format is noqtis-kstream-2
+.Pq Xr nqkmeini 3 :
+the same chunks under a random file key, which the header carries once
+for each recipient, so that any one of their secret keys opens it.
+A changed header, another recipient's part of it included, fails for
+every recipient.
 .Bl -tag -width Ds
 .It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
 The recipient's ML-KEM public key file.
+Given up to 32 times, each key a recipient; the keys may be of
+different ML-KEM sets.
+.It Fl s Ar key , Fl -sign Ns = Ns Ar key
+Sign the file with the secret signature key
+.Ar key
+(any algorithm
+.Xr noqtis-algs 1
+lists for signatures).
+The signature is over the header and the whole file, and is inside the
+encryption: only a recipient learns who signed, and because it covers
+the recipients, one of them cannot pass the file on as if the sender had
+sealed it to someone else.
+.Xr noqtis-unbox 1
+checks it with
+.Fl s .
+.It Fl -pass-fd Ar n , Fl -pass-env Ar name
+The passphrase of a protected
+.Fl s
+key, as in
+.Xr noqtis-sign 1 .
 .It Fl o Ar out , Fl -out Ns = Ns Ar out
 The output file, or
 .Ar -
@@ -60,8 +93,15 @@ $ noqtis keygen -a ML-KEM-768 -o box
 $ noqtis box -p box.pub -o data.nqk data.csv
 $ noqtis unbox -k box -o data.csv data.nqk
 .Ed
+.Pp
+To two people, signed:
+.Bd -literal -offset indent
+$ noqtis box -p ann.pub -p bob.pub -s me -o data.nqk data.csv
+$ noqtis unbox -k bob -s me.pub -o data.csv data.nqk
+.Ed
 .Sh SEE ALSO
 .Xr noqtis 1 ,
 .Xr noqtis-keygen 1 ,
 .Xr noqtis-unbox 1 ,
-.Xr nqkfeini 3
+.Xr nqkfeini 3 ,
+.Xr nqkmeini 3
