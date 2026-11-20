@@ -1605,6 +1605,7 @@ static void *cget(PyObject *c, const char *name) {
 #define CH "noqtis.hctx"
 #define CS "noqtis.sctx"
 #define CK "noqtis.kfctx"
+#define CM "noqtis.kmctx"
 
 /* hini(alg) -> context */
 static PyObject *phini(PyObject *self, PyObject *args) {
@@ -1867,6 +1868,153 @@ static PyObject *pkfupd(PyObject *self, PyObject *args) {
   else
     rc = last ? nqkfefin(k, U8(d), SZ(dl), q, cap, &on)
               : nqkfeupd(k, U8(d), SZ(dl), q, cap, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  r = PyBytes_FromStringAndSize((const char *)q, (Py_ssize_t)on);
+  if (op)
+    sdrop(o);
+  else
+    Py_DECREF(o);
+  return r;
+}
+
+/* ---- a stream to several keys, signed or not (noqtis-kstream-2) ---- */
+
+/* kmpeek(first) -> (hlen, sig, nrcp) from a stream's first NQKMFIX bytes */
+static PyObject *pkmpeek(PyObject *self, PyObject *args) {
+  const char *in;
+  Py_ssize_t il;
+  size_t hl = 0, nr = 0;
+  nqsalg sg = (nqsalg)0;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#", &in, &il)) return NULL;
+  rc = nqkmpeek(U8(in), SZ(il), &hl, &sg, &nr);
+  if (rc != NQOK) return fail(rc);
+  return Py_BuildValue("(nin)", (Py_ssize_t)hl, (int)sg, (Py_ssize_t)nr);
+}
+
+/* kmeini(rcps, sig, ctx, chunk) -> (context, header); rcps a sequence
+ * of (alg, pk) */
+static PyObject *pkmeini(PyObject *self, PyObject *args) {
+  PyObject *rs, *seq, *c = NULL, *h = NULL, *r = NULL;
+  const char *cx;
+  Py_ssize_t cl, n, i;
+  unsigned long ch;
+  int sig, rc;
+  nqkrcp rp[NQKMRCP];
+  size_t hl = 0;
+  uint8_t *q;
+  void *p;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oiy#k", &rs, &sig, &cx, &cl, &ch)) return NULL;
+  if (ch > 0xffffffffUL) return fail(NQELIM);
+  /* a list of our own: it holds the pairs, and so their keys, until
+   * the header is written */
+  seq = PySequence_List(rs);
+  if (seq == NULL) return NULL;
+  n = PyList_Size(seq);
+  if (n < 1 || n > (Py_ssize_t)NQKMRCP) {
+    Py_DECREF(seq);
+    return fail(NQEARG);
+  }
+  /* the keys are borrowed from seq, which lives until the end */
+  for (i = 0; i < n; i++) {
+    int a;
+    const char *pk;
+    Py_ssize_t pl;
+    PyObject *it = PyList_GetItem(seq, i); /* borrowed */
+    if (it == NULL || !PyTuple_Check(it)) {
+      Py_DECREF(seq);
+      if (it != NULL)
+        PyErr_SetString(PyExc_TypeError, "recipients: pairs of (alg, pk)");
+      return NULL;
+    }
+    if (!PyArg_ParseTuple(it, "iy#", &a, &pk, &pl)) {
+      Py_DECREF(seq);
+      return NULL;
+    }
+    rp[i].alg = (nqkalg)a;
+    rp[i].pk = U8(pk);
+    rp[i].pklen = SZ(pl);
+  }
+  rc = nqkmhlen(rp, (size_t)n, &hl);
+  if (rc == NQOK && (c = cnew(CM, sizeof(nqkmctx), &p)) == NULL) {
+    Py_DECREF(seq);
+    return NULL;
+  }
+  if (rc == NQOK && (h = obuf(hl, &q)) == NULL) {
+    Py_DECREF(c);
+    Py_DECREF(seq);
+    return NULL;
+  }
+  if (rc == NQOK)
+    rc = nqkmeini((nqkmctx *)p, rp, (size_t)n, (nqsalg)sig, U8(cx), SZ(cl),
+                  (uint32_t)ch, q, hl, &hl);
+  Py_DECREF(seq);
+  if (rc != NQOK) {
+    Py_XDECREF(c);
+    Py_XDECREF(h);
+    return fail(rc);
+  }
+  r = Py_BuildValue("(NN)", c, h);
+  return r;
+}
+
+/* kmdini(alg, sk, ctx, header) -> (context, chunk, sig) */
+static PyObject *pkmdini(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *sk, *cx, *h;
+  Py_ssize_t kl, cl, hl;
+  uint32_t ch = 0;
+  nqsalg sg = (nqsalg)0;
+  void *p;
+  PyObject *c;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#y#", &alg, &sk, &kl, &cx, &cl, &h, &hl))
+    return NULL;
+  if ((c = cnew(CM, sizeof(nqkmctx), &p)) == NULL) return NULL;
+  rc = nqkmdini((nqkmctx *)p, (nqkalg)alg, U8(sk), SZ(kl), U8(cx), SZ(cl),
+                U8(h), SZ(hl), &ch, &sg);
+  if (rc != NQOK) {
+    Py_DECREF(c);
+    return fail(rc);
+  }
+  return Py_BuildValue("(Nki)", c, (unsigned long)ch, (int)sg);
+}
+
+/* kmupd(ctx, data, last, open, cap, key or None) -> bytes: one chunk
+ * sealed (nqkmeupd; nqkmefin with the sender's secret key or None) or
+ * opened (nqkmdupd; nqkmdfin with the sender's public key or None) */
+static PyObject *pkmupd(PyObject *self, PyObject *args) {
+  PyObject *c, *o, *r;
+  const char *d, *key;
+  Py_ssize_t dl, kl;
+  int last, op, rc;
+  Py_ssize_t cp;
+  size_t on = 0, cap;
+  nqkmctx *k;
+  uint8_t *q;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oy#ppnz#", &c, &d, &dl, &last, &op, &cp, &key,
+                        &kl))
+    return NULL;
+  if ((k = (nqkmctx *)cget(c, CM)) == NULL) return NULL;
+  if (cp < 0) return fail(NQEARG);
+  cap = (size_t)cp;
+  if ((o = obuf(cap > 0 ? cap : 1, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  if (op)
+    rc = last ? nqkmdfin(k, U8(d), SZ(dl), U8(key), key != NULL ? SZ(kl) : 0,
+                         q, cap, &on)
+              : nqkmdupd(k, U8(d), SZ(dl), q, cap, &on);
+  else
+    rc = last ? nqkmefin(k, U8(d), SZ(dl), U8(key), key != NULL ? SZ(kl) : 0,
+                         q, cap, &on)
+              : nqkmeupd(k, U8(d), SZ(dl), q, cap, &on);
   Py_END_ALLOW_THREADS
   if (rc != NQOK) {
     sdrop(o);
@@ -2372,6 +2520,10 @@ static PyMethodDef meths[] = {
   {"kfeini", pkfeini, METH_VARARGS, "nqkfeini"},
   {"kfdini", pkfdini, METH_VARARGS, "nqkfdini"},
   {"kfupd", pkfupd, METH_VARARGS, "nqkfeupd / nqkfefin / nqkfdupd / nqkfdfin"},
+  {"kmpeek", pkmpeek, METH_VARARGS, "nqkmpeek"},
+  {"kmeini", pkmeini, METH_VARARGS, "nqkmhlen / nqkmeini"},
+  {"kmdini", pkmdini, METH_VARARGS, "nqkmdini"},
+  {"kmupd", pkmupd, METH_VARARGS, "nqkmeupd / nqkmefin / nqkmdupd / nqkmdfin"},
   {"insp", pinsp, METH_VARARGS, "nqinsp"},
   {"sealwhy", psealwhy, METH_VARARGS, "nqsealwhy"},
   {"tsreq", ptsreq, METH_VARARGS, "nqtsreq / nqersreq"},
