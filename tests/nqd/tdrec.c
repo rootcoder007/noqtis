@@ -56,6 +56,17 @@ static void nums(void) {
     NQTCHK(d == bits(v[i].u) || (d == 0 && bits(v[i].u) == 0));
   }
   NQTEQI(qdnumfmt(bits(0x7ff0000000000000u), b), NQEARG);
+  /* neither an infinity nor a NaN is a number of the record: not written,
+   * not read (a literal past the largest double reads as an infinity),
+   * not made into a value */
+  NQTEQI(qdnumfmt(bits(0xfff0000000000000u), b), NQEARG);
+  NQTEQI(qdnumfmt(bits(0x7ff8000000000000u), b), NQEARG);
+  NQTEQI(qdnumrd("1e999", 5, 1, &d), NQEDEC);
+  NQTEQI(qdnumrd("-1e999", 6, 1, &d), NQEDEC);
+  NQTEQI(qdnumrd("1e999", 5, 0, &d), NQEDEC);
+  NQTCHK(qdjnum(bits(0x7ff0000000000000u)) == NULL);
+  NQTCHK(qdjnum(bits(0xfff0000000000000u)) == NULL);
+  NQTCHK(qdjnum(bits(0x7ff8000000000000u)) == NULL);
   /* JSON grammar */
   NQTEQI(qdnumrd("01", 2, 1, &d), NQEDEC);
   NQTEQI(qdnumrd("1.", 2, 1, &d), NQEDEC);
