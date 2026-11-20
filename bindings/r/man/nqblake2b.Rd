@@ -71,6 +71,7 @@ Applications}, RFC 9106. \doi{10.17487/RFC9106}
 }
 \seealso{
 Other hash functions:
-\code{\link[=nqhash]{nqhash()}}
+\code{\link[=nqhash]{nqhash()}},
+\code{\link[=nqkt]{nqkt()}}
 }
 \concept{hash functions}

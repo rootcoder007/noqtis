@@ -65,6 +65,13 @@ __all__ = [
     "algs",
     "argon2id",
     "blake2b",
+    "kt128",
+    "kt256",
+    "chacha20",
+    "sivenc",
+    "sivdec",
+    "gsivenc",
+    "gsivdec",
     "capid",
     "chain",
     "check",
@@ -521,6 +528,69 @@ def blake2b(data: Bytes, key: Bytes = b"", n: int = 64) -> bytes:
     """BLAKE2b (RFC 7693): an ``n``-byte digest (1 to 64) of ``data``,
     keyed (a MAC) with up to 64 bytes of ``key``."""
     return _c.b2b(buf(key, "key"), buf(data, "data"), int(n))
+
+
+def kt128(data: Bytes, n: int = 32, custom: Bytes = b"") -> bytes:
+    """KangarooTwelve KT128 (RFC 9861): ``n`` bytes of the tree hash and
+    extendable-output function, with an optional customization string
+    (a secret key there makes it a MAC). 32 bytes give its full strength
+    against collisions."""
+    return _c.kt(128, buf(data, "data"), buf(custom, "custom"), int(n))
+
+
+def kt256(data: Bytes, n: int = 64, custom: Bytes = b"") -> bytes:
+    """KangarooTwelve KT256 (RFC 9861): as ``kt128``, at 256 bits; 64
+    bytes give its full strength against collisions."""
+    return _c.kt(256, buf(data, "data"), buf(custom, "custom"), int(n))
+
+
+def chacha20(key: Bytes, nonce: Bytes, data: Bytes, counter: int = 0) -> bytes:
+    """The ChaCha20 stream cipher (RFC 8439): ``data`` XORed with the key
+    stream of the 32-byte ``key`` and the 12-byte ``nonce``, from block
+    ``counter``. The same call decrypts.
+
+    NOT AUTHENTICATED: a changed ciphertext decrypts to a changed
+    plaintext with no error, and a key and nonce used for two messages
+    give away their XOR. To encrypt, use ``sivenc`` or ``gsivenc``."""
+    return _c.cha20(buf(key, "key"), buf(nonce, "nonce"), int(counter),
+                    buf(data, "data"))
+
+
+def _ads(ad: Iterable[Bytes]) -> tuple:
+    if isinstance(ad, (bytes, bytearray, memoryview)):
+        raise TypeError("ad must be a sequence of byte strings, not one byte string")
+    return tuple(bytes(buf(a, "ad")) for a in ad)
+
+
+def sivenc(key: Bytes, data: Bytes, ad: Iterable[Bytes] = ()) -> bytes:
+    """AES-SIV (RFC 5297), deterministic authenticated encryption: the
+    16-byte synthetic IV, then the ciphertext. ``key`` is 32, 48 or 64
+    bytes; ``ad`` is up to 126 associated strings, authenticated and not
+    encrypted (a nonce, where there is one, is by convention the last).
+    The same input always gives the same output."""
+    return _c.siv(False, buf(key, "key"), _ads(ad), buf(data, "data"))
+
+
+def sivdec(key: Bytes, data: Bytes, ad: Iterable[Bytes] = ()) -> bytes:
+    """The plaintext of ``sivenc``; ``NoqtisError`` (VRFY) when the key,
+    the associated strings or the data are not the ones encrypted."""
+    return _c.siv(True, buf(key, "key"), _ads(ad), buf(data, "data"))
+
+
+def gsivenc(key: Bytes, nonce: Bytes, data: Bytes, ad: Bytes = b"") -> bytes:
+    """AES-GCM-SIV (RFC 8452), authenticated encryption that resists a
+    nonce used twice: the ciphertext, then the 16-byte tag. ``key`` is 16
+    or 32 bytes and ``nonce`` 12."""
+    return _c.gsiv(False, buf(key, "key"), buf(nonce, "nonce"), buf(ad, "ad"),
+                   buf(data, "data"))
+
+
+def gsivdec(key: Bytes, nonce: Bytes, data: Bytes, ad: Bytes = b"") -> bytes:
+    """The plaintext of ``gsivenc``; ``NoqtisError`` (VRFY) when the key,
+    the nonce, the associated data or the data are not the ones
+    encrypted."""
+    return _c.gsiv(True, buf(key, "key"), buf(nonce, "nonce"), buf(ad, "ad"),
+                   buf(data, "data"))
 
 
 def argon2id(pw: Bytes, salt: Bytes, t: int = 3, m: int = 65536, p: int = 4,

@@ -80,6 +80,7 @@ for Message Authentication}, RFC 2104. \doi{10.17487/RFC2104}
 SHA-256 of every file of a capsule.
 
 Other hash functions:
-\code{\link[=nqblake2b]{nqblake2b()}}
+\code{\link[=nqblake2b]{nqblake2b()}},
+\code{\link[=nqkt]{nqkt()}}
 }
 \concept{hash functions}

@@ -806,6 +806,92 @@ static SEXP Cb2b(SEXP key, SEXP x, SEXP len) {
   return out;
 }
 
+/* ---- KangarooTwelve, ChaCha20, AES-SIV, AES-GCM-SIV ----------------- */
+
+static SEXP Ckt(SEXP bits, SEXP x, SEXP custom, SEXP len) {
+  int b = ival(bits, "bits"), n = ival(len, "n"), rc;
+  SEXP out;
+  chkraw(x, "x", 0);
+  chkraw(custom, "custom", 1);
+  if (n < 1) Rf_error("'n' must be 1 or more");
+  out = PROTECT(rawn((size_t)n));
+  rc = nqkt((unsigned)b, rp(x), rn(x), rp(custom), rn(custom), RAW(out),
+            (size_t)n);
+  if (rc != NQOK) fail(rc, "nqkt");
+  UNPROTECT(1);
+  return out;
+}
+
+/* ctr: one number from 0 to 2^32 - 1, as a double */
+static SEXP Ccha20(SEXP key, SEXP nonce, SEXP ctr, SEXP x) {
+  double c;
+  SEXP out;
+  int rc;
+  chkraw(key, "key", 0);
+  chkraw(nonce, "nonce", 0);
+  chkraw(x, "x", 0);
+  if (TYPEOF(ctr) != REALSXP || XLENGTH(ctr) != 1) Rf_error("'counter' must be one number");
+  c = REAL(ctr)[0];
+  if (!(c >= 0 && c <= 4294967295.0) || c != (double)(uint32_t)c)
+    Rf_error("'counter' must be a whole number from 0 to 2^32 - 1");
+  out = PROTECT(rawn(rn(x)));
+  rc = nqcha20(rp(key), rn(key), rp(nonce), rn(nonce), (uint32_t)c, rp(x),
+               rn(x), rn(x) > 0 ? RAW(out) : NULL);
+  if (rc != NQOK) fail(rc, "nqcha20");
+  UNPROTECT(1);
+  return out;
+}
+
+/* dec: 0 to encrypt, 1 to decrypt; ad: a list of raw vectors */
+static SEXP Csiv(SEXP dec, SEXP key, SEXP ad, SEXP x) {
+  const uint8_t *adp[NQSIVADMAX];
+  size_t adl[NQSIVADMAX], nad, i, n, on;
+  int d = ival(dec, "dec"), rc;
+  SEXP out;
+  chkraw(key, "key", 0);
+  chkraw(x, "x", 0);
+  if (TYPEOF(ad) != VECSXP) Rf_error("'ad' must be a list of raw vectors");
+  nad = (size_t)XLENGTH(ad);
+  if (nad > NQSIVADMAX) Rf_error("'ad' holds more than %u strings", NQSIVADMAX);
+  for (i = 0; i < nad; i++) {
+    SEXP e = VECTOR_ELT(ad, (R_xlen_t)i);
+    if (TYPEOF(e) != RAWSXP) Rf_error("'ad' must be a list of raw vectors");
+    adp[i] = rp(e);
+    adl[i] = rn(e);
+  }
+  n = rn(x);
+  if (d && n < 16) Rf_error("'x' is shorter than the 16 bytes of the IV");
+  on = d ? n - 16 : n + 16;
+  out = PROTECT(rawn(on));
+  rc = d ? nqsivdec(rp(key), rn(key), adp, adl, nad, rp(x), n,
+                    on > 0 ? RAW(out) : NULL, on)
+         : nqsivenc(rp(key), rn(key), adp, adl, nad, rp(x), n, RAW(out), on);
+  if (rc != NQOK) fail(rc, d ? "nqsivdec" : "nqsivenc");
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Cgsiv(SEXP dec, SEXP key, SEXP nonce, SEXP ad, SEXP x) {
+  size_t n, on;
+  int d = ival(dec, "dec"), rc;
+  SEXP out;
+  chkraw(key, "key", 0);
+  chkraw(nonce, "nonce", 0);
+  chkraw(ad, "ad", 1);
+  chkraw(x, "x", 0);
+  n = rn(x);
+  if (d && n < 16) Rf_error("'x' is shorter than the 16 bytes of the tag");
+  on = d ? n - 16 : n + 16;
+  out = PROTECT(rawn(on));
+  rc = d ? nqgsivdec(rp(key), rn(key), rp(nonce), rn(nonce), rp(ad), rn(ad),
+                     rp(x), n, on > 0 ? RAW(out) : NULL, on)
+         : nqgsivenc(rp(key), rn(key), rp(nonce), rn(nonce), rp(ad), rn(ad),
+                     rp(x), n, RAW(out), on);
+  if (rc != NQOK) fail(rc, d ? "nqgsivdec" : "nqgsivenc");
+  UNPROTECT(1);
+  return out;
+}
+
 /* tmp: c(t, m, p) */
 static SEXP Ca2id(SEXP pw, SEXP salt, SEXP key, SEXP ad, SEXP tmp,
                   SEXP len) {
@@ -1266,6 +1352,7 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cdrslv, 1), CDEF(Cdrsp, 2), CDEF(Cdwb, 1), CDEF(Cdchk, 1), CDEF(Cdinfer, 5), CDEF(Cdstats, 4),
   CDEF(Cddrift, 6), CDEF(Cdsha, 2), CDEF(Cddiff, 2),
   CDEF(Cb2b, 3), CDEF(Ca2id, 6), CDEF(Ccteq, 2), CDEF(Cpwenc, 4),
+  CDEF(Ckt, 4), CDEF(Ccha20, 4), CDEF(Csiv, 4), CDEF(Cgsiv, 5),
   CDEF(Cpwdec, 3), CDEF(Csmu, 5), CDEF(Csignmu, 4), CDEF(Cvrfymu, 4),
   CDEF(Csini, 5), CDEF(Csupd, 2), CDEF(Csfin, 4), CDEF(Cvfin, 3),
   CDEF(Ckseal, 4), CDEF(Ckopen, 4), CDEF(Ckfeini, 4), CDEF(Ckfdini, 4),

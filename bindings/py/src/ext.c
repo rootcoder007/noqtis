@@ -1304,6 +1304,117 @@ static PyObject *pb2b(PyObject *self, PyObject *args) {
   return o;
 }
 
+/* kt(bits, data, custom, n) -> n bytes of KT128 or KT256 */
+static PyObject *pkt(PyObject *self, PyObject *args) {
+  const char *d, *c;
+  Py_ssize_t dl, cl, n;
+  unsigned long bits;
+  PyObject *o;
+  uint8_t *p;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "ky#y#n", &bits, &d, &dl, &c, &cl, &n))
+    return NULL;
+  if (n < 1 || (bits != 128 && bits != 256)) return fail(NQEARG);
+  if ((o = obuf(SZ(n), &p)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqkt((unsigned)bits, U8(d), SZ(dl), U8(c), SZ(cl), p, SZ(n));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* cha20(key, nonce, ctr, data) -> data XORed with the key stream */
+static PyObject *pcha20(PyObject *self, PyObject *args) {
+  const char *k, *nc, *d;
+  Py_ssize_t kl, nl, dl;
+  unsigned long ctr;
+  PyObject *o;
+  uint8_t *p;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#y#ky#", &k, &kl, &nc, &nl, &ctr, &d, &dl))
+    return NULL;
+  if (ctr > 0xffffffffUL) return fail(NQEARG);
+  if ((o = obuf(SZ(dl), &p)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqcha20(U8(k), SZ(kl), U8(nc), SZ(nl), (uint32_t)ctr, U8(d), SZ(dl),
+               p);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* siv(dec, key, ads, data): AES-SIV; ads is a tuple of bytes objects */
+static PyObject *psiv(PyObject *self, PyObject *args) {
+  const char *k, *d;
+  Py_ssize_t kl, dl, nad, i, sl;
+  int dec, rc;
+  PyObject *ads, *o;
+  const uint8_t *ad[NQSIVADMAX];
+  size_t adl[NQSIVADMAX], ol;
+  uint8_t *p;
+  char *s;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "py#O!y#", &dec, &k, &kl, &PyTuple_Type, &ads,
+                        &d, &dl))
+    return NULL;
+  nad = PyTuple_Size(ads);
+  if (nad < 0) return NULL;
+  if (nad > (Py_ssize_t)NQSIVADMAX || (dec && dl < 16)) return fail(NQEARG);
+  for (i = 0; i < nad; i++) {
+    PyObject *it = PyTuple_GetItem(ads, i);
+    if (it == NULL || PyBytes_AsStringAndSize(it, &s, &sl) < 0) return NULL;
+    ad[i] = U8(s);
+    adl[i] = SZ(sl);
+  }
+  ol = dec ? SZ(dl) - 16 : SZ(dl) + 16;
+  if ((o = obuf(ol, &p)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = dec ? nqsivdec(U8(k), SZ(kl), ad, adl, SZ(nad), U8(d), SZ(dl), p, ol)
+           : nqsivenc(U8(k), SZ(kl), ad, adl, SZ(nad), U8(d), SZ(dl), p, ol);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* gsiv(dec, key, nonce, ad, data): AES-GCM-SIV */
+static PyObject *pgsiv(PyObject *self, PyObject *args) {
+  const char *k, *nc, *a, *d;
+  Py_ssize_t kl, nl, al, dl;
+  int dec, rc;
+  PyObject *o;
+  size_t ol;
+  uint8_t *p;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "py#y#y#y#", &dec, &k, &kl, &nc, &nl, &a, &al,
+                        &d, &dl))
+    return NULL;
+  if (dec && dl < 16) return fail(NQEARG);
+  ol = dec ? SZ(dl) - 16 : SZ(dl) + 16;
+  if ((o = obuf(ol, &p)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = dec ? nqgsivdec(U8(k), SZ(kl), U8(nc), SZ(nl), U8(a), SZ(al), U8(d),
+                       SZ(dl), p, ol)
+           : nqgsivenc(U8(k), SZ(kl), U8(nc), SZ(nl), U8(a), SZ(al), U8(d),
+                       SZ(dl), p, ol);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  return o;
+}
+
 /* a2id(pw, salt, key, ad, t, m, p, n) -> tag (secret) */
 static PyObject *pa2id(PyObject *self, PyObject *args) {
   const char *pw, *s, *k, *a;
@@ -2235,6 +2346,10 @@ static PyMethodDef meths[] = {
   {"rand", prand, METH_VARARGS, "nqrand"},
   {"cteq", pcteq, METH_VARARGS, "nqcteq"},
   {"b2b", pb2b, METH_VARARGS, "nqb2b"},
+  {"kt", pkt, METH_VARARGS, "nqkt"},
+  {"cha20", pcha20, METH_VARARGS, "nqcha20"},
+  {"siv", psiv, METH_VARARGS, "nqsivenc, nqsivdec"},
+  {"gsiv", pgsiv, METH_VARARGS, "nqgsivenc, nqgsivdec"},
   {"a2id", pa2id, METH_VARARGS, "nqa2id"},
   {"pwenc", ppwenc, METH_VARARGS, "nqpwenc"},
   {"pwdec", ppwdec, METH_VARARGS, "nqpwdec"},
