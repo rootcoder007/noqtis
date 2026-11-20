@@ -23,6 +23,12 @@
 
 #define BLK 16u
 
+/* a > b on 64 bits: a size_t compared with a bound past 2^32 directly is
+ * always false where size_t has 32 bits, which -Wtype-limits refuses */
+static int gt64(uint64_t a, uint64_t b) {
+  return a > b;
+}
+
 /* ---- ChaCha20 ---- */
 
 int nqcha20(const uint8_t *key, size_t keylen, const uint8_t *nonce,
@@ -32,7 +38,7 @@ int nqcha20(const uint8_t *key, size_t keylen, const uint8_t *nonce,
       ((in == NULL || out == NULL) && inlen > 0))
     return NQEARG;
   /* the block counter is 32 bits: 64 bytes for each value left of it */
-  if ((uint64_t)inlen > ((uint64_t)0x100000000u - ctr) * 64u)
+  if (gt64(inlen, ((uint64_t)0x100000000u - ctr) * 64u))
     return NQELIM;
   if (inlen > 0) nqcc20(key, nonce, ctr, in, inlen, out);
   return NQOK;
@@ -389,8 +395,7 @@ static void ctrle(const nqaes *k, const uint8_t *tag, const uint8_t *in,
 
 /* the limit of RFC 8452 section 6 on each of the two lengths: 2^36 bytes */
 static int gsivlim(size_t alen, size_t n) {
-  return (uint64_t)alen <= ((uint64_t)1 << 36) &&
-         (uint64_t)n <= ((uint64_t)1 << 36);
+  return !gt64(alen, (uint64_t)1 << 36) && !gt64(n, (uint64_t)1 << 36);
 }
 
 int nqgsivenc(const uint8_t *key, size_t keylen, const uint8_t *nonce,

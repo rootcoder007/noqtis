@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   init, kt128, kt256, chacha20, sivenc, sivdec, gsivenc, gsivdec, codes,
-} from '../lib/index.js';
+} from '../lib/main.js';
 
 await init();
 const hx = (s) => Uint8Array.from(s.match(/../g) ?? [], (b) => parseInt(b, 16));
