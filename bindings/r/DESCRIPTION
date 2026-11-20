@@ -1,7 +1,7 @@
 Package: noqtis
 Type: Package
 Title: Notary of Quantum-Safe Traceable Inputs and Seals
-Version: 0.2.2
+Version: 0.2.3
 Authors@R: c(
     person(c("Vansh", "Singh"), "Ruhela", email = "vsruhela@proton.me",
            role = c("aut", "cre", "cph"),

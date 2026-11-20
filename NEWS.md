@@ -1,3 +1,10 @@
+# noqtis 0.2.3
+
+- No change to the library or the tool.
+- The pages of the packages on PyPI, npm, crates.io, pkg.go.dev, Maven Central and CRAN show the badges of the main README, which gains those of the test workflows; the COPR page shows them too. Those pages take the README of each binding, and it had the website badge alone.
+- The library and the tool are built and tested on FreeBSD, OpenBSD and NetBSD at every change, with warnings as errors.
+- A release is titled by its bare version, and its COPR build may run as long as COPR allows: at 0.2.2 the job that watches it was cut off while the riscv64 targets still built.
+
 # noqtis 0.2.2
 
 - The Go module is published with the rest. Its version is the tag `bindings/go/vX.Y.Z`, which the Go proxy keeps for good once it is asked for; that tag used to go up with the release tag, before the release was reviewed and published. It is now made when the release is published, on the release tag commit, and a release whose Go tag sits on another commit is refused.

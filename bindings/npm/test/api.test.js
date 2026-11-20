@@ -28,7 +28,7 @@ const SIGS = algs().filter((a) => a.kind === 'sign');
 const KEMS = algs().filter((a) => a.kind === 'kem');
 
 test('algs and version', () => {
-  assert.equal(version(), '0.2.2');
+  assert.equal(version(), '0.2.3');
   assert.equal(selftest(), undefined);
   assert.equal(nq.selftest, selftest);
   assert.equal(SIGS.length, 19);

@@ -17,8 +17,8 @@ authors:
     given-names: "Vansh Singh"
     orcid: "https://orcid.org/0009-0004-1750-3592"
     alias: rootcoder007
-version: 0.2.2
-date-released: 2026-11-18
+version: 0.2.3
+date-released: 2026-11-20
 # The licence is Apache-2.0 WITH LLVM-exception (see LICENSE); CFF 1.2.0
 # takes a single SPDX licence identifier, not an expression, so the
 # exception is carried by license-url.

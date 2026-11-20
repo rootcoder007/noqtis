@@ -1,3 +1,11 @@
+noqtis (0.2.3-1) unstable; urgency=medium
+
+  * The package pages carry the project's badges; built and tested on
+    FreeBSD, OpenBSD and NetBSD.
+  * No change to the library or the tool.
+
+ -- rootcoder007 <278967282+rootcoder007@users.noreply.github.com>  Fri, 20 Nov 2026 04:00:00 -0500
+
 noqtis (0.2.2-1) unstable; urgency=medium
 
   * The Go module is published with the release; every binding names

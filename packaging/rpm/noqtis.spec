@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Fedora, EPEL, openSUSE-style RPM.
 Name:           noqtis
-Version:        0.2.2
+Version:        0.2.3
 Release:        1%{?dist}
 Summary:        Post-quantum signing, KEMs and sealed input records in C11
 License:        Apache-2.0 WITH LLVM-exception
@@ -69,6 +69,9 @@ export NQSLSUB=8 NQFAST=1
 %{_mandir}/man5/*
 
 %changelog
+* Fri Nov 20 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.2.3-1
+- The package pages carry the project's badges; built and tested on FreeBSD, OpenBSD and NetBSD
+
 * Wed Nov 18 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.2.2-1
 - The Go module is published with the release; every binding names noqtis.dev
 

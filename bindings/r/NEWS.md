@@ -1,3 +1,7 @@
+# noqtis 0.2.3
+
+- No change to the R package's functions: the version follows the library. The README shows the project's badges.
+
 # noqtis 0.2.2
 
 - No change to the R package: the version follows the library.
