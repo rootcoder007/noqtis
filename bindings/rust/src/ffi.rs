@@ -459,6 +459,71 @@ extern "C" {
         out: *mut u8,
         ol: usize,
     ) -> c_int;
+    pub fn nqkt(
+        bits: std::os::raw::c_uint,
+        inp: *const u8,
+        n: usize,
+        custom: *const u8,
+        cl: usize,
+        out: *mut u8,
+        ol: usize,
+    ) -> c_int;
+    pub fn nqcha20(
+        key: *const u8,
+        kl: usize,
+        nonce: *const u8,
+        nl: usize,
+        ctr: u32,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+    ) -> c_int;
+    pub fn nqsivenc(
+        key: *const u8,
+        kl: usize,
+        ad: *const *const u8,
+        adl: *const usize,
+        nad: usize,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        ol: usize,
+    ) -> c_int;
+    pub fn nqsivdec(
+        key: *const u8,
+        kl: usize,
+        ad: *const *const u8,
+        adl: *const usize,
+        nad: usize,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        ol: usize,
+    ) -> c_int;
+    pub fn nqgsivenc(
+        key: *const u8,
+        kl: usize,
+        nonce: *const u8,
+        nl: usize,
+        ad: *const u8,
+        al: usize,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        ol: usize,
+    ) -> c_int;
+    pub fn nqgsivdec(
+        key: *const u8,
+        kl: usize,
+        nonce: *const u8,
+        nl: usize,
+        ad: *const u8,
+        al: usize,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        ol: usize,
+    ) -> c_int;
     pub fn nqa2id(
         pw: *const u8,
         pwl: usize,

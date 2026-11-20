@@ -132,6 +132,20 @@ export interface Package {
 export function cteq(a: Data, b: Data): boolean;
 /** BLAKE2b (RFC 7693), keyed with opts.key; opts.length 1 to 64 (64). */
 export function blake2b(data: Data, opts?: { key?: Data; length?: number }): Bytes;
+/** KangarooTwelve KT128 (RFC 9861): opts.length bytes (32), opts.custom. */
+export function kt128(data: Data, opts?: { length?: number; custom?: Data }): Bytes;
+/** KangarooTwelve KT256 (RFC 9861): opts.length bytes (64), opts.custom. */
+export function kt256(data: Data, opts?: { length?: number; custom?: Data }): Bytes;
+/** The ChaCha20 stream (RFC 8439) from block opts.counter (0). NOT AUTHENTICATED. */
+export function chacha20(key: Data, nonce: Data, data: Data, opts?: { counter?: number }): Bytes;
+/** AES-SIV (RFC 5297): the 16-byte IV, then the ciphertext; ad is up to 126 strings. */
+export function sivenc(key: Data, data: Data, ad?: Data[]): Bytes;
+/** The plaintext of sivenc; throws when it does not verify. */
+export function sivdec(key: Data, data: Data, ad?: Data[]): Bytes;
+/** AES-GCM-SIV (RFC 8452): the ciphertext, then the 16-byte tag. */
+export function gsivenc(key: Data, nonce: Data, data: Data, ad?: Data): Bytes;
+/** The plaintext of gsivenc; throws when it does not verify. */
+export function gsivdec(key: Data, nonce: Data, data: Data, ad?: Data): Bytes;
 /** Argon2id (RFC 9106): opts t (3), m KiB (65536), p (4), length (32). */
 export function argon2id(pw: Data, salt: Data, opts?: { t?: number; m?: number;
   p?: number; length?: number; key?: Data; ad?: Data }): Bytes;

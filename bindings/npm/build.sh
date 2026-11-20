@@ -33,6 +33,7 @@ nqdparse nqdjson nqdrfree nqdput nqdset nqdsrc nqdchk nqdinfer nqdschk
 nqdstats nqddrift nqddriftat nqddiff nqdrepn nqdrepi nqdrepj nqdrepfree nqdaddr nqdvrfy
 nqdfld nqdrslv nqdrsp nqdwb
 nqcteq nqb2b nqa2id nqhini nqhupd nqhfin nqpwenc nqpwdec
+nqkt nqcha20 nqsivenc nqsivdec nqgsivenc nqgsivdec
 nqsmu nqsignmu nqvrfymu nqsini nqvini nqsupd nqsfin nqvfin
 nqkseal nqkopen nqkfeini nqkfeupd nqkfefin nqkfdini nqkfdupd nqkfdfin
 nqinsp nqsealwhy nqtsreq nqtsput nqersreq nqersput

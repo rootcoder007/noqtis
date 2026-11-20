@@ -236,6 +236,138 @@ func HMAC(alg string, key, data []byte) ([]byte, error) {
 	return out, nil
 }
 
+func kt(bits C.uint, data, custom []byte, n int) ([]byte, error) {
+	if n < 1 {
+		return nil, why(-1, "n: 1 byte or more")
+	}
+	out := make([]byte, n)
+	if err := rc(C.nqkt(bits, u8(data), sz(data), u8(custom), sz(custom), u8(out), sz(out))); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// KT128 is n bytes of KangarooTwelve KT128 (RFC 9861), the tree hash and
+// extendable-output function, with a customization string (nil for none;
+// a secret key there makes it a MAC). 32 bytes give its full strength
+// against collisions.
+func KT128(data, custom []byte, n int) ([]byte, error) { return kt(128, data, custom, n) }
+
+// KT256 is n bytes of KangarooTwelve KT256 (RFC 9861); 64 bytes give its
+// full strength against collisions.
+func KT256(data, custom []byte, n int) ([]byte, error) { return kt(256, data, custom, n) }
+
+// ChaCha20 is data XORed with the key stream of the ChaCha20 stream
+// cipher (RFC 8439) under the 32-byte key and the 12-byte nonce, from
+// block counter. The same call decrypts.
+//
+// It is NOT AUTHENTICATED: a changed ciphertext decrypts to a changed
+// plaintext with no error, and a key and nonce used for two messages give
+// away their XOR. To encrypt, use SIVEncrypt or GCMSIVEncrypt.
+func ChaCha20(key, nonce []byte, counter uint32, data []byte) ([]byte, error) {
+	out := make([]byte, len(data))
+	if err := rc(C.nqcha20(u8(key), sz(key), u8(nonce), sz(nonce), C.uint32_t(counter), u8(data), sz(data), u8(out))); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func siv(dec bool, key []byte, ad [][]byte, data []byte) ([]byte, error) {
+	if len(ad) > 126 {
+		return nil, why(-1, "ad: at most 126 strings")
+	}
+	if dec && len(data) < 16 {
+		return nil, why(-1, "data: at least the 16 bytes of the IV")
+	}
+	n := len(data) + 16
+	if dec {
+		n = len(data) - 16
+	}
+	// the strings as C memory: a C array of pointers may not point into
+	// Go memory
+	var pp **C.uint8_t
+	var lp *C.size_t
+	if len(ad) > 0 {
+		arr := (*[126]*C.uint8_t)(C.malloc(C.size_t(len(ad)) * C.size_t(unsafe.Sizeof(uintptr(0)))))
+		if arr == nil {
+			return nil, why(-6, "out of memory")
+		}
+		defer C.free(unsafe.Pointer(arr))
+		lens := make([]C.size_t, len(ad))
+		for i, a := range ad {
+			arr[i] = nil
+			if len(a) > 0 {
+				p := C.CBytes(a)
+				defer C.free(p)
+				arr[i] = (*C.uint8_t)(p)
+			}
+			lens[i] = C.size_t(len(a))
+		}
+		pp = &arr[0]
+		lp = &lens[0]
+	}
+	out := make([]byte, n)
+	var r C.int
+	if dec {
+		r = C.nqsivdec(u8(key), sz(key), pp, lp, C.size_t(len(ad)), u8(data), sz(data), u8(out), sz(out))
+	} else {
+		r = C.nqsivenc(u8(key), sz(key), pp, lp, C.size_t(len(ad)), u8(data), sz(data), u8(out), sz(out))
+	}
+	if err := rc(r); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SIVEncrypt is AES-SIV (RFC 5297), deterministic authenticated
+// encryption: the 16-byte synthetic IV, then the ciphertext. key is 32,
+// 48 or 64 bytes; ad is up to 126 associated strings, authenticated and
+// not encrypted (a nonce, where there is one, is by convention the
+// last). The same input always gives the same output.
+func SIVEncrypt(key []byte, ad [][]byte, data []byte) ([]byte, error) {
+	return siv(false, key, ad, data)
+}
+
+// SIVDecrypt is the plaintext of SIVEncrypt; ErrVerify when the key, the
+// associated strings or the data are not the ones encrypted.
+func SIVDecrypt(key []byte, ad [][]byte, data []byte) ([]byte, error) {
+	return siv(true, key, ad, data)
+}
+
+func gsiv(dec bool, key, nonce, ad, data []byte) ([]byte, error) {
+	if dec && len(data) < 16 {
+		return nil, why(-1, "data: at least the 16 bytes of the tag")
+	}
+	n := len(data) + 16
+	if dec {
+		n = len(data) - 16
+	}
+	out := make([]byte, n)
+	var r C.int
+	if dec {
+		r = C.nqgsivdec(u8(key), sz(key), u8(nonce), sz(nonce), u8(ad), sz(ad), u8(data), sz(data), u8(out), sz(out))
+	} else {
+		r = C.nqgsivenc(u8(key), sz(key), u8(nonce), sz(nonce), u8(ad), sz(ad), u8(data), sz(data), u8(out), sz(out))
+	}
+	if err := rc(r); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GCMSIVEncrypt is AES-GCM-SIV (RFC 8452), authenticated encryption that
+// resists a nonce used twice: the ciphertext, then the 16-byte tag. key
+// is 16 or 32 bytes and nonce 12.
+func GCMSIVEncrypt(key, nonce, ad, data []byte) ([]byte, error) {
+	return gsiv(false, key, nonce, ad, data)
+}
+
+// GCMSIVDecrypt is the plaintext of GCMSIVEncrypt; ErrVerify when it does
+// not verify.
+func GCMSIVDecrypt(key, nonce, ad, data []byte) ([]byte, error) {
+	return gsiv(true, key, nonce, ad, data)
+}
+
 // Random is n bytes from the operating system's CSPRNG.
 func Random(n int) ([]byte, error) {
 	if n < 0 {

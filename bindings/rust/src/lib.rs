@@ -403,6 +403,153 @@ pub fn blake2b(data: &[u8], key: &[u8], n: usize) -> Result<Vec<u8>> {
     Ok(out)
 }
 
+fn kt(bits: u32, data: &[u8], custom: &[u8], n: usize) -> Result<Vec<u8>> {
+    if n == 0 {
+        return Err(Error::why(-1, "n: 1 byte or more"));
+    }
+    let mut out = vec![0u8; n];
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        ffi::nqkt(
+            bits,
+            data.as_ptr(),
+            data.len(),
+            custom.as_ptr(),
+            custom.len(),
+            out.as_mut_ptr(),
+            n,
+        )
+    })?;
+    Ok(out)
+}
+
+/// KangarooTwelve KT128 (RFC 9861): `n` bytes of the tree hash and
+/// extendable-output function, with a customization string (empty for
+/// none; a secret key there makes it a MAC). 32 bytes give its full
+/// strength against collisions.
+pub fn kt128(data: &[u8], custom: &[u8], n: usize) -> Result<Vec<u8>> {
+    kt(128, data, custom, n)
+}
+
+/// KangarooTwelve KT256 (RFC 9861): as [`kt128`], at 256 bits; 64 bytes
+/// give its full strength against collisions.
+pub fn kt256(data: &[u8], custom: &[u8], n: usize) -> Result<Vec<u8>> {
+    kt(256, data, custom, n)
+}
+
+/// The ChaCha20 stream cipher (RFC 8439): `data` XORed with the key
+/// stream of the 32-byte `key` and the 12-byte `nonce`, from block
+/// `counter`. The same call decrypts.
+///
+/// **Not authenticated**: a changed ciphertext decrypts to a changed
+/// plaintext with no error, and a key and nonce used for two messages
+/// give away their XOR. To encrypt, use [`sivenc`] or [`gsivenc`].
+pub fn chacha20(key: &[u8], nonce: &[u8], counter: u32, data: &[u8]) -> Result<Vec<u8>> {
+    let mut out = vec![0u8; data.len()];
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        ffi::nqcha20(
+            key.as_ptr(),
+            key.len(),
+            nonce.as_ptr(),
+            nonce.len(),
+            counter,
+            data.as_ptr(),
+            data.len(),
+            out.as_mut_ptr(),
+        )
+    })?;
+    Ok(out)
+}
+
+fn siv(dec: bool, key: &[u8], ad: &[&[u8]], data: &[u8]) -> Result<Vec<u8>> {
+    if dec && data.len() < 16 {
+        return Err(Error::why(-1, "data: at least the 16 bytes of the IV"));
+    }
+    let n = if dec {
+        data.len() - 16
+    } else {
+        data.len() + 16
+    };
+    let p: Vec<*const u8> = ad.iter().map(|a| a.as_ptr()).collect();
+    let l: Vec<usize> = ad.iter().map(|a| a.len()).collect();
+    let mut out = vec![0u8; n];
+    // SAFETY: p and l hold ad.len() entries, and every buffer is valid
+    // for the length passed with it
+    rc(unsafe {
+        let f = if dec { ffi::nqsivdec } else { ffi::nqsivenc };
+        f(
+            key.as_ptr(),
+            key.len(),
+            p.as_ptr(),
+            l.as_ptr(),
+            ad.len(),
+            data.as_ptr(),
+            data.len(),
+            out.as_mut_ptr(),
+            n,
+        )
+    })?;
+    Ok(out)
+}
+
+/// AES-SIV (RFC 5297), deterministic authenticated encryption: the
+/// 16-byte synthetic IV, then the ciphertext. `key` is 32, 48 or 64
+/// bytes; `ad` is up to 126 associated strings, authenticated and not
+/// encrypted (a nonce, where there is one, is by convention the last).
+/// The same input always gives the same output.
+pub fn sivenc(key: &[u8], ad: &[&[u8]], data: &[u8]) -> Result<Vec<u8>> {
+    siv(false, key, ad, data)
+}
+
+/// The plaintext of [`sivenc`]; an error of kind `Verify` when the key,
+/// the associated strings or the data are not the ones encrypted.
+pub fn sivdec(key: &[u8], ad: &[&[u8]], data: &[u8]) -> Result<Vec<u8>> {
+    siv(true, key, ad, data)
+}
+
+fn gsiv(dec: bool, key: &[u8], nonce: &[u8], ad: &[u8], data: &[u8]) -> Result<Vec<u8>> {
+    if dec && data.len() < 16 {
+        return Err(Error::why(-1, "data: at least the 16 bytes of the tag"));
+    }
+    let n = if dec {
+        data.len() - 16
+    } else {
+        data.len() + 16
+    };
+    let mut out = vec![0u8; n];
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        let f = if dec { ffi::nqgsivdec } else { ffi::nqgsivenc };
+        f(
+            key.as_ptr(),
+            key.len(),
+            nonce.as_ptr(),
+            nonce.len(),
+            ad.as_ptr(),
+            ad.len(),
+            data.as_ptr(),
+            data.len(),
+            out.as_mut_ptr(),
+            n,
+        )
+    })?;
+    Ok(out)
+}
+
+/// AES-GCM-SIV (RFC 8452), authenticated encryption that resists a nonce
+/// used twice: the ciphertext, then the 16-byte tag. `key` is 16 or 32
+/// bytes and `nonce` 12.
+pub fn gsivenc(key: &[u8], nonce: &[u8], ad: &[u8], data: &[u8]) -> Result<Vec<u8>> {
+    gsiv(false, key, nonce, ad, data)
+}
+
+/// The plaintext of [`gsivenc`]; an error of kind `Verify` when it does
+/// not verify.
+pub fn gsivdec(key: &[u8], nonce: &[u8], ad: &[u8], data: &[u8]) -> Result<Vec<u8>> {
+    gsiv(true, key, nonce, ad, data)
+}
+
 /// The cost of [`argon2id`]: `t` passes over `m` KiB in `p` lanes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cost {

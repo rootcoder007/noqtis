@@ -585,6 +585,127 @@ export function blake2b(data, opts = {}) {
   });
 }
 
+function kt(bits, def, data, opts) {
+  const d = bytes(data, 'data');
+  const c = opts.custom === undefined ? new Uint8Array(0) : bytes(opts.custom, 'custom');
+  const n = opts.length === undefined ? def : opts.length;
+  if (!Number.isInteger(n) || n < 1) {
+    throw new NoqtisError(CODES.EARG, 'length: 1 or more');
+  }
+  return run((h) => {
+    const o = h.alloc(n);
+    check(M._nqkt(bits, h.put(d), d.length, h.put(c), c.length, o, n));
+    return h.get(o, n);
+  });
+}
+
+/**
+ * KangarooTwelve KT128 (RFC 9861): `opts.length` bytes (default 32) of
+ * the tree hash and extendable-output function, with an optional
+ * customization string `opts.custom` (a secret key there makes it a MAC).
+ */
+export function kt128(data, opts = {}) {
+  return kt(128, 32, data, opts);
+}
+
+/** KangarooTwelve KT256 (RFC 9861): as kt128, at 256 bits (default 64 bytes). */
+export function kt256(data, opts = {}) {
+  return kt(256, 64, data, opts);
+}
+
+/**
+ * The ChaCha20 stream cipher (RFC 8439): data XORed with the key stream
+ * of the 32-byte key and the 12-byte nonce, from block `opts.counter`
+ * (default 0). The same call decrypts.
+ *
+ * NOT AUTHENTICATED: a changed ciphertext decrypts to a changed plaintext
+ * with no error, and a key and nonce used for two messages give away
+ * their XOR. To encrypt, use sivenc or gsivenc.
+ */
+export function chacha20(key, nonce, data, opts = {}) {
+  const k = bytes(key, 'key');
+  const nc = bytes(nonce, 'nonce');
+  const d = bytes(data, 'data');
+  const ctr = opts.counter === undefined ? 0 : opts.counter;
+  if (!Number.isInteger(ctr) || ctr < 0 || ctr > 0xffffffff) {
+    throw new NoqtisError(CODES.EARG, 'counter: 0 to 2^32 - 1');
+  }
+  return run((h) => {
+    const o = h.alloc(d.length);
+    check(M._nqcha20(h.put(k), k.length, h.put(nc), nc.length, ctr | 0, h.put(d), d.length, o));
+    return h.get(o, d.length);
+  });
+}
+
+function siv(dec, key, data, ad) {
+  const k = bytes(key, 'key');
+  const d = bytes(data, 'data');
+  if (ad === undefined) ad = [];
+  if (!Array.isArray(ad)) {
+    throw new NoqtisError(CODES.EARG, 'ad: an array of byte strings');
+  }
+  const a = ad.map((x) => bytes(x, 'ad'));
+  if (a.length > 126 || (dec && d.length < 16)) throw new NoqtisError(CODES.EARG);
+  const n = dec ? d.length - 16 : d.length + 16;
+  return run((h) => {
+    const p = h.alloc(4 * a.length);
+    const l = h.alloc(4 * a.length);
+    for (let i = 0; i < a.length; i++) {
+      M.HEAPU32[(p >>> 2) + i] = h.put(a[i]);
+      M.HEAPU32[(l >>> 2) + i] = a[i].length;
+    }
+    const o = h.alloc(n);
+    const f = dec ? M._nqsivdec : M._nqsivenc;
+    check(f(h.put(k), k.length, p, l, a.length, h.put(d), d.length, o, n));
+    return h.get(o, n);
+  });
+}
+
+/**
+ * AES-SIV (RFC 5297), deterministic authenticated encryption: the 16-byte
+ * synthetic IV, then the ciphertext. key is 32, 48 or 64 bytes; ad is an
+ * array of up to 126 associated strings, authenticated and not encrypted
+ * (a nonce, where there is one, is by convention the last). The same
+ * input always gives the same output.
+ */
+export function sivenc(key, data, ad) {
+  return siv(false, key, data, ad);
+}
+
+/** The plaintext of sivenc; NoqtisError (EVRFY) when it does not verify. */
+export function sivdec(key, data, ad) {
+  return siv(true, key, data, ad);
+}
+
+function gsiv(dec, key, nonce, data, ad) {
+  const k = bytes(key, 'key');
+  const nc = bytes(nonce, 'nonce');
+  const d = bytes(data, 'data');
+  const a = ad === undefined ? new Uint8Array(0) : bytes(ad, 'ad');
+  if (dec && d.length < 16) throw new NoqtisError(CODES.EARG);
+  const n = dec ? d.length - 16 : d.length + 16;
+  return run((h) => {
+    const o = h.alloc(n);
+    const f = dec ? M._nqgsivdec : M._nqgsivenc;
+    check(f(h.put(k), k.length, h.put(nc), nc.length, h.put(a), a.length, h.put(d), d.length, o, n));
+    return h.get(o, n);
+  });
+}
+
+/**
+ * AES-GCM-SIV (RFC 8452), authenticated encryption that resists a nonce
+ * used twice: the ciphertext, then the 16-byte tag. key is 16 or 32
+ * bytes, nonce 12; ad is the associated data.
+ */
+export function gsivenc(key, nonce, data, ad) {
+  return gsiv(false, key, nonce, data, ad);
+}
+
+/** The plaintext of gsivenc; NoqtisError (EVRFY) when it does not verify. */
+export function gsivdec(key, nonce, data, ad) {
+  return gsiv(true, key, nonce, data, ad);
+}
+
 /**
  * Argon2id (RFC 9106, version 0x13): `opts.length` bytes (4 to 1024,
  * default 32) from the password and the salt (8 bytes or more), `opts.t`
@@ -2406,5 +2527,5 @@ export const data = Object.freeze({
 export default {
   init, version, selftest, algs, random, hash, hmac, sign, kem, capsule, dsse,
   idcard, keyfile, data, NoqtisError, codes, errmsg, cteq, blake2b, argon2id,
-  hasher,
+  hasher, kt128, kt256, chacha20, sivenc, sivdec, gsivenc, gsivdec,
 };

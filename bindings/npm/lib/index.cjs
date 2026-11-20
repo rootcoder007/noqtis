@@ -43,6 +43,13 @@ module.exports = {
   cteq: (...a) => need().cteq(...a),
   blake2b: (...a) => need().blake2b(...a),
   argon2id: (...a) => need().argon2id(...a),
+  kt128: (...a) => need().kt128(...a),
+  kt256: (...a) => need().kt256(...a),
+  chacha20: (...a) => need().chacha20(...a),
+  sivenc: (...a) => need().sivenc(...a),
+  sivdec: (...a) => need().sivdec(...a),
+  gsivenc: (...a) => need().gsivenc(...a),
+  gsivdec: (...a) => need().gsivdec(...a),
   hasher: (...a) => need().hasher(...a),
   sign: Object.freeze({
     keygen: fwd('sign', 'keygen'),

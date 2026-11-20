@@ -311,6 +311,192 @@ public final class Noqtis {
     }
   }
 
+  private static byte[] kt(int bits, byte[] data, byte[] custom, int n) {
+    if (n < 1) {
+      throw new NoqtisException(-1, "n: 1 byte or more");
+    }
+    byte[] c = custom == null ? new byte[0] : custom;
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment o = Native.out(m, n);
+      Native.rc(
+          (int)
+              Native.NQKT.invoke(
+                  bits, Native.in(m, data), (long) data.length, Native.in(m, c), (long) c.length,
+                  o, (long) n));
+      return Native.bytes(o, n);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * KangarooTwelve KT128 (RFC 9861): n bytes of the tree hash and
+   * extendable-output function, with a customization string (a secret
+   * key there makes it a MAC). 32 bytes give its full strength against
+   * collisions.
+   *
+   * @param data the message
+   * @param custom the customization string, or null (or empty) for none
+   * @param n the output length, 1 or more
+   * @return the output
+   */
+  public static byte[] kt128(byte[] data, byte[] custom, int n) {
+    return kt(128, data, custom, n);
+  }
+
+  /**
+   * KangarooTwelve KT256 (RFC 9861): as kt128, at 256 bits; 64 bytes give
+   * its full strength against collisions.
+   *
+   * @param data the message
+   * @param custom the customization string, or null (or empty) for none
+   * @param n the output length, 1 or more
+   * @return the output
+   */
+  public static byte[] kt256(byte[] data, byte[] custom, int n) {
+    return kt(256, data, custom, n);
+  }
+
+  /**
+   * The ChaCha20 stream cipher (RFC 8439): data XORed with the key stream
+   * of the 32-byte key and the 12-byte nonce, from a block counter. The
+   * same call decrypts.
+   *
+   * <p>NOT AUTHENTICATED: a changed ciphertext decrypts to a changed
+   * plaintext with no error, and a key and nonce used for two messages
+   * give away their XOR. To encrypt, use sivenc or gsivenc.
+   *
+   * @param key the key, 32 bytes
+   * @param nonce the nonce, 12 bytes
+   * @param counter the block counter the stream starts at, 0 to 2^32 - 1
+   * @param data the bytes to XOR
+   * @return data XORed with the key stream
+   */
+  public static byte[] chacha20(byte[] key, byte[] nonce, long counter, byte[] data) {
+    if (counter < 0 || counter > 0xffffffffL) {
+      throw new NoqtisException(-1, "counter: 0 to 2^32 - 1");
+    }
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment o = Native.out(m, data.length);
+      Native.rc(
+          (int)
+              Native.NQCHA20.invoke(
+                  Native.in(m, key), (long) key.length, Native.in(m, nonce), (long) nonce.length,
+                  (int) counter, Native.in(m, data), (long) data.length, o));
+      return Native.bytes(o, data.length);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  private static byte[] siv(boolean dec, byte[] key, byte[][] ad, byte[] data) {
+    byte[][] a = ad == null ? new byte[0][] : ad;
+    if (a.length > 126) {
+      throw new NoqtisException(-1, "ad: at most 126 strings");
+    }
+    if (dec && data.length < 16) {
+      throw new NoqtisException(-1, "data: at least the 16 bytes of the IV");
+    }
+    long n = dec ? data.length - 16 : data.length + 16;
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment p = m.allocate(java.lang.foreign.ValueLayout.ADDRESS, Math.max(a.length, 1));
+      MemorySegment l = m.allocate(java.lang.foreign.ValueLayout.JAVA_LONG, Math.max(a.length, 1));
+      for (int i = 0; i < a.length; i++) {
+        byte[] s = a[i] == null ? new byte[0] : a[i];
+        p.setAtIndex(java.lang.foreign.ValueLayout.ADDRESS, i, Native.in(m, s));
+        l.setAtIndex(java.lang.foreign.ValueLayout.JAVA_LONG, i, (long) s.length);
+      }
+      MemorySegment o = Native.out(m, n);
+      Native.rc(
+          (int)
+              (dec ? Native.NQSIVDEC : Native.NQSIVENC)
+                  .invoke(
+                      Native.in(m, key), (long) key.length, p, l, (long) a.length,
+                      Native.in(m, data), (long) data.length, o, n));
+      return Native.bytes(o, n);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * AES-SIV (RFC 5297), deterministic authenticated encryption. The same
+   * input always gives the same output, and no nonce is needed.
+   *
+   * @param key two AES keys: 32, 48 or 64 bytes
+   * @param ad up to 126 associated strings, authenticated and not
+   *     encrypted (a nonce, where there is one, is by convention the
+   *     last), or null for none
+   * @param data the message
+   * @return the 16-byte synthetic IV, then the ciphertext
+   */
+  public static byte[] sivenc(byte[] key, byte[][] ad, byte[] data) {
+    return siv(false, key, ad, data);
+  }
+
+  /**
+   * The message of sivenc.
+   *
+   * @param key the key given to sivenc
+   * @param ad the associated strings given to sivenc
+   * @param data the output of sivenc
+   * @return the message
+   * @throws NoqtisException with code VERIFY when the key, the strings or
+   *     the data are not the ones encrypted
+   */
+  public static byte[] sivdec(byte[] key, byte[][] ad, byte[] data) {
+    return siv(true, key, ad, data);
+  }
+
+  private static byte[] gsiv(boolean dec, byte[] key, byte[] nonce, byte[] ad, byte[] data) {
+    byte[] a = ad == null ? new byte[0] : ad;
+    if (dec && data.length < 16) {
+      throw new NoqtisException(-1, "data: at least the 16 bytes of the tag");
+    }
+    long n = dec ? data.length - 16 : data.length + 16;
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment o = Native.out(m, n);
+      Native.rc(
+          (int)
+              (dec ? Native.NQGSIVDEC : Native.NQGSIVENC)
+                  .invoke(
+                      Native.in(m, key), (long) key.length, Native.in(m, nonce),
+                      (long) nonce.length, Native.in(m, a), (long) a.length, Native.in(m, data),
+                      (long) data.length, o, n));
+      return Native.bytes(o, n);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * AES-GCM-SIV (RFC 8452), authenticated encryption that resists a nonce
+   * used twice.
+   *
+   * @param key the key: 16 or 32 bytes
+   * @param nonce the nonce, 12 bytes
+   * @param ad the associated data, or null for none
+   * @param data the message
+   * @return the ciphertext, then the 16-byte tag
+   */
+  public static byte[] gsivenc(byte[] key, byte[] nonce, byte[] ad, byte[] data) {
+    return gsiv(false, key, nonce, ad, data);
+  }
+
+  /**
+   * The message of gsivenc.
+   *
+   * @param key the key given to gsivenc
+   * @param nonce the nonce given to gsivenc
+   * @param ad the associated data given to gsivenc
+   * @param data the output of gsivenc
+   * @return the message
+   * @throws NoqtisException with code VERIFY when it does not verify
+   */
+  public static byte[] gsivdec(byte[] key, byte[] nonce, byte[] ad, byte[] data) {
+    return gsiv(true, key, nonce, ad, data);
+  }
+
   /**
    * Argon2id (RFC 9106, version 0x13): n bytes (4 to 1024) from the
    * password and the salt (8 bytes or more), t passes over m KiB in p

@@ -226,6 +226,44 @@ final class More {
       ok(Arrays.equals(Noqtis.blake2b(h(r.get("in")), h(r.get("key")), d.length), d), "blake2b");
     }
     eq(fails(() -> Noqtis.blake2b(new byte[0], null, 65)), Code.ARG, "65 bytes");
+    // KangarooTwelve, ChaCha20, AES-SIV, AES-GCM-SIV: an answer of each RFC
+    byte[] z = new byte[0];
+    byte[] p17 = new byte[17];
+    for (int i = 0; i < 17; i++) {
+      p17[i] = (byte) i;
+    }
+    ok(Arrays.equals(Noqtis.kt128(z, null, 32), h("1ac2d450fc3b4205d19da7bfca1b37513c0803577ac7167f06fe2ce1f0ef39e5")), "KT128 empty");
+    ok(Arrays.equals(Noqtis.kt128(p17, null, 32), h("6bf75fa2239198db4772e36478f8e19b0f371205f6a9a93a273f51df37122888")), "KT128 ptn(17)");
+    ok(Arrays.equals(Noqtis.kt256(z, z, 32), h("b23d2e9cea9f4904e02bec06817fc10ce38ce8e93ef4c89e6537076af8646404")), "KT256 empty");
+    ok(!Arrays.equals(Noqtis.kt128(p17, b("a"), 32), Noqtis.kt128(p17, null, 32)), "KT customization");
+    eq(fails(() -> Noqtis.kt128(new byte[0], null, 0)), Code.ARG, "KT 0 bytes");
+    ok(Arrays.equals(Noqtis.chacha20(new byte[32], new byte[12], 0, new byte[32]),
+        h("76b8e0ada0f13d90405d6ae55386bd28bdd219b8a08ded1aa836efcc8b770dc7")), "ChaCha20");
+    byte[] ck = Noqtis.kt128(b("key"), null, 32);
+    byte[] cn = Noqtis.kt128(b("nonce"), null, 12);
+    ok(Arrays.equals(Noqtis.chacha20(ck, cn, 7, Noqtis.chacha20(ck, cn, 7, b("a message"))), b("a message")), "ChaCha20 round trip");
+    eq(fails(() -> Noqtis.chacha20(new byte[16], new byte[12], 0, new byte[4])), Code.ARG, "ChaCha20 key");
+    eq(fails(() -> Noqtis.chacha20(new byte[32], new byte[12], 0xffffffffL, new byte[65])), Code.LIMIT, "ChaCha20 counter");
+    byte[] sk = h("fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff");
+    byte[] sad = h("101112131415161718191a1b1c1d1e1f2021222324252627");
+    byte[] spt = h("112233445566778899aabbccddee");
+    byte[] sout = h("85632d07c6e8f37f950acd320a2ecc9340c02b9690c4dc04daef7f6afe5c");
+    ok(Arrays.equals(Noqtis.sivenc(sk, new byte[][] {sad}, spt), sout), "AES-SIV RFC 5297");
+    ok(Arrays.equals(Noqtis.sivdec(sk, new byte[][] {sad}, sout), spt), "AES-SIV decrypt");
+    ok(!Arrays.equals(Noqtis.sivenc(sk, null, spt), sout), "AES-SIV strings");
+    ok(Noqtis.sivdec(sk, null, Noqtis.sivenc(sk, null, new byte[0])).length == 0, "AES-SIV empty");
+    eq(fails(() -> Noqtis.sivdec(sk, null, sout)), Code.VERIFY, "AES-SIV other strings");
+    eq(fails(() -> Noqtis.sivenc(new byte[40], null, spt)), Code.ARG, "AES-SIV key");
+    eq(fails(() -> Noqtis.sivdec(sk, null, new byte[5])), Code.ARG, "AES-SIV short");
+    byte[] gk = h("01000000000000000000000000000000");
+    byte[] gn = h("030000000000000000000000");
+    byte[] gp = h("0100000000000000");
+    byte[] go = h("b5d839330ac7b786578782fff6013b815b287c22493a364c");
+    ok(Arrays.equals(Noqtis.gsivenc(gk, gn, null, gp), go), "AES-GCM-SIV RFC 8452");
+    ok(Arrays.equals(Noqtis.gsivdec(gk, gn, null, go), gp), "AES-GCM-SIV decrypt");
+    eq(fails(() -> Noqtis.gsivdec(gk, gn, b("x"), go)), Code.VERIFY, "AES-GCM-SIV other data");
+    eq(fails(() -> Noqtis.gsivenc(new byte[24], gn, null, gp)), Code.ARG, "AES-GCM-SIV key");
+    eq(fails(() -> Noqtis.gsivdec(gk, gn, null, new byte[3])), Code.ARG, "AES-GCM-SIV short");
     List<Map<String, String>> a = new ArrayList<>(kv("argon2/rfc9106.txt"));
     a.addAll(kv("argon2/ossl.txt"));
     for (var r : a) {
