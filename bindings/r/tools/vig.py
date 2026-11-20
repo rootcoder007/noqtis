@@ -29,7 +29,7 @@ GROUPS = [
      ["nqkeygen", "nqreadkey", "nqidcard", "nqrotate"]),
     ("key-encapsulation", "Key encapsulation and sealing to a key",
      "Agreeing a shared secret with ML-KEM or HQC, and sealing a message or a file so only the holder of a key can open it.",
-     ["nqencap", "nqkseal"]),
+     ["nqencap", "nqkseal", "nqboxto"]),
     ("hashes-and-random", "Hashes, ciphers, password hashing and random bytes",
      "SHA-2, SHA-3 and SHAKE with HMAC, KangarooTwelve, BLAKE2b and Argon2id, comparison in constant time, AES-SIV, AES-GCM-SIV and ChaCha20, and random bytes from the operating system.",
      ["nqhash", "nqblake2b", "nqkt", "nqrand"]),

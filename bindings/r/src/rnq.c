@@ -1230,6 +1230,128 @@ static SEXP Ckfupd(SEXP p, SEXP x, SEXP last, SEXP op, SEXP chunk) {
   return r;
 }
 
+/* ---- a stream to several keys, signed or not (noqtis-kstream-2) ---- */
+
+/* c(header length, signature algorithm, recipients) of a stream's first
+ * NQKMFIX bytes */
+static SEXP Ckmpeek(SEXP x) {
+  size_t hl = 0, nr = 0;
+  nqsalg sg = (nqsalg)0;
+  int rc;
+  SEXP out;
+  chkraw(x, "x", 0);
+  rc = nqkmpeek(rp(x), rn(x), &hl, &sg, &nr);
+  if (rc != NQOK)
+    fail(rc, rc == NQEDEC ? "the stream's header (not a stream to several "
+                            "keys, or cut short)"
+                          : "the stream's header");
+  out = PROTECT(Rf_allocVector(INTSXP, 3));
+  INTEGER(out)[0] = (int)hl;
+  INTEGER(out)[1] = (int)sg;
+  INTEGER(out)[2] = (int)nr;
+  UNPROTECT(1);
+  return out;
+}
+
+/* list(context, header); algs an integer vector, pks a list of raw
+ * vectors of the same length */
+static SEXP Ckmeini(SEXP algs, SEXP pks, SEXP sig, SEXP ctx, SEXP chunk) {
+  int sg = ival(sig, "sig"), ch = ival(chunk, "chunk"), rc;
+  nqkrcp r[NQKMRCP];
+  size_t hl = 0, n, i;
+  void *c;
+  SEXP p, out, hd;
+  chkraw(ctx, "ctx", 1);
+  if (ch < 0) Rf_error("'chunk' must not be negative");
+  if (TYPEOF(algs) != INTSXP || TYPEOF(pks) != VECSXP ||
+      XLENGTH(algs) != XLENGTH(pks))
+    Rf_error("'pks' must be a list of keys, one for each algorithm");
+  n = (size_t)XLENGTH(pks);
+  if (n < 1 || n > NQKMRCP) Rf_error("1 to %u recipients", NQKMRCP);
+  for (i = 0; i < n; i++) {
+    SEXP k = VECTOR_ELT(pks, (R_xlen_t)i);
+    chkraw(k, "pk", 0);
+    r[i].alg = (nqkalg)INTEGER(algs)[i];
+    r[i].pk = rp(k);
+    r[i].pklen = rn(k);
+  }
+  rc = nqkmhlen(r, n, &hl);
+  if (rc != NQOK) fail(rc, "the recipients' keys");
+  p = PROTECT(ctxnew(sizeof(nqkmctx), &c));
+  hd = PROTECT(rawn(hl));
+  rc = nqkmeini((nqkmctx *)c, r, n, (nqsalg)sg, rp(ctx), rn(ctx),
+                (uint32_t)ch, RAW(hd), hl, &hl);
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, "nqkmeini");
+  }
+  out = PROTECT(Rf_allocVector(VECSXP, 2));
+  SET_VECTOR_ELT(out, 0, p);
+  SET_VECTOR_ELT(out, 1, hd);
+  UNPROTECT(3);
+  return out;
+}
+
+/* list(context, chunk, signature algorithm) */
+static SEXP Ckmdini(SEXP alg, SEXP sk, SEXP ctx, SEXP hdr) {
+  int a = ival(alg, "alg"), rc;
+  uint32_t ch = 0;
+  nqsalg sg = (nqsalg)0;
+  void *c;
+  SEXP p, out;
+  chkraw(sk, "sk", 0);
+  chkraw(ctx, "ctx", 1);
+  chkraw(hdr, "header", 0);
+  p = PROTECT(ctxnew(sizeof(nqkmctx), &c));
+  rc = nqkmdini((nqkmctx *)c, (nqkalg)a, rp(sk), rn(sk), rp(ctx), rn(ctx),
+                rp(hdr), rn(hdr), &ch, &sg);
+  if (rc != NQOK) {
+    ctxfin(p);
+    fail(rc, rc == NQEVRFY ? "the stream's header (not sealed to this key, "
+                             "or another context)"
+                           : "the stream's header");
+  }
+  out = PROTECT(Rf_allocVector(VECSXP, 3));
+  SET_VECTOR_ELT(out, 0, p);
+  SET_VECTOR_ELT(out, 1, Rf_ScalarInteger((int)ch));
+  SET_VECTOR_ELT(out, 2, Rf_ScalarInteger((int)sg));
+  UNPROTECT(2);
+  return out;
+}
+
+/* one chunk, sealed (op 0) or opened (op 1), into cap bytes; last for
+ * the stream's end, where key is the sender's secret key (sealing) or
+ * public key (opening), or NULL */
+static SEXP Ckmupd(SEXP p, SEXP x, SEXP last, SEXP op, SEXP cap, SEXP key) {
+  int l = Rf_asLogical(last), o = Rf_asLogical(op), cp = ival(cap, "cap"),
+      rc;
+  size_t n = 0;
+  nqkmctx *c = (nqkmctx *)ctxget(p);
+  SEXP out, r;
+  chkraw(x, "x", 0);
+  chkraw(key, "key", 1);
+  if (cp < 0) Rf_error("'cap' must not be negative");
+  out = PROTECT(rawn(cp > 0 ? (size_t)cp : 1));
+  if (o)
+    rc = l ? nqkmdfin(c, rp(x), rn(x), rp(key), rn(key), RAW(out),
+                      (size_t)cp, &n)
+           : nqkmdupd(c, rp(x), rn(x), RAW(out), (size_t)cp, &n);
+  else
+    rc = l ? nqkmefin(c, rp(x), rn(x), rp(key), rn(key), RAW(out),
+                      (size_t)cp, &n)
+           : nqkmeupd(c, rp(x), rn(x), RAW(out), (size_t)cp, &n);
+  if (l || rc != NQOK) ctxfin(p);
+  if (rc != NQOK)
+    fail(rc, rc == NQEVRFY ? "the sealed stream (changed or cut, or not "
+                             "signed by the sender's key)"
+                           : "the sealed stream");
+  r = PROTECT(rawn(n));
+  if (n > 0) memcpy(RAW(r), RAW(out), n);
+  if (o) nqwipe(RAW(out), (size_t)cp);
+  UNPROTECT(2);
+  return r;
+}
+
 /* ---- inspect, why a seal was refused, timestamps ------------------- */
 
 static SEXP Cinsp(SEXP dir) {
@@ -1360,7 +1482,8 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cpwdec, 3), CDEF(Csmu, 5), CDEF(Csignmu, 4), CDEF(Cvrfymu, 4),
   CDEF(Csini, 5), CDEF(Csupd, 2), CDEF(Csfin, 4), CDEF(Cvfin, 3),
   CDEF(Ckseal, 4), CDEF(Ckopen, 4), CDEF(Ckfeini, 4), CDEF(Ckfdini, 4),
-  CDEF(Ckfupd, 5), CDEF(Cinsp, 1), CDEF(Csealwhy, 1), CDEF(Ctsreq, 4),
+  CDEF(Ckfupd, 5), CDEF(Ckmpeek, 1), CDEF(Ckmeini, 5), CDEF(Ckmdini, 4),
+  CDEF(Ckmupd, 6), CDEF(Cinsp, 1), CDEF(Csealwhy, 1), CDEF(Ctsreq, 4),
   CDEF(Ctsput, 6), CDEF(Cdparse, 1), CDEF(Cdschk, 2), CDEF(Cdsyn, 4),
   CDEF(Cdcal, 4), CDEF(Cdchunk, 3), CDEF(Cdpiece, 3), CDEF(Cdcommit, 2),
   CDEF(Cdreveal, 3), CDEF(Cdcite, 2), CDEF(Cdrpt, 5), CDEF(Cdpack, 3),

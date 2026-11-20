@@ -44,6 +44,13 @@
   t[i, , drop = FALSE]
 }
 
+#' One row of the table for the library's number id of the given type.
+#' @noRd
+.algid <- function(id, type) {
+  t <- .tab()
+  t[t$type == type & t$id == id, , drop = FALSE][1L, , drop = FALSE]
+}
+
 #' "sig" or "kem", the type of an algorithm name.
 #' @noRd
 .kind <- function(alg) {

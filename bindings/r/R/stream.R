@@ -449,3 +449,159 @@ nqunbox <- function(input, output, sk, alg, ctx = NULL) {
   ok <- TRUE
   invisible(output)
 }
+
+#' Seal a file to several keys, signed by its sender
+#'
+#' `nqboxto()` encrypts a file so that the secret key of any one of
+#' several ML-KEM keys opens it, and with `sender` signs it; `nqunboxfrom()`
+#' opens it with one recipient's key and checks who sent it. The format is
+#' the one `noqtis box -p ... -p ... -s` writes (`noqtis-kstream-2`); a
+#' file sealed to one key with [nqbox()] is another format.
+#'
+#' The file is sealed in chunks under a random file key, which the header
+#' carries once for each recipient. Changing any part of the header,
+#' another recipient's included, makes every chunk fail for every
+#' recipient. The sender's signature is the last thing in the file, inside
+#' the encryption: only a recipient learns who signed, and because the
+#' signature covers the recipients, one of them cannot pass the file on as
+#' if the sender had sealed it to someone else.
+#'
+#' `nqunboxfrom()` writes the plaintext chunk by chunk, before the
+#' signature at the end is checked, and removes `output` when anything
+#' fails: `output` exists only when every chunk and, with `sender`, the
+#' signature verified.
+#'
+#' @param input The file to seal or to open.
+#' @param output The path of the file to write; it must not exist.
+#' @param pks A list of the recipients' ML-KEM public keys (1 to 64 raw
+#'   vectors).
+#' @param algs Their algorithms: one name for all, or one for each key.
+#' @param ctx `NULL`, or a context (a string or a raw vector of at most 255
+#'   bytes) that `nqunboxfrom()` must be given too.
+#' @param chunk The chunk size in bytes, 1024 to 16777216.
+#' @param sender `nqboxto()`: `NULL`, or the sender's secret signature key.
+#'   `nqunboxfrom()`: `NULL`, or the sender's public key; the file must
+#'   then be signed, and the signature must verify under it.
+#' @param sender_alg The signature algorithm of `sender`.
+#' @param sk The secret key of one recipient.
+#' @param alg Its ML-KEM algorithm.
+#'
+#' @return `nqboxto()`: `output`, invisibly. `nqunboxfrom()`: invisibly,
+#'   the name of the signature algorithm the file is signed with, or `NA`
+#'   when it is not signed.
+#'
+#' @section Errors:
+#' A key that is not a recipient's, another context, a changed or cut
+#' file, a signature that does not verify under `sender`, or `sender`
+#' given for a file that is not signed.
+#'
+#' @family key encapsulation functions
+#'
+#' @examples
+#' ann <- nqkeygen("ML-KEM-768")
+#' bob <- nqkeygen("ML-KEM-1024")
+#' me <- nqkeygen("ML-DSA-44")
+#' f <- tempfile()
+#' writeBin(as.raw(rep(0:255, 20)), f)
+#' g <- tempfile()
+#' h <- tempfile()
+#' nqboxto(f, g, list(ann$pk, bob$pk), c("ML-KEM-768", "ML-KEM-1024"),
+#'   sender = me$sk, sender_alg = "ML-DSA-44"
+#' )
+#' nqunboxfrom(g, h, bob$sk, "ML-KEM-1024", sender = me$pk)
+#' identical(readBin(h, "raw", 5120), readBin(f, "raw", 5120))
+#' unlink(c(f, g, h))
+#' @export
+nqboxto <- function(input, output, pks, algs, ctx = NULL, chunk = 65536L,
+                    sender = NULL, sender_alg = NULL) {
+  if (!is.list(pks) || length(pks) < 1L || length(pks) > 64L) {
+    stop("'pks' must be a list of 1 to 64 public keys", call. = FALSE)
+  }
+  if (!is.character(algs) || !(length(algs) %in% c(1L, length(pks)))) {
+    stop("'algs' must be one algorithm, or one for each key", call. = FALSE)
+  }
+  ids <- vapply(
+    rep_len(algs, length(pks)), function(a) as.integer(.alg(a, "kem")$id), 0L
+  )
+  for (k in pks) .rawarg(k, "pks")
+  .io(input, output)
+  if (!.count1(chunk)) stop("'chunk' must be a whole number", call. = FALSE)
+  n <- as.integer(chunk)
+  sig <- 0L
+  rec <- 0L
+  if (!is.null(sender)) {
+    if (is.null(sender_alg)) {
+      stop("'sender_alg' must name the algorithm of 'sender'", call. = FALSE)
+    }
+    s <- .alg(sender_alg, "sig")
+    .rawarg(sender, "sender")
+    sig <- as.integer(s$id)
+    rec <- as.integer(s$sig) + 16L
+  }
+  x <- .Call(Ckmeini, unname(ids), unname(pks), sig, .ctxb(ctx), n)
+  i <- file(input, open = "rb")
+  on.exit(close(i), add = TRUE)
+  o <- file(output, open = "wb")
+  ok <- FALSE
+  on.exit(
+    {
+      close(o)
+      if (!ok) unlink(output)
+    },
+    add = TRUE
+  )
+  writeBin(x[[2]], o)
+  .pump(i, o, n, function(b, last) {
+    .Call(
+      Ckmupd, x[[1]], b, last, FALSE, n + 16L + if (last) rec else 0L,
+      if (last) sender else NULL
+    )
+  })
+  ok <- TRUE
+  invisible(output)
+}
+
+#' @rdname nqboxto
+#' @export
+nqunboxfrom <- function(input, output, sk, alg, ctx = NULL, sender = NULL) {
+  a <- .alg(alg, "kem")
+  .io(input, output)
+  if (!is.null(sender)) .rawarg(sender, "sender")
+  i <- file(input, open = "rb")
+  on.exit(close(i), add = TRUE)
+  fx <- readBin(i, "raw", n = 24L)
+  pk <- .Call(Ckmpeek, fx)
+  h <- c(fx, readBin(i, "raw", n = pk[1] - 24L))
+  x <- .Call(Ckmdini, as.integer(a$id), .rawarg(sk, "sk"), .ctxb(ctx), h)
+  ch <- x[[2]]
+  s <- if (pk[2] != 0L) .algid(pk[2], "sig") else NULL
+  rec <- if (is.null(s)) 0L else as.integer(s$sig) + 16L
+  old <- Sys.umask("077")
+  o <- file(output, open = "wb")
+  Sys.umask(old)
+  ok <- FALSE
+  on.exit(
+    {
+      close(o)
+      if (!ok) unlink(output)
+    },
+    add = TRUE
+  )
+  # the window: one chunk, the record after the last, and one byte more;
+  # full, its first chunk is not the last
+  full <- ch + 16L
+  win <- raw(0)
+  repeat {
+    win <- c(win, readBin(i, "raw", n = full + rec + 1L - length(win)))
+    if (length(win) == full + rec + 1L) {
+      one <- win[seq_len(full)]
+      writeBin(.Call(Ckmupd, x[[1]], one, FALSE, TRUE, ch, NULL), o)
+      win <- win[-seq_len(full)]
+    } else {
+      writeBin(.Call(Ckmupd, x[[1]], win, TRUE, TRUE, ch, sender), o)
+      break
+    }
+  }
+  ok <- TRUE
+  invisible(if (is.null(s)) NA_character_ else s$name)
+}

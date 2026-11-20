@@ -85,9 +85,9 @@ other <- nqkeygen("ML-DSA-44")
 is.null(nqidcheck(card, other$pk))
 ```
 
-## Rotate or revoke a seal key
+## Rotate, revoke or expire a seal key
 
-`nqrotate()`, `nqrevoke()`: A key statement (`noqtis-keys-1`, canonical JSON) says that a signing key is replaced by a new one from a given time (`nqrotate()`, signed by both keys) or revoked from then (`nqrevoke()`, signed by the key). `nqcheck()` follows statements from a trusted key with its `keys` argument.
+`nqrotate()`, `nqrevoke()`, `nqexpire()`: A key statement (`noqtis-keys-1`, canonical JSON) says that a signing key is replaced by a new one from a given time (`nqrotate()`, signed by both keys), revoked from then (`nqrevoke()`, signed by the key), or seals until a given time and not after (`nqexpire()`, signed by the key). `nqcheck()` follows statements from a trusted key with its `keys` argument.
 
 ```{r nqrotate}
 old <- nqkeygen("ML-DSA-44")
@@ -100,4 +100,8 @@ r <- nqrevoke(old$sk, old$pk, "ML-DSA-44",
   at = as.POSIXct("2026-01-01", tz = "UTC"), reason = "laptop lost"
 )
 substr(rawToChar(r), 1, 60)
+x <- nqexpire(new$sk, new$pk, "ML-DSA-65",
+  at = as.POSIXct("2030-01-01", tz = "UTC")
+)
+substr(rawToChar(x), 1, 60)
 ```

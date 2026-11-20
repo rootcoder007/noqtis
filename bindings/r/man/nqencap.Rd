@@ -78,6 +78,7 @@ specification version 5.0.0 of 2025-08-22.
 from the shared secret.
 
 Other key encapsulation functions:
+\code{\link[=nqboxto]{nqboxto()}},
 \code{\link[=nqkseal]{nqkseal()}}
 }
 \concept{key encapsulation functions}

@@ -61,3 +61,23 @@ nqunbox(g, h, k$sk, "ML-KEM-768")
 identical(readBin(h, "raw", 5120), readBin(f, "raw", 5120))
 unlink(c(f, g, h))
 ```
+
+## Seal a file to several keys, signed by its sender
+
+`nqboxto()`, `nqunboxfrom()`: `nqboxto()` encrypts a file so that the secret key of any one of several ML-KEM keys opens it, and with `sender` signs it; `nqunboxfrom()` opens it with one recipient's key and checks who sent it. The format is the one `noqtis box -p ... -p ... -s` writes (`noqtis-kstream-2`); a file sealed to one key with `nqbox()` is another format.
+
+```{r nqboxto}
+ann <- nqkeygen("ML-KEM-768")
+bob <- nqkeygen("ML-KEM-1024")
+me <- nqkeygen("ML-DSA-44")
+f <- tempfile()
+writeBin(as.raw(rep(0:255, 20)), f)
+g <- tempfile()
+h <- tempfile()
+nqboxto(f, g, list(ann$pk, bob$pk), c("ML-KEM-768", "ML-KEM-1024"),
+  sender = me$sk, sender_alg = "ML-DSA-44"
+)
+nqunboxfrom(g, h, bob$sk, "ML-KEM-1024", sender = me$pk)
+identical(readBin(h, "raw", 5120), readBin(f, "raw", 5120))
+unlink(c(f, g, h))
+```

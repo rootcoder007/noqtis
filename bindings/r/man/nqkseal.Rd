@@ -77,6 +77,7 @@ Online Authenticated-Encryption and its Nonce-Reuse Misuse-Resistance.
 }
 \seealso{
 Other key encapsulation functions:
+\code{\link[=nqboxto]{nqboxto()}},
 \code{\link[=nqencap]{nqencap()}}
 }
 \concept{key encapsulation functions}
