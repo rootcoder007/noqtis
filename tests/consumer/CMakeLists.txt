@@ -6,7 +6,7 @@ project(nqconsumer LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 # the version asked for: this tree's, or (NQWANT) that of the package under test
-set(NQWANT 0.2 CACHE STRING "version of noqtis that find_package asks for")
+set(NQWANT 0.3 CACHE STRING "version of noqtis that find_package asks for")
 find_package(noqtis ${NQWANT} CONFIG REQUIRED)
 add_executable(use use.c)
 target_link_libraries(use PRIVATE noqtis::noqtis)

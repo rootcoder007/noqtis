@@ -60,7 +60,7 @@ builds `noqtis` from the action's own source with CMake (cached, so later
 runs skip the build), puts it on `PATH`, and seals, checks or reports
 on a folder. It
 runs on Linux, macOS and Windows runners. The tag `v0` follows each 0.x
-release; pin a full version (`@v0.2.3`) or a commit if a workflow must not
+release; pin a full version (`@v0.3.0`) or a commit if a workflow must not
 change when noqtis does.
 
 ```yaml

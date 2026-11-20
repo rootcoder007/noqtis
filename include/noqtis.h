@@ -34,8 +34,8 @@ extern "C" {
 #endif
 
 #define NQVMAJ 0
-#define NQVMIN 2
-#define NQVPAT 3
+#define NQVMIN 3
+#define NQVPAT 0
 
 /* ---- error codes ---------------------------------------------------- */
 

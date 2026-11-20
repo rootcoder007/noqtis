@@ -79,7 +79,7 @@ public final class Tests {
   }
 
   static void table() {
-    eq(Noqtis.version(), "0.2.3", "version");
+    eq(Noqtis.version(), "0.3.0", "version");
     Noqtis.selfTest();
     ok(true, "the self-test passes");
     long s = Noqtis.algs().stream().filter(a -> a.kind().equals("sign")).count();

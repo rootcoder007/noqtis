@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Fedora, EPEL, openSUSE-style RPM.
 Name:           noqtis
-Version:        0.2.3
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Post-quantum signing, KEMs and sealed input records in C11
 License:        Apache-2.0 WITH LLVM-exception
@@ -69,7 +69,7 @@ export NQSLSUB=8 NQFAST=1
 %{_mandir}/man5/*
 
 %changelog
-* Fri Nov 20 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.2.3-1
+* Fri Nov 20 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.3.0-1
 - The package pages carry the project's badges; built and tested on FreeBSD, OpenBSD and NetBSD
 - noqtis version --check asks whether a newer release exists
 - New: KangarooTwelve, AES-SIV, AES-GCM-SIV and the ChaCha20 stream

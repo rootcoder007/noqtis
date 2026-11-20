@@ -1,4 +1,4 @@
-# noqtis 0.2.3
+# noqtis 0.3.0
 
 - New: KangarooTwelve (RFC 9861), the tree hash and extendable-output function on Keccak with 12 rounds: `nqkt` gives any number of bytes of KT128 or KT256, with an optional customization string (a secret key there makes it a MAC). An input over 8192 bytes is hashed as a tree of chunks. `nqktini`, `nqktupd` and `nqktfin` take an input in pieces, for one that is not in memory at once, and `noqtis hash -a kt128` and `-a kt256` hash files with it. It passes every test vector of the RFC (67, TurboSHAKE among them) and agrees with PyCryptodome on random inputs; it is in the self-test.
 - New: AES-SIV (RFC 5297), deterministic authenticated encryption: `nqsivenc` and `nqsivdec`, with keys of two AES-128, AES-192 or AES-256 keys and up to 126 associated strings. No nonce is needed, and the same input gives the same output.

@@ -1,4 +1,4 @@
-noqtis (0.2.3-1) unstable; urgency=medium
+noqtis (0.3.0-1) unstable; urgency=medium
 
   * The package pages carry the project's badges; built and tested on
     FreeBSD, OpenBSD and NetBSD.

@@ -1,4 +1,4 @@
-# noqtis 0.2.3
+# noqtis 0.3.0
 
 - New: `nqkt()`, KangarooTwelve (RFC 9861, KT128 and KT256), the tree hash and extendable-output function, with an optional customization string.
 - New: `nqsivenc()` and `nqsivdec()`, AES-SIV (RFC 5297), deterministic authenticated encryption; `nqgsivenc()` and `nqgsivdec()`, AES-GCM-SIV (RFC 8452), authenticated encryption that resists a nonce used twice.
