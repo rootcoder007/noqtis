@@ -93,7 +93,7 @@ static const nccmd cmds[] = {
    "  exit 1 if any differs or cannot be read.\n"
    "  <hash>: sha224 sha256 (default) sha384 sha512 sha512-224\n"
    "          sha512-256 sha3-224 sha3-256 sha3-384 sha3-512\n"
-   "          shake128 shake256\n"},
+   "          shake128 shake256 kt128 kt256\n"},
   {"seal", ncseal, "seal a capsule folder",
    "usage: noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>]\n"
    "                   [--format 1|2] [--input [<name>=]<dir>]...\n"

@@ -60,9 +60,14 @@ One of
 .Cm sha384 , sha512 , sha512-224 , sha512-256 ,
 .Cm sha3-224 , sha3-256 , sha3-384 , sha3-512 ,
 .Cm shake128
-(32 bytes of output) and
+(32 bytes of output),
 .Cm shake256
-(64 bytes).
+(64 bytes), and KangarooTwelve of RFC 9861,
+.Cm kt128
+(32 bytes) and
+.Cm kt256
+(64 bytes), the tree hash on Keccak with 12 rounds, which is the fast one
+on large files.
 With
 .Fl c ,
 every line of the lists must use this hash.

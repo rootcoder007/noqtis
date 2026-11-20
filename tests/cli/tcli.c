@@ -540,6 +540,16 @@ static void thash(void) {
   want(0, "hash -a shake128 q.h1", NULL);
   ok(has("q.out", "5881092dd818bf5cf8a3ddb793fbcba74097d5c526a6d35f97b83351"
          "940f2cc8  q.h1\n"), "shake128(abc), 32 bytes");
+  /* KangarooTwelve of an empty file: RFC 9861 section 5 */
+  want(0, "hash -a kt128 q.h0", NULL);
+  ok(has("q.out", "1ac2d450fc3b4205d19da7bfca1b37513c0803577ac7167f06fe2ce1"
+         "f0ef39e5  q.h0\n"), "kt128 of an empty file");
+  want(0, "hash -a kt256 q.h0", NULL);
+  ok(has("q.out", "b23d2e9cea9f4904e02bec06817fc10ce38ce8e93ef4c89e6537076af8646404"
+         "e3e8b68107b8833a5d30490aa33482353fd4adc7148ecb782855003aaebde4a9  q.h0\n"), "kt256 of an empty file");
+  cp("q.out", "q.ksums");
+  want(0, "hash -a kt256 -c q.ksums", NULL);
+  want(1, "hash -a kt128 -c q.ksums", NULL);
   want(0, "hash q.h0 q.h1", NULL);
   ok(has("q.out", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b"
          "7852b855  q.h0\nba78"), "sha256 of an empty file, two files");

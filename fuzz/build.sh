@@ -21,7 +21,8 @@
 # those and from small ACVP files; fcls from the RSA and EC roots' keys;
 # fkey from key files the tool writes; fsig from the first test of each
 # parameter set in the ACVP sigVer and encapDecap sets; fenc from all of
-# these as text; ftls from the RFC 8448 server flight (fuzz/t8448.py),
+# these as text; fsym from patterns of every function and length class;
+# ftls from the RFC 8448 server flight (fuzz/t8448.py),
 # ftlsc from the TLS test PKI (tests/vectors/tls/pki). fdiff's corpus
 # also keeps inputs found by fuzzing that reach new coverage; to add more,
 # fuzz with fuzz/run.sh, then keep only what is new:

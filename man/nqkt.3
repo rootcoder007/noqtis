@@ -1,0 +1,130 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQKT 3
+.Os
+.Sh NAME
+.Nm nqkt ,
+.Nm nqktini ,
+.Nm nqktupd ,
+.Nm nqktfin
+.Nd KangarooTwelve, the tree hash and extendable-output function
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fo nqkt
+.Fa "unsigned bits"
+.Fa "const uint8_t *in" "size_t inlen"
+.Fa "const uint8_t *custom" "size_t clen"
+.Fa "uint8_t *out" "size_t outlen"
+.Fc
+.Ft int
+.Fn nqktini "nqktctx *ctx" "unsigned bits"
+.Ft int
+.Fn nqktupd "nqktctx *ctx" "const uint8_t *in" "size_t inlen"
+.Ft int
+.Fo nqktfin
+.Fa "nqktctx *ctx"
+.Fa "const uint8_t *custom" "size_t clen"
+.Fa "uint8_t *out" "size_t outlen"
+.Fc
+.Sh DESCRIPTION
+.Fn nqkt
+writes
+.Fa outlen
+bytes (1 or more) of KangarooTwelve of the
+.Fa inlen
+bytes at
+.Fa in
+to
+.Fa out :
+KT128 when
+.Fa bits
+is 128, KT256 when it is 256.
+KangarooTwelve is an extendable-output function on TurboSHAKE, the
+sponge of SHAKE with 12 rounds of Keccak instead of 24: a shorter output
+is the start of a longer one.
+An input over 8192 bytes is hashed as a tree, each chunk after the first
+to a chaining value of its own, which is what makes it fast on large
+inputs.
+32 bytes of KT128 and 64 of KT256 give their full strength against
+collisions, 128 and 256 bits.
+.Pp
+.Fa custom
+is the customization string, a second input that separates one use from
+another:
+.Dv NULL
+with
+.Fa clen
+0 for none, which is the default of the standard.
+With a secret key there the output is a MAC (RFC 9861 section 4):
+compare tags with
+.Xr nqcteq 3 ,
+never
+.Xr memcmp 3 .
+.Pp
+.Fn nqktini ,
+.Fn nqktupd
+and
+.Fn nqktfin
+take the input in pieces, for one that is not in memory at once:
+.Fn nqktini
+once,
+.Fn nqktupd
+any number of times, and
+.Fn nqktfin
+once, with the customization string and the output.
+The result is that of
+.Fn nqkt
+on the pieces joined.
+.Vt nqktctx
+is opaque and may be kept on the stack;
+.Fn nqktfin
+wipes it.
+.Pp
+The time taken depends only on the lengths, never on the data.
+Nothing allocates.
+.Sh RETURN VALUES
+.Dv NQOK ,
+or
+.Bl -tag -width NQESTATE
+.It Bq Er NQEARG
+.Fa bits
+is neither 128 nor 256,
+.Fa outlen
+is 0, or a pointer is
+.Dv NULL
+with a nonzero length.
+.It Bq Er NQESTATE
+The context was not made by
+.Fn nqktini ,
+or
+.Fn nqktfin
+has ended it.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+uint8_t d[32], buf[65536];
+nqktctx c;
+size_t n;
+int rc = nqkt(128, (const uint8_t *)"abc", 3, NULL, 0, d, sizeof d);
+
+/* a file, in pieces */
+rc = nqktini(&c, 128);
+while (rc == NQOK && (n = fread(buf, 1, sizeof buf, f)) > 0)
+  rc = nqktupd(&c, buf, n);
+if (rc == NQOK) rc = nqktfin(&c, NULL, 0, d, sizeof d);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-hash 1 ,
+.Xr noqtis 3 ,
+.Xr nqb2b 3 ,
+.Xr nqcteq 3 ,
+.Xr nqhash 3
+.Sh STANDARDS
+RFC 9861.
+The tests check every test vector of its section 5, those of TurboSHAKE
+among them, inputs in pieces cut before, at and after every chunk
+boundary, and agreement of KT128 with another implementation on random
+inputs.

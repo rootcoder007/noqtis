@@ -56,7 +56,7 @@ complete -c noqtis -n "__fish_seen_subcommand_from sign verify enc dec hash" -F
 complete -c noqtis -n "__fish_seen_subcommand_from seal check prove inspect timestamp ers" -a '(__fish_complete_directories)'
 
 complete -c noqtis -n "__fish_seen_subcommand_from keygen" -s a -l alg -x -a "$algs" -d algorithm
-complete -c noqtis -n "__fish_seen_subcommand_from hash" -s a -l alg -x -a "$hashes" -d hash
+complete -c noqtis -n "__fish_seen_subcommand_from hash" -s a -l alg -x -a "$hashes kt128 kt256" -d hash
 complete -c noqtis -n "__fish_seen_subcommand_from keygen sign enc dec prove" -s o -l out -r -F -d 'file to write'
 complete -c noqtis -n "__fish_seen_subcommand_from keygen" -l seed -r -F -d 'seed as hex or a seed file'
 complete -c noqtis -n "__fish_seen_subcommand_from keygen sign dec" -l pass-fd -x -d 'read the passphrase from descriptor'

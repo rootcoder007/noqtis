@@ -3,6 +3,8 @@ noqtis (0.2.3-1) unstable; urgency=medium
   * The package pages carry the project's badges; built and tested on
     FreeBSD, OpenBSD and NetBSD.
   * noqtis version --check asks whether a newer release exists.
+  * New: KangarooTwelve (noqtis hash -a kt128, kt256), AES-SIV,
+    AES-GCM-SIV and the ChaCha20 stream in the library.
 
  -- rootcoder007 <278967282+rootcoder007@users.noreply.github.com>  Fri, 20 Nov 2026 04:00:00 -0500
 

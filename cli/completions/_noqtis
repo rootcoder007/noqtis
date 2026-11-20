@@ -76,7 +76,7 @@ _noqtis_cmd() {
         ':ct:_files' ;;
     hash)
       _arguments \
-        '(-a --alg)'{-a,--alg=}'[hash]:hash:($hashes)' \
+        '(-a --alg)'{-a,--alg=}'[hash]:hash:($hashes kt128 kt256)' \
         '(-c --check)'{-c,--check}'[check a list of sums]' \
         '*:file:_files' ;;
     seal)

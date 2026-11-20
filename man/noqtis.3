@@ -66,6 +66,19 @@ Signing and verifying a message in pieces:
 BLAKE2b, keyed and unkeyed.
 .It Xr nqa2id 3
 Argon2id.
+.It Xr nqkt 3
+KangarooTwelve, the tree hash and extendable-output function:
+.Fn nqkt ,
+.Fn nqktini ,
+.Fn nqktupd ,
+.Fn nqktfin .
+.It Xr nqsivenc 3
+AES-SIV, AES-GCM-SIV and the ChaCha20 stream:
+.Fn nqsivenc ,
+.Fn nqsivdec ,
+.Fn nqgsivenc ,
+.Fn nqgsivdec ,
+.Fn nqcha20 .
 .It Xr nqpwenc 3
 A secret key under a passphrase:
 .Fn nqpwenc ,

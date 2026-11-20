@@ -39,18 +39,24 @@ const char *nchname(nqhalg h) {
   return NULL;
 }
 
+/* KangarooTwelve (kt128, kt256) is not one of the nqhalg hashes, which
+ * signatures and capsules name: it is a hash of this command alone. 128
+ * or 256 while it is the one asked for, else 0. */
+static unsigned ktbits;
+
 /* Digest of a file, streamed; "-" is stdin. */
 static int digest(nqhalg h, const char *path, uint8_t *d, size_t dn) {
   static uint8_t buf[65536];
   nqhctx c;
+  nqktctx k;
   int std = strcmp(path, "-") == 0, rc;
   FILE *f = std ? stdin : ncfopen(path, "rb");
   size_t got;
   if (f == NULL)
     return NQEIO;
-  rc = nqhini(&c, h);
+  rc = ktbits != 0 ? nqktini(&k, ktbits) : nqhini(&c, h);
   while (rc == NQOK && (got = fread(buf, 1, sizeof buf, f)) > 0)
-    rc = nqhupd(&c, buf, got);
+    rc = ktbits != 0 ? nqktupd(&k, buf, got) : nqhupd(&c, buf, got);
   if (rc == NQOK && ferror(f))
     rc = NQEIO;
   if (!std)
@@ -58,7 +64,8 @@ static int digest(nqhalg h, const char *path, uint8_t *d, size_t dn) {
   else
     clearerr(stdin);
   if (rc == NQOK)
-    rc = nqhfin(&c, d, dn);
+    rc = ktbits != 0 ? nqktfin(&k, NULL, 0, d, dn) : nqhfin(&c, d, dn);
+  nqwipe(&k, sizeof k);
   return rc;
 }
 
@@ -201,12 +208,13 @@ int nchash(int argc, char **argv) {
     ncuse(stdout, "hash");
     return NCOK;
   }
-  if (nchalg(an, &h) != NQOK) {
+  ktbits = strcmp(an, "kt128") == 0 ? 128u : strcmp(an, "kt256") == 0 ? 256u : 0u;
+  if (ktbits == 0 && nchalg(an, &h) != NQOK) {
     ncmsg("hash", "unknown hash %s", an);
     ncuse(stderr, "hash");
     return NCUSE;
   }
-  dn = nqhlen(h);
+  dn = ktbits != 0 ? ktbits / 4 : nqhlen(h);
   if (dn == 0 || dn > NCDX)
     return nclib("hash", an, NQENOSUP);
   if (np == 0) {

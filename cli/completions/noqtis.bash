@@ -26,7 +26,7 @@ _noqtis() {
   case $prev in
     -a | --alg)
       if [ "$cmd" = hash ]; then
-        COMPREPLY=($(compgen -W "$hashes" -- "$cur"))
+        COMPREPLY=($(compgen -W "$hashes kt128 kt256" -- "$cur"))
       else
         COMPREPLY=($(compgen -W "$algs" -- "$cur"))
       fi
