@@ -1,0 +1,63 @@
+# A build on Fedora COPR, started by hand, of the commit it is started
+# on, into the scratch project noqtis-ci: the rehearsal of a release. The
+# builders, the targets and the flags a release meets, riscv64 and
+# aarch64 among them, and nothing that a user installs. A green run
+# deletes the scratch project; a failed one leaves it, for its logs.
+name: copr
+run-name: "copr: noqtis-ci ${{ inputs.chroots || 'every target' }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      chroots:
+        description: "targets, separated by spaces (empty: every target)"
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: copr-noqtis-ci
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # secret NQ_COPR_CONFIG, the text of ~/.config/copr
+    runs-on: ubuntu-24.04
+    # COPR gives a target five hours
+    timeout-minutes: 345
+    permissions:
+      contents: read
+    # fedora:latest
+    container: docker.io/library/fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+    steps:
+      - name: tools
+        run: dnf -y install rpm-build copr-cli git curl python3 gzip tar
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: the source RPM, from this commit
+        run: |
+          # the tarball a release makes of its tag, here of the commit
+          v=$(sed -n 's/^Version: *//p' packaging/rpm/noqtis.spec)
+          mkdir -p "$HOME/rpmbuild/SOURCES"
+          git config --global --add safe.directory "$PWD"
+          git archive --format=tar --prefix="noqtis-$v/" HEAD |
+            gzip -n -9 > "$HOME/rpmbuild/SOURCES/noqtis-$v.tar.gz"
+          rpmbuild -bs packaging/rpm/noqtis.spec
+          ls -l "$HOME"/rpmbuild/SRPMS/
+      - name: build on COPR and wait for every target
+        env:
+          CFG: ${{ secrets.NQ_COPR_CONFIG }}
+          CHROOTS: ${{ inputs.chroots }}
+        run: |
+          if [ -z "$CFG" ]; then
+            echo "::error::NQ_COPR_CONFIG is not set: no COPR build"
+            exit 1
+          fi
+          mkdir -p "$HOME/.config"
+          (umask 077 && printf '%s\n' "$CFG" > "$HOME/.config/copr")
+          unset CFG
+          # shellcheck disable=SC2086 # the targets are words
+          sh packaging/rpm/copr.sh noqtis-ci "$HOME"/rpmbuild/SRPMS/noqtis-*.src.rpm $CHROOTS
+          copr-cli delete noqtis-ci || echo "::warning::the scratch project was not deleted"
+          rm -f "$HOME/.config/copr"
