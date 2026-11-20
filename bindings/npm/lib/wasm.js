@@ -22,6 +22,7 @@ const FNS = [
   'nqddiff',
   'nqdrepn', 'nqdrepi', 'nqdrepj', 'nqdrepfree', 'nqdaddr', 'nqdvrfy',
   'nqdfld', 'nqdrslv', 'nqdrsp', 'nqdwb',
+  'nqkt', 'nqcha20', 'nqsivenc', 'nqsivdec', 'nqgsivenc', 'nqgsivdec',
   'nqcteq', 'nqb2b', 'nqa2id', 'nqhini', 'nqhupd', 'nqhfin', 'nqpwenc',
   'nqpwdec', 'nqsmu', 'nqsignmu', 'nqvrfymu', 'nqsini', 'nqvini', 'nqsupd',
   'nqsfin', 'nqvfin', 'nqkseal', 'nqkopen', 'nqkfeini', 'nqkfeupd',
