@@ -450,6 +450,36 @@ nqunbox <- function(input, output, sk, alg, ctx = NULL) {
   invisible(output)
 }
 
+#' The library's numbers of the recipients' algorithms, one for each key.
+#' @noRd
+.rcpids <- function(pks, algs) {
+  if (!is.list(pks) || length(pks) < 1L || length(pks) > 64L) {
+    stop("'pks' must be a list of 1 to 64 public keys", call. = FALSE)
+  }
+  if (!is.character(algs) || !(length(algs) %in% c(1L, length(pks)))) {
+    stop("'algs' must be one algorithm, or one for each key", call. = FALSE)
+  }
+  for (k in pks) .rawarg(k, "pks")
+  unname(vapply(
+    rep_len(algs, length(pks)), function(a) as.integer(.alg(a, "kem")$id), 0L
+  ))
+}
+
+#' The signature algorithm's number and the size of the record a sender's
+#' signature adds to a stream; both 0 with no sender.
+#' @noRd
+.sender <- function(sender, sender_alg) {
+  if (is.null(sender)) {
+    return(list(sig = 0L, rec = 0L))
+  }
+  if (is.null(sender_alg)) {
+    stop("'sender_alg' must name the algorithm of 'sender'", call. = FALSE)
+  }
+  s <- .alg(sender_alg, "sig")
+  .rawarg(sender, "sender")
+  list(sig = as.integer(s$id), rec = as.integer(s$sig) + 16L)
+}
+
 #' Seal a file to several keys, signed by its sender
 #'
 #' `nqboxto()` encrypts a file so that the secret key of any one of
@@ -514,31 +544,13 @@ nqunbox <- function(input, output, sk, alg, ctx = NULL) {
 #' @export
 nqboxto <- function(input, output, pks, algs, ctx = NULL, chunk = 65536L,
                     sender = NULL, sender_alg = NULL) {
-  if (!is.list(pks) || length(pks) < 1L || length(pks) > 64L) {
-    stop("'pks' must be a list of 1 to 64 public keys", call. = FALSE)
-  }
-  if (!is.character(algs) || !(length(algs) %in% c(1L, length(pks)))) {
-    stop("'algs' must be one algorithm, or one for each key", call. = FALSE)
-  }
-  ids <- vapply(
-    rep_len(algs, length(pks)), function(a) as.integer(.alg(a, "kem")$id), 0L
-  )
-  for (k in pks) .rawarg(k, "pks")
+  ids <- .rcpids(pks, algs)
   .io(input, output)
   if (!.count1(chunk)) stop("'chunk' must be a whole number", call. = FALSE)
   n <- as.integer(chunk)
-  sig <- 0L
-  rec <- 0L
-  if (!is.null(sender)) {
-    if (is.null(sender_alg)) {
-      stop("'sender_alg' must name the algorithm of 'sender'", call. = FALSE)
-    }
-    s <- .alg(sender_alg, "sig")
-    .rawarg(sender, "sender")
-    sig <- as.integer(s$id)
-    rec <- as.integer(s$sig) + 16L
-  }
-  x <- .Call(Ckmeini, unname(ids), unname(pks), sig, .ctxb(ctx), n)
+  s <- .sender(sender, sender_alg)
+  rec <- s$rec
+  x <- .Call(Ckmeini, ids, unname(pks), s$sig, .ctxb(ctx), n)
   i <- file(input, open = "rb")
   on.exit(close(i), add = TRUE)
   o <- file(output, open = "wb")

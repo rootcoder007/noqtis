@@ -13,11 +13,7 @@ test_that("a file sealed to several keys opens for each, signed or not", {
   dir.create(d)
   on.exit(unlink(d, recursive = TRUE), add = TRUE)
   f <- file.path(d, "in")
-  nf <- 0L
-  out <- function() {
-    nf <<- nf + 1L
-    file.path(d, paste0("o", nf))
-  }
+  out <- function() tempfile("o", tmpdir = d)
   for (n in c(0L, 1L, 1024L, 1025L, 5000L)) {
     m <- as.raw(seq_len(n) %% 249L)
     writeBin(m, f)
@@ -88,6 +84,25 @@ test_that("nqboxto() and nqunboxfrom() refuse what they cannot take", {
     nqboxto(f, tempfile(), list(k$pk), "ML-KEM-768", chunk = 100L), "noqtis"
   )
   expect_error(nqboxto(f, f, list(k$pk), "ML-KEM-768"), "does not exist")
+  expect_error(
+    nqboxto(f, tempfile(), list(k$pk), "ML-KEM-768", chunk = 1.5),
+    "whole number"
+  )
+  # a sender's key that is not one: the signing fails, nothing is left
+  o <- tempfile()
+  expect_error(
+    nqboxto(f, o, list(k$pk), "ML-KEM-768",
+      sender = raw(7), sender_alg = "ML-DSA-44"
+    ),
+    "noqtis"
+  )
+  expect_false(file.exists(o))
+  # the routine itself: a key for every algorithm
+  rr <- getDLLRegisteredRoutines("noqtis")$.Call
+  expect_error(
+    .Call(rr$Ckmeini, c(1L, 2L), list(k$pk), 0L, NULL, 1024L),
+    "one for each algorithm"
+  )
   # one algorithm for every key
   g <- tempfile()
   h <- tempfile()
