@@ -1,0 +1,81 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NOQTIS-PASSWD 1
+.Os
+.Sh NAME
+.Nm noqtis-passwd
+.Nd change or remove the passphrase of a secret key
+.Sh SYNOPSIS
+.Nm noqtis passwd
+.Fl k Ar key
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Fl -new-pass-fd Ar n | Fl -new-pass-env Ar name | Fl -no-pass
+.Sh DESCRIPTION
+.Nm noqtis passwd
+reads the secret key file
+.Ar key
+and writes it again under another passphrase, or under none.
+The key itself does not change: its public key
+.Pq Ar key Ns Pa .pub ,
+every signature made with it and everything sealed to it stay as they
+are.
+The file is written under a temporary name beside
+.Ar key
+and renamed over it once whole, so a failure leaves the old file.
+It prints one line naming the file, the algorithm and what the key is
+under now.
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+The secret key file, as
+.Xr noqtis-keygen 1
+wrote it.
+.It Fl -pass-fd Ar n , Fl -pass-env Ar name
+The passphrase
+.Ar key
+is under now, read as
+.Xr noqtis-keygen 1
+reads one; neither is given for a key under no passphrase.
+.It Fl -new-pass-fd Ar n , Fl -new-pass-env Ar name
+The new passphrase, from the open file descriptor
+.Ar n
+(up to a newline or the end) or from the environment variable called
+.Ar name .
+It is at most 4096 bytes and never empty, and is never given on the
+command line, echoed or printed.
+.Fl -pass-fd
+and
+.Fl -new-pass-fd
+must name two descriptors.
+.It Fl -no-pass
+Keep the key under no passphrase.
+.El
+.Pp
+One of
+.Fl -new-pass-fd ,
+.Fl -new-pass-env
+and
+.Fl -no-pass
+is required.
+The new file is protected as
+.Xr noqtis-keygen 1
+protects one: ChaCha20-Poly1305 with a key from Argon2id of the
+passphrase (64 MiB, 3 passes, 4 lanes) and a new random salt
+.Pq Xr nqpwenc 3 .
+A copy of the old file, a backup for one, still opens with the old
+passphrase: changing the passphrase does not undo a passphrase that
+leaked together with the file.
+For that, make a new key and say so with
+.Xr noqtis-rotate 1 .
+.Sh EXIT STATUS
+0 when the key was written; 2 on a usage or file error, a wrong
+passphrase among them.
+.Sh EXAMPLES
+.Bd -literal
+$ noqtis passwd -k me --pass-fd 3 --new-pass-fd 4 3<old.txt 4<new.txt
+me: ML-DSA-65 secret key, now under the new passphrase
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr noqtis-rotate 1 ,
+.Xr nqpwenc 3

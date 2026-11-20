@@ -307,3 +307,81 @@ int nckwr(FILE *f, const ncalg *a, int sec, const uint8_t *b, size_t n) {
   ncfree(e, en, sec);
   return ok ? NQOK : NQEIO;
 }
+
+/* noqtis passwd: the same secret key under another passphrase, or under
+ * none, written over the file by a rename (ncclose), so a failure
+ * leaves the old file whole. */
+int ncpasswd(int argc, char **argv) {
+  const char *kp = NULL;
+  int help = 0, np, none = 0, rc, ret = NCUSE;
+  ncpw old = {NULL, NULL}, new = {NULL, NULL};
+  ncopt o[] = {
+    {'k', "key", 1, &kp, NULL},
+    {'\0', "pass-fd", 1, &old.fd, NULL},
+    {'\0', "pass-env", 1, &old.env, NULL},
+    {'\0', "new-pass-fd", 1, &new.fd, NULL},
+    {'\0', "new-pass-env", 1, &new.env, NULL},
+    {'\0', "no-pass", 0, NULL, &none}
+  };
+  uint8_t *opw = NULL, *npw = NULL;
+  size_t on = 0, nn = 0;
+  nckey k = {{0, 0, NULL}, 1, NULL, 0};
+  FILE *f;
+
+  if (ncargs("passwd", argc, argv, o, sizeof o / sizeof o[0], &np,
+             &help) != NCOK)
+    return NCUSE;
+  if (help) {
+    ncuse(stdout, "passwd");
+    return NCOK;
+  }
+  if (kp == NULL || np != 0) {
+    ncuse(stderr, "passwd");
+    return NCUSE;
+  }
+  if ((new.fd != NULL || new.env != NULL) == (none != 0)) {
+    ncmsg("passwd", "give the new passphrase with --new-pass-fd <n> or "
+          "--new-pass-env <name>, or --no-pass to keep the key under "
+          "none");
+    return NCUSE;
+  }
+  if (new.fd != NULL && new.env != NULL) {
+    ncmsg("passwd", "give one of --new-pass-fd and --new-pass-env, not "
+          "both");
+    return NCUSE;
+  }
+  if (old.fd != NULL && new.fd != NULL && strcmp(old.fd, new.fd) == 0) {
+    ncmsg("passwd", "--pass-fd and --new-pass-fd name the same "
+          "descriptor; give each passphrase its own");
+    return NCUSE;
+  }
+  if (ncpwget("passwd", &old, &opw, &on) != NCOK)
+    return NCUSE;
+  if (nckrdp("passwd", kp, 1, opw, on, &k) != NCOK)
+    goto done;
+  if (ncpwget("passwd", &new, &npw, &nn) != NCOK)
+    goto done;
+  f = ncopen(kp, 1, 1);
+  if (f == NULL) {
+    ncwfail("passwd", kp, 1);
+    goto done;
+  }
+  rc = npw != NULL ? nckwrp(f, &k.a, npw, nn, k.b, k.n)
+                   : nckwr(f, &k.a, 1, k.b, k.n);
+  if (ncclose(f, kp, rc != NQOK) != 0 || rc != NQOK) {
+    if (rc == NQEMEM)
+      nclib("passwd", "the secret key under the passphrase (Argon2id "
+            "needs 64 MiB)", rc);
+    else
+      ncmsg("passwd", "cannot write %s%s", kp, ncwhy());
+    goto done;
+  }
+  printf("%s: %s secret key, now under %s\n", kp, k.a.name,
+         npw != NULL ? "the new passphrase" : "no passphrase");
+  ret = NCOK;
+done:
+  ncfree(opw, NQPWLEN, 1);
+  ncfree(npw, NQPWLEN, 1);
+  nckfree(&k);
+  return ret;
+}

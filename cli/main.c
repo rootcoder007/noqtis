@@ -45,6 +45,17 @@ static const nccmd cmds[] = {
    "          to a newline, or from the variable named <name>; never\n"
    "          from the command line\n"
    "  --force replace existing files\n"},
+  {"passwd", ncpasswd, "change or remove a secret key's passphrase",
+   "usage: noqtis passwd -k <key> [--pass-fd <n> | --pass-env <name>]\n"
+   "                     (--new-pass-fd <n> | --new-pass-env <name> |\n"
+   "                      --no-pass)\n"
+   "  Writes the secret key in <key> again, under the new passphrase\n"
+   "  (Argon2id, 64 MiB, 3 passes) or, with --no-pass, under none. The\n"
+   "  key itself and <key>.pub do not change.\n"
+   "  --pass-fd, --pass-env  the passphrase <key> is under now\n"
+   "  --new-pass-fd, --new-pass-env  the new one, read from descriptor\n"
+   "          <n> up to a newline, or from the variable named <name>;\n"
+   "          never from the command line\n"},
   {"sign", ncsign, "sign a file",
    "usage: noqtis sign -k <key> [-o <sig>] [-c <ctx>] [-d] [--ph <hash>]\n"
    "                   [--pass-fd <n> | --pass-env <name>] [--force]\n"

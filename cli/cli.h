@@ -403,6 +403,7 @@ const char *nchname(nqhalg h);
 /* ---- commands ---- */
 
 int nckeygen(int argc, char **argv);
+int ncpasswd(int argc, char **argv);
 int ncsign(int argc, char **argv);
 int ncvrfy(int argc, char **argv);
 int ncenc(int argc, char **argv);

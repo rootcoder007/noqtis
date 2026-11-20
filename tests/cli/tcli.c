@@ -2228,6 +2228,53 @@ static void tpass(void) {
   want(2, "dec -k q.ek -o q.ess2 --force q.ect", NULL);
   want(0, "dec -k q.ek -o q.ess2 --force --pass-env NQTPW q.ect", NULL);
   ok(same("q.ess", "q.ess2"), "dec of a protected key gives the secret");
+  /* passwd: another passphrase, none, one again; the key is the same */
+  want(0, "sign -k q.pk -o q.psig --force --pass-env NQTPW q.m", NULL);
+  want(2, "passwd -k q.pk --pass-env NQTPW", NULL);
+  ok(has("q.err", "--no-pass"), "passwd wants a new passphrase or --no-pass");
+  want(2, "passwd -k q.pk --pass-env NQTPW --new-pass-env NQTPW2 --no-pass",
+       NULL);
+  want(2, "passwd -k q.pk --pass-env NQTPW --new-pass-env NQTPW2 "
+          "--new-pass-fd 0", NULL);
+  want(2, "passwd -k q.pk --pass-fd 0 --new-pass-fd 0", NULL);
+  ok(has("q.err", "the same descriptor"), "passwd: one descriptor for both");
+  want(2, "passwd --pass-env NQTPW --no-pass", NULL);
+  want(2, "passwd -k q.pk --pass-env NQTPW --no-pass more", NULL);
+  want(2, "passwd -k q.pk --pass-env NQTPW2 --no-pass", NULL);
+  ok(has("q.err", "wrong passphrase"), "passwd: the old passphrase is checked");
+  want(2, "passwd -k q.pk --pass-env NQTPW --pass-fd 0 --no-pass", NULL);
+  want(2, "passwd -k q.pk --pass-env NQTPW --new-pass-env NQTPWE", NULL);
+  want(2, "passwd -k q.pk.pub --no-pass", NULL);
+  want(2, "passwd -k q.none --no-pass", NULL);
+  want(0, "sign -k q.pk -o q.psig --force --pass-env NQTPW q.m", NULL);
+  want(0, "passwd -k q.pk --pass-env NQTPW --new-pass-env NQTPW2", NULL);
+  ok(has("q.out", "the new passphrase"), "passwd says what it did");
+  ok(!has("q.out", pw) && !has("q.err", pw), "passwd prints no passphrase");
+  want(2, "sign -k q.pk -o q.psig --force --pass-env NQTPW q.m", NULL);
+  want(0, "sign -k q.pk -o q.psig --force --pass-env NQTPW2 q.m", NULL);
+  want(0, "verify -p q.pk.pub -s q.psig q.m", NULL);
+  want(0, "passwd -k q.pk --pass-env NQTPW2 --no-pass", NULL);
+  ok(has("q.out", "no passphrase"), "passwd --no-pass says so");
+  want(0, "sign -k q.pk -o q.psig --force q.m", NULL);
+  want(0, "verify -p q.pk.pub -s q.psig q.m", NULL);
+  want(0, "passwd -k q.pk --new-pass-env NQTPW", NULL);
+  want(2, "sign -k q.pk -o q.psig --force q.m", NULL);
+  want(0, "sign -k q.pk -o q.psig --force --pass-env NQTPW q.m", NULL);
+  want(0, "verify -p q.pk.pub -s q.psig q.m", NULL);
+  want(0, "passwd --help", NULL);
+  ok(has("q.out", "usage: noqtis passwd"), "passwd --help");
+  /* a KEM key too */
+  want(0, "passwd -k q.ek --pass-env NQTPW --new-pass-env NQTPW2", NULL);
+  want(0, "dec -k q.ek -o q.ess2 --force --pass-env NQTPW2 q.ect", NULL);
+  ok(same("q.ess", "q.ess2"), "dec after passwd gives the secret");
+#ifndef _WIN32
+  wrs("q.pw", "a long pass phrase 1\n");
+  wrs("q.pw2", "a third pass phrase\n");
+  want(0, "passwd -k q.pk --pass-fd 3 --new-pass-fd 4 3<q.pw 4<q.pw2", NULL);
+  want(0, "sign -k q.pk -o q.psig --force --pass-fd 3 q.m 3<q.pw2", NULL);
+  remove("q.pw");
+  remove("q.pw2");
+#endif
   /* a passphrase for an unprotected key: a warning */
   want(0, "keygen -a ML-DSA-44 -o q.pk --force", NULL);
   want(0, "sign -k q.pk -o q.psig --force --pass-env NQTPW q.m", NULL);

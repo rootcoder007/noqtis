@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen sign verify enc dec box unbox hash seal check prove export rotate revoke idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
+set -l cmds keygen passwd sign verify enc dec box unbox hash seal check prove export rotate revoke idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -14,6 +14,11 @@ set -l hashes sha224 sha256 sha384 sha512 sha512-224 sha512-256 sha3-224 \
 complete -c noqtis -f
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -s V -l version -d 'print the version'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a keygen -d 'make a key pair'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a passwd -d "change or remove a secret key's passphrase"
+complete -c noqtis -n "__fish_seen_subcommand_from passwd" -s k -l key -r -F -d 'secret key file'
+complete -c noqtis -n "__fish_seen_subcommand_from passwd" -l new-pass-fd -x -d 'read the new passphrase from descriptor'
+complete -c noqtis -n "__fish_seen_subcommand_from passwd" -l new-pass-env -x -d 'read the new passphrase from variable'
+complete -c noqtis -n "__fish_seen_subcommand_from passwd" -l no-pass -d 'keep the key under no passphrase'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a box -d 'seal a file to an ML-KEM key'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a unbox -d 'open a boxed file'
 complete -c noqtis -n "__fish_seen_subcommand_from box" -l chunk -x -d 'chunk size in bytes'
@@ -59,8 +64,8 @@ complete -c noqtis -n "__fish_seen_subcommand_from keygen" -s a -l alg -x -a "$a
 complete -c noqtis -n "__fish_seen_subcommand_from hash" -s a -l alg -x -a "$hashes kt128 kt256" -d hash
 complete -c noqtis -n "__fish_seen_subcommand_from keygen sign enc dec prove" -s o -l out -r -F -d 'file to write'
 complete -c noqtis -n "__fish_seen_subcommand_from keygen" -l seed -r -F -d 'seed as hex or a seed file'
-complete -c noqtis -n "__fish_seen_subcommand_from keygen sign dec" -l pass-fd -x -d 'read the passphrase from descriptor'
-complete -c noqtis -n "__fish_seen_subcommand_from keygen sign dec" -l pass-env -x -d 'read the passphrase from variable'
+complete -c noqtis -n "__fish_seen_subcommand_from keygen passwd sign dec" -l pass-fd -x -d 'read the passphrase from descriptor'
+complete -c noqtis -n "__fish_seen_subcommand_from keygen passwd sign dec" -l pass-env -x -d 'read the passphrase from variable'
 complete -c noqtis -n "__fish_seen_subcommand_from keygen sign enc dec prove" -s f -l force -d 'replace existing files'
 complete -c noqtis -n "__fish_seen_subcommand_from timestamp" -l force -d 'replace an existing timestamp'
 complete -c noqtis -n "__fish_seen_subcommand_from sign dec seal" -s k -l key -r -F -d 'secret key'
