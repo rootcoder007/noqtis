@@ -11,7 +11,7 @@
 #       mode: check
 #       dir: results
 #       pub: keys/release.pub
-name: NOQTIS
+name: nqci
 description: Seal a folder as a post-quantum signed capsule, or check one, with noqtis.
 author: rootcoder007
 branding:
