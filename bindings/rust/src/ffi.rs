@@ -444,6 +444,19 @@ pub struct Kfctx {
     pub opq: [u64; 16],
 }
 
+#[repr(C)]
+pub struct Kmctx {
+    pub opq: [u64; 64],
+}
+
+/// One recipient of a stream to several keys (nqkrcp).
+#[repr(C)]
+pub struct Krcp {
+    pub alg: c_int,
+    pub pk: *const u8,
+    pub pklen: usize,
+}
+
 // the rest of include/noqtis.h a binding reaches
 extern "C" {
     pub fn nqwipe(p: *mut u8, len: usize);
@@ -662,6 +675,74 @@ extern "C" {
         hdr: *mut u8,
         cap: usize,
         hl: *mut usize,
+    ) -> c_int;
+    pub fn nqkmhlen(r: *const Krcp, n: usize, hlen: *mut usize) -> c_int;
+    pub fn nqkmpeek(
+        inp: *const u8,
+        n: usize,
+        hlen: *mut usize,
+        sig: *mut c_int,
+        nrcp: *mut usize,
+    ) -> c_int;
+    pub fn nqkmeini(
+        c: *mut Kmctx,
+        r: *const Krcp,
+        n: usize,
+        sig: c_int,
+        ctx: *const u8,
+        cl: usize,
+        chunk: u32,
+        hdr: *mut u8,
+        cap: usize,
+        hl: *mut usize,
+    ) -> c_int;
+    pub fn nqkmeupd(
+        c: *mut Kmctx,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqkmefin(
+        c: *mut Kmctx,
+        inp: *const u8,
+        n: usize,
+        sk: *const u8,
+        skl: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqkmdini(
+        c: *mut Kmctx,
+        alg: c_int,
+        sk: *const u8,
+        skl: usize,
+        ctx: *const u8,
+        cl: usize,
+        hdr: *const u8,
+        hl: usize,
+        chunk: *mut u32,
+        sig: *mut c_int,
+    ) -> c_int;
+    pub fn nqkmdupd(
+        c: *mut Kmctx,
+        inp: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqkmdfin(
+        c: *mut Kmctx,
+        inp: *const u8,
+        n: usize,
+        pk: *const u8,
+        pkl: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
     ) -> c_int;
     pub fn nqkfdini(
         c: *mut Kfctx,

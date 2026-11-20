@@ -401,3 +401,231 @@ pub fn unbox(
         )
     })
 }
+
+/// The context of a stream to several keys, wiped when dropped.
+struct Km(Box<ffi::Kmctx>);
+
+impl Km {
+    fn new() -> Km {
+        Km(Box::new(ffi::Kmctx { opq: [0; 64] }))
+    }
+}
+
+impl Drop for Km {
+    fn drop(&mut self) {
+        // SAFETY: the context is ours
+        unsafe {
+            ffi::nqwipe(
+                self.0.opq.as_mut_ptr().cast(),
+                std::mem::size_of::<ffi::Kmctx>(),
+            )
+        }
+    }
+}
+
+/// Seals all of `r` to `w` for every recipient in `rcps` (1 to 64 pairs
+/// of an ML-KEM algorithm and its public key), as `noqtis box -p ... -p
+/// ...` does (noqtis-kstream-2): the secret key of any one of them opens
+/// it. With `sender`, a signature algorithm and its secret key, the
+/// stream is signed: the signature is inside the encryption and covers
+/// the recipients. One chunk is in memory; `chunk` as for
+/// [`Boxer::new`].
+pub fn enbox_to(
+    rcps: &[(&str, &[u8])],
+    sender: Option<(&str, &[u8])>,
+    r: &mut impl Read,
+    w: &mut impl Write,
+    ctx: &[u8],
+    chunk: u32,
+) -> Result<()> {
+    if rcps.is_empty() || rcps.len() > 64 {
+        return Err(Error::why(-1, "recipients: 1 to 64"));
+    }
+    let mut cr = Vec::with_capacity(rcps.len());
+    for (alg, pk) in rcps {
+        let a = find(alg, Kind::Kem)?;
+        cr.push(ffi::Krcp {
+            alg: a.id,
+            pk: pk.as_ptr(),
+            pklen: pk.len(),
+        });
+    }
+    let (sg, rec, sk): (c_int, usize, &[u8]) = match sender {
+        Some((alg, sk)) => {
+            let a = find(alg, Kind::Sign)?;
+            if sk.is_empty() {
+                return Err(Error::why(-1, "the sender secret key is needed"));
+            }
+            (a.id, a.sig + 16, sk)
+        }
+        None => (0, 0, &[]),
+    };
+    let chunk = if chunk == 0 { CHUNK } else { chunk };
+    let mut hl = 0usize;
+    // SAFETY: cr holds rcps.len() entries whose keys outlive the call
+    rc(unsafe { ffi::nqkmhlen(cr.as_ptr(), cr.len(), &mut hl) })?;
+    let mut c = Km::new();
+    let mut h = vec![0u8; hl];
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        ffi::nqkmeini(
+            &mut *c.0,
+            cr.as_ptr(),
+            cr.len(),
+            sg,
+            ctx.as_ptr(),
+            ctx.len(),
+            chunk,
+            h.as_mut_ptr(),
+            h.len(),
+            &mut hl,
+        )
+    })?;
+    w.write_all(&h[..hl]).map_err(io)?;
+    let cap = chunk as usize + 16 + rec;
+    pump(r, w, chunk as usize, |d, last| {
+        let mut out = vec![0u8; cap];
+        let mut n = 0usize;
+        // SAFETY: the buffers are valid for the lengths passed; sk is
+        // null with length 0 for a stream that is not signed
+        rc(unsafe {
+            if last {
+                ffi::nqkmefin(
+                    &mut *c.0,
+                    d.as_ptr(),
+                    d.len(),
+                    if sg == 0 {
+                        std::ptr::null()
+                    } else {
+                        sk.as_ptr()
+                    },
+                    sk.len(),
+                    out.as_mut_ptr(),
+                    cap,
+                    &mut n,
+                )
+            } else {
+                ffi::nqkmeupd(
+                    &mut *c.0,
+                    d.as_ptr(),
+                    d.len(),
+                    out.as_mut_ptr(),
+                    cap,
+                    &mut n,
+                )
+            }
+        })?;
+        out.truncate(n);
+        Ok(out)
+    })
+}
+
+/// Opens a stream [`enbox_to`] sealed, from `r` to `w`, with the secret
+/// key `sk` (of the ML-KEM algorithm `alg`) of one of its recipients.
+/// `sender` is the public key the stream must be signed with: a stream
+/// that is not signed, or is signed by another key, is an error of
+/// [`Code::Verify`](crate::Code::Verify). With `None` the signature is
+/// not checked. Returns the signature algorithm the stream names, `None`
+/// when it is not signed.
+///
+/// Plaintext is written chunk by chunk, before the signature at the end
+/// is checked: on an error discard what `w` received.
+pub fn unbox_from(
+    alg: &str,
+    sk: &[u8],
+    sender: Option<&[u8]>,
+    r: &mut impl Read,
+    w: &mut impl Write,
+    ctx: &[u8],
+) -> Result<Option<String>> {
+    let a = find(alg, Kind::Kem)?;
+    let mut fx = [0u8; 24];
+    if fill(r, &mut fx)? != fx.len() {
+        return Err(Error::new(-4));
+    }
+    let (mut hl, mut nr, mut sg) = (0usize, 0usize, 0 as c_int);
+    // SAFETY: fx is 24 bytes, the outputs are ours
+    rc(unsafe { ffi::nqkmpeek(fx.as_ptr(), fx.len(), &mut hl, &mut sg, &mut nr) })?;
+    let mut h = vec![0u8; hl];
+    h[..24].copy_from_slice(&fx);
+    if fill(r, &mut h[24..])? != hl - 24 {
+        return Err(Error::new(-4));
+    }
+    let (name, rec) = if sg != 0 {
+        let mut z = ffi::Ssz {
+            pk: 0,
+            sk: 0,
+            sig: 0,
+        };
+        // SAFETY: z is ours; the name is a static string of the library
+        rc(unsafe { ffi::nqssize(sg, &mut z) })?;
+        let n = unsafe { std::ffi::CStr::from_ptr(ffi::nqsname(sg)) };
+        (Some(n.to_string_lossy().into_owned()), z.sig + 16)
+    } else {
+        (None, 0)
+    };
+    let mut c = Km::new();
+    let mut ch = 0u32;
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        ffi::nqkmdini(
+            &mut *c.0,
+            a.id,
+            sk.as_ptr(),
+            sk.len(),
+            ctx.as_ptr(),
+            ctx.len(),
+            h.as_ptr(),
+            h.len(),
+            &mut ch,
+            std::ptr::null_mut(),
+        )
+    })?;
+    // the window: one chunk, the record after the last, and one byte
+    // more; full, its first chunk is not the last
+    let full = ch as usize + 16;
+    let mut win = vec![0u8; full + rec + 1];
+    let mut out = vec![0u8; (ch as usize).max(1)];
+    let mut have = 0usize;
+    loop {
+        have += fill(r, &mut win[have..])?;
+        let more = have == win.len();
+        let mut n = 0usize;
+        // SAFETY: the buffers are valid for the lengths passed; the
+        // sender's key is null with length 0 when it is not asked for
+        let e = unsafe {
+            if more {
+                ffi::nqkmdupd(
+                    &mut *c.0,
+                    win.as_ptr(),
+                    full,
+                    out.as_mut_ptr(),
+                    out.len(),
+                    &mut n,
+                )
+            } else {
+                ffi::nqkmdfin(
+                    &mut *c.0,
+                    win.as_ptr(),
+                    have,
+                    sender.map_or(std::ptr::null(), |p| p.as_ptr()),
+                    sender.map_or(0, |p| p.len()),
+                    out.as_mut_ptr(),
+                    out.len(),
+                    &mut n,
+                )
+            }
+        };
+        if let Err(x) = rc(e) {
+            crate::wipe(&mut out);
+            return Err(x);
+        }
+        w.write_all(&out[..n]).map_err(io)?;
+        if !more {
+            crate::wipe(&mut out);
+            return Ok(name);
+        }
+        win.copy_within(full..have, 0);
+        have -= full;
+    }
+}

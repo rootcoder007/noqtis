@@ -309,3 +309,130 @@ fn blake2b_and_argon2id() {
     noqtis::wipe(&mut w);
     assert_eq!(w, [0u8; 9]);
 }
+
+// a stream to several recipients, signed or not: each recipient opens
+// it, another key does not, and the sender's key decides
+#[test]
+fn box_to() {
+    use noqtis::sign;
+    let ks: Vec<(&str, Vec<u8>, Vec<u8>)> = ["ML-KEM-512", "ML-KEM-768", "ML-KEM-1024"]
+        .iter()
+        .map(|a| {
+            let (pk, sk) = kem::keygen(a, None).unwrap();
+            (*a, pk, sk)
+        })
+        .collect();
+    let (_, xsk) = kem::keygen("ML-KEM-768", None).unwrap();
+    let (spk, ssk) = sign::keygen("ML-DSA-44", None).unwrap();
+    let (opk, _) = sign::keygen("ML-DSA-44", None).unwrap();
+    let rcps: Vec<(&str, &[u8])> = ks.iter().map(|k| (k.0, &k.1[..])).collect();
+    for n in [0usize, 1, 1024, 1025, 5000] {
+        let m: Vec<u8> = (0..n).map(|i| (i % 249) as u8).collect();
+        for signed in [false, true] {
+            let mut e = Vec::new();
+            let snd = signed.then_some(("ML-DSA-44", &ssk[..]));
+            kem::enbox_to(&rcps, snd, &mut &m[..], &mut e, b"ctx", 1024).unwrap();
+            assert_eq!(&e[..4], b"NQKM");
+            for k in &ks {
+                let mut o = Vec::new();
+                let name = kem::unbox_from(
+                    k.0,
+                    &k.2,
+                    signed.then_some(&spk[..]),
+                    &mut &e[..],
+                    &mut o,
+                    b"ctx",
+                )
+                .unwrap();
+                assert_eq!(o, m);
+                assert_eq!(name.as_deref(), signed.then_some("ML-DSA-44"));
+            }
+            let mut o = Vec::new();
+            let c = |r: noqtis::Result<Option<String>>| r.unwrap_err().kind();
+            assert_eq!(
+                c(kem::unbox_from(
+                    "ML-KEM-768",
+                    &xsk,
+                    None,
+                    &mut &e[..],
+                    &mut o,
+                    b"ctx"
+                )),
+                Code::Verify
+            );
+            assert_eq!(
+                c(kem::unbox_from(
+                    ks[0].0,
+                    &ks[0].2,
+                    None,
+                    &mut &e[..],
+                    &mut o,
+                    b""
+                )),
+                Code::Verify
+            );
+            // another sender's key; a key asked of a stream not signed
+            assert_eq!(
+                c(kem::unbox_from(
+                    ks[1].0,
+                    &ks[1].2,
+                    Some(&opk),
+                    &mut &e[..],
+                    &mut o,
+                    b"ctx"
+                )),
+                Code::Verify
+            );
+            // not asked: it opens, signed or not
+            kem::unbox_from(ks[2].0, &ks[2].2, None, &mut &e[..], &mut o, b"ctx").unwrap();
+            let mut b = e.clone();
+            let l = b.len();
+            b[l - 3] ^= 1;
+            assert_eq!(
+                c(kem::unbox_from(
+                    ks[0].0,
+                    &ks[0].2,
+                    None,
+                    &mut &b[..],
+                    &mut o,
+                    b"ctx"
+                )),
+                Code::Verify
+            );
+        }
+    }
+    let mut e = Vec::new();
+    let no: &[(&str, &[u8])] = &[];
+    assert!(kem::enbox_to(no, None, &mut &b""[..], &mut e, b"", 0).is_err());
+    assert!(kem::enbox_to(
+        &rcps,
+        Some(("ML-DSA-44", b"")),
+        &mut &b""[..],
+        &mut e,
+        b"",
+        0
+    )
+    .is_err());
+    assert!(kem::enbox_to(&rcps, None, &mut &b""[..], &mut e, b"", 100).is_err());
+    assert!(kem::enbox_to(
+        &[("ML-DSA-44", &spk[..])],
+        None,
+        &mut &b""[..],
+        &mut e,
+        b"",
+        0
+    )
+    .is_err());
+    assert_eq!(
+        kem::unbox_from("ML-KEM-768", &xsk, None, &mut &b"NQKM"[..], &mut e, b"")
+            .unwrap_err()
+            .kind(),
+        Code::Decode
+    );
+    assert_eq!(
+        kem::unbox_from("ML-KEM-768", &xsk, None, &mut &[0u8; 40][..], &mut e, b"")
+            .unwrap_err()
+            .kind(),
+        Code::Decode
+    );
+}
