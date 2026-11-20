@@ -263,4 +263,181 @@ public final class Box {
       pump(in, out, u.chunk() + 16, (b, last) -> last ? u.last(b) : u.update(b));
     }
   }
+
+  /** One call on a stream to several keys: its code, and the bytes written. */
+  private static byte[] km(
+      MemorySegment c, boolean open, boolean last, byte[] in, int len, byte[] key, long cap) {
+    try (Arena t = Arena.ofConfined()) {
+      MemorySegment i = Native.out(t, len).copyFrom(MemorySegment.ofArray(in).asSlice(0, len));
+      MemorySegment o = Native.out(t, cap), n = t.allocate(JAVA_LONG);
+      MemorySegment k = Native.in(t, key);
+      long kl = key == null ? 0 : key.length;
+      int r;
+      if (!last) {
+        r = (int) (open ? Native.NQKMDUPD : Native.NQKMEUPD).invoke(c, i, (long) len, o, cap, n);
+      } else {
+        r = (int) (open ? Native.NQKMDFIN : Native.NQKMEFIN)
+            .invoke(c, i, (long) len, k, kl, o, cap, n);
+      }
+      if (key != null) {
+        Native.wipe(k, kl);
+      }
+      Native.wipe(i, len);
+      Native.rc(r);
+      byte[] b = Native.bytes(o, n.get(JAVA_LONG, 0));
+      Native.wipe(o, cap);
+      return b;
+    } catch (Throwable e) {
+      throw Native.wrap(e);
+    }
+  }
+
+  /**
+   * Seals all of in to out for every recipient, as {@code noqtis box -p ...
+   * -p ...} does (noqtis-kstream-2): the secret key of any one of them
+   * opens the stream. With a sender's secret signature key the stream is
+   * signed: the signature is inside the encryption and covers the
+   * recipients. One chunk is in memory.
+   *
+   * @param algs the recipients' ML-KEM algorithms, one for each key
+   * @param pks the recipients' public keys, 1 to 64
+   * @param senderAlg the signature algorithm of senderSk, or null
+   * @param senderSk the sender's secret key, or null for a stream that is
+   *     not signed
+   * @param in the plaintext
+   * @param out the sealed stream
+   * @param ctx the context (null for none)
+   * @param chunk the chunk size, 0 for {@link #CHUNK}
+   * @throws IOException when a stream fails
+   */
+  public static void boxTo(
+      String[] algs, byte[][] pks, String senderAlg, byte[] senderSk, InputStream in,
+      OutputStream out, byte[] ctx, int chunk)
+      throws IOException {
+    if (pks == null || algs == null || pks.length < 1 || pks.length > 64
+        || algs.length != pks.length) {
+      throw new NoqtisException(-1, "recipients: 1 to 64 keys, an algorithm for each");
+    }
+    if ((senderAlg == null) != (senderSk == null)) {
+      throw new NoqtisException(-1, "a sender is an algorithm and a secret key");
+    }
+    int ch = chunk == 0 ? CHUNK : chunk;
+    Noqtis.Alg sa = senderAlg == null ? null : Noqtis.find(senderAlg, "sign");
+    long rec = sa == null ? 0 : sa.sig() + 16L;
+    try (Arena m = Arena.ofConfined()) {
+      // nqkrcp: the algorithm, the key's address and its length
+      MemorySegment r = m.allocate(24L * pks.length, 8);
+      for (int i = 0; i < pks.length; i++) {
+        r.set(JAVA_INT, 24L * i, Noqtis.find(algs[i], "kem").id());
+        r.set(java.lang.foreign.ValueLayout.ADDRESS, 24L * i + 8, Native.in(m, pks[i]));
+        r.set(JAVA_LONG, 24L * i + 16, pks[i] == null ? 0 : pks[i].length);
+      }
+      MemorySegment c = m.allocate(64 * 8, 8), n = m.allocate(JAVA_LONG);
+      try {
+        Native.rc((int) Native.NQKMHLEN.invoke(r, (long) pks.length, n));
+        long hl = n.get(JAVA_LONG, 0);
+        MemorySegment h = Native.out(m, hl);
+        Native.rc(
+            (int)
+                Native.NQKMEINI.invoke(
+                    c, r, (long) pks.length, sa == null ? 0 : sa.id(), Native.in(m, ctx),
+                    ctx == null ? 0L : (long) ctx.length, ch, h, hl, n));
+        out.write(Native.bytes(h, n.get(JAVA_LONG, 0)));
+        pump(
+            in,
+            out,
+            ch,
+            (b, last) ->
+                km(c, false, last, b, b.length, last ? senderSk : null,
+                    ch + 16L + (last ? rec : 0)));
+      } catch (IOException | RuntimeException e) {
+        throw e;
+      } catch (Throwable e) {
+        throw Native.wrap(e);
+      } finally {
+        Native.wipe(c, c.byteSize());
+      }
+    }
+  }
+
+  /**
+   * Opens a stream {@link #boxTo} sealed, from in to out, with the secret
+   * key of one of its recipients. With the sender's public key the stream
+   * must be signed, and the signature must verify under it: a stream that
+   * is not signed, or is signed by another key, fails. Without it the
+   * signature is not checked. Plaintext is written chunk by chunk, before
+   * the signature at the end is checked: on an error discard out.
+   *
+   * @param alg the ML-KEM algorithm of sk
+   * @param sk the secret key of one recipient
+   * @param sender the sender's public key, or null
+   * @param in the sealed stream
+   * @param out the plaintext
+   * @param ctx the context (null for none)
+   * @return the signature algorithm the stream names, or null when it is
+   *     not signed
+   * @throws IOException when a stream fails
+   */
+  public static String unboxFrom(
+      String alg, byte[] sk, byte[] sender, InputStream in, OutputStream out, byte[] ctx)
+      throws IOException {
+    Noqtis.Alg a = Noqtis.find(alg, "kem");
+    byte[] fx = in.readNBytes(24);
+    if (fx.length != 24) {
+      throw new NoqtisException(-4);
+    }
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment p = m.allocate(JAVA_LONG, 3);
+      MemorySegment c = m.allocate(64 * 8, 8);
+      try {
+        Native.rc(
+            (int)
+                Native.NQKMPEEK.invoke(
+                    Native.in(m, fx), 24L, p, p.asSlice(8), p.asSlice(16)));
+        int hl = (int) p.get(JAVA_LONG, 0), sg = p.get(JAVA_INT, 8);
+        byte[] h = java.util.Arrays.copyOf(fx, hl);
+        if (in.readNBytes(h, 24, hl - 24) != hl - 24) {
+          throw new NoqtisException(-4);
+        }
+        Noqtis.Alg sa = null;
+        for (Noqtis.Alg x : Noqtis.algs()) {
+          if (sg != 0 && x.kind().equals("sign") && x.id() == sg) {
+            sa = x;
+          }
+        }
+        int rec = sa == null ? 0 : sa.sig() + 16;
+        MemorySegment k = Native.in(m, sk);
+        int r =
+            (int)
+                Native.NQKMDINI.invoke(
+                    c, a.id(), k, (long) sk.length, Native.in(m, ctx),
+                    ctx == null ? 0L : (long) ctx.length, Native.in(m, h), (long) hl, p,
+                    MemorySegment.NULL);
+        Native.wipe(k, sk.length);
+        Native.rc(r);
+        int ch = p.get(JAVA_INT, 0);
+        // the window: one chunk, the record after the last, and one byte
+        // more; full, its first chunk is not the last
+        int full = ch + 16;
+        byte[] win = new byte[full + rec + 1];
+        int have = 0;
+        for (; ; ) {
+          have += in.readNBytes(win, have, win.length - have);
+          boolean more = have == win.length;
+          out.write(km(c, true, !more, win, more ? full : have, more ? null : sender, ch));
+          if (!more) {
+            return sa == null ? null : sa.name();
+          }
+          System.arraycopy(win, full, win, 0, have - full);
+          have -= full;
+        }
+      } catch (IOException | RuntimeException e) {
+        throw e;
+      } catch (Throwable e) {
+        throw Native.wrap(e);
+      } finally {
+        Native.wipe(c, c.byteSize());
+      }
+    }
+  }
 }

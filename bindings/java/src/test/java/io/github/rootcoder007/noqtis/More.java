@@ -205,6 +205,92 @@ final class More {
       ok(Arrays.equals(d.toByteArray(), p), "round trip " + m);
     }
     eq(fails(() -> new Box.Sealer("ML-KEM-768", kp.pk(), null, 100)), Code.ARG, "small chunk");
+    boxto();
+  }
+
+  // a stream to several recipients, signed or not: each recipient opens
+  // it, another key does not, and the sender's key decides
+  static void boxto() throws Exception {
+    String[] algs = {"ML-KEM-512", "ML-KEM-768", "ML-KEM-1024"};
+    Sign.KeyPair[] ks = new Sign.KeyPair[3];
+    byte[][] pks = new byte[3][];
+    for (int i = 0; i < 3; i++) {
+      ks[i] = Kem.keygen(algs[i]);
+      pks[i] = ks[i].pk();
+    }
+    Sign.KeyPair x = Kem.keygen("ML-KEM-768");
+    Sign.KeyPair me = Sign.keygen("ML-DSA-44"), other = Sign.keygen("ML-DSA-44");
+    for (int m : new int[] {0, 1, 1024, 1025, 5000}) {
+      byte[] p = new byte[m];
+      for (int i = 0; i < m; i++) {
+        p[i] = (byte) (i % 249);
+      }
+      for (boolean signed : new boolean[] {false, true}) {
+        ByteArrayOutputStream e = new ByteArrayOutputStream();
+        Box.boxTo(
+            algs, pks, signed ? "ML-DSA-44" : null, signed ? me.sk() : null,
+            new ByteArrayInputStream(p), e, b("ctx"), 1024);
+        byte[] s = e.toByteArray();
+        ok(s[0] == 'N' && s[1] == 'Q' && s[2] == 'K' && s[3] == 'M', "the second format");
+        for (int i = 0; i < 3; i++) {
+          ByteArrayOutputStream d = new ByteArrayOutputStream();
+          String name =
+              Box.unboxFrom(
+                  algs[i], ks[i].sk(), signed ? me.pk() : null, new ByteArrayInputStream(s), d,
+                  b("ctx"));
+          ok(Arrays.equals(d.toByteArray(), p), "boxTo round trip " + m + " " + algs[i]);
+          ok(
+              java.util.Objects.equals(name, signed ? "ML-DSA-44" : null),
+              "the signature algorithm");
+        }
+        ByteArrayOutputStream d = new ByteArrayOutputStream();
+        eq(
+            fails(() -> unboxFrom("ML-KEM-768", x.sk(), null, s, d, b("ctx"))), Code.VERIFY,
+            "not a recipient");
+        eq(
+            fails(() -> unboxFrom(algs[0], ks[0].sk(), null, s, d, null)), Code.VERIFY,
+            "another context");
+        eq(
+            fails(() -> unboxFrom(algs[1], ks[1].sk(), other.pk(), s, d, b("ctx"))),
+            Code.VERIFY, "another sender, or not signed");
+        // not asked who sent it: it opens, signed or not
+        Box.unboxFrom(algs[2], ks[2].sk(), null, new ByteArrayInputStream(s), d, b("ctx"));
+        byte[] bad = s.clone();
+        bad[bad.length - 3] ^= 1;
+        eq(
+            fails(() -> unboxFrom(algs[0], ks[0].sk(), null, bad, d, b("ctx"))), Code.VERIFY,
+            "changed");
+      }
+    }
+    ByteArrayOutputStream e = new ByteArrayOutputStream();
+    eq(
+        fails(() -> boxTo(new String[0], new byte[0][], null, null, e)), Code.ARG,
+        "no recipient");
+    eq(fails(() -> boxTo(algs, pks, "ML-DSA-44", null, e)), Code.ARG, "half a sender");
+    eq(
+        fails(() -> unboxFrom("ML-KEM-768", x.sk(), null, b("NQKM"), e, null)), Code.DECODE,
+        "cut short");
+    eq(
+        fails(() -> unboxFrom("ML-KEM-768", x.sk(), null, new byte[40], e, null)),
+        Code.DECODE, "not a stream");
+  }
+
+  private static void unboxFrom(
+      String alg, byte[] sk, byte[] sender, byte[] s, ByteArrayOutputStream d, byte[] ctx) {
+    try {
+      Box.unboxFrom(alg, sk, sender, new ByteArrayInputStream(s), d, ctx);
+    } catch (java.io.IOException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static void boxTo(
+      String[] algs, byte[][] pks, String sa, byte[] ssk, ByteArrayOutputStream e) {
+    try {
+      Box.boxTo(algs, pks, sa, ssk, new ByteArrayInputStream(new byte[1]), e, null, 0);
+    } catch (java.io.IOException x) {
+      throw new IllegalStateException(x);
+    }
   }
 
   static void mu() throws Exception {

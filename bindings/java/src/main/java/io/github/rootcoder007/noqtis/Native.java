@@ -262,6 +262,14 @@ final class Native {
   static final MethodHandle NQKFEFIN = fn("nqkfefin", I, P, P, Z, P, Z, P);
   static final MethodHandle NQKFDUPD = fn("nqkfdupd", I, P, P, Z, P, Z, P);
   static final MethodHandle NQKFDFIN = fn("nqkfdfin", I, P, P, Z, P, Z, P);
+  static final MethodHandle NQKMHLEN = fn("nqkmhlen", I, P, Z, P);
+  static final MethodHandle NQKMPEEK = fn("nqkmpeek", I, P, Z, P, P, P);
+  static final MethodHandle NQKMEINI = fn("nqkmeini", I, P, P, Z, I, P, Z, I, P, Z, P);
+  static final MethodHandle NQKMEUPD = fn("nqkmeupd", I, P, P, Z, P, Z, P);
+  static final MethodHandle NQKMEFIN = fn("nqkmefin", I, P, P, Z, P, Z, P, Z, P);
+  static final MethodHandle NQKMDINI = fn("nqkmdini", I, P, I, P, Z, P, Z, P, Z, P, P);
+  static final MethodHandle NQKMDUPD = fn("nqkmdupd", I, P, P, Z, P, Z, P);
+  static final MethodHandle NQKMDFIN = fn("nqkmdfin", I, P, P, Z, P, Z, P, Z, P);
 
   /** Wipes n bytes at s (nqwipe). */
   static void wipe(MemorySegment s, long n) {
