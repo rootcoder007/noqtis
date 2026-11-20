@@ -16,6 +16,7 @@ OBJECTS = \
   api/sig.o \
   api/stm.o \
   box/kf.o \
+  box/km.o \
   box/ks.o \
   box/pw.o \
   cap/chk.o \

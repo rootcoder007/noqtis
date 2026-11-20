@@ -519,6 +519,80 @@ NQAPI int nqkfdupd(nqkfctx *c, const uint8_t *in, size_t n, uint8_t *out,
 NQAPI int nqkfdfin(nqkfctx *c, const uint8_t *in, size_t n, uint8_t *out,
                    size_t cap, size_t *outlen);
 
+/* A stream sealed to several ML-KEM public keys at once, and signed by
+ * its sender when asked (noqtis-kstream-2). The stream is the one above
+ * under a random file key; the header carries that key once for each
+ * recipient, so any one of their secret keys opens it, and no byte of
+ * the header can change without every chunk failing. The header,
+ * NQKMFIX bytes then one entry per recipient: "NQKM", the version 2,
+ * the flags (bit 0: signed), the chunk size (32 bits, big-endian), a
+ * random 7-byte nonce prefix, the signature algorithm (its nqsalg, 0
+ * when not signed), the number of recipients (16 bits) and the header's
+ * whole length (32 bits); each entry is the recipient's KEM (its
+ * nqkalg), the first 8 bytes of the SHA3-256 of its public key, the KEM
+ * ciphertext and the file key under ChaCha20-Poly1305 (48 bytes).
+ *
+ * A signed stream ends, after its last chunk, with one more record of
+ * the signature's size plus 16 bytes: the sender's signature over the
+ * header and the whole plaintext, inside the encryption. Only a
+ * recipient learns who signed, and a recipient cannot pass the stream
+ * on as if the sender had sealed it to someone else. A reader releases
+ * plaintext chunk by chunk, before the signature at the end is checked:
+ * what it wrote is the sender's only once nqkmdfin returned NQOK.
+ *
+ * nqkmhlen gives the header's size for n recipients (1 to NQKMRCP);
+ * nqkmeini writes it to hdr (cap bytes; *hlen its size, also with
+ * NQEBUF), sig the algorithm the sender signs with or 0; nqkmeupd seals
+ * one full chunk; nqkmefin seals the last (n at most the chunk size)
+ * and, for a signed stream, signs with sk (the secret key of sig; NULL
+ * otherwise) and appends the record: out needs n + 16 bytes, plus the
+ * signature's size + 16.
+ *
+ * nqkmpeek reads the first NQKMFIX bytes of a stream: the header's
+ * whole length, the signature algorithm (0: not signed) and the number
+ * of recipients. nqkmdini opens the header (hlen exactly that length)
+ * with one recipient's secret key; nqkmdupd opens one chunk of the
+ * chunk size plus 16 bytes; nqkmdfin opens the last, in which is, for a
+ * signed stream, also the record that follows it, and checks the
+ * signature under pk (the sender's public key). With pk NULL the
+ * signature is not checked: the caller does not ask who sent it.
+ *
+ * Errors, beyond those of the stream above: NQEVRFY from nqkmdini when
+ * no entry opens with the key (not a recipient, or another context),
+ * and from nqkmdfin when the signature does not verify under pk, or pk
+ * is given for a stream that is not signed; NQELIM for more than
+ * NQKMRCP recipients or a header length outside what they can take;
+ * NQENOSUP for a signature algorithm this noqtis does not know. */
+#define NQKMFIX 24u
+#define NQKMRCP 64u
+typedef struct {
+  nqkalg alg;
+  const uint8_t *pk;
+  size_t pklen;
+} nqkrcp;
+typedef struct {
+  uint64_t opq[64];
+} nqkmctx;
+NQAPI int nqkmhlen(const nqkrcp *r, size_t n, size_t *hlen);
+NQAPI int nqkmpeek(const uint8_t *in, size_t n, size_t *hlen, nqsalg *sig,
+                   size_t *nrcp);
+NQAPI int nqkmeini(nqkmctx *c, const nqkrcp *r, size_t n, nqsalg sig,
+                   const uint8_t *ctx, size_t ctxlen, uint32_t chunk,
+                   uint8_t *hdr, size_t cap, size_t *hlen);
+NQAPI int nqkmeupd(nqkmctx *c, const uint8_t *in, size_t n, uint8_t *out,
+                   size_t cap, size_t *outlen);
+NQAPI int nqkmefin(nqkmctx *c, const uint8_t *in, size_t n,
+                   const uint8_t *sk, size_t sklen, uint8_t *out, size_t cap,
+                   size_t *outlen);
+NQAPI int nqkmdini(nqkmctx *c, nqkalg alg, const uint8_t *sk, size_t sklen,
+                   const uint8_t *ctx, size_t ctxlen, const uint8_t *hdr,
+                   size_t hlen, uint32_t *chunk, nqsalg *sig);
+NQAPI int nqkmdupd(nqkmctx *c, const uint8_t *in, size_t n, uint8_t *out,
+                   size_t cap, size_t *outlen);
+NQAPI int nqkmdfin(nqkmctx *c, const uint8_t *in, size_t n,
+                   const uint8_t *pk, size_t pklen, uint8_t *out, size_t cap,
+                   size_t *outlen);
+
 /* ---- passphrase key files ------------------------------------------- */
 
 /* A secret key under a passphrase (noqtis-pwkey-1): the header, 35
