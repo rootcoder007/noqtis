@@ -3,7 +3,8 @@
  * section 5 (vectors/kt/rfc9861.txt: 31 of TurboSHAKE128 and
  * TurboSHAKE256, 36 of KT128 and KT256), the output as a prefix of a
  * longer one, incremental input and output of the sponge in pieces of
- * every size, the chunk boundaries of the tree, and the errors of nqkt. */
+ * every size, the chunk boundaries of the tree, the input of nqkt in
+ * pieces (nqktini, nqktupd, nqktfin), and the errors. */
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -175,8 +176,59 @@ static void terr(void) {
   NQTEQI(nqkt(128, in, 4, NULL, 0, out, 0), NQEARG);
   NQTEQI(nqkt(128, NULL, 4, NULL, 0, out, 8), NQEARG);
   NQTEQI(nqkt(128, in, 4, NULL, 1, out, 8), NQEARG);
-  NQTEQI(nqkt(128, in, SIZE_MAX, in, 4, out, 8), NQELIM);
-  NQTEQI(nqkt(128, in, SIZE_MAX - 4, in, 4, out, 8), NQELIM);
+  {
+    nqktctx c;
+    NQTEQI(nqktini(NULL, 128), NQEARG);
+    NQTEQI(nqktini(&c, 512), NQEARG);
+    memset(&c, 0, sizeof c);
+    NQTEQI(nqktupd(&c, in, 4), NQESTATE);
+    NQTEQI(nqktfin(&c, NULL, 0, out, 8), NQESTATE);
+    NQTEQI(nqktini(&c, 128), NQOK);
+    NQTEQI(nqktupd(NULL, in, 4), NQEARG);
+    NQTEQI(nqktupd(&c, NULL, 4), NQEARG);
+    NQTEQI(nqktupd(&c, NULL, 0), NQOK);
+    NQTEQI(nqktfin(&c, NULL, 1, out, 8), NQEARG);
+    NQTEQI(nqktfin(&c, NULL, 0, NULL, 8), NQEARG);
+    NQTEQI(nqktfin(&c, NULL, 0, out, 0), NQEARG);
+    NQTEQI(nqktfin(NULL, NULL, 0, out, 8), NQEARG);
+    NQTEQI(nqktfin(&c, NULL, 0, out, 8), NQOK);
+    /* ended: neither more input nor a second output */
+    NQTEQI(nqktupd(&c, in, 4), NQESTATE);
+    NQTEQI(nqktfin(&c, NULL, 0, out, 8), NQESTATE);
+  }
+}
+
+/* the input in pieces of every size, cut before, at and after every
+ * chunk boundary, gives what the one call gives */
+static void tstream(void) {
+  static const size_t len[] = {0, 1, 8190, 8191, 8192, 8193, 16383, 16384,
+                               16385, 30000};
+  static const size_t step[] = {1, 7, 4096, 8191, 8192, 8193, 20000};
+  static uint8_t in[30000];
+  uint8_t one[64], got[64], cu[9000];
+  size_t q, w, i, at;
+  unsigned b;
+  for (i = 0; i < sizeof in; i++) in[i] = (uint8_t)(i * 31 + (i >> 9));
+  for (i = 0; i < sizeof cu; i++) cu[i] = (uint8_t)(i + 5);
+  for (b = 128; b <= 256; b += 128) {
+    for (q = 0; q < sizeof len / sizeof len[0]; q++) {
+      /* without a customization string, and with one that crosses a
+       * chunk by itself */
+      size_t cl = (q & 1) ? 8500 : 0;
+      NQTEQI(nqkt(b, in, len[q], cl ? cu : NULL, cl, one, 64), NQOK);
+      for (w = 0; w < sizeof step / sizeof step[0]; w++) {
+        nqktctx c;
+        if (step[w] == 1 && len[q] > 9000) continue;
+        NQTEQI(nqktini(&c, b), NQOK);
+        for (at = 0; at < len[q]; at += step[w])
+          NQTEQI(nqktupd(&c, in + at,
+                         len[q] - at < step[w] ? len[q] - at : step[w]),
+                 NQOK);
+        NQTEQI(nqktfin(&c, cl ? cu : NULL, cl, got, 64), NQOK);
+        NQTEQM(got, one, 64);
+      }
+    }
+  }
 }
 
 int main(void) {
@@ -184,5 +236,6 @@ int main(void) {
   tparts();
   ttree();
   terr();
+  tstream();
   return nqtdone("tkt");
 }

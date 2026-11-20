@@ -44,8 +44,9 @@ int nqcha20(const uint8_t *key, size_t keylen, const uint8_t *nonce,
  * x^128 + x^7 + x^2 + x + 1 */
 static void dbl(uint8_t *b) {
   unsigned top = b[0] >> 7, i;
-  for (i = 0; i < BLK - 1; i++) b[i] = (uint8_t)((b[i] << 1) | (b[i + 1] >> 7));
-  b[BLK - 1] = (uint8_t)((b[BLK - 1] << 1) ^ (0x87u & (0u - top)));
+  for (i = 0; i < BLK - 1; i++)
+    b[i] = (uint8_t)(((unsigned)b[i] << 1) | ((unsigned)b[i + 1] >> 7));
+  b[BLK - 1] = (uint8_t)(((unsigned)b[BLK - 1] << 1) ^ (0x87u & (0u - top)));
 }
 
 typedef struct {

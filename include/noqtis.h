@@ -227,11 +227,24 @@ NQAPI int nqgsivdec(const uint8_t *key, size_t keylen, const uint8_t *nonce,
  * tree. 32 bytes of KT128 or 64 of KT256 give their full strength
  * against collisions (128 and 256 bits). With a secret key as custom it
  * is a MAC (RFC 9861 section 4): compare tags with nqcteq.
- * NQEARG for other bits, an outlen of 0 or a NULL pointer; NQELIM when
- * the lengths together do not fit in a size_t. */
+ * NQEARG for other bits, an outlen of 0 or a NULL pointer. */
 NQAPI int nqkt(unsigned bits, const uint8_t *in, size_t inlen,
                const uint8_t *custom, size_t clen, uint8_t *out,
                size_t outlen);
+
+/* The same in pieces, for an input that is not in memory at once:
+ * nqktini, nqktupd any number of times, then nqktfin once, with the
+ * customization string and the output length. Opaque, but sized here so
+ * callers can keep it on the stack; nqktfin wipes it, and nqktupd and
+ * nqktfin return NQESTATE for a context nqktini did not make or nqktfin
+ * has ended. */
+typedef struct {
+  uint64_t opq[62];
+} nqktctx;
+NQAPI int nqktini(nqktctx *ctx, unsigned bits);
+NQAPI int nqktupd(nqktctx *ctx, const uint8_t *in, size_t inlen);
+NQAPI int nqktfin(nqktctx *ctx, const uint8_t *custom, size_t clen,
+                  uint8_t *out, size_t outlen);
 
 /* Argon2id (RFC 9106, version 0x13) on that BLAKE2b: outlen bytes from
  * the password pw, the salt, the optional secret key and associated
