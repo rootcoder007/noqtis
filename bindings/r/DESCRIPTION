@@ -33,7 +33,7 @@ Copyright: see file inst/COPYRIGHTS
 URL: https://noqtis.dev, https://github.com/rootcoder007/noqtis
 BugReports: https://github.com/rootcoder007/noqtis/issues
 Depends: R (>= 4.1)
-Imports: utils
+Imports: tools, utils
 Suggests: knitr, rmarkdown, testthat (>= 3.1.7)
 VignetteBuilder: knitr
 Config/testthat/edition: 3

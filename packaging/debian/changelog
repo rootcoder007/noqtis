@@ -2,7 +2,8 @@ noqtis (0.2.3-1) unstable; urgency=medium
 
   * The package pages carry the project's badges; built and tested on
     FreeBSD, OpenBSD and NetBSD.
-  * No change to the library or the tool.
+  * The tool says when a newer release exists (noqtis version --check;
+    NOQTIS_NO_UPDATE_CHECK turns the notice off).
 
  -- rootcoder007 <278967282+rootcoder007@users.noreply.github.com>  Fri, 20 Nov 2026 04:00:00 -0500
 

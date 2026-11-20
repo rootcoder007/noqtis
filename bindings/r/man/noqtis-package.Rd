@@ -116,6 +116,18 @@ verify is not an error: \code{\link[=nqverify]{nqverify()}} returns \code{FALSE}
 reports failed rows.
 }
 
+\section{Notice of a newer release}{
+
+In an interactive session, attaching the package says in one line when
+a newer release exists. The page of the latest release is asked for at
+most once a day, with a limit of two seconds, and the answer is kept in
+\code{tools::R_user_dir("noqtis", "cache")}; nothing is sent but that
+request, and a failure is silent. A session that is not interactive
+(a script, a check, a test) never asks. \code{options(noqtis.update = FALSE)}
+before the package is attached, or the environment variable
+\code{NOQTIS_NO_UPDATE_CHECK} set to anything, turns it off.
+}
+
 \references{
 National Institute of Standards and Technology (2024).
 \emph{Module-Lattice-Based Key-Encapsulation Mechanism Standard}, FIPS 203.

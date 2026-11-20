@@ -15,8 +15,11 @@ if(NOT WIN32)
   target_link_libraries(nqcli PRIVATE Threads::Threads)
 endif()
 target_compile_options(nqcli PRIVATE ${NQWARN})
+# the notice of a newer release (upd.c) loads the libcurl of the system at
+# run time where there is one; on Windows it asks through WinHTTP
+target_link_libraries(nqcli PRIVATE ${CMAKE_DL_LIBS})
 if(WIN32)
-  target_link_libraries(nqcli PRIVATE shell32 ws2_32)
+  target_link_libraries(nqcli PRIVATE shell32 ws2_32 winhttp)
   if(NQSHARED)
     # both DLLs beside the tool, so it runs from the build tree
     add_custom_command(TARGET nqcli POST_BUILD

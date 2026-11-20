@@ -442,6 +442,33 @@ cleared when the work ends.
 turns it off;
 .Ql 1
 draws it to a standard error that is not a terminal too.
+.It Ev NOQTIS_NO_UPDATE_CHECK
+After a command that ended with status 0, and only when standard error is
+a terminal, the tool says in one line when a newer release exists.
+It asks for the page of the latest release at most once a day, with a
+limit of two seconds, and keeps the answer in the cache directory of the
+user
+.Pq Ev XDG_CACHE_HOME , or Pa ~/.cache ; Ev LOCALAPPDATA No on Windows .
+Nothing is sent but that request, and a failure is silent.
+Nothing is linked for it, and the library takes no part: on Windows the
+request is made by the system (WinHTTP); elsewhere by the libcurl of the
+system when there is one, else by
+.Xr curl 1 ;
+with neither, nothing is asked.
+Set to anything, this variable turns the notice off; it is also off when
+.Ev CI
+is set and when standard error is not a terminal.
+.Cm noqtis version --check
+asks at once.
+.It Ev NOQTIS_UPDATE_CHECK
+.Ql 0
+turns that notice off, as
+.Ev NOQTIS_NO_UPDATE_CHECK
+does;
+.Ql 1
+gives it to a standard error that is not a terminal too, and when
+.Ev CI
+is set.
 .It Ev SOURCE_DATE_EPOCH
 The time
 .Cm seal

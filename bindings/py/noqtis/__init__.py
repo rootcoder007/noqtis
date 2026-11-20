@@ -17,6 +17,7 @@ import time
 from typing import Any, Iterable, Iterator, List, Mapping, NamedTuple, Optional, Tuple, Union
 
 from . import _noqtis as _c
+from . import _upd
 from . import dsse, kem, keyfile, sign
 from ._alg import HASHES, KEMS, SIGS, Alg, AlgLike, Bytes, buf, find, hid, isshake, path
 from ._err import (
@@ -36,6 +37,9 @@ from ._err import (
 )
 
 __version__: str = _c.version()
+
+# a newer release, said once in an interactive session (see _upd)
+_upd.notify(__version__)
 
 __all__ = [
     "Alg",

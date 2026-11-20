@@ -1,6 +1,7 @@
 # noqtis 0.2.3
 
-- No change to the R package's functions: the version follows the library. The README shows the project's badges.
+- Attaching the package in an interactive session says in one line when a newer release exists. The page of the latest release is asked for at most once a day, with a limit of two seconds, and nothing is sent but that request; a session that is not interactive never asks. `options(noqtis.update = FALSE)` or the environment variable `NOQTIS_NO_UPDATE_CHECK` turns it off (see `?noqtis`).
+- No change to the functions. The README shows the project's badges.
 
 # noqtis 0.2.2
 

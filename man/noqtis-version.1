@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-.Dd October 28, 2026
+.Dd November 20, 2026
 .Dt NOQTIS-VERSION 1
 .Os
 .Sh NAME
@@ -7,6 +7,7 @@
 .Nd print the version of noqtis
 .Sh SYNOPSIS
 .Nm noqtis version
+.Op Fl -check
 .Nm noqtis
 .Fl V | Fl -version
 .Sh DESCRIPTION
@@ -17,8 +18,24 @@ the version of the library the tool runs on, as
 .Fn nqver
 returns it
 .Pq Xr nqerr 3 .
+.Pp
+With
+.Fl -check
+it asks instead whether a newer release exists, and prints either that
+this version is up to date or the newer version and the address of its
+release.
+The question is the request for the page of the latest release, with a
+limit of ten seconds; nothing else is sent.
+.Pp
+The other commands say the same in one line on standard error, after
+their work and with status 0, when a newer release exists: see
+.Ev NOQTIS_NO_UPDATE_CHECK
+in
+.Xr noqtis 1 .
 .Sh EXIT STATUS
-0, or 2 on a usage error.
+0; 1 when
+.Fl -check
+cannot ask (no network, or nothing to ask with); 2 on a usage error.
 .Sh EXAMPLES
 .Bd -literal -offset indent
 $ noqtis version | cut -d' ' -f1

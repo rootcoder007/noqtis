@@ -47,6 +47,14 @@ int ncargs(const char *cmd, int argc, char **argv, const ncopt *o,
 /* ---- messages ---- */
 
 void ncmsg(const char *cmd, const char *fmt, ...);
+
+/* ---- a newer release (upd.c) ---- */
+/* One line on standard error when a newer release exists: at a terminal
+ * only, the question asked at most once a day. Never fails. */
+void ncupd(void);
+/* `noqtis version --check`: asks now and prints the answer. NCOK, or
+ * NCBAD when the latest release cannot be asked for. */
+int ncupdnow(void);
 /* Prints the usage of cmd to f; 0 if cmd is unknown. */
 int ncuse(FILE *f, const char *cmd);
 /* Prints "noqtis <cmd>: <what>: <nqerr(rc)>" and returns NCUSE. */

@@ -71,6 +71,7 @@ export NQSLSUB=8 NQFAST=1
 %changelog
 * Fri Nov 20 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.2.3-1
 - The package pages carry the project's badges; built and tested on FreeBSD, OpenBSD and NetBSD
+- The tool says when a newer release exists (noqtis version --check)
 
 * Wed Nov 18 2026 rootcoder007 <278967282+rootcoder007@users.noreply.github.com> - 0.2.2-1
 - The Go module is published with the release; every binding names noqtis.dev

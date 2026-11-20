@@ -98,6 +98,7 @@ _noqtis() {
     revoke) opts="-k --key -p --pub --at --reason -o --out -f --force" ;;
     prove) opts="-p --pub -o --out -f --force" ;;
     inspect) opts="-j --json" ;;
+    version) opts="--check" ;;
     timestamp) opts="--tsa --anchor --force" ;;
     ers) opts="--tsa --anchor --hash" ;;
     data)

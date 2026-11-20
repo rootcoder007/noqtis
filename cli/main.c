@@ -449,7 +449,9 @@ static const nccmd cmds[] = {
    "  Runs nqselftest: known answers for every algorithm family. Exit 0\n"
    "  when every one matches, 1 when one does not.\n"},
   {"version", ncver, "print the version",
-   "usage: noqtis version\n"},
+   "usage: noqtis version [--check]\n"
+   "  --check asks whether a newer release exists and says so. Exit 0,\n"
+   "  1 when that cannot be asked, 2 on a usage error.\n"},
   {"help", nchelp, "show help for a command",
    "usage: noqtis help [<command>]\n"}
 };
@@ -668,7 +670,10 @@ static int noargs(const char *cmd, int argc, char **argv) {
 }
 
 static int ncver(int argc, char **argv) {
-  int rc = noargs("version", argc, argv);
+  int rc;
+  if (argc == 2 && strcmp(argv[1], "--check") == 0)
+    return ncupdnow();
+  rc = noargs("version", argc, argv);
   if (rc != NCOK)
     return rc < 0 ? NCOK : rc;
   printf("noqtis %s\n", nqver());
@@ -761,8 +766,15 @@ static int run(int argc, char **argv) {
   nqsettmp(nctmpev, NULL);
   nqdsettmp(nctmpev, NULL);
   for (i = 0; i < NCNCMD; i++) {
-    if (strcmp(cmds[i].name, argv[1]) == 0)
-      return outend(cmds[i].name, cmds[i].run(argc - 1, argv + 1));
+    if (strcmp(cmds[i].name, argv[1]) == 0) {
+      int rc = outend(cmds[i].name, cmds[i].run(argc - 1, argv + 1));
+      /* a newer release, said after a command that did its work; not after
+       * help or version, which did none */
+      if (rc == NCOK && strcmp(argv[1], "help") != 0 &&
+          strcmp(argv[1], "version") != 0)
+        ncupd();
+      return rc;
+    }
   }
   ncmsg(NULL, "unknown command %s (see `noqtis help`)", argv[1]);
   return NCUSE;

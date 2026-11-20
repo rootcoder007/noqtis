@@ -114,6 +114,16 @@
 #' Aguilar Melchor, C. et al. (2025). *Hamming Quasi-Cyclic (HQC)*,
 #' specification version 5.0.0 of 2025-08-22.
 #'
+#' @section Notice of a newer release:
+#' In an interactive session, attaching the package says in one line when
+#' a newer release exists. The page of the latest release is asked for at
+#' most once a day, with a limit of two seconds, and the answer is kept in
+#' `tools::R_user_dir("noqtis", "cache")`; nothing is sent but that
+#' request, and a failure is silent. A session that is not interactive
+#' (a script, a check, a test) never asks. `options(noqtis.update = FALSE)`
+#' before the package is attached, or the environment variable
+#' `NOQTIS_NO_UPDATE_CHECK` set to anything, turns it off.
+#'
 #' @keywords internal
 #' @useDynLib noqtis, .registration = TRUE
 "_PACKAGE"

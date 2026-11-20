@@ -164,6 +164,8 @@ _noqtis_cmd() {
         ':dir:_files -/' '*:path:_files' ;;
     inspect)
       _arguments '(-j --json)'{-j,--json}'[JSON report]' ':dir:_files -/' ;;
+    version)
+      _arguments '--check[ask whether a newer release exists]' ;;
     timestamp)
       _arguments \
         '*--tsa[RFC 3161 timestamp authority]:url:_urls' \
