@@ -40,8 +40,8 @@ if(NOT WIN32)
     "ASAN_OPTIONS=exitcode=86;UBSAN_OPTIONS=exitcode=86:print_stacktrace=1"
     TIMEOUT 300)
 endif()
-# the notice of a newer release, from a kept answer and from a question
-# that may not be answered (tests/cli/upd.sh, POSIX sh)
+# version --check, whose question may not be answered (tests/cli/upd.sh,
+# POSIX sh)
 if(NOT WIN32)
   add_test(NAME tupd COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/upd.sh
            $<TARGET_FILE:nqcli>)

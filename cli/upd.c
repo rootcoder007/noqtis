@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* The notice of a newer release, and `noqtis version --check`.
+/* `noqtis version --check`: whether a newer release exists.
  *
  * The page of the latest release answers with the address of its tag, and
  * nothing is sent but the request for it. Nothing is linked for that
  * request, and the library takes no part in it: Windows asks through
  * WinHTTP, which is part of it; elsewhere the libcurl of the system is
  * loaded when there is one, and the curl program is the last resort (the
- * tool's own HTTP client has TLS only in a build with NQTLS). The notice
- * is one line on standard error after a command that ended with status 0,
- * only when standard error is a terminal, never with CI or
- * NOQTIS_NO_UPDATE_CHECK set (NOQTIS_UPDATE_CHECK=1 says it away from a
- * terminal and under CI too); the question is asked at most once a day
- * (two seconds at most) and the answer kept in the user's cache
- * directory. A build with NQNOUPD defined has neither. */
+ * tool's own HTTP client has TLS only in a build with NQTLS). The tool
+ * asks only when told to, and keeps nothing. A build with NQNOUPD defined
+ * cannot ask. */
 #define _POSIX_C_SOURCE 200809L
 #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
@@ -22,7 +18,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #if !defined(NQNOUPD) && (defined(_WIN32) || defined(__unix__) || \
                           defined(__APPLE__)) && !defined(__ANDROID__)
@@ -34,17 +29,11 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <direct.h>
-#include <io.h>
 #include <windows.h>
 #include <winhttp.h>
-#define NCTTY() (_isatty(_fileno(stderr)) != 0)
 #else
 #include <dlfcn.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <unistd.h>
-#define NCTTY() (isatty(STDERR_FILENO) != 0)
 #endif
 
 #define NCREL "https://github.com/rootcoder007/noqtis/releases/"
@@ -215,81 +204,6 @@ static void latest(int secs, char *v) {
   v[n - k] = '\0';
 }
 
-/* the file that keeps the last answer and its time; 0 without a place */
-static int updfile(char *f, size_t cap) {
-#ifdef _WIN32
-  const char *d = getenv("LOCALAPPDATA");
-  if (d == NULL || *d == '\0' ||
-      snprintf(f, cap, "%s\\noqtis", d) >= (int)cap)
-    return 0;
-  _mkdir(f);
-  return snprintf(f, cap, "%s\\noqtis\\update", d) < (int)cap;
-#else
-  const char *x = getenv("XDG_CACHE_HOME"), *h = getenv("HOME");
-  char dir[1024];
-  if (x != NULL && *x != '\0') {
-    if (snprintf(dir, sizeof dir, "%s", x) >= (int)sizeof dir)
-      return 0;
-  } else if (h == NULL || *h == '\0' ||
-             snprintf(dir, sizeof dir, "%s/.cache", h) >= (int)sizeof dir) {
-    return 0;
-  }
-  mkdir(dir, 0700);
-  if (snprintf(f, cap, "%s/noqtis", dir) >= (int)cap)
-    return 0;
-  mkdir(f, 0700);
-  return snprintf(f, cap, "%s/noqtis/update", dir) < (int)cap;
-#endif
-}
-
-/* the kept answer, opened for writing: a file of the user alone */
-static FILE *keep(const char *f) {
-#ifdef _WIN32
-  return fopen(f, "w");
-#else
-  int fd = open(f, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-  FILE *c = fd >= 0 ? fdopen(fd, "w") : NULL;
-  if (c == NULL && fd >= 0)
-    close(fd);
-  return c;
-#endif
-}
-
-void ncupd(void) {
-  const char *off = getenv("NOQTIS_NO_UPDATE_CHECK");
-  const char *on = getenv("NOQTIS_UPDATE_CHECK");
-  int force = on != NULL && strcmp(on, "1") == 0;
-  char f[1100], v[NCVMAX + 1] = "";
-  long long t = 0, now = (long long)time(NULL);
-  FILE *c;
-  if ((off != NULL && *off != '\0') || (on != NULL && strcmp(on, "0") == 0))
-    return;
-  if (!force && (getenv("CI") != NULL || !NCTTY()))
-    return;
-  if (!updfile(f, sizeof f))
-    return;
-  c = fopen(f, "r");
-  if (c != NULL) {
-    if (fscanf(c, "%lld %24[0-9.]", &t, v) < 1)
-      t = 0;
-    fclose(c);
-  }
-  if (now < t || now - t >= 86400) {
-    latest(2, v);
-    c = keep(f);
-    if (c != NULL) {
-      fprintf(c, "%lld %s\n", now, v);
-      fclose(c);
-    }
-  }
-  if (v[0] != '\0' && later(v, nqver())) {
-    fprintf(stderr,
-            "noqtis: version %s is available (this is %s): " NCREL "latest\n"
-            "noqtis: NOQTIS_NO_UPDATE_CHECK=1 stops this notice.\n",
-            v, nqver());
-  }
-}
-
 int ncupdnow(void) {
   char v[NCVMAX + 1];
   latest(10, v);
@@ -306,9 +220,6 @@ int ncupdnow(void) {
   return NCOK;
 }
 #else
-void ncupd(void) {
-}
-
 int ncupdnow(void) {
   ncmsg("version", "this build cannot ask for the latest release");
   return NCBAD;

@@ -25,13 +25,12 @@ it asks instead whether a newer release exists, and prints either that
 this version is up to date or the newer version and the address of its
 release.
 The question is the request for the page of the latest release, with a
-limit of ten seconds; nothing else is sent.
-.Pp
-The other commands say the same in one line on standard error, after
-their work and with status 0, when a newer release exists: see
-.Ev NOQTIS_NO_UPDATE_CHECK
-in
-.Xr noqtis 1 .
+limit of ten seconds; nothing else is sent, and nothing is kept.
+Nothing is linked for it, and the library takes no part: on Windows the
+request is made by the system (WinHTTP); elsewhere by the libcurl of the
+system when there is one, else by
+.Xr curl 1 .
+The tool never asks unless told to.
 .Sh EXIT STATUS
 0; 1 when
 .Fl -check

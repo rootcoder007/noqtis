@@ -766,15 +766,8 @@ static int run(int argc, char **argv) {
   nqsettmp(nctmpev, NULL);
   nqdsettmp(nctmpev, NULL);
   for (i = 0; i < NCNCMD; i++) {
-    if (strcmp(cmds[i].name, argv[1]) == 0) {
-      int rc = outend(cmds[i].name, cmds[i].run(argc - 1, argv + 1));
-      /* a newer release, said after a command that did its work; not after
-       * help or version, which did none */
-      if (rc == NCOK && strcmp(argv[1], "help") != 0 &&
-          strcmp(argv[1], "version") != 0)
-        ncupd();
-      return rc;
-    }
+    if (strcmp(cmds[i].name, argv[1]) == 0)
+      return outend(cmds[i].name, cmds[i].run(argc - 1, argv + 1));
   }
   ncmsg(NULL, "unknown command %s (see `noqtis help`)", argv[1]);
   return NCUSE;
