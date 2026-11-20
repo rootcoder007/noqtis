@@ -8,7 +8,8 @@
  * loaded when there is one, and the curl program is the last resort (the
  * tool's own HTTP client has TLS only in a build with NQTLS). The tool
  * asks only when told to, and keeps nothing. A build with NQNOUPD defined
- * cannot ask. */
+ * cannot ask; a statically linked one (NQNODL) cannot load a library and
+ * asks through the curl program alone. */
 #define _POSIX_C_SOURCE 200809L
 #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
@@ -32,7 +33,9 @@
 #include <windows.h>
 #include <winhttp.h>
 #else
+#ifndef NQNODL
 #include <dlfcn.h>
+#endif
 #include <unistd.h>
 #endif
 
@@ -105,6 +108,7 @@ static size_t asknet(int secs, char *buf, size_t cap) {
   return k;
 }
 #else
+#ifndef NQNODL
 /* libcurl, by the numbers of its stable interface (curl/curl.h):
  * CURLOPT_URL 10002, NOBODY 44, TIMEOUT 13, NOSIGNAL 99, USERAGENT 10018,
  * CURLINFO_REDIRECT_URL 0x100000 + 31. */
@@ -164,13 +168,18 @@ static size_t asklib(int secs, char *buf, size_t cap) {
   buf[k] = '\0';
   return k;
 }
+#endif
 
 static size_t asknet(int secs, char *buf, size_t cap) {
   char cmd[256];
-  size_t n = asklib(secs, buf, cap);
+  size_t n = 0;
   FILE *f;
+#ifndef NQNODL
+  /* not in a statically linked program, which cannot load a library */
+  n = asklib(secs, buf, cap);
   if (n > 0)
     return n;
+#endif
   /* the curl program; the command is a constant but for the seconds */
   snprintf(cmd, sizeof cmd,
            "curl -fsS -m %d -o /dev/null -w \"%%{redirect_url}\" " NCREL

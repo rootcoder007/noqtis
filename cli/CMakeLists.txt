@@ -18,6 +18,11 @@ target_compile_options(nqcli PRIVATE ${NQWARN})
 # the notice of a newer release (upd.c) loads the libcurl of the system at
 # run time where there is one; on Windows it asks through WinHTTP
 target_link_libraries(nqcli PRIVATE ${CMAKE_DL_LIBS})
+# a statically linked program cannot load a shared library (with glibc it
+# stops at dlopen): the notice then asks through the curl program alone
+if(CMAKE_EXE_LINKER_FLAGS MATCHES "-static")
+  target_compile_definitions(nqcli PRIVATE NQNODL)
+endif()
 if(WIN32)
   target_link_libraries(nqcli PRIVATE shell32 ws2_32 winhttp)
   if(NQSHARED)
