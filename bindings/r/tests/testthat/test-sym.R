@@ -45,6 +45,7 @@ test_that("AES-SIV gives the answer of RFC 5297 and refuses a change", {
   expect_identical(nqsivdec(key, out, list(ad)), pt)
   expect_identical(nqsivenc(key, pt, list(ad)), out)
   expect_false(identical(nqsivenc(key, pt), out))
+  expect_identical(nqsivenc(key, pt, NULL), nqsivenc(key, pt))
   expect_false(identical(nqsivenc(key, pt, list(ad, raw(0))), out))
   for (k in list(ptn(48), ptn(64))) {
     ct <- nqsivenc(k, "a message", list("a", "bc"))
