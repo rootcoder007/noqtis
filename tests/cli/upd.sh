@@ -26,7 +26,9 @@ is() {
   bad=$((bad + 1))
   echo "FAIL $1: got '$2', want '$3'"
 }
-# the lines of the notice a command wrote to standard error
+# the lines of the notice a command wrote to standard error (variables
+# for it go through env: one set before a shell function does not reach
+# the commands in it in every sh)
 said() { "$@" 2>&1 >/dev/null | grep -c 'is available'; }
 
 # a kept answer of today, newer than this version: said when asked for
@@ -43,29 +45,29 @@ is "stdout untouched" "$(NOQTIS_UPDATE_CHECK=1 "$nq" algs 2>/dev/null | grep -c 
 
 # not at a terminal, under CI, or turned off: nothing
 is "away from a terminal" "$(said "$nq" algs)" 0
-is "CI without the force" "$(CI=true said "$nq" algs)" 0
-is "CI with the force" "$(CI=true NOQTIS_UPDATE_CHECK=1 said "$nq" algs)" 1
-is "NOQTIS_UPDATE_CHECK=0" "$(NOQTIS_UPDATE_CHECK=0 said "$nq" algs)" 0
-is "NOQTIS_NO_UPDATE_CHECK wins" "$(NOQTIS_NO_UPDATE_CHECK=1 NOQTIS_UPDATE_CHECK=1 said "$nq" algs)" 0
+is "CI without the force" "$(said env CI=true "$nq" algs)" 0
+is "CI with the force" "$(said env CI=true NOQTIS_UPDATE_CHECK=1 "$nq" algs)" 1
+is "NOQTIS_UPDATE_CHECK=0" "$(said env NOQTIS_UPDATE_CHECK=0 "$nq" algs)" 0
+is "NOQTIS_NO_UPDATE_CHECK wins" "$(said env NOQTIS_NO_UPDATE_CHECK=1 NOQTIS_UPDATE_CHECK=1 "$nq" algs)" 0
 # never after help or version, nor after a command that failed
-is "after version" "$(NOQTIS_UPDATE_CHECK=1 said "$nq" version)" 0
-is "after help" "$(NOQTIS_UPDATE_CHECK=1 said "$nq" help)" 0
-is "after a failure" "$(NOQTIS_UPDATE_CHECK=1 said "$nq" hash "$w/none")" 0
+is "after version" "$(said env NOQTIS_UPDATE_CHECK=1 "$nq" version)" 0
+is "after help" "$(said env NOQTIS_UPDATE_CHECK=1 "$nq" help)" 0
+is "after a failure" "$(said env NOQTIS_UPDATE_CHECK=1 "$nq" hash "$w/none")" 0
 
 # a kept answer that is this version, or an older one: nothing
 v=$("$nq" version | cut -d' ' -f2)
 echo "$now $v" >"$f"
-is "the same version" "$(NOQTIS_UPDATE_CHECK=1 said "$nq" algs)" 0
+is "the same version" "$(said env NOQTIS_UPDATE_CHECK=1 "$nq" algs)" 0
 echo "$now 0.0.1" >"$f"
-is "an older version" "$(NOQTIS_UPDATE_CHECK=1 said "$nq" algs)" 0
+is "an older version" "$(said env NOQTIS_UPDATE_CHECK=1 "$nq" algs)" 0
 # 0.10 is later than 0.9: numbers, not text
 echo "$now 0.0.0.1" >"$f"
-is "more parts, still older" "$(NOQTIS_UPDATE_CHECK=1 said "$nq" algs)" 0
+is "more parts, still older" "$(said env NOQTIS_UPDATE_CHECK=1 "$nq" algs)" 0
 
 # anything else in the file is never shown; it is asked again and the
 # file rewritten with the time and the answer (or none, without network)
 echo "x; rm -rf y" >"$f"
-is "junk is not shown" "$(NOQTIS_UPDATE_CHECK=1 said "$nq" algs)" 0
+is "junk is not shown" "$(said env NOQTIS_UPDATE_CHECK=1 "$nq" algs)" 0
 t=$(cut -d' ' -f1 "$f")
 n=$((n + 1))
 { [ "$t" -ge "$now" ] 2>/dev/null && [ "$t" -le $((now + 120)) ]; } ||
@@ -84,7 +86,7 @@ n=$((n + 1))
 [ "$(cut -d' ' -f1 "$f")" -le $((now + 120)) ] || { bad=$((bad + 1)); echo "FAIL answer from a clock ahead kept"; }
 
 # no cache directory to be had: nothing, and status 0
-is "no place to keep it" "$(XDG_CACHE_HOME='' HOME='' NOQTIS_UPDATE_CHECK=1 said "$nq" algs)" 0
+is "no place to keep it" "$(said env XDG_CACHE_HOME='' HOME='' NOQTIS_UPDATE_CHECK=1 "$nq" algs)" 0
 # a cache directory made on first use
 rm -rf "$w/new"
 XDG_CACHE_HOME=$w/new NOQTIS_UPDATE_CHECK=1 "$nq" algs >/dev/null 2>&1

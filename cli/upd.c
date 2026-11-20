@@ -41,6 +41,7 @@
 #define NCTTY() (_isatty(_fileno(stderr)) != 0)
 #else
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #define NCTTY() (isatty(STDERR_FILENO) != 0)
@@ -241,6 +242,19 @@ static int updfile(char *f, size_t cap) {
 #endif
 }
 
+/* the kept answer, opened for writing: a file of the user alone */
+static FILE *keep(const char *f) {
+#ifdef _WIN32
+  return fopen(f, "w");
+#else
+  int fd = open(f, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  FILE *c = fd >= 0 ? fdopen(fd, "w") : NULL;
+  if (c == NULL && fd >= 0)
+    close(fd);
+  return c;
+#endif
+}
+
 void ncupd(void) {
   const char *off = getenv("NOQTIS_NO_UPDATE_CHECK");
   const char *on = getenv("NOQTIS_UPDATE_CHECK");
@@ -262,7 +276,7 @@ void ncupd(void) {
   }
   if (now < t || now - t >= 86400) {
     latest(2, v);
-    c = fopen(f, "w");
+    c = keep(f);
     if (c != NULL) {
       fprintf(c, "%lld %s\n", now, v);
       fclose(c);

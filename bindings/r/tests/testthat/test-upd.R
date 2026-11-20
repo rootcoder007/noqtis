@@ -91,3 +91,13 @@ test_that("the question goes to updget() unless a test gives its own", {
                "noqtis 0.3.0 is available (this is 0.1.0)", fixed = TRUE)
   unlink(f)
 })
+
+test_that("the notice for this installation", {
+  local_mocked_bindings(
+    updoff = function(...) FALSE,
+    updmsg = function(cur, file, ...) paste(cur, basename(file)),
+    .package = "noqtis"
+  )
+  expect_identical(updrun(),
+                   paste(utils::packageVersion("noqtis"), "update"))
+})
