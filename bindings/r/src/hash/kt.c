@@ -125,13 +125,13 @@ static void ktput(ktctx *k, const uint8_t *p, size_t len) {
 /* length_encode(x): x in base 256, most significant byte first and
  * without leading zeros, then the number of those bytes; at most 9 bytes */
 static size_t ktlen(uint64_t x, uint8_t *out) {
-  size_t n = 0, i;
-  uint64_t t = x;
-  while (t > 0) {
-    n++;
-    t >>= 8;
+  size_t n = 0;
+  unsigned i;
+  /* eight fixed steps, so that the compiler sees n <= 8 */
+  for (i = 0; i < 8; i++) {
+    uint8_t b = (uint8_t)(x >> (8 * (7 - i)));
+    if (n > 0 || b != 0) out[n++] = b;
   }
-  for (i = 0; i < n; i++) out[i] = (uint8_t)(x >> (8 * (n - 1 - i)));
   out[n] = (uint8_t)n;
   return n + 1;
 }
