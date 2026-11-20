@@ -375,7 +375,7 @@ static void scbd(int16_t a0[32], int16_t a1[32], const uint8_t *b0,
       for (j = 0; j < 32; j++) {
         const size_t pos =
             (size_t)(2 * eta) * (size_t)(l0 + j) + (size_t)k;
-        w |= (uint32_t)((buf[pos >> 3] >> (pos & 7)) & 1u) << j;
+        w |= (((uint32_t)buf[pos >> 3] >> (pos & 7)) & 1u) << j;
       }
       bit.w[0][s] = w;
     }

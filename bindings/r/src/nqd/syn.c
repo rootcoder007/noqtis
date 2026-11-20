@@ -3,6 +3,7 @@
  * bytes for the same seed, and recorded as synthetic. */
 #include "int.h"
 
+#include <float.h>
 #include <math.h>
 #include <string.h>
 
@@ -142,7 +143,7 @@ static int value(qdsr *s, const djs *c, dbuf *b, char dl, char *why,
     v = lo + (hi - lo) * u;
     if (v > hi) /* rounding */
       v = hi;
-    if (!isfinite(v) || qdnumfmt(v, o) != NQOK) {
+    if (!(v >= -DBL_MAX && v <= DBL_MAX) || qdnumfmt(v, o) != NQOK) {
       qdwhy(why, wcap, "column %s: min to max is too wide",
             qdjget(c, "name")->s);
       return NQEARG;

@@ -853,10 +853,10 @@ static unsigned long mutate(const uint8_t *p, size_t n, chkfn chk,
 typedef struct {
   const nqcert *iss;
   int64_t t;
-} carg;
+} cbarg;
 
 static int certchk(const uint8_t *p, size_t n, const void *arg) {
-  const carg *a = (const carg *)arg;
+  const cbarg *a = (const cbarg *)arg;
   nqcert c;
   size_t np;
   int r = nqcprs(p, n, &c);
@@ -980,7 +980,7 @@ static void tmut(void) {
   const nqcert *path[3];
   rarg ra;
   for (i = 0; i < sizeof pairs / sizeof pairs[0]; i++) {
-    carg a;
+    cbarg a;
     const nqcert *c = L(pairs[i][0]);
     a.iss = L(pairs[i][1]);
     a.t = c->nb + 60;
@@ -988,7 +988,7 @@ static void tmut(void) {
   }
   /* a constrained intermediate and a leaf below one */
   {
-    carg a;
+    cbarg a;
     a.iss = N("nc_root");
     a.t = N("nc_dns")->nb + 60;
     acc += mutate(N("nc_dns")->raw.p, N("nc_dns")->raw.n, certchk, &a,
@@ -999,7 +999,7 @@ static void tmut(void) {
                   "l_dn_ok");
   }
   for (i = 0; i < sizeof blpairs / sizeof blpairs[0]; i++) {
-    carg a;
+    cbarg a;
     nqcert c, iss;
     nqcprs(BL(blpairs[i][0])->p, BL(blpairs[i][0])->n, &c);
     nqcprs(BL(blpairs[i][1])->p, BL(blpairs[i][1])->n, &iss);

@@ -320,9 +320,17 @@ static void addrs(const nqdrec *r, const char *path, char *s, size_t cap) {
   s[0] = '\0';
   for (i = 0; nqdaddr(r, path, i, &k, out, sizeof out, &n) == NQOK; i++) {
     char t[20];
+    size_t l, m;
     qdwhy(t, sizeof t, "%s%d:", i ? " " : "", k);
     strncat(s, t, cap - strlen(s) - 1);
-    strncat(s, out, cap - strlen(s) - 1);
+    /* the address, cut to the room left: memcpy with the length worked out,
+     * since gcc 8 reports strncat here (-Wstringop-truncation) */
+    l = strlen(s);
+    m = strlen(out);
+    if (m > cap - l - 1)
+      m = cap - l - 1;
+    memcpy(s + l, out, m);
+    s[l + m] = 0;
   }
 }
 

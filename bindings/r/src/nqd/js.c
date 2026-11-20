@@ -324,7 +324,9 @@ int qdnumrd(const char *s, size_t n, int json, double *d) {
     return NQEDEC;
   buf[o] = '\0';
   v = strtod(buf, &end);
-  if (*end != '\0' || !isfinite(v))
+  /* finite, without isfinite(): the macro of some C libraries (MinGW)
+   * converts its argument to float, which -Wfloat-conversion reports */
+  if (*end != '\0' || !(v >= -DBL_MAX && v <= DBL_MAX))
     return NQEDEC;
   *d = v == 0 ? 0.0 : v; /* no negative zero */
   return NQOK;
@@ -337,7 +339,7 @@ int qdnumfmt(double d, char *out) {
   int p, e, nexp;
   char *o = out, *ep;
   /* t and dg: sized for a decimal point of at most 8 bytes (qdnumrd) */
-  if (!isfinite(d) || dl > 8)
+  if (!(d >= -DBL_MAX && d <= DBL_MAX) || dl > 8)
     return NQEARG;
   if (d == 0) {
     strcpy(out, "0");
@@ -449,7 +451,7 @@ djs *qdjstr(const char *s) {
 
 djs *qdjnum(double d) {
   djs *v;
-  if (!isfinite(d))
+  if (!(d >= -DBL_MAX && d <= DBL_MAX))
     return NULL;
   v = qdjnew(DJNUM);
   if (v != NULL)
