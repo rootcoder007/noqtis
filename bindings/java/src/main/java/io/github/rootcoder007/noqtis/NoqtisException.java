@@ -38,11 +38,13 @@ public class NoqtisException extends RuntimeException {
     FAULT,
     /** A known answer of the self-test did not match (NQEKAT). */
     SELFTEST,
+    /** The caller's hook asked a long call to stop (NQESTOP). */
+    STOPPED,
     /** A code this binding does not know. */
     OTHER;
 
     static Code of(int c) {
-      return c <= -1 && c >= -12 ? values()[-c - 1] : OTHER;
+      return c <= -1 && c >= -13 ? values()[-c - 1] : OTHER;
     }
   }
 

@@ -60,6 +60,8 @@ pub enum Code {
     Fault,
     /// A known answer of the self-test did not match (NQEKAT).
     SelfTest,
+    /// The caller's hook asked a long call to stop (NQESTOP).
+    Stopped,
     /// A code this crate does not know.
     Other,
 }
@@ -79,6 +81,7 @@ impl Code {
             -10 => Code::State,
             -11 => Code::Fault,
             -12 => Code::SelfTest,
+            -13 => Code::Stopped,
             _ => Code::Other,
         }
     }

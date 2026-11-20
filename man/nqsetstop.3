@@ -1,0 +1,61 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQSETSTOP 3
+.Os
+.Sh NAME
+.Nm nqsetstop
+.Nd stop a long call
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Vt typedef int (*nqstopfn)(void *user);
+.Ft int
+.Fn nqsetstop "nqstopfn fn" "void *user"
+.Sh DESCRIPTION
+.Fn nqsetstop
+sets a function the library asks, as its long calls go, whether to go
+on:
+.Fa fn
+is called from the thread doing the work with
+.Fa user ,
+and the call ends with
+.Dv NQESTOP
+when it returns anything but 0.
+It is asked wherever
+.Dv NQPHASH
+progress is reported
+.Pq Xr nqsetprog 3 :
+once for every 16 KiB of the files that
+.Xr nqseal 3 ,
+.Fn nqseal2
+and
+.Xr nqchk 3
+hash.
+A seal that stops writes nothing and leaves no temporary file; a check
+that stops gives no report.
+.Pp
+.Fa fn
+must be quick and must not call back into the library.
+It is meant to read a flag that another thread or a signal handler
+sets.
+.Fa fn
+.Dv NULL
+stops the asking.
+.Sh RETURN VALUES
+.Dv NQOK .
+.Sh EXAMPLES
+.Bd -literal -offset indent
+static volatile sig_atomic_t stop;
+static void onint(int s) { (void)s; stop = 1; }
+static int ask(void *u) { (void)u; return stop; }
+
+signal(SIGINT, onint);
+nqsetstop(ask, NULL);
+rc = nqchk(dir, pk, pklen, &rep);   /* NQESTOP after Ctrl-C */
+.Ed
+.Sh SEE ALSO
+.Xr nqchk 3 ,
+.Xr nqerr 3 ,
+.Xr nqseal 3 ,
+.Xr nqsetprog 3

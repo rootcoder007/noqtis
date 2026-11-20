@@ -32,6 +32,7 @@ from ._err import (
     StateError,
     FaultError,
     SelfTestError,
+    StopError,
     UnsupportedError,
     VerifyError,
 )
@@ -59,6 +60,7 @@ __all__ = [
     "StateError",
     "FaultError",
     "SelfTestError",
+    "StopError",
     "UnsupportedError",
     "VerifyError",
     "__version__",

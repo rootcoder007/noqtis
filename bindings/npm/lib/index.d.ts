@@ -410,7 +410,7 @@ export const data: {
 
 export const codes: Readonly<{
   OK: 0; EARG: -1; EBUF: -2; EVRFY: -3; EDEC: -4; ERNG: -5; EMEM: -6;
-  EIO: -7; ENOSUP: -8; ELIM: -9; ESTATE: -10; EFLT: -11; EKAT: -12;
+  EIO: -7; ENOSUP: -8; ELIM: -9; ESTATE: -10; EFLT: -11; EKAT: -12; ESTOP: -13;
 }>;
 
 /** The library's message (nqerr) for an NQE* code. */

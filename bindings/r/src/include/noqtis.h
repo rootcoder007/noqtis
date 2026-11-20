@@ -53,6 +53,7 @@ extern "C" {
 #define NQEFLT   -11  /* a signature failed the check made right after
                        * signing (a fault); it was wiped, not returned */
 #define NQEKAT   -12  /* a known answer of nqselftest did not match */
+#define NQESTOP  -13  /* the caller's hook (nqsetstop) asked to stop */
 
 NQAPI const char *nqerr(int err);
 NQAPI const char *nqver(void);
@@ -98,6 +99,17 @@ NQAPI int nqsetrng(nqrngfn fn, void *user);
 typedef void (*nqprogfn)(int stage, uint64_t done, uint64_t total,
                          void *user);
 NQAPI int nqsetprog(nqprogfn fn, void *user);
+
+/* Stopping a long call: fn(user) is asked as the work goes, from the
+ * thread doing it, wherever NQPHASH progress is reported (the files
+ * nqseal, nqseal2 and nqchkx hash, once per 16 KiB read). When it
+ * returns anything but 0 the call ends with NQESTOP: a seal writes
+ * nothing, and a check gives no report. fn must be quick and must not
+ * call back into the library; a flag another thread or a signal handler
+ * sets is what it is for. Global and not synchronised, as nqsetprog;
+ * NULL stops asking. */
+typedef int (*nqstopfn)(void *user);
+NQAPI int nqsetstop(nqstopfn fn, void *user);
 
 /* The temporary files the capsule layer writes a file through before it
  * renames it into place (nqseal, nqseal2, nqtsput, nqersput: a new name

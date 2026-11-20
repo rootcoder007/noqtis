@@ -1745,6 +1745,56 @@ static void pcut(int stage, uint64_t done, uint64_t total, void *user) {
   cutn = 1;
 }
 
+/* nqsetstop: a seal and a check end with NQESTOP once the hook says so,
+ * the seal writes nothing and the check gives no report */
+static int stopn, stopat;
+static int stopfn(void *user) {
+  NQTCHK(user == (void *)&stopn);
+  stopn++;
+  return stopat > 0 && stopn >= stopat;
+}
+
+static void tstop(const key *k) {
+  static uint8_t big[100000];
+  char d[600];
+  nqrep *r = NULL;
+  int rc;
+  fresh(d, sizeof d);
+  memset(big, 0x3c, sizeof big);
+  wr(d, "big.bin", big, sizeof big);
+  NQTCHK(strstr(nqerr(NQESTOP), "stopped") != NULL);
+  /* a hook that never stops changes nothing */
+  stopn = 0;
+  stopat = 0;
+  NQTEQI(nqsetstop(stopfn, &stopn), NQOK);
+  NQTEQI(sealk(d, k, NULL), NQOK);
+  NQTCHK(stopn >= 6); /* once per 16 KiB of 100000 bytes */
+  rc = chk(d, k, &r);
+  NQTEQI(rc, NQOK);
+  nqrepfree(r);
+  /* the check stops at the second question: no report */
+  r = NULL;
+  stopn = 0;
+  stopat = 2;
+  rc = chk(d, k, &r);
+  NQTEQI(rc, NQESTOP);
+  NQTCHK(r == NULL);
+  NQTEQI(stopn, 2);
+  /* a seal that stops leaves the folder as it was: no seal, no
+   * temporary file */
+  rm(d, NQCMAN);
+  rm(d, NQCSIG);
+  stopn = 0;
+  stopat = 3;
+  NQTEQI(sealk(d, k, NULL), NQESTOP);
+  NQTCHK(!nqchas(d, NQCMAN) && !nqchas(d, NQCSIG));
+  /* without the hook the work goes on again */
+  NQTEQI(nqsetstop(NULL, NULL), NQOK);
+  stopn = 0;
+  NQTEQI(sealk(d, k, NULL), NQOK);
+  NQTEQI(stopn, 0);
+}
+
 static void tcut(const key *k) {
   static uint8_t big[100000];
   char d[600];
@@ -1931,6 +1981,7 @@ static void tfs(int gen) {
   tprog(&m44, &slh);
   ttmp(&m44);
   tcut(&m44);
+  tstop(&m44);
   roundtrip(&m65, GMETA);
   roundtrip(&slh, "{}");
   tamper(&m44, &other);

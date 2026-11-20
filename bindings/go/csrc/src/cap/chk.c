@@ -638,7 +638,7 @@ static void chkent(nqrep *r, const char *dir, const nqclist *l,
     return;
   }
   rc = nqcdigx(dir, e->norm, e->size, &size, s2, s3, NULL);
-  if (rc == NQEMEM) {
+  if (rc == NQEMEM || rc == NQESTOP) {
     r->err = rc;
   } else if (rc != NQOK) {
     add(r, "file", 0, e->norm, ": unreadable: ", nqerr(rc));

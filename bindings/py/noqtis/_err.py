@@ -76,8 +76,14 @@ class SelfTestError(NoqtisError):
     code = -12
 
 
+class StopError(NoqtisError):
+    """The caller's hook asked a long call to stop (NQESTOP)."""
+    code = -13
+
+
 ERRS: Dict[int, Type[NoqtisError]] = {
     c.code: c for c in (ArgError, BufError, VerifyError, DecodeError,
                         RandError, MemError, FileError, UnsupportedError,
-                        LimitError, StateError, FaultError, SelfTestError)
+                        LimitError, StateError, FaultError, SelfTestError,
+                        StopError)
 }

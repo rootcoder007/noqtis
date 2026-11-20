@@ -83,6 +83,21 @@ void nqpend(void) {
   pstage = 0;
 }
 
+/* ---- stopping (nqsetstop) ---- */
+
+static nqstopfn stopfn = NULL;
+static void *stopuser = NULL;
+
+int nqsetstop(nqstopfn fn, void *user) {
+  stopfn = fn;
+  stopuser = fn != NULL ? user : NULL;
+  return NQOK;
+}
+
+int nqstop(void) {
+  return stopfn != NULL && stopfn(stopuser) != 0;
+}
+
 /* ---- temporary files (nqsettmp) ---- */
 
 static nqtmpfn tmpfn = NULL;

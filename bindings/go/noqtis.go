@@ -67,6 +67,7 @@ var (
 	ErrState       = cerr(-10)
 	ErrFault       = cerr(-11)
 	ErrSelfTest    = cerr(-12)
+	ErrStopped     = cerr(-13)
 )
 
 // ErrMsg is the library's message for an NQE* code (nqerr).

@@ -31,6 +31,7 @@ const char *nqerr(int err) {
   case NQESTATE: return "context used out of order";
   case NQEFLT: return "the signature failed the check after signing (a fault)";
   case NQEKAT: return "a self-test known answer did not match";
+  case NQESTOP: return "stopped by the caller";
   default: return "unknown error";
   }
 }

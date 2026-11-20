@@ -644,11 +644,15 @@ int nqcdigx(const char *dir, const char *rel, uint64_t max, uint64_t *size,
     nqhupd(&c3, buf, k);
     tot += k;
     nqpstep(k);
+    if (nqstop()) {
+      rc = NQESTOP;
+      break;
+    }
     /* a file swapped for a bigger (or sparse) one fails without being
      * read to its end */
     if (tot > max) break;
   }
-  if (ferror(f)) rc = NQEIO;
+  if (rc == NQOK && ferror(f)) rc = NQEIO;
   fclose(f);
   if (rc == NQOK) {
     nqhfin(&c2, s2, 32);
