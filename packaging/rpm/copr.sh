@@ -16,6 +16,12 @@ shift 2
 api=https://copr.fedorainfracloud.org/api_3
 me=$(copr-cli whoami)
 
+# what COPR answers for a path of its API, empty when it does not answer.
+# The answer is kept and then read: nothing fetched is piped to a program.
+get() {
+  curl -fsSL -m 60 "$api/$1" 2>/dev/null || true
+}
+
 # the HTTP status of a project's page: 200, 404, or 000 when COPR is away
 code() {
   curl -sL -m 60 -o /dev/null -w '%{http_code}' \
@@ -33,8 +39,8 @@ done
 case $c in
   200) ;;
   404)
-    ch=$(curl -fsSL -m 60 "$api/project?ownername=$me&projectname=noqtis" |
-      python3 -c 'import json, sys
+    j=$(get "project?ownername=$me&projectname=noqtis")
+    ch=$(printf '%s' "$j" | python3 -c 'import json, sys
 print(" ".join("--chroot " + c for c in sorted(json.load(sys.stdin)["chroot_repos"])))')
     [ -n "$ch" ]
     # shellcheck disable=SC2086 # options and their values, one word each
@@ -61,15 +67,15 @@ echo "https://copr.fedorainfracloud.org/coprs/build/$id/"
 
 # the state of the build, empty when COPR does not answer
 state() {
-  curl -fsSL -m 60 "$api/build/$id" 2>/dev/null |
-    python3 -c 'import json, sys
+  j=$(get "build/$id")
+  printf '%s' "$j" | python3 -c 'import json, sys
 print(json.load(sys.stdin)["state"])' 2>/dev/null || true
 }
 
 # every target with its state and its minutes
 targets() {
-  curl -fsSL -m 60 "$api/build-chroot/list?build_id=$id" 2>/dev/null |
-    python3 -c 'import json, sys
+  j=$(get "build-chroot/list?build_id=$id")
+  printf '%s' "$j" | python3 -c 'import json, sys
 for c in sorted(json.load(sys.stdin)["items"], key=lambda c: c["name"]):
     s, e = c.get("started_on"), c.get("ended_on")
     m = "%d min" % round((e - s) / 60) if s and e else ""

@@ -17,11 +17,11 @@ permissions:
   contents: read
 
 concurrency:
-  # a push to main replaces the run of an older main commit still waiting
-  # (it tests that commit too); tags, releases and pull requests always
-  # run to the end
+  # every commit of main is scanned to the end, as tags, releases and pull
+  # requests are: a run replaced by a newer push left its commit unscanned
+  # (OpenSSF Scorecard, SAST)
   group: codeql-${{ github.ref }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'tip' || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+  cancel-in-progress: false
 
 jobs:
   analyze:
