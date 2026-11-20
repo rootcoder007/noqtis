@@ -1021,6 +1021,151 @@ export const kem = Object.freeze({
       u.end();
     }
   },
+
+  /**
+   * Seals source (as box()) for every recipient, an array of 1 to 64
+   * `{ alg, publicKey }` with ML-KEM keys, as `noqtis box -p ... -p ...`
+   * does (noqtis-kstream-2): the secret key of any one of them opens the
+   * stream. With `opts.sender`, `{ alg, secretKey }` of a signature key,
+   * the stream is signed: the signature is inside the encryption and
+   * covers the recipients. `opts.ctx`, `opts.chunk` as for sealer().
+   */
+  async* boxTo(recipients, source, opts = {}) {
+    if (!Array.isArray(recipients) || recipients.length < 1 ||
+        recipients.length > 64) {
+      throw new NoqtisError(CODES.EARG, 'recipients: 1 to 64');
+    }
+    const rs = recipients.map((r) => [kalg(r.alg),
+      key(r.publicKey, 'publicKey')]);
+    const chunk = opts.chunk === undefined || opts.chunk === 0 ? 65536
+      : opts.chunk;
+    if (!Number.isInteger(chunk) || chunk < 0 || chunk > 0xffffffff) {
+      throw new NoqtisError(CODES.EARG, 'chunk');
+    }
+    let sg = 0;
+    let rec = 0;
+    let sk = null;
+    if (opts.sender !== undefined) {
+      const a = salg(opts.sender.alg);
+      sk = key(opts.sender.secretKey, 'secretKey');
+      sg = a.id;
+      rec = a.sig + 16;
+    }
+    const c = new Ctx(512);
+    try {
+      yield run((h) => {
+        const x = ctxof(opts);
+        // nqkrcp: the algorithm, the key's address and its length
+        const arr = h.alloc(12 * rs.length);
+        rs.forEach(([a, pk], i) => {
+          const p = h.put(pk);
+          const at = (arr >>> 2) + 3 * i;
+          M.HEAPU32[at] = a.id;
+          M.HEAPU32[at + 1] = p;
+          M.HEAPU32[at + 2] = pk.length;
+        });
+        const pn = h.alloc(4);
+        check(M._nqkmhlen(arr, rs.length, pn));
+        const hl = h.u32(pn);
+        const hd = h.alloc(hl);
+        check(M._nqkmeini(c.p, arr, rs.length, sg, h.put(x), x.length, chunk,
+          hd, hl, pn));
+        return h.get(hd, h.u32(pn));
+      });
+      const cap = chunk + 16 + rec;
+      yield* rechunk(source, chunk, (b, last) => run((h) => {
+        const o = h.alloc(cap);
+        const pn = h.alloc(4);
+        const pb = h.put(b);
+        const ps = last && sk !== null ? h.put(sk) : 0;
+        check(last
+          ? M._nqkmefin(c.live(), pb, b.length, ps, ps !== 0 ? sk.length : 0,
+            o, cap, pn)
+          : M._nqkmeupd(c.live(), pb, b.length, o, cap, pn));
+        return h.get(o, h.u32(pn));
+      }));
+    } finally {
+      c.end();
+    }
+  },
+
+  /**
+   * Opens a stream boxTo() sealed, with the secret key of one of its
+   * recipients, to its plaintext pieces. `opts.sender` is the public key
+   * the stream must be signed with: a stream that is not signed, or is
+   * signed by another key, fails with EVRFY at its end. Without it the
+   * signature is not checked. Pieces are given as they verify, before
+   * the signature at the end is checked: on an error discard them.
+   */
+  async* unboxFrom(alg, secretKey, source, opts = {}) {
+    const a = kalg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const pk = opts.sender === undefined ? null : key(opts.sender, 'sender');
+    const it = source[Symbol.asyncIterator]
+      ? source[Symbol.asyncIterator]() : source[Symbol.iterator]();
+    let buf = new Uint8Array(0);
+    let over = false;
+    // at least n bytes in buf, when the source has them
+    const fill = async (n) => {
+      while (buf.length < n && !over) {
+        const r = await it.next();
+        if (r.done) {
+          over = true;
+        } else {
+          const d = bytes(r.value, 'chunk');
+          const t = new Uint8Array(buf.length + d.length);
+          t.set(buf);
+          t.set(d, buf.length);
+          buf = t;
+        }
+      }
+      return buf.length >= n;
+    };
+    if (!await fill(24)) throw new NoqtisError(CODES.EDEC);
+    const [hl, sg] = run((h) => {
+      const p = h.alloc(12);
+      check(M._nqkmpeek(h.put(buf.subarray(0, 24)), 24, p, p + 4, p + 8));
+      return [h.u32(p), h.u32(p + 4)];
+    });
+    if (!await fill(hl)) throw new NoqtisError(CODES.EDEC);
+    let rec = 0;
+    if (sg !== 0) {
+      for (const s of sigs.values()) if (s.id === sg) rec = s.sig + 16;
+    }
+    const c = new Ctx(512);
+    try {
+      const chunk = run((h) => {
+        const x = ctxof(opts);
+        const pc = h.alloc(4);
+        check(M._nqkmdini(c.p, a.id, h.put(sk), sk.length, h.put(x), x.length,
+          h.put(buf.subarray(0, hl)), hl, pc, 0));
+        return h.u32(pc);
+      });
+      buf = buf.slice(hl);
+      // the window: one chunk, the record after the last, and one byte
+      // more; full, its first chunk is not the last
+      const full = chunk + 16;
+      for (;;) {
+        const more = await fill(full + rec + 1);
+        const part = more ? buf.subarray(0, full) : buf;
+        yield run((h) => {
+          const o = h.alloc(chunk);
+          const pn = h.alloc(4);
+          const pp = h.put(part);
+          const ps = !more && pk !== null ? h.put(pk) : 0;
+          check(more
+            ? M._nqkmdupd(c.live(), pp, part.length, o, chunk, pn)
+            : M._nqkmdfin(c.live(), pp, part.length, ps,
+              ps !== 0 ? pk.length : 0, o, chunk, pn));
+          return h.get(o, h.u32(pn));
+        });
+        if (!more) return;
+        buf = buf.slice(full);
+      }
+    } finally {
+      c.end();
+    }
+  },
 });
 
 // ---- capsules (in-memory file system) -----------------------------------

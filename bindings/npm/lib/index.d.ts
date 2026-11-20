@@ -195,6 +195,14 @@ export const kem: {
   /** Opens a sealed stream to its plaintext pieces, each once it verified. */
   unbox(alg: KemAlg, secretKey: Bytes, source: Pieces, opts?: { ctx?: Data }):
     AsyncGenerator<Bytes, void, undefined>;
+  /** Seals source to several ML-KEM keys, signed when a sender is named. */
+  boxTo(recipients: Array<{ alg: KemAlg; publicKey: Bytes }>, source: Pieces,
+    opts?: StreamOptions & { sender?: { alg: SignAlg; secretKey: Bytes } }):
+    AsyncGenerator<Bytes, void, undefined>;
+  /** Opens what boxTo() sealed with one recipient's key; sender checks it. */
+  unboxFrom(alg: KemAlg, secretKey: Bytes, source: Pieces,
+    opts?: { ctx?: Data; sender?: Bytes }):
+    AsyncGenerator<Bytes, void, undefined>;
 };
 
 /** Capsule files: '/'-separated relative paths to contents. */

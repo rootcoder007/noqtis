@@ -203,6 +203,69 @@ test('sealed streams: known answers and failures', async () => {
     { chunk: 100 })), codes.EARG);
 });
 
+// a stream to several recipients, signed or not: each recipient opens it,
+// another key does not, and the sender's key decides
+test('boxTo and unboxFrom', async () => {
+  const ks = ['ML-KEM-512', 'ML-KEM-768', 'ML-KEM-1024'].map((alg) => (
+    { alg, ...kem.keygen(alg) }));
+  const x = kem.keygen('ML-KEM-768');
+  const me = sign.keygen('ML-DSA-44');
+  const other = sign.keygen('ML-DSA-44');
+  const acode = async (f) => {
+    try {
+      await f();
+    } catch (e) {
+      return e.code;
+    }
+    return 0;
+  };
+  for (const m of [0, 1, 1024, 1025, 5000]) {
+    const p = new Uint8Array(m).map((_, i) => i % 249);
+    for (const signed of [false, true]) {
+      const e = await collect(kem.boxTo(ks, pieces(p, 300), {
+        ctx: 'ctx',
+        chunk: 1024,
+        ...(signed ? { sender: { alg: 'ML-DSA-44', secretKey: me.secretKey } }
+          : {}),
+      }));
+      assert.equal(e.subarray(0, 4).toString(), 'NQKM');
+      for (const k of ks) {
+        const d = await collect(kem.unboxFrom(k.alg, k.secretKey,
+          pieces(e, 500),
+          { ctx: 'ctx', ...(signed ? { sender: me.publicKey } : {}) }));
+        assert.deepEqual(new Uint8Array(d), p, `round trip ${m} ${k.alg}`);
+      }
+      const open = (k, src, o) => collect(kem.unboxFrom(k.alg || 'ML-KEM-768',
+        k.secretKey, pieces(src, 700), o));
+      assert.equal(await acode(() => open(x, e, { ctx: 'ctx' })),
+        codes.EVRFY, 'not a recipient');
+      assert.equal(await acode(() => open(ks[0], e, {})), codes.EVRFY,
+        'another context');
+      assert.equal(await acode(() => open(ks[1], e,
+        { ctx: 'ctx', sender: other.publicKey })), codes.EVRFY,
+      'another sender, or not signed');
+      // not asked who sent it: it opens, signed or not
+      assert.deepEqual(new Uint8Array(await open(ks[2], e, { ctx: 'ctx' })),
+        p);
+      const b = Buffer.from(e);
+      b[b.length - 3] ^= 1;
+      assert.equal(await acode(() => open(ks[0], b, { ctx: 'ctx' })),
+        codes.EVRFY, 'changed');
+    }
+  }
+  assert.equal(await acode(() => collect(kem.boxTo([], pieces(new Uint8Array(1),
+    1)))), codes.EARG);
+  assert.equal(await acode(() => collect(kem.boxTo(ks,
+    pieces(new Uint8Array(1), 1), { chunk: 100 }))), codes.EARG);
+  assert.equal(await acode(() => collect(kem.boxTo(
+    [{ alg: 'ML-DSA-44', publicKey: me.publicKey }],
+    pieces(new Uint8Array(1), 1)))), codes.ENOSUP);
+  assert.equal(await acode(() => collect(kem.unboxFrom('ML-KEM-768',
+    x.secretKey, pieces(Buffer.from('NQKM'), 4)))), codes.EDEC);
+  assert.equal(await acode(() => collect(kem.unboxFrom('ML-KEM-768',
+    x.secretKey, pieces(new Uint8Array(40), 40)))), codes.EDEC);
+});
+
 test('external mu, BLAKE2b, Argon2id', () => {
   for (const r of kv('acvp/mu.txt')) {
     if (r.kind === 'gen') {

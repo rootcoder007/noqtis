@@ -195,6 +195,14 @@ export const kem: {
   /** Opens a sealed stream to its plaintext pieces, each once it verified. */
   unbox(alg: KemAlg, secretKey: Bytes, source: Pieces, opts?: { ctx?: Data }):
     AsyncGenerator<Bytes, void, undefined>;
+  /** Seals source to several ML-KEM keys, signed when a sender is named. */
+  boxTo(recipients: Array<{ alg: KemAlg; publicKey: Bytes }>, source: Pieces,
+    opts?: StreamOptions & { sender?: { alg: SignAlg; secretKey: Bytes } }):
+    AsyncGenerator<Bytes, void, undefined>;
+  /** Opens what boxTo() sealed with one recipient's key; sender checks it. */
+  unboxFrom(alg: KemAlg, secretKey: Bytes, source: Pieces,
+    opts?: { ctx?: Data; sender?: Bytes }):
+    AsyncGenerator<Bytes, void, undefined>;
 };
 
 /** Capsule files: '/'-separated relative paths to contents. */
@@ -277,6 +285,9 @@ export const capsule: {
   /** A key statement (JSON bytes) that the key pair is revoked. */
   revoke(alg: SignAlg, secretKey: Bytes, publicKey: Bytes,
     opts?: KeyOptions): Bytes;
+  /** A key statement (JSON bytes) that the key pair seals until opts.at. */
+  expire(alg: SignAlg, secretKey: Bytes, publicKey: Bytes,
+    opts: KeyOptions): Bytes;
   /** What the capsule says ("info.*" rows), with nothing checked. */
   inspect(files: Files): CheckResult;
   /** Why seal() refused the files, or null. */
@@ -407,7 +418,7 @@ export const data: {
 
 export const codes: Readonly<{
   OK: 0; EARG: -1; EBUF: -2; EVRFY: -3; EDEC: -4; ERNG: -5; EMEM: -6;
-  EIO: -7; ENOSUP: -8; ELIM: -9; ESTATE: -10;
+  EIO: -7; ENOSUP: -8; ELIM: -9; ESTATE: -10; EFLT: -11; EKAT: -12; ESTOP: -13;
 }>;
 
 /** The library's message (nqerr) for an NQE* code. */
