@@ -83,11 +83,11 @@ for f in "$top"/fuzz/f*.c; do
     -I"$top/fuzz" -c "$f" -o "$obj/$t.o"
   if [ "$t" = fcli ]; then
     $LD $LDFLAGS "$obj/$t.o" "$obj"/clif/*.o "$obj/libnqd.a" "$obj/libnq.a" \
-      -pthread -lm \
+      -pthread -lm -ldl \
       $LIB_FUZZING_ENGINE -o "$out/$t"
   else
     $LD $LDFLAGS "$obj/$t.o" "$obj/libnqcli.a" "$obj/libnqd.a" \
-      "$obj/libnq.a" -lm $LIB_FUZZING_ENGINE -o "$out/$t"
+      "$obj/libnq.a" -lm -ldl $LIB_FUZZING_ENGINE -o "$out/$t"
   fi
 done
 

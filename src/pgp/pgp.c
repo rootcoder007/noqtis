@@ -25,6 +25,7 @@
 #include "core/int.h"
 #include "der/der.h"
 #include "hash/h.h"
+#include "pgp/pgp.h"
 #include "xdh/xdh.h"
 
 #define PGPMAX ((size_t)1 << 30)
@@ -401,6 +402,19 @@ static int s2khash(const uint8_t *s, size_t sn, const uint8_t *pw,
   return NQOK;
 }
 
+/* Argon2id as this file writes it: 3 passes, 4 lanes, 2^16 KiB (64
+ * MiB); and the most a key or message read may ask for: 16 passes and
+ * 2^22 KiB (4 GiB), as nqa2id limits it. */
+static uint8_t s2kt = 3, s2kp = 4, s2km = 16, s2ktmax = 16, s2kmmax = 22;
+
+#ifdef NQTEST
+void nqpgps2k(unsigned t, unsigned p, unsigned m) {
+  s2kt = s2ktmax = (uint8_t)t;
+  s2kp = (uint8_t)p;
+  s2km = s2kmmax = (uint8_t)m;
+}
+#endif
+
 /* the key of a passphrase, as the S2K specifier s says: Argon2id
  * (section 3.7.1.4), or one of the hashed ones */
 static int s2k(const uint8_t *s, size_t sn, const uint8_t *pw, size_t pwn,
@@ -415,7 +429,7 @@ static int s2k(const uint8_t *s, size_t sn, const uint8_t *pw, size_t pwn,
   p = s[18];
   if (t == 0 || p == 0 || s[19] > 31) return NQEDEC;
   /* as nqa2id limits it: a key file cannot ask for more */
-  if (s[19] > 22 || t > 16 || p > 16) return NQELIM;
+  if (s[19] > s2kmmax || t > s2ktmax || p > 16) return NQELIM;
   m = (uint32_t)1 << s[19];
   if (m < 8 * p) return NQEDEC;
   return nqa2id(pw, pwn, s + 1, 16, NULL, 0, NULL, 0, t, m, p, out, on);
@@ -1072,9 +1086,9 @@ static int secpkt(nqdw *out, int type, const uint8_t *body, size_t bn,
   rc = nqrand(sp + 1, 16);
   if (rc == NQOK) rc = nqrand(iv, sizeof iv);
   if (rc != NQOK) goto fin;
-  sp[17] = 3;
-  sp[18] = 4;
-  sp[19] = 16;
+  sp[17] = s2kt;
+  sp[18] = s2kp;
+  sp[19] = s2km;
   rc = s2k(sp, sizeof sp, pw, pwn, key, 32);
   if (rc != NQOK) goto fin;
   info[0] = (uint8_t)(0xc0 | type);
@@ -1957,9 +1971,9 @@ static int skesk(nqdw *w, const uint8_t *pw, size_t pwn, const uint8_t *sk) {
   rc = nqrand(sp + 1, 16);
   if (rc == NQOK) rc = nqrand(iv, sizeof iv);
   if (rc != NQOK) return rc;
-  sp[17] = 3;
-  sp[18] = 4;
-  sp[19] = 16;
+  sp[17] = s2kt;
+  sp[18] = s2kp;
+  sp[19] = s2km;
   rc = s2k(sp, sizeof sp, pw, pwn, key, 32);
   if (rc == NQOK) rc = hkdf(NULL, 0, key, 32, info, 4, kek, 32);
   if (rc == NQOK) rc = aeade(2, kek, 32, iv, info, 4, sk, 32, ct, tag);
