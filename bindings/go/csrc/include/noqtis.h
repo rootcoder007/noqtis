@@ -1167,6 +1167,109 @@ NQAPI int nqsmdec(nqkalg alg, const uint8_t *sk, size_t sklen,
                   const uint8_t *cert, size_t certlen, const char *mime,
                   size_t n, char *out, size_t cap, size_t *outlen);
 
+/* ---- OpenPGP -------------------------------------------------------- */
+
+/* OpenPGP (RFC 9580), version 6, with the algorithms noqtis has, named
+ * by their OpenPGP numbers: Ed25519 (NQPGPED25519) and X25519
+ * (NQPGPX25519) of the RFC, and those of draft-ietf-openpgp-pqc:
+ * ML-DSA-65+Ed25519, ML-KEM-768+X25519, and SLH-DSA-SHAKE-128s, -128f
+ * and -256s. Keys, signatures and messages are packets in binary;
+ * nqpgparm and nqpgpdearm turn them into ASCII armor and back, and
+ * nqpgpvrfy and nqpgpdec take either.
+ *
+ * Not here: version 3 and 4 keys and signatures, RSA, DSA, Elgamal and
+ * the NIST and Brainpool curves, CFB encryption and compressed data.
+ * Those give NQENOSUP.
+ *
+ * nqpgpgen makes a key: a primary key of sigalg that certifies and
+ * signs, the user ID uid (1 to 255 bytes of UTF-8, by convention
+ * "Name <address>"), and, when encalg is not 0, an encryption subkey
+ * of encalg, with their self-signatures, at the time created (seconds
+ * since 1970). sec gets the transferable secret key, under the
+ * passphrase pw when that is not NULL (Argon2id, AES-256 with OCB);
+ * pub the certificate to give to others. A post-quantum OpenPGP key
+ * holds its seeds, so it is made here: it cannot be made of a key file
+ * that noqtis keygen wrote.
+ *
+ * nqpgpinfo reads a certificate or a secret key: its algorithms,
+ * fingerprints (SHA-256 of the key packet), user ID and times. Only
+ * what a self-signature of the primary key binds is taken; NQEVRFY for
+ * a key with no such signature or a revoked one.
+ *
+ * nqpgpsign signs msg with the secret key (pw its passphrase, or
+ * NULL): mode NQPGPINLINE a signed message that carries the data,
+ * NQPGPDETACHED a signature alone, NQPGPCLEAR the text with the armored
+ * signature under it (msg must be UTF-8 text). nqpgpvrfy checks one
+ * of the three under the certificate cert: msg is what a detached
+ * signature signs (NULL otherwise); the data comes back in out, and
+ * *at gets the signature's time.
+ *
+ * nqpgpenc encrypts msg to the encryption subkeys of nc certificates
+ * (at most 64) and, with pw not NULL, to that passphrase as well
+ * (certs may then be none): AES-256 with OCB, in chunks. With signer
+ * (a secret key, spw its passphrase) the message is signed first.
+ * nqpgpdec opens one with the secret key (pw its passphrase), or with
+ * key NULL with the passphrase pw of the message. With signer (a
+ * certificate) the message inside must be signed by it, and *signedby
+ * is 1; without, the content is given whatever signs it.
+ *
+ * out NULL asks for the size alone where the function can tell it
+ * (nqpgparm); elsewhere *outlen gets the size with NQEBUF. NQEVRFY
+ * when a signature, a key or a message does not check out; NQEARG also
+ * for a key that cannot do what is asked (no secret part, no
+ * encryption subkey, a passphrase missing); NQEDEC for what is not
+ * OpenPGP; NQELIM over 1 GiB, and for a key file that asks Argon2id for
+ * more than 4 GiB or 16 passes. */
+#define NQPGPX25519 25
+#define NQPGPED25519 27
+#define NQPGPMLDSA65 30   /* ML-DSA-65+Ed25519 */
+#define NQPGPSLH128S 32   /* SLH-DSA-SHAKE-128s */
+#define NQPGPSLH128F 33
+#define NQPGPSLH256S 34
+#define NQPGPMLKEM768 35  /* ML-KEM-768+X25519 */
+#define NQPGPINLINE 0
+#define NQPGPDETACHED 1
+#define NQPGPCLEAR 2
+#define NQPGPMSG 1  /* armor: PGP MESSAGE */
+#define NQPGPPUB 2  /* PGP PUBLIC KEY BLOCK */
+#define NQPGPSEC 3  /* PGP PRIVATE KEY BLOCK */
+#define NQPGPSIG 4  /* PGP SIGNATURE */
+typedef struct {
+  int alg;          /* the primary key's algorithm */
+  int encalg;       /* the encryption subkey's, 0 when it has none */
+  int secret;       /* 1 for a secret key */
+  int locked;       /* 1 when it is under a passphrase */
+  uint8_t fp[32];   /* fingerprints: the primary key's, the subkey's */
+  uint8_t encfp[32];
+  int64_t created;  /* seconds since 1970 */
+  int64_t expires;  /* 0: never */
+  char uid[256];    /* the user ID, "" when it has none it could show */
+} nqpgpk;
+NQAPI int nqpgpgen(int sigalg, int encalg, const char *uid, int64_t created,
+                   const uint8_t *pw, size_t pwlen, uint8_t *sec, size_t scap,
+                   size_t *slen, uint8_t *pub, size_t pcap, size_t *plen);
+NQAPI int nqpgpinfo(const uint8_t *key, size_t n, nqpgpk *o);
+NQAPI int nqpgpsign(const uint8_t *key, size_t kn, const uint8_t *pw,
+                    size_t pwlen, const uint8_t *msg, size_t n, int mode,
+                    int64_t at, uint8_t *out, size_t cap, size_t *outlen);
+NQAPI int nqpgpvrfy(const uint8_t *cert, size_t cn, const uint8_t *sig,
+                    size_t sn, const uint8_t *msg, size_t mlen, uint8_t *out,
+                    size_t cap, size_t *outlen, int64_t *at);
+NQAPI int nqpgpenc(const uint8_t *const *certs, const size_t *certlens,
+                   size_t nc, const uint8_t *pw, size_t pwlen,
+                   const uint8_t *signer, size_t signerlen,
+                   const uint8_t *spw, size_t spwlen, const uint8_t *msg,
+                   size_t n, int64_t at, uint8_t *out, size_t cap,
+                   size_t *outlen);
+NQAPI int nqpgpdec(const uint8_t *key, size_t kn, const uint8_t *pw,
+                   size_t pwlen, const uint8_t *signer, size_t signerlen,
+                   const uint8_t *msg, size_t n, uint8_t *out, size_t cap,
+                   size_t *outlen, int *signedby, int64_t *at);
+NQAPI int nqpgparm(int kind, const uint8_t *in, size_t n, char *out,
+                   size_t cap, size_t *outlen);
+NQAPI int nqpgpdearm(const char *in, size_t n, int *kind, uint8_t *out,
+                     size_t cap, size_t *outlen);
+
 /* ---- TLS 1.3 client ------------------------------------------------- */
 
 /* A TLS 1.3 client (RFC 8446): X25519MLKEM768 and X25519 key shares
