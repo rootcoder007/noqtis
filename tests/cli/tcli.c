@@ -248,6 +248,19 @@ static int run(const char *args, const char *in) {
     fflush(stderr);
   }
   st = system(c);
+  /* a failed check of the C runtime (a debug build says so on standard
+   * error and goes on) fails the test, whatever the command then did */
+  if (has("q.err", "Debug Assertion Failed") ||
+      has("q.err", "Run-Time Check Failure") ||
+      has("q.err", "Invalid parameter passed to C runtime")) {
+    size_t en;
+    unsigned char *eb = rd("q.err", &en);
+    nbad++;
+    fprintf(stderr, "tcli: FAIL: a runtime check failed in: %s\n  %.*s\n",
+            args, eb != NULL ? (int)(en > 2000 ? 2000 : en) : 0,
+            eb != NULL ? (const char *)eb : "");
+    free(eb);
+  }
 #ifndef _WIN32
   if (st == -1 || !WIFEXITED(st))
     return -1;
