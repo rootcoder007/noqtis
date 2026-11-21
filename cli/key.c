@@ -85,6 +85,69 @@ static size_t adof(const ncalg *a, char *ad, size_t cap) {
   return n > 0 && (size_t)n < cap ? (size_t)n : 0;
 }
 
+int ncstore(const char *opt, char *out, size_t cap) {
+  const char *a = opt, *b = "";
+  int n;
+  if (a == NULL || a[0] == '\0') a = getenv("NOQTIS_KEYS");
+  if (a == NULL || a[0] == '\0') {
+    b = "/noqtis/keys";
+#ifdef _WIN32
+    a = getenv("APPDATA");
+#else
+    a = getenv("XDG_CONFIG_HOME");
+    if (a == NULL || a[0] != '/') {
+      a = getenv("HOME");
+      b = "/.config/noqtis/keys";
+    }
+#endif
+  }
+  if (a == NULL || a[0] == '\0') return NCUSE;
+  n = snprintf(out, cap, "%s%s", a, b);
+  return n > 0 && (size_t)n < cap ? NCOK : NCUSE;
+}
+
+/* the public key of the store that answers q (the path was @q) */
+static int atkey(const char *cmd, const char *q, nckey *k) {
+  char dir[1024];
+  nqkse e[2];
+  size_t n = 0;
+  const char *an;
+  int rc;
+  if (q[0] == '\0' || ncstore(NULL, dir, sizeof dir) != NCOK) {
+    ncmsg(cmd, "@%s names a key of the key store: give a name after the "
+          "@, and set NOQTIS_KEYS or HOME", q);
+    return NCUSE;
+  }
+  rc = nqkslist(dir, q, e, 2, &n);
+  if ((rc != NQOK && rc != NQEBUF) || n != 1) {
+    if (rc != NQOK && rc != NQEBUF)
+      ncmsg(cmd, "@%s: cannot read the key store %s (%s)", q, dir,
+            nqerr(rc));
+    else
+      ncmsg(cmd, "@%s: %lu keys of the key store answer; `noqtis keys "
+            "list` shows them", q, (unsigned long)n);
+    return NCUSE;
+  }
+  if (e[0].valid != NQKVFULL) {
+    ncmsg(cmd, "@%s: the key store does not know that this key belongs to "
+          "its name: certify it (`noqtis keys certify`), or give the key "
+          "file itself", q);
+    return NCUSE;
+  }
+  an = e[0].kem ? nqkname((nqkalg)e[0].alg) : nqsname((nqsalg)e[0].alg);
+  if (an == NULL || ncfind(an, &k->a) != NQOK) return nclib(cmd, q, NQENOSUP);
+  k->b = (uint8_t *)malloc(e[0].pklen);
+  if (k->b == NULL) return nclib(cmd, q, NQEMEM);
+  rc = nqksget(dir, e[0].fp, NULL, NULL, k->b, e[0].pklen, &k->n);
+  if (rc != NQOK) {
+    free(k->b);
+    k->b = NULL;
+    k->n = 0;
+    return nclib(cmd, q, rc);
+  }
+  return NCOK;
+}
+
 int nckrd(const char *cmd, const char *path, int sec, nckey *k) {
   return nckrdp(cmd, path, sec, NULL, 0, k);
 }
@@ -98,6 +161,7 @@ int nckrdp(const char *cmd, const char *path, int sec, const uint8_t *pw,
   k->b = NULL;
   k->n = 0;
   k->sec = sec;
+  if (!sec && path[0] == '@') return atkey(cmd, path + 1, k);
   rc = ncrdx(path, 1, NCRDSMALL, &t, &tn);
   if (rc != NQOK) {
     ncmsg(cmd, "cannot read key file %s%s (give a key file `noqtis keygen` "

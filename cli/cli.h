@@ -416,6 +416,14 @@ typedef struct {
 /* Reads a key file; sec is the kind the caller needs (1 secret). */
 int nckrd(const char *cmd, const char *path, int sec, nckey *k);
 void nckfree(nckey *k);
+/* The key store's folder into out: opt (--store) when given, else the
+ * variable NOQTIS_KEYS, else noqtis/keys under XDG_CONFIG_HOME or
+ * ~/.config (APPDATA on Windows). NCUSE when none of them is set or the
+ * path does not fit. Where nckrd reads a public key, a path that starts
+ * with @ names a key of that store instead of a file: @<name, address
+ * or start of the fingerprint>; exactly one key must answer, and it must
+ * be valid there. */
+int ncstore(const char *opt, char *out, size_t cap);
 /* Writes a key file to an already opened f. */
 int nckwr(FILE *f, const ncalg *a, int sec, const uint8_t *b, size_t n);
 
@@ -447,6 +455,7 @@ const char *nchname(nqhalg h);
 int nckeygen(int argc, char **argv);
 int ncpasswd(int argc, char **argv);
 int ncarmor(int argc, char **argv);
+int nckeys(int argc, char **argv);
 int ncdearmor(int argc, char **argv);
 int ncsign(int argc, char **argv);
 int ncvrfy(int argc, char **argv);

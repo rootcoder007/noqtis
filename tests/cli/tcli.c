@@ -2664,6 +2664,127 @@ static void tarm(void) {
   want(2, "dearmor q.none", NULL);
 }
 
+/* ---- the key store: noqtis keys, and -p @name ---- */
+
+static void tkeys(void) {
+  size_t n = 0;
+  unsigned char *b;
+  rmdirs("q.ks");
+  rmdirs("q.k2s");
+  want(0, "keys --store q.ks list", NULL);
+  want(2, "keys --store q.ks find nobody", NULL);
+  want(0, "keys --store q.ks path", NULL);
+  ok(has("q.out", "q.ks\n"), "keys path prints the folder");
+  want(0, "keys --store q.ks add -n \"Sig One\" -e one@example.org "
+          "q.sg.pub", NULL);
+  ok(has("q.out", "Sig One <one@example.org>") && has("q.out", "ML-DSA-44") &&
+     has("q.out", "unknown") && has("q.out", "not valid"),
+     "keys add prints the new entry");
+  want(0, "keys --store q.ks add -n \"Sig Two\" q.sg2.pub", NULL);
+  want(0, "keys --store q.ks add -n \"Kem Key\" q.kk.pub", NULL);
+  want(0, "keys --store q.ks add -n \"Kem Other\" q.k2.pub", NULL);
+  want(0, "keys --store q.ks list", NULL);
+  ok(has("q.out", "Sig One") && has("q.out", "Sig Two") &&
+     has("q.out", "Kem Key") && has("q.out", "ML-KEM-768"),
+     "keys list shows every key");
+  want(0, "keys --store q.ks list TWO", NULL);
+  ok(has("q.out", "Sig Two") && !has("q.out", "Sig One"),
+     "keys list <name> shows the keys that answer");
+  want(0, "keys --store q.ks find two", NULL);
+  want(1, "keys --store q.ks find nobody", NULL);
+  /* my own key, and what it certifies */
+  want(0, "keys --store q.ks trust one ultimate", NULL);
+  ok(has("q.out", "ultimate") && has("q.out", "  valid"),
+     "an ultimately trusted key is valid");
+  want(0, "keys --store q.ks certify -k q.sg -o q.ct --force two", NULL);
+  ok(has("q.out", "  valid") && has("q.ct", "\"format\":\"noqtis-cert-1\""),
+     "keys certify makes the key valid and writes the certification");
+  want(0, "keys --store q.ks certify -k q.sg \"kem key\"", NULL);
+  want(2, "keys --store q.ks certify -k q.sg kem", NULL);
+  ok(has("q.err", "2 keys answer"), "certify wants one key to answer");
+  want(2, "keys --store q.ks certify -k q.kk two", NULL);
+  want(2, "keys --store q.ks certify two", NULL);
+  want(2, "keys --store q.ks certify -k q.sg nobody", NULL);
+  /* -p @name: a valid key of the store in place of a file */
+  penv("NOQTIS_KEYS", "q.ks");
+  want(0, "box -p \"@kem key\" -o q.kb --force q.b1", NULL);
+  want(0, "unbox -k q.kk -o q.ky --force q.kb", NULL);
+  ok(same("q.b1", "q.ky"), "box -p @name seals to the key of the store");
+  want(0, "sign -k q.sg2 -o q.s2 --force q.b1", NULL);
+  want(0, "verify -p @two -s q.s2 q.b1", NULL);
+  want(1, "verify -p @one -s q.s2 q.b1", NULL);
+  want(2, "box -p @other -o q.kb --force q.b1", NULL);
+  ok(has("q.err", "does not know that this key belongs"),
+     "@name refuses a key that is not valid");
+  want(2, "box -p @kem -o q.kb --force q.b1", NULL);
+  ok(has("q.err", "2 keys of the key store answer"),
+     "@name wants one key to answer");
+  want(2, "box -p @nobody -o q.kb --force q.b1", NULL);
+  want(2, "box -p @ -o q.kb --force q.b1", NULL);
+  want(0, "keys list one", NULL);
+  ok(has("q.out", "Sig One"), "the store of NOQTIS_KEYS is the default");
+  penv("NOQTIS_KEYS", NULL);
+  /* the key comes back as the file it was */
+  want(0, "keys --store q.ks export -o q.ex --force two", NULL);
+  ok(same("q.ex", "q.sg2.pub"), "keys export writes the key file");
+  want(0, "keys --store q.ks export two", NULL);
+  ok(same("q.out", "q.sg2.pub"), "keys export to stdout");
+  want(2, "keys --store q.ks export -o q.ex two", NULL);
+  /* a certification carried to another store */
+  want(2, "keys --store q.k2s addcert q.ct", NULL);
+  want(0, "keys --store q.k2s add -n \"Sig One\" -e one@example.org "
+          "q.sg.pub", NULL);
+  want(2, "keys --store q.k2s addcert q.ct", NULL);
+  ok(has("q.err", "must both be in the store first"),
+     "addcert wants both keys in the store");
+  want(0, "keys --store q.k2s add -n \"Somebody Else\" q.sg2.pub", NULL);
+  want(1, "keys --store q.k2s addcert q.ct", NULL);
+  ok(has("q.err", "another name or address"),
+     "addcert refuses a certification of another name");
+  want(0, "keys --store q.k2s add -n \"Sig Two\" q.sg2.pub", NULL);
+  want(0, "keys --store q.k2s addcert q.ct", NULL);
+  want(0, "keys --store q.k2s trust one ultimate", NULL);
+  want(0, "keys --store q.k2s list two", NULL);
+  ok(has("q.out", "  valid"), "a carried certification counts");
+  b = rd("q.ct", &n);
+  b[n / 2] = b[n / 2] == 'A' ? 'B' : 'A';
+  wr("q.cx", b, n);
+  free(b);
+  run("keys --store q.k2s addcert q.cx", NULL);
+  ok(!has("q.err", "Sanitizer"), "a changed certification is refused");
+  want(2, "keys --store q.k2s addcert q.b1", NULL);
+  want(2, "keys --store q.k2s addcert q.none", NULL);
+  /* an identity card names the key */
+  want(0, "idcard -k q.sg2 --name \"Card Holder\" --email card@example.org "
+          "-o q.card -f", NULL);
+  want(0, "keys --store q.k2s add --card q.card q.sg2.pub", NULL);
+  ok(has("q.out", "Card Holder <card@example.org>") && has("q.out", "[card]"),
+     "keys add --card takes the name of the card");
+  want(2, "keys --store q.k2s add --card q.card q.sg.pub", NULL);
+  ok(has("q.err", "is not an identity card of the key"),
+     "a card of another key is refused");
+  want(2, "keys --store q.k2s add --card q.card -n X q.sg2.pub", NULL);
+  want(2, "keys --store q.k2s add q.sg2.pub", NULL);
+  want(2, "keys --store q.k2s add -n \" bad\" q.sg2.pub", NULL);
+  want(2, "keys --store q.k2s add -n X -e nowhere q.sg2.pub", NULL);
+  want(2, "keys --store q.k2s add -n X q.sg", NULL);
+  want(2, "keys --store q.k2s add -n X q.none", NULL);
+  /* trust levels, removal, usage */
+  want(0, "keys --store q.ks trust two marginal", NULL);
+  ok(has("q.out", "marginal"), "keys trust prints the entry");
+  want(2, "keys --store q.ks trust two very", NULL);
+  want(2, "keys --store q.ks trust nobody full", NULL);
+  want(0, "keys --store q.ks rm two", NULL);
+  want(1, "keys --store q.ks find two", NULL);
+  want(2, "keys --store q.ks rm two", NULL);
+  want(2, "keys --store q.ks", NULL);
+  want(2, "keys --store q.ks bogus", NULL);
+  want(2, "keys --store q.ks list a b", NULL);
+  want(0, "keys --help", NULL);
+  rmdirs("q.ks");
+  rmdirs("q.k2s");
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -2724,6 +2845,7 @@ int main(int argc, char **argv) {
   tstream();
   tbox();
   tarm();
+  tkeys();
   for (i = 0; i < sizeof kems / sizeof kems[0]; i++)
     tkem(kems[i]);
   thash();

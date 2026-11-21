@@ -1,0 +1,210 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NOQTIS-KEYS 1
+.Os
+.Sh NAME
+.Nm noqtis-keys
+.Nd the key store: other people's keys by name
+.Sh SYNOPSIS
+.Nm noqtis keys
+.Op Fl -store Ar dir
+.Cm list
+.Op Ar name
+.Nm noqtis keys
+.Cm find
+.Ar name
+.Nm noqtis keys
+.Cm add
+.Fl n Ar name
+.Op Fl e Ar email
+.Ar key.pub
+.Nm noqtis keys
+.Cm add
+.Fl -card Ar file
+.Ar key.pub
+.Nm noqtis keys
+.Cm certify
+.Fl k Ar key
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Op Fl o Ar cert
+.Op Fl -force
+.Ar name
+.Nm noqtis keys
+.Cm addcert
+.Ar cert
+.Nm noqtis keys
+.Cm trust
+.Ar name
+.Ar level
+.Nm noqtis keys
+.Cm export
+.Op Fl o Ar key.pub
+.Op Fl -force
+.Ar name
+.Nm noqtis keys
+.Cm rm
+.Ar name
+.Nm noqtis keys
+.Cm path
+.Sh DESCRIPTION
+The key store is a folder of other people's public keys, signature keys
+and KEM keys alike, each under the name and e-mail address of its
+holder.
+It also holds certifications, by which the holder of one key says that
+another key belongs to its name, and the trust its owner places in each
+holder to make such statements.
+From these it works out which keys are
+.Em valid :
+known to belong to their names.
+.Pp
+Where a command takes a public key file, with
+.Fl p
+or
+.Fl s ,
+.Ql @ Ns Ar name
+takes a valid key of the store instead:
+.Dl noqtis box -p @ben -o notes.nqk notes.txt
+.Pp
+A
+.Ar name
+is part of a name or of an address, letters of either case alike, or
+the start of a fingerprint, 8 hex digits or more.
+.Cm list
+shows every key that answers it; the other commands, and
+.Ql @ Ns Ar name ,
+need exactly one key to answer.
+.Pp
+The commands:
+.Bl -tag -width "certify"
+.It Cm list Op Ar name
+Print one line for each key: the first 16 digits of its fingerprint
+(the SHA-256 of the public key), its algorithm, its trust, its
+validity, the number of certifications of it, and its name and
+address;
+.Ql [card]
+when the store holds its identity card.
+.It Cm find Ar name
+As
+.Cm list ,
+with exit status 1 when no key answers.
+.It Cm add
+Put the key in
+.Ar key.pub
+into the store, under
+.Fl n Ar name
+and, when given,
+.Fl e Ar email ,
+or with the identity card
+.Pq Xr noqtis-idcard 1
+in
+.Fl -card Ar file ,
+which must verify and name this key; the name and address are then the
+card's.
+A key that is there already keeps its trust and takes the new name;
+certifications of the old name no longer count.
+.It Cm certify
+Sign, with the secret signature key
+.Ar key
+(and
+.Ar key Ns Pa .pub
+beside it), that the one key answering
+.Ar name
+belongs to the name and address the store has for it.
+Do this once the fingerprint was compared with its holder over a
+channel that cannot be forged.
+The certification is kept in the store and, with
+.Fl o ,
+written to
+.Ar cert
+to give to others.
+.Fl -pass-fd
+and
+.Fl -pass-env
+give the passphrase of a protected
+.Ar key .
+.It Cm addcert Ar cert
+Put a certification someone else made into the store.
+The key it certifies and the key that made it must both be there, the
+first under the name and address it says, and its signature must
+verify.
+.It Cm trust Ar name Ar level
+Say how far the holder of the key is trusted to certify other keys:
+.Cm unknown ,
+.Cm never ,
+.Cm marginal ,
+.Cm full ,
+or
+.Cm ultimate
+for your own keys.
+.It Cm export Ar name
+Write the key as a key file to
+.Fl o Ar key.pub ,
+or to standard output.
+.It Cm rm Ar name
+Remove the key, its card, and every certification of it and by it.
+.It Cm path
+Print the folder of the store.
+.El
+.Pp
+A key is valid when its trust is
+.Cm ultimate ;
+or when it was certified by one valid key whose trust is
+.Cm full
+or
+.Cm ultimate ,
+or by three valid keys of trust
+.Cm marginal .
+One or two marginal certifications make it marginally valid, which is
+not enough for
+.Ql @ Ns Ar name .
+Certifications are followed five keys deep from an ultimately trusted
+one, only signature keys certify, and a key's certification of itself
+does not count.
+.Bl -tag -width Ds
+.It Fl -store Ar dir
+The folder of the store.
+Default: the value of
+.Ev NOQTIS_KEYS ,
+else
+.Pa noqtis/keys
+under
+.Ev XDG_CONFIG_HOME
+or
+.Pa ~/.config
+.Po
+.Ev APPDATA
+on Windows
+.Pc .
+.Cm add
+makes the folder when it is not there.
+.El
+.Pp
+The store is its owner's own state and is not signed: whoever can write
+the folder decides what it trusts.
+A card's and a certification's signature, and a key's fingerprint, are
+checked when they are put in.
+.Sh ENVIRONMENT
+.Bl -tag -width NOQTIS_KEYS
+.It Ev NOQTIS_KEYS
+The folder of the key store.
+.El
+.Sh EXIT STATUS
+0 on success; 1 when
+.Cm find
+finds no key, or a certification given to
+.Cm addcert
+does not verify; 2 on a usage or file error.
+.Sh EXAMPLES
+.Bd -literal
+$ noqtis keys add -n "Ben Example" -e ben@example.org ben.pub
+$ noqtis keys trust me ultimate
+$ noqtis keys certify -k me ben
+$ noqtis box -p @ben -o notes.nqk notes.txt
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-box 1 ,
+.Xr noqtis-idcard 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr noqtis-verify 1 ,
+.Xr nqksadd 3

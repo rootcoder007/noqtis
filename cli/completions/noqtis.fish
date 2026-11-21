@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen passwd sign verify enc dec box unbox armor dearmor hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
+set -l cmds keygen passwd sign verify enc dec box unbox keys armor dearmor hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -23,6 +23,14 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a box -d 'seal a 
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a unbox -d 'open a boxed file'
 complete -c noqtis -n "__fish_seen_subcommand_from box" -l chunk -x -d 'chunk size in bytes'
 complete -c noqtis -n "__fish_seen_subcommand_from box sign" -s a -l armor -d 'write it as text (ASCII armor)'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a keys -d "the key store: other people's keys by name"
+complete -c noqtis -n "__fish_seen_subcommand_from keys" -a "list find add certify addcert trust export rm path"
+complete -c noqtis -n "__fish_seen_subcommand_from keys" -l store -r -F -d 'folder of the key store'
+complete -c noqtis -n "__fish_seen_subcommand_from keys" -s n -l name -x -d 'name of the key holder'
+complete -c noqtis -n "__fish_seen_subcommand_from keys" -s e -l email -x -d 'address of the key holder'
+complete -c noqtis -n "__fish_seen_subcommand_from keys" -l card -r -F -d 'identity card of the key'
+complete -c noqtis -n "__fish_seen_subcommand_from keys" -s k -l key -r -F -d 'secret key to certify with'
+complete -c noqtis -n "__fish_seen_subcommand_from keys" -s o -l out -r -F -d 'output file'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a armor -d "write a file as text (ASCII armor)"
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a dearmor -d "read the bytes an armored file holds"
 complete -c noqtis -n "__fish_seen_subcommand_from armor" -s l -l label -x -d 'the label of the BEGIN and END lines'

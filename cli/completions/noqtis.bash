@@ -17,7 +17,7 @@ _noqtis() {
   cur=${COMP_WORDS[COMP_CWORD]}
   prev=${COMP_WORDS[COMP_CWORD-1]}
   if [ "$COMP_CWORD" -eq 1 ]; then
-    COMPREPLY=($(compgen -W "keygen passwd sign verify enc dec box unbox armor dearmor hash seal check
+    COMPREPLY=($(compgen -W "keygen passwd sign verify enc dec box unbox keys armor dearmor hash seal check
       prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version -V
       --version" -- "$cur"))
     return
@@ -63,6 +63,7 @@ _noqtis() {
       --out" ;;
     export) opts="--as -k --key -p --pub -o --out -f --force --no-files" ;;
     enc) opts="-p --pub -o --out --stdout -f --force" ;;
+    keys) opts="list find add certify addcert trust export rm path --store -n --name -e --email --card -k --key -o --out --pass-fd --pass-env -f --force" ;;
     armor) opts="-l --label -o --out -f --force" ;;
     dearmor) opts="-o --out -f --force" ;;
     box) opts="-p --pub -o --out -a --armor -c --ctx --chunk -s --sign --pass-fd --pass-env -f --force" ;;
