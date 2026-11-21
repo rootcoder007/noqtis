@@ -26,9 +26,6 @@ DSSE envelopes for JavaScript: the
 WebAssembly. One package for Node (22 and later), browsers, Deno and Bun;
 nothing to compile, no dependencies, no network access.
 
-The code has not yet been audited. See the main repository's README and
-SECURITY.md before relying on it.
-
 ```sh
 npm install noqtis
 ```

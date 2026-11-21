@@ -23,9 +23,6 @@ package bundles the NOQTIS C library: ML-DSA (FIPS 204) and SLH-DSA
 (FIPS 205) signatures, ML-KEM (FIPS 203), SHA-2 and SHA-3, and sealed
 folders (capsules). Nothing else to install.
 
-> **Status: unaudited.** The code has not had an external security
-> audit; do not rely on it for anything that matters yet.
-
 ## Install
 
 ```r

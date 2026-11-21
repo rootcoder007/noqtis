@@ -57,8 +57,7 @@
 #' The package follows the noqtis library's version (0.x: the interface
 #' may still change between minor versions, and `NEWS.md` says how). Its
 #' formats (capsules, key files, data records, bundles) are versioned by
-#' their own names and stay readable by later versions. The code has not
-#' had an external security audit yet.
+#' their own names and stay readable by later versions.
 #'
 #' @section Randomness:
 #' Key generation, hedged signing and encapsulation draw their randomness

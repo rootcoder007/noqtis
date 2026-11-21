@@ -1,6 +1,6 @@
 # Security policy
 
-noqtis has not had an external security audit. Please report a vulnerability
+Please report a vulnerability
 privately through GitHub's "Report a vulnerability" button on this
 repository (Security tab,
 <https://github.com/rootcoder007/noqtis/security/advisories/new>), not in

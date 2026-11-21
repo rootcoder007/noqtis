@@ -23,5 +23,3 @@ C11 library with no dependencies (ML-DSA, SLH-DSA, ML-KEM, SHA-2, SHA-3)
 and the `noqtis` command.
 
 Source, documentation and releases: https://github.com/rootcoder007/noqtis
-
-**Status: unaudited.** The code has not had an external security audit.

@@ -1,9 +1,6 @@
 # Security
 
-**Not yet audited.**
-NOQTIS has not had an external security audit. Until an audit report is
-published, treat NOQTIS as unaudited code. An independent audit through
-OSTIF has been applied for, and is open for
+An independent audit through OSTIF has been applied for, and is open for
 [funding](https://app.lfx.dev/crowdfunding/initiatives/noqtis-security-audit-of-a-post-quantum-signing-and-provenance-library-in-c11).
 
 ## Reporting a vulnerability

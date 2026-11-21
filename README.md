@@ -32,8 +32,6 @@ ML-KEM (FIPS 203), SHA-2 and SHA-3, byte-identical to the NIST test vectors, and
 (experimental, matching its reference known-answer files), with bindings for Python,
 JavaScript, R, Rust, Go and Java.
 
-> **Status: unaudited.** The code has not had an
-> external security audit; do not rely on it for anything that matters yet.
 > An independent audit through OSTIF has been applied for, and is open for
 > [funding](https://app.lfx.dev/crowdfunding/initiatives/noqtis-security-audit-of-a-post-quantum-signing-and-provenance-library-in-c11).
 > How it is tested, and the test-vector results, are on the
