@@ -385,9 +385,8 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
   verification of tampered signatures, messages, contexts and keys,
   malformed keys and wrong lengths, and every SHA-2, SHA-3, SHAKE and
   HMAC digest. One side refusing what the other accepts is a failure.
-  The two share an author, so this guards against a slip in one code
-  base, not against a shared misreading of a standard; the NIST and
-  Wycheproof vectors and OpenSSL are the outside references.
+  The NIST and Wycheproof vectors and OpenSSL are the outside
+  references.
 - The command-line tool is tested as a user runs it, including exit codes,
   owner-only files and that no secret reaches standard output.
 
