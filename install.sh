@@ -47,7 +47,45 @@ nqissuer=https://token.actions.githubusercontent.com
 # signed by the old one
 nqsigner='noqtis ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIITExiNM+YezpSqyif5ZOhFb+abk4iy7CadyZnUMLRMj'
 
-say() { printf 'noqtis install: %s\n' "$*" >&2; }
+# On a terminal the steps are numbered, results are marked and coloured,
+# the archive shows a progress bar and a table sums the files up; piped
+# or in CI (no terminal, TERM=dumb or NO_COLOR set) every line is plain
+# "noqtis install: ..." text, as it always was.
+nqtty=0
+if [ -t 2 ] && [ "${TERM:-dumb}" != dumb ] && [ -z "${NO_COLOR:-}" ]; then
+  nqtty=1
+fi
+nqstep=0
+say() {
+  if [ "$nqtty" = 0 ]; then
+    printf 'noqtis install: %s\n' "$*" >&2
+    return
+  fi
+  case $* in
+    error:*) printf '\033[1;31m  error\033[0m %s\n' "${*#error: }" >&2 ;;
+    *"NOT checked"* | *"not checked"* | *" not the one in "*)
+      printf '\033[33m   note\033[0m %s\n' "$*" >&2 ;;
+    *": good"* | *" matches "*) printf '\033[32m     ok\033[0m %s\n' "$*" >&2 ;;
+    *) printf '        %s\n' "$*" >&2 ;;
+  esac
+}
+# step <title> [plain line]: one of the five steps; the plain line is
+# what is said where there is no terminal
+step() {
+  nqstep=$((nqstep + 1))
+  if [ "$nqtty" = 1 ]; then
+    printf '\033[1m[%d/5]\033[0m %s\n' "$nqstep" "$1" >&2
+  else
+    [ -z "${2:-}" ] || say "$2"
+  fi
+}
+# the size of a file as people read it
+hsize() {
+  wc -c < "$1" | awk '{ b = $1
+    if (b >= 1048576) printf "%.1f MiB", b / 1048576
+    else if (b >= 1024) printf "%.1f KiB", b / 1024
+    else printf "%d B", b }'
+}
 die() {
   say "error: $*"
   if [ "${nqcopied:-0}" = 1 ]; then
@@ -67,13 +105,20 @@ environment: NOQTIS_PREFIX NOQTIS_VERSION NOQTIS_SHARED NOQTIS_COSIGN
 EOF
 }
 
-fetch() { # fetch <url> <file>
+fetch() { # fetch <url> <file> [bar]: with bar, a progress bar on a terminal
+  nqq=-sS
+  nqw=-q
+  if [ "${3:-}" = bar ] && [ "$nqtty" = 1 ]; then
+    nqq=-#
+    nqw='-q --show-progress'
+  fi
   case $1 in
     https://*)
       if command -v curl >/dev/null 2>&1; then
-        curl -fsSL --proto '=https' --tlsv1.2 -o "$2" "$1"
+        curl -fL "$nqq" --proto '=https' --tlsv1.2 -o "$2" "$1"
       elif command -v wget >/dev/null 2>&1; then
-        wget -q --https-only -O "$2" "$1"
+        # shellcheck disable=SC2086
+        wget $nqw --https-only -O "$2" "$1"
       else
         die "neither curl nor wget is installed"
       fi ;;
@@ -81,9 +126,10 @@ fetch() { # fetch <url> <file>
       # plain http only to this machine (checked by nqmain), and no
       # redirects, which could lead anywhere
       if command -v curl >/dev/null 2>&1; then
-        curl -fsS --proto '=http' --max-redirs 0 -o "$2" "$1"
+        curl -f "$nqq" --proto '=http' --max-redirs 0 -o "$2" "$1"
       elif command -v wget >/dev/null 2>&1; then
-        wget -q --max-redirect=0 -O "$2" "$1"
+        # shellcheck disable=SC2086
+        wget $nqw --max-redirect=0 -O "$2" "$1"
       else
         die "neither curl nor wget is installed"
       fi ;;
@@ -184,7 +230,7 @@ nqmain() {
   trap 'exit 1' INT TERM HUP
 
   # 2. the sums, and their signature
-  say "fetching $url/SHA256SUMS"
+  step "Fetch SHA256SUMS" "fetching $url/SHA256SUMS"
   fetch "$url/SHA256SUMS" "$tmp/SHA256SUMS" || die "cannot download SHA256SUMS"
   names=$(awk '{f=$2; sub(/^\*/, "", f); print f}' "$tmp/SHA256SUMS" |
     grep -E "^noqtis-[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?-$target\.tar\.gz\$" || true)
@@ -205,6 +251,7 @@ nqmain() {
   printf '%s\n' "$want" | grep -Eqx '[0-9a-f]{64}' ||
     die "SHA256SUMS has no single valid SHA-256 for $name"
 
+  step "Check who signed it"
   if [ "$sigmode" = 0 ]; then
     say "NOQTIS_COSIGN=0: the Sigstore signature of SHA256SUMS is NOT checked"
   elif command -v cosign >/dev/null 2>&1; then
@@ -242,8 +289,8 @@ nqmain() {
   fi
 
   # 3. the archive, checked before anything else touches it
-  say "fetching $url/$name"
-  fetch "$url/$name" "$tmp/$name" || die "cannot download $name"
+  step "Fetch $name" "fetching $url/$name"
+  fetch "$url/$name" "$tmp/$name" bar || die "cannot download $name"
   got=$(sha256 "$tmp/$name")
   if [ "$got" != "$want" ]; then
     say "SHA256SUMS says $want"
@@ -252,6 +299,7 @@ nqmain() {
   fi
   say "SHA-256 of $name matches SHA256SUMS"
 
+  step "Check and unpack"
   # 4. every entry inside noqtis-<version>-<target>/, no absolute or ..
   top=noqtis-$ver-$target
   tar -tzf "$tmp/$name" > "$tmp/list" || die "cannot read $name"
@@ -264,6 +312,7 @@ nqmain() {
   tar -xzf "$tmp/$name" -C "$tmp/x" || die "cannot unpack $name"
   [ -f "$tmp/x/$top/bin/noqtis" ] || die "$name has no bin/noqtis"
 
+  step "Install into $prefix"
   # 5. into the prefix: the library, header and pages first, the command last
   mkdir -p "$prefix" 2>/dev/null && [ -w "$prefix" ] ||
     die "cannot write to $prefix; choose another with --prefix or NOQTIS_PREFIX (this script never uses sudo)"
@@ -274,7 +323,16 @@ nqmain() {
       cp -RP "$tmp/x/$top/$d/." "$prefix/$d/" || die "copy into $prefix/$d failed"
     fi
   done
-  say "installed noqtis $ver ($target) into $prefix"
+  if [ "$nqtty" = 1 ]; then
+    printf '\n\033[1m %-40s %-10s %s\033[0m\n' File Size Check >&2
+    printf ' %-40s %-10s %s\n' SHA256SUMS "$(hsize "$tmp/SHA256SUMS")" \
+      "signature: see step 2" "$name" "$(hsize "$tmp/$name")" \
+      "SHA-256 matches" >&2
+    printf '\n\033[1;32m noqtis %s\033[0m (%s) installed into %s\n' \
+      "$ver" "$target" "$prefix" >&2
+  else
+    say "installed noqtis $ver ($target) into $prefix"
+  fi
   "$prefix/bin/noqtis" version >&2 || die "the installed noqtis does not run"
   case ":${PATH:-}:" in
     *":$prefix/bin:"*) ;;

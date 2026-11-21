@@ -36,16 +36,47 @@ function Install-Noqtis {
   $issuer = 'https://token.actions.githubusercontent.com'
   $script:nqCopied = $false
 
-  function Say([string]$m) { [Console]::Error.WriteLine("noqtis install: $m") }
+  # In a console the steps are numbered, results are marked and coloured,
+  # the archive shows PowerShell's progress bar and a table sums the files
+  # up; redirected or with NO_COLOR set every line is plain
+  # "noqtis install: ..." text, as it always was.
+  $script:nqTty = (-not [Console]::IsErrorRedirected) -and (-not $env:NO_COLOR)
+  $script:nqStep = 0
+  function Mark([string]$tag, [string]$colour, [string]$m) {
+    [Console]::ForegroundColor = $colour
+    [Console]::Error.Write($tag)
+    [Console]::ResetColor()
+    [Console]::Error.WriteLine(" $m")
+  }
+  function Say([string]$m) {
+    if (-not $script:nqTty) { [Console]::Error.WriteLine("noqtis install: $m"); return }
+    if ($m -match 'NOT checked|not checked| not the one in ') { Mark '   note' 'Yellow' $m }
+    elseif ($m -match ': good| matches ') { Mark '     ok' 'Green' $m }
+    else { [Console]::Error.WriteLine("        $m") }
+  }
+  # Step <title> [plain line]: one of the five steps; the plain line is
+  # what is said where there is no console
+  function Step([string]$title, [string]$plain = '') {
+    $script:nqStep++
+    if ($script:nqTty) { Mark "[$($script:nqStep)/5]" 'White' $title }
+    elseif ($plain) { Say $plain }
+  }
+  function Get-Size([string]$path) {
+    $b = (Get-Item -LiteralPath $path).Length
+    if ($b -ge 1MB) { return ('{0:N1} MiB' -f ($b / 1MB)) }
+    if ($b -ge 1KB) { return ('{0:N1} KiB' -f ($b / 1KB)) }
+    return "$b B"
+  }
   function Fail([string]$m) {
     if ($script:nqCopied) { $tail = 'the install into the prefix may be incomplete' }
     else { $tail = 'nothing was installed' }
     throw "noqtis install: error: $m; $tail"
   }
-  function Get-File([string]$url, [string]$dest) {
+  function Get-File([string]$url, [string]$dest, [switch]$Bar) {
     try {
       $old = $ProgressPreference
-      $ProgressPreference = 'SilentlyContinue'
+      # PowerShell's own progress bar, for the archive in a console only
+      if (-not ($Bar -and $script:nqTty)) { $ProgressPreference = 'SilentlyContinue' }
       # no redirects for plain http (localhost tests); GitHub's https
       # downloads redirect to their CDN
       if ($url -like 'http://*') {
@@ -115,7 +146,7 @@ function Install-Noqtis {
   try {
     # 2. the sums, and their signature
     $sums = Join-Path $tmp 'SHA256SUMS'
-    Say "fetching $url/SHA256SUMS"
+    Step 'Fetch SHA256SUMS' "fetching $url/SHA256SUMS"
     if (-not (Get-File "$url/SHA256SUMS" $sums)) { Fail 'cannot download SHA256SUMS' }
     $table = @{}
     foreach ($line in Get-Content -LiteralPath $sums) {
@@ -137,6 +168,7 @@ function Install-Noqtis {
     }
     $want = $table[$name]
 
+    Step 'Check who signed it'
     $cosign = Get-Command cosign -ErrorAction SilentlyContinue
     if ($sigmode -eq '0') {
       Say 'NOQTIS_COSIGN=0: the Sigstore signature of SHA256SUMS is NOT checked'
@@ -185,8 +217,8 @@ function Install-Noqtis {
 
     # 3. the archive, checked before anything else touches it
     $zip = Join-Path $tmp $name
-    Say "fetching $url/$name"
-    if (-not (Get-File "$url/$name" $zip)) { Fail "cannot download $name" }
+    Step "Fetch $name" "fetching $url/$name"
+    if (-not (Get-File "$url/$name" $zip -Bar)) { Fail "cannot download $name" }
     $got = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
     if ($got -ne $want) {
       Say "SHA256SUMS says $want"
@@ -195,6 +227,7 @@ function Install-Noqtis {
     }
     Say "SHA-256 of $name matches SHA256SUMS"
 
+    Step 'Check and unpack'
     # 4. every entry inside noqtis-<version>-<target>/, no absolute or ..
     $top = "noqtis-$ver-$target"
     Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -219,6 +252,7 @@ function Install-Noqtis {
       Fail "$name has no bin\noqtis.exe"
     }
 
+    Step "Install into $prefix"
     # 5. into the prefix: the library, header and pages first, the command last
     try {
       New-Item -ItemType Directory -Force -Path $prefix | Out-Null
@@ -243,7 +277,18 @@ function Install-Noqtis {
         }
       }
     }
-    Say "installed noqtis $ver ($target) into $prefix"
+    if ($script:nqTty) {
+      [Console]::Error.WriteLine('')
+      [Console]::Error.WriteLine((' {0,-40} {1,-10} {2}' -f 'File', 'Size', 'Check'))
+      [Console]::Error.WriteLine((' {0,-40} {1,-10} {2}' -f 'SHA256SUMS',
+          (Get-Size (Join-Path $tmp 'SHA256SUMS')), 'signature: see step 2'))
+      [Console]::Error.WriteLine((' {0,-40} {1,-10} {2}' -f $name, (Get-Size $zip),
+          'SHA-256 matches'))
+      [Console]::Error.WriteLine('')
+      Mark " noqtis $ver" 'Green' "($target) installed into $prefix"
+    } else {
+      Say "installed noqtis $ver ($target) into $prefix"
+    }
     $exe = Join-Path $prefix 'bin\noqtis.exe'
     if ($target -eq 'windows-arm64' -and $arch -notmatch '^(Arm64|ARM64)$') {
       Say 'ARM64 build on a non-ARM64 machine: not run'
