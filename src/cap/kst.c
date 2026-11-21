@@ -598,6 +598,8 @@ int nqksadd(const char *dir, int kem, int alg, const uint8_t *pk,
   if (dir == NULL || pk == NULL || (card == NULL && cardlen != 0) ||
       (kem != 0 && kem != 1))
     return NQEARG;
+  memset(&sz, 0, sizeof sz);
+  memset(&kz, 0, sizeof kz);
   if (kem ? nqksize((nqkalg)alg, &kz) != NQOK
           : nqssize((nqsalg)alg, &sz) != NQOK)
     return NQENOSUP;

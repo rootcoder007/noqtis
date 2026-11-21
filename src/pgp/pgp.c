@@ -1798,12 +1798,14 @@ int nqpgpvrfy(const uint8_t *cert, size_t cn, const uint8_t *sig, size_t sn,
       nqdw cn2;
       ppkt k;
       size_t pi = 0;
+      memset(&k, 0, sizeof k);
       nqdwini(&cn2);
       rc = canontext(t.p, t.n, 1, 1, &cn2);
       if (rc == NQOK) rc = rdpkt(bin, e, &pi, &k);
       if (rc == NQOK) {
         psig sg;
         parts x;
+        memset(&sg, 0, sizeof sg);
         rc = k.type == TSIG ? sigread(&k, &sg) : NQEDEC;
         if (rc == NQOK && sg.type != 0x01) rc = NQEDEC;
         memset(&x, 0, sizeof x);

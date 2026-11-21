@@ -1508,7 +1508,7 @@ int nqsmsign(nqsalg alg, const uint8_t *sk, size_t sklen,
   nqcbuf e, b;
   uint8_t *cms = NULL, rnd[16];
   char bd[48];
-  size_t cc, cn = 0;
+  size_t cc = 0, cn = 0;
   nqhalg h = dalg(alg);
   int rc;
   if (outlen != NULL) *outlen = 0;
