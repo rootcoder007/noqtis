@@ -699,6 +699,11 @@ public final class Tests {
     ts.put("bundlesChains", More2::bundle);
     ts.put("envCommitCite", More2::record);
     ts.put("synthChunks", More2::more);
+    ts.put("armor", Extra::armor);
+    ts.put("mail", Extra::mail);
+    ts.put("pgp", Extra::pgp);
+    ts.put("keystore", Extra::keystore);
+    ts.put("token", Extra::token);
     int bad = 0;
     for (var e : ts.entrySet()) {
       long t0 = System.nanoTime();
