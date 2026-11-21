@@ -133,6 +133,7 @@ int nccert(int argc, char **argv) {
   size_t icn = 0, cn = 0, pn = 0;
   long d = 730;
   int64_t now = ncnow();
+  int64_t nb;
   nqx5f f;
 
   if (ncargs("cert", argc, argv, o, sizeof o / sizeof o[0], &np, &help) !=
@@ -146,6 +147,10 @@ int nccert(int argc, char **argv) {
     ncmsg("cert", "%s", NCSDEBAD);
     return NCUSE;
   }
+  /* five minutes of grace for a reader whose clock is behind; a
+   * SOURCE_DATE_EPOCH in the first minutes of 1970 (some package builds
+   * set 0) starts at 0 */
+  nb = now > 300 ? now - 300 : 0;
   if (sh != NULL) {
     if (np != 0 || kp != NULL) {
       ncuse(stderr, "cert");
@@ -192,7 +197,7 @@ int nccert(int argc, char **argv) {
     }
     /* valid from five minutes ago: clocks differ */
     rc = nqx5self((nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n, name, email,
-                  now - 300, now + (int64_t)d * 86400, c, cn, &cn);
+                  nb, now + (int64_t)d * 86400, c, cn, &cn);
   } else {
     if (sigpair("cert", kp, &pwo, &sk, NULL) != NCOK ||
         nckrd("cert", kem, 0, &kk) != NCOK ||
@@ -204,7 +209,7 @@ int nccert(int argc, char **argv) {
       goto done;
     }
     rc = nqx5kem((nqsalg)sk.a.alg, sk.b, sk.n, ic, icn, (nqkalg)kk.a.alg,
-                 kk.b, kk.n, now - 300, now + (int64_t)d * 86400, c, cn, &cn);
+                 kk.b, kk.n, nb, now + (int64_t)d * 86400, c, cn, &cn);
   }
   if (rc != NQOK) {
     if (rc == NQENOSUP)

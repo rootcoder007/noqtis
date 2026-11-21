@@ -3025,6 +3025,10 @@ static void tpgp(void) {
 static void tsmime(void) {
   size_t n = 0;
   unsigned char *b;
+  /* certificates are checked against the clock: one made at a package
+   * build's SOURCE_DATE_EPOCH (Nix: 1980, melange: 0) has run out by
+   * now, so these runs take the real time */
+  sde(NULL);
   want(0, "cert -k q.sg -n \"Sig One\" -e one@example.org -o q.c1 --force",
        NULL);
   ok(has("q.c1", "-----BEGIN CERTIFICATE-----\n") &&
@@ -3056,6 +3060,10 @@ static void tsmime(void) {
   want(0, "cert -k q.sg -n \"Sig One\" -o q.cx --force", NULL);
   ok(has("q.out", "valid        2025-12-31T23:55:00Z to 2028-01-01T00:00:00Z"),
      "cert takes SOURCE_DATE_EPOCH");
+  sde("0");
+  want(0, "cert -k q.sg -n \"Sig One\" -o q.cx --force", NULL);
+  ok(has("q.out", "valid        1970-01-01T00:00:00Z to "),
+     "cert at SOURCE_DATE_EPOCH 0 starts at 0");
   sde("soon");
   want(2, "cert -k q.sg -n \"Sig One\" -o q.cx --force", NULL);
   ok(has("q.err", "SOURCE_DATE_EPOCH is not a number"),
