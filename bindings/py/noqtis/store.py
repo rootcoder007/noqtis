@@ -61,11 +61,12 @@ def _any(alg: AlgLike) -> Tuple[int, int]:
         return 1, find(alg, "kem").id
 
 
-def add(folder: _Dir, alg: AlgLike, pk: Bytes, name: str,
+def add(folder: _Dir, alg: AlgLike, pk: Bytes, name: Optional[str] = None,
         email: Optional[str] = None, card: Optional[Bytes] = None) -> bytes:
     """Puts the public key ``pk`` into the store in ``folder``, which
-    must exist, under ``name`` and ``email``; ``card`` is its identity
-    card. Returns the key's fingerprint."""
+    must exist, under ``name`` and ``email``. With ``card``, the key's
+    identity card, ``name`` and ``email`` are left out and the card says
+    who the key is. Returns the key's fingerprint."""
     kem, a = _any(alg)
     return _c.ksadd(path(folder), kem, a, buf(pk, "pk"), name, email,
                     opt(card, "card"))
@@ -116,9 +117,10 @@ def delete(folder: _Dir, fingerprint: Bytes) -> None:
 
 
 def export(folder: _Dir, fingerprint: Bytes) -> str:
-    """A bundle (text) of the key: the key, its name and address, its
-    identity card and the certifications of it, for another store to
-    import or to publish at its :func:`url`."""
+    """A bundle (text) of a signature key that has an identity card: the
+    card, then every other key it certified under its own name and
+    address, each with that certification. It is what another store
+    imports and what is published at its :func:`url`."""
     return _c.ksexp(path(folder), buf(fingerprint, "fingerprint")).decode()
 
 

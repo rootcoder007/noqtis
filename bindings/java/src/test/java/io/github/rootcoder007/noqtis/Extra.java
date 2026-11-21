@@ -120,10 +120,20 @@ final class Extra {
   static void keystore() throws Exception {
     KeyStore ks = new KeyStore(mk("nqjks"));
     Sign.KeyPair me = Sign.keygen("ML-DSA-44");
+    Sign.KeyPair mykem = Kem.keygen("ML-KEM-768");
     Sign.KeyPair bob = Kem.keygen("ML-KEM-768");
-    byte[] mine = ks.add("ML-DSA-44", me.pk(), "Me Myself", "me@example.org", null);
+    byte[] card =
+        IdCard.make(
+            "ML-DSA-44",
+            me.sk(),
+            me.pk(),
+            IdCard.Fields.of("Me Myself").withEmail("me@example.org"),
+            T0);
+    // my signature key by its card, my KEM key under the same name
+    byte[] mine = ks.add("ML-DSA-44", me.pk(), null, null, card);
+    byte[] own = ks.add("ML-KEM-768", mykem.pk(), "Me Myself", "me@example.org", null);
     byte[] his = ks.add("ML-KEM-768", bob.pk(), "Bob Other", "bob@example.org", null);
-    ok(mine.length == 32 && ks.list(null).size() == 2, "two keys");
+    ok(mine.length == 32 && ks.list(null).size() == 3, "three keys");
     List<KeyStore.Key> l = ks.list("bob@example.org");
     ok(l.size() == 1 && l.get(0).kem() && l.get(0).alg().equals("ML-KEM-768"), "found by address");
     eq(l.get(0).valid(), KeyStore.VALID_NONE, "not yet valid");
@@ -133,13 +143,16 @@ final class Extra {
     ok(!ks.certify("ML-DSA-44", me.sk(), me.pk(), his, T0).isEmpty(), "certify");
     l = ks.list("bob@example.org");
     ok(l.get(0).valid() == KeyStore.VALID_FULL && l.get(0).certs() == 1, "valid once certified");
-    String bundle = ks.export(his);
+    ks.certify("ML-DSA-44", me.sk(), me.pk(), own, T0);
+    // a bundle carries my card and my KEM key to another store
+    String bundle = ks.export(mine);
+    eq(fails(() -> ks.export(his)), Code.ARG, "a key without a card has no bundle");
     KeyStore other = new KeyStore(mk("nqjks2"));
-    KeyStore.Imported im = other.imports(bundle, "bob@example.org");
-    ok(im.keys() >= 1 && Arrays.equals(im.fingerprint(), his), "import");
+    KeyStore.Imported im = other.imports(bundle, "me@example.org");
+    ok(im.keys() == 2 && Arrays.equals(im.fingerprint(), mine), "import");
     ok(fails(() -> other.imports(bundle, "eve@example.org")) != null, "another address");
     ks.delete(his);
-    eq(ks.list(null).size(), 1, "after delete");
+    eq(ks.list(null).size(), 2, "after delete");
     eq(fails(() -> ks.trust(new byte[5], KeyStore.TRUST_FULL)), Code.ARG, "a short fingerprint");
     ok(
         KeyStore.url("Ada@Example.org").startsWith("https://example.org/.well-known/noqtis/"),

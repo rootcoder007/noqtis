@@ -1922,7 +1922,9 @@ static SEXP Cksadd(SEXP dir, SEXP kem, SEXP alg, SEXP pk, SEXP name,
   int rc;
   chkraw(pk, "pk", 0);
   chkraw(card, "card", 1);
-  if (n == NULL) Rf_error("'name' must be one string");
+  /* a key with a card is named by the card */
+  if (n == NULL && card == R_NilValue)
+    Rf_error("'name' must be one string");
   rc = nqksadd(d, lval(kem, "kem"), ival(alg, "alg"), rp(pk), rn(pk), n, e,
                (const char *)rp(card), rn(card), fp);
   if (rc != NQOK) fail(rc, "nqksadd");

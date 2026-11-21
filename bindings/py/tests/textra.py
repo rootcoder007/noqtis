@@ -61,8 +61,8 @@ def test_cms_sign(certs, detached):
     assert out == msg and who.name == "Ada Example"
     with pytest.raises(noqtis.VerifyError):
         mail.cmsverify(s, [kc], msg=m, at=T0 + 3600)
-    with pytest.raises(noqtis.VerifyError):
-        mail.cmsverify(s, [], msg=m, at=T0 + 3600)
+    with pytest.raises(noqtis.ArgError):
+        mail.cmsverify(s, [], msg=m, at=T0 + 3600)  # nothing is trusted
 
 
 def test_cms_encrypt(certs):
@@ -141,10 +141,14 @@ def test_store(tmp_path):
     d = tmp_path / "keys"
     d.mkdir()
     pk, sk = sign.keygen("ML-DSA-44")
+    kpk, _ = kem.keygen("ML-KEM-768")
     pk2, _ = kem.keygen("ML-KEM-768")
-    me = store.add(d, "ML-DSA-44", pk, "Me Myself", "me@example.org")
+    card = noqtis.idcard(sk, pk, "Me Myself", email="me@example.org", at=T0)
+    # my signature key by its card, my KEM key under the same name
+    me = store.add(d, "ML-DSA-44", pk, card=card)
+    own = store.add(d, "ML-KEM-768", kpk, "Me Myself", "me@example.org")
     bob = store.add(d, "ML-KEM-768", pk2, "Bob Other", "bob@example.org")
-    assert len(me) == 32 and len(store.keys(d)) == 2
+    assert len(me) == 32 and len(store.keys(d)) == 3
     ks = store.keys(d, "bob@example.org")
     assert len(ks) == 1 and ks[0].kem and ks[0].alg == "ML-KEM-768"
     assert ks[0].valid == store.VALID_NONE and ks[0].fingerprint == bob
@@ -154,15 +158,19 @@ def test_store(tmp_path):
     assert c
     ks = store.keys(d, "bob@example.org")
     assert ks[0].valid == store.VALID_FULL and ks[0].certs == 1
-    b = store.export(d, bob)
+    store.certify(d, "ML-DSA-44", sk, pk, own, at=T0)
+    # a bundle carries my card and my KEM key to another store
+    b = store.export(d, me)
+    with pytest.raises(noqtis.ArgError):
+        store.export(d, bob)  # a key without a card has no bundle
     d2 = tmp_path / "other"
     d2.mkdir()
-    fp, n = store.imports(d2, b, "bob@example.org")
-    assert fp == bob and n >= 1
+    fp, n = store.imports(d2, b, "me@example.org")
+    assert fp == me and n == 2
     with pytest.raises(noqtis.NoqtisError):
         store.imports(d2, b, "eve@example.org")
     store.delete(d, bob)
-    assert len(store.keys(d)) == 1
+    assert len(store.keys(d)) == 2
     with pytest.raises(noqtis.ArgError):
         store.trust(d, b"short", store.TRUST_FULL)
     assert store.url("Ada@Example.org").startswith(

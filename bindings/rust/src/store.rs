@@ -51,19 +51,20 @@ pub struct Key {
 }
 
 /// Puts the public key `pk` of `alg` into the store in the folder `dir`,
-/// which must exist, under `name` and `email`; `card` is its identity
-/// card. It gives the key's fingerprint.
+/// which must exist, under `name` and `email`. With `card`, the key's
+/// identity card, `name` and `email` are `None` and the card says who
+/// the key is. It gives the key's fingerprint.
 pub fn add(
     dir: &str,
     alg: &str,
     pk: &[u8],
-    name: &str,
+    name: Option<&str>,
     email: Option<&str>,
     card: Option<&[u8]>,
 ) -> Result<[u8; 32]> {
     let a = findalg(alg)?;
     let d = cs(dir, "the folder")?;
-    let n = cs(name, "the name")?;
+    let n = name.map(|n| cs(n, "the name")).transpose()?;
     let e = email.map(|e| cs(e, "the address")).transpose()?;
     let (cp, cl) = card.map_or((ptr::null(), 0), |c| (c.as_ptr() as *const c_char, c.len()));
     let mut fp = [0u8; 32];
@@ -75,7 +76,7 @@ pub fn add(
             a.id,
             pk.as_ptr(),
             pk.len(),
-            n.as_ptr(),
+            n.as_ref().map_or(ptr::null(), |n| n.as_ptr()),
             e.as_ref().map_or(ptr::null(), |e| e.as_ptr()),
             cp,
             cl,
@@ -190,9 +191,10 @@ pub fn delete(dir: &str, fp: &[u8; 32]) -> Result<()> {
     rc(unsafe { ffi::nqksdel(d.as_ptr(), fp.as_ptr()) })
 }
 
-/// A bundle (text) of the key `fp`: the key, its name and address, its
-/// identity card and the certifications of it, for another store to
-/// [`import`] or to publish at its [`url`].
+/// A bundle (text) of the signature key `fp`, which must have an
+/// identity card: the card, then every other key it certified under its
+/// own name and address, each with that certification. It is what
+/// another store [`import`]s and what is published at its [`url`].
 pub fn export(dir: &str, fp: &[u8; 32]) -> Result<String> {
     let d = cs(dir, "the folder")?;
     let mut n = 0usize;

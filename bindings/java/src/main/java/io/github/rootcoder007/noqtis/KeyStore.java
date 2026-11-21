@@ -142,9 +142,9 @@ public final class KeyStore {
    *
    * @param alg its algorithm, a signature or a KEM algorithm
    * @param pk the public key
-   * @param name the name to keep it under
+   * @param name the name to keep it under; null with card
    * @param email its address, or null
-   * @param card its identity card, or null
+   * @param card its identity card, which then says who the key is, or null
    * @return the key's fingerprint
    */
   public byte[] add(String alg, byte[] pk, String name, String email, byte[] card) {
@@ -159,7 +159,7 @@ public final class KeyStore {
                   a.id(),
                   Native.in(m, pk),
                   Mail.len(pk),
-                  Mail.cs(m, name == null ? "" : name, "name"),
+                  Mail.cs(m, name, "name"),
                   Mail.cs(m, email, "email"),
                   Native.in(m, card),
                   Mail.len(card),
@@ -309,9 +309,10 @@ public final class KeyStore {
   }
 
   /**
-   * A bundle of the key: the key, its name and address, its identity card
-   * and the certifications of it, for another store to import or to
-   * publish at its {@link #url}.
+   * A bundle of a signature key that has an identity card: the card,
+   * then every other key it certified under its own name and address,
+   * each with that certification. It is what another store imports and
+   * what is published at its {@link #url}.
    *
    * @param fingerprint the key
    * @return the bundle (text)

@@ -2858,14 +2858,15 @@ static PyObject *ppgpdearm(PyObject *self, PyObject *args) {
   return Py_BuildValue("(iN)", kind, xr);
 }
 
-/* ksadd(dir, kem, alg, pk, name, email or None, card or None) -> fp */
+/* ksadd(dir, kem, alg, pk, name or None, email or None, card or None)
+ * -> fp */
 static PyObject *pksadd(PyObject *self, PyObject *args) {
   const char *dir, *pk, *name, *email, *card = NULL;
   Py_ssize_t pkl, cl = 0;
   uint8_t fp[32];
   int kem, alg, rc;
   (void)self;
-  if (!PyArg_ParseTuple(args, "yiiy#szz#", &dir, &kem, &alg, &pk, &pkl, &name,
+  if (!PyArg_ParseTuple(args, "yiiy#zzz#", &dir, &kem, &alg, &pk, &pkl, &name,
                         &email, &card, &cl))
     return NULL;
   Py_BEGIN_ALLOW_THREADS

@@ -2,7 +2,7 @@
 //! Armor, certificates, CMS and S/MIME, OpenPGP, the key store, and (with
 //! NQTOKPATH naming the software token of tests/p11) keys on a token.
 
-use noqtis::{kem, mail, pgp, sign, store, token::Token, Code};
+use noqtis::{card, kem, mail, pgp, sign, store, token::Token, Code};
 
 const T0: i64 = 1767225600; // 2026-01-01T00:00:00Z
 const YEAR: i64 = 365 * 86400;
@@ -160,12 +160,20 @@ fn keystore() {
     std::fs::create_dir_all(base.join("a")).unwrap();
     std::fs::create_dir_all(base.join("b")).unwrap();
     let (pk, sk) = sign::keygen("ML-DSA-44", None).unwrap();
+    let (kpk, _) = kem::keygen("ML-KEM-768", None).unwrap();
     let (pk2, _) = kem::keygen("ML-KEM-768", None).unwrap();
-    let me = store::add(
+    let f = card::Fields {
+        email: Some("me@example.org"),
+        ..card::Fields::new("Me Myself")
+    };
+    let c = card::make("ML-DSA-44", &sk, &pk, &f, Some(T0)).unwrap();
+    // my signature key by its card, my KEM key under the same name
+    let me = store::add(&dir, "ML-DSA-44", &pk, None, None, Some(&c)).unwrap();
+    let own = store::add(
         &dir,
-        "ML-DSA-44",
-        &pk,
-        "Me Myself",
+        "ML-KEM-768",
+        &kpk,
+        Some("Me Myself"),
         Some("me@example.org"),
         None,
     )
@@ -174,12 +182,12 @@ fn keystore() {
         &dir,
         "ML-KEM-768",
         &pk2,
-        "Bob Other",
+        Some("Bob Other"),
         Some("bob@example.org"),
         None,
     )
     .unwrap();
-    assert_eq!(store::list(&dir, None).unwrap().len(), 2);
+    assert_eq!(store::list(&dir, None).unwrap().len(), 3);
     let ks = store::list(&dir, Some("bob@example.org")).unwrap();
     assert!(
         ks.len() == 1 && ks[0].kem && ks[0].alg == "ML-KEM-768" && ks[0].valid == store::VALID_NONE
@@ -188,16 +196,19 @@ fn keystore() {
     assert_eq!(alg, "ML-KEM-768");
     assert_eq!(got, pk2);
     store::trust(&dir, &me, store::TRUST_ULTIMATE).unwrap();
-    let c = store::certify(&dir, "ML-DSA-44", &sk, &pk, &bob, Some(T0)).unwrap();
-    assert!(!c.is_empty());
+    let cert = store::certify(&dir, "ML-DSA-44", &sk, &pk, &bob, Some(T0)).unwrap();
+    assert!(!cert.is_empty());
     let ks = store::list(&dir, Some("bob@example.org")).unwrap();
     assert!(ks[0].valid == store::VALID_FULL && ks[0].certs == 1);
-    let b = store::export(&dir, &bob).unwrap();
-    let (fp, n) = store::import(&dir2, &b, Some("bob@example.org")).unwrap();
-    assert!(n >= 1 && fp == bob);
+    store::certify(&dir, "ML-DSA-44", &sk, &pk, &own, Some(T0)).unwrap();
+    // a bundle carries my card and my KEM key to another store
+    let b = store::export(&dir, &me).unwrap();
+    assert_eq!(store::export(&dir, &bob).unwrap_err().kind(), Code::Arg);
+    let (fp, n) = store::import(&dir2, &b, Some("me@example.org")).unwrap();
+    assert!(n == 2 && fp == me);
     assert!(store::import(&dir2, &b, Some("eve@example.org")).is_err());
     store::delete(&dir, &bob).unwrap();
-    assert_eq!(store::list(&dir, None).unwrap().len(), 1);
+    assert_eq!(store::list(&dir, None).unwrap().len(), 2);
     let u = store::url("Ada@Example.org").unwrap();
     assert!(u.starts_with("https://example.org/.well-known/noqtis/"));
     assert_eq!(store::url("no address").unwrap_err().kind(), Code::Arg);

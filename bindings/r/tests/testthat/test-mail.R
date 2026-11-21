@@ -66,7 +66,8 @@ test_that("CMS signs and verifies against anchors", {
     expect_null(nqcmsverify(s, list(m$kc),
       msg = if (det) msg else NULL, at = mt0 + 3600
     ))
-    expect_null(nqcmsverify(s, list(),
+    # with no anchor nothing is trusted: an error, not a verdict
+    expect_error(nqcmsverify(s, list(),
       msg = if (det) msg else NULL, at = mt0 + 3600
     ))
   }

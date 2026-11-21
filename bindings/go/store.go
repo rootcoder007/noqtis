@@ -47,9 +47,9 @@ func fp32(m *cmem, fp []byte) (*C.uint8_t, error) {
 }
 
 // StoreAdd puts the public key pk of alg into the key store in the
-// folder dir, which must exist, under name and, when not "", email;
-// card, when not nil, is its identity card. It returns the key's
-// fingerprint.
+// folder dir, which must exist, under name and, when not "", email. With
+// card, the key's identity card, name and email are "" and the card
+// says who the key is. It returns the key's fingerprint.
 func StoreAdd(dir, alg string, pk []byte, name, email string, card []byte) ([]byte, error) {
 	a, err := Find(alg)
 	if err != nil {
@@ -61,11 +61,12 @@ func StoreAdd(dir, alg string, pk []byte, name, email string, card []byte) ([]by
 	if err != nil {
 		return nil, err
 	}
-	cn, err := m.str(name)
-	if err != nil {
-		return nil, err
+	var cn, ce *C.char
+	if name != "" {
+		if cn, err = m.str(name); err != nil {
+			return nil, err
+		}
 	}
-	var ce *C.char
 	if email != "" {
 		if ce, err = m.str(email); err != nil {
 			return nil, err
@@ -240,9 +241,10 @@ func StoreDelete(dir string, fp []byte) error {
 	return rc(C.nqksdel(cd, cf))
 }
 
-// StoreExport is a bundle (text) of the key fp: the key, its name and
-// address, its identity card and the certifications of it, for another
-// store to import or to publish for KeyURL.
+// StoreExport is a bundle (text) of the signature key fp, which must
+// have an identity card: the card, then every other key it certified
+// under its own name and address, each with that certification. It is
+// what another store imports and what is published for KeyURL.
 func StoreExport(dir string, fp []byte) (string, error) {
 	var m cmem
 	defer m.free()

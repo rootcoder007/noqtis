@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { init, armor, mail, pgp, keystore, sign, kem, codes, NoqtisError }
-  from '../lib/main.js';
+import { init, armor, mail, pgp, keystore, idcard, sign, kem, codes,
+  NoqtisError } from '../lib/main.js';
 
 await init();
 
@@ -68,7 +68,7 @@ test('CMS signs, verifies against anchors, and encrypts', () => {
     assert.deepEqual(v.content, msg);
     assert.equal(v.signer.name, 'Ada Example');
     assert.equal(mail.cmsVerify(s, [m.kc], o), null);
-    assert.equal(mail.cmsVerify(s, [], o), null);
+    assert.throws(() => mail.cmsVerify(s, [], o), err(codes.EARG));
   }
   const e = mail.cmsEncrypt([m.kc], msg);
   assert.deepEqual(mail.cmsDecrypt('ML-KEM-768', m.e.secretKey, e,
@@ -147,16 +147,22 @@ test('OpenPGP keys, signatures and messages', () => {
 
 test('a key store keeps, certifies and carries keys', () => {
   const me = sign.keygen('ML-DSA-44');
+  const mykem = kem.keygen('ML-KEM-768');
   const bob = kem.keygen('ML-KEM-768');
-  let r = keystore.add(null, 'ML-DSA-44', me.publicKey, 'Me Myself',
-    { email: 'me@example.org' });
+  const card = idcard.make('ML-DSA-44', me.secretKey, me.publicKey,
+    { name: 'Me Myself', email: 'me@example.org' }, { at: T0 });
+  // my signature key by its card, my KEM key under the same name
+  let r = keystore.add(null, 'ML-DSA-44', me.publicKey, undefined, { card });
   const mine = r.fingerprint;
+  r = keystore.add(r.files, 'ML-KEM-768', mykem.publicKey, 'Me Myself',
+    { email: 'me@example.org' });
+  const own = r.fingerprint;
   r = keystore.add(r.files, 'ML-KEM-768', bob.publicKey, 'Bob Other',
     { email: 'bob@example.org' });
   const his = r.fingerprint;
   let files = r.files;
   assert.equal(mine.length, 32);
-  assert.equal(keystore.list(files).length, 2);
+  assert.equal(keystore.list(files).length, 3);
   let l = keystore.list(files, 'bob@example.org');
   assert.equal(l.length, 1);
   assert.equal(l[0].alg, 'ML-KEM-768');
@@ -175,15 +181,19 @@ test('a key store keeps, certifies and carries keys', () => {
   l = keystore.list(files, 'bob@example.org');
   assert.equal(l[0].valid, 'full');
   assert.equal(l[0].certs, 1);
-  const bundle = keystore.export(files, his);
-  const im = keystore.import(null, bundle, { email: 'bob@example.org' });
-  assert.deepEqual(im.fingerprint, his);
-  assert.ok(im.keys >= 1);
-  assert.equal(keystore.list(im.files).length, im.keys);
+  files = keystore.certify(files, 'ML-DSA-44', me.secretKey, me.publicKey,
+    own, { at: T0 }).files;
+  // a bundle carries my card and my KEM key to another store
+  const bundle = keystore.export(files, mine);
+  assert.throws(() => keystore.export(files, his), err(codes.EARG));
+  const im = keystore.import(null, bundle, { email: 'me@example.org' });
+  assert.deepEqual(im.fingerprint, mine);
+  assert.equal(im.keys, 2);
+  assert.equal(keystore.list(im.files).length, 2);
   assert.throws(() => keystore.import(null, bundle,
     { email: 'eve@example.org' }), NoqtisError);
   files = keystore.remove(files, his).files;
-  assert.equal(keystore.list(files).length, 1);
+  assert.equal(keystore.list(files).length, 2);
   assert.throws(() => keystore.trust(files, new Uint8Array(5), 'full'),
     err(codes.EARG));
   assert.throws(() => keystore.trust(files, mine, 'somewhat'),

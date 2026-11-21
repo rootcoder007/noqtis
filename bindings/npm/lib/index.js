@@ -3205,8 +3205,9 @@ export const keystore = Object.freeze({
    * A store of other people's public keys, as files in memory (a Map or
    * an object of path to bytes; null or {} for a new store): every call
    * that changes it returns the new files as `files`, to keep. add()
-   * puts the public key in under `name`, `opts.email` and `opts.card`
-   * (its identity card), and returns { files, fingerprint }.
+   * puts the public key in under `name` and `opts.email`, or with
+   * `opts.card` (its identity card; `name` is then undefined) under what
+   * the card says, and returns { files, fingerprint }.
    */
   add(files, alg, publicKey, name, opts = {}) {
     const pk = key(publicKey, 'publicKey');
@@ -3335,9 +3336,10 @@ export const keystore = Object.freeze({
   },
 
   /**
-   * A bundle (text) of the key: the key, its name and address, its
-   * identity card and the certifications of it, for another store to
-   * import or to publish at its url().
+   * A bundle (text) of a signature key that has an identity card: the
+   * card, then every other key it certified under its own name and
+   * address, each with that certification. It is what another store
+   * imports and what is published at its url().
    */
   export(files, fingerprint) {
     const fp = fp32(fingerprint);

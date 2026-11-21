@@ -8,8 +8,9 @@
 #' `nqksget()` gives a key back; `nqkscertify()` signs that a key
 #' belongs to its name; `nqksaddcert()` takes a certification someone
 #' else made; `nqkstrust()` sets the trust in an owner; `nqksdel()`
-#' removes a key; `nqksexport()` and `nqksimport()` carry a key with its
-#' certifications from one store to another; `nqksurl()` is where the
+#' removes a key; `nqksexport()` and `nqksimport()` carry a signature key
+#' with its identity card, and the keys it certified as its own, from one
+#' store to another; `nqksurl()` is where the
 #' keys of an address are looked for.
 #'
 #' A key is valid when its owner is trusted `"ultimate"` (the store
@@ -21,11 +22,13 @@
 #' @param pk A public key, a raw vector; for `nqkscertify()`, the public
 #'   key of `sk`.
 #' @param alg The algorithm of the key.
-#' @param name The name to keep the key under.
+#' @param name The name to keep the key under; `NULL` with `card`, which
+#'   then says who the key is.
 #' @param email Its address, or `NULL`. For `nqksimport()`, the address
 #'   the keys of the bundle must be for, or `NULL`; for `nqksurl()`, the
 #'   address to look up.
-#' @param card Its identity card ([nqidcard()]), or `NULL`.
+#' @param card Its identity card ([nqidcard()]), or `NULL`. A key added
+#'   with its card takes its name and address from the card.
 #' @param query `NULL` for every key, or a name, an address or the start
 #'   of a fingerprint in hexadecimal.
 #' @param fingerprint The key: a raw vector of 32 bytes (SHA-256 of the
@@ -53,7 +56,8 @@
 #' dir.create(d)
 #' me <- nqkeygen("ML-DSA-44")
 #' bob <- nqkeygen("ML-KEM-768")
-#' mine <- nqksadd(d, me$pk, "ML-DSA-44", "Me", "me@example.org")
+#' card <- nqidcard(me$sk, me$pk, "ML-DSA-44", "Me", email = "me@example.org")
+#' mine <- nqksadd(d, me$pk, "ML-DSA-44", card = card)
 #' his <- nqksadd(d, bob$pk, "ML-KEM-768", "Bob", "bob@example.org")
 #' nqkstrust(d, mine, "ultimate")
 #' cert <- nqkscertify(d, me$sk, me$pk, "ML-DSA-44", his)
@@ -61,14 +65,14 @@
 #' nqksurl("bob@example.org")
 #' unlink(d, recursive = TRUE)
 #' @export
-nqksadd <- function(dir, pk, alg, name, email = NULL, card = NULL) {
+nqksadd <- function(dir, pk, alg, name = NULL, email = NULL, card = NULL) {
   type <- .kind(alg)
   a <- .alg(alg, type)
   .rawarg(pk, "pk")
   if (!is.null(card)) .rawarg(card, "card")
   .Call(
     Cksadd, .ksdir(dir), type == "kem", a$id, pk,
-    .str1(name, "name", FALSE), .str1(email, "email"), card
+    .str1(name, "name", !is.null(card)), .str1(email, "email"), card
   )
 }
 

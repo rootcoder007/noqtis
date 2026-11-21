@@ -466,7 +466,8 @@ export interface StoreKey {
 
 export const keystore: {
   add(files: StoreFiles, alg: SignAlg | KemAlg, publicKey: Bytes,
-    name: string, opts?: { email?: string | null; card?: Data | null }):
+    name: string | undefined,
+    opts?: { email?: string | null; card?: Data | null }):
     { files: Map<string, Bytes>; fingerprint: Bytes };
   list(files: StoreFiles, query?: string | null): StoreKey[];
   get(files: StoreFiles, fingerprint: Bytes | string):

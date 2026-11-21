@@ -20,7 +20,6 @@ OBJECTS = \
   box/km.o \
   box/ks.o \
   box/pw.o \
-  cap/arm.o \
   cap/chk.o \
   cap/dsse.o \
   cap/ers.o \
@@ -30,6 +29,7 @@ OBJECTS = \
   cap/kst.o \
   cap/misc.o \
   cap/mk.o \
+  cap/pem.o \
   cap/seal.o \
   cap/ts.o \
   cap/walk.o \

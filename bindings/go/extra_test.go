@@ -176,12 +176,25 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	kpk, _, err := KEMKeyGen("ML-KEM-768", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	pk2, _, err := KEMKeyGen("ML-KEM-768", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	me, err := StoreAdd(dir, "ML-DSA-44", pk, "Me Myself", "me@example.org", nil)
+	card, err := MakeCard("ML-DSA-44", sk, pk, CardFields{Name: "Me Myself", Email: "me@example.org"}, t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// my signature key by its card, my KEM key under the same name
+	me, err := StoreAdd(dir, "ML-DSA-44", pk, "", "", card)
 	if err != nil || len(me) != 32 {
+		t.Fatal(err)
+	}
+	own, err := StoreAdd(dir, "ML-KEM-768", kpk, "Me Myself", "me@example.org", nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 	bob, err := StoreAdd(dir, "ML-KEM-768", pk2, "Bob Other", "bob@example.org", nil)
@@ -189,7 +202,7 @@ func TestStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	ks, err := StoreList(dir, "")
-	if err != nil || len(ks) != 2 {
+	if err != nil || len(ks) != 3 {
 		t.Fatalf("StoreList: %+v %v", ks, err)
 	}
 	ks, err = StoreList(dir, "bob@example.org")
@@ -211,14 +224,20 @@ func TestStore(t *testing.T) {
 	if err != nil || len(ks) != 1 || ks[0].Valid != ValidFull || ks[0].Certs != 1 {
 		t.Fatalf("after certifying: %+v %v", ks, err)
 	}
-	// a bundle carries the key to another store
-	b, err := StoreExport(dir, bob)
+	if _, err := StoreCertify(dir, "ML-DSA-44", sk, pk, own, t0); err != nil {
+		t.Fatal(err)
+	}
+	// a bundle carries my card and my KEM key to another store
+	b, err := StoreExport(dir, me)
 	if err != nil || b == "" {
 		t.Fatalf("StoreExport: %v", err)
 	}
+	if _, err := StoreExport(dir, bob); !errors.Is(err, ErrArg) {
+		t.Fatalf("a key without a card has no bundle: %v", err)
+	}
 	dir2 := t.TempDir()
-	fp, n, err := StoreImport(dir2, b, "bob@example.org")
-	if err != nil || n < 1 || !bytes.Equal(fp, bob) {
+	fp, n, err := StoreImport(dir2, b, "me@example.org")
+	if err != nil || n != 2 || !bytes.Equal(fp, me) {
 		t.Fatalf("StoreImport: %x %d %v", fp, n, err)
 	}
 	if _, _, err := StoreImport(dir2, b, "eve@example.org"); err == nil {
@@ -227,15 +246,8 @@ func TestStore(t *testing.T) {
 	if err := StoreDelete(dir, bob); err != nil {
 		t.Fatal(err)
 	}
-	if ks, _ := StoreList(dir, ""); len(ks) != 1 {
+	if ks, _ := StoreList(dir, ""); len(ks) != 2 {
 		t.Fatalf("after delete: %+v", ks)
-	}
-	if _, err := StoreAdd(dir, "ML-DSA-44", pk, "X", "", nil); err == nil {
-		// the same key under another name replaces or refuses; either
-		// way the store still lists one key of that fingerprint
-		if ks, _ := StoreList(dir, ""); len(ks) != 1 {
-			t.Fatalf("a key twice: %+v", ks)
-		}
 	}
 	u, err := KeyURL("Ada@Example.org")
 	if err != nil || !strings.HasPrefix(u, "https://example.org/.well-known/noqtis/") {
