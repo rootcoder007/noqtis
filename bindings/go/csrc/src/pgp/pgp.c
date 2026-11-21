@@ -349,13 +349,66 @@ static int hkdf(const uint8_t *salt, size_t sn, const uint8_t *ikm, size_t in,
   return rc;
 }
 
-/* the key of a passphrase: Argon2id, as the S2K specifier s (20 bytes)
- * says (section 3.7.1.4) */
+/* the key of a passphrase by one of the hashed S2K specifiers (section
+ * 3.7.1.1 to 3.7.1.3): simple, salted, or iterated and salted, with
+ * SHA2-256, -384 or -512. For a key longer than the digest, further
+ * contexts are preloaded with zero octets. */
+static int s2khash(const uint8_t *s, size_t sn, const uint8_t *pw,
+                   size_t pwn, uint8_t *out, size_t on) {
+  static const uint8_t zero[4] = {0, 0, 0, 0};
+  nqhalg h;
+  nqhctx c;
+  const uint8_t *salt = NULL;
+  uint8_t dig[64];
+  uint64_t total, left;
+  size_t need = s[0] == 0 ? 2 : s[0] == 1 ? 10 : 11, sl = 0, hl, o = 0, k;
+  unsigned ctx = 0;
+  if (sn != need) return NQEDEC;
+  /* SHA-1, MD5 and RIPEMD-160 specifiers are older than version 6 */
+  if (s[1] != 8 && s[1] != 9 && s[1] != 10) return NQENOSUP;
+  (void)hashof(s[1], &h);
+  hl = nqhlen(h);
+  if (s[0] != 0) {
+    salt = s + 2;
+    sl = 8;
+  }
+  total = sl + pwn;
+  if (s[0] == 3) {
+    uint64_t cnt = ((uint64_t)16 + (s[10] & 15)) << ((s[10] >> 4) + 6);
+    if (cnt > total) total = cnt;
+  }
+  while (o < on) {
+    if (ctx > 3) return NQEDEC;
+    nqhini(&c, h);
+    if (ctx > 0) nqhupd(&c, zero, ctx);
+    /* the salt and the passphrase, over and over, cut at the count */
+    for (left = total; left > 0;) {
+      k = left < sl ? (size_t)left : sl;
+      if (k > 0) nqhupd(&c, salt, k);
+      left -= k;
+      k = left < pwn ? (size_t)left : pwn;
+      if (k > 0) nqhupd(&c, pw, k);
+      left -= k;
+      if (sl + pwn == 0) break;
+    }
+    nqhfin(&c, dig, hl);
+    k = on - o < hl ? on - o : hl;
+    memcpy(out + o, dig, k);
+    o += k;
+    ctx++;
+  }
+  nqwipe(dig, sizeof dig);
+  return NQOK;
+}
+
+/* the key of a passphrase, as the S2K specifier s says: Argon2id
+ * (section 3.7.1.4), or one of the hashed ones */
 static int s2k(const uint8_t *s, size_t sn, const uint8_t *pw, size_t pwn,
                uint8_t *out, size_t on) {
   uint32_t t, p, m;
-  /* the older specifiers hash with SHA-1 or MD5, or iterate one hash */
-  if (sn < 1) return NQEDEC;
+  if (sn < 2) return NQEDEC;
+  if (s[0] == 0 || s[0] == 1 || s[0] == 3)
+    return s2khash(s, sn, pw, pwn, out, on);
   if (s[0] != 4) return NQENOSUP;
   if (sn != 20) return NQEDEC;
   t = s[17];
