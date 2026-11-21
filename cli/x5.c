@@ -132,7 +132,7 @@ int nccert(int argc, char **argv) {
   char *pem = NULL;
   size_t icn = 0, cn = 0, pn = 0;
   long d = 730;
-  int64_t now = (int64_t)time(NULL);
+  int64_t now = ncnow();
   nqx5f f;
 
   if (ncargs("cert", argc, argv, o, sizeof o / sizeof o[0], &np, &help) !=
@@ -141,6 +141,10 @@ int nccert(int argc, char **argv) {
   if (help) {
     ncuse(stdout, "cert");
     return NCOK;
+  }
+  if (now < 0) {
+    ncmsg("cert", "%s", NCSDEBAD);
+    return NCUSE;
   }
   if (sh != NULL) {
     if (np != 0 || kp != NULL) {
@@ -299,7 +303,12 @@ static int smsign(const char *kp, const ncpw *pwo, const char *cp,
   uint8_t *c = NULL, *b = NULL, *o = NULL;
   char *m = NULL;
   size_t cn = 0, bn = 0, mn = 0, cap, on = 0;
+  int64_t now = ncnow();
   int rc, ret = NCUSE;
+  if (now < 0) {
+    ncmsg("smime", "%s", NCSDEBAD);
+    return NCUSE;
+  }
   if (sigpair("smime", kp, pwo, &sk, NULL) != NCOK ||
       rdcert("smime", cp, &c, &cn) != NCOK)
     goto done;
@@ -315,7 +324,7 @@ static int smsign(const char *kp, const ncpw *pwo, const char *cp,
   }
   if (der) {
     rc = nqcmssign((nqsalg)sk.a.alg, sk.b, sk.n, c, cn, b, bn, detached,
-                   (int64_t)time(NULL), o, cap, &on);
+                   now, o, cap, &on);
   } else {
     if (entity) {
       m = (char *)malloc(bn > 0 ? bn : 1);
@@ -329,7 +338,7 @@ static int smsign(const char *kp, const ncpw *pwo, const char *cp,
       goto done;
     }
     rc = nqsmsign((nqsalg)sk.a.alg, sk.b, sk.n, c, cn, m, mn, detached,
-                  (int64_t)time(NULL), (char *)o, cap, &on);
+                  now, (char *)o, cap, &on);
   }
   if (rc != NQOK) {
     if (rc == NQEARG)

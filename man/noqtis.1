@@ -480,7 +480,15 @@ The time
 writes as the manifest's
 .Ql created ,
 for reproducible capsules (see
-.Xr noqtis-seal 1 ) .
+.Xr noqtis-seal 1 ) ,
+and the time
+.Cm cert ,
+.Cm smime sign ,
+.Cm keys certify
+and the
+.Cm pgp
+commands write as now: a number of seconds since 1970, up to the end
+of the year 9999.
 .El
 .Sh EXIT STATUS
 For every command (each page gives the details):

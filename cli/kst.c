@@ -174,6 +174,7 @@ static int certify(const char *dir, const char *kp, const ncpw *pwo,
   uint8_t *pw = NULL;
   size_t pn = 0, l, cn = 0;
   char *pp = NULL, *c = NULL;
+  int64_t now;
   int rc, ret = NCUSE;
   if (one(dir, q, &e) != NCOK) return NCUSE;
   l = strlen(kp);
@@ -190,14 +191,19 @@ static int certify(const char *dir, const char *kp, const ncpw *pwo,
           sk.a.name);
     goto done;
   }
+  now = ncnow();
+  if (now < 0) {
+    ncmsg("keys", "%s", NCSDEBAD);
+    goto done;
+  }
   cn = (size_t)64 << 10;
   c = (char *)malloc(cn);
   if (c == NULL) {
     nclib("keys", "memory", NQEMEM);
     goto done;
   }
-  rc = nqkscert(dir, (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n, e.fp,
-                (int64_t)time(NULL), c, cn, &l);
+  rc = nqkscert(dir, (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n, e.fp, now, c,
+                cn, &l);
   if (rc != NQOK) {
     if (rc == NQEARG)
       ncmsg("keys", "%s and %s are not one key pair", kp, pp);

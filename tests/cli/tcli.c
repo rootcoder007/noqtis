@@ -3050,6 +3050,17 @@ static void tsmime(void) {
   want(2, "cert -k q.sg -o q.cx --force", NULL);
   want(2, "cert --show q.b1", NULL);
   want(2, "cert --show q.none", NULL);
+  /* SOURCE_DATE_EPOCH is the time a certificate starts from (five
+   * minutes before it), and one seal refuses is refused here */
+  sde("1767225600");
+  want(0, "cert -k q.sg -n \"Sig One\" -o q.cx --force", NULL);
+  ok(has("q.out", "valid        2025-12-31T23:55:00Z to 2028-01-01T00:00:00Z"),
+     "cert takes SOURCE_DATE_EPOCH");
+  sde("soon");
+  want(2, "cert -k q.sg -n \"Sig One\" -o q.cx --force", NULL);
+  ok(has("q.err", "SOURCE_DATE_EPOCH is not a number"),
+     "cert names a SOURCE_DATE_EPOCH it refuses");
+  sde(NULL);
   want(0, "cert --help", NULL);
   /* signed, the content inside: every byte comes back */
   want(0, "smime sign -k q.sg --cert q.c1 -o q.m1 --force q.b4", NULL);
