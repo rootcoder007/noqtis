@@ -106,28 +106,23 @@ static int putpub(const char *dir, int kem, int alg, const uint8_t *pk,
   return rc;
 }
 
-/* reads F.pub: the algorithm and the key, whose SHA-256 must be F */
-static int getpub(const char *dir, const uint8_t fp[32], int *kem, int *alg,
-                  uint8_t *pk, size_t cap, size_t *pklen) {
-  char nm[80], an[64], *buf = NULL, *t = NULL;
-  size_t n = 0, i, o = 0, al;
-  uint8_t dg[32];
+/* a key file's text (n bytes): the algorithm and the key */
+static int parsepub(const char *buf, size_t n, int *kem, int *alg,
+                    uint8_t *pk, size_t cap, size_t *pklen) {
+  char an[64], *t = NULL;
+  size_t i, o = 0, al;
   nqsalg sa;
   nqkalg ka;
   const char *sp, *nl;
   int rc;
-  fname(fp, ".pub", nm);
-  rc = nqcread(dir, nm, PUBMAX, &buf, &n);
-  if (rc != NQOK) return rc;
-  rc = NQEDEC;
   if (n < sizeof KEYHDR || memcmp(buf, KEYHDR, sizeof KEYHDR - 1) != 0)
-    goto out;
+    return NQEDEC;
   nl = (const char *)memchr(buf, '\n', n);
-  if (nl == NULL) goto out;
+  if (nl == NULL) return NQEDEC;
   sp = buf + sizeof KEYHDR - 1;
   al = (size_t)(nl - sp);
   if (al < 5 || al - 4 >= sizeof an || memcmp(nl - 4, " pub", 4) != 0)
-    goto out;
+    return NQEDEC;
   memcpy(an, sp, al - 4);
   an[al - 4] = '\0';
   if (nqsfind(an, &sa) == NQOK) {
@@ -137,28 +132,35 @@ static int getpub(const char *dir, const uint8_t fp[32], int *kem, int *alg,
     *kem = 1;
     *alg = (int)ka;
   } else {
-    rc = NQENOSUP;
-    goto out;
+    return NQENOSUP;
   }
   t = (char *)nqmal(n + 1);
-  if (t == NULL) {
-    rc = NQEMEM;
-    goto out;
-  }
+  if (t == NULL) return NQEMEM;
   for (i = (size_t)(nl - buf) + 1; i < n; i++) {
     if (buf[i] != '\n' && buf[i] != '\r') t[o++] = buf[i];
   }
   rc = nqb64d(t, o, pk, cap, pklen);
-  if (rc == NQEBUF) goto out;
-  if (rc != NQOK) {
-    rc = NQEDEC;
-    goto out;
+  if (rc != NQOK && rc != NQEBUF) rc = NQEDEC;
+  nqfree(t, n + 1);
+  return rc;
+}
+
+/* reads F.pub: the algorithm and the key, whose SHA-256 must be F */
+static int getpub(const char *dir, const uint8_t fp[32], int *kem, int *alg,
+                  uint8_t *pk, size_t cap, size_t *pklen) {
+  char nm[80], *buf = NULL;
+  size_t n = 0;
+  uint8_t dg[32];
+  int rc;
+  fname(fp, ".pub", nm);
+  rc = nqcread(dir, nm, PUBMAX, &buf, &n);
+  if (rc != NQOK) return rc;
+  rc = parsepub(buf, n, kem, alg, pk, cap, pklen);
+  if (rc == NQOK) {
+    /* the file is the key its name says */
+    nqhash(NQS256, pk, *pklen, dg, 32);
+    if (memcmp(dg, fp, 32) != 0) rc = NQEDEC;
   }
-  /* the file is the key its name says */
-  nqhash(NQS256, pk, *pklen, dg, 32);
-  rc = memcmp(dg, fp, 32) == 0 ? NQOK : NQEDEC;
-out:
-  if (t != NULL) nqfree(t, n + 1);
   nqfree(buf, n + 1);
   return rc;
 }
@@ -770,5 +772,267 @@ int nqkscput(const char *dir, const char *cert, size_t n) {
   rc = nqcwrite(dir, nm, cert, n);
 done:
   nqjfree(v);
+  return rc;
+}
+
+/* ---- bundles: a key and what it vouches for as its own, to publish ---- */
+
+#define LCARD "NOQTIS IDENTITY CARD"
+#define LKEY "NOQTIS PUBLIC KEY"
+#define LCERT "NOQTIS CERTIFICATION"
+#define BNDMAX ((size_t)1 << 20)
+
+static int armput(nqcbuf *b, const char *label, const char *in, size_t n) {
+  size_t len = 0, got = 0;
+  char *t;
+  int rc = nqarmlen(label, n, &len);
+  if (rc != NQOK) return rc;
+  t = (char *)nqmal(len);
+  if (t == NULL) return NQEMEM;
+  rc = nqarmenc(label, (const uint8_t *)in, n, t, len, &got);
+  if (rc == NQOK) {
+    nqcput(b, t, got);
+    rc = b->err;
+  }
+  nqfree(t, len);
+  return rc;
+}
+
+int nqksurl(const char *email, char *url, size_t cap) {
+  static const char pre[] = "https://", mid[] = "/.well-known/noqtis/";
+  const char *at;
+  char lo[255], hx[65];
+  uint8_t d[32];
+  size_t n, ll, dl, i, need;
+  if (email == NULL || url == NULL) return NQEARG;
+  n = strlen(email);
+  if (n == 0 || n > 254 || !nqcdok("x", email)) return NQEARG;
+  at = strchr(email, '@');
+  ll = (size_t)(at - email);
+  dl = n - ll - 1;
+  /* the host goes into a URL: letters, digits, dots and hyphens only */
+  for (i = 0; i < dl; i++) {
+    int c = lower((unsigned char)at[1 + i]);
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' ||
+          c == '-'))
+      return NQEARG;
+  }
+  for (i = 0; i < ll; i++) lo[i] = (char)lower((unsigned char)email[i]);
+  nqhash(NQS256, (const uint8_t *)lo, ll, d, 32);
+  nqhex(d, 20, hx);
+  need = sizeof pre - 1 + dl + sizeof mid - 1 + 40 + 1;
+  if (need > cap) return NQEBUF;
+  memcpy(url, pre, sizeof pre - 1);
+  n = sizeof pre - 1;
+  for (i = 0; i < dl; i++) url[n++] = (char)lower((unsigned char)at[1 + i]);
+  memcpy(url + n, mid, sizeof mid - 1);
+  n += sizeof mid - 1;
+  memcpy(url + n, hx, 41);
+  return NQOK;
+}
+
+int nqksexp(const char *dir, const uint8_t fp[32], char *out, size_t cap,
+            size_t *outlen) {
+  store s;
+  nqcbuf b;
+  char nm[144], *buf = NULL;
+  size_t n = 0, me, j;
+  int rc;
+  if (outlen != NULL) *outlen = 0;
+  if (dir == NULL || fp == NULL || outlen == NULL ||
+      (out == NULL && cap != 0))
+    return NQEARG;
+  memset(&b, 0, sizeof b);
+  rc = load(dir, &s);
+  if (rc != NQOK) return rc;
+  me = idx(&s, fp);
+  if (me == s.n) {
+    rc = NQEIO;
+    goto done;
+  }
+  /* a bundle starts with the card: only a key that has one is published */
+  if (s.e[me].kem || !s.e[me].card) {
+    rc = NQEARG;
+    goto done;
+  }
+  fname(fp, ".card", nm);
+  rc = nqcread(dir, nm, NQCARDMAX, &buf, &n);
+  if (rc != NQOK) goto done;
+  rc = armput(&b, LCARD, buf, n);
+  nqfree(buf, n + 1);
+  buf = NULL;
+  /* then every other key it certified under its own name and address */
+  for (j = 0; j < s.nc && rc == NQOK; j++) {
+    size_t k;
+    if (memcmp(s.c[j].ifp, fp, 32) != 0 || memcmp(s.c[j].kfp, fp, 32) == 0)
+      continue;
+    k = idx(&s, s.c[j].kfp);
+    if (k == s.n || strcmp(s.e[k].name, s.e[me].name) != 0 ||
+        strcmp(s.e[k].email, s.e[me].email) != 0)
+      continue;
+    fname(s.e[k].fp, ".pub", nm);
+    rc = nqcread(dir, nm, PUBMAX, &buf, &n);
+    if (rc != NQOK) break;
+    rc = armput(&b, LKEY, buf, n);
+    nqfree(buf, n + 1);
+    buf = NULL;
+    if (rc != NQOK) break;
+    cname(s.e[k].fp, fp, nm);
+    rc = nqcread(dir, nm, CERTMAX, &buf, &n);
+    if (rc != NQOK) break;
+    rc = armput(&b, LCERT, buf, n);
+    nqfree(buf, n + 1);
+    buf = NULL;
+  }
+  if (rc != NQOK) goto done;
+  *outlen = b.n;
+  if (cap < b.n) {
+    rc = NQEBUF;
+    goto done;
+  }
+  if (b.n > 0) memcpy(out, b.p, b.n);
+done:
+  nqcbfree(&b);
+  sfree(&s);
+  return rc;
+}
+
+/* the next armor of a bundle at *at: its label, and its bytes in a new
+ * buffer of *cap bytes (nqfree); NQOK with *len, or NQEDEC. *at moves
+ * past it. */
+static int nextarm(const char *b, size_t n, size_t *at, char *label,
+                   char **out, size_t *cap, size_t *len) {
+  static const char endm[] = "\n-----END ";
+  size_t i = *at, e, sl;
+  int rc;
+  while (i < n && (b[i] == ' ' || b[i] == '\t' || b[i] == '\r' ||
+                   b[i] == '\n'))
+    i++;
+  /* the END line of this armor, and the end of that line */
+  for (e = i; e + sizeof endm - 1 <= n; e++) {
+    if (memcmp(b + e, endm, sizeof endm - 1) == 0) break;
+  }
+  if (e + sizeof endm - 1 > n) return NQEDEC;
+  e += sizeof endm - 1;
+  while (e < n && b[e] != '\n') e++;
+  if (e < n) e++;
+  sl = e - i;
+  *out = (char *)nqmal(sl + 1);
+  if (*out == NULL) return NQEMEM;
+  *cap = sl + 1;
+  rc = nqarmdec(b + i, sl, label, NQARMLAB, (uint8_t *)*out, sl, len);
+  if (rc != NQOK) {
+    nqfree(*out, *cap);
+    *out = NULL;
+    return rc == NQEMEM ? rc : NQEDEC;
+  }
+  *at = e;
+  return NQOK;
+}
+
+/* whether only space follows at */
+static int ended(const char *b, size_t n, size_t at) {
+  for (; at < n; at++) {
+    if (b[at] != ' ' && b[at] != '\t' && b[at] != '\r' && b[at] != '\n')
+      return 0;
+  }
+  return 1;
+}
+
+static int sameci(const char *a, const char *b) {
+  for (; *a != '\0' && *b != '\0'; a++, b++) {
+    if (lower((unsigned char)*a) != lower((unsigned char)*b)) return 0;
+  }
+  return *a == *b;
+}
+
+int nqksimp(const char *dir, const char *bundle, size_t n, const char *email,
+            uint8_t fp[32], size_t *nkeys) {
+  nqcardf *f = NULL;
+  char label[NQARMLAB], *a = NULL, *c = NULL, nm[144];
+  size_t at = 0, ac = 0, al = 0, cc = 0, cl = 0, count = 0;
+  uint8_t pk[PKMAX], kfp[32], cfp[32];
+  int rc;
+  if (nkeys != NULL) *nkeys = 0;
+  if (dir == NULL || bundle == NULL) return NQEARG;
+  if (n > BNDMAX) return NQELIM;
+  f = (nqcardf *)nqmal(sizeof *f);
+  if (f == NULL) return NQEMEM;
+  /* the card first: it says whose keys these are */
+  rc = nextarm(bundle, n, &at, label, &a, &ac, &al);
+  if (rc != NQOK) goto done;
+  if (strcmp(label, LCARD) != 0) {
+    rc = NQEDEC;
+    goto done;
+  }
+  rc = nqcardvrfy(a, al, NULL, 0, f);
+  if (rc != NQOK) goto done;
+  /* asked for an address: the card is that address's, or it is not
+   * the answer */
+  if (email != NULL && !sameci(email, f->email)) {
+    rc = NQEVRFY;
+    goto done;
+  }
+  rc = nqksadd(dir, 0, (int)f->alg, f->pk, f->pklen, NULL, NULL, a, al, cfp);
+  if (rc != NQOK) goto done;
+  count = 1;
+  nqfree(a, ac);
+  a = NULL;
+  /* then pairs: a key, and the card key's certification of it under
+   * the card's own name and address */
+  while (!ended(bundle, n, at)) {
+    nqjs *v = NULL;
+    certf cf;
+    size_t pl = 0;
+    int kem = 0, alg = 0;
+    rc = nextarm(bundle, n, &at, label, &a, &ac, &al);
+    if (rc != NQOK) goto done;
+    if (strcmp(label, LKEY) != 0) {
+      rc = NQEDEC;
+      goto done;
+    }
+    rc = parsepub(a, al, &kem, &alg, pk, sizeof pk, &pl);
+    if (rc != NQOK) {
+      if (rc == NQEBUF) rc = NQEDEC;
+      goto done;
+    }
+    nqhash(NQS256, pk, pl, kfp, 32);
+    rc = nextarm(bundle, n, &at, label, &c, &cc, &cl);
+    if (rc != NQOK) goto done;
+    if (strcmp(label, LCERT) != 0) {
+      rc = NQEDEC;
+      goto done;
+    }
+    rc = certread(c, cl, &v, &cf);
+    if (rc != NQOK) goto done;
+    if (memcmp(cf.ifp, cfp, 32) != 0 || memcmp(cf.kfp, kfp, 32) != 0 ||
+        cf.alg != f->alg || strcmp(cf.name, f->name) != 0 ||
+        strcmp(cf.email, f->email) != 0 ||
+        strcmp(cf.kan, kem ? nqkname((nqkalg)alg) : nqsname((nqsalg)alg)) !=
+            0)
+      rc = NQEVRFY;
+    else
+      rc = certvrfy(&cf, f->pk, f->pklen);
+    nqjfree(v);
+    if (rc != NQOK) goto done;
+    /* verified: the key goes in under the card's name, with it */
+    rc = nqksadd(dir, kem, alg, pk, pl, f->name,
+                 f->email[0] != '\0' ? f->email : NULL, NULL, 0, NULL);
+    if (rc != NQOK) goto done;
+    cname(kfp, cfp, nm);
+    rc = nqcwrite(dir, nm, c, cl);
+    if (rc != NQOK) goto done;
+    count++;
+    nqfree(a, ac);
+    a = NULL;
+    nqfree(c, cc);
+    c = NULL;
+  }
+  if (fp != NULL) memcpy(fp, cfp, 32);
+done:
+  if (nkeys != NULL) *nkeys = count;
+  if (a != NULL) nqfree(a, ac);
+  if (c != NULL) nqfree(c, cc);
+  nqfree(f, sizeof *f);
   return rc;
 }

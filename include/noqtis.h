@@ -980,6 +980,35 @@ NQAPI int nqkscert(const char *dir, nqsalg alg, const uint8_t *sk,
 NQAPI int nqkscput(const char *dir, const char *cert, size_t n);
 NQAPI int nqkstrust(const char *dir, const uint8_t fp[32], int level);
 NQAPI int nqksdel(const char *dir, const uint8_t fp[32]);
+/* Publishing a key, and finding one by its holder's address. A bundle
+ * is text: the identity card of a signature key, then every other key
+ * of the store that this key certified under its own name and address
+ * (a KEM key to seal to its holder, a second signature key), each with
+ * that certification; armored (nqarmenc) as NOQTIS IDENTITY CARD,
+ * NOQTIS PUBLIC KEY (a key file) and NOQTIS CERTIFICATION.
+ *
+ * nqksexp writes the bundle of the key fp, which must have its card in
+ * the store (NQEARG for one without, or a KEM key). nqksimp reads one,
+ * of at most 1 MiB: the card must verify, every key after it must come
+ * with a certification by the card's key that verifies and says the
+ * card's name and address, and all of them go into the store; fp gets
+ * the card key's fingerprint, *nkeys the number of keys put in (also
+ * on an error, for those before it). With email not NULL the card must
+ * be for that address (ASCII letters of either case alike), else
+ * NQEVRFY: the bundle is not the answer to a lookup of that address.
+ * Nothing a bundle brings is trusted or valid for that alone.
+ *
+ * nqksurl gives the address a bundle is published at for an e-mail
+ * address, NUL-terminated: https://<domain>/.well-known/noqtis/<40 hex
+ * digits>, the first 20 bytes of the SHA-256 of the part before the @
+ * in lower case. NQEARG for what is not an address, or whose domain
+ * has other characters than letters, digits, dots and hyphens. Fetching
+ * it is the caller's: the library does not open connections here. */
+NQAPI int nqksexp(const char *dir, const uint8_t fp[32], char *out,
+                  size_t cap, size_t *outlen);
+NQAPI int nqksimp(const char *dir, const char *bundle, size_t n,
+                  const char *email, uint8_t fp[32], size_t *nkeys);
+NQAPI int nqksurl(const char *email, char *url, size_t cap);
 
 /* ---- ASCII armor ---------------------------------------------------- */
 

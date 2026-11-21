@@ -274,13 +274,119 @@ done:
   return ret;
 }
 
+/* the bundle of the one key that answers q, to out or stdout */
+static int bundle(const char *dir, const char *q, const char *out,
+                  int force) {
+  nqkse e;
+  char *b;
+  size_t n = 0, cap = (size_t)1 << 20;
+  int rc, ret = NCUSE;
+  if (one(dir, q, &e) != NCOK) return NCUSE;
+  b = (char *)malloc(cap);
+  if (b == NULL) return nclib("keys", "memory", NQEMEM);
+  rc = nqksexp(dir, e.fp, b, cap, &n);
+  if (rc != NQOK) {
+    if (rc == NQEARG)
+      ncmsg("keys", "a bundle starts with an identity card: add the key "
+            "with its card first (`noqtis idcard`, then `noqtis keys add "
+            "--card`)");
+    else
+      nclib("keys", "the key store", rc);
+    goto done;
+  }
+  if (out == NULL || strcmp(out, "-") == 0) {
+    ret = fwrite(b, 1, n, stdout) == n && fflush(stdout) == 0 ? NCOK : NCUSE;
+  } else if (ncwr(out, (const uint8_t *)b, n, force, 0) != NQOK) {
+    ncwfail("keys", out, force);
+  } else {
+    ret = NCOK;
+  }
+done:
+  free(b);
+  return ret;
+}
+
+/* puts a bundle (n bytes, from what) into the store; email is the
+ * address it was looked up for, or NULL */
+static int import(const char *dir, const uint8_t *b, size_t n,
+                  const char *what, const char *email) {
+  uint8_t fp[32];
+  char hx[65];
+  size_t nk = 0;
+  int rc;
+  mkpath(dir);
+  rc = nqksimp(dir, (const char *)b, n, email, fp, &nk);
+  if (rc != NQOK) {
+    if (rc == NQEVRFY && email != NULL)
+      ncmsg("keys", "%s does not verify as the keys of %s: the card is "
+            "for another address, or a signature in it is not the card "
+            "key's%s", what, email,
+            nk > 0 ? "; the keys before that were put in" : "");
+    else if (rc == NQEVRFY)
+      ncmsg("keys", "%s does not verify: a signature in it is not the "
+            "card key's%s", what,
+            nk > 0 ? "; the keys before that were put in" : "");
+    else if (rc == NQEDEC || rc == NQELIM)
+      ncmsg("keys", "%s is not a key bundle (%s)", what, nqerr(rc));
+    else
+      ncmsg("keys", "cannot write the key store %s (%s)", dir, nqerr(rc));
+    return rc == NQEVRFY ? NCBAD : NCUSE;
+  }
+  nchexe(fp, 32, hx);
+  hx[64] = '\0';
+  /* the card key's line, and how many keys came with it */
+  list(dir, hx, 0);
+  ncmsg("keys", "%lu key%s put in; none of them is valid until you "
+        "certify it (compare the fingerprint with its holder first)",
+        (unsigned long)nk, nk == 1 ? "" : "s");
+  return NCOK;
+}
+
+static int importf(const char *dir, const char *path) {
+  uint8_t *b = NULL;
+  size_t n = 0;
+  int ret;
+  if (ncrdx(path, 0, (size_t)1 << 20, &b, &n) != NQOK) {
+    ncmsg("keys", "cannot read %s%s", path, ncwhy());
+    return NCUSE;
+  }
+  ret = import(dir, b, n, path, NULL);
+  ncfree(b, n, 0);
+  return ret;
+}
+
+/* looks an address up at its domain (nqksurl) and puts in what is there */
+static int fetch(const char *dir, const char *email, int show) {
+  char url[512], err[256];
+  uint8_t *b = NULL;
+  size_t n = 0;
+  int ret;
+  if (nqksurl(email, url, sizeof url) != NQOK) {
+    ncmsg("keys", "%s is not an e-mail address a key can be looked up "
+          "for (name@domain.tld)", email);
+    return NCUSE;
+  }
+  if (show) {
+    printf("%s\n", url);
+    return NCOK;
+  }
+  if (ncget(url, (size_t)1 << 20, &b, &n, err, sizeof err) != NCOK) {
+    ncmsg("keys", "no keys for %s: %s (looked at %s)", email, err, url);
+    return NCUSE;
+  }
+  ret = import(dir, b, n, url, email);
+  free(b);
+  return ret;
+}
+
 int nckeys(int argc, char **argv) {
   const char *store = NULL, *name = NULL, *email = NULL, *card = NULL;
   const char *kp = NULL, *out = NULL, *sub;
-  int force = 0, help = 0, np;
+  int force = 0, help = 0, np, url = 0;
   ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'\0', "store", 1, &store, NULL},
+    {'\0', "url", 0, NULL, &url},
     {'n', "name", 1, &name, NULL},
     {'e', "email", 1, &email, NULL},
     {'\0', "card", 1, &card, NULL},
@@ -325,6 +431,10 @@ int nckeys(int argc, char **argv) {
     return trust(dir, argv[1], argv[2]);
   if (strcmp(sub, "export") == 0 && np == 2)
     return export(dir, argv[1], out, force);
+  if (strcmp(sub, "bundle") == 0 && np == 2)
+    return bundle(dir, argv[1], out, force);
+  if (strcmp(sub, "import") == 0 && np == 2) return importf(dir, argv[1]);
+  if (strcmp(sub, "fetch") == 0 && np == 2) return fetch(dir, argv[1], url);
   if (strcmp(sub, "rm") == 0 && np == 2) {
     int rc;
     if (one(dir, argv[1], &e) != NCOK) return NCUSE;

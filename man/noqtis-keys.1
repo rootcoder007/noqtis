@@ -42,6 +42,18 @@
 .Op Fl -force
 .Ar name
 .Nm noqtis keys
+.Cm bundle
+.Op Fl o Ar file
+.Op Fl -force
+.Ar name
+.Nm noqtis keys
+.Cm import
+.Ar file
+.Nm noqtis keys
+.Cm fetch
+.Op Fl -url
+.Ar email
+.Nm noqtis keys
 .Cm rm
 .Ar name
 .Nm noqtis keys
@@ -140,6 +152,41 @@ for your own keys.
 Write the key as a key file to
 .Fl o Ar key.pub ,
 or to standard output.
+.It Cm bundle Ar name
+Write a key bundle to
+.Fl o Ar file ,
+or to standard output: the identity card of the one signature key
+answering
+.Ar name ,
+then every other key that key certified under its own name and address
+(a KEM key to seal to its holder, a second signature key), each with
+the certification, as armored text
+.Pq Xr noqtis-armor 1 .
+The key must have its card in the store.
+This is what to publish, or to send.
+.It Cm import Ar file
+Put the keys of a bundle into the store.
+The card must verify, and every key after it must come with a
+certification by the card's key that verifies and says the card's name
+and address.
+Nothing a bundle brings is valid for that alone: certify the card's key
+once its fingerprint was compared with its holder.
+.It Cm fetch Ar email
+Look the address up at its own domain and import the bundle found
+there, over https:
+.Dl https://<domain>/.well-known/noqtis/<hash>
+where the hash is the first 20 bytes, in hex, of the SHA-256 of the
+part before the
+.Ql @
+in lower case.
+The card must be for
+.Ar email .
+A domain publishes a holder's keys by serving the output of
+.Cm bundle
+there.
+With
+.Fl -url
+the address is printed and nothing is fetched.
 .It Cm rm Ar name
 Remove the key, its card, and every certification of it and by it.
 .It Cm path
@@ -191,9 +238,12 @@ The folder of the key store.
 .Sh EXIT STATUS
 0 on success; 1 when
 .Cm find
-finds no key, or a certification given to
-.Cm addcert
-does not verify; 2 on a usage or file error.
+finds no key, or what
+.Cm addcert ,
+.Cm import
+or
+.Cm fetch
+was given does not verify; 2 on a usage, file or network error.
 .Sh EXAMPLES
 .Bd -literal
 $ noqtis keys add -n "Ben Example" -e ben@example.org ben.pub

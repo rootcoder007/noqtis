@@ -2769,6 +2769,53 @@ static void tkeys(void) {
   want(2, "keys --store q.k2s add -n X -e nowhere q.sg2.pub", NULL);
   want(2, "keys --store q.k2s add -n X q.sg", NULL);
   want(2, "keys --store q.k2s add -n X q.none", NULL);
+  /* a bundle: the card key and the keys it certified as its own */
+  rmdirs("q.k3s");
+  want(0, "keys --store q.k3s add --card q.card q.sg2.pub", NULL);
+  want(0, "keys --store q.k3s add -n \"Card Holder\" -e card@example.org "
+          "q.kk.pub", NULL);
+  want(0, "keys --store q.k3s add -n \"Not Mine\" q.k2.pub", NULL);
+  want(0, "keys --store q.k3s certify -k q.sg2 \"ML-KEM\"", NULL);
+  want(0, "keys --store q.k3s bundle -o q.bn --force card@", NULL);
+  want(2, "keys --store q.k3s bundle -o q.bn card@", NULL);
+  want(2, "keys --store q.k3s bundle card", NULL);
+  ok(has("q.bn", "-----BEGIN NOQTIS IDENTITY CARD-----\n") &&
+     has("q.bn", "-----BEGIN NOQTIS PUBLIC KEY-----\n") &&
+     has("q.bn", "-----BEGIN NOQTIS CERTIFICATION-----\n"),
+     "keys bundle writes the card, the key and its certification");
+  want(2, "keys --store q.k3s bundle \"not mine\"", NULL);
+  ok(has("q.err", "a bundle starts with an identity card"),
+     "a key without a card has no bundle");
+  rmdirs("q.k4s");
+  want(0, "keys --store q.k4s import q.bn", NULL);
+  ok(has("q.out", "Card Holder <card@example.org>") &&
+     has("q.err", "2 keys put in"), "keys import puts both keys in");
+  want(0, "keys --store q.k4s list holder", NULL);
+  ok(has("q.out", "ML-KEM-768") && has("q.out", "ML-DSA-44") &&
+     !has("q.out", "  valid"), "imported keys are there, and not valid");
+  want(0, "keys --store q.k4s trust \"ML-DSA\" ultimate", NULL);
+  want(0, "keys --store q.k4s list \"ML-KEM\"", NULL);
+  ok(has("q.out", "  valid"),
+     "the card key's certification of its KEM key came along");
+  b = rd("q.bn", &n);
+  b[n - 60] = b[n - 60] == 'A' ? 'B' : 'A';
+  wr("q.bx", b, n);
+  free(b);
+  rmdirs("q.k4s");
+  run("keys --store q.k4s import q.bx", NULL);
+  want(0, "keys --store q.k4s list \"ML-KEM\"", NULL);
+  ok(!has("q.out", "ML-KEM-768"),
+     "a key whose certification was changed is not put in");
+  want(2, "keys --store q.k4s import q.b1", NULL);
+  want(2, "keys --store q.k4s import q.none", NULL);
+  /* the address a lookup goes to; nothing is fetched by --url */
+  want(0, "keys --store q.k4s fetch --url Card@Example.ORG", NULL);
+  ok(has("q.out", "https://example.org/.well-known/noqtis/") &&
+     !has("q.out", "Card"), "keys fetch --url prints the lookup address");
+  want(2, "keys --store q.k4s fetch --url nowhere", NULL);
+  want(2, "keys --store q.k4s fetch --url a@b/c.d", NULL);
+  rmdirs("q.k3s");
+  rmdirs("q.k4s");
   /* trust levels, removal, usage */
   want(0, "keys --store q.ks trust two marginal", NULL);
   ok(has("q.out", "marginal"), "keys trust prints the entry");

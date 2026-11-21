@@ -33,7 +33,7 @@ _noqtis_cmd() {
         '--pass-fd=[read the passphrase from descriptor]:fd:' \
         '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '(-f --force)'{-f,--force}'[replace an existing output]' \
-        '1:command:(list find add certify addcert trust export rm path)' \
+        '1:command:(list find add certify addcert trust export bundle import fetch rm path)' \
         '*:name or file:_files' ;;
     armor)
       _arguments \

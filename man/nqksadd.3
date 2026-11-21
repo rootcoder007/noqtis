@@ -9,7 +9,10 @@
 .Nm nqkscert ,
 .Nm nqkscput ,
 .Nm nqkstrust ,
-.Nm nqksdel
+.Nm nqksdel ,
+.Nm nqksexp ,
+.Nm nqksimp ,
+.Nm nqksurl
 .Nd a store of other people's keys, their certifications and trust
 .Sh LIBRARY
 libnoqtis, \-lnoqtis
@@ -29,6 +32,12 @@ libnoqtis, \-lnoqtis
 .Fn nqkstrust "const char *dir" "const uint8_t fp[32]" "int level"
 .Ft int
 .Fn nqksdel "const char *dir" "const uint8_t fp[32]"
+.Ft int
+.Fn nqksexp "const char *dir" "const uint8_t fp[32]" "char *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqksimp "const char *dir" "const char *bundle" "size_t n" "const char *email" "uint8_t fp[32]" "size_t *nkeys"
+.Ft int
+.Fn nqksurl "const char *email" "char *url" "size_t cap"
 .Sh DESCRIPTION
 A key store is a folder,
 .Fa dir ,
@@ -156,6 +165,46 @@ or
 the last for the owner's own keys.
 .Fn nqksdel
 removes a key, its card, and every certification of it and by it.
+.Pp
+A bundle is text to publish or send: the identity card of a signature
+key, then every other key of the store that this key certified under
+its own name and address, each with that certification, armored
+.Pq Xr nqarmenc 3
+under the labels
+.Ql NOQTIS IDENTITY CARD ,
+.Ql NOQTIS PUBLIC KEY
+and
+.Ql NOQTIS CERTIFICATION .
+.Fn nqksexp
+writes the bundle of the key
+.Fa fp ,
+which must have its card in the store.
+.Fn nqksimp
+reads one, of at most 1 MiB: the card must verify, every key after it
+must come with a certification by the card's key that verifies and says
+the card's name and address, and all of them go into the store.
+.Fa fp ,
+when not
+.Dv NULL ,
+gets the card key's fingerprint and
+.Fa nkeys
+the number of keys put in, also on an error, for those before it.
+With
+.Fa email
+not
+.Dv NULL
+the card must be for that address
+.Pq Dv NQEVRFY .
+Nothing a bundle brings is trusted or valid for that alone.
+.Pp
+.Fn nqksurl
+gives the address a bundle is published at for an e-mail address:
+.Ql https://<domain>/.well-known/noqtis/<hash> ,
+the hash being the first 20 bytes, in hex, of the SHA-256 of the part
+before the
+.Ql @
+in lower case.
+Fetching it is the caller's.
 .Pp
 Validity follows from trust and certifications.
 A key is fully valid

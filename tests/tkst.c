@@ -7,7 +7,8 @@
  * in the store, a certification of a name the key no longer has); a KEM
  * key certified by a signature key; finding by fingerprint, name and
  * address; a certification carried to another store, and what that
- * refuses; removal; files of the store changed behind its back; the
+ * refuses; a bundle written, read and changed, and the address of a
+ * lookup; removal; files of the store changed behind its back; the
  * refusals. */
 #if !defined(_WIN32)
 #define _POSIX_C_SOURCE 200809L
@@ -337,6 +338,103 @@ static void tcarry(void) {
   wipe(b);
 }
 
+/* bundles: a key published with what it certified as its own */
+static void tbundle(void) {
+  static char bn[1 << 16], c2[1 << 16];
+  char a[400], b[400], card[8192], url[200], want[200], hx[65];
+  uint8_t f[32], d[32];
+  size_t n = 0, cl = 0, nk = 9, i, m = 0;
+  mk(a, sizeof a, "pub");
+  mk(b, sizeof b, "sub");
+  NQTEQI(nqcard(NQMLDSA44, sk[0], SK, pk[0], PK, "Ada Example", NULL,
+                "ada@example.org", NULL, NULL, T0, card, sizeof card, &cl),
+         NQOK);
+  NQTEQI(nqksadd(a, 0, NQMLDSA44, pk[0], PK, NULL, NULL, card, cl, NULL),
+         NQOK);
+  NQTEQI(nqksadd(a, 1, NQMLKEM768, kpk, sizeof kpk, "Ada Example",
+                 "ada@example.org", NULL, 0, NULL),
+         NQOK);
+  cert(a, 0, kfp);
+  /* someone else's key that Ada certified is not hers to publish */
+  add(a, 1, "Ben Example", "ben@example.org");
+  cert(a, 0, fp[1]);
+  /* nor is a key under her name that she did not certify */
+  add(a, 2, "Ada Example", "ada@example.org");
+  NQTEQI(nqksexp(a, fp[0], bn, 10, &n), NQEBUF);
+  NQTCHK(n > 10 && n < sizeof bn);
+  NQTEQI(nqksexp(a, fp[0], bn, sizeof bn, &n), NQOK);
+  NQTCHK(memcmp(bn, "-----BEGIN NOQTIS IDENTITY CARD-----\n", 37) == 0);
+  /* read into an empty store: the card key and the KEM key, no more */
+  NQTEQI(nqksimp(b, bn, n, NULL, f, &nk), NQOK);
+  NQTCHK(nk == 2);
+  NQTEQM(f, fp[0], 32);
+  NQTCHK(get(b, fp[0]).card == 1 && get(b, fp[0]).valid == NQKVNONE);
+  NQTCHK(get(b, kfp).kem == 1 && get(b, kfp).ncert == 1);
+  NQTCHK(get(b, kfp).valid == NQKVNONE);
+  NQTCHK(get(b, fp[1]).valid == -1 && get(b, fp[2]).valid == -1);
+  NQTCHK(strcmp(get(b, kfp).name, "Ada Example") == 0);
+  NQTEQI(nqkstrust(b, fp[0], NQKTULT), NQOK);
+  NQTCHK(get(b, kfp).valid == NQKVFULL);
+  /* looked up for an address: hers, in either case, and no other */
+  NQTEQI(nqksimp(b, bn, n, "ADA@Example.org", NULL, NULL), NQOK);
+  NQTEQI(nqksimp(b, bn, n, "ben@example.org", f, &nk), NQEVRFY);
+  NQTCHK(nk == 0);
+  /* the same bundle comes back out of the second store */
+  NQTEQI(nqksexp(b, fp[0], c2, sizeof c2, &m), NQOK);
+  NQTCHK(m == n);
+  NQTEQM(c2, bn, n);
+  /* a changed byte: never the same keys under a changed word */
+  wipe(b);
+  mk(b, sizeof b, "sub");
+  for (i = 0; i < n; i += 11) {
+    int rc;
+    bn[i] ^= 1;
+    rc = nqksimp(b, bn, n, NULL, f, &nk);
+    NQTCHK(rc == NQEDEC || rc == NQEVRFY);
+    bn[i] ^= 1;
+  }
+  NQTEQI(nqksimp(b, bn, n - 3, NULL, f, &nk), NQEDEC);
+  NQTEQI(nqksimp(b, "", 0, NULL, f, &nk), NQEDEC);
+  NQTEQI(nqksimp(b, "text", 4, NULL, f, &nk), NQEDEC);
+  /* the armors in another order: a key first */
+  {
+    const char *k = strstr(bn, "-----BEGIN NOQTIS PUBLIC KEY-----");
+    NQTCHK(k != NULL);
+    if (k != NULL)
+      NQTEQI(nqksimp(b, k, n - (size_t)(k - bn), NULL, f, &nk), NQEDEC);
+  }
+  /* what has no bundle, and the refusals */
+  NQTEQI(nqksexp(a, fp[1], c2, sizeof c2, &m), NQEARG);
+  NQTEQI(nqksexp(a, kfp, c2, sizeof c2, &m), NQEARG);
+  NQTEQI(nqksexp(a, fp[7], c2, sizeof c2, &m), NQEIO);
+  NQTEQI(nqksexp(NULL, fp[0], c2, sizeof c2, &m), NQEARG);
+  NQTEQI(nqksexp(a, NULL, c2, sizeof c2, &m), NQEARG);
+  NQTEQI(nqksexp(a, fp[0], c2, sizeof c2, NULL), NQEARG);
+  NQTEQI(nqksexp(a, fp[0], NULL, 4, &m), NQEARG);
+  NQTEQI(nqksimp(NULL, bn, n, NULL, f, &nk), NQEARG);
+  NQTEQI(nqksimp(b, NULL, n, NULL, f, &nk), NQEARG);
+  NQTEQI(nqksimp(b, bn, ((size_t)1 << 20) + 1, NULL, f, &nk), NQELIM);
+  /* the address of a lookup */
+  nqhash(NQS256, (const uint8_t *)"ada", 3, d, 32);
+  nqhex(d, 20, hx);
+  snprintf(want, sizeof want, "https://example.org/.well-known/noqtis/%s",
+           hx);
+  NQTEQI(nqksurl("ada@example.org", url, sizeof url), NQOK);
+  NQTCHK(strcmp(url, want) == 0);
+  NQTEQI(nqksurl("Ada@EXAMPLE.org", url, sizeof url), NQOK);
+  NQTCHK(strcmp(url, want) == 0);
+  NQTEQI(nqksurl("ada@example.org", url, strlen(want)), NQEBUF);
+  NQTEQI(nqksurl("ada@example.org", url, strlen(want) + 1), NQOK);
+  NQTEQI(nqksurl("nowhere", url, sizeof url), NQEARG);
+  NQTEQI(nqksurl("ada@exa/mple.org", url, sizeof url), NQEARG);
+  NQTEQI(nqksurl("ada@example.org?x", url, sizeof url), NQEARG);
+  NQTEQI(nqksurl("", url, sizeof url), NQEARG);
+  NQTEQI(nqksurl(NULL, url, sizeof url), NQEARG);
+  NQTEQI(nqksurl("ada@example.org", NULL, 0), NQEARG);
+  wipe(a);
+  wipe(b);
+}
+
 static void targs(void) {
   char d[400], card[8192], c[8192], big[300];
   nqkse e[2];
@@ -457,6 +555,7 @@ int main(void) {
   tbasic();
   tweb();
   tcarry();
+  tbundle();
   targs();
   rmdir(root);
 #endif

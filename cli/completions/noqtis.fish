@@ -24,7 +24,7 @@ complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a unbox -d 'open 
 complete -c noqtis -n "__fish_seen_subcommand_from box" -l chunk -x -d 'chunk size in bytes'
 complete -c noqtis -n "__fish_seen_subcommand_from box sign" -s a -l armor -d 'write it as text (ASCII armor)'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a keys -d "the key store: other people's keys by name"
-complete -c noqtis -n "__fish_seen_subcommand_from keys" -a "list find add certify addcert trust export rm path"
+complete -c noqtis -n "__fish_seen_subcommand_from keys" -a "list find add certify addcert trust export bundle import fetch rm path"
 complete -c noqtis -n "__fish_seen_subcommand_from keys" -l store -r -F -d 'folder of the key store'
 complete -c noqtis -n "__fish_seen_subcommand_from keys" -s n -l name -x -d 'name of the key holder'
 complete -c noqtis -n "__fish_seen_subcommand_from keys" -s e -l email -x -d 'address of the key holder'

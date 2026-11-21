@@ -63,7 +63,7 @@ _noqtis() {
       --out" ;;
     export) opts="--as -k --key -p --pub -o --out -f --force --no-files" ;;
     enc) opts="-p --pub -o --out --stdout -f --force" ;;
-    keys) opts="list find add certify addcert trust export rm path --store -n --name -e --email --card -k --key -o --out --pass-fd --pass-env -f --force" ;;
+    keys) opts="list find add certify addcert trust export bundle import fetch rm path --store --url -n --name -e --email --card -k --key -o --out --pass-fd --pass-env -f --force" ;;
     armor) opts="-l --label -o --out -f --force" ;;
     dearmor) opts="-o --out -f --force" ;;
     box) opts="-p --pub -o --out -a --armor -c --ctx --chunk -s --sign --pass-fd --pass-env -f --force" ;;
