@@ -14,7 +14,7 @@ GROUPS = [
     ("noqtis", "noqtis: getting started, and the library itself",
      ["noqtis", "the-library"]),
     ("signatures-and-keys", "Signatures and keys",
-     ["signatures", "keys"]),
+     ["signatures", "keys", "mail-and-keys"]),
     ("encapsulation-and-hashes", "Key encapsulation, hashes and random bytes",
      ["key-encapsulation", "hashes-and-random"]),
     ("capsules-and-timestamps", "Capsules, timestamps and evidence records",
