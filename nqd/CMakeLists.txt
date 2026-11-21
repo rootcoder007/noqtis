@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # nqd, the data layer (include/nqd.h): a library of its own on the
-# public API of noqtis only, outside the audited core. Static or shared
+# public API of noqtis only, outside the core. Static or shared
 # as noqtis is; its symbols hidden but those nqd.h marks NQDAPI.
 file(GLOB NQDSRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
 if(NQSHARED)

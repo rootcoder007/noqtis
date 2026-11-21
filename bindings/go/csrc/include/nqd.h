@@ -7,7 +7,7 @@
  * and `noqtis data check` can check the files against it.
  *
  * nqd is a separate library built only on the public API of noqtis.h;
- * it is not part of the audited core. It makes no network request:
+ * it is not part of the core. It makes no network request:
  * where a source must be fetched, it builds the request and reads the
  * reply, and the caller moves the bytes. Every function returns NQOK
  * (0) or a negative NQE* code of noqtis.h. Strings are UTF-8.

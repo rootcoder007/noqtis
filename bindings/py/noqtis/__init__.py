@@ -39,7 +39,7 @@ from ._err import (
 
 __version__: str = _c.version()
 
-# a newer release, said once in an interactive session (see _upd)
+# a newer release, said in an interactive session when asked for (see _upd)
 _upd.notify(__version__)
 
 __all__ = [

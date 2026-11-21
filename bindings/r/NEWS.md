@@ -11,7 +11,7 @@
 - New: `nqsivenc()` and `nqsivdec()`, AES-SIV (RFC 5297), deterministic authenticated encryption; `nqgsivenc()` and `nqgsivdec()`, AES-GCM-SIV (RFC 8452), authenticated encryption that resists a nonce used twice.
 - New: `nqchacha20()`, the ChaCha20 stream cipher of RFC 8439 on its own. It is not authenticated; its help page says what that means.
 - Fixed: AES-GCM and AES-CTR gave wrong output when the package was built by Apple clang 21 on arm64 at `-O2`. That compiler's loop vectorizer miscompiles one loop of the two-block AES function (bytes 4 to 7 of the second block), in this release and in the source of 0.2.2; the loop is written another way, and the tests check both blocks against FIPS 197. Builds by gcc and by other clang versions were not affected.
-- Attaching the package in an interactive session says in one line when a newer release exists. The page of the latest release is asked for at most once a day, with a limit of two seconds, and nothing is sent but that request; a session that is not interactive never asks. `options(noqtis.update = FALSE)` or the environment variable `NOQTIS_NO_UPDATE_CHECK` turns it off (see `?noqtis`).
+- The package asks nothing of the network on its own. With `options(noqtis.update = TRUE)` or the environment variable `NOQTIS_UPDATE_CHECK`, attaching it in an interactive session says in one line when a newer release exists: the page of the latest release is asked for at most once a day, with a limit of two seconds, and nothing is sent but that request; a session that is not interactive never asks (see `?noqtis`).
 - No change to the functions. The README shows the project's badges.
 
 # noqtis 0.2.2

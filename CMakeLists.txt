@@ -65,7 +65,7 @@ option(NQFREE "Build the freestanding, algorithms-only library" OFF)
 # CPU keeps the canary in memory), as the Linux kernel and many RTOSes do
 option(NQFREESSP "Freestanding build with stack protection" OFF)
 # nqd, the data layer (nqd/, include/nqd.h): data records, CSV schemas,
-# drift; a separate library on the public API, outside the audited core
+# drift; a separate library on the public API, outside the core
 option(NQDATA "Build the data layer nqd" ON)
 if(NQFREE)
   set(NQDATA OFF CACHE BOOL "" FORCE)

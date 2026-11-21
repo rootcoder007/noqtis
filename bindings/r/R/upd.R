@@ -23,10 +23,14 @@ updget <- function(url = updurl) {
   )
 }
 
-# Is the notice turned off: a session that is not interactive, the
-# variable NOQTIS_NO_UPDATE_CHECK, or options(noqtis.update = FALSE).
+# Is the notice off. It is, unless asked for by options(noqtis.update =
+# TRUE) or the variable NOQTIS_UPDATE_CHECK; and always in a session that
+# is not interactive, under the variable NOQTIS_NO_UPDATE_CHECK, or under
+# options(noqtis.update = FALSE).
 updoff <- function(live = interactive()) {
-  !live || nzchar(Sys.getenv("NOQTIS_NO_UPDATE_CHECK")) ||
+  on <- isTRUE(getOption("noqtis.update")) ||
+    nzchar(Sys.getenv("NOQTIS_UPDATE_CHECK"))
+  !live || !on || nzchar(Sys.getenv("NOQTIS_NO_UPDATE_CHECK")) ||
     isFALSE(getOption("noqtis.update"))
 }
 

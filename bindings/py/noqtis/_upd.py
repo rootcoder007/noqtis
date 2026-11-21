@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 """The notice of a newer release.
 
-In an interactive session (the Python prompt, IPython, a notebook),
-``import noqtis`` says in one line on standard error when a newer release
-exists. The page of the latest release is asked for at most once a day, in
-a thread, with a limit of two seconds, and the answer is kept in the cache
-directory of the user; the notice itself reads only that file. Nothing is
-sent but the request. A script never asks, and neither does a session with
-the environment variable ``NOQTIS_NO_UPDATE_CHECK`` set to anything.
+The package asks nothing of the network on its own. With the environment
+variable ``NOQTIS_UPDATE_CHECK`` set to anything, ``import noqtis`` in an
+interactive session (the Python prompt, IPython, a notebook) says in one
+line on standard error when a newer release exists. The page of the latest
+release is then asked for at most once a day, in a thread, with a limit of
+two seconds, and the answer is kept in the cache directory of the user; the
+notice itself reads only that file. Nothing is sent but the request. A
+script never asks, and neither does a session with the environment variable
+``NOQTIS_NO_UPDATE_CHECK`` set to anything.
 """
 
 from __future__ import annotations
@@ -82,8 +84,10 @@ def write(path: str, now: float, v: Optional[str]) -> None:
 
 
 def off(live: bool) -> bool:
-    """Is the notice turned off."""
-    return not live or bool(os.environ.get("NOQTIS_NO_UPDATE_CHECK"))
+    """Is the notice off: it is, unless NOQTIS_UPDATE_CHECK asks for it."""
+    if not live or os.environ.get("NOQTIS_NO_UPDATE_CHECK"):
+        return True
+    return not os.environ.get("NOQTIS_UPDATE_CHECK")
 
 
 def message(cur: str, path: str, now: float, ask: Callable[[], None]) -> Optional[str]:

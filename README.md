@@ -118,7 +118,7 @@ noqtis data check results/              # exit 1 when a file no longer matches i
 ```
 
 The data layer (`nqd.h`, `-lnqd`) is a separate library on the public
-API, outside the audited core; see `noqtis-data(1)` and
+API, outside the core; see `noqtis-data(1)` and
 `noqtis-data(5)`.
 
 ## Install

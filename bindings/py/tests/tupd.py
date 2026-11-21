@@ -15,8 +15,13 @@ def test_the_version_in_the_answer():
 
 def test_off_in_a_script_and_by_the_variable(monkeypatch):
     monkeypatch.delenv("NOQTIS_NO_UPDATE_CHECK", raising=False)
+    monkeypatch.delenv("NOQTIS_UPDATE_CHECK", raising=False)
+    # nothing is asked unless it is asked for
     assert _upd.off(False)
+    assert _upd.off(True)
+    monkeypatch.setenv("NOQTIS_UPDATE_CHECK", "1")
     assert not _upd.off(True)
+    assert _upd.off(False)
     monkeypatch.setenv("NOQTIS_NO_UPDATE_CHECK", "1")
     assert _upd.off(True)
 

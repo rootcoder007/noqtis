@@ -16,15 +16,28 @@ test_that("the version in the answer of the release page", {
 
 test_that("when the notice is off", {
   old <- Sys.getenv("NOQTIS_NO_UPDATE_CHECK", NA)
+  ask <- Sys.getenv("NOQTIS_UPDATE_CHECK", NA)
   op <- options(noqtis.update = NULL)
   Sys.unsetenv("NOQTIS_NO_UPDATE_CHECK")
+  Sys.unsetenv("NOQTIS_UPDATE_CHECK")
+  # nothing is asked unless it is asked for
   expect_true(updoff(FALSE))
+  expect_true(updoff(TRUE))
+  options(noqtis.update = TRUE)
   expect_false(updoff(TRUE))
+  expect_true(updoff(FALSE))
   options(noqtis.update = FALSE)
   expect_true(updoff(TRUE))
   options(noqtis.update = NULL)
+  Sys.setenv(NOQTIS_UPDATE_CHECK = "1")
+  expect_false(updoff(TRUE))
   Sys.setenv(NOQTIS_NO_UPDATE_CHECK = "1")
   expect_true(updoff(TRUE))
+  if (is.na(ask)) {
+    Sys.unsetenv("NOQTIS_UPDATE_CHECK")
+  } else {
+    Sys.setenv(NOQTIS_UPDATE_CHECK = ask)
+  }
   # tests are not interactive: nothing is asked, nothing is said
   expect_null(updrun())
   expect_no_message(.onAttach("", "noqtis"))
