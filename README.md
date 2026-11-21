@@ -48,7 +48,7 @@ echo oops >> results/report.txt
 noqtis check -p me.pub results/         # exit 1: "report.txt: size differs"
 ```
 
-## What a passing check guarantees
+## Security guarantees
 
 - Every file the seal lists is in the folder, byte for byte: same size,
   same SHA-256 and same SHA3-256.
@@ -66,7 +66,7 @@ It does **not** prove that a result is correct, when it was sealed
 [what a check proves](https://noqtis.dev/guides/others/)
 and the [threat model](https://noqtis.dev/security/).
 
-## Built to last
+## Design principles
 
 - **Evidence that outlives its certificates**: `noqtis ers` keeps an RFC 4998
   evidence record beside the seal, renewed before a time-stamping
@@ -85,7 +85,7 @@ and the [threat model](https://noqtis.dev/security/).
 - **Embedded**: `-DNQFREE=ON` builds the algorithms alone, for firmware and
   kernels: no operating system, no allocator, randomness from the caller.
 
-## Mail, keys and tokens
+## Mail, key management and hardware tokens
 
 The same keys also sign and encrypt for people, in the formats mail and
 key tools already read:
@@ -107,7 +107,7 @@ key tools already read:
 - **Text armor**: `sign -a` and `box -a` write a signature or a sealed
   file as text (RFC 7468), to paste into a message.
 
-## Data behind a result
+## Data provenance
 
 A capsule can also say where its data came from and what shape it has,
 in a data record (`noqtis.data.json`) that the seal covers like any
