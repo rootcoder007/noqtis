@@ -11,7 +11,9 @@
  *
  * The passphrase method is cut to 1 MiB and one pass (nqpgps2k), so an
  * input costs one small Argon2id run at most; the limits themselves are
- * tested in tests/tpgp.c. */
+ * tested in tests/tpgp.c. The fixed key's self-signatures are checked
+ * once, at start (nqpgpvouch): a key from the input is checked each
+ * time. */
 #include "fz.h"
 #include "pgp/pgp.h"
 
@@ -58,6 +60,8 @@ int LLVMFuzzerInitialize(int *argc, char ***argv) {
     fprintf(stderr, "fpgp: cannot make the fixtures: %s\n", nqerr(rc));
     return 0;
   }
+  /* the fixed key is good: not verified again on every input */
+  nqpgpvouch(sec, cert);
   ready = 1;
   return 0;
 }

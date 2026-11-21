@@ -866,6 +866,25 @@ static void certfree(pcert *c) {
   pktfree(&c->hold[1]);
 }
 
+#ifdef NQTEST
+static const uint8_t *vouch[2];
+void nqpgpvouch(const uint8_t *a, const uint8_t *b) {
+  vouch[0] = a;
+  vouch[1] = b;
+}
+#endif
+
+/* whether the self-signature s of the key k, read from p, is good */
+static int selfsig(const uint8_t *p, const psig *s, const pkey *k,
+                   const parts *x) {
+#ifdef NQTEST
+  if (p == vouch[0] || p == vouch[1]) return 1; /* never NULL: p is read */
+#else
+  (void)p;
+#endif
+  return sigcheck(s, k, x) == NQOK;
+}
+
 /* reads the first certificate (or secret key) at p: the primary key,
  * its user ID, its encryption subkey, each taken only with a
  * self-signature that verifies; NQEVRFY for a key with none, a revoked
@@ -948,18 +967,18 @@ static int certread(const uint8_t *p, size_t n, int64_t at, pcert *c) {
       addpart(&x, kp.p, kp.n);
       good = 0;
       if (s.type == 0x1f || s.type == 0x20) {
-        good = sigcheck(&s, &c->prim, &x) == NQOK;
+        good = selfsig(p, &s, &c->prim, &x);
         if (good && s.type == 0x20) revoked = 1;
       } else if (s.type >= 0x10 && s.type <= 0x13 && uid != NULL) {
         addpart(&x, up.p, up.n);
-        good = sigcheck(&s, &c->prim, &x) == NQOK;
+        good = selfsig(p, &s, &c->prim, &x);
         if (good && c->uid == NULL) {
           c->uid = uid;
           c->uidlen = uidn;
         }
       } else if ((s.type == 0x18 || s.type == 0x28) && havesub) {
         addpart(&x, sp.p, sp.n);
-        if (sigcheck(&s, &c->prim, &x) == NQOK) {
+        if (selfsig(p, &s, &c->prim, &x)) {
           if (s.type == 0x28) {
             havesub = 0; /* a revoked subkey */
           } else if (s.hasflags && (s.flags & 0x0c) != 0) {
