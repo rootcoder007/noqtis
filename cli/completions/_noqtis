@@ -367,7 +367,7 @@ _noqtis_cmd() {
 
 _arguments -C \
   '(- :)'{-V,--version}'[print the version]' \
-  '1:command:((keygen\:"make a key pair" passwd\:"change a secret key's passphrase" keys\:"the key store" cert\:"make or show a certificate" pgp\:"OpenPGP keys, signatures and messages" token\:"keys on a PKCS #11 token" smime\:"sign or encrypt mail" armor\:"write a file as text" dearmor\:"read the bytes an armored file holds" sign\:"sign a file" box\:"seal a file to an ML-KEM key" unbox\:"open a boxed file"
+  '1:command:((keygen\:"make a key pair" passwd\:"change a secret key'"'"'s passphrase" keys\:"the key store" cert\:"make or show a certificate" pgp\:"OpenPGP keys, signatures and messages" token\:"keys on a PKCS #11 token" smime\:"sign or encrypt mail" armor\:"write a file as text" dearmor\:"read the bytes an armored file holds" sign\:"sign a file" box\:"seal a file to an ML-KEM key" unbox\:"open a boxed file"
     verify\:"verify a signature" enc\:"encapsulate a shared secret"
     dec\:"decapsulate a shared secret" hash\:"print or check digests"
     seal\:"seal a folder" check\:"check a sealed folder"

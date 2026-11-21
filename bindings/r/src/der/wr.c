@@ -55,21 +55,25 @@ void nqdwraw(nqdw *w, const uint8_t *p, size_t n) {
   w->n += n;
 }
 
-/* the length octets of n into l; their number */
-static size_t lenof(size_t n, uint8_t l[5]) {
-  size_t k = 0, i;
+/* the length octets of n into l; their number: one, or one that
+ * counts them and up to eight more (a size_t of 64 bits) */
+static size_t lenof(size_t n, uint8_t l[9]) {
+  uint8_t b[8];
+  size_t k = 8, i;
   if (n < 128) {
     l[0] = (uint8_t)n;
     return 1;
   }
-  for (i = n; i > 0; i >>= 8) k++;
+  for (i = 0; i < 8; i++) b[i] = (uint8_t)((uint64_t)n >> (8 * (7 - i)));
+  while (k > 1 && b[8 - k] == 0) k--;
   l[0] = (uint8_t)(0x80 | k);
-  for (i = 0; i < k; i++) l[1 + i] = (uint8_t)(n >> (8 * (k - 1 - i)));
+  for (i = 0; i < 8; i++)
+    if (i < k) l[1 + i] = b[8 - k + i];
   return 1 + k;
 }
 
 void nqdwtlv(nqdw *w, unsigned id, const uint8_t *v, size_t n) {
-  uint8_t l[5];
+  uint8_t l[9];
   size_t ln;
   if (n > 0xffffffffu) {
     if (w->err == NQOK) w->err = NQELIM;
@@ -95,7 +99,7 @@ size_t nqdwopen(nqdw *w, unsigned id) {
 }
 
 void nqdwclose(nqdw *w, size_t mark) {
-  uint8_t l[5];
+  uint8_t l[9];
   size_t n, ln;
   if (w->err != NQOK) return;
   n = w->n - mark - 2;
