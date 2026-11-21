@@ -2832,6 +2832,107 @@ static void tkeys(void) {
   rmdirs("q.k2s");
 }
 
+/* ---- certificates and S/MIME: noqtis cert, noqtis smime ---- */
+
+static void tsmime(void) {
+  size_t n = 0;
+  unsigned char *b;
+  want(0, "cert -k q.sg -n \"Sig One\" -e one@example.org -o q.c1 --force",
+       NULL);
+  ok(has("q.c1", "-----BEGIN CERTIFICATE-----\n") &&
+     has("q.out", "name         Sig One") &&
+     has("q.out", "email        one@example.org") &&
+     has("q.out", "ML-DSA-44 (a CA)"), "cert writes a certificate, and says "
+                                       "what is in it");
+  want(0, "cert --show q.c1", NULL);
+  ok(has("q.out", "fingerprint  ") && has("q.out", "valid        20"),
+     "cert --show prints a certificate");
+  want(0, "cert -k q.sg2 -n \"Sig Two\" -o q.c2 --force", NULL);
+  want(0, "cert -k q.sg --issuer q.c1 --kem q.kk.pub -o q.ck --force", NULL);
+  ok(has("q.out", "ML-KEM-768") && has("q.out", "name         Sig One"),
+     "cert --kem certifies a KEM key under the issuer's name");
+  want(2, "cert -k q.sg -n X -o q.c1", NULL);
+  want(2, "cert -k q.kk -n X -o q.cx --force", NULL);
+  ok(has("q.err", "is for a signature key"), "cert: a KEM key alone");
+  want(2, "cert -k q.sg2 --issuer q.c1 --kem q.kk.pub -o q.cx --force", NULL);
+  want(2, "cert -k q.sg --issuer q.c1 --kem q.sg2.pub -o q.cx --force", NULL);
+  want(2, "cert -k q.sg --issuer q.c1 -o q.cx --force", NULL);
+  want(2, "cert -k q.sg -n X --days 0 -o q.cx --force", NULL);
+  want(2, "cert -k q.sg -n X -e nowhere -o q.cx --force", NULL);
+  want(2, "cert -k q.sg -o q.cx --force", NULL);
+  want(2, "cert --show q.b1", NULL);
+  want(2, "cert --show q.none", NULL);
+  want(0, "cert --help", NULL);
+  /* signed, the content inside: every byte comes back */
+  want(0, "smime sign -k q.sg --cert q.c1 -o q.m1 --force q.b4", NULL);
+  ok(has("q.m1", "smime-type=signed-data"), "smime sign writes signed-data");
+  want(0, "smime verify --anchor q.c1 -o q.v1 --force q.m1", NULL);
+  ok(same("q.v1", "q.b4") && has("q.out", "OK, signed by Sig One "
+                                          "<one@example.org>"),
+     "smime verify gives the content back and names the signer");
+  want(1, "smime verify --anchor q.c2 q.m1", NULL);
+  ok(has("q.out", "FAILED"), "another anchor: the signer is not trusted");
+  want(0, "smime verify --anchor q.c2 --anchor q.c1 q.m1", NULL);
+  /* detached text stays readable */
+  want(0, "smime sign -k q.sg --cert q.c1 --detached --text -o q.m2 --force "
+          "q.b1", NULL);
+  ok(has("q.m2", "multipart/signed") && has("q.m2", "hello, stream"),
+     "a detached signature keeps the text in the clear");
+  want(0, "smime verify --anchor q.c1 -o - q.m2", NULL);
+  ok(has("q.out", "hello, stream"), "smime verify of a detached message");
+  b = rd("q.m2", &n);
+  {
+    char *h = strstr((char *)b, "hello");
+    if (h != NULL) h[0] = 'j';
+  }
+  wr("q.m3", b, n);
+  free(b);
+  want(1, "smime verify --anchor q.c1 q.m3", NULL);
+  /* the CMS structure itself */
+  want(0, "smime sign -k q.sg --cert q.c1 --der -o q.d1 --force q.b4", NULL);
+  want(0, "smime verify --anchor q.c1 -o q.v1 --force q.d1", NULL);
+  ok(same("q.v1", "q.b4"), "a DER SignedData verifies");
+  want(0, "smime sign -k q.sg --cert q.c1 --der --detached -o q.d2 --force "
+          "q.b4", NULL);
+  want(0, "smime verify --anchor q.c1 --content q.b4 q.d2", NULL);
+  want(1, "smime verify --anchor q.c1 --content q.b1 q.d2", NULL);
+  want(2, "smime verify --anchor q.c1 q.d2", NULL);
+  ok(has("q.err", "is a detached signature"), "a detached DER wants "
+                                              "--content");
+  /* encrypted, and signed then encrypted */
+  want(0, "smime encrypt --to q.ck -o q.e1 --force q.b4", NULL);
+  ok(has("q.e1", "smime-type=authEnveloped-data") && !has("q.e1", "NQKM"),
+     "smime encrypt writes authEnveloped-data");
+  want(0, "smime decrypt -k q.kk --cert q.ck -o q.v1 --force q.e1", NULL);
+  ok(same("q.v1", "q.b4"), "smime decrypt gives the content back");
+  want(0, "smime decrypt -k q.kk -o q.v1 --force q.e1", NULL);
+  want(2, "smime decrypt -k q.k2 -o q.v1 --force q.e1", NULL);
+  ok(has("q.err", "does not open with"), "another key does not open it");
+  want(0, "smime encrypt --to q.ck --entity -o q.e2 --force q.m1", NULL);
+  want(0, "smime decrypt -k q.kk --entity -o q.v2 --force q.e2", NULL);
+  want(0, "smime verify --anchor q.c1 -o q.v1 --force q.v2", NULL);
+  ok(same("q.v1", "q.b4"), "signed, encrypted, opened and verified");
+  want(0, "smime encrypt --to q.ck --der -o q.e3 --force q.b1", NULL);
+  want(0, "smime decrypt -k q.kk -o q.v1 --force q.e3", NULL);
+  ok(same("q.v1", "q.b1"), "a DER AuthEnvelopedData opens");
+  /* the refusals */
+  want(2, "smime encrypt --to q.c1 -o q.e1 --force q.b4", NULL);
+  ok(has("q.err", "certificates of ML-KEM keys"), "encrypt to a signature "
+                                                  "certificate");
+  want(2, "smime sign -k q.sg --cert q.c2 -o q.m1 --force q.b4", NULL);
+  ok(has("q.err", "is not the certificate of the key"),
+     "sign with another key's certificate");
+  want(2, "smime sign -k q.sg -o q.m1 --force q.b4", NULL);
+  want(2, "smime verify q.m1", NULL);
+  want(2, "smime verify --anchor q.c1 q.b1", NULL);
+  want(2, "smime decrypt -k q.sg -o q.v1 --force q.e1", NULL);
+  want(2, "smime decrypt -k q.kk -o q.v1 --force q.m1", NULL);
+  want(2, "smime sign -k q.sg --cert q.c1 --text --entity q.b1", NULL);
+  want(2, "smime bogus q.b1", NULL);
+  want(2, "smime sign -k q.sg --cert q.c1 -o q.m1 q.b4", NULL);
+  want(0, "smime --help", NULL);
+}
+
 int main(int argc, char **argv) {
   static const char *sigs[] = {
     "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128f",
@@ -2893,6 +2994,7 @@ int main(int argc, char **argv) {
   tbox();
   tarm();
   tkeys();
+  tsmime();
   for (i = 0; i < sizeof kems / sizeof kems[0]; i++)
     tkem(kems[i]);
   thash();

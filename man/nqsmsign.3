@@ -1,0 +1,72 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQSMSIGN 3
+.Os
+.Sh NAME
+.Nm nqsmsign ,
+.Nm nqsmvrfy ,
+.Nm nqsmenc ,
+.Nm nqsmdec
+.Nd S/MIME: signed and encrypted mail
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqsmsign "nqsalg alg" "const uint8_t *sk" "size_t sklen" "const uint8_t *cert" "size_t certlen" "const char *entity" "size_t n" "int detached" "int64_t at" "char *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqsmvrfy "const char *mime" "size_t n" "const uint8_t *const *anc" "const size_t *anclen" "size_t nanc" "int64_t at" "char *out" "size_t cap" "size_t *outlen" "nqx5f *signer"
+.Ft int
+.Fn nqsmenc "const uint8_t *const *rcert" "const size_t *rcertlen" "size_t nr" "const char *entity" "size_t n" "char *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqsmdec "nqkalg alg" "const uint8_t *sk" "size_t sklen" "const uint8_t *cert" "size_t certlen" "const char *mime" "size_t n" "char *out" "size_t cap" "size_t *outlen"
+.Sh DESCRIPTION
+These functions are those of
+.Xr nqcmssign 3
+as mail (S/MIME, RFC 8551).
+The content is a MIME entity: its header lines and its body, such as
+.Ql Content-Type: text/plain ,
+an empty line, and the text.
+Its line ends are made CRLF before it is signed or encrypted, as S/MIME
+requires.
+.Pp
+.Fn nqsmsign
+signs the entity: an
+.Ql application/pkcs7-mime
+entity of the smime-type
+.Ql signed-data
+with the content inside or, when
+.Fa detached
+is not 0, a
+.Ql multipart/signed
+entity whose first part is the content in the clear and whose second is
+the signature, so that a mail reader without S/MIME still shows the
+text.
+.Fn nqsmvrfy
+checks either form as
+.Fn nqcmsvrfy
+does, and gives the signed entity.
+.Pp
+.Fn nqsmenc
+encrypts the entity to ML-KEM certificates
+.Po
+.Ql application/pkcs7-mime ,
+.Ql authEnveloped-data
+.Pc ;
+.Fn nqsmdec
+opens it.
+To sign and encrypt, sign first and encrypt the result.
+.Pp
+The results are text with CRLF line ends: the header fields
+MIME-Version, Content-Type, Content-Transfer-Encoding and
+Content-Disposition, an empty line, and base64.
+.Sh RETURN VALUES
+Those of
+.Xr nqcmssign 3 ;
+.Dv NQEDEC
+also for an entity that is not of these types.
+.Sh SEE ALSO
+.Xr noqtis-smime 1 ,
+.Xr noqtis 3 ,
+.Xr nqcmssign 3 ,
+.Xr nqx5self 3

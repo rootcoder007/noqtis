@@ -1,0 +1,128 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQCMSSIGN 3
+.Os
+.Sh NAME
+.Nm nqcmssign ,
+.Nm nqcmsvrfy ,
+.Nm nqcmsenc ,
+.Nm nqcmsdec
+.Nd the Cryptographic Message Syntax: signed and encrypted messages
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqcmssign "nqsalg alg" "const uint8_t *sk" "size_t sklen" "const uint8_t *cert" "size_t certlen" "const uint8_t *msg" "size_t n" "int detached" "int64_t at" "uint8_t *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqcmsvrfy "const uint8_t *cms" "size_t n" "const uint8_t *msg" "size_t mlen" "const uint8_t *const *anc" "const size_t *anclen" "size_t nanc" "int64_t at" "uint8_t *out" "size_t cap" "size_t *outlen" "nqx5f *signer"
+.Ft int
+.Fn nqcmsenc "const uint8_t *const *rcert" "const size_t *rcertlen" "size_t nr" "const uint8_t *msg" "size_t n" "uint8_t *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqcmsdec "nqkalg alg" "const uint8_t *sk" "size_t sklen" "const uint8_t *cert" "size_t certlen" "const uint8_t *cms" "size_t n" "uint8_t *out" "size_t cap" "size_t *outlen"
+.Sh DESCRIPTION
+These functions write and read the Cryptographic Message Syntax (RFC
+5652), in DER, with the certificates of
+.Xr nqx5self 3 .
+.Pp
+.Fn nqcmssign
+signs the
+.Fa n
+bytes at
+.Fa msg
+with the secret key
+.Fa sk
+of
+.Fa alg ,
+whose certificate is
+.Fa cert ,
+at the time
+.Fa at :
+a SignedData of one signer, with the signed attributes content type,
+signing time and message digest, the signature over them (RFC 9882 for
+ML-DSA, RFC 9814 for SLH-DSA, RFC 8419 for Ed25519), and the
+certificate inside.
+The content is inside too, or left out when
+.Fa detached
+is not 0.
+.Pp
+.Fn nqcmsvrfy
+checks a SignedData of one signer: the digest of the content, the
+signed attributes, the signature under the signer's certificate, and
+that certificate against the
+.Fa nanc
+trust anchors
+.Fa anc
+(certificates in DER): it is one of them, or chains to one through the
+certificates the message carries.
+The content is the one inside, or
+.Fa msg
+for a detached signature; given both, they must be equal.
+The certificates must hold at the time
+.Fa at ,
+or with
+.Fa at
+0 at the signing time the message states, else now.
+On success the content is copied to
+.Fa out
+when that is not
+.Dv NULL ,
+and
+.Fa signer ,
+when not
+.Dv NULL ,
+says who signed
+.Pq Xr nqx5self 3 .
+Signatures by RSA and ECDSA certificates verify as well.
+.Pp
+.Fn nqcmsenc
+encrypts
+.Fa msg
+to the
+.Fa nr
+recipients (at most 32) whose ML-KEM certificates are given: an
+AuthEnvelopedData (RFC 5083) under AES-256-GCM (RFC 5084), the content
+key carried to each recipient in a KEMRecipientInfo (RFC 9629, RFC
+9936: ML-KEM, HKDF with SHA-256, AES Key Wrap).
+.Fn nqcmsdec
+opens one with the ML-KEM secret key
+.Fa sk
+of
+.Fa alg ;
+.Fa cert ,
+when not
+.Dv NULL ,
+is that key's certificate and picks its entry among the recipients,
+else every entry of that algorithm is tried.
+.Pp
+Encryption does not say who sent a message: to do both, sign first and
+encrypt the result.
+.Sh RETURN VALUES
+.Dv NQOK
+on success.
+.Dv NQEVRFY
+when a signature, a digest or a certificate path does not check out,
+when no recipient entry opens with the key, or when the content does
+not authenticate: nothing is given out then.
+.Dv NQEARG
+for a
+.Dv NULL
+pointer, a key that is not the certificate's, a certificate of the
+wrong kind of key, or a detached signature with no content given;
+.Dv NQEDEC
+for a message or certificate that is not one;
+.Dv NQENOSUP
+for an algorithm these functions do not take, or more than one signer;
+.Dv NQEBUF
+when
+.Fa out
+is too small, with the size in
+.Fa outlen ;
+.Dv NQELIM
+over 1 GiB.
+.Sh SEE ALSO
+.Xr noqtis-smime 1 ,
+.Xr noqtis 3 ,
+.Xr nqerr 3 ,
+.Xr nqsmsign 3 ,
+.Xr nqx5self 3

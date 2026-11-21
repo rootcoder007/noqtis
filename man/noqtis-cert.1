@@ -1,0 +1,102 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NOQTIS-CERT 1
+.Os
+.Sh NAME
+.Nm noqtis-cert
+.Nd make or show an X.509 certificate for a key
+.Sh SYNOPSIS
+.Nm noqtis cert
+.Fl k Ar key
+.Fl n Ar name
+.Op Fl e Ar email
+.Op Fl -days Ar n
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Fl o Ar cert
+.Op Fl -force
+.Nm noqtis cert
+.Fl k Ar key
+.Fl -issuer Ar cert
+.Fl -kem Ar kem.pub
+.Op Fl -days Ar n
+.Fl o Ar cert
+.Op Fl -force
+.Nm noqtis cert
+.Fl -show Ar cert
+.Sh DESCRIPTION
+.Nm noqtis cert
+writes X.509 certificates (RFC 5280) for noqtis keys, as PEM, for
+.Xr noqtis-smime 1
+and for any other program that takes certificates.
+.Pp
+The first form writes a self-signed certificate for the signature key
+.Ar key
+(with
+.Ar key Ns Pa .pub
+beside it): ML-DSA (RFC 9881), SLH-DSA (RFC 9909) or Ed25519 (RFC
+8410).
+Its subject is the common name
+.Ar name
+and, with
+.Fl e ,
+the address
+.Ar email
+as the rfc822Name of its subjectAltName.
+It signs mail and is a certification authority of path length 0, so
+that it can issue the second kind.
+A certificate nobody else signed proves nothing by itself: give it to
+those who are to trust the key, over a channel that cannot be forged,
+and they name it as their
+.Fl -anchor .
+.Pp
+The second form writes a certificate for the ML-KEM public key
+.Ar kem.pub
+(RFC 9935), issued by
+.Ar key
+under the name and address of its own certificate
+.Fl -issuer Ar cert :
+the certificate others encrypt to.
+.Bl -tag -width Ds
+.It Fl k Ar key , Fl -key Ns = Ns Ar key
+The secret signature key that signs the certificate.
+.It Fl n Ar name , Fl -name Ns = Ns Ar name
+The holder's name: 1 to 255 bytes of text.
+.It Fl e Ar email , Fl -email Ns = Ns Ar email
+The holder's address.
+.It Fl -days Ar n
+How long the certificate is valid, from five minutes ago: 1 to 36500
+days.
+Default: 730.
+.It Fl -issuer Ar cert , Fl -kem Ar kem.pub
+The second form: the certificate of
+.Ar key ,
+and the ML-KEM public key to certify.
+.It Fl o Ar cert , Fl -out Ns = Ns Ar cert
+The certificate to write.
+.It Fl -pass-fd Ar n , Fl -pass-env Ar name
+The passphrase of a protected
+.Ar key .
+.It Fl -show Ar cert
+Print what a certificate (PEM or DER) says: name, address, kind of key,
+validity, and its fingerprint, the SHA-256 of the certificate.
+.It Fl f , Fl -force
+Replace an existing
+.Ar cert .
+.El
+.Pp
+The hybrid keys (ML-DSA with Ed25519) and HQC have no standard
+certificate and get none.
+.Sh EXIT STATUS
+0 on success; 2 on a usage or file error.
+.Sh EXAMPLES
+.Bd -literal
+$ noqtis keygen -a ML-DSA-65 -o me
+$ noqtis keygen -a ML-KEM-768 -o me-kem
+$ noqtis cert -k me -n "Ada Example" -e ada@example.org -o me.crt
+$ noqtis cert -k me --issuer me.crt --kem me-kem.pub -o me-kem.crt
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr noqtis-smime 1 ,
+.Xr nqx5self 3

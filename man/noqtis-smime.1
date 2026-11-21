@@ -1,0 +1,158 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NOQTIS-SMIME 1
+.Os
+.Sh NAME
+.Nm noqtis-smime
+.Nd sign, verify, encrypt or decrypt mail (S/MIME, CMS)
+.Sh SYNOPSIS
+.Nm noqtis smime
+.Cm sign
+.Fl k Ar key
+.Fl -cert Ar cert
+.Op Fl -detached
+.Op Fl -der
+.Op Fl -text | Fl -entity
+.Op Fl o Ar out
+.Op Fl -force
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Ar file
+.Nm noqtis smime
+.Cm verify
+.Fl -anchor Ar cert
+.Op Fl -anchor Ar cert ...
+.Op Fl -content Ar file
+.Op Fl -entity
+.Op Fl o Ar out
+.Op Fl -force
+.Ar file
+.Nm noqtis smime
+.Cm encrypt
+.Fl -to Ar cert
+.Op Fl -to Ar cert ...
+.Op Fl -der
+.Op Fl -text | Fl -entity
+.Op Fl o Ar out
+.Op Fl -force
+.Ar file
+.Nm noqtis smime
+.Cm decrypt
+.Fl k Ar key
+.Op Fl -cert Ar cert
+.Op Fl -entity
+.Op Fl o Ar out
+.Op Fl -force
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Ar file
+.Sh DESCRIPTION
+.Nm noqtis smime
+writes and reads S/MIME messages (RFC 8551), the signed and encrypted
+mail of the Cryptographic Message Syntax (RFC 5652), with the
+certificates
+.Xr noqtis-cert 1
+makes.
+.Bl -tag -width "encrypt"
+.It Cm sign
+Sign
+.Ar file
+with the secret signature key
+.Ar key ,
+whose certificate is
+.Fl -cert Ar cert :
+ML-DSA (RFC 9882), SLH-DSA (RFC 9814) or Ed25519 (RFC 8419).
+The message carries the certificate.
+With
+.Fl -detached
+the content stays in the clear beside the signature
+.Pq multipart/signed ,
+so that a reader without S/MIME still shows it; otherwise it is inside
+.Pq application/pkcs7-mime .
+.It Cm verify
+Check a signed message against the trust anchors given with
+.Fl -anchor
+(up to 32 certificates, PEM or DER): the signer's certificate is one of
+them, or chains to one.
+It prints who signed, and with
+.Fl o
+writes the content.
+The certificates must be valid at the signing time the message states.
+.It Cm encrypt
+Encrypt
+.Ar file
+to the ML-KEM certificates given with
+.Fl -to
+(up to 32): AES-256-GCM, the content key carried to each recipient by
+ML-KEM (RFC 9629, RFC 9936).
+Encryption does not say who sent a message: to do both, sign first and
+encrypt the result.
+.It Cm decrypt
+Open an encrypted message with the ML-KEM secret key
+.Ar key ;
+.Fl -cert
+names that key's certificate, and so its entry among the recipients.
+.El
+.Pp
+The options:
+.Bl -tag -width Ds
+.It Fl -der
+Write the CMS structure itself, in DER, in place of a MIME message.
+.Cm verify
+and
+.Cm decrypt
+read either form;
+.Cm verify
+takes what a detached DER signature signs with
+.Fl -content Ar file .
+.It Fl -text
+The content is text: it is carried as it is
+.Pq text/plain ,
+readable in a detached message, and its line ends become CRLF as S/MIME
+requires.
+Without it the content is carried in base64 and every byte comes back
+as it was.
+.It Fl -entity
+.Ar file
+is a MIME entity already, header and body;
+.Cm verify
+and
+.Cm decrypt
+then write the entity instead of its body.
+.It Fl o Ar out , Fl -out Ns = Ns Ar out
+The output; standard output when it is not given or is
+.Ar - .
+.It Fl -pass-fd Ar n , Fl -pass-env Ar name
+The passphrase of a protected
+.Ar key .
+.It Fl f , Fl -force
+Replace an existing
+.Ar out .
+.El
+.Sh EXIT STATUS
+0 on success;
+1 when
+.Cm verify
+finds that a signature does not verify or its signer is not trusted;
+2 on a usage or file error, and when a message does not open.
+.Sh EXAMPLES
+.Bd -literal
+$ noqtis smime sign -k me --cert me.crt --detached --text \e
+      -o note.eml note.txt
+$ noqtis smime verify --anchor me.crt note.eml
+note.eml: OK, signed by Ada Example <ada@example.org> (certificate ...)
+$ noqtis smime encrypt --to bob-kem.crt -o secret.p7m report.pdf
+$ noqtis smime decrypt -k bob-kem -o report.pdf secret.p7m
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-cert 1 ,
+.Xr nqcmssign 3 ,
+.Xr nqsmsign 3
+.Sh STANDARDS
+.Rs
+.%A J. Schaad
+.%A B. Ramsdell
+.%A S. Turner
+.%T Secure/Multipurpose Internet Mail Extensions (S/MIME) Version 4.0 Message Specification
+.%R RFC 8551
+.%D April 2019
+.Re

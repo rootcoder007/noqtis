@@ -1,0 +1,110 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQX5SELF 3
+.Os
+.Sh NAME
+.Nm nqx5self ,
+.Nm nqx5kem ,
+.Nm nqx5info
+.Nd X.509 certificates for noqtis keys
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqx5self "nqsalg alg" "const uint8_t *sk" "size_t sklen" "const uint8_t *pk" "size_t pklen" "const char *cn" "const char *email" "int64_t nb" "int64_t na" "uint8_t *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqx5kem "nqsalg ialg" "const uint8_t *isk" "size_t isklen" "const uint8_t *icert" "size_t icertlen" "nqkalg alg" "const uint8_t *pk" "size_t pklen" "int64_t nb" "int64_t na" "uint8_t *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqx5info "const uint8_t *cert" "size_t n" "nqx5f *f"
+.Sh DESCRIPTION
+These functions make and read X.509 certificates (RFC 5280), in DER.
+.Pp
+.Fn nqx5self
+makes a self-signed certificate for the signature key pair
+.Fa sk ,
+.Fa pk
+of
+.Fa alg :
+ML-DSA (RFC 9881), SLH-DSA (RFC 9909) or Ed25519 (RFC 8410).
+Its subject is the common name
+.Fa cn
+(as
+.Xr nqcard 3
+takes a name) with, when
+.Fa email
+is not
+.Dv NULL ,
+that address as the rfc822Name of its subjectAltName.
+It is valid from
+.Fa nb
+to
+.Fa na
+(seconds since 1970, UTC), signs mail, and is a certification authority
+of path length 0.
+.Pp
+.Fn nqx5kem
+makes a certificate for the ML-KEM public key
+.Fa pk
+of
+.Fa alg
+(RFC 9935), issued by the holder of the certificate
+.Fa icert
+with its secret key
+.Fa isk
+of
+.Fa ialg ,
+under the name and address of
+.Fa icert .
+.Pp
+.Fn nqx5info
+reads a certificate into
+.Bd -literal -offset indent
+typedef struct {
+  int kem;          /* 1: an ML-KEM key (alg an nqkalg) */
+  int alg;          /* nqsalg or nqkalg; 0 for another kind */
+  uint8_t fp[32];   /* SHA-256 of the certificate */
+  int64_t nb, na;   /* valid from, to */
+  int ca;
+  char name[256];   /* the common name, "" when none */
+  char email[255];  /* the first rfc822Name, "" when none */
+  size_t pkoff;     /* the public key: where it is in the */
+  size_t pklen;     /* certificate, and its length */
+} nqx5f;
+.Ed
+.Pp
+.Fa out
+holds
+.Fa cap
+bytes and
+.Fa outlen
+gets the size.
+A certificate nobody else signed proves nothing by itself: its holder
+gives it to those who are to trust the key.
+.Sh RETURN VALUES
+.Dv NQOK
+on success.
+.Dv NQEARG
+for a
+.Dv NULL
+pointer, a name or address
+.Xr nqcard 3
+would refuse, a key of the wrong length,
+.Fa na
+not after
+.Fa nb ,
+or a key pair or issuer that does not match;
+.Dv NQENOSUP
+for an algorithm with no standard certificate (the hybrids, HQC);
+.Dv NQEDEC
+for a certificate that is not one;
+.Dv NQEBUF
+when
+.Fa out
+is too small, with the size in
+.Fa outlen .
+.Sh SEE ALSO
+.Xr noqtis-cert 1 ,
+.Xr noqtis 3 ,
+.Xr nqcmssign 3 ,
+.Xr nqerr 3

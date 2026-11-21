@@ -456,6 +456,8 @@ int nckeygen(int argc, char **argv);
 int ncpasswd(int argc, char **argv);
 int ncarmor(int argc, char **argv);
 int nckeys(int argc, char **argv);
+int nccert(int argc, char **argv);
+int ncsmime(int argc, char **argv);
 int ncdearmor(int argc, char **argv);
 int ncsign(int argc, char **argv);
 int ncvrfy(int argc, char **argv);

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen passwd sign verify enc dec box unbox keys armor dearmor hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
+set -l cmds keygen passwd sign verify enc dec box unbox keys cert smime armor dearmor hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -31,6 +31,27 @@ complete -c noqtis -n "__fish_seen_subcommand_from keys" -s e -l email -x -d 'ad
 complete -c noqtis -n "__fish_seen_subcommand_from keys" -l card -r -F -d 'identity card of the key'
 complete -c noqtis -n "__fish_seen_subcommand_from keys" -s k -l key -r -F -d 'secret key to certify with'
 complete -c noqtis -n "__fish_seen_subcommand_from keys" -s o -l out -r -F -d 'output file'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a cert -d "make or show an X.509 certificate for a key"
+complete -c noqtis -n "__fish_seen_subcommand_from cert" -s k -l key -r -F -d 'secret signature key'
+complete -c noqtis -n "__fish_seen_subcommand_from cert" -s n -l name -x -d 'name of the holder'
+complete -c noqtis -n "__fish_seen_subcommand_from cert" -s e -l email -x -d 'address of the holder'
+complete -c noqtis -n "__fish_seen_subcommand_from cert" -l days -x -d 'days it is valid'
+complete -c noqtis -n "__fish_seen_subcommand_from cert" -l issuer -r -F -d 'certificate of the signing key'
+complete -c noqtis -n "__fish_seen_subcommand_from cert" -l kem -r -F -d 'ML-KEM public key to certify'
+complete -c noqtis -n "__fish_seen_subcommand_from cert" -l show -r -F -d 'print what a certificate says'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a smime -d "sign, verify, encrypt or decrypt mail (S/MIME)"
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -a "sign verify encrypt decrypt"
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -s k -l key -r -F -d 'secret key'
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -l cert -r -F -d 'certificate of the key'
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -l anchor -r -F -d 'trusted certificate'
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -l to -r -F -d 'ML-KEM certificate of a recipient'
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -l content -r -F -d 'what a detached signature signs'
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -l detached -d 'keep the content in the clear'
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -l der -d 'write the CMS structure (DER)'
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -l text -d 'the content is text'
+complete -c noqtis -n "__fish_seen_subcommand_from smime" -l entity -d 'the file is a MIME entity'
+complete -c noqtis -n "__fish_seen_subcommand_from cert smime" -s o -l out -r -F -d 'output file'
+complete -c noqtis -n "__fish_seen_subcommand_from cert smime" -s f -l force -d 'replace an existing output'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a armor -d "write a file as text (ASCII armor)"
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a dearmor -d "read the bytes an armored file holds"
 complete -c noqtis -n "__fish_seen_subcommand_from armor" -s l -l label -x -d 'the label of the BEGIN and END lines'
