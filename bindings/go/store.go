@@ -47,7 +47,7 @@ func fp32(m *cmem, fp []byte) (*C.uint8_t, error) {
 }
 
 // StoreAdd puts the public key pk of alg into the key store in the
-// folder dir (made when missing) under name and, when not "", email;
+// folder dir, which must exist, under name and, when not "", email;
 // card, when not nil, is its identity card. It returns the key's
 // fingerprint.
 func StoreAdd(dir, alg string, pk []byte, name, email string, card []byte) ([]byte, error) {

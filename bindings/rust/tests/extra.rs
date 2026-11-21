@@ -157,7 +157,8 @@ fn keystore() {
     let _ = std::fs::remove_dir_all(&base);
     let dir = base.join("a").to_string_lossy().into_owned();
     let dir2 = base.join("b").to_string_lossy().into_owned();
-    std::fs::create_dir_all(&base).unwrap();
+    std::fs::create_dir_all(base.join("a")).unwrap();
+    std::fs::create_dir_all(base.join("b")).unwrap();
     let (pk, sk) = sign::keygen("ML-DSA-44", None).unwrap();
     let (pk2, _) = kem::keygen("ML-KEM-768", None).unwrap();
     let me = store::add(

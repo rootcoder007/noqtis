@@ -273,7 +273,7 @@ public final class Pgp {
   public static Verified verify(byte[] cert, byte[] sig, byte[] msg) {
     try (Arena m = Arena.ofConfined()) {
       MemorySegment at = m.allocate(JAVA_LONG), n = m.allocate(JAVA_LONG);
-      long cap = Mail.len(sig) + 1;
+      long cap = Mail.len(sig) + Mail.len(msg) + 1;
       MemorySegment o = Native.out(m, cap);
       // an empty message is still a message: null alone means none
       MemorySegment mm = msg == null ? MemorySegment.NULL : Native.out(m, msg.length);

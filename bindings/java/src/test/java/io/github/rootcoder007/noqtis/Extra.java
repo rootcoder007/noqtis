@@ -118,7 +118,7 @@ final class Extra {
   }
 
   static void keystore() throws Exception {
-    KeyStore ks = new KeyStore(mk("nqjks").resolve("keys"));
+    KeyStore ks = new KeyStore(mk("nqjks"));
     Sign.KeyPair me = Sign.keygen("ML-DSA-44");
     Sign.KeyPair bob = Kem.keygen("ML-KEM-768");
     byte[] mine = ks.add("ML-DSA-44", me.pk(), "Me Myself", "me@example.org", null);
@@ -134,7 +134,7 @@ final class Extra {
     l = ks.list("bob@example.org");
     ok(l.get(0).valid() == KeyStore.VALID_FULL && l.get(0).certs() == 1, "valid once certified");
     String bundle = ks.export(his);
-    KeyStore other = new KeyStore(mk("nqjks2").resolve("keys"));
+    KeyStore other = new KeyStore(mk("nqjks2"));
     KeyStore.Imported im = other.imports(bundle, "bob@example.org");
     ok(im.keys() >= 1 && Arrays.equals(im.fingerprint(), his), "import");
     ok(fails(() -> other.imports(bundle, "eve@example.org")) != null, "another address");

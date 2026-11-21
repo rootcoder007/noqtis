@@ -63,8 +63,8 @@ def _any(alg: AlgLike) -> Tuple[int, int]:
 
 def add(folder: _Dir, alg: AlgLike, pk: Bytes, name: str,
         email: Optional[str] = None, card: Optional[Bytes] = None) -> bytes:
-    """Puts the public key ``pk`` into the store in ``folder`` (made
-    when missing) under ``name`` and ``email``; ``card`` is its identity
+    """Puts the public key ``pk`` into the store in ``folder``, which
+    must exist, under ``name`` and ``email``; ``card`` is its identity
     card. Returns the key's fingerprint."""
     kem, a = _any(alg)
     return _c.ksadd(path(folder), kem, a, buf(pk, "pk"), name, email,

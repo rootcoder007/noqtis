@@ -17,7 +17,7 @@
 #' it, or three trusted `"marginal"`. The store is a plain folder that
 #' nothing signs: keep it where only you can write.
 #'
-#' @param dir The folder of the store (made when missing).
+#' @param dir The folder of the store; it must exist.
 #' @param pk A public key, a raw vector; for `nqkscertify()`, the public
 #'   key of `sk`.
 #' @param alg The algorithm of the key.
@@ -50,6 +50,7 @@
 #' @family mail and key functions
 #' @examples
 #' d <- file.path(tempdir(), "nqkeys")
+#' dir.create(d)
 #' me <- nqkeygen("ML-DSA-44")
 #' bob <- nqkeygen("ML-KEM-768")
 #' mine <- nqksadd(d, me$pk, "ML-DSA-44", "Me", "me@example.org")

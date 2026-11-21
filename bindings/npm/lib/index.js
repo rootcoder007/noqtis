@@ -3072,8 +3072,8 @@ export const pgp = Object.freeze({
     const m = optbytes(opts.content, 'content');
     return run((h) => {
       const at = h.alloc(8);
-      const data = outbufv(h, s.length + 1, (po, cap, pn) =>
-        M._nqpgpvrfy(h.put(c), c.length, h.put(s), s.length,
+      const data = outbufv(h, s.length + (m ? m.length : 0) + 1,
+        (po, cap, pn) => M._nqpgpvrfy(h.put(c), c.length, h.put(s), s.length,
           m ? h.put(m) : 0, m ? m.length : 0, po, cap, pn, at));
       return data === null ? null : { data, at: i64at(at) };
     });

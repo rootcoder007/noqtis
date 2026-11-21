@@ -50,8 +50,8 @@ pub struct Key {
     pub certs: usize,
 }
 
-/// Puts the public key `pk` of `alg` into the store in the folder `dir`
-/// (made when missing) under `name` and `email`; `card` is its identity
+/// Puts the public key `pk` of `alg` into the store in the folder `dir`,
+/// which must exist, under `name` and `email`; `card` is its identity
 /// card. It gives the key's fingerprint.
 pub fn add(
     dir: &str,

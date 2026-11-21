@@ -139,7 +139,7 @@ func PGPVerify(cert, sig, msg []byte) ([]byte, time.Time, error) {
 	if msg != nil {
 		cm = m.bytes(msg)
 	}
-	out, err := m.buf(len(sig)+1, func(p unsafe.Pointer, cap C.size_t, got *C.size_t) C.int {
+	out, err := m.buf(len(sig)+len(msg)+1, func(p unsafe.Pointer, cap C.size_t, got *C.size_t) C.int {
 		return C.nqpgpvrfy(u8(cert), sz(cert), u8(sig), sz(sig), cm, sz(msg), (*C.uint8_t)(p), cap, got, &at)
 	})
 	if err != nil {

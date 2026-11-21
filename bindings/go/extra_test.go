@@ -171,7 +171,7 @@ func TestPGP(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	dir := t.TempDir() + "/keys"
+	dir := t.TempDir()
 	pk, sk, err := SignKeyGen("ML-DSA-44", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -216,7 +216,7 @@ func TestStore(t *testing.T) {
 	if err != nil || b == "" {
 		t.Fatalf("StoreExport: %v", err)
 	}
-	dir2 := t.TempDir() + "/keys"
+	dir2 := t.TempDir()
 	fp, n, err := StoreImport(dir2, b, "bob@example.org")
 	if err != nil || n < 1 || !bytes.Equal(fp, bob) {
 		t.Fatalf("StoreImport: %x %d %v", fp, n, err)

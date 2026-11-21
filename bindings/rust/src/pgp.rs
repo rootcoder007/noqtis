@@ -190,7 +190,7 @@ pub fn sign(
 pub fn verify(cert: &[u8], sig: &[u8], msg: Option<&[u8]>) -> Result<(Vec<u8>, i64)> {
     let (mp, ml) = opt(msg);
     let mut at = 0i64;
-    let b = out(sig.len() + 1, |p, cap, got| {
+    let b = out(sig.len() + ml + 1, |p, cap, got| {
         // SAFETY: every buffer is valid for its length
         unsafe {
             ffi::nqpgpvrfy(

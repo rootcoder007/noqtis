@@ -118,7 +118,7 @@ public final class KeyStore {
   public record Imported(byte[] fingerprint, int keys) {}
 
   /**
-   * The store in the folder dir, which is made when the first key goes in.
+   * The store in the folder dir, which must exist.
    *
    * @param dir the folder
    */

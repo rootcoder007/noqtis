@@ -6,6 +6,8 @@ test_that("a key store keeps, certifies and carries keys", {
   d <- file.path(tempfile("nqks"), "keys")
   d2 <- file.path(tempfile("nqks"), "keys")
   on.exit(unlink(c(dirname(d), dirname(d2)), recursive = TRUE))
+  dir.create(d, recursive = TRUE)
+  dir.create(d2, recursive = TRUE)
   me <- nqkeygen("ML-DSA-44")
   bob <- nqkeygen("ML-KEM-768")
   mine <- nqksadd(d, me$pk, "ML-DSA-44", "Me Myself", "me@example.org")

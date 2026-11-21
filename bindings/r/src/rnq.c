@@ -1812,7 +1812,7 @@ static SEXP Cpgpvrfy(SEXP cert, SEXP sig, SEXP msg) {
   chkraw(cert, "cert", 0);
   chkraw(sig, "sig", 0);
   chkraw(msg, "msg", 1);
-  cap = rn(sig) + 1;
+  cap = rn(sig) + rn(msg) + 1;
   b = xbuf(cap);
   /* a raw(0) message is still a message: R's NULL alone means none */
   rc = nqpgpvrfy(rp(cert), rn(cert), rp(sig), rn(sig),

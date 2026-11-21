@@ -139,6 +139,7 @@ def test_pgp_sign_only():
 
 def test_store(tmp_path):
     d = tmp_path / "keys"
+    d.mkdir()
     pk, sk = sign.keygen("ML-DSA-44")
     pk2, _ = kem.keygen("ML-KEM-768")
     me = store.add(d, "ML-DSA-44", pk, "Me Myself", "me@example.org")
@@ -155,6 +156,7 @@ def test_store(tmp_path):
     assert ks[0].valid == store.VALID_FULL and ks[0].certs == 1
     b = store.export(d, bob)
     d2 = tmp_path / "other"
+    d2.mkdir()
     fp, n = store.imports(d2, b, "bob@example.org")
     assert fp == bob and n >= 1
     with pytest.raises(noqtis.NoqtisError):

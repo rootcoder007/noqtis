@@ -2783,8 +2783,9 @@ static PyObject *ppgpvrfy(PyObject *self, PyObject *args) {
   (void)self;
   if (!PyArg_ParseTuple(args, "y#y#z#", &c, &cl, &s, &sl, &m, &ml))
     return NULL;
-  XRUN(SZ(sl) + 1, nqpgpvrfy(U8(c), SZ(cl), U8(s), SZ(sl), U8(m), SZ(ml), xb,
-                             SZ(sl) + 1, &xn, &at));
+  XRUN(SZ(sl) + SZ(ml) + 1,
+       nqpgpvrfy(U8(c), SZ(cl), U8(s), SZ(sl), U8(m), SZ(ml), xb,
+                 SZ(sl) + SZ(ml) + 1, &xn, &at));
   if (xr == NULL) return NULL;
   return Py_BuildValue("(NL)", xr, (long long)at);
 }
