@@ -34,6 +34,8 @@ test_that("a key store keeps, certifies and carries keys", {
   g <- nqksget(d, his)
   expect_identical(g$alg, "ML-KEM-768")
   expect_identical(g$pk, bob$pk)
+  # a signature key comes back as one
+  expect_identical(nqksget(d, mine)$alg, "ML-DSA-44")
   # the fingerprint in hexadecimal names the key as well
   expect_identical(nqksget(d, b$fingerprint)$pk, bob$pk)
   expect_null(nqkstrust(d, mine, "ultimate"))

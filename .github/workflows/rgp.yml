@@ -66,6 +66,14 @@ jobs:
           sh bindings/r/tools/vendor.sh
           git diff --exit-code -- bindings/r/src
           test -z "$(git status --porcelain bindings/r/src)"
+      - name: the software token, so that the token functions are tested
+        # the token tests skip without NQTOKPATH, and their code would
+        # count as untested
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/tok" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/tok" --target nqtok -j 4
+          test -f "$RUNNER_TEMP/tok/nqtok.so"
+          echo "NQTOKPATH=$RUNNER_TEMP/tok/nqtok.so" >> "$GITHUB_ENV"
       - name: goodpractice, all default checks
         working-directory: bindings/r
         run: |

@@ -28,7 +28,7 @@ async function main(): Promise<void> {
   const aa: Uint8Array = argon2id('pw', 'saltsalt', { t: 1, m: 8, p: 1 });
   const ce: boolean = cteq(bb, aa);
   const ar: string = armor.encode('NOQTIS TEST', sb);
-  const ad: Uint8Array = armor.decode(ar).data;
+  const adec: Uint8Array = armor.decode(ar).data;
   const cr: Uint8Array = mail.selfCert('ML-DSA-44', sb, sb, 'Ada', { email: 'a@example.org', notBefore: 0 });
   const kc: Uint8Array = mail.kemCert('ML-DSA-44', sb, cr, 'ML-KEM-768', sb);
   const ci: string = mail.readCert(cr).name;
