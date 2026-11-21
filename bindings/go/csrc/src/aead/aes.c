@@ -138,12 +138,22 @@ void nqaes2(const nqaes *k, const uint8_t *in, uint8_t *out) {
   uint8_t s[32];
   unsigned r;
   int i;
-  for (i = 0; i < 32; i++) s[i] = (uint8_t)(in[i] ^ k->rk[i & 15]);
+  /* each block with the round key, block by block: one loop over the 32
+   * bytes with the key index i & 15 is miscompiled by the loop
+   * vectorizer of Apple clang 21 on arm64 (bytes 20 to 23 come out
+   * wrong) */
+  for (i = 0; i < 16; i++) {
+    s[i] = (uint8_t)(in[i] ^ k->rk[i]);
+    s[16 + i] = (uint8_t)(in[16 + i] ^ k->rk[i]);
+  }
   for (r = 1; r <= k->nr; r++) {
     sub32(s);
     mix(s, r == k->nr);
     mix(s + 16, r == k->nr);
-    for (i = 0; i < 32; i++) s[i] ^= k->rk[16 * r + (unsigned)(i & 15)];
+    for (i = 0; i < 16; i++) {
+      s[i] ^= k->rk[16 * r + (unsigned)i];
+      s[16 + i] ^= k->rk[16 * r + (unsigned)i];
+    }
   }
   memcpy(out, s, 32);
   nqwipe(s, sizeof s);

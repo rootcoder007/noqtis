@@ -53,6 +53,35 @@ static void taes(void) {
   }
 }
 
+/* two blocks at once: each is the cipher of FIPS 197 appendix C. A
+ * loop vectorizer once got the second block wrong (Apple clang 21 on
+ * arm64), which no one-block test sees. */
+static void taes2(void) {
+  static const uint8_t want[3][16] = {
+      {0x69, 0xc4, 0xe0, 0xd8, 0x6a, 0x7b, 0x04, 0x30, 0xd8, 0xcd, 0xb7, 0x80,
+       0x70, 0xb4, 0xc5, 0x5a},
+      {0xdd, 0xa9, 0x7c, 0xa4, 0x86, 0x4c, 0xdf, 0xe0, 0x6e, 0xaf, 0x70, 0xa0,
+       0xec, 0x0d, 0x71, 0x91},
+      {0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf, 0xea, 0xfc, 0x49, 0x90,
+       0x4b, 0x49, 0x60, 0x89}};
+  uint8_t key[32], in[32], out[32];
+  nqaes k;
+  size_t i, n;
+  for (i = 0; i < 32; i++) key[i] = (uint8_t)i;
+  for (i = 0; i < 16; i++) in[i] = in[16 + i] = (uint8_t)(i * 0x11);
+  for (n = 0; n < 3; n++) {
+    NQTEQI(nqaesk(&k, key, 16 + 8 * n), NQOK);
+    nqaes2(&k, in, out);
+    NQTEQM(out, want[n], 16);
+    NQTEQM(out + 16, want[n], 16);
+    /* and in place */
+    memcpy(out, in, 32);
+    nqaes2(&k, out, out);
+    NQTEQM(out, want[n], 16);
+    NQTEQM(out + 16, want[n], 16);
+  }
+}
+
 static void tkw(void) {
   /* RFC 3394 section 4 */
   static const struct {
@@ -253,6 +282,7 @@ static void teax(void) {
 
 int main(void) {
   taes();
+  taes2();
   tkw();
   tocb();
   teax();
