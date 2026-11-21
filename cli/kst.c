@@ -75,6 +75,32 @@ static int one(const char *dir, const char *q, nqkse *e) {
   return NCOK;
 }
 
+/* one() for a bundle, which is of a key with an identity card: when
+ * several keys answer q (a holder's signature key and KEM key bear one
+ * name) and one of them alone has a card, that one */
+static int onecard(const char *dir, const char *q, nqkse *e) {
+  nqkse *all = (nqkse *)malloc(MAXE * sizeof *all);
+  size_t n = 0, i, hit = MAXE, cards = 0;
+  int rc;
+  if (all == NULL) return nclib("keys", "memory", NQEMEM);
+  rc = nqkslist(dir, q, all, MAXE, &n);
+  if ((rc == NQOK || rc == NQEBUF) && n > 1 && n <= MAXE) {
+    for (i = 0; i < n; i++) {
+      if (all[i].card) {
+        hit = i;
+        cards++;
+      }
+    }
+    if (cards == 1) {
+      *e = all[hit];
+      free(all);
+      return NCOK;
+    }
+  }
+  free(all);
+  return one(dir, q, e);
+}
+
 static int list(const char *dir, const char *q, int find) {
   nqkse *e = (nqkse *)malloc(MAXE * sizeof *e);
   size_t n = 0, i;
@@ -281,7 +307,7 @@ static int bundle(const char *dir, const char *q, const char *out,
   char *b;
   size_t n = 0, cap = (size_t)1 << 20;
   int rc, ret = NCUSE;
-  if (one(dir, q, &e) != NCOK) return NCUSE;
+  if (onecard(dir, q, &e) != NCOK) return NCUSE;
   b = (char *)malloc(cap);
   if (b == NULL) return nclib("keys", "memory", NQEMEM);
   rc = nqksexp(dir, e.fp, b, cap, &n);

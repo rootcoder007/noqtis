@@ -2775,10 +2775,12 @@ static void tkeys(void) {
   want(0, "keys --store q.k3s add -n \"Card Holder\" -e card@example.org "
           "q.kk.pub", NULL);
   want(0, "keys --store q.k3s add -n \"Not Mine\" q.k2.pub", NULL);
-  want(0, "keys --store q.k3s certify -k q.sg2 \"ML-KEM\"", NULL);
+  want(0, "keys --store q.k3s certify -k q.sg2 \"ML-KEM-768\"", NULL);
   want(0, "keys --store q.k3s bundle -o q.bn --force card@", NULL);
   want(2, "keys --store q.k3s bundle -o q.bn card@", NULL);
-  want(2, "keys --store q.k3s bundle card", NULL);
+  want(0, "keys --store q.k3s bundle card", NULL);
+  ok(has("q.out", "-----BEGIN NOQTIS IDENTITY CARD-----\n"),
+     "keys bundle to stdout");
   ok(has("q.bn", "-----BEGIN NOQTIS IDENTITY CARD-----\n") &&
      has("q.bn", "-----BEGIN NOQTIS PUBLIC KEY-----\n") &&
      has("q.bn", "-----BEGIN NOQTIS CERTIFICATION-----\n"),

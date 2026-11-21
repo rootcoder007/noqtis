@@ -256,13 +256,14 @@ static int pgpverify(const char *cp, const char *content, const char *in,
     ncmsg("pgp", "cannot read %s%s", content, ncwhy());
     goto done;
   }
-  o = (uint8_t *)malloc(bn + 1);
+  /* the data comes back: what is inside, or the content given */
+  o = (uint8_t *)malloc(bn + mn + 1);
   if (o == NULL) {
     nclib("pgp", "memory", NQEMEM);
     goto done;
   }
   rc = nqpgpvrfy(c, cn, b, bn, content != NULL ? (m != NULL ? m : o) : NULL,
-                 mn, o, bn + 1, &on, &t);
+                 mn, o, bn + mn + 1, &on, &t);
   if (rc == NQEVRFY) {
     ncmsg("pgp", "%s does NOT verify under %s", in, cp);
     ret = NCBAD;
