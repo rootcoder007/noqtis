@@ -19,6 +19,11 @@ static int xvrfy(void *user, const nqxvreq *r) {
                 r->msg.n, NULL, 0, 0, r->sig.p, r->sig.n);
     return rc == NQOK ? NQOK : NQEVRFY;
   }
+  if (r->alg.kind == NQXED) {
+    rc = nqvrfy(NQED25519, r->key->key.p, r->key->key.n, r->msg.p, r->msg.n,
+                NULL, 0, 0, r->sig.p, r->sig.n);
+    return rc == NQOK ? NQOK : NQEVRFY;
+  }
   if (r->dig == NULL || nqckey(&k, r->key->spki.p, r->key->spki.n) != NQOK) {
     return NQEVRFY;
   }

@@ -62,6 +62,11 @@ OID(oanyeku, 0x55, 0x1d, 0x25, 0x00);
 static const uint8_t pqpre[] = {0x60, 0x86, 0x48, 0x01, 0x65,
                                 0x03, 0x04, 0x03};
 
+/* 2.16.840.1.101.3.4.4.1 .. 3: ML-KEM-512/768/1024 (RFC 9935) */
+static const uint8_t kempre[] = {0x60, 0x86, 0x48, 0x01, 0x65,
+                                 0x03, 0x04, 0x04};
+OID(oed25519, 0x2b, 0x65, 0x70);
+
 int nqxoideq(const nqdtlv *t, const nqxoid *o) {
   return nqdoideq(t, o->p, o->n);
 }
@@ -243,6 +248,10 @@ int nqxsalg(const nqdtlv *aid, nqxsig *s) {
     s->kind = NQXPQ;
     return hasp ? NQEDEC : NQOK;
   }
+  if (nqxoideq(&oid, &oed25519)) {
+    s->kind = NQXED;
+    return hasp ? NQEDEC : NQOK;
+  }
   return NQENOSUP;
 }
 
@@ -347,6 +356,25 @@ int nqxspki(const nqdtlv *t, nqxkey *k) {
     k->type = NQXKPQ;
     return NQOK;
   }
+  if (nqxoideq(&oid, &oed25519)) {
+    if (hasp || k->key.n != 32) {
+      return NQEDEC;
+    }
+    k->type = NQXKED;
+    return NQOK;
+  }
+  if (oid.v.n == sizeof kempre + 1 &&
+      memcmp(oid.v.p, kempre, sizeof kempre) == 0 &&
+      oid.v.p[sizeof kempre] >= 1 && oid.v.p[sizeof kempre] <= 3) {
+    static const size_t kl[3] = {800, 1184, 1568};
+    unsigned i = (unsigned)oid.v.p[sizeof kempre] - 1;
+    if (hasp || k->key.n != kl[i]) {
+      return NQEDEC;
+    }
+    k->kem = (nqkalg)(NQMLKEM512 + i);
+    k->type = NQXKKEM;
+    return NQOK;
+  }
   return NQOK;
 }
 
@@ -358,6 +386,8 @@ int nqxkeyok(const nqxkey *key, const nqxsig *alg) {
     return key->type == NQXKRSA || key->type == NQXKPSS ? NQOK : NQEVRFY;
   case NQXECDSA:
     return key->type == NQXKEC ? NQOK : NQEVRFY;
+  case NQXED:
+    return key->type == NQXKED ? NQOK : NQEVRFY;
   case NQXPQ:
     return key->type == NQXKPQ && key->pq == alg->pq ? NQOK : NQEVRFY;
   default:
@@ -382,7 +412,7 @@ int nqxvrfy(const nqxops *ops, const nqxkey *key, const nqxsig *alg,
   q.sig = sig;
   q.dig = NULL;
   q.diglen = 0;
-  if (alg->kind != NQXPQ) {
+  if (alg->kind != NQXPQ && alg->kind != NQXED) {
     q.diglen = nqhlen(alg->h);
     if (nqhash(alg->h, msg.p, msg.n, dig, q.diglen) != NQOK) {
       return NQEARG;

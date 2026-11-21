@@ -1040,6 +1040,100 @@ NQAPI int nqarmenc(const char *label, const uint8_t *in, size_t n,
 NQAPI int nqarmdec(const char *in, size_t n, char *label, size_t lcap,
                    uint8_t *out, size_t cap, size_t *outlen);
 
+/* ---- certificates and CMS (S/MIME) ---------------------------------- */
+
+/* X.509 certificates for noqtis keys (RFC 5280), in DER.
+ *
+ * nqx5self makes a self-signed certificate for the signature key pair
+ * (sk, pk) of alg: ML-DSA (RFC 9881), SLH-DSA (RFC 9909) or Ed25519
+ * (RFC 8410); NQENOSUP for the hybrids, which have no standard
+ * encoding. Its subject is the common name cn (as nqcard takes a name)
+ * with, when email is not NULL, that address as the rfc822Name of its
+ * subjectAltName. It is valid from nb to na (seconds since 1970, UTC),
+ * signs mail (digitalSignature, nonRepudiation, the e-mail protection
+ * purpose) and is a CA of path length 0, so that it can issue the
+ * second kind. Its holder gives it to those who are to trust the key:
+ * a certificate nobody else signed proves nothing by itself.
+ *
+ * nqx5kem makes a certificate for the ML-KEM public key pk of alg (RFC
+ * 9935; key usage keyEncipherment), issued by the holder of the
+ * certificate icert with its secret key isk of ialg, under icert's
+ * name and address: the certificate others encrypt to.
+ *
+ * nqx5info reads a certificate: who it names, its key, its validity.
+ *
+ * out holds cap bytes; *outlen gets the size, also with NQEBUF. NQEARG
+ * for a NULL pointer, a name or address nqcard would refuse, a key of
+ * the wrong length, na not after nb, a key pair or issuer that does
+ * not match; NQEDEC for a certificate that is not one. */
+typedef struct {
+  int kem;          /* 1: an ML-KEM key (alg an nqkalg) */
+  int alg;          /* nqsalg or nqkalg; 0 for a key of another kind */
+  uint8_t fp[32];   /* SHA-256 of the certificate */
+  int64_t nb, na;   /* valid from, to (seconds since 1970) */
+  int ca;
+  char name[256];   /* the subject's common name, "" when none */
+  char email[255];  /* its first rfc822Name, "" when none */
+  size_t pkoff;     /* the public key: its place in the certificate, */
+  size_t pklen;     /* and its length */
+} nqx5f;
+NQAPI int nqx5self(nqsalg alg, const uint8_t *sk, size_t sklen,
+                   const uint8_t *pk, size_t pklen, const char *cn,
+                   const char *email, int64_t nb, int64_t na, uint8_t *out,
+                   size_t cap, size_t *outlen);
+NQAPI int nqx5kem(nqsalg ialg, const uint8_t *isk, size_t isklen,
+                  const uint8_t *icert, size_t icertlen, nqkalg alg,
+                  const uint8_t *pk, size_t pklen, int64_t nb, int64_t na,
+                  uint8_t *out, size_t cap, size_t *outlen);
+NQAPI int nqx5info(const uint8_t *cert, size_t n, nqx5f *f);
+
+/* The Cryptographic Message Syntax (RFC 5652), in DER.
+ *
+ * nqcmssign signs the n bytes at msg with the secret key sk of alg,
+ * whose certificate is cert, at the time at: a SignedData of one
+ * signer, with the signed attributes content type, signing time and
+ * message digest, the signature over them (RFC 9882 for ML-DSA, RFC
+ * 9814 for SLH-DSA, RFC 8419 for Ed25519) and the certificate inside;
+ * the content inside too, or left out when detached is not 0.
+ *
+ * nqcmsvrfy checks a SignedData of one signer: the digest of the
+ * content, the signed attributes, the signature under the signer's
+ * certificate, and that certificate against the nanc trust anchors
+ * (certificates in DER): it is one of them, or chains to one through
+ * the certificates the message carries. The content is the one inside,
+ * or msg for a detached signature (given both, they must be equal).
+ * The certificates must hold at the time at, or with at 0 at the
+ * signing time the message states, else now. On NQOK the content is
+ * copied to out (when not NULL; *outlen its size) and *signer, when
+ * not NULL, says who signed. Signatures by RSA and ECDSA certificates
+ * verify as well. NQEVRFY when anything does not check out.
+ *
+ * nqcmsenc encrypts msg to the nr recipients whose ML-KEM certificates
+ * are given: an AuthEnvelopedData (RFC 5083) under AES-256-GCM (RFC
+ * 5084), the content key carried to each in a KEMRecipientInfo (RFC
+ * 9629, RFC 9936: ML-KEM, HKDF with SHA-256, AES Key Wrap). nqcmsdec
+ * opens one with the ML-KEM secret key sk of alg; cert, when not NULL,
+ * is that key's certificate and picks its recipient entry, else every
+ * entry of that algorithm is tried. NQEVRFY when no entry opens with
+ * the key or the content does not authenticate.
+ *
+ * NQEARG, NQEBUF and NQEDEC as above; NQELIM over 1 GiB; NQENOSUP for
+ * an algorithm these functions do not take, or more than one signer. */
+NQAPI int nqcmssign(nqsalg alg, const uint8_t *sk, size_t sklen,
+                    const uint8_t *cert, size_t certlen, const uint8_t *msg,
+                    size_t n, int detached, int64_t at, uint8_t *out,
+                    size_t cap, size_t *outlen);
+NQAPI int nqcmsvrfy(const uint8_t *cms, size_t n, const uint8_t *msg,
+                    size_t mlen, const uint8_t *const *anc,
+                    const size_t *anclen, size_t nanc, int64_t at,
+                    uint8_t *out, size_t cap, size_t *outlen, nqx5f *signer);
+NQAPI int nqcmsenc(const uint8_t *const *rcert, const size_t *rcertlen,
+                   size_t nr, const uint8_t *msg, size_t n, uint8_t *out,
+                   size_t cap, size_t *outlen);
+NQAPI int nqcmsdec(nqkalg alg, const uint8_t *sk, size_t sklen,
+                   const uint8_t *cert, size_t certlen, const uint8_t *cms,
+                   size_t n, uint8_t *out, size_t cap, size_t *outlen);
+
 /* ---- TLS 1.3 client ------------------------------------------------- */
 
 /* A TLS 1.3 client (RFC 8446): X25519MLKEM768 and X25519 key shares

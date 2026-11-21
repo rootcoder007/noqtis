@@ -629,7 +629,7 @@ static int sigalg(const nqts *ts, nqxsig *s) {
   if ((r = nqxsalg(&aid, s)) != NQOK) {
     return r;
   }
-  if (s->kind != NQXPQ && s->h != ts->dalg) {
+  if (s->kind != NQXPQ && s->kind != NQXED && s->h != ts->dalg) {
     return NQEVRFY;
   }
   return NQOK;

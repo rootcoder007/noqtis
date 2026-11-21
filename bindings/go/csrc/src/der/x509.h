@@ -28,7 +28,8 @@ typedef enum {
   NQXRSA = 1, /* RSASSA-PKCS1-v1_5 */
   NQXPSS,     /* RSASSA-PSS, MGF1 with the same hash, salt = hash length */
   NQXECDSA,   /* ECDSA; the signature is the DER Ecdsa-Sig-Value */
-  NQXPQ       /* ML-DSA or SLH-DSA, pure, empty context */
+  NQXPQ,      /* ML-DSA or SLH-DSA, pure, empty context */
+  NQXED       /* Ed25519 (RFC 8410), pure */
 } nqxkind;
 
 typedef struct {
@@ -42,6 +43,8 @@ typedef struct {
 #define NQXKPSS 2   /* id-RSASSA-PSS (any PSS parameters) */
 #define NQXKEC 3    /* id-ecPublicKey on curve (NQXP256 ...) */
 #define NQXKPQ 4    /* ML-DSA or SLH-DSA (pq) */
+#define NQXKED 5    /* Ed25519 */
+#define NQXKKEM 6   /* ML-KEM (kem): encrypts, never signs */
 
 #define NQXP256 1
 #define NQXP384 2
@@ -51,6 +54,7 @@ typedef struct {
   int type;      /* NQXK*, 0 when not one this module knows */
   int curve;     /* NQXP*, for NQXKEC */
   nqsalg pq;     /* for NQXKPQ */
+  nqkalg kem;    /* for NQXKKEM */
   nqspan spki;   /* the SubjectPublicKeyInfo element */
   nqspan key;    /* subjectPublicKey, without the unused-bits octet */
 } nqxkey;

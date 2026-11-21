@@ -39,6 +39,7 @@ OBJECTS = \
   cls/ec.o \
   cls/key.o \
   cls/rsa.o \
+  cms/cms.o \
   core/core.o \
   core/json.o \
   core/rand.o \
