@@ -18,7 +18,7 @@ from typing import Any, Iterable, Iterator, List, Mapping, NamedTuple, Optional,
 
 from . import _noqtis as _c
 from . import _upd
-from . import dsse, kem, keyfile, sign
+from . import dsse, kem, keyfile, mail, pgp, sign, store, token
 from ._alg import HASHES, KEMS, SIGS, Alg, AlgLike, Bytes, buf, find, hid, isshake, path
 from ._err import (
     ArgError,
@@ -91,8 +91,10 @@ __all__ = [
     "inspect",
     "kem",
     "keyfile",
+    "mail",
     "expire",
     "pack",
+    "pgp",
     "prove",
     "rand",
     "revoke",
@@ -101,6 +103,8 @@ __all__ = [
     "sealwhy",
     "selftest",
     "sign",
+    "store",
+    "token",
     "tsput",
     "tsreq",
     "unpack",

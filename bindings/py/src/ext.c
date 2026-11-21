@@ -2452,6 +2452,801 @@ static PyObject *pdchain(PyObject *self, PyObject *args) {
   return Py_BuildValue("(Ny#)", rr, (const char *)head, (Py_ssize_t)32);
 }
 
+/* ---- armor, certificates, CMS and S/MIME, OpenPGP, the key store,
+ * tokens ---- */
+
+/* Runs call (which writes xn bytes at xb, of cap bytes) with the GIL
+ * released; xr is the bytes it wrote, or NULL with the error raised. */
+#define XRUN(cap, call)                                                       \
+  do {                                                                        \
+    size_t xcap = (cap);                                                      \
+    xn = 0;                                                                   \
+    xb = (uint8_t *)PyMem_Malloc(xcap > 0 ? xcap : 1);                        \
+    if (xb == NULL) {                                                         \
+      xr = PyErr_NoMemory();                                                  \
+      break;                                                                  \
+    }                                                                         \
+    Py_BEGIN_ALLOW_THREADS                                                    \
+    rc = (call);                                                              \
+    Py_END_ALLOW_THREADS                                                      \
+    xr = rc == NQOK ? PyBytes_FromStringAndSize((const char *)xb,             \
+                                                (Py_ssize_t)xn)               \
+                    : fail(rc);                                               \
+    PyMem_Free(xb);                                                           \
+  } while (0)
+#define XVARS                                                                 \
+  uint8_t *xb = NULL;                                                         \
+  size_t xn = 0;                                                              \
+  PyObject *xr = NULL;                                                        \
+  int rc = NQOK
+
+/* a tuple of bytes as arrays of pointers and lengths (PyMem_Free both);
+ * the tuple keeps the bytes alive */
+static int tblist(PyObject *t, const uint8_t ***p, size_t **l, size_t *n) {
+  Py_ssize_t i, k;
+  *p = NULL;
+  *l = NULL;
+  *n = 0;
+  if (!PyTuple_Check(t)) {
+    PyErr_SetString(PyExc_TypeError, "a tuple of bytes is needed");
+    return -1;
+  }
+  k = PyTuple_Size(t);
+  *p = (const uint8_t **)PyMem_Malloc(SZ(k > 0 ? k : 1) * sizeof **p);
+  *l = (size_t *)PyMem_Malloc(SZ(k > 0 ? k : 1) * sizeof **l);
+  if (*p == NULL || *l == NULL) {
+    PyMem_Free(*p);
+    PyMem_Free(*l);
+    PyErr_NoMemory();
+    return -1;
+  }
+  for (i = 0; i < k; i++) {
+    char *b;
+    Py_ssize_t bl;
+    if (PyBytes_AsStringAndSize(PyTuple_GetItem(t, i), &b, &bl) < 0) {
+      PyMem_Free(*p);
+      PyMem_Free(*l);
+      return -1;
+    }
+    (*p)[i] = U8(b);
+    (*l)[i] = SZ(bl);
+  }
+  *n = SZ(k);
+  return 0;
+}
+
+static size_t lsum(const size_t *l, size_t n) {
+  size_t i, s = 0;
+  for (i = 0; i < n; i++) s += l[i];
+  return s;
+}
+
+/* what a certificate says, as a tuple */
+static PyObject *x5tuple(const nqx5f *f) {
+  return Py_BuildValue("(iiy#LLissnn)", f->kem, f->alg, (const char *)f->fp,
+                       (Py_ssize_t)32, (long long)f->nb, (long long)f->na,
+                       f->ca, f->name, f->email, (Py_ssize_t)f->pkoff,
+                       (Py_ssize_t)f->pklen);
+}
+
+/* armor(label, data) -> text */
+static PyObject *parmor(PyObject *self, PyObject *args) {
+  const char *lab, *d;
+  Py_ssize_t n;
+  size_t need = 0;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "sy#", &lab, &d, &n)) return NULL;
+  rc = nqarmlen(lab, SZ(n), &need);
+  if (rc != NQOK) return fail(rc);
+  XRUN(need, nqarmenc(lab, U8(d), SZ(n), (char *)xb, need, &xn));
+  return xr;
+}
+
+/* dearmor(text) -> (label, data) */
+static PyObject *pdearmor(PyObject *self, PyObject *args) {
+  const char *t;
+  Py_ssize_t n;
+  char lab[NQARMLAB];
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#", &t, &n)) return NULL;
+  lab[0] = '\0';
+  XRUN(SZ(n), nqarmdec(t, SZ(n), lab, sizeof lab, xb, SZ(n), &xn));
+  if (xr == NULL) return NULL;
+  return Py_BuildValue("(sN)", lab, xr);
+}
+
+/* x5self(alg, sk, pk, name, email or None, nb, na) -> certificate */
+static PyObject *px5self(PyObject *self, PyObject *args) {
+  const char *sk, *pk, *name, *email;
+  Py_ssize_t skl, pkl;
+  long long nb, na;
+  nqssz z;
+  int alg;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#szLL", &alg, &sk, &skl, &pk, &pkl, &name,
+                        &email, &nb, &na))
+    return NULL;
+  if (nqssize((nqsalg)alg, &z) != NQOK) return fail(NQENOSUP);
+  XRUN(SZ(pkl) + z.sig + 2048,
+       nqx5self((nqsalg)alg, U8(sk), SZ(skl), U8(pk), SZ(pkl), name, email,
+                (int64_t)nb, (int64_t)na, xb, SZ(pkl) + z.sig + 2048, &xn));
+  return xr;
+}
+
+/* x5kem(ialg, isk, icert, alg, pk, nb, na) -> certificate */
+static PyObject *px5kem(PyObject *self, PyObject *args) {
+  const char *isk, *ic, *pk;
+  Py_ssize_t iskl, icl, pkl;
+  long long nb, na;
+  nqssz z;
+  int ialg, alg;
+  size_t cap;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#iy#LL", &ialg, &isk, &iskl, &ic, &icl,
+                        &alg, &pk, &pkl, &nb, &na))
+    return NULL;
+  if (nqssize((nqsalg)ialg, &z) != NQOK) return fail(NQENOSUP);
+  cap = SZ(pkl) + SZ(icl) + z.sig + 2048;
+  XRUN(cap, nqx5kem((nqsalg)ialg, U8(isk), SZ(iskl), U8(ic), SZ(icl),
+                    (nqkalg)alg, U8(pk), SZ(pkl), (int64_t)nb, (int64_t)na,
+                    xb, cap, &xn));
+  return xr;
+}
+
+/* x5info(cert) -> (kem, alg, fp, nb, na, ca, name, email, pkoff, pklen) */
+static PyObject *px5info(PyObject *self, PyObject *args) {
+  const char *c;
+  Py_ssize_t n;
+  nqx5f f;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#", &c, &n)) return NULL;
+  rc = nqx5info(U8(c), SZ(n), &f);
+  if (rc != NQOK) return fail(rc);
+  return x5tuple(&f);
+}
+
+/* cmssign(alg, sk, cert, msg, detached, at, mime) -> SignedData, or
+ * with mime an S/MIME message of the entity msg */
+static PyObject *pcmssign(PyObject *self, PyObject *args) {
+  const char *sk, *c, *m;
+  Py_ssize_t skl, cl, ml;
+  long long at;
+  nqssz z;
+  int alg, det, mime;
+  size_t cap;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#y#pLp", &alg, &sk, &skl, &c, &cl, &m, &ml,
+                        &det, &at, &mime))
+    return NULL;
+  if (nqssize((nqsalg)alg, &z) != NQOK) return fail(NQENOSUP);
+  cap = 3 * SZ(ml) + 2 * (SZ(cl) + z.sig) + 8192;
+  if (mime)
+    XRUN(cap, nqsmsign((nqsalg)alg, U8(sk), SZ(skl), U8(c), SZ(cl), m, SZ(ml),
+                       det, (int64_t)at, (char *)xb, cap, &xn));
+  else
+    XRUN(cap, nqcmssign((nqsalg)alg, U8(sk), SZ(skl), U8(c), SZ(cl), U8(m),
+                        SZ(ml), det, (int64_t)at, xb, cap, &xn));
+  return xr;
+}
+
+/* cmsvrfy(cms, msg or None, anchors, at, mime) -> (content, signer) */
+static PyObject *pcmsvrfy(PyObject *self, PyObject *args) {
+  const char *c, *m = NULL;
+  Py_ssize_t cl, ml = 0;
+  PyObject *anc;
+  const uint8_t **ap;
+  size_t *al, an, cap;
+  long long at;
+  nqx5f f;
+  int mime;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#z#OLp", &c, &cl, &m, &ml, &anc, &at, &mime))
+    return NULL;
+  if (tblist(anc, &ap, &al, &an) < 0) return NULL;
+  memset(&f, 0, sizeof f);
+  cap = SZ(cl) + SZ(ml) + 1;
+  if (mime)
+    XRUN(cap, nqsmvrfy(c, SZ(cl), ap, al, an, (int64_t)at, (char *)xb, cap,
+                       &xn, &f));
+  else
+    XRUN(cap, nqcmsvrfy(U8(c), SZ(cl), U8(m), SZ(ml), ap, al, an,
+                        (int64_t)at, xb, cap, &xn, &f));
+  PyMem_Free(ap);
+  PyMem_Free(al);
+  if (xr == NULL) return NULL;
+  return Py_BuildValue("(NN)", xr, x5tuple(&f));
+}
+
+/* cmsenc(certs, msg, mime) -> AuthEnvelopedData or an S/MIME message */
+static PyObject *pcmsenc(PyObject *self, PyObject *args) {
+  const char *m;
+  Py_ssize_t ml;
+  PyObject *cs;
+  const uint8_t **cp;
+  size_t *cl, cn, cap;
+  int mime;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oy#p", &cs, &m, &ml, &mime)) return NULL;
+  if (tblist(cs, &cp, &cl, &cn) < 0) return NULL;
+  cap = 3 * SZ(ml) + 2 * lsum(cl, cn) + 4096 * cn + 8192;
+  if (mime)
+    XRUN(cap, nqsmenc(cp, cl, cn, m, SZ(ml), (char *)xb, cap, &xn));
+  else
+    XRUN(cap, nqcmsenc(cp, cl, cn, U8(m), SZ(ml), xb, cap, &xn));
+  PyMem_Free(cp);
+  PyMem_Free(cl);
+  return xr;
+}
+
+/* cmsdec(alg, sk, cert or None, cms, mime) -> content */
+static PyObject *pcmsdec(PyObject *self, PyObject *args) {
+  const char *sk, *c = NULL, *m;
+  Py_ssize_t skl, cl = 0, ml;
+  int alg, mime;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#z#y#p", &alg, &sk, &skl, &c, &cl, &m, &ml,
+                        &mime))
+    return NULL;
+  if (mime)
+    XRUN(SZ(ml) + 1, nqsmdec((nqkalg)alg, U8(sk), SZ(skl), U8(c), SZ(cl), m,
+                             SZ(ml), (char *)xb, SZ(ml) + 1, &xn));
+  else
+    XRUN(SZ(ml) + 1, nqcmsdec((nqkalg)alg, U8(sk), SZ(skl), U8(c), SZ(cl),
+                              U8(m), SZ(ml), xb, SZ(ml) + 1, &xn));
+  return xr;
+}
+
+#define PGPKEY ((size_t)1 << 18)
+
+/* pgpgen(sigalg, encalg, uid, created, pw or None) -> (sec, pub) */
+static PyObject *ppgpgen(PyObject *self, PyObject *args) {
+  const char *uid, *pw = NULL;
+  Py_ssize_t pwl = 0;
+  long long at;
+  uint8_t *s, *p;
+  size_t sn = 0, pn = 0;
+  int sa, ea, rc;
+  PyObject *r;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iisLz#", &sa, &ea, &uid, &at, &pw, &pwl))
+    return NULL;
+  s = (uint8_t *)PyMem_Malloc(PGPKEY);
+  p = (uint8_t *)PyMem_Malloc(PGPKEY);
+  if (s == NULL || p == NULL) {
+    PyMem_Free(s);
+    PyMem_Free(p);
+    return PyErr_NoMemory();
+  }
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqpgpgen(sa, ea, uid, (int64_t)at, U8(pw), SZ(pwl), s, PGPKEY, &sn, p,
+                PGPKEY, &pn);
+  Py_END_ALLOW_THREADS
+  r = rc == NQOK ? Py_BuildValue("(y#y#)", (const char *)s, (Py_ssize_t)sn,
+                                 (const char *)p, (Py_ssize_t)pn)
+                 : fail(rc);
+  nqwipe(s, PGPKEY);
+  PyMem_Free(s);
+  PyMem_Free(p);
+  return r;
+}
+
+/* pgpinfo(key) -> (alg, encalg, secret, locked, fp, encfp, created,
+ * expires, uid) */
+static PyObject *ppgpinfo(PyObject *self, PyObject *args) {
+  const char *k;
+  Py_ssize_t n;
+  nqpgpk f;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#", &k, &n)) return NULL;
+  rc = nqpgpinfo(U8(k), SZ(n), &f);
+  if (rc != NQOK) return fail(rc);
+  return Py_BuildValue("(iiiiy#y#LLy)", f.alg, f.encalg, f.secret, f.locked,
+                       (const char *)f.fp, (Py_ssize_t)32,
+                       (const char *)f.encfp, (Py_ssize_t)32,
+                       (long long)f.created, (long long)f.expires, f.uid);
+}
+
+/* pgpsign(key, pw or None, msg, mode, at) -> packets or text */
+static PyObject *ppgpsign(PyObject *self, PyObject *args) {
+  const char *k, *pw = NULL, *m;
+  Py_ssize_t kl, pwl = 0, ml;
+  long long at;
+  int mode;
+  size_t cap;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#z#y#iL", &k, &kl, &pw, &pwl, &m, &ml, &mode,
+                        &at))
+    return NULL;
+  cap = 3 * SZ(ml) + ((size_t)1 << 17);
+  XRUN(cap, nqpgpsign(U8(k), SZ(kl), U8(pw), SZ(pwl), U8(m), SZ(ml), mode,
+                      (int64_t)at, xb, cap, &xn));
+  return xr;
+}
+
+/* pgpvrfy(cert, sig, msg or None) -> (data, at) */
+static PyObject *ppgpvrfy(PyObject *self, PyObject *args) {
+  const char *c, *s, *m = NULL;
+  Py_ssize_t cl, sl, ml = 0;
+  int64_t at = 0;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#y#z#", &c, &cl, &s, &sl, &m, &ml))
+    return NULL;
+  XRUN(SZ(sl) + 1, nqpgpvrfy(U8(c), SZ(cl), U8(s), SZ(sl), U8(m), SZ(ml), xb,
+                             SZ(sl) + 1, &xn, &at));
+  if (xr == NULL) return NULL;
+  return Py_BuildValue("(NL)", xr, (long long)at);
+}
+
+/* pgpenc(certs, pw or None, signer or None, spw or None, msg, at) */
+static PyObject *ppgpenc(PyObject *self, PyObject *args) {
+  const char *pw = NULL, *sg = NULL, *sp = NULL, *m;
+  Py_ssize_t pwl = 0, sgl = 0, spl = 0, ml;
+  PyObject *cs;
+  const uint8_t **cp;
+  size_t *cl, cn, cap;
+  long long at;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oz#z#z#y#L", &cs, &pw, &pwl, &sg, &sgl, &sp,
+                        &spl, &m, &ml, &at))
+    return NULL;
+  if (tblist(cs, &cp, &cl, &cn) < 0) return NULL;
+  cap = SZ(ml) + SZ(ml) / 512 + 2048 * cn + ((size_t)1 << 17);
+  XRUN(cap, nqpgpenc(cp, cl, cn, U8(pw), SZ(pwl), U8(sg), SZ(sgl), U8(sp),
+                     SZ(spl), U8(m), SZ(ml), (int64_t)at, xb, cap, &xn));
+  PyMem_Free(cp);
+  PyMem_Free(cl);
+  return xr;
+}
+
+/* pgpdec(key or None, pw or None, signer or None, msg) -> (data,
+ * signed, at) */
+static PyObject *ppgpdec(PyObject *self, PyObject *args) {
+  const char *k = NULL, *pw = NULL, *sg = NULL, *m;
+  Py_ssize_t kl = 0, pwl = 0, sgl = 0, ml;
+  int64_t at = 0;
+  int sb = 0;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "z#z#z#y#", &k, &kl, &pw, &pwl, &sg, &sgl, &m,
+                        &ml))
+    return NULL;
+  XRUN(SZ(ml) + 1, nqpgpdec(U8(k), SZ(kl), U8(pw), SZ(pwl), U8(sg), SZ(sgl),
+                            U8(m), SZ(ml), xb, SZ(ml) + 1, &xn, &sb, &at));
+  if (xr == NULL) return NULL;
+  return Py_BuildValue("(NiL)", xr, sb, (long long)at);
+}
+
+/* pgparm(kind, data) -> text */
+static PyObject *ppgparm(PyObject *self, PyObject *args) {
+  const char *d;
+  Py_ssize_t n;
+  size_t need = 0;
+  int kind;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#", &kind, &d, &n)) return NULL;
+  rc = nqpgparm(kind, U8(d), SZ(n), NULL, 0, &need);
+  if (rc != NQOK) return fail(rc);
+  XRUN(need, nqpgparm(kind, U8(d), SZ(n), (char *)xb, need, &xn));
+  return xr;
+}
+
+/* pgpdearm(text) -> (kind, data) */
+static PyObject *ppgpdearm(PyObject *self, PyObject *args) {
+  const char *t;
+  Py_ssize_t n;
+  int kind = 0;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y#", &t, &n)) return NULL;
+  XRUN(SZ(n), nqpgpdearm(t, SZ(n), &kind, xb, SZ(n), &xn));
+  if (xr == NULL) return NULL;
+  return Py_BuildValue("(iN)", kind, xr);
+}
+
+/* ksadd(dir, kem, alg, pk, name, email or None, card or None) -> fp */
+static PyObject *pksadd(PyObject *self, PyObject *args) {
+  const char *dir, *pk, *name, *email, *card = NULL;
+  Py_ssize_t pkl, cl = 0;
+  uint8_t fp[32];
+  int kem, alg, rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yiiy#szz#", &dir, &kem, &alg, &pk, &pkl, &name,
+                        &email, &card, &cl))
+    return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqksadd(dir, kem, alg, U8(pk), SZ(pkl), name, email, card, SZ(cl), fp);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  return PyBytes_FromStringAndSize((const char *)fp, 32);
+}
+
+/* kslist(dir, q or None) -> [(kem, alg, fp, name, email, card, trust,
+ * valid, ncert)] */
+static PyObject *pkslist(PyObject *self, PyObject *args) {
+  const char *dir, *q;
+  nqkse *e = NULL;
+  size_t n = 0, cap, i;
+  int rc;
+  PyObject *l;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yz", &dir, &q)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqkslist(dir, q, NULL, 0, &n);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK && rc != NQEBUF) return fail(rc);
+  cap = n;
+  if (cap > 0) {
+    e = (nqkse *)PyMem_Malloc(cap * sizeof *e);
+    if (e == NULL) return PyErr_NoMemory();
+    Py_BEGIN_ALLOW_THREADS
+    rc = nqkslist(dir, q, e, cap, &n);
+    Py_END_ALLOW_THREADS
+    if (rc != NQOK && rc != NQEBUF) {
+      PyMem_Free(e);
+      return fail(rc);
+    }
+    if (n > cap) n = cap;
+  }
+  l = PyList_New(0);
+  for (i = 0; l != NULL && i < n; i++) {
+    PyObject *t = Py_BuildValue("(iiy#ssiiin)", e[i].kem, e[i].alg,
+                                (const char *)e[i].fp, (Py_ssize_t)32,
+                                e[i].name, e[i].email, e[i].card, e[i].trust,
+                                e[i].valid, (Py_ssize_t)e[i].ncert);
+    if (t == NULL || PyList_Append(l, t) < 0) {
+      Py_XDECREF(t);
+      Py_CLEAR(l);
+      break;
+    }
+    Py_DECREF(t);
+  }
+  PyMem_Free(e);
+  return l;
+}
+
+/* a fingerprint argument: 32 bytes */
+static int fpok(Py_ssize_t n) {
+  if (n == 32) return 1;
+  fail(NQEARG);
+  return 0;
+}
+
+/* ksget(dir, fp) -> (kem, alg, pk) */
+static PyObject *pksget(PyObject *self, PyObject *args) {
+  const char *dir, *fp;
+  Py_ssize_t fl;
+  int kem = 0, alg = 0;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yy#", &dir, &fp, &fl)) return NULL;
+  if (!fpok(fl)) return NULL;
+  XRUN(65536, nqksget(dir, U8(fp), &kem, &alg, xb, 65536, &xn));
+  if (xr == NULL) return NULL;
+  return Py_BuildValue("(iiN)", kem, alg, xr);
+}
+
+/* kscert(dir, alg, sk, pk, fp, at) -> certification */
+static PyObject *pkscert(PyObject *self, PyObject *args) {
+  const char *dir, *sk, *pk, *fp;
+  Py_ssize_t skl, pkl, fl;
+  long long at;
+  nqssz z;
+  int alg;
+  size_t cap;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yiy#y#y#L", &dir, &alg, &sk, &skl, &pk, &pkl,
+                        &fp, &fl, &at))
+    return NULL;
+  if (!fpok(fl)) return NULL;
+  if (nqssize((nqsalg)alg, &z) != NQOK) return fail(NQENOSUP);
+  cap = 2 * z.sig + 4096;
+  XRUN(cap, nqkscert(dir, (nqsalg)alg, U8(sk), SZ(skl), U8(pk), SZ(pkl),
+                     U8(fp), (int64_t)at, (char *)xb, cap, &xn));
+  return xr;
+}
+
+/* ksop(op, dir, a, level): op 0 kscput(a = certification), 1
+ * kstrust(a = fp, level), 2 ksdel(a = fp) */
+static PyObject *pksop(PyObject *self, PyObject *args) {
+  const char *dir, *a;
+  Py_ssize_t al;
+  int op, level, rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iyy#i", &op, &dir, &a, &al, &level))
+    return NULL;
+  if (op != 0 && !fpok(al)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = op == 0   ? nqkscput(dir, a, SZ(al))
+       : op == 1 ? nqkstrust(dir, U8(a), level)
+                 : nqksdel(dir, U8(a));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  Py_RETURN_NONE;
+}
+
+typedef struct {
+  const char *dir;
+  const uint8_t *fp;
+} kxarg;
+
+static int kxcall(void *v, char *out, size_t cap, size_t *outlen) {
+  kxarg *a = (kxarg *)v;
+  return nqksexp(a->dir, a->fp, out, cap, outlen);
+}
+
+/* ksexp(dir, fp) -> bundle */
+static PyObject *pksexp(PyObject *self, PyObject *args) {
+  const char *fp;
+  Py_ssize_t fl;
+  kxarg a;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yy#", &a.dir, &fp, &fl)) return NULL;
+  if (!fpok(fl)) return NULL;
+  a.fp = U8(fp);
+  return grow(kxcall, &a, 65536);
+}
+
+/* ksimp(dir, bundle, email or None) -> (fp, nkeys) */
+static PyObject *pksimp(PyObject *self, PyObject *args) {
+  const char *dir, *b, *email;
+  Py_ssize_t bl;
+  uint8_t fp[32];
+  size_t n = 0;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yy#z", &dir, &b, &bl, &email)) return NULL;
+  memset(fp, 0, sizeof fp);
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqksimp(dir, b, SZ(bl), email, fp, &n);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  return Py_BuildValue("(y#n)", (const char *)fp, (Py_ssize_t)32,
+                       (Py_ssize_t)n);
+}
+
+/* ksurl(email) -> address */
+static PyObject *pksurl(PyObject *self, PyObject *args) {
+  const char *email;
+  char u[512];
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "s", &email)) return NULL;
+  rc = nqksurl(email, u, sizeof u);
+  if (rc != NQOK) return fail(rc);
+  return PyUnicode_FromString(u);
+}
+
+/* a token handle in a capsule; closed by p11close or when collected */
+#define P11CAP "noqtis.p11"
+
+static void p11drop(PyObject *c) {
+  nqp11 *p = (nqp11 *)PyCapsule_GetPointer(c, P11CAP);
+  if (p != NULL)
+    nqp11close(p);
+  else
+    PyErr_Clear();
+}
+
+/* the handle of a capsule; NULL with StateError when it is closed */
+static nqp11 *p11of(PyObject *c) {
+  nqp11 *p = (nqp11 *)PyCapsule_GetPointer(c, P11CAP);
+  if (p == NULL) {
+    PyErr_Clear();
+    fail(NQESTATE);
+  }
+  return p;
+}
+
+/* p11open(module) -> handle */
+static PyObject *pp11open(PyObject *self, PyObject *args) {
+  const char *mod;
+  nqp11 *p = NULL;
+  int rc;
+  PyObject *c;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "y", &mod)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqp11open(mod, &p);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  c = PyCapsule_New(p, P11CAP, p11drop);
+  if (c == NULL) nqp11close(p);
+  return c;
+}
+
+/* p11close(handle) */
+static PyObject *pp11close(PyObject *self, PyObject *c) {
+  nqp11 *p = (nqp11 *)PyCapsule_GetPointer(c, P11CAP);
+  (void)self;
+  if (p == NULL) {
+    PyErr_Clear(); /* closed before: nothing to do */
+  } else {
+    nqp11close(p);
+    /* a capsule cannot hold NULL: a name it is not asked by marks it */
+    if (PyCapsule_SetName(c, "noqtis.p11.closed") < 0) return NULL;
+  }
+  Py_RETURN_NONE;
+}
+
+/* p11why(handle) -> the module's last return value */
+static PyObject *pp11why(PyObject *self, PyObject *c) {
+  nqp11 *p = p11of(c);
+  (void)self;
+  if (p == NULL) return NULL;
+  return PyLong_FromUnsignedLong(nqp11why(p));
+}
+
+/* p11toks(handle) -> [(slot, label, maker, model, serial, login)] */
+static PyObject *pp11toks(PyObject *self, PyObject *c) {
+  nqp11 *p = p11of(c);
+  nqp11t *t;
+  size_t n = 0, i;
+  int rc;
+  PyObject *l;
+  (void)self;
+  if (p == NULL) return NULL;
+  t = (nqp11t *)PyMem_Malloc(64 * sizeof *t);
+  if (t == NULL) return PyErr_NoMemory();
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqp11toks(p, t, 64, &n);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    PyMem_Free(t);
+    return fail(rc);
+  }
+  l = PyList_New(0);
+  for (i = 0; l != NULL && i < n && i < 64; i++) {
+    PyObject *e = Py_BuildValue("(kssssi)", t[i].slot, t[i].label, t[i].maker,
+                                t[i].model, t[i].serial, t[i].login);
+    if (e == NULL || PyList_Append(l, e) < 0) {
+      Py_XDECREF(e);
+      Py_CLEAR(l);
+      break;
+    }
+    Py_DECREF(e);
+  }
+  PyMem_Free(t);
+  return l;
+}
+
+/* p11login(handle, slot, pin or None) */
+static PyObject *pp11login(PyObject *self, PyObject *args) {
+  PyObject *c;
+  unsigned long slot;
+  const char *pin = NULL;
+  Py_ssize_t pl = 0;
+  nqp11 *p;
+  int rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Okz#", &c, &slot, &pin, &pl)) return NULL;
+  p = p11of(c);
+  if (p == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqp11login(p, slot, pin, SZ(pl));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  Py_RETURN_NONE;
+}
+
+static PyObject *p11ktuple(const nqp11k *k) {
+  return Py_BuildValue("(iikyy#)", k->kem, k->alg, k->h, k->label,
+                       (const char *)k->id, (Py_ssize_t)k->idlen);
+}
+
+/* p11keys(handle) -> [(kem, alg, h, label, id)] */
+static PyObject *pp11keys(PyObject *self, PyObject *c) {
+  nqp11 *p = p11of(c);
+  nqp11k *k;
+  size_t n = 0, i;
+  int rc;
+  PyObject *l;
+  (void)self;
+  if (p == NULL) return NULL;
+  k = (nqp11k *)PyMem_Malloc(64 * sizeof *k);
+  if (k == NULL) return PyErr_NoMemory();
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqp11keys(p, k, 64, &n);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK && rc != NQEBUF) {
+    PyMem_Free(k);
+    return fail(rc);
+  }
+  l = PyList_New(0);
+  for (i = 0; l != NULL && i < n && i < 64; i++) {
+    PyObject *e = p11ktuple(&k[i]);
+    if (e == NULL || PyList_Append(l, e) < 0) {
+      Py_XDECREF(e);
+      Py_CLEAR(l);
+      break;
+    }
+    Py_DECREF(e);
+  }
+  PyMem_Free(k);
+  return l;
+}
+
+/* a key of the Python side back as an nqp11k */
+static int p11kof(int kem, int alg, unsigned long h, const char *id,
+                  Py_ssize_t il, nqp11k *k) {
+  memset(k, 0, sizeof *k);
+  if (il < 0 || SZ(il) > sizeof k->id) {
+    fail(NQEARG);
+    return 0;
+  }
+  k->kem = kem;
+  k->alg = alg;
+  k->h = h;
+  if (il > 0) memcpy(k->id, id, SZ(il));
+  k->idlen = SZ(il);
+  return 1;
+}
+
+/* p11use(handle, op, kem, alg, h, id, data, ctx or None): op 0 the
+ * public key, 1 a signature of data under ctx, 2 the shared secret of
+ * the ciphertext data */
+static PyObject *pp11use(PyObject *self, PyObject *args) {
+  PyObject *c;
+  const char *id, *d, *ctx = NULL;
+  Py_ssize_t il, dl, cl = 0;
+  unsigned long h;
+  nqp11k k;
+  nqp11 *p;
+  nqssz z;
+  nqksz kz;
+  int op, kem, alg;
+  XVARS;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oiiiky#y#z#", &c, &op, &kem, &alg, &h, &id,
+                        &il, &d, &dl, &ctx, &cl))
+    return NULL;
+  p = p11of(c);
+  if (p == NULL || !p11kof(kem, alg, h, id, il, &k)) return NULL;
+  if (op == 0) {
+    XRUN(4096, nqp11pub(p, &k, xb, 4096, &xn));
+  } else if (op == 1) {
+    if (kem || nqssize((nqsalg)alg, &z) != NQOK) return fail(NQEARG);
+    XRUN(z.sig, nqp11sign(p, &k, U8(d), SZ(dl), U8(ctx), SZ(cl), xb, z.sig,
+                          &xn));
+  } else {
+    if (!kem || nqksize((nqkalg)alg, &kz) != NQOK) return fail(NQEARG);
+    XRUN(kz.ss, (xn = kz.ss, nqp11dec(p, &k, U8(d), SZ(dl), xb, kz.ss)));
+  }
+  return xr;
+}
+
+/* p11gen(handle, kem, alg, label) -> (kem, alg, h, label, id) */
+static PyObject *pp11gen(PyObject *self, PyObject *args) {
+  PyObject *c;
+  const char *label;
+  nqp11k k;
+  nqp11 *p;
+  int kem, alg, rc;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "Oiis", &c, &kem, &alg, &label)) return NULL;
+  p = p11of(c);
+  if (p == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqp11gen(p, kem, alg, label, &k);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) return fail(rc);
+  return p11ktuple(&k);
+}
+
 static PyMethodDef meths[] = {
   {"setup", psetup, METH_O, "register the error classes"},
   {"version", pver, METH_NOARGS, "nqver()"},
@@ -2541,6 +3336,39 @@ static PyMethodDef meths[] = {
   {"dpack", pdpack, METH_VARARGS, "nqdpack"},
   {"dunpack", pdunpack, METH_VARARGS, "nqdunpack"},
   {"dchain", pdchain, METH_VARARGS, "nqdchain"},
+  {"armor", parmor, METH_VARARGS, "nqarmenc"},
+  {"dearmor", pdearmor, METH_VARARGS, "nqarmdec"},
+  {"x5self", px5self, METH_VARARGS, "nqx5self"},
+  {"x5kem", px5kem, METH_VARARGS, "nqx5kem"},
+  {"x5info", px5info, METH_VARARGS, "nqx5info"},
+  {"cmssign", pcmssign, METH_VARARGS, "nqcmssign / nqsmsign"},
+  {"cmsvrfy", pcmsvrfy, METH_VARARGS, "nqcmsvrfy / nqsmvrfy"},
+  {"cmsenc", pcmsenc, METH_VARARGS, "nqcmsenc / nqsmenc"},
+  {"cmsdec", pcmsdec, METH_VARARGS, "nqcmsdec / nqsmdec"},
+  {"pgpgen", ppgpgen, METH_VARARGS, "nqpgpgen"},
+  {"pgpinfo", ppgpinfo, METH_VARARGS, "nqpgpinfo"},
+  {"pgpsign", ppgpsign, METH_VARARGS, "nqpgpsign"},
+  {"pgpvrfy", ppgpvrfy, METH_VARARGS, "nqpgpvrfy"},
+  {"pgpenc", ppgpenc, METH_VARARGS, "nqpgpenc"},
+  {"pgpdec", ppgpdec, METH_VARARGS, "nqpgpdec"},
+  {"pgparm", ppgparm, METH_VARARGS, "nqpgparm"},
+  {"pgpdearm", ppgpdearm, METH_VARARGS, "nqpgpdearm"},
+  {"ksadd", pksadd, METH_VARARGS, "nqksadd"},
+  {"kslist", pkslist, METH_VARARGS, "nqkslist"},
+  {"ksget", pksget, METH_VARARGS, "nqksget"},
+  {"kscert", pkscert, METH_VARARGS, "nqkscert"},
+  {"ksop", pksop, METH_VARARGS, "nqkscput / nqkstrust / nqksdel"},
+  {"ksexp", pksexp, METH_VARARGS, "nqksexp"},
+  {"ksimp", pksimp, METH_VARARGS, "nqksimp"},
+  {"ksurl", pksurl, METH_VARARGS, "nqksurl"},
+  {"p11open", pp11open, METH_VARARGS, "nqp11open"},
+  {"p11close", pp11close, METH_O, "nqp11close"},
+  {"p11why", pp11why, METH_O, "nqp11why"},
+  {"p11toks", pp11toks, METH_O, "nqp11toks"},
+  {"p11login", pp11login, METH_VARARGS, "nqp11login"},
+  {"p11keys", pp11keys, METH_O, "nqp11keys"},
+  {"p11use", pp11use, METH_VARARGS, "nqp11pub / nqp11sign / nqp11dec"},
+  {"p11gen", pp11gen, METH_VARARGS, "nqp11gen"},
   {NULL, NULL, 0, NULL}
 };
 
