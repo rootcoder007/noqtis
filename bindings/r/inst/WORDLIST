@@ -46,6 +46,7 @@ EdDSA
 Erdtman
 ERS
 et
+gcc
 GCM
 glibc
 Gondrom
@@ -86,6 +87,7 @@ Merkle
 Messeri
 MiB
 miscompilation
+miscompiles
 Nir
 NIST
 nonces
@@ -133,6 +135,7 @@ TimeStampResp
 toto
 TurboSHAKE
 unaudited
+vectorizer
 verifier
 Viguier
 Vizar
