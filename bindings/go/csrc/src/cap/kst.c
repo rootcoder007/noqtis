@@ -212,7 +212,7 @@ static int getmeta(const char *dir, const uint8_t fp[32], char name[256],
   je = nqjget(v, "email");
   s = nqjstr(jn);
   e = nqjstr(je);
-  if (s == NULL || e == NULL || !nqjint(nqjget(v, "trust"), &t) ||
+  if (s == NULL || e == NULL || nqjint(nqjget(v, "trust"), &t) != NQOK ||
       t < NQKTUNK || t > NQKTULT || jn->len == 0 || jn->len > 255 ||
       je->len > 254 || !nqcdok(s, je->len != 0 ? e : NULL))
     goto out;
@@ -527,8 +527,10 @@ static int holds(const char *hay, const char *needle) {
 }
 
 /* whether the entry answers q: the start of its fingerprint (8 hex
- * digits or more), or text in its name or address */
+ * digits or more), or text in its name, its address or its algorithm's
+ * name (a holder's signature key and KEM key bear one name) */
 static int match(const nqkse *e, const char *q) {
+  const char *an = e->kem ? nqkname((nqkalg)e->alg) : nqsname((nqsalg)e->alg);
   size_t n = strlen(q), i;
   char hx[65];
   int hex = n >= 8 && n <= 64;
@@ -543,7 +545,8 @@ static int match(const nqkse *e, const char *q) {
     }
     if (i == n) return 1;
   }
-  return holds(e->name, q) || holds(e->email, q);
+  return holds(e->name, q) || holds(e->email, q) ||
+         (an != NULL && holds(an, q));
 }
 
 int nqkslist(const char *dir, const char *q, nqkse *e, size_t cap,

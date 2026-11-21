@@ -1458,10 +1458,12 @@ int nqpgpdearm(const char *in, size_t n, int *kind, uint8_t *out, size_t cap,
 
 /* ---- messages: signed ---- */
 
-/* the canonical text of section 5.2.1.2: every line end CRLF; with
- * strip (the cleartext framework, section 7.1) trailing space and tabs
- * of each line removed and the last line end left out */
-static int canontext(const uint8_t *in, size_t n, int strip, nqdw *w) {
+/* Text with its line ends made the same: CRLF (the canonical text of
+ * section 5.2.1.2, what a text signature signs) or LF. With strip (the
+ * cleartext framework, section 7.1) space and tabs at the end of each
+ * line are left out. */
+static int canontext(const uint8_t *in, size_t n, int strip, int crlf,
+                     nqdw *w) {
   size_t i = 0, e, t;
   while (i < n) {
     e = i;
@@ -1472,7 +1474,8 @@ static int canontext(const uint8_t *in, size_t n, int strip, nqdw *w) {
       while (t > i && (in[t - 1] == ' ' || in[t - 1] == '\t')) t--;
     }
     nqdwraw(w, in + i, t - i);
-    if (e < n && !(strip && e + 1 == n)) nqdwraw(w, (const uint8_t *)"\r\n", 2);
+    if (e < n) nqdwraw(w, (const uint8_t *)"\r\n" + (crlf ? 0 : 1),
+                       crlf ? 2 : 1);
     i = e + 1;
   }
   return w->err;
@@ -1558,14 +1561,18 @@ int nqpgpsign(const uint8_t *key, size_t kn, const uint8_t *pw, size_t pwlen,
      * then the armored signature over its canonical form */
     nqdw sg;
     char *arm = NULL;
-    size_t i = 0, an = 0;
+    size_t i = 0, an = 0, tn;
     static const char hd[] = "-----BEGIN PGP SIGNED MESSAGE-----\n\n";
     if (!nqcutf8((const char *)msg, n)) {
       rc = NQEARG; /* a cleartext signature is of text */
       goto done;
     }
     nqdwini(&sg);
-    rc = canontext(msg, n, 1, &t);
+    /* the line end before the signature is not part of the text */
+    tn = n;
+    if (tn > 0 && msg[tn - 1] == '\n') tn--;
+    if (tn > 0 && tn < n && msg[tn - 1] == '\r') tn--;
+    rc = canontext(msg, tn, 1, 1, &t);
     memset(&x, 0, sizeof x);
     addpart(&x, t.p, t.n);
     if (rc == NQOK) rc = nqrand(salt, sizeof salt);
@@ -1617,7 +1624,7 @@ static int vrfy1(const ppkt *k, const pcert *c, const uint8_t *data,
   nqdwini(&t);
   memset(&x, 0, sizeof x);
   if (s.type == 0x01) {
-    rc = canontext(data, n, 0, &t);
+    rc = canontext(data, n, 0, 1, &t);
     addpart(&x, t.p, t.n);
   } else {
     addpart(&x, data, n);
@@ -1773,7 +1780,7 @@ int nqpgpvrfy(const uint8_t *cert, size_t cn, const uint8_t *sig, size_t sn,
       ppkt k;
       size_t pi = 0;
       nqdwini(&cn2);
-      rc = canontext(t.p, t.n, 1, &cn2);
+      rc = canontext(t.p, t.n, 1, 1, &cn2);
       if (rc == NQOK) rc = rdpkt(bin, e, &pi, &k);
       if (rc == NQOK) {
         psig sg;
@@ -1790,11 +1797,19 @@ int nqpgpvrfy(const uint8_t *cert, size_t cn, const uint8_t *sig, size_t sn,
       nqdwfree(&cn2);
     }
     if (rc == NQOK) {
-      if (outlen != NULL) *outlen = t.n;
-      if (out != NULL) {
-        if (cap < t.n) rc = NQEBUF;
-        else if (t.n > 0) memcpy(out, t.p, t.n);
+      /* the text as it was signed: without the space at its line ends,
+       * with LF between its lines */
+      nqdw lf;
+      nqdwini(&lf);
+      rc = canontext(t.p, t.n, 1, 0, &lf);
+      if (rc == NQOK) {
+        if (outlen != NULL) *outlen = lf.n;
+        if (out != NULL) {
+          if (cap < lf.n) rc = NQEBUF;
+          else if (lf.n > 0) memcpy(out, lf.p, lf.n);
+        }
       }
+      nqdwfree(&lf);
     }
     goto done;
   }

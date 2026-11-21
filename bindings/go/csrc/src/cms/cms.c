@@ -656,7 +656,7 @@ static int cinfo(const uint8_t *p, size_t n, const uint8_t *oid, size_t on,
 }
 
 static int sdread(const uint8_t *p, size_t n, sdata *s) {
-  nqdtlv body, t, e, o, x;
+  nqdtlv body, t, e, o, x, dset;
   nqdcur c, in, sc;
   int64_t ver;
   int got = 0, rc;
@@ -667,8 +667,8 @@ static int sdread(const uint8_t *p, size_t n, sdata *s) {
       nqddown(&body, &c) != NQOK || nqdnext(&c, &t) != NQOK ||
       nqdi64(&t, &ver) != NQOK || ver < 1 || ver > 5)
     return NQEDEC;
-  /* digestAlgorithms: the signer's own is read with it */
-  if (nqdget(&c, NQDUNI, 1, NQDSET, &t) != NQOK) return NQEDEC;
+  /* digestAlgorithms: checked against the signer's own below */
+  if (nqdget(&c, NQDUNI, 1, NQDSET, &dset) != NQOK) return NQEDEC;
   /* encapContentInfo */
   if (nqdget(&c, NQDUNI, 1, NQDSEQ, &e) != NQOK ||
       nqddown(&e, &in) != NQOK || nqdnext(&in, &o) != NQOK ||
@@ -722,6 +722,22 @@ static int sdread(const uint8_t *p, size_t n, sdata *s) {
   if (nqdnext(&sc, &t) != NQOK) return NQEDEC;
   rc = dread(&t, &s->dalg);
   if (rc != NQOK) return rc;
+  /* the signer's digest algorithm is one of those the message lists
+   * (RFC 5652 section 5.1) */
+  {
+    nqdcur dc;
+    nqdtlv a;
+    nqhalg h;
+    int listed = 0;
+    if (nqddown(&dset, &dc) != NQOK) return NQEDEC;
+    while (!nqdend(&dc)) {
+      if (nqdnext(&dc, &a) != NQOK) return NQEDEC;
+      rc = dread(&a, &h);
+      if (rc == NQEDEC) return rc;
+      if (rc == NQOK && h == s->dalg) listed = 1;
+    }
+    if (!listed) return NQEDEC;
+  }
   if (nqdopt(&sc, NQDCTX, 1, 0, &x, &got) != NQOK) return NQEDEC;
   if (got) {
     s->sattrs = x.v;

@@ -794,14 +794,16 @@ static void wfree(wout *o) {
  * flushed; on failure nothing is left (and o is freed) */
 static int wtmp(const char *dir, const char *name, const char *buf,
                 size_t n, wout *o) {
-  char tn[96];
+  char tn[224];
   FILE *f = NULL;
   unsigned k;
   int rc = NQOK;
   o->tmp = NULL;
   o->tl = 0;
   if (dir == NULL || name == NULL || (buf == NULL && n != 0)) return NQEARG;
-  if (strlen(name) > 40) return NQEARG;
+  /* a capsule's own files have short names; a key store's are two
+   * fingerprints in hex and an extension */
+  if (strlen(name) > 160) return NQEARG;
   o->full = join(dir, name, &o->fl);
   if (o->full == NULL) return NQEMEM;
   for (k = 0; k < 16 && f == NULL; k++) {

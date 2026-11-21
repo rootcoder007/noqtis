@@ -390,7 +390,7 @@ static void tbundle(void) {
     int rc;
     bn[i] ^= 1;
     rc = nqksimp(b, bn, n, NULL, f, &nk);
-    NQTCHK(rc == NQEDEC || rc == NQEVRFY);
+    NQTCHK(rc == NQEDEC || rc == NQEVRFY || rc == NQENOSUP);
     bn[i] ^= 1;
   }
   NQTEQI(nqksimp(b, bn, n - 3, NULL, f, &nk), NQEDEC);

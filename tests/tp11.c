@@ -5,6 +5,9 @@
  * key read, its signatures verified by nqvrfy with and without a
  * context, a ciphertext of nqenc decapsulated; the PIN, the order of
  * calls, a module of version 2.40, keys found again by another load. */
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L /* setenv */
+#endif
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>

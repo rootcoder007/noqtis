@@ -922,8 +922,8 @@ NQAPI int nqersput(const char *dir, nqhalg h, const uint8_t *rsp,
  *
  * nqkslist gives the entries, in the order of their fingerprints, that
  * answer q: all with q NULL, else those whose fingerprint in hex starts
- * with q (8 digits or more) or whose name or address holds q, ASCII
- * letters of either case alike. *n gets their number, also with NQEBUF
+ * with q (8 digits or more) or whose name, address or algorithm name
+ * ("ML-KEM-768") holds q, ASCII letters of either case alike. *n gets their number, also with NQEBUF
  * when e (cap entries) holds fewer. nqksget gives one key.
  *
  * nqkscert certifies the key fp of the store with the key pair (sk, pk)

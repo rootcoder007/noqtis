@@ -172,7 +172,7 @@ static void trfc(void) {
   NQTEQI(nqpgpvrfy(cert, certn, (const uint8_t *)vclear, sizeof vclear - 1,
                    NULL, 0, out, sizeof out, &on, &at),
          NQOK);
-  NQTCHK(on == sizeof grocery - 2);
+  NQTCHK(on == sizeof grocery - 1);
   NQTEQM(out, grocery, on);
   NQTCHK(at > 1600000000);
   NQTEQI(nqpgpvrfy(cert, certn, (const uint8_t *)vinline, sizeof vinline - 1,

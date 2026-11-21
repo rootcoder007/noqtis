@@ -214,14 +214,16 @@ static void signwith(nqsalg alg, size_t n, int detached) {
            NQEBUF);
     NQTCHK(on == n);
   }
-  /* bytes changed all through it: never accepted as it was */
+  /* bytes changed all through it: where nothing signs them (the
+   * certificates it carries) it may still verify, and then gives the
+   * message itself */
   step = sn / 97 + 1;
   for (i = 0; i < sn; i += step) {
     int rc;
     big[i] ^= 0x20;
     rc = nqcmsvrfy(big, sn, detached ? msg : NULL, detached ? n : 0, anc,
                    ancl, 1, 0, out, sizeof out, &on, NULL);
-    NQTCHK(rc != NQOK || (on == n && memcmp(out, msg, n) == 0 && 0));
+    NQTCHK(rc != NQOK || (on == n && memcmp(out, msg, n) == 0));
     big[i] ^= 0x20;
   }
   NQTEQI(nqcmsvrfy(big, sn - 1, detached ? msg : NULL, detached ? n : 0, anc,
@@ -402,7 +404,7 @@ static void tsmime(void) {
                   T0 + 60, m, sizeof m, &n),
          NQOK);
   NQTCHK(memcmp(m, "MIME-Version: 1.0\r\nContent-Type: application/pkcs7-mime;"
-                   " smime-type=signed-data;", 81) == 0);
+                   " smime-type=signed-data;", 80) == 0);
   NQTEQI(nqsmvrfy(m, n, anc, ancl, 1, 0, o, sizeof o, &on, &f), NQOK);
   /* what was signed is the entity with CRLF line ends */
   NQTCHK(on == sizeof crlf - 1);
@@ -412,7 +414,7 @@ static void tsmime(void) {
   NQTEQI(nqsmsign(NQMLDSA65, ssk, 4032, cert, certn, ent, sizeof ent - 1, 1,
                   T0 + 60, m, sizeof m, &n),
          NQOK);
-  NQTCHK(memcmp(m, "MIME-Version: 1.0\r\nContent-Type: multipart/signed;", 51)
+  NQTCHK(memcmp(m, "MIME-Version: 1.0\r\nContent-Type: multipart/signed;", 50)
          == 0);
   NQTCHK(strstr(m, "micalg=sha-512") != NULL);
   NQTCHK(strstr(m, "\r\nHello,\r\nsigned mail.\r\n") != NULL);
