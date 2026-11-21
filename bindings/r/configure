@@ -45,4 +45,11 @@ rm -f nqconf.c nqconf.o
 fl=${fl# }
 
 sed "s/@NQCF@/$fl/" "$mk.in" >"$mk"
-echo "configure: C flags for $mk: ${fl:-none}"
+# what is being built, in a few lines before the compiler's
+ver=$(sed -n 's/^Version: *//p' DESCRIPTION)
+# shellcheck disable=SC2086
+cv=$($cc --version 2>/dev/null | sed -n 1p)
+echo "noqtis $ver for R"
+echo "  compiler   ${cv:-$cc}"
+echo "  library    bundled C sources, no system dependencies"
+echo "  C flags    ${fl:-none} (in $mk)"
