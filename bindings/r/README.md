@@ -75,6 +75,23 @@ AES-SIV (RFC 5297) and `nqgsivenc()` / `nqgsivdec()` AES-GCM-SIV (RFC
 8452), authenticated encryption; `nqchacha20()` the ChaCha20 stream of
 RFC 8439, which is not authenticated.
 
+## Mail, OpenPGP, a key store and tokens
+
+`nqarmor()`, `nqcert()`, `nqcmssign()`, `nqsmimesign()` and their
+counterparts write text armor (RFC 7468), X.509 certificates for noqtis
+keys, and CMS and S/MIME messages, signed or encrypted. The `nqpgp`
+functions make version 6 OpenPGP keys (RFC 9580) and sign, verify,
+encrypt and decrypt with them. The `nqks` functions keep other people's
+public keys in a folder, certify them and carry them from one store to
+another. `nqtoken()` and the `nqtoken` functions sign and decapsulate
+with keys that stay on a PKCS #11 token.
+
+```r
+k <- nqpgpkeygen("Ada Example <ada@example.org>")
+sig <- nqpgpsign(k$sec, charToRaw("a message"), "detached")
+nqpgpverify(k$pub, sig, charToRaw("a message"))
+```
+
 ## Citation
 
 > Ruhela, V. S. (2026). *NOQTIS: Notary of Quantum-Safe Traceable Inputs

@@ -282,6 +282,23 @@ class path's jars).
 8452), authenticated encryption; `chacha20` the ChaCha20 stream of RFC
 8439, which is not authenticated.
 
+## Mail, OpenPGP, a key store and tokens
+
+`Mail` writes text armor (RFC 7468), X.509 certificates for noqtis keys,
+and CMS and S/MIME messages, signed or encrypted. `Pgp` makes version 6
+OpenPGP keys (RFC 9580) and signs, verifies, encrypts and decrypts with
+them. `KeyStore` keeps other people's public keys in a folder, certifies
+them and carries them from one store to another. `Token` signs and
+decapsulates with keys that stay on a PKCS #11 token.
+
+```java
+byte[] msg = "a message".getBytes(StandardCharsets.UTF_8);
+Pgp.KeyPair k = Pgp.generate(Pgp.MLDSA65, Pgp.MLKEM768,
+    "Ada Example <ada@example.org>", Instant.now(), null);
+byte[] sig = Pgp.sign(k.secret(), null, msg, Pgp.DETACHED, Instant.now());
+Pgp.verify(k.cert(), sig, msg);   // throws when it does not verify
+```
+
 ## Errors
 
 Every failure is a `NoqtisException` (unchecked): `code()` is the

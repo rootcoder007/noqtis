@@ -236,6 +236,24 @@ from the program's build information).
 AES-GCM-SIV (RFC 8452), authenticated encryption; `ChaCha20` the
 ChaCha20 stream of RFC 8439, which is not authenticated.
 
+## Mail, OpenPGP, a key store and tokens
+
+`Armor`, `SelfCert`, `CMSSign`, `SMIMESign` and their counterparts write
+text armor (RFC 7468), X.509 certificates for noqtis keys, and CMS and
+S/MIME messages, signed or encrypted. The `PGP` functions make version 6
+OpenPGP keys (RFC 9580) and sign, verify, encrypt and decrypt with them.
+The `Store` functions keep other people's public keys in a folder,
+certify them and carry them from one store to another. `OpenToken` signs
+and decapsulates with keys that stay on a PKCS #11 token.
+
+```go
+msg := []byte("a message")
+sec, cert, err := noqtis.PGPGenerate(noqtis.PGPMLDSA65, noqtis.PGPMLKEM768,
+	"Ada Example <ada@example.org>", time.Now(), nil)
+sig, err := noqtis.PGPSign(sec, nil, msg, noqtis.PGPDetached, time.Now())
+_, _, err = noqtis.PGPVerify(cert, sig, msg) // an error when it does not verify
+```
+
 ## Errors
 
 Every failure is an `*noqtis.Error`: `Code` is the library's `NQE*`

@@ -1,5 +1,11 @@
 # noqtis 0.3.0
 
+- New: `nqboxto()` and `nqunboxfrom()` seal a file to several ML-KEM keys at once, optionally signed by its sender; the secret key of any one recipient opens it.
+- New: text armor (RFC 7468), `nqarmor()` and `nqdearmor()`.
+- New: certificates, CMS and S/MIME. `nqcert()` writes a self-signed X.509 certificate for a signature key and `nqkemcert()` one for an ML-KEM key; `nqcertinfo()` reads one. `nqcmssign()`, `nqcmsverify()`, `nqcmsencrypt()` and `nqcmsdecrypt()` write and read CMS messages, and `nqsmimesign()`, `nqsmimeverify()`, `nqsmimeencrypt()` and `nqsmimedecrypt()` the same as S/MIME mail.
+- New: OpenPGP version 6 (RFC 9580). `nqpgpkeygen()` makes a key (ML-DSA-65 with Ed25519 and an ML-KEM-768 with X25519 subkey by default); `nqpgpsign()`, `nqpgpverify()`, `nqpgpencrypt()` and `nqpgpdecrypt()` use it; `nqpgpinfo()`, `nqpgparmor()` and `nqpgpdearmor()` read and armor keys and messages.
+- New: a key store in a folder. `nqksadd()`, `nqkslist()`, `nqksget()` and `nqksdel()` keep other people's public keys; `nqkscertify()`, `nqksaddcert()` and `nqkstrust()` say which are known to be theirs; `nqksexport()` and `nqksimport()` carry a key with its identity card to another store, and `nqksurl()` gives the address a key is published at.
+- New: keys on a PKCS #11 token. `nqtoken()` opens a module; `nqtokens()`, `nqtokenlogin()`, `nqtokenkeys()`, `nqtokenkeygen()`, `nqtokenpub()`, `nqtokensign()` and `nqtokendecap()` work with keys that stay on the token.
 - New: `nqexpire()`, a key statement that a seal key seals until a given time. `nqcheck()` with it in `keys` accepts the key's seals as before until then, and afterwards only with a verified timestamp from before that time.
 - New: `nqkt()`, KangarooTwelve (RFC 9861, KT128 and KT256), the tree hash and extendable-output function, with an optional customization string.
 - New: `nqsivenc()` and `nqsivdec()`, AES-SIV (RFC 5297), deterministic authenticated encryption; `nqgsivenc()` and `nqgsivdec()`, AES-GCM-SIV (RFC 8452), authenticated encryption that resists a nonce used twice.

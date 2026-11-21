@@ -224,6 +224,25 @@ AES-SIV (RFC 5297) and `gsivenc` / `gsivdec` AES-GCM-SIV (RFC 8452),
 authenticated encryption; `chacha20` the ChaCha20 stream of RFC 8439,
 which is not authenticated.
 
+## Mail, OpenPGP, a key store and tokens
+
+`armor` and `mail` write text armor (RFC 7468), X.509 certificates for
+noqtis keys, and CMS and S/MIME messages, signed or encrypted. The `pgp`
+functions make version 6 OpenPGP keys (RFC 9580) and sign, verify,
+encrypt and decrypt with them. The `keystore` functions keep other
+people's public keys, certify them and carry them from one store to
+another. The store's files are held by the caller, and tokens
+are not reached from WebAssembly.
+
+```js
+import { init, pgp } from 'noqtis';
+await init();
+
+const k = pgp.generate('Ada Example <ada@example.org>');
+const sig = pgp.sign(k.secretKey, 'a message', { mode: 'detached' });
+pgp.verify(k.certificate, sig, { content: 'a message' });   // null when it does not verify
+```
+
 ## Security notes
 
 - Randomness comes only from `crypto.getRandomValues`; if it is missing

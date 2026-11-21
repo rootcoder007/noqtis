@@ -85,6 +85,28 @@ and the [threat model](https://noqtis.dev/security/).
 - **Embedded**: `-DNQFREE=ON` builds the algorithms alone, for firmware and
   kernels: no operating system, no allocator, randomness from the caller.
 
+## Mail, keys and tokens
+
+The same keys also sign and encrypt for people, in the formats mail and
+key tools already read:
+
+- **Several recipients, and signed**: `noqtis box -p ann.pub -p bob.pub -s me`
+  seals a file to several people at once, signed by its sender; any one
+  of them opens it.
+- **A key store**: `noqtis keys` keeps other people's public keys under
+  their names, certifies them, and finds a key by its e-mail address.
+- **S/MIME and CMS**: `noqtis cert` writes X.509 certificates for noqtis
+  keys, and `noqtis smime` signs and encrypts mail with ML-DSA, SLH-DSA
+  and ML-KEM.
+- **OpenPGP**: `noqtis pgp` makes version 6 keys (RFC 9580) with the
+  post-quantum algorithms of the OpenPGP working group's draft, and
+  signs, verifies, encrypts and decrypts with them.
+- **Keys on a token**: `noqtis token` signs and decapsulates with keys
+  that stay on a PKCS #11 token (a smart card or a hardware security
+  module).
+- **Text armor**: `sign -a` and `box -a` write a signature or a sealed
+  file as text (RFC 7468), to paste into a message.
+
 ## Data behind a result
 
 A capsule can also say where its data came from and what shape it has,

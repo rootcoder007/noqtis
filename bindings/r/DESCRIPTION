@@ -26,8 +26,12 @@ Description: Post-quantum signatures, key encapsulation and sealed records,
     files to someone without revealing the others, and signed statements
     rotate or revoke a sealing key. Tables can be pinned to a schema and
     to summaries that show later drift, and results wrapped in Dead Simple
-    Signing Envelopes (DSSE). Keys and nonces come from the operating system's
-    random generator.
+    Signing Envelopes (DSSE). Messages can be signed and encrypted in the
+    Cryptographic Message Syntax (CMS) and as Secure/Multipurpose Internet Mail
+    Extensions (S/MIME) mail with X.509 certificates, or as 'OpenPGP' version 6
+    messages; a key store keeps and certifies other people's public keys, and
+    keys held on a 'PKCS #11' token sign and decapsulate without leaving it.
+    Keys and nonces come from the operating system's random generator.
 License: Apache License (== 2.0)
 Copyright: see file inst/COPYRIGHTS
 URL: https://noqtis.dev, https://github.com/rootcoder007/noqtis

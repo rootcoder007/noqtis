@@ -262,6 +262,26 @@ AES-SIV (RFC 5297) and `gsivenc` / `gsivdec` AES-GCM-SIV (RFC 8452),
 authenticated encryption; `chacha20` the ChaCha20 stream of RFC 8439,
 which is not authenticated.
 
+## Mail, OpenPGP, a key store and tokens
+
+`noqtis::mail` writes text armor (RFC 7468), X.509 certificates for
+noqtis keys, and CMS and S/MIME messages, signed or encrypted.
+`noqtis::pgp` makes version 6 OpenPGP keys (RFC 9580) and signs,
+verifies, encrypts and decrypts with them. `noqtis::store` keeps other
+people's public keys in a folder, certifies them and carries them from
+one store to another. `noqtis::token` signs and decapsulates with keys
+that stay on a PKCS #11 token.
+
+```rust
+use noqtis::pgp;
+
+let msg: &[u8] = b"a message";
+let (sec, cert) = pgp::generate(
+    pgp::MLDSA65, pgp::MLKEM768, "Ada Example <ada@example.org>", None, None)?;
+let sig = pgp::sign(&sec, None, msg, pgp::Mode::Detached, None)?;
+pgp::verify(&cert, &sig, Some(msg))?;   // Err when it does not verify
+```
+
 ## Errors
 
 Every failure is a `noqtis::Error`: `code()` is the library's `NQE*`

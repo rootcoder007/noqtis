@@ -223,6 +223,24 @@ environment with the Python runtime and its installed distributions.
 8452), authenticated encryption; `chacha20` the ChaCha20 stream of RFC
 8439, which is not authenticated.
 
+## Mail, OpenPGP, a key store and tokens
+
+`noqtis.mail` writes text armor (RFC 7468), X.509 certificates for
+noqtis keys, and CMS and S/MIME messages, signed or encrypted.
+`noqtis.pgp` makes version 6 OpenPGP keys (RFC 9580) and signs,
+verifies, encrypts and decrypts with them. `noqtis.store` keeps other
+people's public keys in a folder, certifies them and carries them from
+one store to another. `noqtis.token` signs and decapsulates with keys
+that stay on a PKCS #11 token.
+
+```python
+from noqtis import pgp
+
+sec, cert = pgp.generate("Ada Example <ada@example.org>")
+sig = pgp.sign(sec, b"a message", pgp.DETACHED)
+pgp.verify(cert, sig, b"a message")   # VerifyError when it does not verify
+```
+
 ## Errors
 
 Every failure raises a subclass of `noqtis.NoqtisError`, one per library
