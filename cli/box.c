@@ -384,6 +384,13 @@ static int unboxm(FILE *in, const char *inp, const uint8_t *fx,
     (void)nqssize(sg, &sz);
     rec = sz.sig + 16;
   }
+  /* what nqkmpeek let through is within these; the allocations say
+   * so themselves */
+  if (hl < NQKMFIX || hl > NQKMFIX + NQKMRCP * (size_t)(1 + 8 + 1568 + 48) ||
+      rec > 65536) {
+    nclib("unbox", "opening", NQELIM);
+    goto done;
+  }
   h = (uint8_t *)malloc(hl);
   if (h == NULL) {
     nclib("unbox", "memory", NQEMEM);
@@ -415,6 +422,11 @@ static int unboxm(FILE *in, const char *inp, const uint8_t *fx,
   }
   /* the window: one chunk, the record after the last, and one byte
    * more; full, a chunk is not the last */
+  if (chunk < NQKFCMIN || chunk > NQKFCMAX) {
+    nqwipe(&c, sizeof c);
+    nclib("unbox", "opening", NQELIM);
+    goto done;
+  }
   full = (size_t)chunk + 16;
   win = full + rec + 1;
   e = (uint8_t *)malloc(win);
@@ -571,6 +583,13 @@ int ncunbox(int argc, char **argv) {
   }
   if (rc != NQOK) {
     nclib("unbox", "opening", rc);
+    goto done;
+  }
+  /* the library took the chunk size only within its limits; the
+   * allocation says so itself */
+  if (chunk < NQKFCMIN || chunk > NQKFCMAX) {
+    nqwipe(&c, sizeof c);
+    nclib("unbox", "opening", NQELIM);
     goto done;
   }
   e = (uint8_t *)malloc((size_t)chunk + 16);
