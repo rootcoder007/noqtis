@@ -1,0 +1,191 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NOQTIS-PGP 1
+.Os
+.Sh NAME
+.Nm noqtis-pgp
+.Nd OpenPGP keys, signatures and encrypted messages
+.Sh SYNOPSIS
+.Nm noqtis pgp
+.Cm keygen
+.Fl n Ar user-id
+.Op Fl a Ar alg
+.Op Fl -sign-only
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Fl o Ar key
+.Op Fl -force
+.Nm noqtis pgp
+.Cm show
+.Ar key
+.Nm noqtis pgp
+.Cm sign
+.Fl k Ar key
+.Op Fl -detached | Fl -clear
+.Op Fl -binary
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Op Fl o Ar out
+.Op Fl -force
+.Ar file
+.Nm noqtis pgp
+.Cm verify
+.Fl -cert Ar cert
+.Op Fl -content Ar file
+.Op Fl o Ar out
+.Op Fl -force
+.Ar file
+.Nm noqtis pgp
+.Cm encrypt
+.Op Fl -to Ar cert ...
+.Op Fl -symmetric
+.Op Fl k Ar key
+.Op Fl -binary
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Op Fl o Ar out
+.Op Fl -force
+.Ar file
+.Nm noqtis pgp
+.Cm decrypt
+.Fl k Ar key | Fl -symmetric
+.Op Fl -cert Ar cert
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Op Fl o Ar out
+.Op Fl -force
+.Ar file
+.Sh DESCRIPTION
+.Nm noqtis pgp
+writes and reads OpenPGP (RFC 9580) in its version 6 forms, with
+Ed25519 and X25519 of that RFC and the post-quantum algorithms of
+draft-ietf-openpgp-pqc: ML-DSA-65 with Ed25519, ML-KEM-768 with X25519,
+and SLH-DSA-SHAKE.
+What it writes is ASCII armor unless
+.Fl -binary
+is given; what it reads may be either.
+.Bl -tag -width "encrypt"
+.It Cm keygen
+Make a key for
+.Ar user-id ,
+by convention
+.Dq Name <address> :
+the secret key in
+.Ar key
+and its certificate, to give to others, in
+.Ar key Ns Pa .pub .
+.Fl a
+names the algorithm of the primary key, which certifies and signs:
+.Cm mldsa65-ed25519
+(the default),
+.Cm ed25519 ,
+.Cm slh-shake-128s ,
+.Cm slh-shake-128f
+or
+.Cm slh-shake-256s .
+The key has an encryption subkey, ML-KEM-768 with X25519 (X25519 for
+an
+.Cm ed25519
+key), unless
+.Fl -sign-only
+is given.
+With a passphrase the secret key is kept under it (Argon2id, AES-256
+with OCB).
+An OpenPGP key is made here: the key files of
+.Xr noqtis-keygen 1
+are of another form and cannot be turned into one.
+.It Cm show
+Print what a key or a certificate says: its user ID, algorithms,
+fingerprints and times.
+.It Cm sign
+Sign
+.Ar file
+with the secret key: a signed message that carries the data, with
+.Fl -detached
+the signature alone, with
+.Fl -clear
+the text itself with the signature under it (the file must be UTF-8
+text).
+.It Cm verify
+Check a signed message, a cleartext signature, or a detached signature
+of the file given with
+.Fl -content ,
+under the certificate
+.Ar cert .
+.Fl o
+writes the data that was signed.
+.It Cm encrypt
+Encrypt
+.Ar file
+to the encryption subkeys of the certificates given with
+.Fl -to
+(up to 32), and with
+.Fl -symmetric
+to the passphrase as well, or alone: AES-256 with OCB.
+.Fl k
+signs the message first, inside the encryption.
+With
+.Fl -symmetric
+the passphrase is that of the message, and
+.Ar key
+must then not be under one.
+.It Cm decrypt
+Open a message with the secret key
+.Ar key ,
+or with
+.Fl -symmetric
+with its passphrase.
+With
+.Fl -cert
+the message must be signed by that certificate; without, the content
+is written whatever signs it.
+.El
+.Pp
+A passphrase is read from the descriptor of
+.Fl -pass-fd
+or the variable of
+.Fl -pass-env ,
+never from the command line.
+.Fl -force
+replaces an output that exists.
+.Pp
+Keys, signatures and messages of versions 3 and 4, RSA, DSA, Elgamal,
+the NIST and Brainpool curves, CFB encryption and compressed data are
+not supported, and are reported as such.
+.Sh EXIT STATUS
+0 on success;
+1 when
+.Cm verify
+finds that a signature does not verify, and when
+.Cm show
+finds a key with no valid self-signature;
+2 on a usage or file error, and when a message does not open.
+.Sh EXAMPLES
+.Bd -literal
+$ noqtis pgp keygen -n "Ada Example <ada@example.org>" -o ada
+$ noqtis pgp sign -k ada --detached -o report.pdf.asc report.pdf
+$ noqtis pgp verify --cert ada.pub --content report.pdf report.pdf.asc
+OK, signed by Ada Example <ada@example.org> (...) at ...
+$ noqtis pgp encrypt --to bob.pub -k ada -o secret.asc report.pdf
+$ noqtis pgp decrypt -k bob --cert ada.pub -o report.pdf secret.asc
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-keygen 1 ,
+.Xr noqtis-smime 1 ,
+.Xr nqpgpgen 3
+.Sh STANDARDS
+.Rs
+.%A P. Wouters
+.%A D. Huigens
+.%A J. Winter
+.%A Y. Niibe
+.%T OpenPGP
+.%R RFC 9580
+.%D July 2024
+.Re
+.Pp
+.Rs
+.%A S. Kousidis
+.%A J. Roth
+.%A F. Strenzke
+.%A A. Wussler
+.%T Post-Quantum Cryptography in OpenPGP
+.%R draft-ietf-openpgp-pqc
+.Re

@@ -127,7 +127,7 @@ static const char grocery[] =
     "What we need from the grocery store:\n\n- tofu\n- vegetables\n- noodles\n";
 
 static uint8_t cert[4096], key[4096], lkey[4096], big[1 << 18],
-    out[1 << 17], bin[1 << 16];
+    out[1 << 17], bin[1 << 17];
 static size_t certn, keyn, lkeyn;
 
 static size_t hex(const char *s, uint8_t *o) {
@@ -241,9 +241,9 @@ static void trfc(void) {
 
 /* a key of the algorithms made here, and everything done with it */
 static void talg(int sa, int ea, const char *pw) {
-  static uint8_t sec[1 << 15], pub[1 << 15], sec2[1 << 15], pub2[1 << 15],
+  static uint8_t sec[1 << 17], pub[1 << 17], sec2[1 << 17], pub2[1 << 17],
       msg[40000];
-  static char arm[1 << 16];
+  static char arm[1 << 17];
   const uint8_t *certs[2];
   size_t cl[2], sn = 0, pn = 0, s2n = 0, p2n = 0, n = 0, on = 0, an = 0, i,
          step;

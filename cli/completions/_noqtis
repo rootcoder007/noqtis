@@ -48,6 +48,25 @@ _noqtis_cmd() {
         '--pass-fd=[read the passphrase from descriptor]:fd:' \
         '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '(-f --force)'{-f,--force}'[replace an existing certificate]' ;;
+    pgp)
+      _arguments \
+        '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
+        '(-n --name)'{-n,--name=}'[user ID of a new key]:user ID:' \
+        '(-a --alg)'{-a,--alg=}'[algorithm of a new key]:alg:(mldsa65-ed25519 ed25519 slh-shake-128s slh-shake-128f slh-shake-256s)' \
+        '--cert=[certificate of the signer]:cert:_files' \
+        '*--to=[certificate of a recipient]:cert:_files' \
+        '--content=[what a detached signature signs]:file:_files' \
+        '--detached[the signature alone]' \
+        '--clear[the text with the signature under it]' \
+        '--binary[no ASCII armor]' \
+        '--symmetric[a passphrase for the message]' \
+        '--sign-only[no encryption subkey]' \
+        '(-o --out)'{-o,--out=}'[output]:out:_files' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
+        '(-f --force)'{-f,--force}'[replace an existing output]' \
+        '1:command:(keygen show sign verify encrypt decrypt)' \
+        '2:file:_files' ;;
     smime)
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
@@ -334,7 +353,7 @@ _noqtis_cmd() {
 
 _arguments -C \
   '(- :)'{-V,--version}'[print the version]' \
-  '1:command:((keygen\:"make a key pair" passwd\:"change a secret key's passphrase" keys\:"the key store" cert\:"make or show a certificate" smime\:"sign or encrypt mail" armor\:"write a file as text" dearmor\:"read the bytes an armored file holds" sign\:"sign a file" box\:"seal a file to an ML-KEM key" unbox\:"open a boxed file"
+  '1:command:((keygen\:"make a key pair" passwd\:"change a secret key's passphrase" keys\:"the key store" cert\:"make or show a certificate" pgp\:"OpenPGP keys, signatures and messages" smime\:"sign or encrypt mail" armor\:"write a file as text" dearmor\:"read the bytes an armored file holds" sign\:"sign a file" box\:"seal a file to an ML-KEM key" unbox\:"open a boxed file"
     verify\:"verify a signature" enc\:"encapsulate a shared secret"
     dec\:"decapsulate a shared secret" hash\:"print or check digests"
     seal\:"seal a folder" check\:"check a sealed folder"

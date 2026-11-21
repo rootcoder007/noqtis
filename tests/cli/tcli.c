@@ -2834,6 +2834,118 @@ static void tkeys(void) {
 
 /* ---- certificates and S/MIME: noqtis cert, noqtis smime ---- */
 
+/* noqtis pgp: a key of each kind, the three signatures, encryption
+ * to keys and to a passphrase, the refusals */
+static void tpgp(void) {
+  size_t n = 0;
+  unsigned char *b;
+  remove("q.g1");
+  remove("q.g1.pub");
+  remove("q.g2");
+  remove("q.g2.pub");
+  remove("q.g3");
+  remove("q.g3.pub");
+  penv("NQTPW", "a long pass phrase 1");
+  penv("NQTPW2", "another pass phrase");
+  wrs("q.gt", "- a list\nline two  \nthree\n");
+  want(0, "pgp keygen -n \"Ada Example <ada@example.org>\" -o q.g1", NULL);
+  ok(has("q.g1", "-----BEGIN PGP PRIVATE KEY BLOCK-----\n") &&
+     has("q.g1.pub", "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"),
+     "pgp keygen writes the key and its certificate, armored");
+  want(2, "pgp keygen -n X -o q.g1", NULL);
+  want(0, "pgp keygen -n \"Bob <bob@example.org>\" -a ed25519 "
+          "--pass-env NQTPW -o q.g2", NULL);
+  want(0, "pgp keygen -n Sig -a slh-shake-128f --sign-only -o q.g3", NULL);
+  want(2, "pgp keygen -n X -a rsa -o q.gx", NULL);
+  ok(has("q.err", "mldsa65-ed25519"), "pgp keygen names its algorithms");
+  want(2, "pgp keygen -o q.gx", NULL);
+  want(0, "pgp show q.g1.pub", NULL);
+  ok(has("q.out", "user ID      Ada Example <ada@example.org>") &&
+     has("q.out", "key          mldsa65-ed25519") &&
+     has("q.out", "encryption   mlkem768-x25519") &&
+     has("q.out", "certificate (public)") && has("q.out", "expires      never"),
+     "pgp show prints a certificate");
+  want(0, "pgp show q.g2", NULL);
+  ok(has("q.out", "secret key, under a passphrase") &&
+     has("q.out", "encryption   x25519"), "pgp show of a locked key");
+  want(0, "pgp show q.g3.pub", NULL);
+  ok(has("q.out", "slh-shake-128f") && !has("q.out", "encryption"),
+     "a key made with --sign-only has no subkey");
+  want(2, "pgp show q.b1", NULL);
+  want(2, "pgp show q.none", NULL);
+  /* a signed message carries the data */
+  want(0, "pgp sign -k q.g1 -o q.gs --force q.b4", NULL);
+  ok(has("q.gs", "-----BEGIN PGP MESSAGE-----\n"), "pgp sign is armored");
+  want(0, "pgp verify --cert q.g1.pub -o q.gv --force q.gs", NULL);
+  ok(same("q.gv", "q.b4") &&
+     has("q.out", "OK, signed by Ada Example <ada@example.org>"),
+     "pgp verify gives the data back and names the signer");
+  want(1, "pgp verify --cert q.g3.pub q.gs", NULL);
+  ok(has("q.err", "does NOT verify"), "another certificate does not verify");
+  /* detached, binary */
+  want(0, "pgp sign -k q.g1 --detached --binary -o q.gd --force q.b4", NULL);
+  want(0, "pgp verify --cert q.g1.pub --content q.b4 q.gd", NULL);
+  want(1, "pgp verify --cert q.g1.pub --content q.b1 q.gd", NULL);
+  want(2, "pgp verify --cert q.g1.pub q.gd", NULL);
+  ok(has("q.err", "--content"), "a detached signature asks for the content");
+  /* cleartext: the text stays readable, and a changed word fails */
+  want(0, "pgp sign -k q.g3 --clear -o q.gc --force q.gt", NULL);
+  ok(has("q.gc", "-----BEGIN PGP SIGNED MESSAGE-----\n") &&
+     has("q.gc", "- - a list\n") && has("q.gc", "line two"),
+     "a cleartext signature keeps the text, dash-escaped");
+  want(0, "pgp verify --cert q.g3.pub -o - q.gc", NULL);
+  ok(has("q.out", "- a list\nline two\nthree"), "the text comes back");
+  b = rd("q.gc", &n);
+  {
+    char *h = strstr((char *)b, "three");
+    if (h != NULL) h[0] = 'T';
+  }
+  wr("q.gc2", b, n);
+  free(b);
+  want(1, "pgp verify --cert q.g3.pub q.gc2", NULL);
+  want(2, "pgp sign -k q.g1 --clear --detached q.gt", NULL);
+  want(2, "pgp sign -k q.g1.pub -o q.gx --force q.gt", NULL);
+  /* a key under a passphrase */
+  want(0, "pgp sign -k q.g2 --pass-env NQTPW -o q.gs2 --force q.b1", NULL);
+  want(0, "pgp verify --cert q.g2.pub q.gs2", NULL);
+  want(2, "pgp sign -k q.g2 -o q.gx --force q.b1", NULL);
+  want(2, "pgp sign -k q.g2 --pass-env NQTPW2 -o q.gx --force q.b1", NULL);
+  ok(has("q.err", "passphrase does not open"), "a wrong passphrase is said");
+  /* encrypted to two keys, signed: each opens it */
+  want(0, "pgp encrypt --to q.g1.pub --to q.g2.pub -k q.g1 -o q.ge --force "
+          "q.b4", NULL);
+  ok(has("q.ge", "-----BEGIN PGP MESSAGE-----\n"), "pgp encrypt is armored");
+  want(0, "pgp decrypt -k q.g1 --cert q.g1.pub -o q.gp --force q.ge", NULL);
+  ok(same("q.gp", "q.b4") && has("q.err", "signed by"),
+     "pgp decrypt opens it and checks the signer");
+  want(0, "pgp decrypt -k q.g2 --pass-env NQTPW -o q.gp --force q.ge", NULL);
+  ok(same("q.gp", "q.b4"), "the second recipient opens it as well");
+  want(2, "pgp decrypt -k q.g1 --cert q.g3.pub -o q.gx --force q.ge", NULL);
+  want(2, "pgp decrypt -k q.g3 -o q.gx --force q.ge", NULL);
+  want(2, "pgp encrypt --to q.g3.pub -o q.gx --force q.b1", NULL);
+  ok(has("q.err", "no encryption subkey"), "a signing key receives nothing");
+  /* to one key: the other does not open it */
+  want(0, "pgp encrypt --to q.g2.pub --binary -o q.ge2 --force q.b1", NULL);
+  want(2, "pgp decrypt -k q.g1 -o q.gx --force q.ge2", NULL);
+  ok(has("q.err", "does NOT open"), "not a recipient");
+  /* to a passphrase */
+  want(0, "pgp encrypt --symmetric --pass-env NQTPW -o q.ge3 --force q.b4",
+       NULL);
+  want(0, "pgp decrypt --symmetric --pass-env NQTPW -o q.gp --force q.ge3",
+       NULL);
+  ok(same("q.gp", "q.b4"), "a passphrase message round trips");
+  want(2, "pgp decrypt --symmetric --pass-env NQTPW2 -o q.gx --force q.ge3",
+       NULL);
+  want(2, "pgp decrypt --symmetric -o q.gx --force q.ge3", NULL);
+  want(2, "pgp encrypt --symmetric -o q.gx --force q.b1", NULL);
+  want(2, "pgp encrypt -o q.gx --force q.b1", NULL);
+  want(2, "pgp decrypt -k q.g1 --symmetric q.ge", NULL);
+  want(2, "pgp decrypt -k q.g1 -o q.gx --force q.b1", NULL);
+  want(2, "pgp", NULL);
+  want(2, "pgp nothing q.b1", NULL);
+  want(0, "pgp --help", NULL);
+}
+
 static void tsmime(void) {
   size_t n = 0;
   unsigned char *b;
@@ -2995,6 +3107,7 @@ int main(int argc, char **argv) {
   tarm();
   tkeys();
   tsmime();
+  tpgp();
   for (i = 0; i < sizeof kems / sizeof kems[0]; i++)
     tkem(kems[i]);
   thash();

@@ -1,0 +1,199 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQPGPGEN 3
+.Os
+.Sh NAME
+.Nm nqpgpgen ,
+.Nm nqpgpinfo ,
+.Nm nqpgpsign ,
+.Nm nqpgpvrfy ,
+.Nm nqpgpenc ,
+.Nm nqpgpdec ,
+.Nm nqpgparm ,
+.Nm nqpgpdearm
+.Nd OpenPGP keys, signatures and encrypted messages
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqpgpgen "int sigalg" "int encalg" "const char *uid" "int64_t created" "const uint8_t *pw" "size_t pwlen" "uint8_t *sec" "size_t scap" "size_t *slen" "uint8_t *pub" "size_t pcap" "size_t *plen"
+.Ft int
+.Fn nqpgpinfo "const uint8_t *key" "size_t n" "nqpgpk *o"
+.Ft int
+.Fn nqpgpsign "const uint8_t *key" "size_t kn" "const uint8_t *pw" "size_t pwlen" "const uint8_t *msg" "size_t n" "int mode" "int64_t at" "uint8_t *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqpgpvrfy "const uint8_t *cert" "size_t cn" "const uint8_t *sig" "size_t sn" "const uint8_t *msg" "size_t mlen" "uint8_t *out" "size_t cap" "size_t *outlen" "int64_t *at"
+.Ft int
+.Fn nqpgpenc "const uint8_t *const *certs" "const size_t *certlens" "size_t nc" "const uint8_t *pw" "size_t pwlen" "const uint8_t *signer" "size_t signerlen" "const uint8_t *spw" "size_t spwlen" "const uint8_t *msg" "size_t n" "int64_t at" "uint8_t *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqpgpdec "const uint8_t *key" "size_t kn" "const uint8_t *pw" "size_t pwlen" "const uint8_t *signer" "size_t signerlen" "const uint8_t *msg" "size_t n" "uint8_t *out" "size_t cap" "size_t *outlen" "int *signedby" "int64_t *at"
+.Ft int
+.Fn nqpgparm "int kind" "const uint8_t *in" "size_t n" "char *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqpgpdearm "const char *in" "size_t n" "int *kind" "uint8_t *out" "size_t cap" "size_t *outlen"
+.Sh DESCRIPTION
+These functions write and read OpenPGP (RFC 9580) in its version 6
+forms.
+Algorithms are named by their OpenPGP numbers:
+.Dv NQPGPED25519
+and
+.Dv NQPGPX25519
+of the RFC, and of draft-ietf-openpgp-pqc
+.Dv NQPGPMLDSA65
+(ML-DSA-65 with Ed25519),
+.Dv NQPGPMLKEM768
+(ML-KEM-768 with X25519),
+.Dv NQPGPSLH128S ,
+.Dv NQPGPSLH128F
+and
+.Dv NQPGPSLH256S
+(SLH-DSA-SHAKE).
+Keys, signatures and messages are packets in binary;
+.Fn nqpgpvrfy
+and
+.Fn nqpgpdec
+also take them armored.
+.Pp
+.Fn nqpgpgen
+makes a key: a primary key of
+.Fa sigalg
+that certifies and signs, the user ID
+.Fa uid
+(1 to 255 bytes of UTF-8), and, when
+.Fa encalg
+is not 0, an encryption subkey, with their self-signatures at the time
+.Fa created
+(seconds since 1970).
+.Fa sec
+gets the transferable secret key, under the passphrase
+.Fa pw
+when that is not
+.Dv NULL
+(Argon2id, AES-256 with OCB);
+.Fa pub
+gets the certificate.
+.Pp
+.Fn nqpgpinfo
+reads a key or a certificate into an
+.Vt nqpgpk :
+.Bd -literal -offset indent
+typedef struct {
+  int alg;          /* the primary key's algorithm */
+  int encalg;       /* the encryption subkey's, 0: none */
+  int secret;       /* 1 for a secret key */
+  int locked;       /* 1 when it is under a passphrase */
+  uint8_t fp[32];   /* fingerprint of the primary key */
+  uint8_t encfp[32];/* and of the subkey */
+  int64_t created;  /* seconds since 1970 */
+  int64_t expires;  /* 0: never */
+  char uid[256];
+} nqpgpk;
+.Ed
+.Pp
+Only what a self-signature of the primary key binds is taken.
+.Pp
+.Fn nqpgpsign
+signs
+.Fa msg
+with the secret key:
+.Fa mode
+.Dv NQPGPINLINE
+gives a signed message that carries the data,
+.Dv NQPGPDETACHED
+the signature alone, and
+.Dv NQPGPCLEAR
+the text with the armored signature under it.
+.Fn nqpgpvrfy
+checks any of the three under the certificate
+.Fa cert ;
+.Fa msg
+is what a detached signature signs, and
+.Dv NULL
+otherwise.
+The data comes back in
+.Fa out ,
+and
+.Fa *at
+gets the time of the signature.
+.Pp
+.Fn nqpgpenc
+encrypts
+.Fa msg
+to the encryption subkeys of
+.Fa nc
+certificates (at most 64) and, when
+.Fa pw
+is not
+.Dv NULL ,
+to that passphrase: AES-256 with OCB, in chunks.
+With
+.Fa signer ,
+a secret key under the passphrase
+.Fa spw ,
+the message is signed first.
+.Fn nqpgpdec
+opens one with the secret key
+.Fa key
+(whose passphrase is then
+.Fa pw ) ,
+or, with
+.Fa key
+.Dv NULL ,
+with the passphrase
+.Fa pw
+of the message.
+With
+.Fa signer ,
+a certificate, the message inside must be signed by it and
+.Fa *signedby
+is set to 1.
+.Pp
+.Fn nqpgparm
+writes packets as ASCII armor of the
+.Fa kind
+.Dv NQPGPMSG ,
+.Dv NQPGPPUB ,
+.Dv NQPGPSEC
+or
+.Dv NQPGPSIG ;
+with
+.Fa out
+.Dv NULL
+it gives the size alone.
+.Fn nqpgpdearm
+reads one armor back, and its kind.
+.Sh RETURN VALUES
+.Dv NQOK
+on success.
+.Dv NQEVRFY
+when a signature, a key or a message does not check out, and for a
+wrong passphrase;
+.Dv NQEARG
+for a bad argument and for a key that cannot do what is asked;
+.Dv NQEDEC
+for what is not OpenPGP;
+.Dv NQENOSUP
+for versions 3 and 4, RSA, CFB encryption, compressed data and other
+algorithms;
+.Dv NQEBUF
+when
+.Fa out
+is too small, with the size needed in
+.Fa *outlen ;
+.Dv NQELIM
+for an input over 1 GiB.
+.Sh SEE ALSO
+.Xr noqtis-pgp 1 ,
+.Xr noqtis 3 ,
+.Xr nqcmssign 3
+.Sh STANDARDS
+.Rs
+.%A P. Wouters
+.%A D. Huigens
+.%A J. Winter
+.%A Y. Niibe
+.%T OpenPGP
+.%R RFC 9580
+.%D July 2024
+.Re

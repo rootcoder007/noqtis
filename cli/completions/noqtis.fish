@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen passwd sign verify enc dec box unbox keys cert smime armor dearmor hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
+set -l cmds keygen passwd sign verify enc dec box unbox keys cert smime pgp armor dearmor hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -50,6 +50,23 @@ complete -c noqtis -n "__fish_seen_subcommand_from smime" -l detached -d 'keep t
 complete -c noqtis -n "__fish_seen_subcommand_from smime" -l der -d 'write the CMS structure (DER)'
 complete -c noqtis -n "__fish_seen_subcommand_from smime" -l text -d 'the content is text'
 complete -c noqtis -n "__fish_seen_subcommand_from smime" -l entity -d 'the file is a MIME entity'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a pgp -d "OpenPGP keys, signatures and encrypted messages"
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -a "keygen show sign verify encrypt decrypt"
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -s k -l key -r -F -d 'secret key'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -s n -l name -x -d 'user ID of a new key'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -s a -l alg -x -a "mldsa65-ed25519 ed25519 slh-shake-128s slh-shake-128f slh-shake-256s" -d 'algorithm of a new key'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l cert -r -F -d 'certificate of the signer'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l to -r -F -d 'certificate of a recipient'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l content -r -F -d 'what a detached signature signs'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l detached -d 'the signature alone'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l clear -d 'the text with the signature under it'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l binary -d 'no ASCII armor'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l symmetric -d 'a passphrase for the message'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l sign-only -d 'no encryption subkey'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l pass-fd -x -d 'read the passphrase from descriptor'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -l pass-env -x -d 'read the passphrase from variable'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -s o -l out -r -F -d 'output file'
+complete -c noqtis -n "__fish_seen_subcommand_from pgp" -s f -l force -d 'replace an existing output'
 complete -c noqtis -n "__fish_seen_subcommand_from cert smime" -s o -l out -r -F -d 'output file'
 complete -c noqtis -n "__fish_seen_subcommand_from cert smime" -s f -l force -d 'replace an existing output'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a armor -d "write a file as text (ASCII armor)"
