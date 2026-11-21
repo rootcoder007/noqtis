@@ -2834,6 +2834,80 @@ static void tkeys(void) {
 
 /* ---- certificates and S/MIME: noqtis cert, noqtis smime ---- */
 
+/* noqtis token, against the software token of tests/p11/tok.c: keys
+ * made there sign what verify accepts and open what enc wrote */
+static void ttoken(void) {
+#ifdef NQTOKPATH
+  remove("q.tk");
+  remove("q.tp.pub");
+  remove("q.tkp.pub");
+  penv("NQTOKFILE", "q.tk");
+  penv("NQTPIN", "1234");
+  penv("NQTPINX", "9999");
+  penv("NOQTIS_PKCS11", NULL);
+  want(2, "token list", NULL);
+  ok(has("q.err", "NOQTIS_PKCS11"), "token asks which module");
+  want(2, "token list -m nqtok", NULL);
+  ok(has("q.err", "as a path"), "a bare module name is not searched for");
+  want(2, "token list -m ./q.b1", NULL);
+  want(0, "token list -m \"" NQTOKPATH "\"", NULL);
+  ok(has("q.out", "slot 0  noqtis test token") && has("q.out", "PIN needed"),
+     "token list prints the token");
+  penv("NOQTIS_PKCS11", NQTOKPATH);
+  want(0, "token keys", NULL);
+  ok(has("q.out", "no private key"), "without the PIN no key is shown");
+  want(2, "token keys --pin-env NQTPINX", NULL);
+  ok(has("q.err", "PIN is wrong"), "a wrong PIN is said");
+  want(2, "token keys --slot 5 --pin-env NQTPIN", NULL);
+  want(2, "token keys --slot x --pin-env NQTPIN", NULL);
+  want(0, "token keygen -a ML-DSA-44 -n sig -o q.tp.pub --pin-env NQTPIN",
+       NULL);
+  ok(has("q.out", "ML-DSA-44 key sig made on the token") &&
+     has("q.tp.pub", "noqtis-key-1 ML-DSA-44 pub"),
+     "token keygen makes a key and writes its public key");
+  want(0, "token keygen -a ML-KEM-768 -n kem --pin-env NQTPIN", NULL);
+  want(2, "token keygen -a ML-DSA-44 -n sig", NULL);
+  want(2, "token keygen -a HQC-128 -n h --pin-env NQTPIN", NULL);
+  ok(has("q.err", "no key type"), "an algorithm tokens have no type for");
+  want(2, "token keygen -a nothing -n h --pin-env NQTPIN", NULL);
+  want(2, "token keygen -n h --pin-env NQTPIN", NULL);
+  want(0, "token keys --pin-env NQTPIN", NULL);
+  ok(has("q.out", "ML-DSA-44") && has("q.out", "  sig\n") &&
+     has("q.out", "ML-KEM-768") && has("q.out", "  kem\n"),
+     "token keys lists both");
+  /* the signature is the one verify checks */
+  want(0, "token sign -n sig -o q.ts --force --pin-env NQTPIN q.b4", NULL);
+  want(0, "verify -p q.tp.pub -s q.ts q.b4", NULL);
+  want(1, "verify -p q.tp.pub -s q.ts q.b1", NULL);
+  want(0, "token sign -n sig -c ctx -o q.ts --force --pin-env NQTPIN q.b4",
+       NULL);
+  want(0, "verify -p q.tp.pub -c ctx -s q.ts q.b4", NULL);
+  want(1, "verify -p q.tp.pub -s q.ts q.b4", NULL);
+  want(2, "token sign -n kem -o q.ts --force --pin-env NQTPIN q.b4", NULL);
+  ok(has("q.err", "does not sign"), "a KEM key does not sign");
+  want(2, "token sign -n none -o q.ts --force --pin-env NQTPIN q.b4", NULL);
+  want(2, "token sign -o q.ts --force --pin-env NQTPIN q.b4", NULL);
+  want(2, "token sign -n sig -o q.ts --force q.b4", NULL);
+  want(2, "token sign -n sig -o q.ts --pin-env NQTPIN q.b4", NULL);
+  /* what enc wrote, the token opens */
+  want(0, "token pub -n kem -o q.tkp.pub --pin-env NQTPIN", NULL);
+  ok(has("q.tkp.pub", "noqtis-key-1 ML-KEM-768 pub"), "token pub");
+  want(0, "enc -p q.tkp.pub -o q.tct --force q.tss", NULL);
+  want(0, "token dec -n kem -o q.tss2 --force --pin-env NQTPIN q.tct", NULL);
+  ok(same("q.tss", "q.tss2"), "token dec gives the secret enc gave");
+  want(2, "token dec -n sig -o q.tss2 --force --pin-env NQTPIN q.tct", NULL);
+  want(2, "token dec -n kem -o q.tss2 --force --pin-env NQTPIN q.b1", NULL);
+  want(2, "token dec -n kem --pin-env NQTPIN q.tct", NULL);
+  want(2, "token", NULL);
+  want(2, "token nothing", NULL);
+  want(2, "token list extra", NULL);
+  want(0, "token --help", NULL);
+  penv("NOQTIS_PKCS11", NULL);
+  penv("NQTOKFILE", NULL);
+  remove("q.tk");
+#endif
+}
+
 /* noqtis pgp: a key of each kind, the three signatures, encryption
  * to keys and to a passphrase, the refusals */
 static void tpgp(void) {
@@ -3108,6 +3182,7 @@ int main(int argc, char **argv) {
   tkeys();
   tsmime();
   tpgp();
+  ttoken();
   for (i = 0; i < sizeof kems / sizeof kems[0]; i++)
     tkem(kems[i]);
   thash();

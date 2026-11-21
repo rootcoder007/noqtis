@@ -4,6 +4,11 @@
 add_executable(tcli tcli.c)
 target_compile_options(tcli PRIVATE ${NQWARN})
 add_dependencies(tcli nqcli tsad)
+# the software token `noqtis token` is tested against (tests/p11/tok.c)
+if(NQTOK)
+  target_compile_definitions(tcli PRIVATE NQTOKPATH="$<TARGET_FILE:nqtok>")
+  add_dependencies(tcli nqtok)
+endif()
 # tsad: a local RFC 3161 TSA over HTTP, so seal --tsa needs no network
 add_executable(tsad tsad.c)
 target_compile_options(tsad PRIVATE ${NQWARN})

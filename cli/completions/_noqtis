@@ -48,6 +48,20 @@ _noqtis_cmd() {
         '--pass-fd=[read the passphrase from descriptor]:fd:' \
         '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '(-f --force)'{-f,--force}'[replace an existing certificate]' ;;
+    token)
+      _arguments \
+        '(-m --module)'{-m,--module=}'[PKCS #11 module]:module:_files' \
+        '--slot=[slot of the token]:slot:' \
+        '(-n --label)'{-n,--label=}'[label of the key]:label:' \
+        '--id=[ID of the key, in hex]:id:' \
+        '(-a --alg)'{-a,--alg=}'[algorithm of a new key]:alg:' \
+        '(-c --ctx)'{-c,--ctx=}'[context string]:ctx:' \
+        '(-o --out)'{-o,--out=}'[output]:out:_files' \
+        '--pin-fd=[read the PIN from descriptor]:fd:' \
+        '--pin-env=[read the PIN from variable]:name:_parameters' \
+        '(-f --force)'{-f,--force}'[replace an existing output]' \
+        '1:command:(list keys keygen pub sign dec)' \
+        '2:file:_files' ;;
     pgp)
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
@@ -353,7 +367,7 @@ _noqtis_cmd() {
 
 _arguments -C \
   '(- :)'{-V,--version}'[print the version]' \
-  '1:command:((keygen\:"make a key pair" passwd\:"change a secret key's passphrase" keys\:"the key store" cert\:"make or show a certificate" pgp\:"OpenPGP keys, signatures and messages" smime\:"sign or encrypt mail" armor\:"write a file as text" dearmor\:"read the bytes an armored file holds" sign\:"sign a file" box\:"seal a file to an ML-KEM key" unbox\:"open a boxed file"
+  '1:command:((keygen\:"make a key pair" passwd\:"change a secret key's passphrase" keys\:"the key store" cert\:"make or show a certificate" pgp\:"OpenPGP keys, signatures and messages" token\:"keys on a PKCS #11 token" smime\:"sign or encrypt mail" armor\:"write a file as text" dearmor\:"read the bytes an armored file holds" sign\:"sign a file" box\:"seal a file to an ML-KEM key" unbox\:"open a boxed file"
     verify\:"verify a signature" enc\:"encapsulate a shared secret"
     dec\:"decapsulate a shared secret" hash\:"print or check digests"
     seal\:"seal a folder" check\:"check a sealed folder"

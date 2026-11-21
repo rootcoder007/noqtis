@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # fish completion for noqtis(1).
 
-set -l cmds keygen passwd sign verify enc dec box unbox keys cert smime pgp armor dearmor hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
+set -l cmds keygen passwd sign verify enc dec box unbox keys cert smime pgp token armor dearmor hash seal check prove export rotate revoke expire idcard inspect timestamp ers data src schema drift diff report env commit reveal cite pack chunk chain algs selftest version
 set -l algs ML-DSA-44 ML-DSA-65 ML-DSA-87 SLH-DSA-SHA2-128s SLH-DSA-SHA2-128f \
     SLH-DSA-SHA2-192s SLH-DSA-SHA2-192f SLH-DSA-SHA2-256s SLH-DSA-SHA2-256f \
     SLH-DSA-SHAKE-128s SLH-DSA-SHAKE-128f SLH-DSA-SHAKE-192s \
@@ -50,6 +50,18 @@ complete -c noqtis -n "__fish_seen_subcommand_from smime" -l detached -d 'keep t
 complete -c noqtis -n "__fish_seen_subcommand_from smime" -l der -d 'write the CMS structure (DER)'
 complete -c noqtis -n "__fish_seen_subcommand_from smime" -l text -d 'the content is text'
 complete -c noqtis -n "__fish_seen_subcommand_from smime" -l entity -d 'the file is a MIME entity'
+complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a token -d "keys on a PKCS #11 token"
+complete -c noqtis -n "__fish_seen_subcommand_from token" -a "list keys keygen pub sign dec"
+complete -c noqtis -n "__fish_seen_subcommand_from token" -s m -l module -r -F -d 'PKCS #11 module'
+complete -c noqtis -n "__fish_seen_subcommand_from token" -l slot -x -d 'slot of the token'
+complete -c noqtis -n "__fish_seen_subcommand_from token" -s n -l label -x -d 'label of the key'
+complete -c noqtis -n "__fish_seen_subcommand_from token" -l id -x -d 'ID of the key, in hex'
+complete -c noqtis -n "__fish_seen_subcommand_from token" -s a -l alg -x -d 'algorithm of a new key'
+complete -c noqtis -n "__fish_seen_subcommand_from token" -s c -l ctx -x -d 'context string'
+complete -c noqtis -n "__fish_seen_subcommand_from token" -l pin-fd -x -d 'read the PIN from descriptor'
+complete -c noqtis -n "__fish_seen_subcommand_from token" -l pin-env -x -d 'read the PIN from variable'
+complete -c noqtis -n "__fish_seen_subcommand_from token" -s o -l out -r -F -d 'output file'
+complete -c noqtis -n "__fish_seen_subcommand_from token" -s f -l force -d 'replace an existing output'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a pgp -d "OpenPGP keys, signatures and encrypted messages"
 complete -c noqtis -n "__fish_seen_subcommand_from pgp" -a "keygen show sign verify encrypt decrypt"
 complete -c noqtis -n "__fish_seen_subcommand_from pgp" -s k -l key -r -F -d 'secret key'

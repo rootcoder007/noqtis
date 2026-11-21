@@ -1,0 +1,142 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQP11OPEN 3
+.Os
+.Sh NAME
+.Nm nqp11open ,
+.Nm nqp11close ,
+.Nm nqp11why ,
+.Nm nqp11toks ,
+.Nm nqp11login ,
+.Nm nqp11keys ,
+.Nm nqp11pub ,
+.Nm nqp11sign ,
+.Nm nqp11dec ,
+.Nm nqp11gen
+.Nd keys on a PKCS #11 token
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqp11open "const char *module" "nqp11 **p"
+.Ft void
+.Fn nqp11close "nqp11 *p"
+.Ft unsigned long
+.Fn nqp11why "const nqp11 *p"
+.Ft int
+.Fn nqp11toks "nqp11 *p" "nqp11t *t" "size_t cap" "size_t *n"
+.Ft int
+.Fn nqp11login "nqp11 *p" "unsigned long slot" "const char *pin" "size_t pinlen"
+.Ft int
+.Fn nqp11keys "nqp11 *p" "nqp11k *k" "size_t cap" "size_t *n"
+.Ft int
+.Fn nqp11pub "nqp11 *p" "const nqp11k *k" "uint8_t *pk" "size_t cap" "size_t *pklen"
+.Ft int
+.Fn nqp11sign "nqp11 *p" "const nqp11k *k" "const uint8_t *msg" "size_t n" "const uint8_t *ctx" "size_t ctxlen" "uint8_t *sig" "size_t cap" "size_t *siglen"
+.Ft int
+.Fn nqp11dec "nqp11 *p" "const nqp11k *k" "const uint8_t *ct" "size_t ctlen" "uint8_t *ss" "size_t sslen"
+.Ft int
+.Fn nqp11gen "nqp11 *p" "int kem" "int alg" "const char *label" "nqp11k *k"
+.Sh DESCRIPTION
+These functions sign and decapsulate with private keys that stay on a
+token: a smart card, a hardware security module, or a software token.
+.Pp
+.Fn nqp11open
+loads the PKCS #11 module at the path
+.Fa module
+and starts it.
+The path must have a folder in it; a bare name, which the system
+would search for, is refused.
+.Fn nqp11close
+ends the session, if one is open, and unloads the module.
+.Pp
+.Fn nqp11toks
+lists the tokens present, each an
+.Vt nqp11t :
+its slot, label, maker, model, serial number, and whether its keys
+need the PIN.
+.Fn nqp11login
+opens a session with the token in
+.Fa slot
+and, when
+.Fa pin
+is not
+.Dv NULL ,
+logs the user in.
+A handle has one session.
+.Pp
+.Fn nqp11keys
+lists the private keys noqtis can use, each an
+.Vt nqp11k :
+.Bd -literal -offset indent
+typedef struct {
+  int kem;           /* 1: alg is a nqkalg; 0: a nqsalg */
+  int alg;
+  unsigned long h;   /* the object, in this session */
+  char label[65];
+  uint8_t id[32];
+  size_t idlen;
+} nqp11k;
+.Ed
+.Pp
+.Fn nqp11pub
+gives the public key of one, in the form
+.Xr nqvrfy 3
+and
+.Xr nqenc 3
+take.
+.Pp
+.Fn nqp11sign
+signs
+.Fa msg
+with a signature key (ML-DSA, SLH-DSA or Ed25519) and the context
+.Fa ctx :
+the signature is what
+.Xr nqsign 3
+makes, and
+.Xr nqvrfy 3
+checks it.
+.Fn nqp11dec
+decapsulates an ML-KEM ciphertext as
+.Xr nqdec 3
+does; the module must be of PKCS #11 version 3.2.
+.Fn nqp11gen
+makes a key pair on the token under
+.Fa label ,
+the private key marked never to leave it.
+.Pp
+A handle is for one thread at a time.
+.Sh RETURN VALUES
+.Dv NQOK
+on success.
+.Dv NQEIO
+when the module cannot be loaded or the token refuses;
+.Fn nqp11why
+then gives the module's own return value, a CKR number of the standard.
+.Dv NQEDEC
+for a library that is not a PKCS #11 module;
+.Dv NQEVRFY
+for a wrong or locked PIN;
+.Dv NQENOSUP
+when the token has not the mechanism, for an algorithm PKCS #11 has no
+key type for, and on systems that load no shared libraries;
+.Dv NQESTATE
+before
+.Fn nqp11login
+or for a second one;
+.Dv NQEBUF
+with the count or the size needed in
+.Fa *n ,
+.Fa *pklen
+or
+.Fa *siglen ;
+.Dv NQEARG
+for a bad argument and a key of the wrong kind.
+.Sh SEE ALSO
+.Xr noqtis-token 1 ,
+.Xr noqtis 3 ,
+.Xr nqdec 3 ,
+.Xr nqsign 3
+.Sh STANDARDS
+OASIS PKCS #11 Specification Version 3.2.

@@ -1,0 +1,148 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NOQTIS-TOKEN 1
+.Os
+.Sh NAME
+.Nm noqtis-token
+.Nd keys on a PKCS #11 token: list, make, sign, decapsulate
+.Sh SYNOPSIS
+.Nm noqtis token
+.Cm list
+.Op Fl m Ar module
+.Nm noqtis token
+.Cm keys
+.Op Fl m Ar module
+.Op Fl -slot Ar n
+.Op Fl -pin-fd Ar n | Fl -pin-env Ar name
+.Nm noqtis token
+.Cm keygen
+.Fl a Ar alg
+.Fl n Ar label
+.Op Fl o Ar key.pub
+.Op Fl -force
+.Op Fl m Ar module
+.Op Fl -slot Ar n
+.Op Fl -pin-fd Ar n | Fl -pin-env Ar name
+.Nm noqtis token
+.Cm pub
+.Fl n Ar label | Fl -id Ar hex
+.Fl o Ar key.pub
+.Op Fl -force
+.Op Fl m Ar module
+.Op Fl -slot Ar n
+.Op Fl -pin-fd Ar n | Fl -pin-env Ar name
+.Nm noqtis token
+.Cm sign
+.Fl n Ar label | Fl -id Ar hex
+.Op Fl c Ar ctx
+.Op Fl o Ar sig
+.Op Fl -force
+.Op Fl m Ar module
+.Op Fl -slot Ar n
+.Op Fl -pin-fd Ar n | Fl -pin-env Ar name
+.Ar file
+.Nm noqtis token
+.Cm dec
+.Fl n Ar label | Fl -id Ar hex
+.Fl o Ar ss
+.Op Fl -force
+.Op Fl m Ar module
+.Op Fl -slot Ar n
+.Op Fl -pin-fd Ar n | Fl -pin-env Ar name
+.Ar ct
+.Sh DESCRIPTION
+.Nm noqtis token
+works with private keys that stay on a token: a smart card, a hardware
+security module, or a software token.
+The token's maker ships a PKCS #11 module, a shared library;
+.Fl m
+gives its path, and the variable
+.Ev NOQTIS_PKCS11
+gives it when the option is absent.
+The module is named by a path, with a folder in it: a bare name is
+refused, since the system would search its own folders for it.
+.Pp
+The key types are those of PKCS #11 version 3.2, ML-DSA, SLH-DSA and
+ML-KEM, and Ed25519.
+.Bl -tag -width "keygen"
+.It Cm list
+Print the tokens present: slot, label, maker, model and serial number.
+.It Cm keys
+Print the private keys on the token that noqtis can use: algorithm, ID
+and label.
+A token shows its private keys only after the PIN.
+.It Cm keygen
+Make a key pair of
+.Ar alg
+on the token under
+.Ar label ;
+the private key is marked never to leave it.
+.Fl o
+writes the public key as a key file.
+.It Cm pub
+Write the public key of a key on the token as a key file, for
+.Xr noqtis-verify 1 ,
+.Xr noqtis-enc 1
+and the other commands.
+.It Cm sign
+Sign
+.Ar file
+with a signature key on the token.
+The signature is the one
+.Xr noqtis-sign 1
+writes, and
+.Xr noqtis-verify 1
+checks it, with the same context
+.Pq Fl c .
+It is written only when it verifies under the token's own public key.
+.It Cm dec
+Decapsulate the ciphertext
+.Ar ct
+of
+.Xr noqtis-enc 1
+with an ML-KEM key on the token, and write the shared secret to
+.Ar ss
+(owner-only).
+The module must be of version 3.2.
+.El
+.Pp
+A key is named by its label
+.Pq Fl n
+or by its ID in hexadecimal
+.Pq Fl -id ;
+exactly one key must answer.
+.Fl -slot
+names the token when more than one is present.
+The PIN is read from the descriptor of
+.Fl -pin-fd
+or the variable of
+.Fl -pin-env ,
+never from the command line.
+.Sh ENVIRONMENT
+.Bl -tag -width NOQTIS_PKCS11
+.It Ev NOQTIS_PKCS11
+The path of the PKCS #11 module, when
+.Fl m
+is not given.
+.El
+.Sh EXIT STATUS
+0 on success; 2 on a usage or file error, a wrong PIN, and when the
+token refuses.
+The token's own reason is printed as the CKR number of the standard.
+.Sh EXAMPLES
+.Bd -literal
+$ export NOQTIS_PKCS11=/usr/lib/softhsm/libsofthsm2.so
+$ noqtis token list
+$ noqtis token keygen -a ML-DSA-65 -n release -o release.pub \e
+      --pin-env PIN
+$ noqtis token sign -n release -o app.tar.sig --pin-env PIN app.tar
+$ noqtis verify -p release.pub -s app.tar.sig app.tar
+.Ed
+.Sh SEE ALSO
+.Xr noqtis 1 ,
+.Xr noqtis-dec 1 ,
+.Xr noqtis-sign 1 ,
+.Xr noqtis-verify 1 ,
+.Xr nqp11open 3
+.Sh STANDARDS
+OASIS PKCS #11 Specification Version 3.2.
