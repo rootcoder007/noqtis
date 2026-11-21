@@ -26,6 +26,7 @@ OBJECTS = \
   cap/idc.o \
   cap/jw.o \
   cap/ks.o \
+  cap/kst.o \
   cap/misc.o \
   cap/mk.o \
   cap/seal.o \

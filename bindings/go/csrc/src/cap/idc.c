@@ -158,6 +158,10 @@ static int fields(const char *name, const char *email, const char *url,
           (strlen(affil) <= NQCNAMEMAX && txt(affil, strlen(affil))));
 }
 
+int nqcdok(const char *name, const char *email) {
+  return name != NULL && name[0] != '\0' && fields(name, email, NULL, NULL);
+}
+
 int nqcard(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
            size_t pklen, const char *name, const char *orc,
            const char *email, const char *url, const char *affil,

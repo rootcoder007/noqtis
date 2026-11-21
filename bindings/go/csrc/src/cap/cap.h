@@ -100,6 +100,9 @@ int nqcdbody(nqcbuf *b, const char *an, const char *at, const char *pkb,
              const char *name, const char *orc, const char *email,
              const char *url, const char *affil, const char *sig);
 int nqcorcid(const char *s, size_t n);
+/* 1 when name (1 to 255 bytes) and email (NULL for none) are what a card
+ * may hold */
+int nqcdok(const char *name, const char *email);
 
 /* ---- base64 (RFC 4648 section 4, padded, strict) ---- */
 

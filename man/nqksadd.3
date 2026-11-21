@@ -1,0 +1,225 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 20, 2026
+.Dt NQKSADD 3
+.Os
+.Sh NAME
+.Nm nqksadd ,
+.Nm nqkslist ,
+.Nm nqksget ,
+.Nm nqkscert ,
+.Nm nqkscput ,
+.Nm nqkstrust ,
+.Nm nqksdel
+.Nd a store of other people's keys, their certifications and trust
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqksadd "const char *dir" "int kem" "int alg" "const uint8_t *pk" "size_t pklen" "const char *name" "const char *email" "const char *card" "size_t cardlen" "uint8_t fp[32]"
+.Ft int
+.Fn nqkslist "const char *dir" "const char *q" "nqkse *e" "size_t cap" "size_t *n"
+.Ft int
+.Fn nqksget "const char *dir" "const uint8_t fp[32]" "int *kem" "int *alg" "uint8_t *pk" "size_t cap" "size_t *pklen"
+.Ft int
+.Fn nqkscert "const char *dir" "nqsalg alg" "const uint8_t *sk" "size_t sklen" "const uint8_t *pk" "size_t pklen" "const uint8_t fp[32]" "int64_t at" "char *out" "size_t cap" "size_t *outlen"
+.Ft int
+.Fn nqkscput "const char *dir" "const char *cert" "size_t n"
+.Ft int
+.Fn nqkstrust "const char *dir" "const uint8_t fp[32]" "int level"
+.Ft int
+.Fn nqksdel "const char *dir" "const uint8_t fp[32]"
+.Sh DESCRIPTION
+A key store is a folder,
+.Fa dir ,
+of other people's public keys.
+For each key it holds the name and e-mail address of its holder, the
+certifications other keys made of that, and the trust the owner of the
+store places in the holder to certify.
+A key is named by its fingerprint, the SHA-256 of the public key.
+The folder must exist.
+.Pp
+.Fn nqksadd
+puts in the key
+.Fa pk
+of the algorithm
+.Fa alg ,
+an
+.Vt nqkalg
+when
+.Fa kem
+is 1 and an
+.Vt nqsalg
+when it is 0.
+Who holds it is said either by
+.Fa card ,
+an identity card
+.Pq Xr nqcard 3
+of
+.Fa cardlen
+bytes that must verify and name this key
+.Po
+.Fa name
+and
+.Fa email
+are then
+.Dv NULL
+.Pc ,
+or by
+.Fa name
+(1 to 255 bytes, as
+.Xr nqcard 3
+takes one) and
+.Fa email
+or
+.Dv NULL .
+A key that is there keeps its trust and takes the new name;
+certifications of the old name no longer count.
+.Fa fp ,
+when not
+.Dv NULL ,
+gets the fingerprint.
+.Pp
+.Fn nqkslist
+gives the entries, in the order of their fingerprints, that answer
+.Fa q :
+all of them when
+.Fa q
+is
+.Dv NULL ,
+else those whose fingerprint in hex starts with
+.Fa q
+(8 digits or more) or whose name or address holds
+.Fa q ,
+ASCII letters of either case alike.
+.Fa n
+gets their number, also when
+.Fa e ,
+of
+.Fa cap
+entries, holds fewer
+.Pq Dv NQEBUF .
+An entry is:
+.Bd -literal -offset indent
+typedef struct {
+  int kem;         /* 1: a KEM key, 0: a signature key */
+  int alg;         /* nqkalg or nqsalg */
+  uint8_t fp[32];
+  size_t pklen;
+  char name[256];
+  char email[255]; /* "" when it has none */
+  int card;        /* 1 when the store holds its card */
+  int trust;       /* NQKTUNK ... NQKTULT */
+  int valid;       /* NQKVNONE, NQKVMARG, NQKVFULL */
+  size_t ncert;    /* certifications under its present name */
+} nqkse;
+.Ed
+.Pp
+.Fn nqksget
+gives the key of fingerprint
+.Fa fp .
+.Pp
+.Fn nqkscert
+certifies the key
+.Fa fp
+of the store with the key pair
+.Fa sk ,
+.Fa pk
+of the signature algorithm
+.Fa alg
+at the time
+.Fa at
+(seconds since 1970, UTC): a
+.Ql noqtis-cert-1
+statement in canonical JSON, signed under the context
+.Ql noqtis-cert-1 ,
+that the key belongs to the name and address the store has for it.
+It is kept in the store and, when
+.Fa out
+is not
+.Dv NULL ,
+given out.
+.Fn nqkscput
+puts in a certification made elsewhere: the key it is about and the key
+that made it must be in the store, the first under the name and address
+it says, and its signature must verify.
+.Pp
+.Fn nqkstrust
+sets a key's trust to
+.Fa level :
+.Dv NQKTUNK ,
+.Dv NQKTNEVER ,
+.Dv NQKTMARG ,
+.Dv NQKTFULL
+or
+.Dv NQKTULT ,
+the last for the owner's own keys.
+.Fn nqksdel
+removes a key, its card, and every certification of it and by it.
+.Pp
+Validity follows from trust and certifications.
+A key is fully valid
+.Pq Dv NQKVFULL
+when its trust is
+.Dv NQKTULT ,
+or when one fully valid key of trust
+.Dv NQKTFULL
+or more certified it, or three of trust
+.Dv NQKTMARG ;
+one or two marginal ones make it marginally valid
+.Pq Dv NQKVMARG .
+Certifications are followed five levels from an
+.Dv NQKTULT
+key; only signature keys certify, and not themselves.
+.Pp
+The folder is the owner's own state and is not signed.
+A card, a certification and a key's fingerprint are checked when they
+are put in; whoever can write the folder decides what it trusts.
+A key's file there, named by the 64 hex digits of its fingerprint and
+.Pa .pub ,
+is a key file as
+.Xr noqtis-keygen 1
+writes one.
+.Sh RETURN VALUES
+.Dv NQOK
+on success.
+.Dv NQEARG
+for a
+.Dv NULL
+pointer, a name or address out of the limits of
+.Xr nqcard 3 ,
+a key of the wrong length, a level that is not one, or a key pair that
+does not match;
+.Dv NQENOSUP
+for an algorithm this noqtis does not know, and for Ed25519 alone as
+the certifying key;
+.Dv NQEIO
+when the folder or a key's files cannot be read or written, a key that
+is not there among them;
+.Dv NQEDEC
+for a file of the store, a card or a certification that is not one;
+.Dv NQEVRFY
+for a card or a certification whose signature does not verify, or that
+names another key, name or address;
+.Dv NQEBUF
+for an output that is too small;
+.Dv NQELIM ,
+.Dv NQEMEM .
+.Sh EXAMPLES
+.Bd -literal -offset indent
+uint8_t fp[32];
+nqkse e[8];
+size_t n;
+
+nqksadd(dir, 0, NQMLDSA65, ben, benlen, "Ben Example",
+        "ben@example.org", NULL, 0, fp);
+nqkscert(dir, NQMLDSA65, sk, sklen, pk, pklen, fp, time(NULL),
+         NULL, 0, NULL);
+nqkslist(dir, "ben", e, 8, &n);   /* e[0].valid, once my key is
+                                     trusted ultimately: NQKVFULL */
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-keys 1 ,
+.Xr noqtis 3 ,
+.Xr nqcard 3 ,
+.Xr nqerr 3

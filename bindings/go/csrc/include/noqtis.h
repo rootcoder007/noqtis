@@ -892,6 +892,95 @@ NQAPI int nqersput(const char *dir, nqhalg h, const uint8_t *rsp,
                    const uint8_t *const *anc, const size_t *anclen,
                    size_t nanc, int64_t *gt, int *how, const char **why);
 
+/* ---- a key store ---------------------------------------------------- */
+
+/* A key store is a folder of other people's public keys: for each, who
+ * its holder is said to be (a name and an e-mail address, from its
+ * identity card when it has one), the certifications other keys made of
+ * that, and how far the owner of the store trusts the key's holder to
+ * certify (NQKT...). From these a key's validity follows (NQKV...): a
+ * key is fully valid when its trust is NQKTULT (the owner's own keys),
+ * or when one fully valid key of trust NQKTFULL certified it, or three
+ * of trust NQKTMARG; one or two marginal ones make it marginally valid.
+ * Certifications are followed five levels from an NQKTULT key, and only
+ * signature keys certify. A key is named by its fingerprint, the
+ * SHA-256 of the public key.
+ *
+ * The folder must exist. It is the owner's own state: a card, a
+ * certification and a key's fingerprint are checked when they are put
+ * in, and whoever can write the folder decides what it trusts. A key's
+ * file there (<64 hex digits>.pub) is a key file as noqtis keygen
+ * writes one.
+ *
+ * nqksadd puts in the key pk of alg (an nqkalg when kem is 1, else an
+ * nqsalg): with a card (of cardlen bytes, a signature key's, verified
+ * and naming this key; name and email NULL) or with a name (1 to 255
+ * bytes, as nqcard takes one) and an e-mail address or NULL. A key
+ * that is there keeps its trust; its name becomes the new one, and a
+ * certification of the old name no longer counts. fp, when not NULL,
+ * gets the fingerprint.
+ *
+ * nqkslist gives the entries, in the order of their fingerprints, that
+ * answer q: all with q NULL, else those whose fingerprint in hex starts
+ * with q (8 digits or more) or whose name or address holds q, ASCII
+ * letters of either case alike. *n gets their number, also with NQEBUF
+ * when e (cap entries) holds fewer. nqksget gives one key.
+ *
+ * nqkscert certifies the key fp of the store with the key pair (sk, pk)
+ * of alg at time at (seconds since 1970, UTC): a noqtis-cert-1
+ * statement, canonical JSON signed under the context "noqtis-cert-1",
+ * that fp belongs to the name and address the store has for it. It is
+ * kept in the store and, when out is not NULL, given out (*outlen its
+ * size, also with NQEBUF). nqkscput puts in a certification made
+ * elsewhere: the key it is about and the key that made it must be in
+ * the store, the first under the name and address it says, and its
+ * signature must verify. nqkstrust sets a key's trust, nqksdel removes
+ * a key with its card and every certification of it and by it.
+ *
+ * Errors: NQEARG for a NULL pointer, a name or address out of nqcard's
+ * limits, a key of the wrong length, a level that is not one, or a key
+ * pair that does not match; NQENOSUP for an algorithm this noqtis does
+ * not know, and for Ed25519 alone as the certifying key; NQEIO when the
+ * folder or a key's files cannot be read or written (a key that is not
+ * there among them); NQEDEC for a file of the store, a card or a
+ * certification that is not one; NQEVRFY for a card or certification
+ * whose signature does not verify, or that names another key, name or
+ * address; NQEBUF, NQELIM, NQEMEM. */
+#define NQKTUNK 0   /* trust: not said */
+#define NQKTNEVER 1 /* never trusted to certify */
+#define NQKTMARG 2  /* marginally */
+#define NQKTFULL 3  /* fully */
+#define NQKTULT 4   /* ultimately: the owner's own key */
+#define NQKVNONE 0  /* validity: not known to belong to its name */
+#define NQKVMARG 1  /* marginally valid */
+#define NQKVFULL 2  /* fully valid */
+typedef struct {
+  int kem;         /* 1: a KEM key (alg an nqkalg), 0: a signature key */
+  int alg;
+  uint8_t fp[32];
+  size_t pklen;
+  char name[256];
+  char email[255]; /* "" when it has none */
+  int card;        /* 1 when the store holds its identity card */
+  int trust;       /* NQKT... */
+  int valid;       /* NQKV... */
+  size_t ncert;    /* certifications of it under its present name */
+} nqkse;
+NQAPI int nqksadd(const char *dir, int kem, int alg, const uint8_t *pk,
+                  size_t pklen, const char *name, const char *email,
+                  const char *card, size_t cardlen, uint8_t fp[32]);
+NQAPI int nqkslist(const char *dir, const char *q, nqkse *e, size_t cap,
+                   size_t *n);
+NQAPI int nqksget(const char *dir, const uint8_t fp[32], int *kem, int *alg,
+                  uint8_t *pk, size_t cap, size_t *pklen);
+NQAPI int nqkscert(const char *dir, nqsalg alg, const uint8_t *sk,
+                   size_t sklen, const uint8_t *pk, size_t pklen,
+                   const uint8_t fp[32], int64_t at, char *out, size_t cap,
+                   size_t *outlen);
+NQAPI int nqkscput(const char *dir, const char *cert, size_t n);
+NQAPI int nqkstrust(const char *dir, const uint8_t fp[32], int level);
+NQAPI int nqksdel(const char *dir, const uint8_t fp[32]);
+
 /* ---- ASCII armor ---------------------------------------------------- */
 
 /* Bytes as text that mail and a terminal carry (RFC 7468): a line
