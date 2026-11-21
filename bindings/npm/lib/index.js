@@ -3352,7 +3352,7 @@ export const keystore = Object.freeze({
    * keys }, the first key's fingerprint and how many came in. With
    * `opts.email` the bundle's keys must be for that address.
    */
-  import(files, bundle, opts = {}) {
+  imports(files, bundle, opts = {}) {
     const b = bytes(bundle, 'bundle');
     return withstore(files, true, (h, d) => {
       const f = h.alloc(32);
@@ -3366,7 +3366,7 @@ export const keystore = Object.freeze({
   /**
    * Where the bundle of an address is looked for, over https at its own
    * domain: https://<domain>/.well-known/noqtis/<hash of the local
-   * part>. Fetch it, and give what comes back to import() with the
+   * part>. Fetch it, and give what comes back to imports() with the
    * address.
    */
   url(email) {

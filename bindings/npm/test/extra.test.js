@@ -186,11 +186,11 @@ test('a key store keeps, certifies and carries keys', () => {
   // a bundle carries my card and my KEM key to another store
   const bundle = keystore.export(files, mine);
   assert.throws(() => keystore.export(files, his), err(codes.EARG));
-  const im = keystore.import(null, bundle, { email: 'me@example.org' });
+  const im = keystore.imports(null, bundle, { email: 'me@example.org' });
   assert.deepEqual(im.fingerprint, mine);
   assert.equal(im.keys, 2);
   assert.equal(keystore.list(im.files).length, 2);
-  assert.throws(() => keystore.import(null, bundle,
+  assert.throws(() => keystore.imports(null, bundle,
     { email: 'eve@example.org' }), NoqtisError);
   files = keystore.remove(files, his).files;
   assert.equal(keystore.list(files).length, 2);

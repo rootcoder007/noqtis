@@ -134,7 +134,7 @@ module.exports = {
     trust: fwd('keystore', 'trust'),
     remove: fwd('keystore', 'remove'),
     export: fwd('keystore', 'export'),
-    import: fwd('keystore', 'import'),
+    imports: fwd('keystore', 'imports'),
     url: fwd('keystore', 'url'),
   }),
   keyfile: Object.freeze({

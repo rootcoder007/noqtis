@@ -482,7 +482,7 @@ export const keystore: {
   remove(files: StoreFiles, fingerprint: Bytes | string):
     { files: Map<string, Bytes> };
   export(files: StoreFiles, fingerprint: Bytes | string): string;
-  import(files: StoreFiles, bundle: Data, opts?: { email?: string | null }):
+  imports(files: StoreFiles, bundle: Data, opts?: { email?: string | null }):
     { files: Map<string, Bytes>; fingerprint: Bytes; keys: number };
   /** Where the keys of an address are looked for, over https. */
   url(email: string): string;

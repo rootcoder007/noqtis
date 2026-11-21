@@ -49,7 +49,7 @@ async function main(): Promise<void> {
   const k2 = keystore.trust(k1.files, k1.fingerprint, 'ultimate');
   const kl: string = keystore.list(k2.files, 'me')[0].valid;
   const kx: string = keystore.export(k2.files, k1.fingerprint);
-  const ki: number = keystore.import(null, kx, { email: 'me@example.org' }).keys;
+  const ki: number = keystore.imports(null, kx, { email: 'me@example.org' }).keys;
   const ku: string = keystore.url('me@example.org');
   const why = capsule.sealWhy(new Map())?.why;
   const tq: Uint8Array = capsule.tsreq(new Map());
