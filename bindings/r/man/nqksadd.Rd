@@ -13,7 +13,7 @@
 \alias{nqksurl}
 \title{A store of public keys}
 \usage{
-nqksadd(dir, pk, alg, name, email = NULL, card = NULL)
+nqksadd(dir, pk, alg, name = NULL, email = NULL, card = NULL)
 
 nqkslist(dir, query = NULL)
 
@@ -38,20 +38,22 @@ nqksimport(dir, bundle, email = NULL)
 nqksurl(email)
 }
 \arguments{
-\item{dir}{The folder of the store (made when missing).}
+\item{dir}{The folder of the store; it must exist.}
 
 \item{pk}{A public key, a raw vector; for \code{nqkscertify()}, the public
 key of \code{sk}.}
 
 \item{alg}{The algorithm of the key.}
 
-\item{name}{The name to keep the key under.}
+\item{name}{The name to keep the key under; \code{NULL} with \code{card}, which
+then says who the key is.}
 
 \item{email}{Its address, or \code{NULL}. For \code{nqksimport()}, the address
 the keys of the bundle must be for, or \code{NULL}; for \code{nqksurl()}, the
 address to look up.}
 
-\item{card}{Its identity card (\code{\link[=nqidcard]{nqidcard()}}), or \code{NULL}.}
+\item{card}{Its identity card (\code{\link[=nqidcard]{nqidcard()}}), or \code{NULL}. A key added
+with its card takes its name and address from the card.}
 
 \item{query}{\code{NULL} for every key, or a name, an address or the start
 of a fingerprint in hexadecimal.}
@@ -88,8 +90,9 @@ trusted. \code{nqksadd()} puts a key in; \code{nqkslist()} lists and finds;
 \code{nqksget()} gives a key back; \code{nqkscertify()} signs that a key
 belongs to its name; \code{nqksaddcert()} takes a certification someone
 else made; \code{nqkstrust()} sets the trust in an owner; \code{nqksdel()}
-removes a key; \code{nqksexport()} and \code{nqksimport()} carry a key with its
-certifications from one store to another; \code{nqksurl()} is where the
+removes a key; \code{nqksexport()} and \code{nqksimport()} carry a signature key
+with its identity card, and the keys it certified as its own, from one
+store to another; \code{nqksurl()} is where the
 keys of an address are looked for.
 }
 \details{
@@ -100,9 +103,11 @@ nothing signs: keep it where only you can write.
 }
 \examples{
 d <- file.path(tempdir(), "nqkeys")
+dir.create(d)
 me <- nqkeygen("ML-DSA-44")
 bob <- nqkeygen("ML-KEM-768")
-mine <- nqksadd(d, me$pk, "ML-DSA-44", "Me", "me@example.org")
+card <- nqidcard(me$sk, me$pk, "ML-DSA-44", "Me", email = "me@example.org")
+mine <- nqksadd(d, me$pk, "ML-DSA-44", card = card)
 his <- nqksadd(d, bob$pk, "ML-KEM-768", "Bob", "bob@example.org")
 nqkstrust(d, mine, "ultimate")
 cert <- nqkscertify(d, me$sk, me$pk, "ML-DSA-44", his)
