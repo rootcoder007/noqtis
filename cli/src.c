@@ -507,9 +507,13 @@ static int sadd(int argc, char **argv) {
       v[0] = '[';
       for (i = 0; i < nmir; i++) {
         char *q = ncjq(mir[i]);
+        int w;
         if (q == NULL) break;
-        l += (size_t)snprintf(v + l, n - l, "%s%s", i ? "," : "", q);
+        w = snprintf(v + l, n - l, "%s%s", i ? "," : "", q);
         free(q);
+        /* n holds them all; a length past it is never added */
+        if (w < 0 || (size_t)w >= n - l) break;
+        l += (size_t)w;
       }
       snprintf(v + l, n - l, "]");
       rc |= setj("src add", r, argv[1], "mirrors", v);

@@ -95,10 +95,10 @@ static int wrout(const char *out, int kind, const uint8_t *b, size_t n,
 }
 
 static void stamp(int64_t at, char *o, size_t cap) {
-  time_t t = (time_t)at;
-  struct tm *g = gmtime(&t);
+  struct tm g;
   o[0] = '\0';
-  if (g != NULL) strftime(o, cap, "%Y-%m-%dT%H:%M:%SZ", g);
+  if (ncgmtime((time_t)at, &g) == NCOK)
+    strftime(o, cap, "%Y-%m-%dT%H:%M:%SZ", &g);
 }
 
 /* what the library said of a key that would not do */

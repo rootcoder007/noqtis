@@ -370,7 +370,7 @@ int qdnumfmt(double d, char *out) {
       }
     }
     c[ci] = '\0';
-    strcpy(t, c);
+    memcpy(t, c, ci + 1); /* ci < sizeof c, and t is as large */
     if (qdnumrd(t, strlen(t), 0, &r) == NQOK && r == d)
       break;
   }

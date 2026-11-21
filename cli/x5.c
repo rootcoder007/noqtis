@@ -70,16 +70,15 @@ static int wrout(const char *cmd, const char *out, const uint8_t *b, size_t n,
 
 static void show(const nqx5f *f) {
   char hx[65], nb[32], na[32];
-  time_t a = (time_t)f->nb, b = (time_t)f->na;
-  struct tm *t;
+  struct tm t;
   const char *an = f->kem ? nqkname((nqkalg)f->alg) : nqsname((nqsalg)f->alg);
   nchexe(f->fp, 32, hx);
   hx[64] = '\0';
   nb[0] = na[0] = '\0';
-  t = gmtime(&a);
-  if (t != NULL) strftime(nb, sizeof nb, "%Y-%m-%dT%H:%M:%SZ", t);
-  t = gmtime(&b);
-  if (t != NULL) strftime(na, sizeof na, "%Y-%m-%dT%H:%M:%SZ", t);
+  if (ncgmtime((time_t)f->nb, &t) == NCOK)
+    strftime(nb, sizeof nb, "%Y-%m-%dT%H:%M:%SZ", &t);
+  if (ncgmtime((time_t)f->na, &t) == NCOK)
+    strftime(na, sizeof na, "%Y-%m-%dT%H:%M:%SZ", &t);
   printf("name         %s\n", ncesc(f->name));
   printf("email        %s\n", ncesc(f->email));
   printf("key          %s%s\n", an != NULL ? an : "another kind",
