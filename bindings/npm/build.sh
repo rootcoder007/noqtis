@@ -40,6 +40,12 @@ nqkmhlen nqkmpeek nqkmeini nqkmeupd nqkmefin nqkmdini nqkmdupd nqkmdfin
 nqinsp nqsealwhy nqtsreq nqtsput nqersreq nqersput
 nqdkey nqddel nqdsyn nqddcal nqdchunk nqdpiece nqdpieceat nqdsha nqdcommit nqdreveal
 nqdcite nqdrpt nqdpack nqdunpack nqdchain
+nqarmlen nqarmenc nqarmdec nqx5self nqx5kem nqx5info
+nqcmssign nqcmsvrfy nqcmsenc nqcmsdec nqsmsign nqsmvrfy
+nqsmenc nqsmdec nqpgpgen nqpgpinfo nqpgpsign nqpgpvrfy
+nqpgpenc nqpgpdec nqpgparm nqpgpdearm nqksadd nqkslist
+nqksget nqkscert nqkscput nqkstrust nqksdel nqksexp
+nqksimp nqksurl
 malloc free setenv unsetenv'
 exp=$(printf ' -Wl,--export=%s' $fns)
 

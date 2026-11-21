@@ -366,6 +366,127 @@ export const keyfile: {
     { alg: string; kind: 'pub' | 'sec'; key: Bytes };
 };
 
+/** What an X.509 certificate says of its key and holder. */
+export interface Cert {
+  /** '' for a key of a kind noqtis does not have. */
+  alg: string; kem: boolean;
+  /** SHA-256 of the certificate, hex. */
+  fingerprint: string;
+  /** Seconds since 1970. */
+  notBefore: number; notAfter: number;
+  ca: boolean; name: string; email: string;
+  /** Empty when read as a signer alone. */
+  publicKey: Bytes;
+}
+
+export const armor: {
+  /** data as text (RFC 7468) under the label. */
+  encode(label: string, data: Data): string;
+  /** One armor read back. */
+  decode(text: Data): { label: string; data: Bytes };
+};
+
+export const mail: {
+  /** A self-signed X.509 certificate (DER) for a signature key. */
+  selfCert(alg: SignAlg, secretKey: Bytes, publicKey: Bytes, name: string,
+    opts?: { email?: string | null; notBefore?: number | Date;
+      notAfter?: number | Date }): Bytes;
+  /** A certificate for an ML-KEM public key, issued by a signature key. */
+  kemCert(issuerAlg: SignAlg, issuerSecretKey: Bytes,
+    issuerCertificate: Bytes, alg: KemAlg, publicKey: Bytes,
+    opts?: { notBefore?: number | Date; notAfter?: number | Date }): Bytes;
+  readCert(certificate: Bytes): Cert;
+  /** A CMS SignedData (DER). */
+  cmsSign(alg: SignAlg, secretKey: Bytes, certificate: Bytes, content: Data,
+    opts?: { detached?: boolean; at?: number | Date }): Bytes;
+  /** The content and the signer, or null when it does not verify. */
+  cmsVerify(cms: Data, anchors: Bytes[],
+    opts?: { content?: Data | null; at?: number | Date }):
+    { content: Bytes; signer: Cert } | null;
+  /** A CMS AuthEnvelopedData (DER) to ML-KEM certificates. */
+  cmsEncrypt(certificates: Bytes[], content: Data): Bytes;
+  /** The content, or null when it is not for this key or was changed. */
+  cmsDecrypt(alg: KemAlg, secretKey: Bytes, cms: Data,
+    opts?: { certificate?: Bytes | null }): Bytes | null;
+  smimeSign(alg: SignAlg, secretKey: Bytes, certificate: Bytes, entity: Data,
+    opts?: { detached?: boolean; at?: number | Date }): string;
+  smimeVerify(mime: Data, anchors: Bytes[], opts?: { at?: number | Date }):
+    { entity: string; signer: Cert } | null;
+  smimeEncrypt(certificates: Bytes[], entity: Data): string;
+  smimeDecrypt(alg: KemAlg, secretKey: Bytes, mime: Data,
+    opts?: { certificate?: Bytes | null }): string | null;
+};
+
+export type PgpAlg = 'mldsa65-ed25519' | 'ed25519' | 'slh-shake-128s'
+  | 'slh-shake-128f' | 'slh-shake-256s';
+export type PgpEncAlg = 'mlkem768-x25519' | 'x25519';
+export type PgpArmor = 'message' | 'public key' | 'private key' | 'signature';
+
+/** What an OpenPGP key or certificate says of itself. */
+export interface PgpKey {
+  alg: string; encAlg: string | null; secret: boolean; locked: boolean;
+  fingerprint: string; encFingerprint: string | null;
+  /** Seconds since 1970; expires null: never. */
+  created: number; expires: number | null; userId: string;
+}
+
+export const pgp: {
+  /** A new version 6 OpenPGP key (RFC 9580). */
+  generate(userId: string, opts?: { alg?: PgpAlg; encAlg?: PgpEncAlg | null;
+    passphrase?: Data | null; created?: number | Date }):
+    { secretKey: Bytes; certificate: Bytes };
+  info(key: Bytes): PgpKey;
+  sign(secretKey: Bytes, content: Data,
+    opts?: { mode?: 'inline' | 'detached' | 'clear';
+      passphrase?: Data | null; at?: number | Date }): Bytes;
+  /** The data and the signature's time, or null. */
+  verify(certificate: Bytes, signature: Data,
+    opts?: { content?: Data | null }): { data: Bytes; at: number } | null;
+  encrypt(content: Data, opts?: { to?: Bytes[]; passphrase?: Data | null;
+    signer?: Bytes | null; signerPassphrase?: Data | null;
+    at?: number | Date }): Bytes;
+  /** The content, or null when it does not open. */
+  decrypt(message: Data, opts?: { key?: Bytes | null;
+    passphrase?: Data | null; signer?: Bytes | null }):
+    { data: Bytes; signed: boolean; at: number | null } | null;
+  armor(kind: PgpArmor, data: Data): string;
+  dearmor(text: Data): { kind: PgpArmor; data: Bytes };
+};
+
+export type Trust = 'unknown' | 'never' | 'marginal' | 'full' | 'ultimate';
+/** The files of a key store: path to bytes. */
+export type StoreFiles = Map<string, Data> | Record<string, Data> | null;
+
+/** One public key of a store. */
+export interface StoreKey {
+  alg: string; kem: boolean; fingerprint: Bytes; name: string; email: string;
+  card: boolean; trust: Trust; valid: 'none' | 'marginal' | 'full';
+  certs: number;
+}
+
+export const keystore: {
+  add(files: StoreFiles, alg: SignAlg | KemAlg, publicKey: Bytes,
+    name: string, opts?: { email?: string | null; card?: Data | null }):
+    { files: Map<string, Bytes>; fingerprint: Bytes };
+  list(files: StoreFiles, query?: string | null): StoreKey[];
+  get(files: StoreFiles, fingerprint: Bytes | string):
+    { alg: string; publicKey: Bytes };
+  certify(files: StoreFiles, alg: SignAlg, secretKey: Bytes,
+    publicKey: Bytes, fingerprint: Bytes | string,
+    opts?: { at?: number | Date }):
+    { files: Map<string, Bytes>; cert: string };
+  addCert(files: StoreFiles, cert: Data): { files: Map<string, Bytes> };
+  trust(files: StoreFiles, fingerprint: Bytes | string, level: Trust):
+    { files: Map<string, Bytes> };
+  remove(files: StoreFiles, fingerprint: Bytes | string):
+    { files: Map<string, Bytes> };
+  export(files: StoreFiles, fingerprint: Bytes | string): string;
+  import(files: StoreFiles, bundle: Data, opts?: { email?: string | null }):
+    { files: Map<string, Bytes>; fingerprint: Bytes; keys: number };
+  /** Where the keys of an address are looked for, over https. */
+  url(email: string): string;
+};
+
 /** A row of a data check; stats holds a drift row's numbers. */
 export interface DRow {
   check: string; ok: boolean; detail: string;
@@ -434,7 +555,8 @@ declare const _default: {
   random: typeof random; hash: typeof hash; hmac: typeof hmac;
   sign: typeof sign; kem: typeof kem; capsule: typeof capsule;
   dsse: typeof dsse; idcard: typeof idcard; keyfile: typeof keyfile;
-  data: typeof data;
+  data: typeof data; armor: typeof armor; mail: typeof mail;
+  pgp: typeof pgp; keystore: typeof keystore;
   NoqtisError: typeof NoqtisError;
   codes: typeof codes; errmsg: typeof errmsg;
 };

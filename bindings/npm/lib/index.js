@@ -2687,8 +2687,698 @@ export const data = Object.freeze({
   },
 });
 
+// ---- armor, certificates, CMS and S/MIME, OpenPGP, the key store ---------
+
+// seconds since 1970 as a C int64_t writes it (two 32-bit halves)
+function i64at(p) {
+  return M.HEAPU32[(p >>> 2) + 1] * 4294967296 + M.HEAPU32[p >>> 2];
+}
+
+function txt(u8) {
+  return new TextDecoder().decode(u8);
+}
+
+function hex32(u8) {
+  return Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// the output of fn(po, cap, pn) in a buffer of cap bytes
+function outbuf(h, cap, fn) {
+  const pn = h.alloc(4);
+  const po = h.alloc(cap);
+  check(fn(po, cap, pn));
+  return h.get(po, h.u32(pn));
+}
+
+// like outbuf, but null when the library says the check failed
+function outbufv(h, cap, fn) {
+  const pn = h.alloc(4);
+  const po = h.alloc(cap);
+  const rc = fn(po, cap, pn);
+  if (rc === CODES.EVRFY) return null;
+  check(rc);
+  return h.get(po, h.u32(pn));
+}
+
+function optbytes(x, what) {
+  return x === undefined || x === null ? null : bytes(x, what);
+}
+
+function optstr(h, s, what) {
+  if (s === undefined || s === null) return 0;
+  if (typeof s !== 'string' || s.includes('\0')) {
+    throw new TypeError(`noqtis: ${what} must be a string`);
+  }
+  return h.str(s);
+}
+
+export const armor = Object.freeze({
+  /**
+   * `data` as text (RFC 7468): a -----BEGIN label----- line, base64 in
+   * lines of 64, and the END line. The label is capitals and digits with
+   * single spaces between them.
+   */
+  encode(label, data) {
+    const d = bytes(data, 'data');
+    return run((h) => {
+      const pl = optstr(h, label, 'label');
+      const pn = h.alloc(4);
+      check(M._nqarmlen(pl, d.length, pn));
+      const cap = h.u32(pn);
+      return txt(outbuf(h, cap, (po, c, n) =>
+        M._nqarmenc(pl, h.put(d), d.length, po, c, n)));
+    });
+  },
+
+  /** { label, data } of one armor; text that is not one throws (NQEDEC). */
+  decode(text) {
+    const t = bytes(text, 'text');
+    return run((h) => {
+      const lab = h.alloc(64);
+      M.HEAPU8[lab] = 0;
+      const data = outbuf(h, t.length, (po, c, n) =>
+        M._nqarmdec(h.put(t), t.length, lab, 64, po, c, n));
+      return { label: M.UTF8ToString(lab), data };
+    });
+  },
+});
+
+// nqx5f in wasm32 memory: the offsets of include/noqtis.h's struct
+const XF = {
+  alg: 4, fp: 8, nb: 40, na: 48, ca: 56, name: 60, email: 316, pkoff: 572,
+  pklen: 576, size: 584,
+};
+
+function certof(h, f, der) {
+  const kem = h.u32(f) !== 0;
+  const id = h.u32(f + XF.alg);
+  const off = h.u32(f + XF.pkoff);
+  const n = h.u32(f + XF.pklen);
+  let alg = '';
+  if (id !== 0) alg = M.UTF8ToString(kem ? M._nqkname(id) : M._nqsname(id));
+  return {
+    alg,
+    kem,
+    fingerprint: hex32(h.get(f + XF.fp, 32)),
+    notBefore: i64at(f + XF.nb),
+    notAfter: i64at(f + XF.na),
+    ca: h.u32(f + XF.ca) !== 0,
+    name: M.UTF8ToString(f + XF.name),
+    email: M.UTF8ToString(f + XF.email),
+    publicKey: der && off + n <= der.length ? der.slice(off, off + n)
+      : new Uint8Array(0),
+  };
+}
+
+function cmssign(mime, alg, secretKey, certificate, content, opts) {
+  const a = salg(alg);
+  const sk = key(secretKey, 'secretKey');
+  const c = key(certificate, 'certificate');
+  const m = bytes(content, mime ? 'entity' : 'content');
+  const at = epoch(opts.at);
+  const det = opts.detached ? 1 : 0;
+  return run((h) => outbuf(h, 3 * m.length + 2 * (c.length + a.sig) + 8192,
+    (po, cap, pn) => (mime ? M._nqsmsign : M._nqcmssign)(a.id, h.put(sk),
+      sk.length, h.put(c), c.length, h.put(m), m.length, det, at, po, cap,
+      pn)));
+}
+
+function cmsverify(mime, msg, anchors, opts) {
+  const s = bytes(msg, mime ? 'mime' : 'cms');
+  const d = mime ? null : optbytes(opts.content, 'content');
+  const at = epoch(opts.at);
+  return run((h) => {
+    const an = blist(h, anchors, 'anchors', false);
+    const f = h.alloc(XF.size);
+    const out = outbufv(h, s.length + (d ? d.length : 0) + 1,
+      (po, cap, pn) => (mime
+        ? M._nqsmvrfy(h.put(s), s.length, an.p, an.l, an.n, at, po, cap, pn,
+          f)
+        : M._nqcmsvrfy(h.put(s), s.length, d ? h.put(d) : 0,
+          d ? d.length : 0, an.p, an.l, an.n, at, po, cap, pn, f)));
+    if (out === null) return null;
+    const signer = certof(h, f, null);
+    return mime ? { entity: txt(out), signer } : { content: out, signer };
+  });
+}
+
+function cmsenc(mime, certs, content) {
+  const m = bytes(content, mime ? 'entity' : 'content');
+  return run((h) => {
+    const cl = blist(h, certs, 'certificates', false);
+    let cap = 3 * m.length + 4096 * cl.n + 8192;
+    for (const c of certs) cap += 2 * bytes(c, 'certificates').length;
+    return outbuf(h, cap, (po, c, pn) => (mime ? M._nqsmenc : M._nqcmsenc)(
+      cl.p, cl.l, cl.n, h.put(m), m.length, po, c, pn));
+  });
+}
+
+function cmsdec(mime, alg, secretKey, msg, opts) {
+  const a = kalg(alg);
+  const sk = key(secretKey, 'secretKey');
+  const s = bytes(msg, mime ? 'mime' : 'cms');
+  const c = optbytes(opts.certificate, 'certificate');
+  return run((h) => outbufv(h, s.length + 1, (po, cap, pn) =>
+    (mime ? M._nqsmdec : M._nqcmsdec)(a.id, h.put(sk), sk.length,
+      c ? h.put(c) : 0, c ? c.length : 0, h.put(s), s.length, po, cap, pn)));
+}
+
+export const mail = Object.freeze({
+  /**
+   * A self-signed X.509 certificate (DER) for the signature key pair, an
+   * ML-DSA, SLH-DSA or Ed25519 key, under `name` and `opts.email`, valid
+   * from `opts.notBefore` (default now) to `opts.notAfter` (default two
+   * years on): seconds since 1970 or a Date. It is a CA of path length
+   * 0, so that it can issue a kemCert().
+   */
+  selfCert(alg, secretKey, publicKey, name, opts = {}) {
+    const a = salg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const pk = key(publicKey, 'publicKey');
+    const nb = epoch(opts.notBefore);
+    const na = opts.notAfter === undefined ? nb + 63072000n
+      : epoch(opts.notAfter);
+    return run((h) => outbuf(h, pk.length + a.sig + 2048, (po, cap, pn) =>
+      M._nqx5self(a.id, h.put(sk), sk.length, h.put(pk), pk.length,
+        optstr(h, name === undefined ? null : name, 'name'),
+        optstr(h, opts.email, 'email'), nb, na, po, cap, pn)));
+  },
+
+  /**
+   * A certificate (DER) for the ML-KEM public key, issued by the
+   * signature key `issuerSecretKey` under the name of its own
+   * certificate: what others encrypt to.
+   */
+  kemCert(issuerAlg, issuerSecretKey, issuerCertificate, alg, publicKey,
+    opts = {}) {
+    const ia = salg(issuerAlg);
+    const a = kalg(alg);
+    const sk = key(issuerSecretKey, 'issuerSecretKey');
+    const ic = key(issuerCertificate, 'issuerCertificate');
+    const pk = key(publicKey, 'publicKey');
+    const nb = epoch(opts.notBefore);
+    const na = opts.notAfter === undefined ? nb + 63072000n
+      : epoch(opts.notAfter);
+    return run((h) => outbuf(h, pk.length + ic.length + ia.sig + 2048,
+      (po, cap, pn) => M._nqx5kem(ia.id, h.put(sk), sk.length, h.put(ic),
+        ic.length, a.id, h.put(pk), pk.length, nb, na, po, cap, pn)));
+  },
+
+  /**
+   * What a certificate (DER) says: { alg, kem, fingerprint, notBefore,
+   * notAfter, ca, name, email, publicKey }. It checks no signature;
+   * cmsVerify() and smimeVerify() do, against anchors.
+   */
+  readCert(certificate) {
+    const c = key(certificate, 'certificate');
+    return run((h) => {
+      const f = h.alloc(XF.size);
+      check(M._nqx5info(h.put(c), c.length, f));
+      return certof(h, f, c);
+    });
+  },
+
+  /**
+   * A CMS SignedData (RFC 5652, DER) of `content`, signed with the key
+   * whose certificate is `certificate`; `opts.detached` leaves the
+   * content out, `opts.at` is the signing time.
+   */
+  cmsSign(alg, secretKey, certificate, content, opts = {}) {
+    return cmssign(false, alg, secretKey, certificate, content, opts);
+  },
+
+  /**
+   * { content, signer } of a SignedData checked against `anchors`,
+   * certificates the caller trusts (the signer's must be one of them);
+   * null when it does not verify. `opts.content` is the content of a
+   * detached signature.
+   */
+  cmsVerify(cms, anchors, opts = {}) {
+    return cmsverify(false, cms, anchors, opts);
+  },
+
+  /**
+   * A CMS AuthEnvelopedData (RFC 5083, AES-256-GCM, DER) of `content`
+   * to the ML-KEM certificates: the secret key of any one opens it.
+   */
+  cmsEncrypt(certificates, content) {
+    return cmsenc(false, certificates, content);
+  },
+
+  /**
+   * The content of an AuthEnvelopedData, opened with the ML-KEM secret
+   * key; null when it is not for this key or was changed.
+   * `opts.certificate` names the recipient to use.
+   */
+  cmsDecrypt(alg, secretKey, cms, opts = {}) {
+    return cmsdec(false, alg, secretKey, cms, opts);
+  },
+
+  /**
+   * An S/MIME message (RFC 8551) of the MIME entity (header lines, an
+   * empty line, the body), signed as cmsSign() signs:
+   * application/pkcs7-mime, or with `opts.detached` multipart/signed.
+   */
+  smimeSign(alg, secretKey, certificate, entity, opts = {}) {
+    return txt(cmssign(true, alg, secretKey, certificate, entity, opts));
+  },
+
+  /** { entity, signer } of a signed S/MIME message, or null. */
+  smimeVerify(mime, anchors, opts = {}) {
+    return cmsverify(true, mime, anchors, opts);
+  },
+
+  /** An encrypted S/MIME message of the entity to the certificates. */
+  smimeEncrypt(certificates, entity) {
+    return txt(cmsenc(true, certificates, entity));
+  },
+
+  /** The MIME entity inside an encrypted S/MIME message, or null. */
+  smimeDecrypt(alg, secretKey, mime, opts = {}) {
+    const r = cmsdec(true, alg, secretKey, mime, opts);
+    return r === null ? null : txt(r);
+  },
+});
+
+// the OpenPGP numbers of the algorithms
+const PGPALGS = {
+  x25519: 25, ed25519: 27, 'mldsa65-ed25519': 30, 'slh-shake-128s': 32,
+  'slh-shake-128f': 33, 'slh-shake-256s': 34, 'mlkem768-x25519': 35,
+};
+const PGPMODES = ['inline', 'detached', 'clear'];
+const PGPKINDS = ['message', 'public key', 'private key', 'signature'];
+
+function pgpalg(name, what) {
+  const id = typeof name === 'string' ? PGPALGS[name.toLowerCase()] : undefined;
+  if (id === undefined) {
+    throw new NoqtisError(CODES.ENOSUP,
+      `${what} must be one of ${Object.keys(PGPALGS).join(', ')}`);
+  }
+  return id;
+}
+
+function pgpname(id) {
+  for (const [n, v] of Object.entries(PGPALGS)) if (v === id) return n;
+  return String(id);
+}
+
+export const pgp = Object.freeze({
+  /**
+   * { secretKey, certificate } of a new version 6 OpenPGP key (RFC
+   * 9580): a primary key of `opts.alg` (default 'mldsa65-ed25519') that
+   * certifies and signs, the user ID (by convention "Name <address>"),
+   * and an encryption subkey of `opts.encAlg` (default 'mlkem768-x25519',
+   * 'x25519' for an ed25519 key; null for none). With `opts.passphrase`
+   * the secret key is kept under it.
+   */
+  generate(userId, opts = {}) {
+    const sa = pgpalg(opts.alg === undefined ? 'mldsa65-ed25519' : opts.alg,
+      'alg');
+    let ea = 0;
+    if (opts.encAlg === undefined) ea = sa === 27 ? 25 : 35;
+    else if (opts.encAlg !== null) ea = pgpalg(opts.encAlg, 'encAlg');
+    const pw = optbytes(opts.passphrase, 'passphrase');
+    const at = epoch(opts.created);
+    const cap = 1 << 18;
+    return run((h) => {
+      const ps = h.alloc(cap);
+      const pp = h.alloc(cap);
+      const sn = h.alloc(4);
+      const pn = h.alloc(4);
+      check(M._nqpgpgen(sa, ea, optstr(h, userId === undefined ? null
+        : userId, 'userId'), at, pw ? h.put(pw) : 0, pw ? pw.length : 0,
+      ps, cap, sn, pp, cap, pn));
+      return {
+        secretKey: h.get(ps, h.u32(sn)),
+        certificate: h.get(pp, h.u32(pn)),
+      };
+    });
+  },
+
+  /**
+   * What an OpenPGP key or certificate says: { alg, encAlg, secret,
+   * locked, fingerprint, encFingerprint, created, expires, userId }
+   * (encAlg, encFingerprint and expires null when it has none).
+   */
+  info(keyBytes) {
+    const k = key(keyBytes, 'key');
+    return run((h) => {
+      const f = h.alloc(352);
+      check(M._nqpgpinfo(h.put(k), k.length, f));
+      const enc = h.u32(f + 4);
+      const exp = i64at(f + 88);
+      return {
+        alg: pgpname(h.u32(f)),
+        encAlg: enc === 0 ? null : pgpname(enc),
+        secret: h.u32(f + 8) !== 0,
+        locked: h.u32(f + 12) !== 0,
+        fingerprint: hex32(h.get(f + 16, 32)),
+        encFingerprint: enc === 0 ? null : hex32(h.get(f + 48, 32)),
+        created: i64at(f + 80),
+        expires: exp === 0 ? null : exp,
+        userId: M.UTF8ToString(f + 96),
+      };
+    });
+  },
+
+  /**
+   * `content` signed with the secret key: `opts.mode` 'inline' (a signed
+   * message that carries the data, the default), 'detached' (the
+   * signature alone) or 'clear' (the text with the armored signature
+   * under it). Binary packets, except 'clear', which is text as bytes.
+   */
+  sign(secretKey, content, opts = {}) {
+    const k = key(secretKey, 'secretKey');
+    const m = bytes(content, 'content');
+    const mode = PGPMODES.indexOf(opts.mode === undefined ? 'inline'
+      : opts.mode);
+    if (mode < 0) throw new NoqtisError(CODES.EARG, 'mode');
+    const pw = optbytes(opts.passphrase, 'passphrase');
+    const at = epoch(opts.at);
+    return run((h) => outbuf(h, 3 * m.length + (1 << 17), (po, cap, pn) =>
+      M._nqpgpsign(h.put(k), k.length, pw ? h.put(pw) : 0,
+        pw ? pw.length : 0, h.put(m), m.length, mode, at, po, cap, pn)));
+  },
+
+  /**
+   * { data, at } of a signed message, a cleartext signature or a
+   * detached signature (`opts.content` is then what it signs), armored
+   * or binary, checked under the certificate; null when it does not
+   * verify.
+   */
+  verify(certificate, signature, opts = {}) {
+    const c = key(certificate, 'certificate');
+    const s = bytes(signature, 'signature');
+    const m = optbytes(opts.content, 'content');
+    return run((h) => {
+      const at = h.alloc(8);
+      const data = outbufv(h, s.length + 1, (po, cap, pn) =>
+        M._nqpgpvrfy(h.put(c), c.length, h.put(s), s.length,
+          m ? h.put(m) : 0, m ? m.length : 0, po, cap, pn, at));
+      return data === null ? null : { data, at: i64at(at) };
+    });
+  },
+
+  /**
+   * `content` encrypted to the encryption subkeys of `opts.to`
+   * (certificates, at most 64) and, with `opts.passphrase`, to that
+   * passphrase as well: AES-256 with OCB. With `opts.signer` (a secret
+   * key, `opts.signerPassphrase` its passphrase) it is signed first.
+   */
+  encrypt(content, opts = {}) {
+    const m = bytes(content, 'content');
+    const to = opts.to === undefined ? [] : opts.to;
+    const pw = optbytes(opts.passphrase, 'passphrase');
+    const sg = optbytes(opts.signer, 'signer');
+    const sp = optbytes(opts.signerPassphrase, 'signerPassphrase');
+    const at = epoch(opts.at);
+    return run((h) => {
+      const cl = blist(h, to, 'to', false);
+      const cap = m.length + (m.length >>> 9) + 2048 * cl.n + (1 << 17);
+      return outbuf(h, cap, (po, c, pn) => M._nqpgpenc(cl.p, cl.l, cl.n,
+        pw ? h.put(pw) : 0, pw ? pw.length : 0, sg ? h.put(sg) : 0,
+        sg ? sg.length : 0, sp ? h.put(sp) : 0, sp ? sp.length : 0,
+        h.put(m), m.length, at, po, c, pn));
+    });
+  },
+
+  /**
+   * { data, signed, at } of an encrypted message, armored or binary,
+   * opened with `opts.key` (a secret key; `opts.passphrase` is then the
+   * key's) or with the passphrase of the message; null when it does not
+   * open. With `opts.signer` (a certificate) the message inside must be
+   * signed by it.
+   */
+  decrypt(message, opts = {}) {
+    const m = bytes(message, 'message');
+    const k = optbytes(opts.key, 'key');
+    const pw = optbytes(opts.passphrase, 'passphrase');
+    const sg = optbytes(opts.signer, 'signer');
+    return run((h) => {
+      const sb = h.alloc(4);
+      const at = h.alloc(8);
+      const data = outbufv(h, m.length + 1, (po, cap, pn) =>
+        M._nqpgpdec(k ? h.put(k) : 0, k ? k.length : 0, pw ? h.put(pw) : 0,
+          pw ? pw.length : 0, sg ? h.put(sg) : 0, sg ? sg.length : 0,
+          h.put(m), m.length, po, cap, pn, sb, at));
+      if (data === null) return null;
+      const signed = h.u32(sb) !== 0;
+      return { data, signed, at: signed ? i64at(at) : null };
+    });
+  },
+
+  /** Packets as ASCII armor of `kind`: 'message', 'public key', ... */
+  armor(kind, data) {
+    const k = PGPKINDS.indexOf(kind) + 1;
+    if (k === 0) throw new NoqtisError(CODES.EARG, 'kind');
+    const d = bytes(data, 'data');
+    return run((h) => {
+      const pn = h.alloc(4);
+      const pd = h.put(d);
+      check(M._nqpgparm(k, pd, d.length, 0, 0, pn));
+      return txt(outbuf(h, h.u32(pn), (po, cap, n) =>
+        M._nqpgparm(k, pd, d.length, po, cap, n)));
+    });
+  },
+
+  /** { kind, data } of one OpenPGP armor. */
+  dearmor(text) {
+    const t = bytes(text, 'text');
+    return run((h) => {
+      const pk = h.alloc(4);
+      const data = outbuf(h, t.length, (po, cap, pn) =>
+        M._nqpgpdearm(h.put(t), t.length, pk, po, cap, pn));
+      return { kind: PGPKINDS[h.u32(pk) - 1], data };
+    });
+  },
+});
+
+// nqkse in wasm32 memory: the offsets of include/noqtis.h's struct
+const KE = {
+  alg: 4, fp: 8, name: 44, email: 300, card: 556, trust: 560, valid: 564,
+  ncert: 568, size: 572,
+};
+const TRUSTS = ['unknown', 'never', 'marginal', 'full', 'ultimate'];
+const VALIDS = ['none', 'marginal', 'full'];
+
+function fp32(x) {
+  let f = x;
+  if (typeof f === 'string' && /^[0-9a-fA-F]{64}$/.test(f)) {
+    f = Uint8Array.from(f.match(/../g), (b) => parseInt(b, 16));
+  }
+  if (!(f instanceof Uint8Array) || f.length !== 32) {
+    throw new NoqtisError(CODES.EARG, 'a fingerprint is 32 bytes, or 64 hex '
+      + 'digits');
+  }
+  return f;
+}
+
+// every file under dir, as a Map of path to bytes, sorted
+function tree(dir) {
+  const out = new Map();
+  const walk = (rel) => {
+    const abs = rel === '' ? dir : `${dir}/${rel}`;
+    for (const n of M.FS.readdir(abs)) {
+      if (n === '.' || n === '..') continue;
+      const r = rel === '' ? n : `${rel}/${n}`;
+      if (M.FS.isDir(M.FS.lstat(`${dir}/${r}`).mode)) walk(r);
+      else out.set(r, M.FS.readFile(`${dir}/${r}`));
+    }
+  };
+  walk('');
+  return new Map([...out.entries()].sort((x, y) => (x[0] < y[0] ? -1
+    : x[0] > y[0] ? 1 : 0)));
+}
+
+// The store's files in a fresh folder; fn(h, pdir) works on it, and
+// what it returns is given back with the files as they are afterwards.
+function withstore(files, change, fn) {
+  return withdir(files === undefined || files === null ? {} : files,
+    (dir) => run((h) => {
+      const r = fn(h, h.str(dir));
+      return change ? { ...r, files: tree(dir) } : r;
+    }));
+}
+
+export const keystore = Object.freeze({
+  /**
+   * A store of other people's public keys, as files in memory (a Map or
+   * an object of path to bytes; null or {} for a new store): every call
+   * that changes it returns the new files as `files`, to keep. add()
+   * puts the public key in under `name`, `opts.email` and `opts.card`
+   * (its identity card), and returns { files, fingerprint }.
+   */
+  add(files, alg, publicKey, name, opts = {}) {
+    const pk = key(publicKey, 'publicKey');
+    let kem = 0;
+    let a;
+    try {
+      a = salg(alg);
+    } catch (e) {
+      a = kalg(alg);
+      kem = 1;
+    }
+    const card = optbytes(opts.card, 'card');
+    return withstore(files, true, (h, d) => {
+      const f = h.alloc(32);
+      check(M._nqksadd(d, kem, a.id, h.put(pk), pk.length,
+        optstr(h, name === undefined ? null : name, 'name'),
+        optstr(h, opts.email, 'email'), card ? h.put(card) : 0,
+        card ? card.length : 0, f));
+      return { fingerprint: h.get(f, 32) };
+    });
+  },
+
+  /**
+   * The keys whose name, address or fingerprint (hex, from its start)
+   * matches `query` (all with none): [{ alg, kem, fingerprint, name,
+   * email, card, trust, valid, certs }]. A key is valid 'full' when a
+   * valid key trusted 'full' certified it, or three trusted 'marginal';
+   * keys trusted 'ultimate' are the owner's own.
+   */
+  list(files, query) {
+    return withstore(files, false, (h, d) => {
+      const q = optstr(h, query, 'query');
+      const pn = h.alloc(4);
+      const rc = M._nqkslist(d, q, 0, 0, pn);
+      if (rc !== CODES.EBUF) check(rc);
+      const cap = h.u32(pn);
+      if (cap === 0) return [];
+      const es = h.alloc(KE.size * cap);
+      check(M._nqkslist(d, q, es, cap, pn));
+      const out = [];
+      for (let i = 0; i < Math.min(cap, h.u32(pn)); i++) {
+        const e = es + i * KE.size;
+        const kem = h.u32(e) !== 0;
+        const id = h.u32(e + KE.alg);
+        out.push({
+          alg: M.UTF8ToString(kem ? M._nqkname(id) : M._nqsname(id)),
+          kem,
+          fingerprint: h.get(e + KE.fp, 32),
+          name: M.UTF8ToString(e + KE.name),
+          email: M.UTF8ToString(e + KE.email),
+          card: h.u32(e + KE.card) !== 0,
+          trust: TRUSTS[h.u32(e + KE.trust)],
+          valid: VALIDS[h.u32(e + KE.valid)],
+          certs: h.u32(e + KE.ncert),
+        });
+      }
+      return out;
+    });
+  },
+
+  /** { alg, publicKey } of the key with the fingerprint. */
+  get(files, fingerprint) {
+    const fp = fp32(fingerprint);
+    return withstore(files, false, (h, d) => {
+      const pk = h.alloc(4);
+      const pa = h.alloc(4);
+      const publicKey = outbuf(h, 65536, (po, cap, pn) =>
+        M._nqksget(d, h.put(fp), pk, pa, po, cap, pn));
+      const id = h.u32(pa);
+      return {
+        alg: M.UTF8ToString(h.u32(pk) !== 0 ? M._nqkname(id)
+          : M._nqsname(id)),
+        publicKey,
+      };
+    });
+  },
+
+  /**
+   * Signs, with the signature key pair, that the key `fingerprint`
+   * belongs to the name and address the store has for it: { files,
+   * cert }, the certification kept in the store and as text to pass on.
+   */
+  certify(files, alg, secretKey, publicKey, fingerprint, opts = {}) {
+    const a = salg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const pk = key(publicKey, 'publicKey');
+    const fp = fp32(fingerprint);
+    const at = epoch(opts.at);
+    return withstore(files, true, (h, d) => ({
+      cert: txt(outbuf(h, 2 * a.sig + 4096, (po, cap, pn) =>
+        M._nqkscert(d, a.id, h.put(sk), sk.length, h.put(pk), pk.length,
+          h.put(fp), at, po, cap, pn))),
+    }));
+  },
+
+  /** Puts a certification someone else made into the store: { files }. */
+  addCert(files, cert) {
+    const c = bytes(cert, 'cert');
+    return withstore(files, true, (h, d) => {
+      check(M._nqkscput(d, h.put(c), c.length));
+      return {};
+    });
+  },
+
+  /**
+   * Sets how far the owner of the key is trusted to certify other keys:
+   * 'unknown', 'never', 'marginal', 'full' or 'ultimate'. { files }.
+   */
+  trust(files, fingerprint, level) {
+    const fp = fp32(fingerprint);
+    const l = TRUSTS.indexOf(level);
+    if (l < 0) throw new NoqtisError(CODES.EARG, 'level');
+    return withstore(files, true, (h, d) => {
+      check(M._nqkstrust(d, h.put(fp), l));
+      return {};
+    });
+  },
+
+  /** Removes the key and what the store holds about it: { files }. */
+  remove(files, fingerprint) {
+    const fp = fp32(fingerprint);
+    return withstore(files, true, (h, d) => {
+      check(M._nqksdel(d, h.put(fp)));
+      return {};
+    });
+  },
+
+  /**
+   * A bundle (text) of the key: the key, its name and address, its
+   * identity card and the certifications of it, for another store to
+   * import or to publish at its url().
+   */
+  export(files, fingerprint) {
+    const fp = fp32(fingerprint);
+    return withstore(files, false, (h, d) => txt(sized(h, (po, cap, pn) =>
+      M._nqksexp(d, h.put(fp), po, cap, pn), 65536)));
+  },
+
+  /**
+   * Puts the keys of a bundle into the store: { files, fingerprint,
+   * keys }, the first key's fingerprint and how many came in. With
+   * `opts.email` the bundle's keys must be for that address.
+   */
+  import(files, bundle, opts = {}) {
+    const b = bytes(bundle, 'bundle');
+    return withstore(files, true, (h, d) => {
+      const f = h.alloc(32);
+      const pn = h.alloc(4);
+      check(M._nqksimp(d, h.put(b), b.length, optstr(h, opts.email, 'email'),
+        f, pn));
+      return { fingerprint: h.get(f, 32), keys: h.u32(pn) };
+    });
+  },
+
+  /**
+   * Where the bundle of an address is looked for, over https at its own
+   * domain: https://<domain>/.well-known/noqtis/<hash of the local
+   * part>. Fetch it, and give what comes back to import() with the
+   * address.
+   */
+  url(email) {
+    return run((h) => {
+      const u = h.alloc(512);
+      check(M._nqksurl(optstr(h, email === undefined ? null : email,
+        'email'), u, 512));
+      return M.UTF8ToString(u);
+    });
+  },
+});
+
 export default {
   init, version, selftest, algs, random, hash, hmac, sign, kem, capsule, dsse,
-  idcard, keyfile, data, NoqtisError, codes, errmsg, cteq, blake2b, argon2id,
+  idcard, keyfile, data, armor, mail, pgp, keystore, NoqtisError, codes, errmsg, cteq, blake2b, argon2id,
   hasher, kt128, kt256, chacha20, sivenc, sivdec, gsivenc, gsivdec,
 };

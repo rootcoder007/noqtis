@@ -2,7 +2,8 @@
 // Compiled with `tsc -p test/tsconfig.json` (no output): the types cover
 // the API as the tests use it.
 import nq, { init, sign, kem, hash, capsule, dsse, idcard, algs,
-  NoqtisError, codes, data, keyfile, hasher, blake2b, argon2id, cteq }
+  NoqtisError, codes, data, keyfile, hasher, blake2b, argon2id, cteq,
+  armor, mail, pgp, keystore }
   from 'noqtis';
 import { checkDir, packages } from 'noqtis/node';
 
@@ -26,6 +27,30 @@ async function main(): Promise<void> {
   const bb: Uint8Array = blake2b('x', { key: 'k', length: 32 });
   const aa: Uint8Array = argon2id('pw', 'saltsalt', { t: 1, m: 8, p: 1 });
   const ce: boolean = cteq(bb, aa);
+  const ar: string = armor.encode('NOQTIS TEST', sb);
+  const ad: Uint8Array = armor.decode(ar).data;
+  const cr: Uint8Array = mail.selfCert('ML-DSA-44', sb, sb, 'Ada', { email: 'a@example.org', notBefore: 0 });
+  const kc: Uint8Array = mail.kemCert('ML-DSA-44', sb, cr, 'ML-KEM-768', sb);
+  const ci: string = mail.readCert(cr).name;
+  const cv = mail.cmsVerify(mail.cmsSign('ML-DSA-44', sb, cr, 'm', { detached: true }), [cr], { content: 'm' });
+  const cn: string | undefined = cv?.signer.email;
+  const cd: Uint8Array | null = mail.cmsDecrypt('ML-KEM-768', sb, mail.cmsEncrypt([kc], 'm'), { certificate: kc });
+  const sv = mail.smimeVerify(mail.smimeSign('ML-DSA-44', sb, cr, 'e'), [cr]);
+  const sn: string | undefined = sv?.entity;
+  const sd: string | null = mail.smimeDecrypt('ML-KEM-768', sb, mail.smimeEncrypt([kc], 'e'));
+  const pk = pgp.generate('Ada <a@example.org>', { alg: 'ed25519', encAlg: null, passphrase: 'p' });
+  const pi: string | null = pgp.info(pk.certificate).encAlg;
+  const pv = pgp.verify(pk.certificate, pgp.sign(pk.secretKey, 'm', { mode: 'detached' }), { content: 'm' });
+  const pa: number | undefined = pv?.at;
+  const po = pgp.decrypt(pgp.encrypt('m', { to: [pk.certificate], passphrase: 'x' }), { passphrase: 'x' });
+  const ps: boolean | undefined = po?.signed;
+  const pd: Uint8Array = pgp.dearmor(pgp.armor('message', sb)).data;
+  const k1 = keystore.add(null, 'ML-DSA-44', sb, 'Me', { email: 'me@example.org' });
+  const k2 = keystore.trust(k1.files, k1.fingerprint, 'ultimate');
+  const kl: string = keystore.list(k2.files, 'me')[0].valid;
+  const kx: string = keystore.export(k2.files, k1.fingerprint);
+  const ki: number = keystore.import(null, kx, { email: 'me@example.org' }).keys;
+  const ku: string = keystore.url('me@example.org');
   const why = capsule.sealWhy(new Map())?.why;
   const tq: Uint8Array = capsule.tsreq(new Map());
   const bu: Map<string, Uint8Array> = capsule.unpack(capsule.pack(new Map()));
