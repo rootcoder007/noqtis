@@ -22,7 +22,7 @@ anyone can check later, offline, that nothing changed.**
 
 **N**otary **o**f **Q**uantum-Safe **T**raceable **I**nputs and **S**eals.
 
-![NOQTIS in a minute: make a key, pin a table schema, seal a folder, check it, change one file, the check fails, then a table that no longer fits its schema](docs/demo.svg)
+![NOQTIS in a minute and a half: make a key, pin a table schema, seal a folder, check it, change one file, the check fails, then a table that no longer fits its schema; then the report sealed to two people and signed, a key kept in the key store, signed mail and an OpenPGP signature](docs/demo.svg)
 
 A sealed folder (a capsule) carries a manifest of every file and a
 signature over it, so a check finds any file that changed, was added or

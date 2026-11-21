@@ -1,9 +1,11 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-# The one-minute demo behind docs/demo.svg: make a key, pin a table's
-# schema, seal the folder, check it (passes), change one file, check again
-# (fails), put it back, then a delivery whose table no longer fits its
-# schema, and what the capsule says of itself. Every command really runs,
+# The demo behind docs/demo.svg: make a key, pin a table's schema, seal
+# the folder, check it (passes), change one file, check again (fails),
+# put it back, then a delivery whose table no longer fits its schema and
+# what the capsule says of itself; then the report sealed to two people
+# and signed, a key kept in the key store, signed mail (S/MIME) and an
+# OpenPGP signature with a post-quantum key. Every command really runs,
 # in a fresh temporary folder; the prompt and the typing are only paced for
 # reading. Usage: sh docs/demo/demo.sh [path to noqtis] (default: noqtis on
 # PATH). NQFAST=1 skips the pauses. To record:
@@ -64,4 +66,16 @@ run "echo 'r = 0.42' > results/report.txt" 0.3
 run "printf 'id,score\\n1,0.42\\n2,high\\n3,0.61\\n' > results/scores.csv" 0.4
 run "noqtis schema check results 2>&1 | head -3" 2.5
 say "what the capsule says of itself"
-run "noqtis inspect results | head -6" 3
+run "noqtis inspect results | head -6" 2
+say "send the report to two people at once, signed: either of them opens it"
+run "noqtis keygen -a ML-KEM-768 -o ann > /dev/null && noqtis keygen -a ML-KEM-768 -o bob > /dev/null" 0.4
+run "noqtis box -a -p ann.pub -p bob.pub -s me -o report.box results/report.txt && head -2 report.box | cut -c1-60" 1.5
+run "noqtis unbox -k bob -s me.pub -o - report.box" 1.5
+say "keep Ann's key under her name, and say it is hers"
+run "mkdir keys && noqtis keys --store keys add -n 'Ann Example' -e ann@example.org ann.pub | cut -c1-88" 1.5
+say "the same key signs mail (S/MIME, with an X.509 certificate)"
+run "noqtis cert -k me -n 'Josiah Carberry' -e jc@example.org -o me.crt | head -3" 1.2
+run "noqtis smime sign -k me --cert me.crt --text -o note.eml results/report.txt && noqtis smime verify --anchor me.crt note.eml | cut -c1-88" 2
+say "and OpenPGP, with a post-quantum key"
+run "noqtis pgp keygen -n 'Josiah Carberry <jc@example.org>' -o jc && noqtis pgp sign -k jc --clear -o note.asc results/report.txt" 0.6
+run "noqtis pgp verify --cert jc.pub note.asc | cut -c1-88" 3
