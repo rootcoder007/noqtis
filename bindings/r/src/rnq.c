@@ -1463,6 +1463,783 @@ SEXP Cdunpack(SEXP file, SEXP dir, SEXP rm);
 SEXP Cdchain(SEXP dirs, SEXP pk);
 SEXP Calfail(SEXP n);
 
+/* ---- armor, certificates, CMS and S/MIME, OpenPGP, the key store,
+ * tokens ---- */
+
+/* buffers come from R_alloc, which R frees also after an error */
+static uint8_t *xbuf(size_t n) {
+  return (uint8_t *)R_alloc(n > 0 ? n : 1, 1);
+}
+
+static SEXP rawof(const uint8_t *b, size_t n) {
+  SEXP r = rawn(n);
+  if (n > 0) memcpy(RAW(r), b, n);
+  return r;
+}
+
+/* raw bytes that are text, as one string */
+static SEXP strof(const uint8_t *b, size_t n) {
+  return Rf_ScalarString(Rf_mkCharLenCE((const char *)b, (int)n, CE_UTF8));
+}
+
+/* one string in UTF-8, or NULL for R's NULL */
+static const char *sval(SEXP x, const char *what) {
+  if (x == R_NilValue) return NULL;
+  if (TYPEOF(x) != STRSXP || XLENGTH(x) != 1 || STRING_ELT(x, 0) == NA_STRING)
+    Rf_error("'%s' must be one string", what);
+  return Rf_translateCharUTF8(STRING_ELT(x, 0));
+}
+
+/* a time in seconds since 1970 */
+static int64_t tval(SEXP at) {
+  double t;
+  if (TYPEOF(at) != REALSXP || XLENGTH(at) != 1 || !R_FINITE(REAL(at)[0]))
+    Rf_error("a time must be one number");
+  t = REAL(at)[0];
+  if (t < 0 || t > 253402300799.0) Rf_error("a time must be 1970 to 9999");
+  return (int64_t)t;
+}
+
+static int lval(SEXP x, const char *what) {
+  if (TYPEOF(x) != LGLSXP || XLENGTH(x) != 1 || LOGICAL(x)[0] == NA_LOGICAL)
+    Rf_error("'%s' must be TRUE or FALSE", what);
+  return LOGICAL(x)[0];
+}
+
+/* a list of raw vectors as arrays of pointers and lengths */
+static size_t rlist(SEXP l, const char *what, const uint8_t ***p,
+                    size_t **n) {
+  R_xlen_t i, k;
+  if (TYPEOF(l) != VECSXP) Rf_error("'%s' must be a list of raw vectors", what);
+  k = XLENGTH(l);
+  *p = (const uint8_t **)R_alloc((size_t)(k > 0 ? k : 1), sizeof **p);
+  *n = (size_t *)R_alloc((size_t)(k > 0 ? k : 1), sizeof **n);
+  for (i = 0; i < k; i++) {
+    SEXP e = VECTOR_ELT(l, i);
+    if (TYPEOF(e) != RAWSXP)
+      Rf_error("'%s' must be a list of raw vectors", what);
+    (*p)[i] = rp(e);
+    (*n)[i] = rn(e);
+  }
+  return (size_t)k;
+}
+
+static size_t lsum(const size_t *l, size_t n) {
+  size_t i, s = 0;
+  for (i = 0; i < n; i++) s += l[i];
+  return s;
+}
+
+/* a named list of n elements, protected by the caller */
+static SEXP nlist(const char *const *nm, int n) {
+  SEXP l = PROTECT(Rf_allocVector(VECSXP, n)), names;
+  int i;
+  names = PROTECT(Rf_allocVector(STRSXP, n));
+  for (i = 0; i < n; i++) SET_STRING_ELT(names, i, Rf_mkChar(nm[i]));
+  Rf_setAttrib(l, R_NamesSymbol, names);
+  UNPROTECT(2);
+  return l;
+}
+
+static SEXP x5list(const nqx5f *f, SEXP der) {
+  static const char *const nm[] = {"alg", "kem", "fingerprint", "notbefore",
+                                   "notafter", "ca", "name", "email", "pk"};
+  const char *an = f->alg == 0 ? ""
+                   : f->kem   ? nqkname((nqkalg)f->alg)
+                              : nqsname((nqsalg)f->alg);
+  SEXP l = PROTECT(nlist(nm, 9));
+  SET_VECTOR_ELT(l, 0, Rf_mkString(an != NULL ? an : ""));
+  SET_VECTOR_ELT(l, 1, Rf_ScalarLogical(f->kem != 0));
+  SET_VECTOR_ELT(l, 2, rawof(f->fp, 32));
+  SET_VECTOR_ELT(l, 3, Rf_ScalarReal((double)f->nb));
+  SET_VECTOR_ELT(l, 4, Rf_ScalarReal((double)f->na));
+  SET_VECTOR_ELT(l, 5, Rf_ScalarLogical(f->ca != 0));
+  SET_VECTOR_ELT(l, 6, utf8(f->name));
+  SET_VECTOR_ELT(l, 7, utf8(f->email));
+  if (der != R_NilValue && f->pkoff + f->pklen <= rn(der))
+    SET_VECTOR_ELT(l, 8, rawof(rp(der) + f->pkoff, f->pklen));
+  else
+    SET_VECTOR_ELT(l, 8, rawn(0));
+  UNPROTECT(1);
+  return l;
+}
+
+static SEXP Carmor(SEXP label, SEXP data) {
+  const char *lab = sval(label, "label");
+  size_t need = 0, on = 0;
+  uint8_t *b;
+  int rc;
+  chkraw(data, "data", 0);
+  if (lab == NULL) Rf_error("'label' must be one string");
+  rc = nqarmlen(lab, rn(data), &need);
+  if (rc != NQOK) fail(rc, "nqarmenc");
+  b = xbuf(need);
+  rc = nqarmenc(lab, rp(data), rn(data), (char *)b, need, &on);
+  if (rc != NQOK) fail(rc, "nqarmenc");
+  return strof(b, on);
+}
+
+static SEXP Cdearmor(SEXP text) {
+  static const char *const nm[] = {"label", "data"};
+  char lab[NQARMLAB];
+  size_t on = 0;
+  uint8_t *b;
+  SEXP l;
+  int rc;
+  chkraw(text, "text", 0);
+  b = xbuf(rn(text));
+  lab[0] = '\0';
+  rc = nqarmdec((const char *)rp(text), rn(text), lab, sizeof lab, b,
+                rn(text), &on);
+  if (rc != NQOK) fail(rc, "nqarmdec");
+  l = PROTECT(nlist(nm, 2));
+  SET_VECTOR_ELT(l, 0, Rf_mkString(lab));
+  SET_VECTOR_ELT(l, 1, rawof(b, on));
+  UNPROTECT(1);
+  return l;
+}
+
+static SEXP Cx5self(SEXP alg, SEXP sk, SEXP pk, SEXP name, SEXP email,
+                    SEXP nb, SEXP na) {
+  const char *n = sval(name, "name"), *e = sval(email, "email");
+  nqssz z;
+  size_t cap, on = 0;
+  uint8_t *b;
+  int a = ival(alg, "alg"), rc;
+  chkraw(sk, "sk", 0);
+  chkraw(pk, "pk", 0);
+  if (n == NULL) Rf_error("'name' must be one string");
+  if (nqssize((nqsalg)a, &z) != NQOK) fail(NQENOSUP, "nqx5self");
+  cap = rn(pk) + z.sig + 2048;
+  b = xbuf(cap);
+  rc = nqx5self((nqsalg)a, rp(sk), rn(sk), rp(pk), rn(pk), n, e, tval(nb),
+                tval(na), b, cap, &on);
+  if (rc != NQOK) fail(rc, "nqx5self");
+  return rawof(b, on);
+}
+
+static SEXP Cx5kem(SEXP ialg, SEXP isk, SEXP icert, SEXP alg, SEXP pk,
+                   SEXP nb, SEXP na) {
+  nqssz z;
+  size_t cap, on = 0;
+  uint8_t *b;
+  int ia = ival(ialg, "issueralg"), a = ival(alg, "alg"), rc;
+  chkraw(isk, "issuersk", 0);
+  chkraw(icert, "issuercert", 0);
+  chkraw(pk, "pk", 0);
+  if (nqssize((nqsalg)ia, &z) != NQOK) fail(NQENOSUP, "nqx5kem");
+  cap = rn(pk) + rn(icert) + z.sig + 2048;
+  b = xbuf(cap);
+  rc = nqx5kem((nqsalg)ia, rp(isk), rn(isk), rp(icert), rn(icert), (nqkalg)a,
+               rp(pk), rn(pk), tval(nb), tval(na), b, cap, &on);
+  if (rc != NQOK) fail(rc, "nqx5kem");
+  return rawof(b, on);
+}
+
+static SEXP Cx5info(SEXP cert) {
+  nqx5f f;
+  int rc;
+  chkraw(cert, "cert", 0);
+  rc = nqx5info(rp(cert), rn(cert), &f);
+  if (rc != NQOK) fail(rc, "nqx5info");
+  return x5list(&f, cert);
+}
+
+/* mime: the S/MIME form, msg then the MIME entity */
+static SEXP Ccmssign(SEXP alg, SEXP sk, SEXP cert, SEXP msg, SEXP detached,
+                     SEXP at, SEXP mime) {
+  nqssz z;
+  size_t cap, on = 0;
+  uint8_t *b;
+  int a = ival(alg, "alg"), det = lval(detached, "detached"),
+      mm = lval(mime, "mime"), rc;
+  chkraw(sk, "sk", 0);
+  chkraw(cert, "cert", 0);
+  chkraw(msg, "msg", 0);
+  if (nqssize((nqsalg)a, &z) != NQOK) fail(NQENOSUP, "nqcmssign");
+  cap = 3 * rn(msg) + 2 * (rn(cert) + z.sig) + 8192;
+  b = xbuf(cap);
+  rc = mm ? nqsmsign((nqsalg)a, rp(sk), rn(sk), rp(cert), rn(cert),
+                     (const char *)rp(msg), rn(msg), det, tval(at),
+                     (char *)b, cap, &on)
+          : nqcmssign((nqsalg)a, rp(sk), rn(sk), rp(cert), rn(cert), rp(msg),
+                      rn(msg), det, tval(at), b, cap, &on);
+  if (rc != NQOK) fail(rc, mm ? "nqsmsign" : "nqcmssign");
+  return rawof(b, on);
+}
+
+/* list(rc, content, signer): NQOK, or NQEVRFY with NULLs */
+static SEXP Ccmsvrfy(SEXP cms, SEXP msg, SEXP anchors, SEXP at, SEXP mime) {
+  const uint8_t **ap;
+  size_t *al, an, cap, on = 0;
+  uint8_t *b;
+  nqx5f f;
+  SEXP out;
+  int mm = lval(mime, "mime"), rc;
+  chkraw(cms, "cms", 0);
+  chkraw(msg, "msg", 1);
+  an = rlist(anchors, "anchors", &ap, &al);
+  memset(&f, 0, sizeof f);
+  cap = rn(cms) + rn(msg) + 1;
+  b = xbuf(cap);
+  rc = mm ? nqsmvrfy((const char *)rp(cms), rn(cms), ap, al, an, tval(at),
+                     (char *)b, cap, &on, &f)
+          : nqcmsvrfy(rp(cms), rn(cms), rp(msg), rn(msg), ap, al, an,
+                      tval(at), b, cap, &on, &f);
+  if (rc != NQOK && rc != NQEVRFY) fail(rc, mm ? "nqsmvrfy" : "nqcmsvrfy");
+  out = PROTECT(Rf_allocVector(VECSXP, 3));
+  SET_VECTOR_ELT(out, 0, Rf_ScalarInteger(rc));
+  if (rc == NQOK) {
+    SET_VECTOR_ELT(out, 1, rawof(b, on));
+    SET_VECTOR_ELT(out, 2, x5list(&f, R_NilValue));
+  }
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Ccmsenc(SEXP certs, SEXP msg, SEXP mime) {
+  const uint8_t **cp;
+  size_t *cl, cn, cap, on = 0;
+  uint8_t *b;
+  int mm = lval(mime, "mime"), rc;
+  chkraw(msg, "msg", 0);
+  cn = rlist(certs, "certs", &cp, &cl);
+  cap = 3 * rn(msg) + 2 * lsum(cl, cn) + 4096 * cn + 8192;
+  b = xbuf(cap);
+  rc = mm ? nqsmenc(cp, cl, cn, (const char *)rp(msg), rn(msg), (char *)b,
+                    cap, &on)
+          : nqcmsenc(cp, cl, cn, rp(msg), rn(msg), b, cap, &on);
+  if (rc != NQOK) fail(rc, mm ? "nqsmenc" : "nqcmsenc");
+  return rawof(b, on);
+}
+
+/* list(rc, content): NQOK, or NQEVRFY with NULL */
+static SEXP Ccmsdec(SEXP alg, SEXP sk, SEXP cert, SEXP cms, SEXP mime) {
+  size_t cap, on = 0;
+  uint8_t *b;
+  SEXP out;
+  int a = ival(alg, "alg"), mm = lval(mime, "mime"), rc;
+  chkraw(sk, "sk", 0);
+  chkraw(cert, "cert", 1);
+  chkraw(cms, "cms", 0);
+  cap = rn(cms) + 1;
+  b = xbuf(cap);
+  rc = mm ? nqsmdec((nqkalg)a, rp(sk), rn(sk), rp(cert), rn(cert),
+                    (const char *)rp(cms), rn(cms), (char *)b, cap, &on)
+          : nqcmsdec((nqkalg)a, rp(sk), rn(sk), rp(cert), rn(cert), rp(cms),
+                     rn(cms), b, cap, &on);
+  if (rc != NQOK && rc != NQEVRFY) fail(rc, mm ? "nqsmdec" : "nqcmsdec");
+  out = PROTECT(Rf_allocVector(VECSXP, 2));
+  SET_VECTOR_ELT(out, 0, Rf_ScalarInteger(rc));
+  if (rc == NQOK) SET_VECTOR_ELT(out, 1, rawof(b, on));
+  UNPROTECT(1);
+  return out;
+}
+
+#define PGPKEY ((size_t)1 << 18)
+
+static SEXP Cpgpgen(SEXP sigalg, SEXP encalg, SEXP uid, SEXP created,
+                    SEXP pw) {
+  static const char *const nm[] = {"sec", "pub"};
+  const char *u = sval(uid, "userid");
+  uint8_t *s = xbuf(PGPKEY), *p = xbuf(PGPKEY);
+  size_t sn = 0, pn = 0;
+  SEXP l;
+  int rc;
+  chkraw(pw, "passphrase", 1);
+  if (u == NULL) Rf_error("'userid' must be one string");
+  rc = nqpgpgen(ival(sigalg, "alg"), ival(encalg, "encalg"), u, tval(created),
+                rp(pw), rn(pw), s, PGPKEY, &sn, p, PGPKEY, &pn);
+  if (rc != NQOK) {
+    nqwipe(s, PGPKEY);
+    fail(rc, "nqpgpgen");
+  }
+  l = PROTECT(nlist(nm, 2));
+  SET_VECTOR_ELT(l, 0, rawof(s, sn));
+  SET_VECTOR_ELT(l, 1, rawof(p, pn));
+  nqwipe(s, PGPKEY);
+  UNPROTECT(1);
+  return l;
+}
+
+static SEXP Cpgpinfo(SEXP key) {
+  static const char *const nm[] = {"alg", "encalg", "secret", "locked",
+                                   "fingerprint", "encfingerprint",
+                                   "created", "expires", "userid"};
+  nqpgpk f;
+  SEXP l;
+  int rc;
+  chkraw(key, "key", 0);
+  rc = nqpgpinfo(rp(key), rn(key), &f);
+  if (rc != NQOK) fail(rc, "nqpgpinfo");
+  l = PROTECT(nlist(nm, 9));
+  SET_VECTOR_ELT(l, 0, Rf_ScalarInteger(f.alg));
+  SET_VECTOR_ELT(l, 1, Rf_ScalarInteger(f.encalg));
+  SET_VECTOR_ELT(l, 2, Rf_ScalarLogical(f.secret != 0));
+  SET_VECTOR_ELT(l, 3, Rf_ScalarLogical(f.locked != 0));
+  SET_VECTOR_ELT(l, 4, rawof(f.fp, 32));
+  SET_VECTOR_ELT(l, 5, f.encalg != 0 ? rawof(f.encfp, 32) : R_NilValue);
+  SET_VECTOR_ELT(l, 6, Rf_ScalarReal((double)f.created));
+  SET_VECTOR_ELT(l, 7, f.expires != 0 ? Rf_ScalarReal((double)f.expires)
+                                      : R_NilValue);
+  SET_VECTOR_ELT(l, 8, utf8(f.uid));
+  UNPROTECT(1);
+  return l;
+}
+
+static SEXP Cpgpsign(SEXP key, SEXP pw, SEXP msg, SEXP mode, SEXP at) {
+  size_t cap, on = 0;
+  uint8_t *b;
+  int rc;
+  chkraw(key, "key", 0);
+  chkraw(pw, "passphrase", 1);
+  chkraw(msg, "msg", 0);
+  cap = 3 * rn(msg) + ((size_t)1 << 17);
+  b = xbuf(cap);
+  rc = nqpgpsign(rp(key), rn(key), rp(pw), rn(pw), rp(msg), rn(msg),
+                 ival(mode, "mode"), tval(at), b, cap, &on);
+  if (rc != NQOK) fail(rc, "nqpgpsign");
+  return rawof(b, on);
+}
+
+/* list(rc, data, at): NQOK, or NQEVRFY with NULLs */
+static SEXP Cpgpvrfy(SEXP cert, SEXP sig, SEXP msg) {
+  size_t cap, on = 0;
+  uint8_t *b;
+  int64_t at = 0;
+  SEXP out;
+  int rc;
+  chkraw(cert, "cert", 0);
+  chkraw(sig, "sig", 0);
+  chkraw(msg, "msg", 1);
+  cap = rn(sig) + 1;
+  b = xbuf(cap);
+  /* a raw(0) message is still a message: R's NULL alone means none */
+  rc = nqpgpvrfy(rp(cert), rn(cert), rp(sig), rn(sig),
+                 msg == R_NilValue ? NULL
+                 : rn(msg) > 0     ? rp(msg)
+                                   : (const uint8_t *)"",
+                 rn(msg), b, cap, &on, &at);
+  if (rc != NQOK && rc != NQEVRFY) fail(rc, "nqpgpvrfy");
+  out = PROTECT(Rf_allocVector(VECSXP, 3));
+  SET_VECTOR_ELT(out, 0, Rf_ScalarInteger(rc));
+  if (rc == NQOK) {
+    SET_VECTOR_ELT(out, 1, rawof(b, on));
+    SET_VECTOR_ELT(out, 2, Rf_ScalarReal((double)at));
+  }
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Cpgpenc(SEXP certs, SEXP pw, SEXP signer, SEXP spw, SEXP msg,
+                    SEXP at) {
+  const uint8_t **cp;
+  size_t *cl, cn, cap, on = 0;
+  uint8_t *b;
+  int rc;
+  chkraw(pw, "passphrase", 1);
+  chkraw(signer, "signer", 1);
+  chkraw(spw, "signerpass", 1);
+  chkraw(msg, "msg", 0);
+  cn = rlist(certs, "certs", &cp, &cl);
+  cap = rn(msg) + rn(msg) / 512 + 2048 * cn + ((size_t)1 << 17);
+  b = xbuf(cap);
+  rc = nqpgpenc(cp, cl, cn, rp(pw), rn(pw), rp(signer), rn(signer), rp(spw),
+                rn(spw), rp(msg), rn(msg), tval(at), b, cap, &on);
+  if (rc != NQOK) fail(rc, "nqpgpenc");
+  return rawof(b, on);
+}
+
+/* list(rc, data, signed, at): NQOK, or NQEVRFY with NULLs */
+static SEXP Cpgpdec(SEXP key, SEXP pw, SEXP signer, SEXP msg) {
+  size_t cap, on = 0;
+  uint8_t *b;
+  int64_t at = 0;
+  SEXP out;
+  int sb = 0, rc;
+  chkraw(key, "key", 1);
+  chkraw(pw, "passphrase", 1);
+  chkraw(signer, "signer", 1);
+  chkraw(msg, "msg", 0);
+  cap = rn(msg) + 1;
+  b = xbuf(cap);
+  rc = nqpgpdec(rp(key), rn(key), rp(pw), rn(pw), rp(signer), rn(signer),
+                rp(msg), rn(msg), b, cap, &on, &sb, &at);
+  if (rc != NQOK && rc != NQEVRFY) fail(rc, "nqpgpdec");
+  out = PROTECT(Rf_allocVector(VECSXP, 4));
+  SET_VECTOR_ELT(out, 0, Rf_ScalarInteger(rc));
+  if (rc == NQOK) {
+    SET_VECTOR_ELT(out, 1, rawof(b, on));
+    SET_VECTOR_ELT(out, 2, Rf_ScalarLogical(sb != 0));
+    SET_VECTOR_ELT(out, 3, Rf_ScalarReal((double)at));
+  }
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Cpgparm(SEXP kind, SEXP data) {
+  size_t need = 0, on = 0;
+  uint8_t *b;
+  int k = ival(kind, "kind"), rc;
+  chkraw(data, "data", 0);
+  rc = nqpgparm(k, rp(data), rn(data), NULL, 0, &need);
+  if (rc != NQOK) fail(rc, "nqpgparm");
+  b = xbuf(need);
+  rc = nqpgparm(k, rp(data), rn(data), (char *)b, need, &on);
+  if (rc != NQOK) fail(rc, "nqpgparm");
+  return strof(b, on);
+}
+
+static SEXP Cpgpdearm(SEXP text) {
+  static const char *const nm[] = {"kind", "data"};
+  size_t on = 0;
+  uint8_t *b;
+  SEXP l;
+  int kind = 0, rc;
+  chkraw(text, "text", 0);
+  b = xbuf(rn(text));
+  rc = nqpgpdearm((const char *)rp(text), rn(text), &kind, b, rn(text), &on);
+  if (rc != NQOK) fail(rc, "nqpgpdearm");
+  l = PROTECT(nlist(nm, 2));
+  SET_VECTOR_ELT(l, 0, Rf_ScalarInteger(kind));
+  SET_VECTOR_ELT(l, 1, rawof(b, on));
+  UNPROTECT(1);
+  return l;
+}
+
+/* a fingerprint: a raw vector of 32 */
+static const uint8_t *fpval(SEXP fp) {
+  if (TYPEOF(fp) != RAWSXP || XLENGTH(fp) != 32)
+    Rf_error("'fingerprint' must be a raw vector of 32 bytes");
+  return RAW(fp);
+}
+
+static SEXP Cksadd(SEXP dir, SEXP kem, SEXP alg, SEXP pk, SEXP name,
+                   SEXP email, SEXP card) {
+  const char *d = rpath(dir), *n = sval(name, "name"),
+             *e = sval(email, "email");
+  uint8_t fp[32];
+  int rc;
+  chkraw(pk, "pk", 0);
+  chkraw(card, "card", 1);
+  if (n == NULL) Rf_error("'name' must be one string");
+  rc = nqksadd(d, lval(kem, "kem"), ival(alg, "alg"), rp(pk), rn(pk), n, e,
+               (const char *)rp(card), rn(card), fp);
+  if (rc != NQOK) fail(rc, "nqksadd");
+  return rawof(fp, 32);
+}
+
+/* list(kem, alg, fingerprint, name, email, card, trust, valid, certs),
+ * one element a key in each */
+static SEXP Ckslist(SEXP dir, SEXP q) {
+  const char *d = rpath(dir), *qs = sval(q, "query");
+  nqkse *e = NULL;
+  size_t n = 0, cap, i;
+  SEXP out, c[9];
+  int rc, j;
+  rc = nqkslist(d, qs, NULL, 0, &n);
+  if (rc != NQOK && rc != NQEBUF) fail(rc, "nqkslist");
+  cap = n;
+  if (cap > 0) {
+    e = (nqkse *)R_alloc(cap, sizeof *e);
+    rc = nqkslist(d, qs, e, cap, &n);
+    if (rc != NQOK && rc != NQEBUF) fail(rc, "nqkslist");
+    if (n > cap) n = cap;
+  }
+  out = PROTECT(Rf_allocVector(VECSXP, 9));
+  for (j = 0; j < 9; j++) {
+    c[j] = Rf_allocVector(j == 0 || j == 5   ? LGLSXP
+                          : j == 1 || j >= 6 ? INTSXP
+                          : j == 2           ? VECSXP
+                                             : STRSXP,
+                          (R_xlen_t)n);
+    SET_VECTOR_ELT(out, j, c[j]);
+  }
+  for (i = 0; i < n; i++) {
+    const char *an = e[i].kem ? nqkname((nqkalg)e[i].alg)
+                              : nqsname((nqsalg)e[i].alg);
+    LOGICAL(c[0])[i] = e[i].kem != 0;
+    INTEGER(c[1])[i] = e[i].alg;
+    SET_VECTOR_ELT(c[2], (R_xlen_t)i, rawof(e[i].fp, 32));
+    SET_STRING_ELT(c[3], (R_xlen_t)i, Rf_mkCharCE(e[i].name, CE_UTF8));
+    SET_STRING_ELT(c[4], (R_xlen_t)i, Rf_mkCharCE(e[i].email, CE_UTF8));
+    LOGICAL(c[5])[i] = e[i].card != 0;
+    INTEGER(c[6])[i] = e[i].trust;
+    INTEGER(c[7])[i] = e[i].valid;
+    INTEGER(c[8])[i] = (int)e[i].ncert;
+    (void)an;
+  }
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Cksget(SEXP dir, SEXP fp) {
+  static const char *const nm[] = {"kem", "alg", "pk"};
+  const char *d = rpath(dir);
+  uint8_t *b = xbuf(65536);
+  size_t on = 0;
+  SEXP l;
+  int kem = 0, alg = 0, rc;
+  rc = nqksget(d, fpval(fp), &kem, &alg, b, 65536, &on);
+  if (rc != NQOK) fail(rc, "nqksget");
+  l = PROTECT(nlist(nm, 3));
+  SET_VECTOR_ELT(l, 0, Rf_ScalarLogical(kem != 0));
+  SET_VECTOR_ELT(l, 1, Rf_ScalarInteger(alg));
+  SET_VECTOR_ELT(l, 2, rawof(b, on));
+  UNPROTECT(1);
+  return l;
+}
+
+static SEXP Ckscert(SEXP dir, SEXP alg, SEXP sk, SEXP pk, SEXP fp, SEXP at) {
+  const char *d = rpath(dir);
+  nqssz z;
+  size_t cap, on = 0;
+  uint8_t *b;
+  int a = ival(alg, "alg"), rc;
+  chkraw(sk, "sk", 0);
+  chkraw(pk, "pk", 0);
+  if (nqssize((nqsalg)a, &z) != NQOK) fail(NQENOSUP, "nqkscert");
+  cap = 2 * z.sig + 4096;
+  b = xbuf(cap);
+  rc = nqkscert(d, (nqsalg)a, rp(sk), rn(sk), rp(pk), rn(pk), fpval(fp),
+                tval(at), (char *)b, cap, &on);
+  if (rc != NQOK) fail(rc, "nqkscert");
+  return strof(b, on);
+}
+
+/* op 0: a certification into the store (a its text); 1: trust of the
+ * key a at level; 2: the key a removed */
+static SEXP Cksop(SEXP op, SEXP dir, SEXP a, SEXP level) {
+  const char *d = rpath(dir);
+  int o = ival(op, "op"), rc;
+  if (o == 0) {
+    chkraw(a, "cert", 0);
+    rc = nqkscput(d, (const char *)rp(a), rn(a));
+  } else if (o == 1) {
+    rc = nqkstrust(d, fpval(a), ival(level, "level"));
+  } else {
+    rc = nqksdel(d, fpval(a));
+  }
+  if (rc != NQOK)
+    fail(rc, o == 0 ? "nqkscput" : o == 1 ? "nqkstrust" : "nqksdel");
+  return R_NilValue;
+}
+
+static SEXP Cksexp(SEXP dir, SEXP fp) {
+  const char *d = rpath(dir);
+  const uint8_t *f = fpval(fp);
+  size_t need = 0, on = 0;
+  uint8_t *b;
+  int rc = nqksexp(d, f, NULL, 0, &need);
+  if (rc != NQOK && rc != NQEBUF) fail(rc, "nqksexp");
+  b = xbuf(need + 1);
+  rc = nqksexp(d, f, (char *)b, need + 1, &on);
+  if (rc != NQOK) fail(rc, "nqksexp");
+  return strof(b, on);
+}
+
+static SEXP Cksimp(SEXP dir, SEXP bundle, SEXP email) {
+  static const char *const nm[] = {"fingerprint", "keys"};
+  const char *d = rpath(dir), *e = sval(email, "email");
+  uint8_t fp[32];
+  size_t n = 0;
+  SEXP l;
+  int rc;
+  chkraw(bundle, "bundle", 0);
+  memset(fp, 0, sizeof fp);
+  rc = nqksimp(d, (const char *)rp(bundle), rn(bundle), e, fp, &n);
+  if (rc != NQOK) fail(rc, "nqksimp");
+  l = PROTECT(nlist(nm, 2));
+  SET_VECTOR_ELT(l, 0, rawof(fp, 32));
+  SET_VECTOR_ELT(l, 1, Rf_ScalarInteger((int)n));
+  UNPROTECT(1);
+  return l;
+}
+
+static SEXP Cksurl(SEXP email) {
+  const char *e = sval(email, "email");
+  char u[512];
+  int rc;
+  if (e == NULL) Rf_error("'email' must be one string");
+  rc = nqksurl(e, u, sizeof u);
+  if (rc != NQOK) fail(rc, "nqksurl");
+  return Rf_mkString(u);
+}
+
+/* a token handle: an external pointer, closed by nqp11close or when
+ * collected */
+static void p11fin(SEXP x) {
+  nqp11 *p = (nqp11 *)R_ExternalPtrAddr(x);
+  if (p != NULL) {
+    nqp11close(p);
+    R_ClearExternalPtr(x);
+  }
+}
+
+static nqp11 *p11of(SEXP x) {
+  nqp11 *p;
+  if (TYPEOF(x) != EXTPTRSXP) Rf_error("'token' is not a token");
+  p = (nqp11 *)R_ExternalPtrAddr(x);
+  if (p == NULL) Rf_error("the token is closed");
+  return p;
+}
+
+NORET static void p11fail(nqp11 *p, int rc, const char *what) {
+  if (rc == NQEIO || rc == NQENOSUP)
+    Rf_error("noqtis: %s: %s (CKR 0x%lx)", what, nqerr(rc), nqp11why(p));
+  fail(rc, what);
+}
+
+static SEXP Cp11open(SEXP module) {
+  const char *m = rpath(module);
+  nqp11 *p = NULL;
+  SEXP x;
+  int rc = nqp11open(m, &p);
+  if (rc != NQOK) fail(rc, "nqp11open");
+  x = PROTECT(R_MakeExternalPtr(p, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(x, p11fin, TRUE);
+  UNPROTECT(1);
+  return x;
+}
+
+static SEXP Cp11close(SEXP x) {
+  if (TYPEOF(x) != EXTPTRSXP) Rf_error("'token' is not a token");
+  p11fin(x);
+  return R_NilValue;
+}
+
+/* list(slot, label, maker, model, serial, login) */
+static SEXP Cp11toks(SEXP x) {
+  nqp11 *p = p11of(x);
+  nqp11t *t = (nqp11t *)R_alloc(64, sizeof *t);
+  size_t n = 0, i;
+  SEXP out, c[6];
+  int rc = nqp11toks(p, t, 64, &n), j;
+  if (rc != NQOK) p11fail(p, rc, "nqp11toks");
+  if (n > 64) n = 64;
+  out = PROTECT(Rf_allocVector(VECSXP, 6));
+  for (j = 0; j < 6; j++) {
+    c[j] = Rf_allocVector(j == 0 ? REALSXP : j == 5 ? LGLSXP : STRSXP,
+                          (R_xlen_t)n);
+    SET_VECTOR_ELT(out, j, c[j]);
+  }
+  for (i = 0; i < n; i++) {
+    REAL(c[0])[i] = (double)t[i].slot;
+    SET_STRING_ELT(c[1], (R_xlen_t)i, Rf_mkChar(t[i].label));
+    SET_STRING_ELT(c[2], (R_xlen_t)i, Rf_mkChar(t[i].maker));
+    SET_STRING_ELT(c[3], (R_xlen_t)i, Rf_mkChar(t[i].model));
+    SET_STRING_ELT(c[4], (R_xlen_t)i, Rf_mkChar(t[i].serial));
+    LOGICAL(c[5])[i] = t[i].login != 0;
+  }
+  UNPROTECT(1);
+  return out;
+}
+
+static unsigned long ulval(SEXP x, const char *what) {
+  double v;
+  if (TYPEOF(x) != REALSXP || XLENGTH(x) != 1 || !R_FINITE(REAL(x)[0]))
+    Rf_error("'%s' must be one number", what);
+  v = REAL(x)[0];
+  if (v < 0 || v > 4294967295.0 || v != (double)(unsigned long)v)
+    Rf_error("'%s' must be a whole number from 0", what);
+  return (unsigned long)v;
+}
+
+static SEXP Cp11login(SEXP x, SEXP slot, SEXP pin) {
+  nqp11 *p = p11of(x);
+  const char *pn = sval(pin, "pin");
+  int rc = nqp11login(p, ulval(slot, "slot"), pn, pn != NULL ? strlen(pn) : 0);
+  if (rc != NQOK) p11fail(p, rc, "nqp11login");
+  return R_NilValue;
+}
+
+/* list(kem, alg, handle, label, id) of n keys */
+static SEXP p11klist(const nqp11k *k, size_t n) {
+  SEXP out = PROTECT(Rf_allocVector(VECSXP, 5)), c[5];
+  size_t i;
+  int j;
+  for (j = 0; j < 5; j++) {
+    c[j] = Rf_allocVector(j == 0   ? LGLSXP
+                          : j == 1 ? INTSXP
+                          : j == 2 ? REALSXP
+                          : j == 3 ? STRSXP
+                                   : VECSXP,
+                          (R_xlen_t)n);
+    SET_VECTOR_ELT(out, j, c[j]);
+  }
+  for (i = 0; i < n; i++) {
+    LOGICAL(c[0])[i] = k[i].kem != 0;
+    INTEGER(c[1])[i] = k[i].alg;
+    REAL(c[2])[i] = (double)k[i].h;
+    SET_STRING_ELT(c[3], (R_xlen_t)i, Rf_mkCharCE(k[i].label, CE_UTF8));
+    SET_VECTOR_ELT(c[4], (R_xlen_t)i, rawof(k[i].id, k[i].idlen));
+  }
+  UNPROTECT(1);
+  return out;
+}
+
+static SEXP Cp11keys(SEXP x) {
+  nqp11 *p = p11of(x);
+  nqp11k *k = (nqp11k *)R_alloc(64, sizeof *k);
+  size_t n = 0;
+  int rc = nqp11keys(p, k, 64, &n);
+  if (rc != NQOK && rc != NQEBUF) p11fail(p, rc, "nqp11keys");
+  return p11klist(k, n > 64 ? 64 : n);
+}
+
+/* op 0: the public key; 1: a signature of data under ctx; 2: the
+ * shared secret of the ciphertext data */
+static SEXP Cp11use(SEXP x, SEXP op, SEXP kem, SEXP alg, SEXP h, SEXP id,
+                    SEXP data, SEXP ctx) {
+  nqp11 *p = p11of(x);
+  nqp11k k;
+  nqssz z;
+  nqksz kz;
+  size_t on = 0;
+  uint8_t *b;
+  int o = ival(op, "op"), rc;
+  chkraw(id, "id", 0);
+  chkraw(data, "data", 1);
+  chkraw(ctx, "ctx", 1);
+  memset(&k, 0, sizeof k);
+  k.kem = lval(kem, "kem");
+  k.alg = ival(alg, "alg");
+  k.h = ulval(h, "handle");
+  if (rn(id) > sizeof k.id) Rf_error("'id' is at most 32 bytes");
+  if (rn(id) > 0) memcpy(k.id, rp(id), rn(id));
+  k.idlen = rn(id);
+  if (o == 0) {
+    b = xbuf(4096);
+    rc = nqp11pub(p, &k, b, 4096, &on);
+    if (rc != NQOK) p11fail(p, rc, "nqp11pub");
+  } else if (o == 1) {
+    if (k.kem || nqssize((nqsalg)k.alg, &z) != NQOK)
+      Rf_error("the key is not a signature key");
+    b = xbuf(z.sig);
+    rc = nqp11sign(p, &k, rp(data), rn(data), rp(ctx), rn(ctx), b, z.sig, &on);
+    if (rc != NQOK) p11fail(p, rc, "nqp11sign");
+  } else {
+    if (!k.kem || nqksize((nqkalg)k.alg, &kz) != NQOK)
+      Rf_error("the key is not a KEM key");
+    b = xbuf(kz.ss);
+    rc = nqp11dec(p, &k, rp(data), rn(data), b, kz.ss);
+    if (rc != NQOK) p11fail(p, rc, "nqp11dec");
+    on = kz.ss;
+  }
+  return rawof(b, on);
+}
+
+static SEXP Cp11gen(SEXP x, SEXP kem, SEXP alg, SEXP label) {
+  nqp11 *p = p11of(x);
+  const char *l = sval(label, "label");
+  nqp11k k;
+  int rc;
+  if (l == NULL) Rf_error("'label' must be one string");
+  rc = nqp11gen(p, lval(kem, "kem"), ival(alg, "alg"), l, &k);
+  if (rc != NQOK) p11fail(p, rc, "nqp11gen");
+  return p11klist(&k, 1);
+}
+
 #define CDEF(f, n) {#f, (DL_FUNC)(void (*)(void))&f, n}
 
 static const R_CallMethodDef calls[] = {
@@ -1489,6 +2266,14 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cdreveal, 3), CDEF(Cdcite, 2), CDEF(Cdrpt, 5), CDEF(Cdpack, 3),
   CDEF(Cdunpack, 3), CDEF(Cdchain, 2), CDEF(Calfail, 1),
   CDEF(Cctxbad, 1),
+  CDEF(Carmor, 2), CDEF(Cdearmor, 1), CDEF(Cx5self, 7), CDEF(Cx5kem, 7),
+  CDEF(Cx5info, 1), CDEF(Ccmssign, 7), CDEF(Ccmsvrfy, 5), CDEF(Ccmsenc, 3),
+  CDEF(Ccmsdec, 5), CDEF(Cpgpgen, 5), CDEF(Cpgpinfo, 1), CDEF(Cpgpsign, 5),
+  CDEF(Cpgpvrfy, 3), CDEF(Cpgpenc, 6), CDEF(Cpgpdec, 4), CDEF(Cpgparm, 2),
+  CDEF(Cpgpdearm, 1), CDEF(Cksadd, 7), CDEF(Ckslist, 2), CDEF(Cksget, 2),
+  CDEF(Ckscert, 6), CDEF(Cksop, 4), CDEF(Cksexp, 2), CDEF(Cksimp, 3),
+  CDEF(Cksurl, 1), CDEF(Cp11open, 1), CDEF(Cp11close, 1), CDEF(Cp11toks, 1),
+  CDEF(Cp11login, 3), CDEF(Cp11keys, 1), CDEF(Cp11use, 8), CDEF(Cp11gen, 4),
   {NULL, NULL, 0}
 };
 

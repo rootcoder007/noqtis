@@ -38,6 +38,9 @@ reference:
       - nqdpin
       - nqdiff
       - has_concept("data record functions")
+  - title: Mail, OpenPGP, key store and tokens
+    contents:
+      - has_concept("mail and key functions")
   - title: The library
     contents:
       - has_concept("library functions")

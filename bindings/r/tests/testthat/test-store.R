@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+st0 <- 1767225600 # 2026-01-01T00:00:00Z
+
+test_that("a key store keeps, certifies and carries keys", {
+  d <- file.path(tempfile("nqks"), "keys")
+  d2 <- file.path(tempfile("nqks"), "keys")
+  on.exit(unlink(c(dirname(d), dirname(d2)), recursive = TRUE))
+  me <- nqkeygen("ML-DSA-44")
+  bob <- nqkeygen("ML-KEM-768")
+  mine <- nqksadd(d, me$pk, "ML-DSA-44", "Me Myself", "me@example.org")
+  his <- nqksadd(d, bob$pk, "ML-KEM-768", "Bob Other", "bob@example.org")
+  expect_length(mine, 32L)
+  l <- nqkslist(d)
+  expect_identical(nrow(l), 2L)
+  expect_length(attr(l, "fingerprints"), 2L)
+  b <- nqkslist(d, "bob@example.org")
+  expect_identical(nrow(b), 1L)
+  expect_identical(b$alg, "ML-KEM-768")
+  expect_true(b$kem)
+  expect_identical(b$valid, "none")
+  expect_identical(b$trust, "unknown")
+  expect_identical(b$fingerprint, paste(sprintf("%02x", as.integer(his)),
+    collapse = ""
+  ))
+  g <- nqksget(d, his)
+  expect_identical(g$alg, "ML-KEM-768")
+  expect_identical(g$pk, bob$pk)
+  # the fingerprint in hexadecimal names the key as well
+  expect_identical(nqksget(d, b$fingerprint)$pk, bob$pk)
+  expect_null(nqkstrust(d, mine, "ultimate"))
+  cert <- nqkscertify(d, me$sk, me$pk, "ML-DSA-44", his, at = st0)
+  expect_true(nzchar(cert))
+  b <- nqkslist(d, "bob@example.org")
+  expect_identical(b$valid, "full")
+  expect_identical(b$certs, 1L)
+  bundle <- nqksexport(d, his)
+  r <- nqksimport(d2, bundle, "bob@example.org")
+  expect_identical(r$fingerprint, his)
+  expect_gte(r$keys, 1L)
+  expect_error(nqksimport(d2, bundle, "eve@example.org"))
+  expect_null(nqksdel(d, his))
+  expect_identical(nrow(nqkslist(d)), 1L)
+  expect_identical(nrow(nqkslist(d, "nobody")), 0L)
+  expect_error(nqkstrust(d, as.raw(1:5), "full"), "32 raw bytes")
+  expect_error(nqkstrust(d, mine, "somewhat"))
+  expect_error(nqksadd(d, me$pk, "ML-DSA-44", NULL), "one string")
+  expect_error(nqkslist(""), "one folder")
+  expect_error(nqksaddcert(d, "not a certification"))
+})
+
+test_that("an address has one place to look its keys up", {
+  u <- nqksurl("Ada@Example.org")
+  expect_match(u, "^https://example.org/\\.well-known/noqtis/[0-9a-f]{40}$")
+  expect_identical(u, nqksurl("ada@example.org"))
+  expect_error(nqksurl("no address"))
+  expect_error(nqksurl(NULL), "one string")
+})
