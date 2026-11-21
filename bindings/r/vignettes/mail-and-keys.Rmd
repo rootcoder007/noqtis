@@ -1,0 +1,116 @@
+---
+title: "Mail, OpenPGP, the key store and tokens"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Mail, OpenPGP, the key store and tokens}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# the vignette runs in full in GitHub CI and for the package tarball (NOT_CRAN),
+# on r-universe (MY_UNIVERSE), on the package website (IN_PKGDOWN) and in an
+# interactive session; when CRAN re-builds it in its check, none of these is set
+# and only this chunk runs
+if (!interactive() &&
+      !any(nzchar(Sys.getenv(c("NOT_CRAN", "MY_UNIVERSE", "IN_PKGDOWN"))))) {
+  knitr::knit_exit()
+}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 88)
+library(noqtis)
+```
+
+Signing and encrypting for people, in the formats mail and key tools read: text armor, X.509 certificates with CMS and S/MIME, OpenPGP, a store of other people's keys, and keys that stay on a token.
+
+Each section is one help page: what its functions are for, and the example
+of the page as it runs. `?name` gives the arguments and the value in full.
+
+## Text armor
+
+`nqarmor()`, `nqdearmor()`: `nqarmor()` writes bytes as text between a `-----BEGIN` and an `-----END` line (RFC 7468), to paste into a message or a web page; `nqdearmor()` reads it back and gives the label with the bytes.
+
+```{r nqarmor}
+a <- nqarmor("NOQTIS TEST", as.raw(1:40))
+cat(a)
+nqdearmor(a)$label
+```
+
+## Certificates
+
+`nqcert()`, `nqkemcert()`, `nqcertinfo()`: `nqcert()` writes a self-signed X.509 certificate for a signature key (ML-DSA, SLH-DSA or Ed25519) under a name and an e-mail address; `nqkemcert()` writes the certificate of an ML-KEM key, issued by that signature key, which is what mail is encrypted to; `nqcertinfo()` says what a certificate holds.
+
+```{r nqcert}
+k <- nqkeygen("ML-DSA-44")
+cert <- nqcert(k$sk, k$pk, "ML-DSA-44", "Ada Example",
+  email = "ada@example.org"
+)
+nqcertinfo(cert)$name
+e <- nqkeygen("ML-KEM-768")
+kc <- nqkemcert(k$sk, "ML-DSA-44", cert, e$pk, "ML-KEM-768")
+nqcertinfo(kc)$kem
+```
+
+## CMS and S/MIME messages
+
+`nqcmssign()`, `nqcmsverify()`, `nqcmsencrypt()`, `nqcmsdecrypt()`, `nqsmimesign()`, `nqsmimeverify()`, `nqsmimeencrypt()`, `nqsmimedecrypt()`: the CMS functions sign a message with a certificate and its key, check a signed message against the certificates the caller trusts, and encrypt to the ML-KEM certificates of the recipients; the S/MIME functions do the same with a mail entity and give the mail to send. A signature is good only when its signer's certificate is one of the anchors.
+
+```{r nqcmssign}
+k <- nqkeygen("ML-DSA-44")
+cert <- nqcert(k$sk, k$pk, "ML-DSA-44", "Ada Example")
+s <- nqcmssign(k$sk, cert, charToRaw("hello"), "ML-DSA-44")
+v <- nqcmsverify(s, list(cert))
+rawToChar(v$content)
+v$signer$name
+
+e <- nqkeygen("ML-KEM-768")
+kc <- nqkemcert(k$sk, "ML-DSA-44", cert, e$pk, "ML-KEM-768")
+m <- nqsmimeencrypt(list(kc), "Content-Type: text/plain\r\n\r\nhi\r\n")
+nqsmimedecrypt(e$sk, m, "ML-KEM-768")
+```
+
+## OpenPGP
+
+`nqpgpkeygen()`, `nqpgpinfo()`, `nqpgpsign()`, `nqpgpverify()`, `nqpgpencrypt()`, `nqpgpdecrypt()`, `nqpgparmor()`, `nqpgpdearmor()`: `nqpgpkeygen()` makes a version 6 OpenPGP key (RFC 9580), by default ML-DSA-65 with Ed25519 and an encryption subkey of ML-KEM-768 with X25519, optionally under a passphrase; the others sign (a message that carries its data, a signature alone, or signed text), verify, encrypt to keys or to a passphrase, decrypt, and armor keys and messages as text. Only version 6 keys and messages are read.
+
+```{r nqpgpkeygen}
+k <- nqpgpkeygen("Ada Example <ada@example.org>", "ed25519")
+nqpgpinfo(k$pub)$userid
+s <- nqpgpsign(k$sec, "hello")
+rawToChar(nqpgpverify(k$pub, s)$data)
+e <- nqpgpencrypt("a secret", list(k$pub))
+rawToChar(nqpgpdecrypt(e, k$sec)$data)
+cat(substr(nqpgparmor("public key", k$pub), 1, 37))
+```
+
+## A store of other people's keys
+
+`nqksadd()`, `nqkslist()`, `nqksget()`, `nqksdel()`, `nqkscertify()`, `nqksaddcert()`, `nqkstrust()`, `nqksexport()`, `nqksimport()`, `nqksurl()`: a key store is a folder that keeps public keys under names and addresses. A key is valid when a key the owner trusts has certified it: `nqkstrust()` sets how far a key's certifications count and `nqkscertify()` signs that a key belongs to its name. `nqksexport()` and `nqksimport()` carry a signature key with its identity card, and the keys it certified as its own, to another store; `nqksurl()` is the web address a key is published at for an e-mail address.
+
+```{r nqksadd}
+d <- file.path(tempdir(), "nqkeys")
+dir.create(d)
+me <- nqkeygen("ML-DSA-44")
+bob <- nqkeygen("ML-KEM-768")
+card <- nqidcard(me$sk, me$pk, "ML-DSA-44", "Me", email = "me@example.org")
+mine <- nqksadd(d, me$pk, "ML-DSA-44", card = card)
+his <- nqksadd(d, bob$pk, "ML-KEM-768", "Bob", "bob@example.org")
+nqkstrust(d, mine, "ultimate")
+cert <- nqkscertify(d, me$sk, me$pk, "ML-DSA-44", his)
+nqkslist(d, "bob@example.org")$valid
+nqksurl("bob@example.org")
+unlink(d, recursive = TRUE)
+```
+
+## Keys on a token
+
+`nqtoken()`, `nqtokens()`, `nqtokenlogin()`, `nqtokenkeys()`, `nqtokenkeygen()`, `nqtokenpub()`, `nqtokensign()`, `nqtokendecap()`, `nqtokenclose()`: these work with private keys that stay on a PKCS #11 token (a smart card, a hardware security module or a software token): the token makes the key, signs and decapsulates, and only the public key and the results leave it. `nqtoken()` takes the path of the token's PKCS #11 module. The example needs a token, so it is shown and not run.
+
+```{r nqtoken, eval = FALSE}
+t <- nqtoken("/usr/lib/softhsm/libsofthsm2.so")
+nqtokenlogin(t, nqtokens(t)$slot[1], "1234")
+k <- nqtokenkeygen(t, "ML-DSA-65", "release")
+sig <- nqtokensign(t, k, charToRaw("a release"))
+nqverify(nqtokenpub(t, k), charToRaw("a release"), sig, "ML-DSA-65")
+nqtokenclose(t)
+```
