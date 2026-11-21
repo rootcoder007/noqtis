@@ -90,6 +90,10 @@ fn main() {
         // BCryptGenRandom, the CSPRNG nqrand uses on Windows
         println!("cargo:rustc-link-lib=bcrypt");
     }
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
+        // dlopen, for PKCS #11 modules: in libdl before glibc 2.34
+        println!("cargo:rustc-link-lib=dl");
+    }
     println!("cargo:rerun-if-changed={}", src.display());
     println!("cargo:rerun-if-changed={}", inc.join("noqtis.h").display());
     println!("cargo:rerun-if-changed={}", nqd.display());

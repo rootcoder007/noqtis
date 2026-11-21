@@ -1270,6 +1270,70 @@ NQAPI int nqpgparm(int kind, const uint8_t *in, size_t n, char *out,
 NQAPI int nqpgpdearm(const char *in, size_t n, int *kind, uint8_t *out,
                      size_t cap, size_t *outlen);
 
+/* ---- keys on a token (PKCS #11) ------------------------------------- */
+
+/* Signing and decapsulating with private keys that stay on a token: a
+ * smart card, a hardware security module, or a software token. The
+ * token's maker ships a PKCS #11 module, a shared library; nqp11open
+ * loads the one at the path module (a path with a folder in it, never a
+ * bare name the loader would search for) and starts it. The key types
+ * are those of PKCS #11 version 3.2: ML-DSA, SLH-DSA and ML-KEM, and
+ * Ed25519 of version 3.0.
+ *
+ * nqp11toks lists the tokens present. nqp11login opens a session with
+ * the token in a slot and, with pin not NULL, logs the user in; one
+ * session per handle. nqp11keys lists the private keys there that
+ * noqtis can use; nqp11pub gives a key's public key, in the form the
+ * rest of noqtis takes (for nqvrfy, nqenc and key files).
+ *
+ * nqp11sign signs msg with a signature key: the signature is what
+ * nqsign makes with the same context, and nqvrfy checks it. (No
+ * pre-hash variants, and no hybrid keys.) nqp11dec decapsulates an
+ * ML-KEM ciphertext, as nqdec does; the token must be of version 3.2.
+ * nqp11gen makes a key pair on the token under a label, never to leave
+ * it.
+ *
+ * NQEIO when the module cannot be loaded or the token refuses (nqp11why
+ * then gives the module's own return value, a CKR_ number of the
+ * standard); NQEDEC for a library that is not a PKCS #11 module;
+ * NQEVRFY for a wrong or locked PIN; NQENOSUP when the token has not
+ * the mechanism, and on systems that load no shared libraries;
+ * NQESTATE before nqp11login, or for a second one; NQEBUF with the
+ * count or size in *n. A handle is for one thread at a time. */
+typedef struct nqp11 nqp11;
+typedef struct {
+  unsigned long slot;
+  char label[33];
+  char maker[33];
+  char model[17];
+  char serial[17];
+  int login;         /* 1 when its keys need the PIN */
+} nqp11t;
+typedef struct {
+  int kem;           /* 1: alg is a nqkalg; 0: a nqsalg */
+  int alg;
+  unsigned long h;   /* the object, in this session */
+  char label[65];
+  uint8_t id[32];
+  size_t idlen;
+} nqp11k;
+NQAPI int nqp11open(const char *module, nqp11 **p);
+NQAPI void nqp11close(nqp11 *p);
+NQAPI unsigned long nqp11why(const nqp11 *p);
+NQAPI int nqp11toks(nqp11 *p, nqp11t *t, size_t cap, size_t *n);
+NQAPI int nqp11login(nqp11 *p, unsigned long slot, const char *pin,
+                     size_t pinlen);
+NQAPI int nqp11keys(nqp11 *p, nqp11k *k, size_t cap, size_t *n);
+NQAPI int nqp11pub(nqp11 *p, const nqp11k *k, uint8_t *pk, size_t cap,
+                   size_t *pklen);
+NQAPI int nqp11sign(nqp11 *p, const nqp11k *k, const uint8_t *msg, size_t n,
+                    const uint8_t *ctx, size_t ctxlen, uint8_t *sig,
+                    size_t cap, size_t *siglen);
+NQAPI int nqp11dec(nqp11 *p, const nqp11k *k, const uint8_t *ct,
+                   size_t ctlen, uint8_t *ss, size_t sslen);
+NQAPI int nqp11gen(nqp11 *p, int kem, int alg, const char *label,
+                   nqp11k *k);
+
 /* ---- TLS 1.3 client ------------------------------------------------- */
 
 /* A TLS 1.3 client (RFC 8446): X25519MLKEM768 and X25519 key shares

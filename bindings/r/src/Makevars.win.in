@@ -70,6 +70,7 @@ OBJECTS = \
   mlkem/kem.o \
   mlkem/mdec.o \
   msk/msk.o \
+  p11/p11.o \
   pgp/pgp.o \
   slh/hsh.o \
   slh/slh.o \

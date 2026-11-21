@@ -18,6 +18,7 @@ package noqtis
 #cgo CFLAGS: -std=c11 -DNQBUILD -I${SRCDIR}/csrc/include -I${SRCDIR}/csrc/src
 #cgo windows LDFLAGS: -lbcrypt
 #cgo !windows LDFLAGS: -lm
+#cgo linux LDFLAGS: -ldl
 #include <stdlib.h>
 #include "noqtis.h"
 */

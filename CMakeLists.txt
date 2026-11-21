@@ -224,6 +224,10 @@ target_include_directories(noqtis PUBLIC
 if(WIN32)
   target_link_libraries(noqtis PRIVATE bcrypt)
 endif()
+if(NOT NQFREE AND CMAKE_DL_LIBS)
+  # src/p11 loads PKCS #11 modules: dlopen, in libdl before glibc 2.34
+  target_link_libraries(noqtis PRIVATE ${CMAKE_DL_LIBS})
+endif()
 
 # the data layer (nqd/), on the public API only; the tool needs it
 if(NQDATA)
@@ -249,6 +253,26 @@ if(NQTESTS)
   if(WIN32)
     target_link_libraries(nqint PUBLIC bcrypt)
   endif()
+  if(NOT NQFREE AND CMAKE_DL_LIBS)
+    target_link_libraries(nqint PUBLIC ${CMAKE_DL_LIBS})
+  endif()
+  # the software token the PKCS #11 tests load: a module, where the
+  # system loads shared libraries and the tests run on the build machine
+  set(NQTOK OFF)
+  if(NOT NQFREE AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN
+     AND NOT CMAKE_SYSTEM_NAME STREQUAL "WASI" AND NOT CMAKE_CROSSCOMPILING)
+    set(NQTOK ON)
+    # with the library's sources of its own, as position-independent code
+    add_library(nqtok MODULE ${PROJECT_SOURCE_DIR}/tests/p11/tok.c ${NQSRC})
+    target_include_directories(nqtok PRIVATE ${PROJECT_SOURCE_DIR}/include
+                               ${PROJECT_SOURCE_DIR}/src)
+    if(WIN32)
+      target_link_libraries(nqtok PRIVATE bcrypt)
+    endif()
+    target_link_libraries(nqtok PRIVATE ${CMAKE_DL_LIBS})
+    target_compile_definitions(nqtok PRIVATE NQBUILD)
+    set_target_properties(nqtok PROPERTIES PREFIX "" C_VISIBILITY_PRESET hidden)
+  endif()
   # one executable per tests/t*.c
   file(GLOB NQTSRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/tests/t*.c)
   foreach(t ${NQTSRC})
@@ -259,6 +283,11 @@ if(NQTESTS)
                                ${PROJECT_SOURCE_DIR}/tests)
     target_compile_options(${name} PRIVATE ${NQWARN})
     target_compile_definitions(${name} PRIVATE NQTEST)
+    if(NQTOK AND name STREQUAL "tp11")
+      target_compile_definitions(${name} PRIVATE
+                                 NQTOKPATH="$<TARGET_FILE:nqtok>")
+      add_dependencies(${name} nqtok)
+    endif()
     if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
       # the tests time loops with clock(), which wasi-libc emulates
       target_compile_definitions(${name} PRIVATE _WASI_EMULATED_PROCESS_CLOCKS)
@@ -414,6 +443,9 @@ if(WIN32)
   if(NQSHARED)
     set(NQPCDEF " -DNQDLL")
   endif()
+endif()
+if(NOT WIN32 AND NOT NQFREE AND CMAKE_DL_LIBS)
+  set(NQPCPRIV "-l${CMAKE_DL_LIBS}")
 endif()
 configure_file(cmake/noqtis.pc.in noqtis.pc @ONLY)
 install(FILES ${PROJECT_BINARY_DIR}/noqtis.pc
