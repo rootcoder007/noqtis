@@ -64,6 +64,25 @@
 #' Nir, Y. and Langley, A. (2018). *ChaCha20 and Poly1305 for IETF
 #' Protocols*. RFC 8439. \doi{10.17487/RFC8439}
 #'
+#' Bertoni, G., Daemen, J., Peeters, M., Van Assche, G., Van Keer, R. and
+#' Viguier, B. (2018). KangarooTwelve: fast hashing based on Keccak-p.
+#' In *Applied Cryptography and Network Security (ACNS 2018)*, Lecture
+#' Notes in Computer Science 10892, 400-418. Springer.
+#' \doi{10.1007/978-3-319-93387-0_21}
+#'
+#' Rogaway, P. and Shrimpton, T. (2006). A provable-security treatment of
+#' the key-wrap problem. In *Advances in Cryptology - EUROCRYPT 2006*,
+#' Lecture Notes in Computer Science 4004, 373-390. Springer.
+#' \doi{10.1007/11761679_23}
+#'
+#' Gueron, S. and Lindell, Y. (2015). GCM-SIV: full nonce
+#' misuse-resistant authenticated encryption at under one cycle per
+#' byte. In *Proceedings of the 22nd ACM SIGSAC Conference on Computer
+#' and Communications Security*, 109-119. \doi{10.1145/2810103.2813613}
+#'
+#' Bernstein, D. J. (2008). ChaCha, a variant of Salsa20. In *Workshop
+#' Record of SASC 2008: The State of the Art of Stream Ciphers*.
+#'
 #' @family hash functions
 #'
 #' @examples
