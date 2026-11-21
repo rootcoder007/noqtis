@@ -166,4 +166,53 @@ int nqdtime(const nqdtlv *t, unsigned flags, int64_t *secs, uint32_t *nsec);
 /* 1 when the spans hold the same bytes. */
 int nqdseq(nqspan a, nqspan b);
 
+/* ---- the writer (wr.c) ---- */
+
+/* A growing buffer of DER. An error sticks in err (NQEMEM, NQELIM for a
+ * length past 2^32 - 1, NQEARG for a time out of range); calls after it
+ * do nothing. */
+typedef struct {
+  uint8_t *p;
+  size_t n;
+  size_t cap;
+  int err;
+} nqdw;
+
+/* identifier octets beside the universal tags above */
+#define NQDWSEQ 0x30u            /* SEQUENCE */
+#define NQDWSET 0x31u            /* SET */
+#define NQDWCTX(n) (0x80u | (n)) /* [n] IMPLICIT, primitive */
+#define NQDWCON(n) (0xa0u | (n)) /* [n], constructed */
+
+void nqdwini(nqdw *w);
+void nqdwfree(nqdw *w);
+/* Bytes as they are (an element made elsewhere). */
+void nqdwraw(nqdw *w, const uint8_t *p, size_t n);
+/* A primitive element: the identifier octet id, the contents v. */
+void nqdwtlv(nqdw *w, unsigned id, const uint8_t *v, size_t n);
+/* Opens a constructed element with the identifier octet id; the mark
+ * goes to nqdwclose once its contents are written. */
+size_t nqdwopen(nqdw *w, unsigned id);
+void nqdwclose(nqdw *w, size_t mark);
+/* INTEGER: a non-negative value, or the magnitude mag of one (leading
+ * zeros dropped, a 00 added when the top bit is set). */
+void nqdwuint(nqdw *w, uint64_t v);
+void nqdwmag(nqdw *w, const uint8_t *mag, size_t n);
+/* OBJECT IDENTIFIER (its contents), NULL, BOOLEAN, OCTET STRING, a BIT
+ * STRING with no unused bits, UTF8String. */
+void nqdwoid(nqdw *w, const uint8_t *oid, size_t n);
+void nqdwnull(nqdw *w);
+void nqdwbool(nqdw *w, int b);
+void nqdwoct(nqdw *w, const uint8_t *p, size_t n);
+void nqdwbits(nqdw *w, const uint8_t *p, size_t n);
+void nqdwutf8(nqdw *w, const char *s, size_t n);
+/* A time t (seconds since 1970, to 9999): UTCTime through 2049 and
+ * GeneralizedTime from 2050 (RFC 5280), or with gen GeneralizedTime
+ * always. */
+void nqdwtime(nqdw *w, int64_t t, int gen);
+/* Ends the writer: NQOK with the bytes in a new buffer of exactly *n
+ * bytes (nqfree(*out, *n ? *n : 1)), or the error that stuck; the
+ * writer is freed either way. */
+int nqdwend(nqdw *w, uint8_t **out, size_t *n);
+
 #endif /* NQDER_H */

@@ -5,8 +5,9 @@
  * of them at once as x^254 in GF(2^8) (the inverse, 0 for 0) followed
  * by the affine map of FIPS 197 section 5.1.1. ShiftRows, MixColumns and
  * AddRoundKey work on the bytes with masks and XORs only, so no branch
- * and no memory index depends on the key or the data. Only the forward
- * cipher: GCM and CTR never decrypt a block. */
+ * and no memory index depends on the key or the data. The inverse
+ * cipher (nqaesd1, for AES key unwrap and OCB) is built the same way:
+ * the inverse affine map, then the same inversion. */
 #include <string.h>
 
 #include "aead/aead.h"
@@ -30,13 +31,21 @@ static void gmul(uint32_t *r, const uint32_t *a, const uint32_t *b) {
   for (i = 0; i < 8; i++) r[i] = c[i];
 }
 
-/* SubBytes on 32 bytes in place */
-static void sub32(uint8_t *s) {
+/* SubBytes on 32 bytes in place; with inv, InvSubBytes */
+static void sbox32(uint8_t *s, int inv) {
   uint32_t x[8], x2[8], x3[8], x12[8], t[8];
   int i, j;
   for (i = 0; i < 8; i++) {
     x[i] = 0;
     for (j = 0; j < 32; j++) x[i] |= (((uint32_t)s[j] >> i) & 1u) << j;
+  }
+  if (inv) {
+    /* b_i = b'_(i+2) + b'_(i+5) + b'_(i+7) + d_i, d = 0x05 */
+    for (i = 0; i < 8; i++) {
+      t[i] = x[(i + 2) & 7] ^ x[(i + 5) & 7] ^ x[(i + 7) & 7] ^
+             ((0x05u >> i) & 1u ? 0xffffffffu : 0u);
+    }
+    for (i = 0; i < 8; i++) x[i] = t[i];
   }
   /* x^254 = x^(2 + 12 + 240): x^2, x^3, x^6, x^12, x^15, x^240 */
   gmul(x2, x, x);
@@ -49,8 +58,10 @@ static void sub32(uint8_t *s) {
   gmul(t, t, x2);
   /* b'_i = b_i + b_(i+4) + b_(i+5) + b_(i+6) + b_(i+7) + c_i, c = 0x63 */
   for (i = 0; i < 8; i++) {
-    x[i] = t[i] ^ t[(i + 4) & 7] ^ t[(i + 5) & 7] ^ t[(i + 6) & 7] ^
-           t[(i + 7) & 7] ^ ((0x63u >> i) & 1u ? 0xffffffffu : 0u);
+    x[i] = inv ? t[i]
+               : t[i] ^ t[(i + 4) & 7] ^ t[(i + 5) & 7] ^ t[(i + 6) & 7] ^
+                     t[(i + 7) & 7] ^
+                     ((0x63u >> i) & 1u ? 0xffffffffu : 0u);
   }
   for (j = 0; j < 32; j++) {
     uint32_t v = 0;
@@ -63,6 +74,8 @@ static void sub32(uint8_t *s) {
   nqwipe(x12, sizeof x12);
   nqwipe(t, sizeof t);
 }
+
+static void sub32(uint8_t *s) { sbox32(s, 0); }
 
 static uint8_t xt(uint8_t a) {
   return (uint8_t)(((unsigned)a << 1) ^ (0x1bu & (0u - ((unsigned)a >> 7))));
@@ -143,4 +156,54 @@ void nqaes1(const nqaes *k, const uint8_t *in, uint8_t *out) {
   nqaes2(k, b, b);
   memcpy(out, b, 16);
   nqwipe(b, sizeof b);
+}
+
+/* InvShiftRows then (unless first) nothing more: the inverse of the
+ * row step of mix */
+static void unshift(uint8_t *s) {
+  uint8_t o[16];
+  int r, c;
+  for (c = 0; c < 4; c++) {
+    for (r = 0; r < 4; r++) o[r + 4 * ((c + r) & 3)] = s[r + 4 * c];
+  }
+  memcpy(s, o, 16);
+  nqwipe(o, sizeof o);
+}
+
+/* InvMixColumns: the columns times {04}x^2 + {05}, then MixColumns */
+static void unmix(uint8_t *s) {
+  int c;
+  for (c = 0; c < 4; c++) {
+    uint8_t *a = s + 4 * c;
+    uint8_t u = xt(xt((uint8_t)(a[0] ^ a[2])));
+    uint8_t v = xt(xt((uint8_t)(a[1] ^ a[3])));
+    uint8_t t, a0;
+    a[0] ^= u;
+    a[1] ^= v;
+    a[2] ^= u;
+    a[3] ^= v;
+    t = (uint8_t)(a[0] ^ a[1] ^ a[2] ^ a[3]);
+    a0 = a[0];
+    a[0] = (uint8_t)(a[0] ^ t ^ xt((uint8_t)(a[0] ^ a[1])));
+    a[1] = (uint8_t)(a[1] ^ t ^ xt((uint8_t)(a[1] ^ a[2])));
+    a[2] = (uint8_t)(a[2] ^ t ^ xt((uint8_t)(a[2] ^ a[3])));
+    a[3] = (uint8_t)(a[3] ^ t ^ xt((uint8_t)(a[3] ^ a0)));
+  }
+}
+
+/* The inverse cipher of FIPS 197 section 5.3 on one block. */
+void nqaesd1(const nqaes *k, const uint8_t *in, uint8_t *out) {
+  uint8_t s[32];
+  unsigned r;
+  int i;
+  memset(s + 16, 0, 16);
+  for (i = 0; i < 16; i++) s[i] = (uint8_t)(in[i] ^ k->rk[16 * k->nr + (unsigned)i]);
+  for (r = k->nr; r-- > 0;) {
+    unshift(s);
+    sbox32(s, 1);
+    for (i = 0; i < 16; i++) s[i] ^= k->rk[16 * r + (unsigned)i];
+    if (r != 0) unmix(s);
+  }
+  memcpy(out, s, 16);
+  nqwipe(s, sizeof s);
 }

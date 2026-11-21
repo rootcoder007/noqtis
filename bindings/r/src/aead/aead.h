@@ -92,4 +92,38 @@ int nqccpd(const uint8_t *key, size_t klen, const uint8_t *nonce,
            size_t nlen, const uint8_t *aad, size_t alen, const uint8_t *in,
            size_t n, const uint8_t *tag, size_t taglen, uint8_t *out);
 
+/* Decrypts one block (the inverse cipher); in may be out. */
+void nqaesd1(const nqaes *k, const uint8_t *in, uint8_t *out);
+/* CMAC of pre (pn bytes) followed by in, and AES-CTR with a 128-bit
+ * big-endian counter that starts at q (sym.c). */
+void nqcmacp(const nqaes *k, const uint8_t *pre, size_t pn,
+             const uint8_t *in, size_t n, uint8_t *tag);
+void nqctrbe(const nqaes *k, const uint8_t *q, const uint8_t *in, size_t n,
+             uint8_t *out);
+
+/* AES Key Wrap (RFC 3394, kw.c): n bytes (a multiple of 8, 16 to 4096)
+ * into n + 8; nqkunwrap takes the n + 8 and gives NQEVRFY, and no
+ * bytes, when the key-encryption key or the wrapped key is not the
+ * one. */
+int nqkwrap(const uint8_t *kek, size_t keklen, const uint8_t *in, size_t n,
+            uint8_t *out);
+int nqkunwrap(const uint8_t *kek, size_t keklen, const uint8_t *in, size_t n,
+              uint8_t *out);
+
+/* AES-OCB (RFC 7253; a nonce of 1 to 15 bytes) and AES-EAX (ocb.c), tag
+ * NQAEADTAG bytes. Decryption gives NQEVRFY, and no plaintext, when
+ * the tag is wrong. */
+int nqocbe(const uint8_t *key, size_t klen, const uint8_t *nonce, size_t nlen,
+           const uint8_t *aad, size_t alen, const uint8_t *in, size_t n,
+           uint8_t *out, uint8_t *tag);
+int nqocbd(const uint8_t *key, size_t klen, const uint8_t *nonce, size_t nlen,
+           const uint8_t *aad, size_t alen, const uint8_t *in, size_t n,
+           const uint8_t *tag, uint8_t *out);
+int nqeaxe(const uint8_t *key, size_t klen, const uint8_t *nonce, size_t nlen,
+           const uint8_t *aad, size_t alen, const uint8_t *in, size_t n,
+           uint8_t *out, uint8_t *tag);
+int nqeaxd(const uint8_t *key, size_t klen, const uint8_t *nonce, size_t nlen,
+           const uint8_t *aad, size_t alen, const uint8_t *in, size_t n,
+           const uint8_t *tag, uint8_t *out);
+
 #endif /* NQAEAD_H */

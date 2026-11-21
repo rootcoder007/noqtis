@@ -109,6 +109,18 @@ static void cmfin(cmac *c, uint8_t *tag) {
   nqaes1(c->k, c->x, tag);
 }
 
+/* CMAC (the OMAC1 of EAX) of pre followed by in, for the other modes
+ * of this directory */
+void nqcmacp(const nqaes *k, const uint8_t *pre, size_t pn,
+             const uint8_t *in, size_t n, uint8_t *tag) {
+  cmac c;
+  cmini(&c, k);
+  if (pn > 0) cmupd(&c, pre, pn);
+  if (n > 0) cmupd(&c, in, n);
+  cmfin(&c, tag);
+  nqwipe(&c, sizeof c);
+}
+
 /* S2V of RFC 5297 section 2.4 over the nad strings of ad and then the
  * plaintext p, the last string */
 static void s2v(const nqaes *k, const uint8_t *const *ad,
@@ -169,6 +181,11 @@ static void ctrbe(const nqaes *k, const uint8_t *q, const uint8_t *in,
     }
   }
   nqwipe(ks, sizeof ks);
+}
+
+void nqctrbe(const nqaes *k, const uint8_t *q, const uint8_t *in, size_t n,
+             uint8_t *out) {
+  ctrbe(k, q, in, n, out);
 }
 
 /* the two keys of AES-SIV; NQEARG for a length that is not twice an AES

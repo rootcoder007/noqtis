@@ -9,6 +9,8 @@ OBJECTS = \
   aead/aes.o \
   aead/ccp.o \
   aead/gcm.o \
+  aead/kw.o \
+  aead/ocb.o \
   aead/sym.o \
   api/kem.o \
   api/self.o \
@@ -43,6 +45,7 @@ OBJECTS = \
   der/der.o \
   der/rev.o \
   der/tsp.o \
+  der/wr.o \
   der/x509.o \
   drbg/drbg.o \
   ed/ed.o \
