@@ -829,7 +829,7 @@ int nqcmsvrfy(const uint8_t *cms, size_t n, const uint8_t *msg, size_t mlen,
   nqxchk k;
   nqspan content, m, sg;
   uint8_t dig[NQHMAX], *sab = NULL;
-  size_t i, dn, np = 0, sabn = 0, leafi = 0;
+  size_t i, dn, np = 0, sabn = 0;
   int64_t stime = 0;
   int hast = 0, rc, direct = 0;
   if (outlen != NULL) *outlen = 0;
@@ -875,10 +875,7 @@ int nqcmsvrfy(const uint8_t *cms, size_t n, const uint8_t *msg, size_t mlen,
       rc = NQEDEC;
       goto done;
     }
-    if (leaf == NULL && issigner(&s, &cs[i])) {
-      leaf = &cs[i];
-      leafi = i;
-    }
+    if (leaf == NULL && issigner(&s, &cs[i])) leaf = &cs[i];
   }
   for (i = 0; leaf == NULL && i < nanc; i++) {
     if (issigner(&s, &as[i])) {
@@ -946,7 +943,6 @@ int nqcmsvrfy(const uint8_t *cms, size_t n, const uint8_t *msg, size_t mlen,
       goto done;
     }
   }
-  (void)leafi;
   if (outlen != NULL) *outlen = content.n;
   if (out != NULL) {
     if (cap < content.n) {
@@ -1218,7 +1214,7 @@ int nqcmsdec(nqkalg alg, const uint8_t *sk, size_t sklen,
              const uint8_t *cert, size_t certlen, const uint8_t *cms,
              size_t n, uint8_t *out, size_t cap, size_t *outlen) {
   nqdtlv body, t, ri, e, o, par, nonce, icv, ect, mac, aa;
-  nqdcur c, rc2, ec, pc, ac;
+  nqdcur c, rc2, ec, pc;
   nqcert own;
   nqgcm g;
   nqksz kz;
@@ -1298,7 +1294,6 @@ int nqcmsdec(nqkalg alg, const uint8_t *sk, size_t sklen,
     nqdwini(&w);
     nqdwtlv(&w, 0x31, aa.v.p, aa.v.n);
     rc = nqdwend(&w, &aad, &aadn);
-    (void)ac;
   }
   if (rc == NQOK) {
     *outlen = ect.v.n;
@@ -1313,5 +1308,386 @@ int nqcmsdec(nqkalg alg, const uint8_t *sk, size_t sklen,
   nqwipe(cek, sizeof cek);
   if (aad != NULL) nqfree(aad, aadn > 0 ? aadn : 1);
   if (rc != NQOK && rc != NQEBUF) *outlen = 0;
+  return rc;
+}
+
+/* ---- S/MIME (RFC 8551): the messages above as MIME entities ---- */
+
+#define SMMAX ((size_t)1 << 30)
+
+/* the entity with every line ended by CRLF, as it is signed and
+ * encrypted (RFC 8551 section 3.1.1): a lone LF or CR becomes CRLF */
+static int canon(const char *in, size_t n, nqcbuf *b) {
+  size_t i;
+  for (i = 0; i < n; i++) {
+    if (in[i] == '\r') {
+      nqcput(b, "\r\n", 2);
+      if (i + 1 < n && in[i + 1] == '\n') i++;
+    } else if (in[i] == '\n') {
+      nqcput(b, "\r\n", 2);
+    } else {
+      nqcput(b, in + i, 1);
+    }
+  }
+  return b->err;
+}
+
+/* base64 in lines of 64 characters, each ended by CRLF */
+static int b64lines(nqcbuf *b, const uint8_t *in, size_t n) {
+  char line[65];
+  size_t i;
+  for (i = 0; i < n; i += 48) {
+    size_t k = n - i < 48 ? n - i : 48;
+    nqb64e(in + i, k, line);
+    nqcput(b, line, nqb64n(k));
+    nqcput(b, "\r\n", 2);
+  }
+  return b->err;
+}
+
+/* the base64 of text (space and line ends between it passed over) into
+ * a new buffer */
+static int unb64(const char *in, size_t n, uint8_t **out, size_t *cap,
+                 size_t *len) {
+  char *t = (char *)nqmal(n + 1);
+  size_t i, k = 0;
+  int rc;
+  if (t == NULL) return NQEMEM;
+  for (i = 0; i < n; i++) {
+    char c = in[i];
+    if (c != ' ' && c != '\t' && c != '\r' && c != '\n') t[k++] = c;
+  }
+  *cap = k / 4 * 3 + 3;
+  *out = (uint8_t *)nqmal(*cap);
+  if (*out == NULL) {
+    nqfree(t, n + 1);
+    return NQEMEM;
+  }
+  rc = nqb64d(t, k, *out, *cap, len);
+  nqfree(t, n + 1);
+  if (rc != NQOK) {
+    nqfree(*out, *cap);
+    *out = NULL;
+    return NQEDEC;
+  }
+  return NQOK;
+}
+
+static int lc(int c) { return c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c; }
+
+/* whether the n bytes at s start with the ASCII word w, letters of
+ * either case alike */
+static int starts(const char *s, size_t n, const char *w) {
+  size_t i, l = strlen(w);
+  if (n < l) return 0;
+  for (i = 0; i < l; i++) {
+    if (lc((unsigned char)s[i]) != lc((unsigned char)w[i])) return 0;
+  }
+  return 1;
+}
+
+/* the header of an entity: where its body starts (after the first
+ * empty line; n when there is none) */
+static size_t bodyat(const char *m, size_t n) {
+  size_t i;
+  for (i = 0; i < n; i++) {
+    if (m[i] != '\n') continue;
+    if (i + 1 < n && m[i + 1] == '\n') return i + 2;
+    if (i + 2 < n && m[i + 1] == '\r' && m[i + 2] == '\n') return i + 3;
+  }
+  return n;
+}
+
+/* the value of the header field name (with its colon) in the header of
+ * hn bytes, continuation lines unfolded into out; 0 when absent or
+ * longer than cap */
+static int field(const char *m, size_t hn, const char *name, char *out,
+                 size_t cap) {
+  size_t i = 0, o = 0;
+  while (i < hn) {
+    size_t e = i;
+    while (e < hn && m[e] != '\n') e++;
+    if (starts(m + i, e - i, name)) {
+      i += strlen(name);
+      for (;;) {
+        for (; i < e; i++) {
+          if (m[i] == '\r') continue;
+          if (o + 1 >= cap) return 0;
+          out[o++] = m[i];
+        }
+        /* a line that starts with space or a tab goes on */
+        if (e + 1 < hn && (m[e + 1] == ' ' || m[e + 1] == '\t')) {
+          i = e + 1;
+          e = i;
+          while (e < hn && m[e] != '\n') e++;
+          continue;
+        }
+        break;
+      }
+      out[o] = '\0';
+      return 1;
+    }
+    i = e + 1;
+  }
+  return 0;
+}
+
+/* the parameter name of a header value (name=value or name="value");
+ * 0 when absent or longer than cap */
+static int param(const char *v, const char *name, char *out, size_t cap) {
+  size_t n = strlen(v), l = strlen(name), i, o = 0;
+  for (i = 0; i < n; i++) {
+    if (v[i] != ';') continue;
+    i++;
+    while (i < n && (v[i] == ' ' || v[i] == '\t')) i++;
+    if (!starts(v + i, n - i, name) || i + l >= n || v[i + l] != '=') {
+      i--;
+      continue;
+    }
+    i += l + 1;
+    if (i < n && v[i] == '"') {
+      for (i++; i < n && v[i] != '"'; i++) {
+        if (o + 1 >= cap) return 0;
+        out[o++] = v[i];
+      }
+    } else {
+      for (; i < n && v[i] != ';' && v[i] != ' ' && v[i] != '\t'; i++) {
+        if (o + 1 >= cap) return 0;
+        out[o++] = v[i];
+      }
+    }
+    out[o] = '\0';
+    return 1;
+  }
+  return 0;
+}
+
+/* gives the buffer b to the caller */
+static int give(nqcbuf *b, char *out, size_t cap, size_t *outlen) {
+  if (b->err != NQOK) return b->err;
+  *outlen = b->n;
+  if (cap < b->n) return NQEBUF;
+  if (b->n > 0) memcpy(out, b->p, b->n);
+  return NQOK;
+}
+
+/* an application/pkcs7-mime entity of the smime-type st around cms */
+static int p7m(nqcbuf *b, const char *st, const uint8_t *cms, size_t n) {
+  nqcputs(b, "MIME-Version: 1.0\r\n"
+             "Content-Type: application/pkcs7-mime; smime-type=");
+  nqcputs(b, st);
+  nqcputs(b, "; name=\"smime.p7m\"\r\n"
+             "Content-Transfer-Encoding: base64\r\n"
+             "Content-Disposition: attachment; filename=\"smime.p7m\"\r\n"
+             "\r\n");
+  return b64lines(b, cms, n);
+}
+
+int nqsmsign(nqsalg alg, const uint8_t *sk, size_t sklen,
+             const uint8_t *cert, size_t certlen, const char *entity,
+             size_t n, int detached, int64_t at, char *out, size_t cap,
+             size_t *outlen) {
+  static const char *const mic[] = {"sha-256", "sha-384", "sha-512",
+                                    "shake128", "shake256"};
+  nqcbuf e, b;
+  uint8_t *cms = NULL, rnd[16];
+  char bd[48];
+  size_t cc, cn = 0;
+  nqhalg h = dalg(alg);
+  int rc;
+  if (outlen != NULL) *outlen = 0;
+  if (entity == NULL || outlen == NULL || (out == NULL && cap != 0))
+    return NQEARG;
+  if (n > SMMAX) return NQELIM;
+  memset(&e, 0, sizeof e);
+  memset(&b, 0, sizeof b);
+  rc = canon(entity, n, &e);
+  if (rc != NQOK) goto done;
+  /* a signature of any algorithm here, the certificate and the
+   * attributes fit in this beside the content */
+  cc = (detached ? 0 : e.n) + certlen + 65536;
+  cms = (uint8_t *)nqmal(cc);
+  if (cms == NULL) {
+    rc = NQEMEM;
+    goto done;
+  }
+  rc = nqcmssign(alg, sk, sklen, cert, certlen, (const uint8_t *)e.p, e.n,
+                 detached, at, cms, cc, &cn);
+  if (rc != NQOK) goto done;
+  if (!detached) {
+    rc = p7m(&b, "signed-data", cms, cn);
+  } else {
+    rc = nqrand(rnd, sizeof rnd);
+    if (rc != NQOK) goto done;
+    memcpy(bd, "----noqtis-", 11);
+    nqhex(rnd, sizeof rnd, bd + 11);
+    nqcputs(&b, "MIME-Version: 1.0\r\n"
+                "Content-Type: multipart/signed; "
+                "protocol=\"application/pkcs7-signature\"; micalg=");
+    nqcputs(&b, mic[h == NQS256 ? 0 : h == NQS384 ? 1 : h == NQSHK128 ? 3
+                                 : h == NQSHK256 ? 4 : 2]);
+    nqcputs(&b, "; boundary=\"");
+    nqcputs(&b, bd);
+    nqcputs(&b, "\"\r\n\r\nThis is an S/MIME signed message.\r\n\r\n--");
+    nqcputs(&b, bd);
+    nqcputs(&b, "\r\n");
+    nqcput(&b, e.p, e.n);
+    nqcputs(&b, "\r\n--");
+    nqcputs(&b, bd);
+    nqcputs(&b, "\r\nContent-Type: application/pkcs7-signature; "
+                "name=\"smime.p7s\"\r\n"
+                "Content-Transfer-Encoding: base64\r\n"
+                "Content-Disposition: attachment; filename=\"smime.p7s\"\r\n"
+                "\r\n");
+    b64lines(&b, cms, cn);
+    nqcputs(&b, "--");
+    nqcputs(&b, bd);
+    nqcputs(&b, "--\r\n");
+    rc = b.err;
+  }
+  if (rc == NQOK) rc = give(&b, out, cap, outlen);
+done:
+  nqcbfree(&e);
+  nqcbfree(&b);
+  if (cms != NULL) nqfree(cms, cc);
+  return rc;
+}
+
+/* a multipart/signed body split at its boundary: the first part's
+ * bytes (what was signed) and the second part's body (the signature,
+ * base64) */
+static int split(const char *m, size_t n, const char *bd, const char **p1,
+                 size_t *n1, const char **p2, size_t *n2) {
+  size_t bl = strlen(bd), i, at[3], k = 0;
+  /* the delimiter lines: "--" boundary at the start of a line */
+  for (i = 0; i + 2 + bl <= n && k < 3; i++) {
+    if ((i == 0 || m[i - 1] == '\n') && m[i] == '-' && m[i + 1] == '-' &&
+        memcmp(m + i + 2, bd, bl) == 0) {
+      at[k++] = i;
+      i += 1 + bl;
+    }
+  }
+  if (k != 3) return NQEDEC;
+  /* the third is the closing one */
+  if (at[2] + 4 + bl > n || m[at[2] + 2 + bl] != '-' ||
+      m[at[2] + 3 + bl] != '-')
+    return NQEDEC;
+  /* the first part: after its delimiter's line end, to the line end
+   * before the next delimiter, which belongs to the delimiter */
+  i = at[0] + 2 + bl;
+  while (i < at[1] && m[i] != '\n') i++;
+  if (i >= at[1]) return NQEDEC;
+  i++;
+  *p1 = m + i;
+  *n1 = at[1] - i;
+  if (*n1 > 0 && (*p1)[*n1 - 1] == '\n') (*n1)--;
+  if (*n1 > 0 && (*p1)[*n1 - 1] == '\r') (*n1)--;
+  /* the second: its own header passed over */
+  i = at[1] + 2 + bl;
+  while (i < at[2] && m[i] != '\n') i++;
+  if (i >= at[2]) return NQEDEC;
+  i++;
+  i += bodyat(m + i, at[2] - i);
+  *p2 = m + i;
+  *n2 = at[2] - i;
+  return NQOK;
+}
+
+int nqsmvrfy(const char *mime, size_t n, const uint8_t *const *anc,
+             const size_t *anclen, size_t nanc, int64_t at, char *out,
+             size_t cap, size_t *outlen, nqx5f *signer) {
+  char ct[1024], v[256];
+  const char *p1, *p2;
+  uint8_t *cms = NULL;
+  nqcbuf e;
+  size_t hn, n1 = 0, n2 = 0, cc = 0, cn = 0;
+  int rc;
+  if (outlen != NULL) *outlen = 0;
+  if (signer != NULL) memset(signer, 0, sizeof *signer);
+  if (mime == NULL || (out == NULL && cap != 0)) return NQEARG;
+  if (n > SMMAX) return NQELIM;
+  memset(&e, 0, sizeof e);
+  hn = bodyat(mime, n);
+  if (!field(mime, hn, "content-type:", ct, sizeof ct)) return NQEDEC;
+  if (param(ct, "boundary", v, sizeof v) && v[0] != '\0') {
+    /* multipart/signed: the first part is the content, as signed */
+    rc = split(mime + hn, n - hn, v, &p1, &n1, &p2, &n2);
+    if (rc != NQOK) return rc;
+    rc = canon(p1, n1, &e);
+    if (rc == NQOK) rc = unb64(p2, n2, &cms, &cc, &cn);
+    if (rc == NQOK)
+      rc = nqcmsvrfy(cms, cn, (const uint8_t *)(e.p != NULL ? e.p : ""), e.n,
+                     anc, anclen, nanc, at, (uint8_t *)out, cap, outlen,
+                     signer);
+  } else {
+    /* application/pkcs7-mime, signed-data: the content is inside */
+    if (param(ct, "smime-type", v, sizeof v) && !starts(v, strlen(v) + 1,
+                                                       "signed-data"))
+      return NQEDEC;
+    rc = unb64(mime + hn, n - hn, &cms, &cc, &cn);
+    if (rc == NQOK)
+      rc = nqcmsvrfy(cms, cn, NULL, 0, anc, anclen, nanc, at, (uint8_t *)out,
+                     cap, outlen, signer);
+  }
+  nqcbfree(&e);
+  if (cms != NULL) nqfree(cms, cc);
+  return rc;
+}
+
+int nqsmenc(const uint8_t *const *rcert, const size_t *rcertlen, size_t nr,
+            const char *entity, size_t n, char *out, size_t cap,
+            size_t *outlen) {
+  nqcbuf e, b;
+  uint8_t *cms = NULL;
+  size_t cc = 0, cn = 0;
+  int rc;
+  if (outlen != NULL) *outlen = 0;
+  if (entity == NULL || outlen == NULL || (out == NULL && cap != 0))
+    return NQEARG;
+  if (n > SMMAX) return NQELIM;
+  memset(&e, 0, sizeof e);
+  memset(&b, 0, sizeof b);
+  rc = canon(entity, n, &e);
+  if (rc != NQOK) goto done;
+  /* a recipient entry is under 2048 bytes for ML-KEM-1024 */
+  cc = e.n + nr * 2048 + 256;
+  cms = (uint8_t *)nqmal(cc);
+  if (cms == NULL) {
+    rc = NQEMEM;
+    goto done;
+  }
+  rc = nqcmsenc(rcert, rcertlen, nr, (const uint8_t *)e.p, e.n, cms, cc, &cn);
+  if (rc == NQOK) rc = p7m(&b, "authEnveloped-data", cms, cn);
+  if (rc == NQOK) rc = give(&b, out, cap, outlen);
+done:
+  nqcbfree(&e);
+  nqcbfree(&b);
+  if (cms != NULL) nqfree(cms, cc);
+  return rc;
+}
+
+int nqsmdec(nqkalg alg, const uint8_t *sk, size_t sklen, const uint8_t *cert,
+            size_t certlen, const char *mime, size_t n, char *out,
+            size_t cap, size_t *outlen) {
+  char ct[1024], v[64];
+  uint8_t *cms = NULL;
+  size_t hn, cc = 0, cn = 0;
+  int rc;
+  if (outlen != NULL) *outlen = 0;
+  if (mime == NULL || outlen == NULL || (out == NULL && cap != 0))
+    return NQEARG;
+  if (n > SMMAX) return NQELIM;
+  hn = bodyat(mime, n);
+  if (!field(mime, hn, "content-type:", ct, sizeof ct) ||
+      !starts(ct + strspn(ct, " \t"), strlen(ct), "application/pkcs7-mime"))
+    return NQEDEC;
+  if (param(ct, "smime-type", v, sizeof v) &&
+      !starts(v, strlen(v) + 1, "authenveloped-data"))
+    return NQEDEC;
+  rc = unb64(mime + hn, n - hn, &cms, &cc, &cn);
+  if (rc == NQOK)
+    rc = nqcmsdec(alg, sk, sklen, cert, certlen, cms, cn, (uint8_t *)out, cap,
+                  outlen);
+  if (cms != NULL) nqfree(cms, cc);
   return rc;
 }

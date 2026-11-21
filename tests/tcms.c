@@ -6,7 +6,9 @@
  * anchor, another content, outside its validity, and with every part
  * changed; an AuthEnvelopedData to one and to three recipients, opened
  * by each, by a stranger, and changed; the worked example of RFC 9936
- * appendix C opened with its key; the refusals. */
+ * appendix C opened with its key; the same as S/MIME entities, with
+ * the content inside and in the clear, line ends changed on the way,
+ * signed and then encrypted; the refusals. */
 #include <stdint.h>
 #include <string.h>
 
@@ -383,6 +385,110 @@ static void tenc(void) {
          NQEDEC);
 }
 
+/* S/MIME: the same as MIME entities */
+static void tsmime(void) {
+  static const char ent[] =
+      "Content-Type: text/plain; charset=utf-8\n\nHello,\nsigned mail.\n";
+  static const char crlf[] = "Content-Type: text/plain; charset=utf-8\r\n"
+                             "\r\nHello,\r\nsigned mail.\r\n";
+  static char m[1 << 16], m2[1 << 17], o[1 << 16];
+  const uint8_t *anc[1], *rc[2];
+  size_t ancl[1], rl[2], n = 0, on = 0, n2 = 0, i, k;
+  nqx5f f;
+  anc[0] = cert;
+  ancl[0] = certn;
+  /* the content inside */
+  NQTEQI(nqsmsign(NQMLDSA65, ssk, 4032, cert, certn, ent, sizeof ent - 1, 0,
+                  T0 + 60, m, sizeof m, &n),
+         NQOK);
+  NQTCHK(memcmp(m, "MIME-Version: 1.0\r\nContent-Type: application/pkcs7-mime;"
+                   " smime-type=signed-data;", 81) == 0);
+  NQTEQI(nqsmvrfy(m, n, anc, ancl, 1, 0, o, sizeof o, &on, &f), NQOK);
+  /* what was signed is the entity with CRLF line ends */
+  NQTCHK(on == sizeof crlf - 1);
+  NQTEQM(o, crlf, on);
+  NQTCHK(strcmp(f.name, "Ada Example") == 0);
+  /* detached: the text is there to read */
+  NQTEQI(nqsmsign(NQMLDSA65, ssk, 4032, cert, certn, ent, sizeof ent - 1, 1,
+                  T0 + 60, m, sizeof m, &n),
+         NQOK);
+  NQTCHK(memcmp(m, "MIME-Version: 1.0\r\nContent-Type: multipart/signed;", 51)
+         == 0);
+  NQTCHK(strstr(m, "micalg=sha-512") != NULL);
+  NQTCHK(strstr(m, "\r\nHello,\r\nsigned mail.\r\n") != NULL);
+  NQTEQI(nqsmvrfy(m, n, anc, ancl, 1, 0, o, sizeof o, &on, &f), NQOK);
+  NQTCHK(on == sizeof crlf - 1);
+  NQTEQM(o, crlf, on);
+  /* a message whose line ends became LF on the way still verifies */
+  for (i = 0, k = 0; i < n; i++) {
+    if (m[i] != '\r') m2[k++] = m[i];
+  }
+  NQTEQI(nqsmvrfy(m2, k, anc, ancl, 1, 0, o, sizeof o, &on, NULL), NQOK);
+  NQTCHK(on == sizeof crlf - 1);
+  /* one letter of the text changed */
+  {
+    char *h = strstr(m, "Hello");
+    NQTCHK(h != NULL);
+    if (h != NULL) {
+      h[0] = 'J';
+      NQTEQI(nqsmvrfy(m, n, anc, ancl, 1, 0, o, sizeof o, &on, NULL),
+             NQEVRFY);
+      h[0] = 'H';
+    }
+  }
+  /* another anchor */
+  anc[0] = ocert;
+  ancl[0] = ocertn;
+  NQTEQI(nqsmvrfy(m, n, anc, ancl, 1, 0, o, sizeof o, &on, NULL), NQEVRFY);
+  anc[0] = cert;
+  ancl[0] = certn;
+  /* cut anywhere: never accepted */
+  for (i = 0; i < n; i += n / 61 + 1) {
+    NQTCHK(nqsmvrfy(m, i, anc, ancl, 1, 0, o, sizeof o, &on, NULL) != NQOK);
+  }
+  /* signed, then encrypted to two keys; opened and checked */
+  rc[0] = kc[1];
+  rl[0] = kcn[1];
+  rc[1] = kc[2];
+  rl[1] = kcn[2];
+  NQTEQI(nqsmenc(rc, rl, 2, m, n, m2, sizeof m2, &n2), NQOK);
+  NQTCHK(strstr(m2, "smime-type=authEnveloped-data") != NULL);
+  NQTEQI(nqsmdec(kalg[2], ksk[2], kz[2].sk, kc[2], kcn[2], m2, n2, o,
+                 sizeof o, &on),
+         NQOK);
+  NQTCHK(on == n);
+  NQTEQM(o, m, n);
+  NQTEQI(nqsmvrfy(o, on, anc, ancl, 1, 0, NULL, 0, &k, NULL), NQOK);
+  NQTEQI(nqsmdec(kalg[0], ksk[0], kz[0].sk, NULL, 0, m2, n2, o, sizeof o,
+                 &on),
+         NQEVRFY);
+  /* an encrypted entity is not a signed one, and the other way */
+  NQTCHK(nqsmvrfy(m2, n2, anc, ancl, 1, 0, o, sizeof o, &on, NULL) != NQOK);
+  NQTEQI(nqsmdec(kalg[2], ksk[2], kz[2].sk, NULL, 0, m, n, o, sizeof o, &on),
+         NQEDEC);
+  /* what is not an entity of these kinds, and the refusals */
+  NQTEQI(nqsmvrfy(ent, sizeof ent - 1, anc, ancl, 1, 0, o, sizeof o, &on,
+                  NULL),
+         NQEDEC);
+  NQTEQI(nqsmvrfy("", 0, anc, ancl, 1, 0, o, sizeof o, &on, NULL), NQEDEC);
+  NQTEQI(nqsmdec(kalg[2], ksk[2], kz[2].sk, NULL, 0, ent, sizeof ent - 1, o,
+                 sizeof o, &on),
+         NQEDEC);
+  NQTEQI(nqsmsign(NQMLDSA65, ssk, 4032, cert, certn, NULL, 4, 0, T0, m,
+                  sizeof m, &n),
+         NQEARG);
+  NQTEQI(nqsmsign(NQMLDSA65, ssk, 4032, cert, certn, ent, sizeof ent - 1, 0,
+                  T0, m, 40, &n),
+         NQEBUF);
+  NQTCHK(n > 40);
+  NQTEQI(nqsmvrfy(NULL, 4, anc, ancl, 1, 0, o, sizeof o, &on, NULL), NQEARG);
+  NQTEQI(nqsmenc(rc, rl, 2, NULL, 4, m2, sizeof m2, &n2), NQEARG);
+  NQTEQI(nqsmenc(rc, rl, 2, ent, sizeof ent - 1, m2, 30, &n2), NQEBUF);
+  NQTEQI(nqsmdec(kalg[2], ksk[2], kz[2].sk, NULL, 0, NULL, 4, o, sizeof o,
+                 &on),
+         NQEARG);
+}
+
 /* RFC 9936 appendix C: Bob's key is the seed 00 .. 3f; the message
  * decrypts to "Hello, world!" */
 static void trfc(void) {
@@ -430,6 +536,7 @@ int main(void) {
   tcert();
   tsign();
   tenc();
+  tsmime();
   trfc();
   return nqtdone("tcms");
 }

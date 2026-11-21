@@ -1134,6 +1134,39 @@ NQAPI int nqcmsdec(nqkalg alg, const uint8_t *sk, size_t sklen,
                    const uint8_t *cert, size_t certlen, const uint8_t *cms,
                    size_t n, uint8_t *out, size_t cap, size_t *outlen);
 
+/* S/MIME (RFC 8551): the same as mail. The content is a MIME entity,
+ * its header lines and its body (a text part: "Content-Type:
+ * text/plain", an empty line, the text); its line ends are made CRLF
+ * before it is signed or encrypted, as S/MIME requires.
+ *
+ * nqsmsign signs the entity: an application/pkcs7-mime entity of the
+ * smime-type signed-data with the content inside or, when detached is
+ * not 0, a multipart/signed entity whose first part is the content in
+ * the clear and whose second is the signature (a mail reader without
+ * S/MIME still shows the text). nqsmvrfy checks either form as
+ * nqcmsvrfy does and gives the signed entity. nqsmenc encrypts the
+ * entity to ML-KEM certificates (application/pkcs7-mime,
+ * authEnveloped-data); nqsmdec opens it. To sign and encrypt, sign
+ * first and encrypt the result.
+ *
+ * The results are text: the header fields MIME-Version, Content-Type,
+ * Content-Transfer-Encoding and Content-Disposition, an empty line and
+ * base64, with CRLF line ends. The errors are those of the CMS
+ * functions; NQEDEC also for an entity that is not of these types. */
+NQAPI int nqsmsign(nqsalg alg, const uint8_t *sk, size_t sklen,
+                   const uint8_t *cert, size_t certlen, const char *entity,
+                   size_t n, int detached, int64_t at, char *out, size_t cap,
+                   size_t *outlen);
+NQAPI int nqsmvrfy(const char *mime, size_t n, const uint8_t *const *anc,
+                   const size_t *anclen, size_t nanc, int64_t at, char *out,
+                   size_t cap, size_t *outlen, nqx5f *signer);
+NQAPI int nqsmenc(const uint8_t *const *rcert, const size_t *rcertlen,
+                  size_t nr, const char *entity, size_t n, char *out,
+                  size_t cap, size_t *outlen);
+NQAPI int nqsmdec(nqkalg alg, const uint8_t *sk, size_t sklen,
+                  const uint8_t *cert, size_t certlen, const char *mime,
+                  size_t n, char *out, size_t cap, size_t *outlen);
+
 /* ---- TLS 1.3 client ------------------------------------------------- */
 
 /* A TLS 1.3 client (RFC 8446): X25519MLKEM768 and X25519 key shares
