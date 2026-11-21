@@ -30,7 +30,11 @@ pub mod data;
 pub mod dsse;
 pub mod kem;
 pub mod keyfile;
+pub mod mail;
+pub mod pgp;
 pub mod sign;
+pub mod store;
+pub mod token;
 
 /// What went wrong, one per `NQE*` code of noqtis.h.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

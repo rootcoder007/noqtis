@@ -2,7 +2,7 @@
 //! The declarations of include/noqtis.h this crate uses, written by hand.
 //! The C enums (nqhalg, nqsalg, nqkalg) are passed as `c_int`.
 
-use std::os::raw::{c_char, c_int};
+use std::os::raw::{c_char, c_int, c_ulong};
 
 pub const NQOK: c_int = 0;
 pub const NQEBUF: c_int = -2;
@@ -973,5 +973,416 @@ extern "C" {
         o: *const Copt,
         head: *mut u8,
         rep: *mut *mut Drep,
+    ) -> c_int;
+}
+
+/// nqx5f: what a certificate says
+#[repr(C)]
+pub struct X5f {
+    pub kem: c_int,
+    pub alg: c_int,
+    pub fp: [u8; 32],
+    pub nb: i64,
+    pub na: i64,
+    pub ca: c_int,
+    pub name: [c_char; 256],
+    pub email: [c_char; 255],
+    pub pkoff: usize,
+    pub pklen: usize,
+}
+
+/// nqpgpk: what an OpenPGP key says
+#[repr(C)]
+pub struct Pgpk {
+    pub alg: c_int,
+    pub encalg: c_int,
+    pub secret: c_int,
+    pub locked: c_int,
+    pub fp: [u8; 32],
+    pub encfp: [u8; 32],
+    pub created: i64,
+    pub expires: i64,
+    pub uid: [c_char; 256],
+}
+
+/// nqkse: one key of a key store
+#[repr(C)]
+pub struct Kse {
+    pub kem: c_int,
+    pub alg: c_int,
+    pub fp: [u8; 32],
+    pub pklen: usize,
+    pub name: [c_char; 256],
+    pub email: [c_char; 255],
+    pub card: c_int,
+    pub trust: c_int,
+    pub valid: c_int,
+    pub ncert: usize,
+}
+
+/// nqp11: a loaded PKCS #11 module (opaque)
+#[repr(C)]
+pub struct P11 {
+    _p: [u8; 0],
+}
+
+/// nqp11t: a token present
+#[repr(C)]
+pub struct P11t {
+    pub slot: c_ulong,
+    pub label: [c_char; 33],
+    pub maker: [c_char; 33],
+    pub model: [c_char; 17],
+    pub serial: [c_char; 17],
+    pub login: c_int,
+}
+
+/// nqp11k: a private key on a token
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct P11k {
+    pub kem: c_int,
+    pub alg: c_int,
+    pub h: c_ulong,
+    pub label: [c_char; 65],
+    pub id: [u8; 32],
+    pub idlen: usize,
+}
+
+pub const NQARMLAB: usize = 64;
+
+extern "C" {
+    pub fn nqarmlen(label: *const c_char, n: usize, len: *mut usize) -> c_int;
+    pub fn nqarmenc(
+        label: *const c_char,
+        input: *const u8,
+        n: usize,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqarmdec(
+        input: *const c_char,
+        n: usize,
+        label: *mut c_char,
+        lcap: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqx5self(
+        alg: c_int,
+        sk: *const u8,
+        sklen: usize,
+        pk: *const u8,
+        pklen: usize,
+        cn: *const c_char,
+        email: *const c_char,
+        nb: i64,
+        na: i64,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqx5kem(
+        ialg: c_int,
+        isk: *const u8,
+        isklen: usize,
+        icert: *const u8,
+        icertlen: usize,
+        alg: c_int,
+        pk: *const u8,
+        pklen: usize,
+        nb: i64,
+        na: i64,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqx5info(cert: *const u8, n: usize, f: *mut X5f) -> c_int;
+    pub fn nqcmssign(
+        alg: c_int,
+        sk: *const u8,
+        sklen: usize,
+        cert: *const u8,
+        certlen: usize,
+        msg: *const u8,
+        n: usize,
+        detached: c_int,
+        at: i64,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqcmsvrfy(
+        cms: *const u8,
+        n: usize,
+        msg: *const u8,
+        mlen: usize,
+        anc: *const *const u8,
+        anclen: *const usize,
+        nanc: usize,
+        at: i64,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+        signer: *mut X5f,
+    ) -> c_int;
+    pub fn nqcmsenc(
+        rcert: *const *const u8,
+        rcertlen: *const usize,
+        nr: usize,
+        msg: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqcmsdec(
+        alg: c_int,
+        sk: *const u8,
+        sklen: usize,
+        cert: *const u8,
+        certlen: usize,
+        cms: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqsmsign(
+        alg: c_int,
+        sk: *const u8,
+        sklen: usize,
+        cert: *const u8,
+        certlen: usize,
+        entity: *const c_char,
+        n: usize,
+        detached: c_int,
+        at: i64,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqsmvrfy(
+        mime: *const c_char,
+        n: usize,
+        anc: *const *const u8,
+        anclen: *const usize,
+        nanc: usize,
+        at: i64,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+        signer: *mut X5f,
+    ) -> c_int;
+    pub fn nqsmenc(
+        rcert: *const *const u8,
+        rcertlen: *const usize,
+        nr: usize,
+        entity: *const c_char,
+        n: usize,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqsmdec(
+        alg: c_int,
+        sk: *const u8,
+        sklen: usize,
+        cert: *const u8,
+        certlen: usize,
+        mime: *const c_char,
+        n: usize,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqpgpgen(
+        sigalg: c_int,
+        encalg: c_int,
+        uid: *const c_char,
+        created: i64,
+        pw: *const u8,
+        pwlen: usize,
+        sec: *mut u8,
+        scap: usize,
+        slen: *mut usize,
+        pubk: *mut u8,
+        pcap: usize,
+        plen: *mut usize,
+    ) -> c_int;
+    pub fn nqpgpinfo(key: *const u8, n: usize, o: *mut Pgpk) -> c_int;
+    pub fn nqpgpsign(
+        key: *const u8,
+        kn: usize,
+        pw: *const u8,
+        pwlen: usize,
+        msg: *const u8,
+        n: usize,
+        mode: c_int,
+        at: i64,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqpgpvrfy(
+        cert: *const u8,
+        cn: usize,
+        sig: *const u8,
+        sn: usize,
+        msg: *const u8,
+        mlen: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+        at: *mut i64,
+    ) -> c_int;
+    pub fn nqpgpenc(
+        certs: *const *const u8,
+        certlens: *const usize,
+        nc: usize,
+        pw: *const u8,
+        pwlen: usize,
+        signer: *const u8,
+        signerlen: usize,
+        spw: *const u8,
+        spwlen: usize,
+        msg: *const u8,
+        n: usize,
+        at: i64,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqpgpdec(
+        key: *const u8,
+        kn: usize,
+        pw: *const u8,
+        pwlen: usize,
+        signer: *const u8,
+        signerlen: usize,
+        msg: *const u8,
+        n: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+        signedby: *mut c_int,
+        at: *mut i64,
+    ) -> c_int;
+    pub fn nqpgparm(
+        kind: c_int,
+        input: *const u8,
+        n: usize,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqpgpdearm(
+        input: *const c_char,
+        n: usize,
+        kind: *mut c_int,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqksadd(
+        dir: *const c_char,
+        kem: c_int,
+        alg: c_int,
+        pk: *const u8,
+        pklen: usize,
+        name: *const c_char,
+        email: *const c_char,
+        card: *const c_char,
+        cardlen: usize,
+        fp: *mut u8,
+    ) -> c_int;
+    pub fn nqkslist(
+        dir: *const c_char,
+        q: *const c_char,
+        e: *mut Kse,
+        cap: usize,
+        n: *mut usize,
+    ) -> c_int;
+    pub fn nqksget(
+        dir: *const c_char,
+        fp: *const u8,
+        kem: *mut c_int,
+        alg: *mut c_int,
+        pk: *mut u8,
+        cap: usize,
+        pklen: *mut usize,
+    ) -> c_int;
+    pub fn nqkscert(
+        dir: *const c_char,
+        alg: c_int,
+        sk: *const u8,
+        sklen: usize,
+        pk: *const u8,
+        pklen: usize,
+        fp: *const u8,
+        at: i64,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqkscput(dir: *const c_char, cert: *const c_char, n: usize) -> c_int;
+    pub fn nqkstrust(dir: *const c_char, fp: *const u8, level: c_int) -> c_int;
+    pub fn nqksdel(dir: *const c_char, fp: *const u8) -> c_int;
+    pub fn nqksexp(
+        dir: *const c_char,
+        fp: *const u8,
+        out: *mut c_char,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
+    pub fn nqksimp(
+        dir: *const c_char,
+        bundle: *const c_char,
+        n: usize,
+        email: *const c_char,
+        fp: *mut u8,
+        nkeys: *mut usize,
+    ) -> c_int;
+    pub fn nqksurl(email: *const c_char, url: *mut c_char, cap: usize) -> c_int;
+    pub fn nqp11open(module: *const c_char, p: *mut *mut P11) -> c_int;
+    pub fn nqp11close(p: *mut P11);
+    pub fn nqp11why(p: *const P11) -> c_ulong;
+    pub fn nqp11toks(p: *mut P11, t: *mut P11t, cap: usize, n: *mut usize) -> c_int;
+    pub fn nqp11login(p: *mut P11, slot: c_ulong, pin: *const c_char, pinlen: usize) -> c_int;
+    pub fn nqp11keys(p: *mut P11, k: *mut P11k, cap: usize, n: *mut usize) -> c_int;
+    pub fn nqp11pub(
+        p: *mut P11,
+        k: *const P11k,
+        pk: *mut u8,
+        cap: usize,
+        pklen: *mut usize,
+    ) -> c_int;
+    pub fn nqp11sign(
+        p: *mut P11,
+        k: *const P11k,
+        msg: *const u8,
+        n: usize,
+        ctx: *const u8,
+        ctxlen: usize,
+        sig: *mut u8,
+        cap: usize,
+        siglen: *mut usize,
+    ) -> c_int;
+    pub fn nqp11dec(
+        p: *mut P11,
+        k: *const P11k,
+        ct: *const u8,
+        ctlen: usize,
+        ss: *mut u8,
+        sslen: usize,
+    ) -> c_int;
+    pub fn nqp11gen(
+        p: *mut P11,
+        kem: c_int,
+        alg: c_int,
+        label: *const c_char,
+        k: *mut P11k,
     ) -> c_int;
 }
