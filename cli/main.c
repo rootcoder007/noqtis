@@ -10,6 +10,9 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#ifdef _MSC_VER
+#include <crtdbg.h>
+#endif
 #include <shellapi.h>
 #endif
 
@@ -976,8 +979,20 @@ static int run(int argc, char **argv) {
  * context strings outside the ANSI code page survive. */
 int main(void) {
   int argc = 0, i, rc;
-  wchar_t **w = CommandLineToArgvW(GetCommandLineW(), &argc);
+  wchar_t **w;
   char **argv, **own;
+#ifdef _MSC_VER
+  /* A failed check of the debug C runtime, and a fault, are written to
+   * standard error and end the program: no dialog opens and waits for
+   * someone to answer it (a script or a service has no one). */
+  (void)_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+  (void)_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+  (void)_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+  (void)_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+  (void)_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+  (void)SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+#endif
+  w = CommandLineToArgvW(GetCommandLineW(), &argc);
   if (w == NULL)
     return NCUSE;
   /* ncargs() reorders argv in place, so free from a copy of the pointers */

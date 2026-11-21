@@ -32,6 +32,10 @@
 
 #ifdef _WIN32
 #include <direct.h>
+#include <windows.h>
+#ifdef _MSC_VER
+#include <crtdbg.h>
+#endif
 #else
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -56,6 +60,9 @@ static void sn(char *o, size_t cap, const char *f, ...) {
 
 static const char *exe;
 static const char *wrap = "";
+/* NQCLIV set: each command is named on standard error before it runs,
+ * so that the log of a run that was stopped says where it was */
+static int verbose;
 static int nrun, nbad;
 
 /* ---- files ---- */
@@ -235,6 +242,10 @@ static int run(const char *args, const char *in) {
   if (n < 0 || (size_t)n >= sizeof c) {
     fprintf(stderr, "tcli: command too long\n");
     exit(2);
+  }
+  if (verbose) {
+    fprintf(stderr, "tcli: %s\n", args);
+    fflush(stderr);
   }
   st = system(c);
 #ifndef _WIN32
@@ -683,6 +694,10 @@ static int runts(const char *mode, const char *marg, const char *args) {
     exit(2);
   }
   wrs("q.cmd", c);
+  if (verbose) {
+    fprintf(stderr, "tcli: %s (under tsad %s)\n", args, mode);
+    fflush(stderr);
+  }
   quoted(qm, sizeof qm, marg);
 #ifdef _WIN32
   sn(t, sizeof t, "\"\"%s\" q.cmd %s %s >q.tsd 2>&1\"", tsad, mode,
@@ -3162,6 +3177,17 @@ int main(int argc, char **argv) {
             "<tests/ in the source tree>]\n");
     return 2;
   }
+#ifdef _MSC_VER
+  /* a failed check of the debug C runtime is written to standard error
+   * and ends the test; no dialog waits for an answer */
+  (void)_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+  (void)_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+  (void)_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+  (void)_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+  (void)_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+  (void)SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+#endif
+  verbose = getenv("NQCLIV") != NULL;
   exe = argv[1];
   if (argc == 4) {
     tsad = argv[2];
