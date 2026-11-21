@@ -24,6 +24,8 @@ if(NOT WIN32)
   add_test(NAME comp COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/comp.sh
            ${PROJECT_SOURCE_DIR})
 endif()
+# tcli starts the tool some nine hundred times: an unoptimised build on
+# Windows takes over a quarter of an hour, so the limit is an hour;
 # a sanitizer report must not pass for the "invalid" exit status 1;
 # NQCLIT: the tool with its test hooks (tests/nqd), for the checks that
 # need them
@@ -34,7 +36,7 @@ endif()
 set_tests_properties(tcli PROPERTIES
   ENVIRONMENT
   "ASAN_OPTIONS=exitcode=86;UBSAN_OPTIONS=exitcode=86:print_stacktrace=1${NQCLIT}"
-  TIMEOUT 900)
+  TIMEOUT 3600)
 # outputs cut by a signal, and standard output that cannot be written
 # (tests/cli/out.sh, POSIX sh)
 if(NOT WIN32)
