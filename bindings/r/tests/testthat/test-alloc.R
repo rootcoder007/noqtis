@@ -79,4 +79,3 @@ test_that("a stream the library refuses is an error, and is freed", {
                fixed = TRUE)
   expect_error(nqfinish(s), "context used out of order", fixed = TRUE)
 })
-

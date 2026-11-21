@@ -73,3 +73,12 @@ test_that("OpenPGP encrypts to keys and to a passphrase", {
   expect_error(nqpgpencrypt(msg, list(sigonly$pub)))
   expect_error(nqpgpencrypt(msg))
 })
+
+test_that("defaults and unknown numbers", {
+  # an Ed25519 key takes an X25519 subkey when none is named
+  k <- nqpgpkeygen("Ed <ed@example.org>", alg = "ed25519")
+  expect_identical(nqpgpinfo(k$pub)$encalg, "x25519")
+  expect_identical(get(".pgpname", envir = asNamespace("noqtis"))(99L), "99")
+  cc <- function(f, ...) .Call(get(f, envir = asNamespace("noqtis")), ...)
+  expect_error(cc("Cpgpgen", 99L, 0L, "u", 0, NULL), "nqpgpgen")
+})

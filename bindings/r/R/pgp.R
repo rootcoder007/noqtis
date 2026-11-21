@@ -184,7 +184,7 @@ nqpgpdearmor <- function(text) {
     stop(
       sprintf(
         "'%s' must be one of %s", if (enc) "encalg" else "alg",
-        paste(names(.pgpalgs), collapse = ", ")
+        toString(names(.pgpalgs))
       ),
       call. = FALSE
     )

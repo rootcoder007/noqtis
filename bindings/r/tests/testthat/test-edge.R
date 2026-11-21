@@ -263,4 +263,3 @@ test_that("the locale comes from LANG when LC_ALL is empty", {
   Sys.setenv(LC_ALL = "", LANG = "C.UTF-8")
   expect_match(nqdenv(d), '"locale":"C.UTF-8"', fixed = TRUE)
 })
-

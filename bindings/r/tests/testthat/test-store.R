@@ -67,3 +67,17 @@ test_that("an address has one place to look its keys up", {
   expect_error(nqksurl("no address"))
   expect_error(nqksurl(NULL), "one string")
 })
+
+test_that("the compiled code checks its own arguments", {
+  cc <- function(f, ...) .Call(get(f, envir = asNamespace("noqtis")), ...)
+  d <- tempfile("nqks")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  k <- nqkeygen("ML-DSA-44")
+  id <- get(".alg", envir = asNamespace("noqtis"))("ML-DSA-44", "sig")$id
+  expect_error(cc("Cksget", d, raw(5)), "raw vector of 32 bytes")
+  expect_error(
+    cc("Cksadd", d, FALSE, id, k$pk, NULL, NULL, NULL),
+    "'name' must be one string"
+  )
+})

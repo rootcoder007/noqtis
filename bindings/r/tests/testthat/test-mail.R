@@ -112,3 +112,45 @@ test_that("S/MIME messages round trip", {
   other <- nqkeygen("ML-KEM-768")
   expect_null(nqsmimedecrypt(other$sk, se, "ML-KEM-768"))
 })
+
+test_that("a certificate of another algorithm is read without one", {
+  # a P-256 root (tests/vectors/der/local/ec_root.der)
+  pem <- paste(c(
+    "-----BEGIN CERTIFICATE-----",
+    "MIIB0TCCAVegAwIBAgIUH8dxz0EG6k0HK611EB0XuIbumo4wCgYIKoZIzj0EAwIw",
+    "KDEUMBIGA1UECgwLbm9xdGlzIHRlc3QxEDAOBgNVBAMMB0VDIFJvb3QwHhcNMjYx",
+    "MDI4MjAxMDM3WhcNMzYxMDI1MjAxMDM3WjAoMRQwEgYDVQQKDAtub3F0aXMgdGVz",
+    "dDEQMA4GA1UEAwwHRUMgUm9vdDB2MBAGByqGSM49AgEGBSuBBAAiA2IABIAGn9p+",
+    "opjiX0dEKelyGf1VzCw+8bLrEnPWtX2FxtFJJ5ZRvot1WIkipoFA2egOn9DGQVg1",
+    "sd/Fe2nHfz83bOgV4F/TmPWHWACg1t5Zfa5TX8KbwhM7FMxcXImN/YFnJqNCMEAw",
+    "DwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFCKiI54O",
+    "0HqktwiPcYYdWlckiaNOMAoGCCqGSM49BAMCA2gAMGUCMD6HlojS2j0TUnRt8rUA",
+    "+6p0vYzik11mKmsdjML/qn3NcaxAzvSqlPlKTV85jtpTKwIxAJKpwshOIpW69CBk",
+    "ee1k9CXvzrFK5tBHvyLvwq4mIT+55sSquQM6xDqX198SDAaN3A==",
+    "-----END CERTIFICATE-----"
+  ), collapse = "\n")
+  i <- nqcertinfo(nqdearmor(pem)$data)
+  expect_identical(i$alg, "")
+  expect_false(i$kem)
+  expect_identical(i$name, "EC Root")
+})
+
+test_that("the compiled code checks its own arguments", {
+  cc <- function(f, ...) .Call(get(f, envir = asNamespace("noqtis")), ...)
+  id <- get(".alg", envir = asNamespace("noqtis"))("ML-DSA-44", "sig")$id
+  k <- nqkeygen("ML-DSA-44")
+  cert <- nqcert(k$sk, k$pk, "ML-DSA-44", "N", notbefore = 0, notafter = 10)
+  expect_error(cc("Carmor", 1, raw(1)), "'label' must be one string")
+  expect_error(
+    cc("Cx5self", id, k$sk, k$pk, "n", NULL, "x", 1),
+    "a time must be one number"
+  )
+  expect_error(
+    cc("Ccmssign", id, k$sk, cert, raw(1), "no", 0, FALSE),
+    "'detached' must be TRUE or FALSE"
+  )
+  expect_error(
+    cc("Ccmsvrfy", raw(1), NULL, list(1), 0, FALSE),
+    "'anchors' must be a list of raw vectors"
+  )
+})

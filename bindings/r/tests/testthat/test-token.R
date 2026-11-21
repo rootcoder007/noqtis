@@ -5,6 +5,7 @@ test_that("a module is named by a path", {
   expect_error(nqtoken("./no/such/module.so"))
   expect_error(nqtoken(1), "path of a PKCS #11 module")
   expect_error(nqtokens("x"), "token from nqtoken")
+  expect_error(nqtokenlogin(NULL, "a"), "one slot number")
 })
 
 test_that("keys on a token sign and decapsulate", {
@@ -33,6 +34,15 @@ test_that("keys on a token sign and decapsulate", {
   expect_error(nqtokenkeygen(t, "HQC-128", "x"))
   expect_error(nqtokensign(t, kk, msg))
   expect_error(nqtokensign(t, "key", msg), "one row")
+  expect_error(nqtokendecap(t, k, raw(10)), "not a KEM key")
+  # a key with no identifier is asked for by its handle alone
+  noid <- k
+  noid$id <- ""
+  expect_error(nqtokenpub(t, noid), "nqp11pub")
+  cc <- function(f, ...) .Call(get(f, envir = asNamespace("noqtis")), ...)
+  p <- get(".tokptr", envir = asNamespace("noqtis"))(t)
+  expect_error(cc("Cp11login", p, "x", NULL), "'slot' must be one number")
+  expect_error(cc("Cp11login", p, -1, NULL), "whole number from 0")
   expect_gte(nrow(nqtokenkeys(t)), 2L)
   expect_null(nqtokenclose(t))
   expect_error(nqtokens(t), "closed")
