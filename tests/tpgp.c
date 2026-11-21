@@ -147,7 +147,7 @@ static void trfc(void) {
   uint8_t fp[32];
   size_t n = 0, on = 0;
   int64_t at = 0;
-  int kind = 0, sb = 9;
+  int kind = 0, sb = 9, rc = 0, lowmem = 0;
   NQTEQI(nqpgpdearm(vcert, sizeof vcert - 1, &kind, cert, sizeof cert,
                     &certn),
          NQOK);
@@ -187,15 +187,22 @@ static void trfc(void) {
          NQOK);
   NQTCHK(on == 13 && sb == 0);
   NQTEQM(out, "Hello, world!", 13);
-  NQTEQI(nqpgpdec(lkey, lkeyn, (const uint8_t *)pw, sizeof pw - 1, NULL, 0,
-                  (const uint8_t *)vx25519, sizeof vx25519 - 1, out,
-                  sizeof out, &on, NULL, NULL),
-         NQOK);
-  NQTCHK(on == 13);
-  NQTEQI(nqpgpdec(lkey, lkeyn, (const uint8_t *)"wrong", 5, NULL, 0,
-                  (const uint8_t *)vx25519, sizeof vx25519 - 1, out,
-                  sizeof out, &on, NULL, NULL),
-         NQEVRFY);
+  /* the RFC's locked key asks Argon2id for 2 GiB: where the machine has
+   * not that much (NQEMEM), opening it is not tested, and said so */
+  rc = nqpgpdec(lkey, lkeyn, (const uint8_t *)pw, sizeof pw - 1, NULL, 0,
+                (const uint8_t *)vx25519, sizeof vx25519 - 1, out, sizeof out,
+                &on, NULL, NULL);
+  lowmem = rc == NQEMEM;
+  if (lowmem) {
+    printf("tpgp: no memory for the RFC's Argon2id key: not opened here\n");
+  } else {
+    NQTEQI(rc, NQOK);
+    NQTCHK(on == 13);
+    NQTEQI(nqpgpdec(lkey, lkeyn, (const uint8_t *)"wrong", 5, NULL, 0,
+                    (const uint8_t *)vx25519, sizeof vx25519 - 1, out,
+                    sizeof out, &on, NULL, NULL),
+           NQEVRFY);
+  }
   NQTEQI(nqpgpdec(lkey, lkeyn, NULL, 0, NULL, 0, (const uint8_t *)vx25519,
                   sizeof vx25519 - 1, out, sizeof out, &on, NULL, NULL),
          NQEARG);
@@ -227,13 +234,15 @@ static void trfc(void) {
   NQTEQI(nqpgpvrfy(cert, certn, big, n, NULL, 0, out, sizeof out, &on, &at),
          NQOK);
   NQTCHK(on == 3 && at == T0);
-  NQTEQI(nqpgpsign(lkey, lkeyn, (const uint8_t *)pw, sizeof pw - 1,
-                   (const uint8_t *)"abc", 3, NQPGPDETACHED, T0, big,
-                   sizeof big, &n),
-         NQOK);
-  NQTEQI(nqpgpvrfy(cert, certn, big, n, (const uint8_t *)"abc", 3, NULL, 0,
-                   &on, NULL),
-         NQOK);
+  if (!lowmem) {
+    NQTEQI(nqpgpsign(lkey, lkeyn, (const uint8_t *)pw, sizeof pw - 1,
+                     (const uint8_t *)"abc", 3, NQPGPDETACHED, T0, big,
+                     sizeof big, &n),
+           NQOK);
+    NQTEQI(nqpgpvrfy(cert, certn, big, n, (const uint8_t *)"abc", 3, NULL, 0,
+                     &on, NULL),
+           NQOK);
+  }
   NQTEQI(nqpgpsign(lkey, lkeyn, NULL, 0, (const uint8_t *)"abc", 3,
                    NQPGPDETACHED, T0, big, sizeof big, &n),
          NQEARG);
