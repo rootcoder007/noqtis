@@ -28,7 +28,9 @@ The content is a MIME entity: its header lines and its body, such as
 .Ql Content-Type: text/plain ,
 an empty line, and the text.
 Its line ends are made CRLF before it is signed or encrypted, as S/MIME
-requires.
+requires (RFC 8551 section 3.1.1): a lone CR or LF becomes CR LF.
+An entity is at most 1 GiB
+.Pq Dv NQELIM .
 .Pp
 .Fn nqsmsign
 signs the entity: an
@@ -42,6 +44,16 @@ is not 0, a
 entity whose first part is the content in the clear and whose second is
 the signature, so that a mail reader without S/MIME still shows the
 text.
+Its
+.Ql micalg
+is that of the signature's digest
+.Pq Ql sha-256 , sha-384 , sha-512 , shake128 No or Ql shake256 ,
+as
+.Xr nqcmssign 3
+picks it), and its boundary is
+.Ql ----noqtis-
+and 32 hex digits from
+.Xr nqrand 3 .
 .Fn nqsmvrfy
 checks either form as
 .Fn nqcmsvrfy
@@ -59,7 +71,22 @@ To sign and encrypt, sign first and encrypt the result.
 .Pp
 The results are text with CRLF line ends: the header fields
 MIME-Version, Content-Type, Content-Transfer-Encoding and
-Content-Disposition, an empty line, and base64.
+Content-Disposition, an empty line, and base64 in lines of 64 characters; the parts are named
+.Pa smime.p7m
+and
+.Pa smime.p7s .
+.Sh EXAMPLES
+Sign a short text mail, detached:
+.Bd -literal -offset indent
+static const char ent[] =
+  "Content-Type: text/plain; charset=utf-8\en\en"
+  "The results are in the capsule.\en";
+static char out[1 << 16];
+size_t n;
+int rc = nqsmsign(NQMLDSA65, sk, sklen, cert, certlen, ent,
+                  sizeof ent - 1, 1, (int64_t)time(NULL), out, sizeof out,
+                  &n);
+.Ed
 .Sh RETURN VALUES
 Those of
 .Xr nqcmssign 3 ;
@@ -71,4 +98,14 @@ also for an entity that is not of these types.
 .Xr nqcmssign 3 ,
 .Xr nqx5self 3
 .Sh STANDARDS
-RFC 8551.
+.Rs
+.%A J. Schaad
+.%A B. Ramsdell
+.%A S. Turner
+.%T Secure/Multipurpose Internet Mail Extensions (S/MIME) Version 4.0 Message Specification
+.%R RFC 8551
+.%D May 2019
+.Re
+.Pp
+RFC 9788 (August 2025) updates RFC 8551 with header protection, which is
+not implemented: the code follows RFC 8551.
