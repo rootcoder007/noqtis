@@ -20,9 +20,15 @@ in libnqd, \-lnqd
 .Ft int
 .Fn nqdsetal "nqmalfn mal" "nqfreefn fre" "void *user"
 .Sh DESCRIPTION
-The algorithm code of noqtis never allocates; the capsule layer
+The signature, key-encapsulation, hash and cipher primitives of noqtis
+never allocate; the capsule layer
 .Pq Xr nqseal 3 , Xr nqchk 3
-and its parsers do, through one hook.
+and its parsers do, and so do Argon2id
+.Pq Xr nqa2id 3 ,
+the multi-recipient stream
+.Pq Xr nqkmeini 3 ,
+CMS, OpenPGP, TLS, X.509 path checking and PKCS #11, all through one
+hook.
 .Fn nqsetal
 replaces it:
 .Fa mal
@@ -48,7 +54,15 @@ both
 restore the default,
 .Xr malloc 3
 and
-.Xr free 3 .
+.Xr free 3 ;
+in the freestanding build
+.Pq Fl DNQFREE=ON
+there is no default, and every allocation fails with
+.Er NQEMEM
+until a hook is set.
+The core never calls
+.Fa mal
+for 0 bytes; the data layer asks for 1 byte instead.
 .Pp
 .Fn nqdsetal
 does the same for the data layer
