@@ -125,6 +125,24 @@ return no report.
 returns
 .Dv NQEARG
 for a row that is not there.
+.Sh EXAMPLES
+Check a capsule's seal, then its data record:
+.Bd -literal -offset indent
+nqrep *cr = NULL;
+nqdrep *dr = NULL;
+size_t i;
+int rc = nqchk("results", pk, pklen, &cr);
+if (rc == NQOK)
+  rc = nqdchk("results", &dr);
+for (i = 0; i < nqdrepn(dr); i++) {
+  const char *c, *d;
+  int ok;
+  if (nqdrepi(dr, i, &c, &ok, &d) == NQOK && !ok)
+    printf("FAIL %s: %s\en", c, d);
+}
+nqdrepfree(dr);
+nqrepfree(cr);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-data 1 ,
 .Xr nqchk 3 ,
