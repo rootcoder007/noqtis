@@ -49,7 +49,13 @@ its signature verifies under the TSA's certificate, whose path leads to
 one of the anchors and is valid at the token's genTime;
 .El
 and the row's detail then gives the genTime.
-A seal without a timestamp fails the row.
+A seal without a timestamp fails the row, unless the folder holds an
+evidence record
+.Pa noqtis.ers
+.Pq Xr nqersput 3 ,
+which is then checked under the same anchors in an
+.Ql ers
+row.
 .Pp
 With
 .Fa nanc
@@ -105,13 +111,30 @@ int rc = nqchkt("results", pk, sizeof pk, anc, anclen, 1, &rep);
 .Xr noqtis-capsule 5
 .Sh STANDARDS
 .Rs
+.%A C. Adams
+.%A P. Cain
+.%A D. Pinkas
+.%A R. Zuccherato
 .%R RFC 3161
 .%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
 .%D August 2001
 .Re
 .Rs
+.%A S. Santesson
+.%A N. Pope
+.%R RFC 5816
+.%T ESSCertIDv2 Update for RFC 3161
+.%D April 2010
+.Re
+.Rs
+.%A D. Cooper
+.%A S. Santesson
+.%A S. Farrell
+.%A S. Boeyen
+.%A R. Housley
+.%A W. Polk
 .%R RFC 5280
-.%T Internet X.509 Public Key Infrastructure Certificate and CRL Profile
+.%T Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
 .%D May 2008
 .Re
 .Sh CAVEATS
