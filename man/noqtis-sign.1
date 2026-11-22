@@ -39,7 +39,10 @@ is required.
 .Pp
 Signing is hedged by default: fresh randomness from the operating system
 is mixed into each signature, so two signatures of one file differ.
-Ed25519 has no randomness: its signatures are always deterministic.
+For Ed25519 the randomness goes into the hash that makes the nonce
+(the signature still verifies as any RFC 8032 one); with
+.Fl d
+the nonce is RFC 8032's own.
 .Pp
 When the public key file
 .Ar key Ns .pub
