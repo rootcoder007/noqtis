@@ -138,6 +138,18 @@ and
 .Dv NQELIM
 for a bundle refused as above;
 .Dv NQEMEM .
+.Sh EXAMPLES
+Pack a capsule, unpack it elsewhere and check it there:
+.Bd -literal -offset indent
+char why[256];
+nqrep *rep = NULL;
+int rc = nqdpack("results", 1, "results.nqb");
+if (rc == NQOK)
+  rc = nqdunpack("results.nqb", "copy", 0, why, sizeof why);
+if (rc == NQOK)
+  rc = nqchk("copy", pk, pklen, &rep);
+nqrepfree(rep);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-check 1 ,
 .Xr noqtis-export 1 ,
