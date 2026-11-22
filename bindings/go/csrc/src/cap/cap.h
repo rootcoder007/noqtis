@@ -242,6 +242,20 @@ int nqcseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
             const char *tsa, int64_t created, const uint8_t *rnd,
             size_t rndlen, int *why);
 /* nqcseal writing format ver (1 or 2), with nin inputs (format 2 only). */
+/* What signs a seal: the signature of msg under the context ctx, as
+ * nqsign makes it, written to sig (cap bytes), its length to *siglen. */
+typedef int (*nqcsg)(void *u, const uint8_t *msg, size_t n,
+                     const uint8_t *ctx, size_t cl, uint8_t *sig, size_t cap,
+                     size_t *siglen);
+/* nqcsealx with the signature made by sg(u, ...): the secret key need
+ * not be in memory (a key on a token). sklen is the length of the secret
+ * key the caller holds, checked against the algorithm's as nqcsealx
+ * always did, or NQCNOSK when there is none to check. */
+#define NQCNOSK ((size_t)-1)
+int nqcsealsg(const char *dir, nqsalg alg, nqcsg sg, void *u, size_t sklen,
+              const uint8_t *pk, size_t pklen, const char *meta,
+              const char *tsa, int64_t created, int ver, const nqcin *in,
+              size_t nin, int *why);
 int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
              const uint8_t *pk, size_t pklen, const char *meta,
              const char *tsa, int64_t created, const uint8_t *rnd,

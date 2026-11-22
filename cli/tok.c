@@ -74,7 +74,7 @@ static int login(nqp11 *p, const char *slot, const ncpw *pwo) {
     }
     s = t[0].slot;
   }
-  if (ncpwget("token", pwo, &pin, &pn) != NCOK) return NCUSE;
+  if (ncpwgetn("token", pwo, "pin", &pin, &pn) != NCOK) return NCUSE;
   rc = nqp11login(p, s, (const char *)pin, pn);
   if (pin != NULL) ncfree(pin, NQPWLEN, 1);
   return rc == NQOK ? NCOK : p11fail(p, "opening the token", rc);
@@ -121,6 +121,24 @@ static int pick(nqp11 *p, const char *label, const char *id, nqp11k *k) {
 static const char *kname(const nqp11k *k) {
   const char *s = k->kem ? nqkname((nqkalg)k->alg) : nqsname((nqsalg)k->alg);
   return s != NULL ? s : "?";
+}
+
+int nctkopen(const char *mod, const char *slot, const ncpw *pwo,
+             const char *label, const char *id, nqp11 **p, nqp11k *k) {
+  *p = NULL;
+  if (modopen(mod, p) != NCOK) return NCUSE;
+  if (login(*p, slot, pwo) != NCOK || pick(*p, label, id, k) != NCOK) {
+    nqp11close(*p);
+    *p = NULL;
+    return NCUSE;
+  }
+  return NCOK;
+}
+
+const char *nctkname(const nqp11k *k) { return kname(k); }
+
+int nctkfail(nqp11 *p, const char *what, int rc) {
+  return p11fail(p, what, rc);
 }
 
 /* the public key of k as a key file at out */

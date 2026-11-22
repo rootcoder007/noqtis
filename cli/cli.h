@@ -464,6 +464,16 @@ int nccert(int argc, char **argv);
 int ncsmime(int argc, char **argv);
 int ncpgp(int argc, char **argv);
 int nctoken(int argc, char **argv);
+/* A key on a PKCS #11 token for another command: the module loaded
+ * (mod, else $NOQTIS_PKCS11), the token of slot (NULL: the only one)
+ * opened with its PIN, the key of that label or hexadecimal ID found.
+ * NCOK with *p open (close it with nqp11close), else the message is
+ * printed and *p is NULL. */
+int nctkopen(const char *mod, const char *slot, const ncpw *pwo,
+             const char *label, const char *id, nqp11 **p, nqp11k *k);
+/* the algorithm's name, and the token's refusal said */
+const char *nctkname(const nqp11k *k);
+int nctkfail(nqp11 *p, const char *what, int rc);
 int ncdearmor(int argc, char **argv);
 int ncsign(int argc, char **argv);
 int ncvrfy(int argc, char **argv);

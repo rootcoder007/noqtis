@@ -2931,6 +2931,32 @@ static void ttoken(void) {
   want(2, "token dec -n sig -o q.tss2 --force --pin-env NQTPIN q.tct", NULL);
   want(2, "token dec -n kem -o q.tss2 --force --pin-env NQTPIN q.b1", NULL);
   want(2, "token dec -n kem --pin-env NQTPIN q.tct", NULL);
+  /* a folder sealed with the key on the token checks under the
+   * token's public key, in both formats; refusals leave the seal */
+  mkd("qtk");
+  wrs("qtk/a.txt", "sealed by a key on a token\n");
+  want(0, "seal --token --label sig --pin-env NQTPIN qtk", NULL);
+  ok(has("q.out", "sealed qtk with ML-DSA-44"),
+     "seal --token names the algorithm of the token's key");
+  want(0, "check -p q.tp.pub qtk", NULL);
+  want(0, "seal --token --label sig --pin-env NQTPIN --format 2 qtk", NULL);
+  want(0, "check -p q.tp.pub qtk", NULL);
+  want(2, "seal --token --label kem --pin-env NQTPIN qtk", NULL);
+  ok(has("q.err", "signature key"), "seal --token refuses a KEM key");
+  want(0, "check -p q.tp.pub qtk", NULL);
+  want(2, "seal --token --label sig qtk", NULL);
+  want(2, "seal --token --label sig --pin-env NQTPINX qtk", NULL);
+  ok(has("q.err", "PIN is wrong"), "seal --token says a wrong PIN");
+  want(2, "seal --token --pin-env NQTPIN qtk", NULL);
+  want(2, "seal --token -k q.c --label sig --pin-env NQTPIN qtk", NULL);
+  ok(has("q.err", "leave out -k"), "seal --token takes no key file");
+  want(2, "seal --label sig --pin-env NQTPIN qtk", NULL);
+  ok(has("q.err", "give --token too"),
+     "the token options need --token");
+  want(2, "seal --token --label sig --pin-fd x qtk", NULL);
+  ok(has("q.err", "--pin-fd wants a descriptor number"),
+     "the PIN option is named as it was given");
+  want(0, "check -p q.tp.pub qtk", NULL);
   want(2, "token", NULL);
   want(2, "token nothing", NULL);
   want(2, "token list extra", NULL);

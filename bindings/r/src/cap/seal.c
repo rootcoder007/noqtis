@@ -262,11 +262,48 @@ int nqcseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
                   rndlen, 1, NULL, 0, why);
 }
 
+/* the signer of a secret key in memory: nqsign, or nqsignd when the
+ * randomness is given (the tests) */
+typedef struct {
+  nqsalg alg;
+  const uint8_t *sk;
+  size_t sklen;
+  const uint8_t *rnd;
+  size_t rndlen;
+} sksg;
+
+static int skfn(void *u, const uint8_t *msg, size_t n, const uint8_t *ctx,
+                size_t cl, uint8_t *sig, size_t cap, size_t *siglen) {
+  const sksg *k = (const sksg *)u;
+  if (k->rnd != NULL) {
+    return nqsignd(k->alg, k->sk, k->sklen, msg, n, ctx, cl, 0, k->rnd,
+                   k->rndlen, sig, cap, siglen);
+  }
+  return nqsign(k->alg, k->sk, k->sklen, msg, n, ctx, cl, 0, sig, cap,
+                siglen);
+}
+
 int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
              const uint8_t *pk, size_t pklen, const char *meta,
              const char *tsa, int64_t created, const uint8_t *rnd,
              size_t rndlen, int ver, const nqcin *in, size_t nin,
              int *why) {
+  sksg k;
+  if (why != NULL) *why = 0;
+  if (sk == NULL) return NQEARG;
+  k.alg = alg;
+  k.sk = sk;
+  k.sklen = sklen;
+  k.rnd = rnd;
+  k.rndlen = rndlen;
+  return nqcsealsg(dir, alg, skfn, &k, sklen, pk, pklen, meta, tsa, created,
+                   ver, in, nin, why);
+}
+
+int nqcsealsg(const char *dir, nqsalg alg, nqcsg sg, void *u, size_t sklen,
+              const uint8_t *pk, size_t pklen, const char *meta,
+              const char *tsa, int64_t created, int ver, const nqcin *in,
+              size_t nin, int *why) {
   static const uint8_t c1[] = NQCCTX, c2[] = NQCCTX2;
   const uint8_t *ctx = ver == 2 ? c2 : c1;
   size_t cl = (ver == 2 ? sizeof c2 : sizeof c1) - 1, i, lvn = 0;
@@ -285,7 +322,7 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
   char ts[21];
   int rc, sec = 0;
   if (why != NULL) *why = 0;
-  if (dir == NULL || sk == NULL || pk == NULL) return NQEARG;
+  if (dir == NULL || sg == NULL || pk == NULL) return NQEARG;
   if (ver != 1 && ver != 2) return NQEARG;
   if (nin > 0 && (ver != 2 || in == NULL)) return NQEARG;
   if (nin > NQCINMAX) return NQELIM;
@@ -310,7 +347,7 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
   if (alg == NQED25519) return NQENOSUP;
   an = nqsname(alg);
   if (an == NULL) return NQENOSUP;
-  if (sklen != sz.sk || pklen != sz.pk) return NQEARG;
+  if ((sklen != NQCNOSK && sklen != sz.sk) || pklen != sz.pk) return NQEARG;
   if (nqctime(created, ts) != NQOK) return NQEARG;
   if (meta != NULL) {
     size_t ml = strlen(meta);
@@ -366,14 +403,7 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
     sig = (uint8_t *)nqmal(sz.sig);
     if (sig == NULL) rc = NQEMEM;
   }
-  if (rc == NQOK) {
-    if (rnd != NULL) {
-      rc = nqsignd(alg, sk, sklen, sb, sn, ctx, cl, 0, rnd, rndlen, sig,
-                   sz.sig, &siglen);
-    } else {
-      rc = nqsign(alg, sk, sklen, sb, sn, ctx, cl, 0, sig, sz.sig, &siglen);
-    }
-  }
+  if (rc == NQOK) rc = sg(u, sb, sn, ctx, cl, sig, sz.sig, &siglen);
   /* sk and pk must be one key pair: a seal that cannot verify is never
    * written */
   if (rc == NQOK &&
@@ -441,5 +471,42 @@ int nqcapid(const char *dir, uint8_t id[32]) {
     }
   }
   nqjfree(v);
+  return rc;
+}
+
+/* the signer of a key on a token */
+typedef struct {
+  nqp11 *p;
+  const nqp11k *k;
+} tksg;
+
+static int tkfn(void *u, const uint8_t *msg, size_t n, const uint8_t *ctx,
+                size_t cl, uint8_t *sig, size_t cap, size_t *siglen) {
+  const tksg *t = (const tksg *)u;
+  return nqp11sign(t->p, t->k, msg, n, ctx, cl, sig, cap, siglen);
+}
+
+int nqp11seal(nqp11 *p, const nqp11k *k, const char *dir, int fmt,
+              const char *meta, const nqcin *in, size_t nin) {
+  int64_t t = nqcnow();
+  nqssz sz;
+  uint8_t *pk;
+  size_t pn = 0;
+  tksg g;
+  int rc;
+  if (p == NULL || k == NULL || dir == NULL || k->kem) return NQEARG;
+  if (fmt != 1 && fmt != 2) return NQEARG;
+  if (t < 0) return NQEARG;
+  if (nqssize((nqsalg)k->alg, &sz) != NQOK) return NQEARG;
+  pk = (uint8_t *)nqmal(sz.pk);
+  if (pk == NULL) return NQEMEM;
+  rc = nqp11pub(p, k, pk, sz.pk, &pn);
+  if (rc == NQOK) {
+    g.p = p;
+    g.k = k;
+    rc = nqcsealsg(dir, (nqsalg)k->alg, tkfn, &g, NQCNOSK, pk, pn, meta, NULL,
+                   t, fmt, in, nin, NULL);
+  }
+  nqfree(pk, sz.pk);
   return rc;
 }

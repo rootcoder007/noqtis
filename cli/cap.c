@@ -249,15 +249,15 @@ static int hasrec(int argc, char **argv) {
  * and for --input where its folder starts */
 static const char *pathval(const char *cmd, char **argv, int k) {
   static const char *const sl[] = {"--key", "--pub", "--meta", "--input",
-                                   "--anchor", "--lineage", "--proof",
-                                   "--keys", "--card"};
+                                   "--anchor", "--module", "--lineage",
+                                   "--proof", "--keys", "--card"};
   const char *sealsh = "kpm", *chksh = "p";
   const char *a = argv[k], *pr = k > 1 ? argv[k - 1] : "";
   size_t i;
   int seal = strcmp(cmd, "seal") == 0;
   for (i = 0; i < sizeof sl / sizeof sl[0]; i++) {
     size_t l = strlen(sl[i]);
-    int ok = seal ? i < 5 : (i == 1 || i >= 4);
+    int ok = seal ? i < 6 : (i == 1 || i == 4 || i >= 6);
     if (!ok)
       continue;
     if (strcmp(pr, sl[i]) == 0)
@@ -493,11 +493,23 @@ out:
 int ncseal(int argc, char **argv) {
   const char *kp = NULL, *pp = NULL, *mp = NULL, *fv = NULL;
   const char *tsa[NCMAXV], *anc[NCMAXV], *inp[NCMAXV];
+  const char *mod = NULL, *slot = NULL, *label = NULL, *id = NULL;
   int help = 0, np, rc, ret = NCUSE, nt = 0, na = 0, ni = 0, fmt = 1, i;
+  int tok = 0;
+  ncpw pin = {NULL, NULL};
+  nqp11 *tp = NULL;
+  nqp11k tk;
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
     {'p', "pub", 1, &pp, NULL},
     {'m', "meta", 1, &mp, NULL},
+    {'\0', "token", 0, NULL, &tok},
+    {'\0', "module", 1, &mod, NULL},
+    {'\0', "slot", 1, &slot, NULL},
+    {'\0', "label", 1, &label, NULL},
+    {'\0', "id", 1, &id, NULL},
+    {'\0', "pin-fd", 1, &pin.fd, NULL},
+    {'\0', "pin-env", 1, &pin.env, NULL},
     {'\0', "format", 1, &fv, NULL},
     {'\0', "input", NCMANY, inp, &ni},
     {'\0', "tsa", NCMANY, tsa, &nt},
@@ -526,8 +538,19 @@ int ncseal(int argc, char **argv) {
     ncuse(stdout, "seal");
     return NCOK;
   }
-  if (kp == NULL || np != 1) {
+  if (!tok && (mod != NULL || slot != NULL || label != NULL || id != NULL ||
+               pin.fd != NULL || pin.env != NULL)) {
+    ncmsg("seal", "--module, --slot, --label, --id, --pin-fd and "
+          "--pin-env name a key on a token: give --token too");
+    return NCUSE;
+  }
+  if ((kp == NULL && !tok) || np != 1) {
     ncuse(stderr, "seal");
+    return NCUSE;
+  }
+  if (tok && (kp != NULL || pp != NULL)) {
+    ncmsg("seal", "--token seals with a key on the token, whose public "
+          "key the token gives: leave out -k and -p");
     return NCUSE;
   }
   if (na > 0 && nt == 0) {
@@ -569,7 +592,7 @@ int ncseal(int argc, char **argv) {
   }
   if (ancrd("seal", anc, na, &an) != NCOK)
     return NCUSE;
-  if (pp == NULL) {
+  if (pp == NULL && !tok) {
     size_t l = strlen(kp);
     dp = (char *)malloc(l + 5);
     if (dp == NULL) {
@@ -598,13 +621,21 @@ int ncseal(int argc, char **argv) {
       goto out;
     }
   }
-  if (nckrd("seal", pp, 0, &pk) != NCOK)
+  if (tok) {
+    if (nctkopen(mod, slot, &pin, label, id, &tp, &tk) != NCOK)
+      goto out;
+    if (tk.kem) {
+      ncmsg("seal", "the key on the token is a %s (KEM) key; seals need "
+            "a signature key", nctkname(&tk));
+      goto done;
+    }
+  } else if (nckrd("seal", pp, 0, &pk) != NCOK) {
     goto out;
-  if (nckrd("seal", kp, 1, &sk) != NCOK) {
+  } else if (nckrd("seal", kp, 1, &sk) != NCOK) {
     nckfree(&pk);
     goto out;
   }
-  if (sk.a.kem || pk.a.kem || sk.a.alg != pk.a.alg) {
+  if (!tok && (sk.a.kem || pk.a.kem || sk.a.alg != pk.a.alg)) {
     if (sk.a.kem)
       ncmsg("seal", "%s is a %s (KEM) key; seals need a signature key", kp,
             sk.a.name);
@@ -637,10 +668,15 @@ int ncseal(int argc, char **argv) {
   /* errno is cleared so a failure of the call itself is told apart from
    * one before it (ncnofd) */
   errno = 0;
-  rc = fmt == 2 ? nqseal2(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
-                         (const char *)meta, ins, (size_t)ni)
-                 : nqseal(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
-                          (const char *)meta, NULL);
+  if (tok)
+    rc = nqp11seal(tp, &tk, argv[0], fmt, (const char *)meta,
+                   fmt == 2 ? ins : NULL, fmt == 2 ? (size_t)ni : 0);
+  else
+    rc = fmt == 2
+             ? nqseal2(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
+                       (const char *)meta, ins, (size_t)ni)
+             : nqseal(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
+                      (const char *)meta, NULL);
 #ifdef NQTEST
   if (rc == NQOK)
     nctkill("sealed");
@@ -652,8 +688,12 @@ int ncseal(int argc, char **argv) {
       ncnofd = 1;
       ncmsg("seal", "%s: %s: raise the open-file limit (ulimit -n) and "
             "seal again", argv[0], strerror(e));
-    } else if (rc == NQEARG)
-      sealwhy(argv[0], kp, pp);
+    } else if (tok && nqp11why(tp) != 0 &&
+               (rc == NQEIO || rc == NQENOSUP || rc == NQEVRFY))
+      (void)nctkfail(tp, "signing the seal", rc);
+    else if (rc == NQEARG)
+      sealwhy(argv[0], tok ? "the key on the token" : kp,
+              tok ? "the public key the token gives" : pp);
     else if (rc == NQESTATE)
       ncmsg("seal", "%s has an evidence record (noqtis.ers) over its "
             "present seal, which a new seal would replace: move "
@@ -677,7 +717,7 @@ int ncseal(int argc, char **argv) {
      * capsule resealed inside one not yet resealed fails that one's check */
     nctree(old, 2);
     printf("sealed %s with %s%s\n", ncesc(nclab != NULL ? nclab : argv[0]),
-           sk.a.name,
+           tok ? nctkname(&tk) : sk.a.name,
            nt > 0 ? " and a timestamp" : "");
   } else {
     /* a seal asked to carry a timestamp never stays without one: the
@@ -702,6 +742,8 @@ done:
   ncsnapfree(&old[1]);
   nckfree(&sk);
   nckfree(&pk);
+  if (tp != NULL)
+    nqp11close(tp);
 out:
   ancfree(&an);
   free(meta);

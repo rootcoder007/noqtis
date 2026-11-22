@@ -1333,6 +1333,15 @@ NQAPI int nqp11dec(nqp11 *p, const nqp11k *k, const uint8_t *ct,
                    size_t ctlen, uint8_t *ss, size_t sslen);
 NQAPI int nqp11gen(nqp11 *p, int kem, int alg, const char *label,
                    nqp11k *k);
+/* Seals dir as nqseal (fmt 1) or nqseal2 (fmt 2; in and nin as there,
+ * and they must be NULL and 0 for fmt 1) does, with the signature key k
+ * of the token: the key never leaves it, and the public key written to
+ * the seal is the token's own (nqp11pub). The signature is checked
+ * before anything is written. The returns of nqseal and of nqp11sign;
+ * NQEARG also for a KEM key, NQENOSUP for an Ed25519 key (alone it is
+ * never a seal). */
+NQAPI int nqp11seal(nqp11 *p, const nqp11k *k, const char *dir, int fmt,
+                    const char *meta, const nqcin *in, size_t nin);
 
 /* ---- TLS 1.3 client ------------------------------------------------- */
 

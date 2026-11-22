@@ -63,6 +63,12 @@ static void tsig(nqp11 *p, nqsalg alg, const char *label) {
   NQTEQI(nqp11sign(p, &k, NULL, 0, NULL, 0, sig, sizeof sig, &sn), NQOK);
   NQTEQI(nqvrfy(alg, pk, n, NULL, 0, NULL, 0, 0, sig, sn), NQOK);
   NQTEQI(nqp11sign(p, &k, msg, 1, NULL, 0, sig, z.sig - 1, &sn), NQEBUF);
+  /* nqp11seal: its own refusals (a sealed folder is checked through the
+   * command line, tests/cli/tcli.c) */
+  NQTEQI(nqp11seal(NULL, &k, ".", 1, NULL, NULL, 0), NQEARG);
+  NQTEQI(nqp11seal(p, NULL, ".", 1, NULL, NULL, 0), NQEARG);
+  NQTEQI(nqp11seal(p, &k, NULL, 1, NULL, NULL, 0), NQEARG);
+  NQTEQI(nqp11seal(p, &k, ".", 3, NULL, NULL, 0), NQEARG);
   NQTCHK(sn == z.sig);
   /* a signature key does not decapsulate */
   NQTEQI(nqp11dec(p, &k, ct, 768, ss, 32), NQEARG);
