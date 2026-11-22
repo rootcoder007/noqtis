@@ -3,7 +3,7 @@
 #' OpenPGP keys, signatures and encrypted messages
 #'
 #' OpenPGP (RFC 9580) in its version 6 forms, with Ed25519 and X25519 of
-#' that RFC and the post-quantum algorithms of draft-ietf-openpgp-pqc.
+#' that RFC and the post-quantum algorithms of RFC 9980.
 #' `nqpgpkeygen()` makes a key; `nqpgpinfo()` reads one; `nqpgpsign()`
 #' and `nqpgpverify()` sign and check; `nqpgpencrypt()` and
 #' `nqpgpdecrypt()` encrypt and open; `nqpgparmor()` and
