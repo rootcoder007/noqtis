@@ -43,7 +43,8 @@ The public key the capsule must be sealed with.
 .It Fl o Ar file , Fl -out Ns = Ns Ar file
 Write the proof to
 .Ar file
-instead of standard output.
+instead of standard output (also for
+.Ar - ) .
 .It Fl f , Fl -force
 Replace
 .Ar file
@@ -81,7 +82,11 @@ $ noqtis check -p me.pub --proof in.proof results
 .Xr noqtis-capsule 5
 .Sh STANDARDS
 .Rs
-.%R RFC 9162
+.%A B. Laurie
+.%A E. Messeri
+.%A R. Stradling
 .%T Certificate Transparency Version 2.0
+.%R RFC 9162
 .%D December 2021
+.%O the Merkle tree of its section 2.1
 .Re
