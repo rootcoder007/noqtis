@@ -148,6 +148,88 @@ All five take time that depends only on the lengths, never on the key or
 the data: AES is computed without tables, and tags are compared in
 constant time.
 Nothing allocates.
+.Ss Constructions
+In what follows
+.Sy ||
+is concatenation,
+.Sy xor
+is bitwise exclusive or,
+.Sy E_K
+is AES under the key K (FIPS 197) on one 16-byte block,
+.Sy LE32(x)
+and
+.Sy LE64(x)
+are x in 4 and 8 bytes least significant first, and
+.Sy 0^n
+is n zero bits.
+.Pp
+AES-SIV (RFC 5297 sections 2.4 to 2.6).
+The key is K1 || K2, each
+.Fa keylen
+/ 2 bytes; K1 is the key of CMAC (RFC 4493), K2 that of the counter
+mode.
+With A_1, ..., A_n the
+.Fa nad
+associated strings and P the plaintext:
+.Bd -literal -offset indent
+dbl(x) = (x << 1) xor (msb(x) ? 0^120 || 0x87 : 0^128)
+D_0    = CMAC_K1(0^128)
+D_i    = dbl(D_(i-1)) xor CMAC_K1(A_i)        i = 1, ..., n
+T      = P xorend D_n                         if |P| >= 16
+       = dbl(D_n) xor (P || 0x80 || 0...0)    if |P| < 16 (16 bytes)
+V      = CMAC_K1(T)
+Q      = V with bit 63 and bit 31 cleared
+C      = P xor first |P| bytes of
+         E_K2(Q) || E_K2(Q + 1) || E_K2(Q + 2) || ...
+out    = V || C
+.Ed
+.Pp
+dbl is doubling in GF(2^128) modulo x^128 + x^7 + x^2 + x + 1, the
+block read most significant byte first;
+.Sy xorend
+XORs D_n into the last 16 bytes of P; Q + i is addition modulo 2^128 of
+the block read as a big-endian number; the bits cleared in Q are the top
+bits of its bytes 8 and 12 (counting from 0).
+Decryption computes P from Q and C, then V' from P, and returns P only
+when V' equals V, compared in constant time.
+.Pp
+AES-GCM-SIV (RFC 8452 section 4).
+K is the key of
+.Fa keylen
+bytes, N the 12-byte nonce, A the associated data and P the plaintext.
+With m = 4 for a 16-byte key and m = 6 for a 32-byte one:
+.Bd -literal -offset indent
+B_j = first 8 bytes of E_K(LE32(j) || N)      j = 0, ..., m - 1
+H   = B_0 || B_1                              (16 bytes)
+K_e = B_2 || ... || B_(m-1)                   (16 or 32 bytes)
+S   = POLYVAL(H, pad(A) || pad(P) || LE64(8|A|) || LE64(8|P|))
+T   = E_Ke((S xor (N || 0^32)) with bit 127 cleared)
+J_0 = T with bit 127 set
+J_i = LE32(LE32^-1(J_0[0..3]) + i mod 2^32) || J_0[4..15]
+C   = P xor first |P| bytes of E_Ke(J_0) || E_Ke(J_1) || ...
+out = C || T
+.Ed
+.Pp
+pad(X) is X followed by zero bytes to a multiple of 16; |X| is a length
+in bytes; bit 127 is the top bit of byte 15.
+POLYVAL(H, X_1 ... X_s) is S_s, where S_0 = 0 and
+S_j = (S_(j-1) xor X_j) * H * x^-128, each 16-byte block read as a
+little-endian element of GF(2^128) modulo
+x^128 + x^127 + x^126 + x^121 + 1.
+Decryption computes P from T and C, then T' from P, and returns P only
+when T' equals T, compared in constant time.
+.Pp
+ChaCha20 (RFC 8439 sections 2.3 and 2.4).
+With K the 32-byte key, N the 12-byte nonce and c the counter
+.Fa ctr :
+.Bd -literal -offset indent
+out[i] = in[i] xor ChaCha20_block(K, c + floor(i / 64), N)[i mod 64]
+.Ed
+.Pp
+where ChaCha20_block(K, b, N) is the 64-byte output of the 20-round
+block function for block counter b, so that
+.Fa inlen
+may be at most 64 (2^32 \- c) bytes.
 .Sh RETURN VALUES
 .Dv NQOK ,
 or
@@ -200,6 +282,43 @@ output, key, nonce and associated string, and agreement with OpenSSL on
 random inputs.
 .Pp
 .Rs
+.%A D. Harkins
+.%T Synthetic Initialization Vector (SIV) Authenticated Encryption Using the Advanced Encryption Standard (AES)
+.%R RFC 5297
+.%D October 2008
+.Re
+.Rs
+.%A S. Gueron
+.%A A. Langley
+.%A Y. Lindell
+.%T AES-GCM-SIV: Nonce Misuse-Resistant Authenticated Encryption
+.%R RFC 8452
+.%D April 2019
+.Re
+.Rs
+.%A Y. Nir
+.%A A. Langley
+.%T ChaCha20 and Poly1305 for IETF Protocols
+.%R RFC 8439
+.%D June 2018
+.Re
+.Rs
+.%A JH. Song
+.%A R. Poovendran
+.%A J. Lee
+.%A T. Iwata
+.%T The AES-CMAC Algorithm
+.%R RFC 4493
+.%D June 2006
+.Re
+.Rs
+.%Q National Institute of Standards and Technology
+.%T Advanced Encryption Standard (AES)
+.%R FIPS 197
+.%D May 2023
+.%O updated version of the 2001 standard
+.Re
+.Rs
 .%A P. Rogaway
 .%A T. Shrimpton
 .%T A provable-security treatment of the key-wrap problem
@@ -207,6 +326,7 @@ random inputs.
 .%I Springer
 .%P pp. 373-390
 .%D 2006
+.%U https://doi.org/10.1007/11761679_23
 .Re
 .Rs
 .%A S. Gueron
@@ -215,6 +335,7 @@ random inputs.
 .%B Proceedings of the 22nd ACM SIGSAC Conference on Computer and Communications Security
 .%P pp. 109-119
 .%D 2015
+.%U https://doi.org/10.1145/2810103.2813613
 .Re
 .Rs
 .%A D. J. Bernstein
@@ -222,3 +343,30 @@ random inputs.
 .%B Workshop Record of SASC 2008: The State of the Art of Stream Ciphers
 .%D 2008
 .Re
+.Sh SECURITY CONSIDERATIONS
+The key of
+.Fn nqsivenc
+is two keys: 32 bytes give AES-128 for both the CMAC and the counter
+mode
+.Pq Dq AEAD_AES_SIV_CMAC_256
+of RFC 5297, 64 bytes give AES-256.
+A key of
+.Fn nqsivenc
+is not a key of
+.Fn nqgsivenc ,
+.Fn nqcha20
+or any other function: use one key for one algorithm.
+.Pp
+AES-SIV is deterministic: equal inputs give equal outputs, so a
+ciphertext shows that a message was sent before.
+Put a nonce or a counter among the associated strings when that matters.
+AES-GCM-SIV with a nonce used twice under one key leaks only equality of
+the two messages, but RFC 8452 section 9 bounds how many messages one
+key may encrypt with random nonces; a new nonce for each message keeps
+its bounds.
+.Pp
+.Fn nqcha20
+gives no integrity at all, and a counter and nonce used twice under one
+key give the XOR of two plaintexts.
+.Pp
+None of the functions hides the length of the plaintext.
