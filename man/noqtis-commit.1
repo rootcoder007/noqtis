@@ -33,7 +33,13 @@ written to
 (owner-only; or
 .Fl o ;
 .Fl f
-replaces one).
+replaces one; a folder, the file itself or the data record is refused
+as the salt's place).
+.Ar file
+is read whole, at most 1 GiB.
+A folder without a data record gets one.
+The salt is written before the record names the commitment, so a record
+never names one whose salt was lost.
 Without the salt the digest says nothing of the file; with it anyone
 can check that a file is the one committed to
 .Pq Xr noqtis-reveal 1 .
@@ -62,3 +68,10 @@ among them).
 .Xr noqtis-seal 1 ,
 .Xr nqdcommit 3 ,
 .Xr noqtis-data 5
+.Sh STANDARDS
+.Rs
+.%Q National Institute of Standards and Technology
+.%T SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions
+.%R FIPS 202
+.%D August 2015
+.Re
