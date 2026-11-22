@@ -92,7 +92,7 @@ write whole seconds and SHOULD take the time from `SOURCE_DATE_EPOCH`
 when that environment variable is set.
 
 `created` is the sealer's claim. It is covered by the signature but
-proves nothing about the actual time; see §6.4.
+proves nothing about the actual time; see §9.
 
 ### 3.3 Order
 
@@ -192,12 +192,17 @@ A sealer:
 2. MUST refuse to seal, writing nothing, when the folder holds a symbolic
    link, a reparse point, a device, pipe, socket or other non-regular file,
    a name §4 refuses, two paths equal but for ASCII case, a file larger
-   than 2^53 − 1 bytes, or more than any limit of §8 allows.
+   than 2^53 − 1 bytes, a file whose first line is that of a NOQTIS
+   secret key (`noqtis-key-1 <alg> sec`), which would ship with the
+   capsule, or more than any limit of §8 allows.
 3. MUST write the manifest and the seal in canonical form (§2).
 4. MUST verify the new signature with `public_key` before it writes
    `noqtis.sig`, so that a seal made with a secret key and a public key
    that are not one pair is never written.
 5. SHOULD write `noqtis.json` before `noqtis.sig`.
+6. MUST NOT seal again a folder that holds an evidence record
+   (`noqtis.ers`, RFC 4998) over its present seal, which a new seal
+   would replace; the reference implementation returns `NQESTATE`.
 
 ## 7. Checking
 
@@ -226,7 +231,11 @@ report every failure it can.
    MUST verify under its signer certificate; and that certificate's path
    MUST lead to one of the anchors and be valid at the token's `genTime`.
    When the caller supplies no anchors and `timestamp` is present, the
-   check MUST fail, because the timestamp cannot be checked.
+   check MUST fail, because the timestamp cannot be checked. The
+   reference implementation also accepts, with anchors and no
+   `timestamp`, a folder that holds an evidence record `noqtis.ers`
+   (RFC 4998, one data object: the bytes of `noqtis.sig`), which it then
+   checks under the same anchors in a row of its own.
 6. **Manifest.** `noqtis.json` is canonical JSON with exactly the members of
    §3, `format` is `noqtis-capsule-1`, `created` is valid (§3.2), entries
    are sorted with no repeats (§3.3), and every path satisfies §4.
@@ -363,7 +372,8 @@ prove.
 
 ### 11.6 Example
 
-The capsule of §10 sealed in format 2 (one line in the file):
+The files of §10 sealed in format 2, at another time (one line in the
+file):
 
 ```json
 {"created":"2026-10-28T18:04:05Z","files":[{"path":"data/in.csv","sha256":"5be08c9684a1d25efcee09318204824278b08bbfb4aef973ffefd0b9d7478313","sha3_256":"cec130ccd077888d742e367e7a57930c9c22115e294fb375b29343edc10479a1","size":4},{"path":"report.txt","sha256":"8e54b0ca18020275e4aef1ca0eb5e197e066c065c1864817652a8a39c55402cd","sha3_256":"cfd6402fe57231a13c50feb77a4d9e594287810bfa913618dad5076d1bbd01f5","size":2}],"format":"noqtis-capsule-2","merkle":{"alg":"sha256","leaves":2,"root":"4f701b0322535eca8d47c46459225d0d20407af3f791630ae0642b857952e2b6"},"meta":{"project":"demo"}}
@@ -509,7 +519,8 @@ listed file missing from it, or an unlisted file in it, fails.
 ## 15. Chains
 
 A **chain** is an append-only log of capsules: the first sealed in
-format 2, each next one sealed with the last as its only input (§11.4,
+format 2 (the reference checker also takes a format 1 first link, which
+has no inputs), each next one sealed with the last as its only input (§11.4,
 `noqtis seal --input prev=<last>`), so that the seal of each signs the
 id of the one before. It needs no format of its own. A checker
 (`noqtis chain`, `nqdchain`) given the links oldest first checks each as
@@ -528,6 +539,12 @@ levels, a chain is checked one link at a time, at any length.
 - RFC 3339, Date and Time on the Internet: Timestamps.
 - RFC 4648, The Base16, Base32, and Base64 Data Encodings.
 - RFC 3161, Time-Stamp Protocol (TSP); RFC 5280, X.509 certificate paths.
-- RFC 9162, Certificate Transparency Version 2.0 (§2.1, Merkle trees).
+- RFC 9162, Certificate Transparency Version 2.0 (§2.1, Merkle trees);
+  it obsoletes RFC 6962, whose Merkle Tree Hash is the same.
+- RFC 5816, ESSCertIDv2 Update for RFC 3161.
+- RFC 4998, Evidence Record Syntax (ERS).
+- RFC 8032, Edwards-Curve Digital Signature Algorithm (EdDSA), for the
+  Ed25519 part of a hybrid.
+- RFC 2119 and RFC 8174 (BCP 14), the key words.
 - FIPS 180-4 (SHA-2), FIPS 202 (SHA-3), FIPS 204 (ML-DSA), FIPS 205
   (SLH-DSA).
