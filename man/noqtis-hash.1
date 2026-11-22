@@ -43,8 +43,9 @@ of such lines (standard input when there is none).
 For every line it prints
 .Ql <name>: OK ,
 .Ql <name>: FAILED
+.Ql <name>: FAILED open or read
 or
-.Ql <name>: FAILED open or read .
+.Ql <name>: FAILED not a regular file .
 A line may mark binary mode with
 .Ql *
 before the name, as
@@ -112,3 +113,26 @@ abc.txt: OK
 .Xr noqtis 1 ,
 .Xr sha256sum 1 ,
 .Xr nqhash 3
+.Sh STANDARDS
+.Rs
+.%Q National Institute of Standards and Technology
+.%T Secure Hash Standard (SHS)
+.%R FIPS 180-4
+.%D August 2015
+.Re
+.Rs
+.%Q National Institute of Standards and Technology
+.%T SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions
+.%R FIPS 202
+.%D August 2015
+.Re
+.Rs
+.%A B. Viguier
+.%A D. Wong
+.%A G. Van Assche
+.%A Q. Dang
+.%A J. Daemen
+.%T KangarooTwelve and TurboSHAKE
+.%R RFC 9861
+.%D October 2025
+.Re
