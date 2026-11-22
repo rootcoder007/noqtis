@@ -202,6 +202,13 @@ when it is set (a decimal number of seconds), otherwise the clock.
 The secret key and the public key must be one pair: the new seal is
 verified before it is written, and a key pair that does not match is
 refused.
+The secret key must not be under a passphrase: this command takes no
+.Fl -pass-fd
+or
+.Fl -pass-env ,
+so remove the passphrase first
+.Pq Xr noqtis-passwd 1 Fl -no-pass
+and put it back after.
 .Bl -tag -width Ds
 .It Fl k Ar key , Fl -key Ns = Ns Ar key
 A secret signature key file: ML-DSA, SLH-DSA or a hybrid of ML-DSA with
