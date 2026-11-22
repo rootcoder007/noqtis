@@ -114,9 +114,12 @@ The SHA-256 of the exact bytes of
 The signer's public key, base64 (RFC 4648 section 4, padded, no line
 breaks) of the standard's encoding.
 .It Cm signature
-The pure ML-DSA or SLH-DSA signature over the exact bytes of
+The signature over the exact bytes of
 .Pa noqtis.json
-with that context, base64 likewise.
+with that context, base64 likewise: pure (not pre-hash) ML-DSA or
+SLH-DSA, or a hybrid of ML-DSA with Ed25519 as
+.Xr nqsign 3
+makes it; Ed25519 alone is refused.
 .It Cm timestamp
 Optional: base64 of an RFC 3161 time-stamp token whose message imprint is
 the hash (SHA-256, SHA-384 or SHA-512) of the decoded
@@ -233,7 +236,7 @@ SHA-256 of the empty string.
 The
 .Em head
 is the manifest with the member
-.Ql \&"files":[...],
+.Ql \&"files":[...]\&,
 removed: the bytes before
 .Ql \&"files"
 and the bytes after the comma that ends the array.
@@ -405,7 +408,7 @@ capsule.
 .Ss Bundles
 A bundle
 .Pq Ql noqtis-bundle-1 , Xr nqdpack 3
-is a capsule in one file, to mail or attach: the 16 bytes
+is a capsule in one file, to mail or attach: 16 bytes, the 15 of
 .Ql noqtis-bundle-1
 and a line feed; then per file its path's length (2 bytes, big-endian, 1
 to 4096), the path, its size (8 bytes, big-endian) and its bytes; then
@@ -464,34 +467,78 @@ Its seal:
 .Xr nqseal 3
 .Sh STANDARDS
 .Rs
-.%R RFC 8785
+.%A S. Bradner
+.%T Key words for use in RFCs to Indicate Requirement Levels
+.%R RFC 2119
+.%D March 1997
+.Re
+.Rs
+.%A B. Leiba
+.%T Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words
+.%R RFC 8174
+.%D May 2017
+.Re
+.Rs
+.%A T. Bray, Ed.
+.%T The JavaScript Object Notation (JSON) Data Interchange Format
+.%R RFC 8259
+.%D December 2017
+.Re
+.Rs
+.%A A. Rundgren
+.%A B. Jordan
+.%A S. Erdtman
 .%T JSON Canonicalization Scheme (JCS)
+.%R RFC 8785
 .%D June 2020
 .Re
 .Rs
-.%R RFC 3161
+.%A C. Adams
+.%A P. Cain
+.%A D. Pinkas
+.%A R. Zuccherato
 .%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%R RFC 3161
 .%D August 2001
+.%O updated by RFC 5816
 .Re
 .Rs
-.%R RFC 9162
+.%A B. Laurie
+.%A E. Messeri
+.%A R. Stradling
 .%T Certificate Transparency Version 2.0
+.%R RFC 9162
 .%D December 2021
 .Re
 .Rs
-.%R RFC 3339
+.%A G. Klyne
+.%A C. Newman
 .%T Date and Time on the Internet: Timestamps
+.%R RFC 3339
 .%D July 2002
+.%O updated by RFC 9557, whose suffixes the times here do not use
 .Re
 .Rs
-.%R RFC 4648
+.%A S. Josefsson
 .%T The Base16, Base32, and Base64 Data Encodings
+.%R RFC 4648
 .%D October 2006
+.Re
+.Rs
+.%A T. Gondrom
+.%A R. Brandner
+.%A U. Pordesch
+.%T Evidence Record Syntax (ERS)
+.%R RFC 4998
+.%D August 2007
 .Re
 .Sh SECURITY CONSIDERATIONS
 The signature's context is always
-.Ql noqtis-capsule-1 ,
-and a checker refuses any other, so a signature its key holder made for
+.Ql noqtis-capsule-1
+(format 1) or
+.Ql noqtis-capsule-2
+(format 2), and a checker refuses any other,
+so a signature its key holder made for
 another purpose over the same bytes is never a seal.
 Key statements and identity cards have contexts of their own
 .Pq Ql noqtis-keys-1 , Ql noqtis-idcard-1 ,
