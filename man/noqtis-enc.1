@@ -31,7 +31,9 @@ A public KEM key file
 .Pq Ql noqtis-key-1 ML-KEM-768 pub , No for example .
 A signature key is refused.
 .It Fl o Ar ct , Fl -out Ns = Ns Ar ct
-The ciphertext file.
+The ciphertext file (always needed, with
+.Fl -stdout
+too).
 .It Fl -stdout
 Print the shared secret in hex (64 digits and a newline) on standard
 output instead of writing
@@ -71,3 +73,16 @@ same
 .Xr nqenc 3
 .Sh STANDARDS
 FIPS 203 (ML-KEM), HQC version 5.0.0.
+.Rs
+.%Q National Institute of Standards and Technology
+.%T Module-Lattice-Based Key-Encapsulation Mechanism Standard
+.%R FIPS 203
+.%D August 2024
+.Re
+.Rs
+.%Q HQC team
+.%T Hamming Quasi-Cyclic (HQC), specification, version 5.0.0
+.%D August 22, 2025
+.%O the text the code follows; version 5.1, of November 9, 2026, is the current one
+.%U https://pqc-hqc.org/resources.html
+.Re
