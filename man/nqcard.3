@@ -56,6 +56,29 @@ gets the card's size, also when
 is too small.
 The signature is verified before the card is written.
 .Pp
+In symbols, with B64 the padded base64 of RFC 4648 section 4, ALG the
+algorithm's name as
+.Xr nqsign 3
+gives it, T the time as
+.Ql YYYY-MM-DDTHH:MM:SSZ ,
+and JCS the canonical JSON of RFC 8785 (members sorted by name, those
+not given left out):
+.Bd -literal -offset indent
+body = JCS({"affil": affil, "alg": ALG, "created": T, "email": email,
+            "format": "noqtis-idcard-1", "key": B64(pk), "name": name,
+            "orcid": orcid, "url": url})
+sig  = Sign(sk, body, "noqtis-idcard-1")     pure, hedged
+card = JCS(body's members and "signature": B64(sig))
+.Ed
+.Pp
+where Sign is
+.Xr nqsign 3
+with the context
+.Ql noqtis-idcard-1
+(15 bytes) and
+.Fa ph
+0.
+.Pp
 The fields, in bytes:
 .Fa name
 and
@@ -66,7 +89,11 @@ and no space at either end;
 is an ORCID iD,
 .Ql 0000-0002-1825-0097 ,
 or its
-.Ql https://orcid.org/
+.Ql https://orcid.org/ ,
+.Ql http://orcid.org/ ,
+.Ql https://www.orcid.org/
+or
+.Ql http://www.orcid.org/
 address, whose last character is its ISO 7064 MOD 11-2 check digit
 .Pq Ql X No for 10 ,
 a lower-case
@@ -152,7 +179,8 @@ The card was written, or it verifies.
 is too small.
 .It Bq Er NQENOSUP
 .Fn nqcard :
-the algorithm is not a post-quantum signature (Ed25519 alone).
+the algorithm is not a post-quantum signature (Ed25519 alone) or is not
+a signature algorithm of noqtis.
 .It Bq Er NQEARG
 A
 .Dv NULL
@@ -175,7 +203,39 @@ bytes.
 .It Bq Er NQEMEM
 The allocation hook returned
 .Dv NULL .
+.It Bq Er NQERNG , NQEFLT
+.Fn nqcard :
+as
+.Xr nqsign 3 .
 .El
+.Pp
+.Fn nqcardvrfy
+also returns
+.Er NQEARG
+for a
+.Dv NULL
+.Fa card
+or
+.Fa f ,
+or a
+.Dv NULL
+.Fa pk
+with
+.Fa pklen
+not 0.
+.Sh EXAMPLES
+Make a card for an ML-DSA-65 key pair and read it back, pinned to the
+key:
+.Bd -literal -offset indent
+static char card[16384];
+nqcardf f;
+size_t n;
+int rc = nqcard(NQMLDSA65, sk, sklen, pk, pklen, "A. Researcher",
+                "0000-0002-1825-0097", NULL, NULL, NULL,
+                (int64_t)time(NULL), card, sizeof card, &n);
+if (rc == NQOK)
+  rc = nqcardvrfy(card, n, pk, pklen, &f);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-check 1 ,
 .Xr noqtis-idcard 1 ,
