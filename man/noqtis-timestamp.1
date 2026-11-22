@@ -30,11 +30,17 @@ then also shows when the seal existed.
 The seal and the manifest must read
 .Pq as Xr noqtis-inspect 1 reads them
 before any TSA is asked.
-The request is the SHA-256 of the seal's signature, a random nonce and a
-request for the TSA's certificate, sent by an HTTP/1.1 POST; the reply is
+The request is the SHA-256 of the seal's signature, a random nonce of
+8 bytes and a request for the TSA's certificate, sent by an HTTP/1.1
+POST (30 seconds to connect and for each read or write, 120 seconds in
+all, a reply of at most 1 MiB); the reply is
 stored only once it checks: granted, its imprint the hash of this
-signature, its nonce the one sent, and its signature valid under the TSA
-certificate at genTime.
+signature, its nonce the one sent, its signer named by the
+SigningCertificate or SigningCertificateV2 attribute (RFC 5816), and its
+signature valid under the TSA certificate at genTime.
+It prints the TSA and the genTime, and without
+.Fl -anchor
+a note on standard error that the TSA itself was not checked.
 The TSA certificate is checked at genTime and not for revocation, so a
 TSA key stolen later could make tokens with an earlier genTime; see
 .Sx SECURITY CONSIDERATIONS
@@ -62,8 +68,9 @@ with the TLS client (see
 the token is signed by the TSA, so TLS adds no integrity.
 At most 32.
 .It Fl -anchor Ar der-file
-The TSA's root or issuing certificate, DER-encoded: the token must then
-also verify under one of the anchors before it is stored.
+The TSA's root or issuing certificate, DER-encoded (a PEM file is
+refused), at most 1 MiB: the token must then also verify under one of
+the anchors before it is stored.
 At most 32.
 .It Fl -force
 Replace a timestamp the seal already has.
@@ -83,6 +90,7 @@ or no TSA gave a token that checks (nothing written)
 $ noqtis seal -k me results
 $ noqtis timestamp --tsa http://timestamp.digicert.com results
 timestamp from http://timestamp.digicert.com: genTime 2026-10-29T16:02:11Z
+noqtis timestamp: note: no --anchor given, so the TSA itself was not checked; check with --anchor <der-file> to trust the time
 timestamped results
 $ noqtis check -p me.pub --anchor digicert.der results
 .Ed
@@ -95,6 +103,18 @@ $ noqtis check -p me.pub --anchor digicert.der results
 .Xr noqtis-capsule 5
 .Sh STANDARDS
 .Rs
-.%R RFC 3161
+.%A C. Adams
+.%A P. Cain
+.%A D. Pinkas
+.%A R. Zuccherato
 .%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%R RFC 3161
+.%D August 2001
+.Re
+.Rs
+.%A S. Santesson
+.%A N. Pope
+.%T ESSCertIDv2 Update for RFC 3161
+.%R RFC 5816
+.%D April 2010
 .Re
