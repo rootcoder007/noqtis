@@ -68,6 +68,39 @@ or up to 255 bytes of UTF-8 with no control character.
 gets the statement's size, also when
 .Fa cap
 is too small.
+.Fa reason
+.Dv NULL
+is stored as the empty string.
+.Pp
+In symbols, with B64 the padded base64 of RFC 4648 section 4, ALG and
+NALG the algorithms' names as
+.Xr nqsign 3
+gives them, T the time
+.Fa at
+as
+.Ql YYYY-MM-DDTHH:MM:SSZ ,
+KIND
+.Ql rotate ,
+.Ql revoke
+or
+.Ql expire ,
+and JCS the canonical JSON of RFC 8785:
+.Bd -literal -offset indent
+body = JCS({"alg": ALG, "at": T, "format": "noqtis-keys-1",
+            "key": B64(pk), "kind": KIND,
+            "new_alg": NALG, "new_key": B64(npk),     rotation only
+            "reason": reason})
+sig     = Sign(sk, body, "noqtis-keys-1")
+new_sig = Sign(nsk, body, "noqtis-keys-1")             rotation only
+stmt = JCS(body's members, "new_signature": B64(new_sig),
+           "signature": B64(sig))
+.Ed
+.Pp
+where Sign is
+.Xr nqsign 3 ,
+pure and hedged, with the 13-byte context
+.Ql noqtis-keys-1 :
+both keys of a rotation sign the same body.
 .Pp
 Each signature is verified before the statement is written.
 .Xr nqchkx 3
@@ -101,19 +134,39 @@ The statement was written.
 .Fa cap
 is too small.
 .It Bq Er NQENOSUP
-An algorithm is not a post-quantum signature (Ed25519 alone).
+An algorithm is not a post-quantum signature (Ed25519 alone) or not a
+signature algorithm of noqtis.
 .It Bq Er NQEARG
 A
 .Dv NULL
 argument, keys of the wrong sizes or not a pair, the new key equal to
-the old one,
+the old one (the same algorithm and the same bytes),
+.Fa nsk
+without
+.Fa npk
+or
+.Fa npk
+without
+.Fa nsk ,
 .Fa at
 before 1970 or after 9999, or a reason that is too long or not plain
 text.
 .It Bq Er NQEMEM
 The allocation hook returned
 .Dv NULL .
+.It Bq Er NQERNG , NQEFLT
+As
+.Xr nqsign 3 .
 .El
+.Sh EXAMPLES
+Revoke an ML-DSA-65 key from now on:
+.Bd -literal -offset indent
+static char st[16384];
+size_t n;
+int rc = nqkstmt(NQMLDSA65, sk, sklen, pk, pklen, NQMLDSA65, NULL, 0,
+                 NULL, 0, (int64_t)time(NULL), "key lost", st,
+                 sizeof st, &n);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-revoke 1 ,
 .Xr noqtis-rotate 1 ,
