@@ -86,6 +86,15 @@ and
 (another URL with the same bytes, up to 32), and
 .Fl -synthetic
 (the file is a generated stand-in: every report line about it says so).
+.Fl -url ,
+.Fl -etag ,
+.Fl -modified ,
+.Fl -archived
+and
+.Fl -mirror
+are refused when more than one
+.Ar file
+is given.
 .It Cm put
 Adds the element in
 .Ar json-file
@@ -107,13 +116,16 @@ or
 .Cm cite .
 The element is checked as the format defines it; a refusal names the
 member and what is wrong.
+.Ar json-file
+is at most 64 MiB.
 .It Cm del
 Removes the element of
 .Ar member
 with that path or name, or the whole member.
 .It Cm fmt
 Reads a record edited by hand (any member order, keyed arrays in any
-order) and writes it in canonical form.
+order) and writes it in canonical form; a record that is a link, not
+a plain file, or over 64 MiB is refused.
 .It Cm show
 Prints the record, one element a line;
 .Fl j
