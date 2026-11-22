@@ -62,7 +62,7 @@ the chunk size (32 bits, big-endian) and a random 7-byte nonce prefix.
 The key is HKDF-SHA-256 of the shared secret, with info
 .Li noqtis-kstream-1 ,
 the SHA3-256 of the public key, the context's length (one byte) and
-bytes, and the whole header: a changed header gives another key and
+the context, and the whole header: a changed header gives another key and
 the first tag fails.
 Chunk
 .Va i
@@ -73,6 +73,40 @@ nonce prefix,
 before it.
 Every chunk but the last holds exactly the chunk size; the last holds 0
 to the chunk size, so an empty stream is one empty last chunk.
+.Pp
+In symbols, with
+.Sy ||
+concatenation, ek the public key, x the context and |x| its length in
+one byte, P7 the nonce prefix and M_0, ..., M_N the plaintext chunks:
+.Bd -literal -offset indent
+(c, s) = ML-KEM.Encaps(ek)                         32-byte s
+Hdr    = "NQKF" || 0x01 || alg || BE32(chunk) || P7 || c
+K      = HKDF-SHA-256(salt = none, IKM = s,
+           info = "noqtis-kstream-1" || SHA3-256(ek) || |x| || x
+                  || Hdr,
+           L = 32)
+C_i    = AEAD(K, P7 || BE32(i) || f_i, none, M_i)  i = 0, ..., N
+           f_i = 0x01 for i = N, else 0x00
+stream = Hdr || C_0 || ... || C_N
+.Ed
+.Pp
+AEAD is ChaCha20-Poly1305 (RFC 8439 section 2.8), its output the
+ciphertext then the 16-byte tag; HKDF is that of RFC 5869 with
+HMAC-SHA-256, no salt meaning 32 zero bytes; BE32 is 4 bytes, most
+significant first.
+The reader takes SHA3-256(ek) from its secret key, where ML-KEM keeps
+H(ek) (FIPS 203 Algorithm 16).
+.Pp
+ML-KEM decapsulation with a key that is not the recipient's does not
+fail: it gives another shared secret (the implicit rejection of
+FIPS 203).
+.Fn nqkfdini
+therefore succeeds with a wrong key or another context, and the first
+.Fn nqkfdupd
+or
+.Fn nqkfdfin
+returns
+.Er NQEVRFY .
 .Pp
 .Fn nqkfeini
 writes the header to
@@ -142,9 +176,77 @@ The context is not open in this direction.
 .Fa alg
 is HQC.
 .El
+.Sh EXAMPLES
+Sealing a file to an ML-KEM-768 public key
+.Fa pk
+in chunks of the default size, reading one byte ahead to know which
+chunk is the last:
+.Bd -literal -offset indent
+static uint8_t buf[NQKFCHUNK], ct[NQKFCHUNK + 16];
+uint8_t hdr[NQKFHDR + 1568];
+nqkfctx c;
+size_t hl, n, k;
+int rc;
+
+rc = nqkfeini(&c, NQMLKEM768, pk, pklen, NULL, 0, 0, hdr, sizeof hdr,
+              &hl);
+if (rc == NQOK && fwrite(hdr, 1, hl, out) != hl) rc = NQEIO;
+n = rc == NQOK ? fread(buf, 1, sizeof buf, in) : 0;
+while (rc == NQOK) {
+  int ch = n == sizeof buf ? getc(in) : EOF;
+  if (ch == EOF) {
+    rc = nqkfefin(&c, buf, n, ct, sizeof ct, &k);
+    if (rc == NQOK && fwrite(ct, 1, k, out) != k) rc = NQEIO;
+    break;
+  }
+  rc = nqkfeupd(&c, buf, n, ct, sizeof ct, &k);
+  if (rc == NQOK && fwrite(ct, 1, k, out) != k) rc = NQEIO;
+  buf[0] = (uint8_t)ch;
+  n = 1 + fread(buf + 1, 1, sizeof buf - 1, in);
+}
+.Ed
+.Pp
+Opening is the same loop over chunks of the chunk size plus 16 bytes,
+with
+.Fn nqkfdini ,
+.Fn nqkfdupd
+and
+.Fn nqkfdfin .
 .Sh SEE ALSO
 .Xr noqtis-box 1 ,
 .Xr noqtis-unbox 1 ,
 .Xr nqkseal 3
 .Sh STANDARDS
-FIPS 203, RFC 5869, RFC 8439.
+FIPS 203, RFC 5869, RFC 8439, FIPS 202.
+.Rs
+.%Q National Institute of Standards and Technology
+.%T Module-Lattice-Based Key-Encapsulation Mechanism Standard
+.%R FIPS 203
+.%D August 2024
+.Re
+.Rs
+.%A H. Krawczyk
+.%A P. Eronen
+.%T HMAC-based Extract-and-Expand Key Derivation Function (HKDF)
+.%R RFC 5869
+.%D May 2010
+.Re
+.Rs
+.%A Y. Nir
+.%A A. Langley
+.%T ChaCha20 and Poly1305 for IETF Protocols
+.%R RFC 8439
+.%D June 2018
+.Re
+.Rs
+.%A V. T. Hoang
+.%A R. Reyhanitabar
+.%A P. Rogaway
+.%A D. Viz\('ar
+.%T Online authenticated-encryption and its nonce-reuse misuse-resistance
+.%B Advances in Cryptology - CRYPTO 2015
+.%I Springer
+.%P pp. 493-517
+.%D 2015
+.%U https://doi.org/10.1007/978-3-662-47989-6_24
+.Re
