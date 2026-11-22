@@ -46,18 +46,30 @@ Default:
 When the revocation takes effect, as
 .Ql YYYY-MM-DDTHH:MM:SSZ
 (UTC, 1970 or later).
-Default: now.
+Default: now, from the clock
+.Po Ev SOURCE_DATE_EPOCH
+is not read
+.Pc .
 .It Fl -reason Ar text
 Up to 255 bytes of text, kept in the statement.
 .It Fl o Ar file , Fl -out Ns = Ns Ar file
 Write the statement to
 .Ar file
-instead of standard output.
+instead of standard output (also for
+.Ar - ) .
 .It Fl f , Fl -force
 Replace
 .Ar file
 if it exists.
 .El
+.Pp
+The secret key must not be under a passphrase: this command takes no
+.Fl -pass-fd
+or
+.Fl -pass-env ,
+so remove the passphrase first
+.Pq Xr noqtis-passwd 1 Fl -no-pass
+and put it back after.
 .Sh EXIT STATUS
 .Bl -tag -width 3n -compact
 .It 0
