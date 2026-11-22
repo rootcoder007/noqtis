@@ -38,6 +38,19 @@ With
 .Fa key
 may be
 .Dv NULL .
+In the terms of RFC 7693 section 3.3, with nn =
+.Fa outlen
+and kk =
+.Fa keylen :
+.Bd -literal -offset indent
+h[0..7] = IV[0..7],  h[0] ^= 0x01010000 ^ (kk << 8) ^ nn
+d       = (K || 0x00... to 128 bytes) || M     if kk > 0
+d       = M                                    if kk = 0
+.Ed
+.Pp
+then d is compressed in 128-byte blocks, the last one zero-padded and
+flagged final, the byte counter counting the key block too, and the
+first nn bytes of h, each word little-endian, are the digest.
 .Pp
 The time taken depends only on the lengths, never on the key or the
 data.
@@ -76,7 +89,26 @@ int rc = nqb2b(NULL, 0, (const uint8_t *)"abc", 3, d, sizeof d);
 .Xr nqcteq 3 ,
 .Xr nqhash 3
 .Sh STANDARDS
-RFC 7693.
+.Rs
+.%A M-J. Saarinen
+.%A J-P. Aumasson
+.%T The BLAKE2 Cryptographic Hash and Message Authentication Code (MAC)
+.%R RFC 7693
+.%D November 2015
+.Re
+.Rs
+.%A J.-P. Aumasson
+.%A S. Neves
+.%A Z. Wilcox-O'Hearn
+.%A C. Winnerlein
+.%T BLAKE2: simpler, smaller, fast as MD5
+.%B Applied Cryptography and Network Security (ACNS 2013)
+.%I Springer
+.%P pp. 119-135
+.%D 2013
+.%U https://doi.org/10.1007/978-3-642-38980-1_8
+.Re
+.Pp
 The tests check appendix A, the self-test of appendix E, and keyed and
 unkeyed answers of every message length 0 to 255 and every output
 length.
