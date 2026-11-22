@@ -65,7 +65,8 @@ blocks, as the RFC says, while the given value is what is hashed;
 .It
 a salt of at least
 .Dv NQA2SMIN
-(8) bytes;
+(8) bytes, never
+.Dv NULL ;
 .It
 an output of
 .Dv NQA2OMIN
@@ -75,6 +76,33 @@ an output of
 .It
 each input under 2^32 bytes.
 .El
+.Pp
+In symbols (RFC 9106 sections 3.2 to 3.4), with H^n BLAKE2b with an
+n-byte output, LE32 a 32-bit little-endian integer, q = 4 floor(m / 4p)
+the columns of a lane, T =
+.Fa outlen
+and
+.Sy ||
+concatenation:
+.Bd -literal -offset indent
+H0 = H^64(LE32(p) || LE32(T) || LE32(m) || LE32(t) || LE32(0x13)
+          || LE32(2) || LE32(|pw|) || pw || LE32(|salt|) || salt
+          || LE32(|key|) || key || LE32(|ad|) || ad)
+B[l][0] = H'^1024(H0 || LE32(0) || LE32(l))
+B[l][1] = H'^1024(H0 || LE32(1) || LE32(l))
+B[l][j] = G(B[l][j-1], B[l'][j'])           first pass
+B[l][j] = B[l][j] ^ G(B[l][j-1], B[l'][j'])  later passes
+C   = B[0][q-1] ^ ... ^ B[p-1][q-1]
+out = H'^T(C)
+.Ed
+.Pp
+where 2 is the type (Argon2id), G is the compression function of
+section 3.5, (l', j') is chosen from the first 64-bit word of a
+generated address block in slices 0 and 1 of the first pass and from
+that of B[l][j-1] everywhere else, and H'^T(X) is H^T(LE32(T) || X) for
+T at most 64, otherwise the first 32 bytes of each of
+V1 = H^64(LE32(T) || X), V2 = H^64(V1), ..., Vr = H^64(Vr-1), with
+r = ceil(T / 32) - 2, followed by H^(T-32r)(Vr).
 .Pp
 The memory is allocated once, through the allocator of
 .Xr nqsetal 3 ,
@@ -114,7 +142,27 @@ if (rc == NQOK)
 .Xr nqpwenc 3 ,
 .Xr nqsetal 3
 .Sh STANDARDS
-RFC 9106.
+.Rs
+.%A A. Biryukov
+.%A D. Dinu
+.%A D. Khovratovich
+.%A S. Josefsson
+.%T Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work Applications
+.%R RFC 9106
+.%D September 2021
+.Re
+.Rs
+.%A A. Biryukov
+.%A D. Dinu
+.%A D. Khovratovich
+.%T Argon2: New Generation of Memory-Hard Functions for Password Hashing and Other Applications
+.%B 2016 IEEE European Symposium on Security and Privacy (EuroS&P)
+.%I IEEE
+.%P pp. 292-302
+.%D 2016
+.%U https://doi.org/10.1109/EuroSP.2016.31
+.Re
+.Pp
 The tests check its Argon2d, Argon2i and Argon2id vectors (Argon2d and
 Argon2i are internal, for those vectors only) and answers of OpenSSL
 3.5's ARGON2ID with more memory, lanes and output.
