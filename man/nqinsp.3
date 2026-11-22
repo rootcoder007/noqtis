@@ -46,7 +46,9 @@ the creation time
 .It Ql info.files
 the number of files listed, in decimal
 .It Ql info.bytes
-their total size, in decimal
+their total size, in decimal, or
+.Ql more than 18446744073709551615
+when it does not fit in 64 bits
 .It Ql info.timestamp
 .Ql present
 or
@@ -88,6 +90,21 @@ for a NULL argument and
 when memory runs out (no report).
 Free the report with
 .Fn nqrepfree .
+.Sh EXAMPLES
+Print what a capsule says about itself:
+.Bd -literal -offset indent
+nqrep *rep = NULL;
+size_t i;
+if (nqinsp("results", &rep) == NQOK) {
+  for (i = 0; i < nqrepn(rep); i++) {
+    const char *c, *d;
+    if (nqrepi(rep, i, &c, NULL, &d) == NQOK &&
+        strncmp(c, "info.", 5) == 0)
+      printf("%s %s\en", c + 5, d);
+  }
+}
+nqrepfree(rep);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-inspect 1 ,
 .Xr nqchk 3 ,
