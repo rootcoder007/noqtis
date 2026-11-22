@@ -55,8 +55,8 @@
 .Nm noqtis pgp
 writes and reads OpenPGP (RFC 9580) in its version 6 forms, with
 Ed25519 and X25519 of that RFC and the post-quantum algorithms of
-draft-ietf-openpgp-pqc: ML-DSA-65 with Ed25519, ML-KEM-768 with X25519,
-and SLH-DSA-SHAKE.
+RFC 9980 (published from draft-ietf-openpgp-pqc): ML-DSA-65 with
+Ed25519, ML-KEM-768 with X25519, and SLH-DSA-SHAKE.
 What it writes is ASCII armor unless
 .Fl -binary
 is given; what it reads may be either.
@@ -187,5 +187,6 @@ $ noqtis pgp decrypt -k bob --cert ada.pub -o report.pdf secret.asc
 .%A F. Strenzke
 .%A A. Wussler
 .%T Post-Quantum Cryptography in OpenPGP
-.%R draft-ietf-openpgp-pqc
+.%R RFC 9980
+.%D June 2026
 .Re

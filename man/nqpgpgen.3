@@ -39,7 +39,7 @@ Algorithms are named by their OpenPGP numbers:
 .Dv NQPGPED25519
 and
 .Dv NQPGPX25519
-of the RFC, and of draft-ietf-openpgp-pqc
+of the RFC, and of RFC 9980 (published from draft-ietf-openpgp-pqc)
 .Dv NQPGPMLDSA65
 (ML-DSA-65 with Ed25519),
 .Dv NQPGPMLKEM768
@@ -163,6 +163,38 @@ with
 it gives the size alone.
 .Fn nqpgpdearm
 reads one armor back, and its kind.
+.Ss Key encapsulation
+The 32-byte session key of an encrypted message reaches each recipient
+in a version 6 PKESK packet.
+With
+.Sy ||
+concatenation, e a new random X25519 secret, E = X25519(e, 9) its public
+key, R the recipient's X25519 public key, and SK the session key:
+.Bd -literal -offset indent
+X25519 (25), RFC 9580 section 5.1.6:
+  KEK = HKDF-SHA-256(salt = none, IKM = E || R || X25519(e, R),
+                     info = "OpenPGP X25519", L = 16)
+  W   = AES-128-KW(KEK, SK)                              40 bytes
+  out = E || 40 || W
+
+ML-KEM-768+X25519 (35), RFC 9980 section 4.2:
+  (c, s) = ML-KEM-768.Encaps(ek)                         FIPS 203
+  KEK = SHA3-256(s || X25519(e, R) || E || R || 0x23
+                 || "OpenPGPCompositeKDFv1" || 0x15)
+  W   = AES-256-KW(KEK, SK)                              40 bytes
+  out = E || c || 40 || W
+.Ed
+.Pp
+AES-KW is the key wrap of RFC 3394 with its 64-bit check, ek the
+ML-KEM-768 part of the recipient's key (it follows R in the key packet),
+0x23 the algorithm number 35 and 0x15 the length, 21, of the label.
+Both shared secrets enter the key, so the wrap holds while either
+ML-KEM-768 or X25519 does.
+.Pp
+An ML-DSA-65+Ed25519 signature (30) is an Ed25519 signature (RFC 8032)
+followed by an ML-DSA-65 signature (FIPS 204, empty context) of the same
+version 6 digest of RFC 9580 section 5.2.4; both must verify
+(RFC 9980 section 5.2).
 .Sh RETURN VALUES
 .Dv NQOK
 on success.
@@ -196,4 +228,35 @@ for an input over 1 GiB.
 .%T OpenPGP
 .%R RFC 9580
 .%D July 2024
+.Re
+.Rs
+.%A S. Kousidis
+.%A J. Roth
+.%A F. Strenzke
+.%A A. Wussler
+.%T Post-Quantum Cryptography in OpenPGP
+.%R RFC 9980
+.%D June 2026
+.Re
+.Rs
+.%A J. Schaad
+.%A R. Housley
+.%T Advanced Encryption Standard (AES) Key Wrap Algorithm
+.%R RFC 3394
+.%D October 2002
+.Re
+.Rs
+.%A A. Langley
+.%A M. Hamburg
+.%A S. Turner
+.%T Elliptic Curves for Security
+.%R RFC 7748
+.%D January 2016
+.Re
+.Rs
+.%A S. Josefsson
+.%A I. Liusvaara
+.%T Edwards-Curve Digital Signature Algorithm (EdDSA)
+.%R RFC 8032
+.%D January 2017
 .Re
