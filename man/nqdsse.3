@@ -40,7 +40,9 @@ over the envelope's pre-authentication encoding
 "DSSEv1" SP LEN(type) SP type SP LEN(payload) SP payload
 .Ed
 .Pp
-(lengths in ASCII decimal), as canonical JSON:
+(lengths in ASCII decimal, SP one space), signed by
+.Xr nqsign 3
+with no context, pure and hedged, and written as canonical JSON:
 .Bd -literal -offset indent
 {"payload":<base64>,"payloadType":<type>,
  "signatures":[{"keyid":<hex SHA-256 of pk>,"sig":<base64>}]}
@@ -50,6 +52,8 @@ over the envelope's pre-authentication encoding
 is 1 to 255 printable ASCII bytes with no space, quote or backslash,
 such as
 .Ql application/vnd.in-toto+json .
+Base64 is the padded standard alphabet of RFC 4648 section 4.
+Any signature algorithm of noqtis may sign, Ed25519 alone included.
 The signature is checked before the envelope is written.
 .Fa *outlen
 gets the envelope's size, also when
@@ -67,6 +71,16 @@ over the pre-authentication encoding of its
 .Ql payloadType
 and decoded
 .Ql payload .
+The envelope need not be canonical, and other members are ignored, as
+is each signature's
+.Ql keyid ;
+a signature entry that is not an object or whose
+.Ql sig
+does not decode is skipped.
+Only the padded standard base64 alphabet is read: the URL-safe or
+unpadded encodings that the DSSE specification also allows give
+.Er NQEDEC
+(for the payload) or a skipped signature.
 The payload then goes to
 .Fa payload
 .Pf ( Fa *outlen
@@ -89,7 +103,13 @@ is too small.
 no signature verifies.
 .It Bq Er NQEDEC
 .Fn nqdssevrfy :
-not an envelope.
+not an envelope: not JSON, no string
+.Ql payload
+or allowed
+.Ql payloadType ,
+or a
+.Ql signatures
+array of none or more than 16.
 .It Bq Er NQEARG
 A
 .Dv NULL
@@ -98,7 +118,25 @@ allowed.
 .It Bq Er NQEMEM
 The allocation hook returned
 .Dv NULL .
+.It Bq Er NQERNG , NQEFLT
+.Fn nqdsse :
+as
+.Xr nqsign 3 .
 .El
+.Sh EXAMPLES
+Wrap an in-toto statement and read it back:
+.Bd -literal -offset indent
+static char env[65536];
+static uint8_t back[16384];
+char type[256];
+size_t n, m;
+int rc = nqdsse(NQMLDSA65, sk, sklen, pk, pklen,
+                "application/vnd.in-toto+json", stmt, stmtlen,
+                env, sizeof env, &n);
+if (rc == NQOK)
+  rc = nqdssevrfy(NQMLDSA65, pk, pklen, env, n, back, sizeof back, &m,
+                  type);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-export 1 ,
 .Xr noqtis-verify 1 ,
@@ -107,4 +145,14 @@ The allocation hook returned
 .Rs
 .%T DSSE: Dead Simple Signing Envelope
 .%U https://github.com/secure-systems-lab/dsse/blob/master/envelope.md
+.Re
+.Rs
+.%T DSSE protocol
+.%U https://github.com/secure-systems-lab/dsse/blob/master/protocol.md
+.Re
+.Rs
+.%A S. Josefsson
+.%T The Base16, Base32, and Base64 Data Encodings
+.%R RFC 4648
+.%D October 2006
 .Re
