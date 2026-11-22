@@ -53,7 +53,8 @@ every link is sealed by the key of the first.
 .El
 .Pp
 The first link's own inputs are not followed, so a chain can be checked
-from any link on.
+from any link on; it may also be a format 1 capsule, which has none.
+The key of a link is compared by the SHA-256 of its seal's public key.
 Unlike
 .Fa o Ns -> Ns Fa lin ,
 which follows inputs as a tree to 64 levels, a chain is checked one
@@ -85,6 +86,19 @@ for
 .Dv NULL
 argument;
 .Dv NQEMEM .
+.Sh EXAMPLES
+Check a chain of three capsules sealed by a pinned key:
+.Bd -literal -offset indent
+static const char *const d[] = {"log/0001", "log/0002", "log/0003"};
+nqcopt o = {0};
+uint8_t head[32];
+nqdrep *rep = NULL;
+int rc;
+o.trust = pk;
+o.trustlen = pklen;
+rc = nqdchain(d, 3, &o, head, &rep);
+nqdrepfree(rep);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-chain 1 ,
 .Xr noqtis-seal 1 ,
