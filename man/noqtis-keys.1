@@ -218,12 +218,15 @@ else
 .Pa noqtis/keys
 under
 .Ev XDG_CONFIG_HOME
-or
-.Pa ~/.config
+when it is an absolute path, or
+.Pa .config
+under
+.Ev HOME
 .Po
 .Ev APPDATA
 on Windows
 .Pc .
+With none of them set, every action is refused (exit 2).
 .Cm add
 makes the folder when it is not there.
 .El
@@ -236,6 +239,12 @@ checked when they are put in.
 .Bl -tag -width NOQTIS_KEYS
 .It Ev NOQTIS_KEYS
 The folder of the key store.
+.It Ev XDG_CONFIG_HOME , Ev HOME , Ev APPDATA
+Where the store is when
+.Ev NOQTIS_KEYS
+and
+.Fl -store
+are not given, as above.
 .El
 .Sh EXIT STATUS
 0 on success; 1 when
