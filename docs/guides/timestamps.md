@@ -78,7 +78,8 @@ Only the seal file changes: the manifest and the signature stay as they
 were, so the capsule still checks. When no TSA gives a token that checks,
 nothing is written (exit 2). A seal that already has a timestamp keeps it
 unless `--force` is given, because the new one would only prove a later
-time.
+time. A capsule with an evidence record (`noqtis.ers`) is refused: renew
+the record with `noqtis ers` instead.
 
 `http://` is enough: the token is signed by the TSA, so TLS adds no
 integrity. `https://` works only in a build with noqtis's own TLS 1.3

@@ -32,6 +32,10 @@ break the capsule.
 - more than 2,000,000 files, a path over 4096 bytes, folders more than 64
   levels deep, or a manifest over 512 MiB.
 
+It also refuses a secret key under a passphrase (`seal` takes no
+`--pass-fd`; see [keys](https://noqtis.dev/guides/keys/)) and a folder
+with an evidence record (`noqtis.ers`), which a new seal would orphan.
+
 A folder swapped for a link while `seal` or `check` runs is refused, not
 followed: files are opened folder by folder from the capsule folder.
 
@@ -71,7 +75,7 @@ wrong at once. The rows:
 | Row | Passes when |
 |---|---|
 | `seal.read`, `seal.parse`, `seal.canonical`, `seal.fields`, `seal.format` | `noqtis.sig` is canonical JSON with exactly the fields of `noqtis-seal-1` |
-| `seal.alg`, `seal.context`, `seal.key`, `seal.signature` | a known algorithm, the context `noqtis-capsule-1`, a key and signature of the right sizes |
+| `seal.alg`, `seal.context`, `seal.key`, `seal.signature` | a known algorithm, the context `noqtis-capsule-1` (`noqtis-capsule-2` in format 2), a key and signature of the right sizes |
 | `manifest.read`, `manifest.digest` | `noqtis.json` is readable and its SHA-256 is the seal's |
 | `key` | the seal's key is the one given with `-p` (or says it was not pinned) |
 | `signature` | the signature over `noqtis.json` verifies |
