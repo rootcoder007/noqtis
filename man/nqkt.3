@@ -81,10 +81,51 @@ on the pieces joined.
 .Vt nqktctx
 is opaque and may be kept on the stack;
 .Fn nqktfin
-wipes it.
+wipes it when it succeeds, after which
+.Fn nqktupd
+and
+.Fn nqktfin
+refuse it until
+.Fn nqktini
+is called again.
+A call that returns
+.Dv NQEARG
+leaves the context as it was.
 .Pp
 The time taken depends only on the lengths, never on the data.
 Nothing allocates.
+.Ss Construction
+This is KangarooTwelve of RFC 9861 sections 2 and 3, as computed here.
+M is the input,
+C the customization string,
+L =
+.Fa outlen ,
+.Sy ||
+is concatenation and |X| the length of X in bytes.
+.Bd -literal -offset indent
+length_encode(x) = x in base 256, most significant byte first,
+                   no leading zero bytes (none at all for x = 0),
+                   followed by one byte: the number of those bytes
+S   = M || C || length_encode(|C|)
+KT(M, C, L) = TurboSHAKE(S, 0x07, L)                  if |S| <= 8192
+            = TurboSHAKE(FN, 0x06, L)                 otherwise
+S   = S_0 || S_1 || ... || S_n         chunks of 8192 bytes, the last
+                                       one 1 to 8192 bytes
+CV_i = TurboSHAKE(S_i, 0x0B, c)                       i = 1, ..., n
+FN  = S_0 || 0x03 || 0x00^7 || CV_1 || ... || CV_n
+      || length_encode(n) || 0xFF || 0xFF
+.Ed
+.Pp
+For KT128, TurboSHAKE is TurboSHAKE128 and c = 32; for KT256,
+TurboSHAKE256 and c = 64.
+TurboSHAKE(X, D, L) is the sponge of FIPS 202 on Keccak-p[1600, 12]
+(the last 12 of the 24 rounds of Keccak-f[1600]), with a rate of 168
+bytes (TurboSHAKE128) or 136 bytes (TurboSHAKE256): X is absorbed, the
+domain byte D is XORed at the next position and 0x80 at the last byte of
+the block, and L bytes are squeezed.
+A customization string therefore always separates: KT(M, C, L) and
+KT(M', C', L) are computed on different strings S unless M = M' and
+C = C'.
 .Sh RETURN VALUES
 .Dv NQOK ,
 or
@@ -123,7 +164,7 @@ if (rc == NQOK) rc = nqktfin(&c, NULL, 0, d, sizeof d);
 .Xr nqcteq 3 ,
 .Xr nqhash 3
 .Sh STANDARDS
-RFC 9861.
+RFC 9861; TurboSHAKE builds on the Keccak-p permutation of FIPS 202.
 The tests check every test vector of its section 5, those of TurboSHAKE
 among them, inputs in pieces cut before, at and after every chunk
 boundary, and agreement of KT128 with another implementation on random
@@ -141,4 +182,21 @@ inputs.
 .%I Springer
 .%P pp. 400-418
 .%D 2018
+.%U https://doi.org/10.1007/978-3-319-93387-0_21
+.Re
+.Rs
+.%A B. Viguier
+.%A D. Wong
+.%A G. Van Assche
+.%A Q. Dang
+.%A J. Daemen
+.%T KangarooTwelve and TurboSHAKE
+.%R RFC 9861
+.%D October 2025
+.Re
+.Rs
+.%Q National Institute of Standards and Technology
+.%T SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions
+.%R FIPS 202
+.%D August 2015
 .Re
