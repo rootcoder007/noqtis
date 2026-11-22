@@ -131,6 +131,19 @@ when the file cannot be written (its folder must exist);
 .Dv NQELIM
 over 1 GiB;
 .Dv NQEMEM .
+.Sh EXAMPLES
+A synthetic stand-in of 500 rows for a file the record has a schema of,
+with seed 1:
+.Bd -literal -offset indent
+nqdrec *r = NULL;
+char why[256];
+int rc = nqdload("demo", &r, why, sizeof why);
+if (rc == NQOK)
+  rc = nqdsyn(r, "demo", "data/a.csv", 1, 500, why, sizeof why);
+if (rc == NQOK)
+  rc = nqdsave(r, "demo");
+nqdrfree(r);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-data 1 ,
 .Xr nqdinfer 3 ,
