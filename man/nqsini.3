@@ -89,9 +89,18 @@ the key at the end), is checked on every call, and is wiped by
 .Fn nqsfin
 and
 .Fn nqvfin
-whatever they return; a context used up, never started, used in the
+whatever they return, except
+.Er NQESTATE :
+a context used up, never started, used in the
 other direction or changed gives
-.Er NQESTATE .
+.Er NQESTATE
+and is left as it was.
+A failed
+.Fn nqsupd
+leaves the context as it was before the call.
+When
+.Fn nqsfin
+fails, the signature buffer is zeroed.
 .Pp
 What can stream:
 .Bl -bullet
@@ -109,6 +118,32 @@ Ed25519ph and the ML-DSA + Ed25519 hybrids with
 the hash of the message streams, and the end is the one-call signature
 on it.
 .El
+.Pp
+In symbols, with M the message, x the context (for a hybrid,
+x = "noqtis-hybrid:" || the caller's context), PH the hash
+.Fa ph
+names, OID(PH) its 11-byte DER object identifier, tr = SHAKE256(pk, 64)
+(taken from
+.Fa sk
+when signing) and
+.Sy ||
+concatenation, the context accumulates
+.Bd -literal -offset indent
+ML-DSA, ph 0:  mu = SHAKE256(tr || 0x00 || |x| || x || M, 64)
+ML-DSA, ph:    mu = SHAKE256(tr || 0x01 || |x| || x || OID(PH)
+                             || PH(M), 64)
+SLH-DSA, ph:   M' = 0x01 || |x| || x || OID(PH) || PH(M)
+Ed25519ph:     PH(M) = SHA-512(M)
+.Ed
+.Pp
+and the end signs or checks mu (FIPS 204 Algorithms 7 and 8, from the
+line that computes mu on), M' with the internal functions of FIPS 205 (Algorithms 19
+and 20; an
+.Fa rnd
+of all zeros stands for PK.seed, the deterministic variant), or
+PH(M) as Ed25519ph with the context x (RFC 8032 section 5.1).
+A hybrid signs mu with its ML-DSA part and PH(M) with its Ed25519 part,
+both under x, and checks both parts always.
 .Pp
 Pure SLH-DSA, pure Ed25519 and Ed25519ctx, Ed25519ph with another hash,
 and the hybrids without SHA-512 return
@@ -162,4 +197,20 @@ if (rc == NQOK)
 .Xr nqsign 3 ,
 .Xr nqsignmu 3
 .Sh STANDARDS
-FIPS 204, FIPS 205, RFC 8032.
+.Rs
+.%T FIPS 204: Module-Lattice-Based Digital Signature Standard
+.%Q NIST
+.%D August 13, 2024
+.Re
+.Rs
+.%T FIPS 205: Stateless Hash-Based Digital Signature Standard
+.%Q NIST
+.%D August 13, 2024
+.Re
+.Rs
+.%A S. Josefsson
+.%A I. Liusvaara
+.%T Edwards-Curve Digital Signature Algorithm (EdDSA)
+.%R RFC 8032
+.%D January 2017
+.Re
