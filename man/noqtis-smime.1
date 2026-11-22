@@ -11,10 +11,9 @@
 .Fl k Ar key
 .Fl -cert Ar cert
 .Op Fl -detached
-.Op Fl -der
-.Op Fl -text | Fl -entity
+.Op Fl -der | Fl -text | Fl -entity
 .Op Fl o Ar out
-.Op Fl -force
+.Op Fl f | Fl -force
 .Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Ar file
 .Nm noqtis smime
@@ -24,16 +23,15 @@
 .Op Fl -content Ar file
 .Op Fl -entity
 .Op Fl o Ar out
-.Op Fl -force
+.Op Fl f | Fl -force
 .Ar file
 .Nm noqtis smime
 .Cm encrypt
 .Fl -to Ar cert
 .Op Fl -to Ar cert ...
-.Op Fl -der
-.Op Fl -text | Fl -entity
+.Op Fl -der | Fl -text | Fl -entity
 .Op Fl o Ar out
-.Op Fl -force
+.Op Fl f | Fl -force
 .Ar file
 .Nm noqtis smime
 .Cm decrypt
@@ -41,7 +39,7 @@
 .Op Fl -cert Ar cert
 .Op Fl -entity
 .Op Fl o Ar out
-.Op Fl -force
+.Op Fl f | Fl -force
 .Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Ar file
 .Sh DESCRIPTION
@@ -72,9 +70,18 @@ Check a signed message against the trust anchors given with
 .Fl -anchor
 (up to 32 certificates, PEM or DER): the signer's certificate is one of
 them, or chains to one.
-It prints who signed, and with
+It prints who signed, as in EXAMPLES, with the first 16 hex digits of
+the SHA-256 of the signer's certificate,
+on standard output, or on standard error when
 .Fl o
-writes the content.
+is
+.Ar - ;
+with
+.Fl o
+it writes the content.
+A signature that does not verify prints a line with
+.Ql FAILED
+on standard output.
 The certificates must be valid at the signing time the message states.
 .It Cm encrypt
 Encrypt
@@ -89,13 +96,18 @@ encrypt the result.
 Open an encrypted message with the ML-KEM secret key
 .Ar key ;
 .Fl -cert
-names that key's certificate, and so its entry among the recipients.
+names that key's certificate, and so its entry among the recipients;
+without it, the key is tried on each recipient's entry in turn.
 .El
 .Pp
 The options:
 .Bl -tag -width Ds
 .It Fl -der
-Write the CMS structure itself, in DER, in place of a MIME message.
+Write the CMS structure itself, in DER, in place of a MIME message;
+not with
+.Fl -text
+or
+.Fl -entity .
 .Cm verify
 and
 .Cm decrypt
@@ -120,6 +132,9 @@ then write the entity instead of its body.
 .It Fl o Ar out , Fl -out Ns = Ns Ar out
 The output; standard output when it is not given or is
 .Ar - .
+A file is created with mode 0666 less the umask, the plaintext of
+.Cm decrypt
+too.
 .It Fl -pass-fd Ar n , Fl -pass-env Ar name
 The passphrase of a protected
 .Ar key .
@@ -127,6 +142,19 @@ The passphrase of a protected
 Replace an existing
 .Ar out .
 .El
+.Pp
+The input
+.Ar file ,
+and the
+.Fl -content
+of
+.Cm verify ,
+are read whole, up to 1 GiB; a certificate up to 1 MiB.
+.Cm sign
+writes as the signing time the current time, or
+.Ev SOURCE_DATE_EPOCH
+when it is set
+.Pq Xr noqtis 1 .
 .Sh EXIT STATUS
 0 on success;
 1 when
@@ -155,4 +183,61 @@ $ noqtis smime decrypt -k bob-kem -o report.pdf secret.p7m
 .%T Secure/Multipurpose Internet Mail Extensions (S/MIME) Version 4.0 Message Specification
 .%R RFC 8551
 .%D April 2019
+.Re
+.Rs
+.%A R. Housley
+.%T Cryptographic Message Syntax (CMS)
+.%R RFC 5652
+.%D September 2009
+.Re
+.Rs
+.%A R. Housley
+.%T Cryptographic Message Syntax (CMS) Authenticated-Enveloped-Data Content Type
+.%R RFC 5083
+.%D November 2007
+.Re
+.Rs
+.%A R. Housley
+.%T Using AES-CCM and AES-GCM Authenticated Encryption in the Cryptographic Message Syntax (CMS)
+.%R RFC 5084
+.%D November 2007
+.Re
+.Rs
+.%A R. Housley
+.%A J. Gray
+.%A T. Okubo
+.%T Using Key Encapsulation Mechanism (KEM) Algorithms in the Cryptographic Message Syntax (CMS)
+.%R RFC 9629
+.%D August 2024
+.Re
+.Rs
+.%A J. Prat
+.%A M. Ounsworth
+.%A D. Van Geest
+.%T Use of ML-KEM in the Cryptographic Message Syntax (CMS)
+.%R RFC 9936
+.%D March 2026
+.Re
+.Rs
+.%A B. Salter
+.%A A. Raine
+.%A D. Van Geest
+.%T Use of the ML-DSA Signature Algorithm in the Cryptographic Message Syntax (CMS)
+.%R RFC 9882
+.%D October 2025
+.Re
+.Rs
+.%A R. Housley
+.%A S. Fluhrer
+.%A P. Kampanakis
+.%A B. Westerbaan
+.%T Use of the SLH-DSA Signature Algorithm in the Cryptographic Message Syntax (CMS)
+.%R RFC 9814
+.%D July 2025
+.Re
+.Rs
+.%A R. Housley
+.%T Use of Edwards-Curve Digital Signature Algorithm (EdDSA) Signatures in the Cryptographic Message Syntax (CMS)
+.%R RFC 8419
+.%D August 2018
 .Re
