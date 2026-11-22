@@ -14,7 +14,13 @@
 #'
 #' A file is read in chunks of 1 MiB, so files larger than memory hash
 #' without being loaded whole. A string is hashed as its UTF-8 bytes,
-#' with no terminating newline. The HMAC key may have any length.
+#' with no terminating newline. The HMAC key may have any length: one
+#' longer than the hash's block (64 bytes for SHA-224/256, 128 for
+#' SHA-384/512, the rate for SHA-3) is hashed first, as FIPS 198-1 says,
+#' and the whole tag is returned.
+#'
+#' `nqhash()` calls the library's `nqhash()`, or `nqhini()`, `nqhupd()`
+#' and `nqhfin()` for a file; `nqhmac()` calls `nqhmac()`.
 #'
 #' @param x A raw vector, or one string (hashed as its UTF-8 bytes), or,
 #'   with `file = TRUE`, the path of a file.
@@ -41,6 +47,10 @@
 #'
 #' Krawczyk, H., Bellare, M. and Canetti, R. (1997). *HMAC: Keyed-Hashing
 #' for Message Authentication*, RFC 2104. \doi{10.17487/RFC2104}
+#'
+#' National Institute of Standards and Technology (2008). *The Keyed-Hash
+#' Message Authentication Code (HMAC)*, FIPS 198-1.
+#' \doi{10.6028/NIST.FIPS.198-1}
 #'
 #' @family hash functions
 #' @seealso [nqsign()] can sign a hash (`ph`); [nqfiles()] lists the
