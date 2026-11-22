@@ -55,6 +55,19 @@ set in all three cases;
 or
 .Dv NQEMEM
 without a report.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+nqdrep *rep = NULL;
+size_t i;
+if (nqddiff("v1", "v2", &rep) == NQEVRFY)
+  for (i = 0; i < nqdrepn(rep); i++) {
+    const char *c, *d;
+    int ok;
+    if (nqdrepi(rep, i, &c, &ok, &d) == NQOK && !ok)
+      printf("%s: %s\en", c, d);
+  }
+nqdrepfree(rep);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-diff 1 ,
 .Xr nqdchk 3 ,
