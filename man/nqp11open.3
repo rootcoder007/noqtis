@@ -106,6 +106,35 @@ makes a key pair on the token under
 .Fa label ,
 the private key marked never to leave it.
 .Pp
+The mechanisms are those of PKCS #11 version 3.2:
+.Dv CKM_ML_DSA
+and
+.Dv CKM_SLH_DSA
+(pure signing; a context goes in a
+.Vt CK_SIGN_ADDITIONAL_CONTEXT
+with
+.Dv CKH_HEDGE_PREFERRED ,
+so the token hedges when it can),
+.Dv CKM_EDDSA
+(Ed25519 with no parameter, Ed25519ctx of RFC 8032 with a
+.Vt CK_EDDSA_PARAMS
+when there is a context),
+.Dv CKM_ML_KEM
+for decapsulation, and the matching key-pair generation mechanisms.
+A context is at most 255 bytes.
+.Fn nqp11gen
+marks the private key
+.Dv CKA_TOKEN ,
+.Dv CKA_PRIVATE
+and
+.Dv CKA_SENSITIVE
+true and
+.Dv CKA_EXTRACTABLE
+false, and keeps the public key on the token too, both under
+.Fa label
+and one random
+.Dv CKA_ID .
+.Pp
 A handle is for one thread at a time.
 .Sh RETURN VALUES
 .Dv NQOK
@@ -140,3 +169,25 @@ for a bad argument and a key of the wrong kind.
 .Xr nqsign 3
 .Sh STANDARDS
 OASIS PKCS #11 Specification Version 3.2.
+.Rs
+.%A D. Bong
+.%A T. Cox
+.%T PKCS #11 Specification Version 3.2
+.%Q OASIS
+.%O OASIS Standard
+.%D 3 June 2026
+.%U https://docs.oasis-open.org/pkcs11/pkcs11-spec/v3.2/os/pkcs11-spec-v3.2-os.html
+.Re
+.Rs
+.%A S. Josefsson
+.%A I. Liusvaara
+.%T Edwards-Curve Digital Signature Algorithm (EdDSA)
+.%R RFC 8032
+.%D January 2017
+.Re
+.Sh SECURITY CONSIDERATIONS
+A PIN given to
+.Fn nqp11login
+is passed to the module as it is; the caller wipes its copy.
+The module is code loaded into the process: load only one that is
+trusted, by its full path.
