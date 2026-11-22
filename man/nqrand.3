@@ -34,7 +34,17 @@ under WebAssembly (WebCrypto
 with emscripten, WASI
 .Fn random_get
 with wasi-sdk).
-Large requests are made in chunks.
+Large requests are made in chunks (256 bytes for
+.Xr getentropy 3 ,
+256 MiB for
+.Fn BCryptGenRandom ) .
+On Linux,
+.Xr getrandom 2
+is called with no flags, so it blocks until the kernel's pool is
+initialised, and a call interrupted by a signal is repeated;
+.Xr arc4random_buf 3
+cannot fail.
+On other systems the library does not build.
 There is no fallback source and no user-space generator: when the
 operating system's source fails, so does
 .Fn nqrand .
@@ -88,7 +98,10 @@ holds
 random bytes.
 A
 .Fa len
-of 0 succeeds and writes nothing.
+of 0 succeeds and writes nothing (a caller's source is still called,
+with
+.Fa len
+0).
 .It Bq Er NQEARG
 .Fa buf
 is
@@ -100,6 +113,11 @@ is not 0.
 The operating system's source failed, or the caller's source did, or (in
 the freestanding build) no source was set.
 .El
+.Pp
+After
+.Er NQERNG ,
+.Fa buf
+may already hold some bytes from the source; they must not be used.
 .Pp
 .Fn nqsetrng
 returns
