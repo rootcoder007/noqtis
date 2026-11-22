@@ -19,5 +19,5 @@ what bricklayer kept in `data_provenance.json`.
 | `mkbndl`, `mkbndlproj`, `usecpstmpl`, `rmbl pack` | `noqtis pack init --template plain\|r\|python`, `pack build`, `pack check` (there is no separate `noqtis init`) |
 | `chnkfile` | `noqtis chunk pin\|check` |
 | `mksyncsv` | `noqtis data syn` (marked `synthetic`) |
-| `hqccmpkey` | the HQC key-generation seed itself: keep the seed and make the key again with `noqtis keygen -a HQC-128 --seed <seed>` (`nqkkgd(3)`); there is no other compressed form |
+| `hqccmpkey` | the HQC key-generation seed itself: keep the seed and make the key again with `noqtis keygen -a HQC-128 -o <key> --seed <seed-file>` (`nqkkgd(3)`); there is no other compressed form |
 | `rmbl-action` modes verify, drift, refresh, report | the action's `check`, `drift`, `refresh` and `report` modes, with `fail-on`, `base-ref` and `comment` ([CI guide](ci.md)) |
