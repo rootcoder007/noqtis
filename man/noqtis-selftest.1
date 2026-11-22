@@ -17,7 +17,9 @@ hybrid), each family's outputs compared by their SHA-256 with the known
 answers built into the library.
 It prints
 .Dl selftest: every known answer matches
-or names the failure, and takes about a tenth of a second.
+or
+.Dl selftest: a known answer did not match
+without naming the family, and takes about a tenth of a second.
 .Sh EXIT STATUS
 0 when every known answer matches, 1 when one does not, 2 on a usage
 error.
