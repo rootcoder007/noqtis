@@ -89,7 +89,7 @@ fields);
 .Dv NQEIO
 for a file that cannot be read;
 .Dv NQEARG
-for a bad path or delimiter.
+for a bad path or a delimiter that is a quote or a line break.
 .Pp
 .Fn nqdschk :
 .Dv NQOK
@@ -99,6 +99,23 @@ otherwise (an element that is not a schema is a failed row), with
 .Fa *rep
 set; free it with
 .Xr nqdrepfree 3 .
+.Sh EXAMPLES
+Infer a schema and record it:
+.Bd -literal -offset indent
+static char el[1 << 16];
+char why[256];
+size_t n;
+nqdrec *r = NULL;
+int rc = nqdload("results", &r, why, sizeof why);
+if (rc == NQOK)
+  rc = nqdinfer("results", "data/a.csv", NULL, el, sizeof el, &n,
+                why, sizeof why);
+if (rc == NQOK)
+  rc = nqdput(r, "schemas", el, n, why, sizeof why);
+if (rc == NQOK)
+  rc = nqdsave(r, "results");
+nqdrfree(r);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-schema 1 ,
 .Xr nqdchk 3 ,
@@ -106,6 +123,8 @@ set; free it with
 .Xr noqtis-data 5
 .Sh STANDARDS
 .Rs
+.%A Y. Shafranovich
 .%R RFC 4180
 .%T Common Format and MIME Type for Comma-Separated Values (CSV) Files
+.%D October 2005
 .Re
