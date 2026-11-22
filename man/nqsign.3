@@ -135,7 +135,7 @@ key followed by the Ed25519 one, the secret key likewise, the signature
 the ML-DSA signature followed by the Ed25519 one, and a signature
 verifies only when both parts do.
 Each part signs with the context
-.Ql "noqtis-hybrid:"
+.Ql noqtis-hybrid:\&
 followed by the caller's, so the caller's context is at most 241 bytes,
 and neither part passes as a plain signature under the caller's context.
 In symbols, with M the message, x the caller's context and
