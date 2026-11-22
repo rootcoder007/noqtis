@@ -178,6 +178,16 @@ or a power cut can leave the folder sealed without one.
 A TSA has 120 seconds in all for one request, the name lookup included
 (30 seconds at most for any one step).
 .Pp
+A folder with an evidence record
+.Pq Pa noqtis.ers , Xr noqtis-ers 1
+over its present seal is refused (exit 2): a new seal would replace what
+the record proves; move
+.Pa noqtis.ers ,
+.Pa noqtis.sig
+and
+.Pa noqtis.json
+out together first.
+.Pp
 The folder must not hold a noqtis secret key (a file that starts with
 .Ql noqtis-key-1 <alg> sec ) ,
 which would ship with the capsule: the seal is refused, with exit status 2.
