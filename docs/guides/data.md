@@ -239,10 +239,10 @@ prints the head: the last link's id.
 
 | Command | What it does |
 |---|---|
-| `noqtis data init\|add\|put\|del\|fmt\|show\|check` | make, show and check the data record |
+| `noqtis data init\|add\|put\|del\|fmt\|show\|check\|syn` | make, show and check the data record; write a synthetic stand-in |
 | `noqtis src add\|resolve\|fetch\|refresh\|list` | fetch the sources from their URL, portal, mirrors or archived copy, verified; say whether they changed |
 | `noqtis schema infer\|check` | pin and check the schema of CSV files |
-| `noqtis drift pin\|check` | summarise CSV files, and say later if they drifted |
+| `noqtis drift pin\|check\|cal` | summarise CSV files, say later if they drifted, calibrate on unchanged copies |
 | `noqtis chunk pin\|check` | chunk digests of a large file; check a piece of it alone |
 | `noqtis env`, `commit`, `reveal`, `cite` | the environment, commitments, citation |
 | `noqtis diff` | what changed between two capsules |
