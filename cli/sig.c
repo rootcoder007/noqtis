@@ -336,7 +336,7 @@ int ncpasswd(int argc, char **argv) {
     return NCUSE;
   if (nckrdp("passwd", kp, 1, opw, on, &k) != NCOK)
     goto done;
-  if (ncpwget("passwd", &new, &npw, &nn) != NCOK)
+  if (ncpwgetn("passwd", &new, "new-pass", &npw, &nn) != NCOK)
     goto done;
   f = ncopen(kp, 1, 1);
   if (f == NULL) {

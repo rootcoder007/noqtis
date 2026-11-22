@@ -438,6 +438,10 @@ typedef struct {
  * NQPWLEN bytes (free with ncfree(*b, NQPWLEN, 1)) holding *n bytes.
  * NCOK, or NCUSE with a message. */
 int ncpwget(const char *cmd, const ncpw *o, uint8_t **b, size_t *n);
+/* the same for options of another name: opt is "pass" for --pass-fd and
+ * --pass-env, "new-pass" for --new-pass-fd and --new-pass-env */
+int ncpwgetn(const char *cmd, const ncpw *o, const char *opt, uint8_t **b,
+             size_t *n);
 /* nckrd, and a secret key file under a passphrase (noqtis-pwkey-1)
  * opened with pw (pwn bytes; NULL when none was given). */
 int nckrdp(const char *cmd, const char *path, int sec, const uint8_t *pw,

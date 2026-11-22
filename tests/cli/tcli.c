@@ -2308,6 +2308,9 @@ static void tpass(void) {
           "--new-pass-fd 0", NULL);
   want(2, "passwd -k q.pk --pass-fd 0 --new-pass-fd 0", NULL);
   ok(has("q.err", "the same descriptor"), "passwd: one descriptor for both");
+  want(2, "passwd -k q.pk --pass-env NQTPW --new-pass-fd x", NULL);
+  ok(has("q.err", "--new-pass-fd wants a descriptor number"),
+     "passwd names the option that was wrong");
   want(2, "passwd --pass-env NQTPW --no-pass", NULL);
   want(2, "passwd -k q.pk --pass-env NQTPW --no-pass more", NULL);
   want(2, "passwd -k q.pk --pass-env NQTPW2 --no-pass", NULL);

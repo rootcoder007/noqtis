@@ -304,12 +304,17 @@ static int fdnum(const char *s) {
 }
 
 int ncpwget(const char *cmd, const ncpw *o, uint8_t **b, size_t *n) {
+  return ncpwgetn(cmd, o, "pass", b, n);
+}
+
+int ncpwgetn(const char *cmd, const ncpw *o, const char *opt, uint8_t **b,
+             size_t *n) {
   *b = NULL;
   *n = 0;
   if (o->fd == NULL && o->env == NULL)
     return NCOK;
   if (o->fd != NULL && o->env != NULL) {
-    ncmsg(cmd, "give one of --pass-fd and --pass-env, not both");
+    ncmsg(cmd, "give one of --%s-fd and --%s-env, not both", opt, opt);
     return NCUSE;
   }
   *b = (uint8_t *)malloc(NQPWLEN);
@@ -318,7 +323,7 @@ int ncpwget(const char *cmd, const ncpw *o, uint8_t **b, size_t *n) {
   if (o->fd != NULL) {
     int fd = fdnum(o->fd), rc;
     if (fd < 0) {
-      ncmsg(cmd, "--pass-fd wants a descriptor number, not %s",
+      ncmsg(cmd, "--%s-fd wants a descriptor number, not %s", opt,
             ncesc(o->fd));
       goto fail;
     }
