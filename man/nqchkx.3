@@ -64,7 +64,11 @@ are folders of capsules that may be the inputs of a format 2 capsule
 .Pq Xr nqseal2 3 .
 Each input is found among them by its id
 .Pq Xr nqcapid 3
-and checked in full with no key pinned, its own inputs in turn, to 64
+(the SHA-256 of its manifest, or of its manifest's head for format 2,
+as its seal records it) and checked in full with no key pinned, no
+statements and no
+.Fa only ,
+but with the same anchors and folders, its own inputs in turn, to 64
 levels; one
 .Ql lineage
 row per input says whether it was found and checks, and for one that does
@@ -88,6 +92,13 @@ the statements, and a
 .Ql key.time
 row requires a verified timestamp from before the seal's key was rotated
 away or revoked, when it was.
+For a key with an
+.Ql expire
+statement
+.Pq Xr nqkexp 3
+no timestamp is asked for until the time it names, judged by
+.Ev SOURCE_DATE_EPOCH
+when set and else by the clock; from then on, as for a revocation.
 .Sh RETURN VALUES
 As
 .Xr nqchk 3 :
@@ -95,10 +106,41 @@ As
 when every check passed,
 .Er NQEVRFY
 when one failed (the report says which),
-.Er NQEARG
+.Er NQEARG ,
+.Er NQELIM
 and
 .Er NQEMEM
 with no report.
+.Er NQEARG
+is also returned for
+.Fa nonly ,
+.Fa nlin
+or
+.Fa nstmt
+not 0 with its array
+.Dv NULL ,
+a
+.Dv NULL
+statement, and statements without
+.Fa trust ;
+.Er NQELIM
+for more than 32 anchors, 2,000,000 paths in
+.Fa only ,
+1024 lineage folders or 32 statements.
+.Sh EXAMPLES
+Check two files of a large capsule, with its key pinned:
+.Bd -literal -offset indent
+static const char *const want[] = {"data/a.csv", "data/b.csv"};
+nqcopt o = {0};
+nqrep *rep = NULL;
+int rc;
+o.trust = pk;
+o.trustlen = pklen;
+o.only = want;
+o.nonly = 2;
+rc = nqchkx("results", &o, &rep);
+nqrepfree(rep);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-check 1 ,
 .Xr nqchk 3 ,
