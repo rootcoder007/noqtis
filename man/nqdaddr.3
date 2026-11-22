@@ -110,7 +110,8 @@ compares the
 .Fa n
 bytes at
 .Fa b
-with the size and SHA-256 the source records.
+with the size and SHA-256 the source records, the digests in constant
+time.
 .Pp
 .Fn nqdfld
 writes the value of
@@ -250,10 +251,14 @@ of RFC 3986.
 An address read from a reply must be http:// or https://, at most 4,096
 bytes, without a space, control character, backslash or fragment, and
 https:// when the portal is, and its host must not be this machine
-or a local network: localhost, an address with a user name before the
-host (user@host), an IPv6 literal, or an IPv4 address
-other than a plain dotted quad of a public range are refused (a name
-is not resolved for this check).
+or a local network: localhost and names ending in
+.Ql .localhost ,
+an address with a user name before the host (user@host), an IPv6
+literal, a host whose last label starts with a digit unless it is a
+plain dotted quad (no leading zero, four octets), and a dotted quad in
+0/8, 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.0.0/24,
+192.168/16, 198.18/15 or 224/3 and above are refused (a name is not
+resolved for this check).
 .Pp
 .Fn nqdwb
 writes the address of the raw bytes of a Wayback Machine copy,
@@ -318,8 +323,35 @@ for a reply over 16 MiB or a request over 4,096 bytes.
 .Dv NQEARG
 for an address that is not http:// or https://, or a Wayback Machine one
 without the address after its time.
+.Sh EXAMPLES
+Try each address of a source until one gives the recorded bytes;
+.Fn fetch
+stands for the caller's own HTTP GET:
+.Bd -literal -offset indent
+static uint8_t buf[1 << 24];
+char url[4097];
+size_t i, n, got;
+int kind, rc = NQEIO;
+for (i = 0; nqdaddr(r, "data/a.csv", i, &kind, url, sizeof url, &n)
+            == NQOK; i++) {
+  if (kind == NQDAPORT)
+    continue;  /* ask the portal first: nqdrsp */
+  if (fetch(url, buf, sizeof buf, &got) == 0 &&
+      (rc = nqdvrfy(r, "data/a.csv", buf, got)) == NQOK)
+    break;
+}
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-src 1 ,
 .Xr nqdnew 3 ,
 .Xr nqdsrc 3 ,
 .Xr noqtis-data 5
+.Sh STANDARDS
+.Rs
+.%A T. Berners-Lee
+.%A R. Fielding
+.%A L. Masinter
+.%T Uniform Resource Identifier (URI): Generic Syntax
+.%R RFC 3986
+.%D January 2005
+.Re
