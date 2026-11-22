@@ -57,6 +57,45 @@ of
 under the name and address of
 .Fa icert .
 .Pp
+Both write a version 3 certificate whose fields are:
+.Bl -bullet -offset indent
+.It
+a serial number of 16 random bytes, positive and with its second bit
+set, so always 16 bytes long;
+.It
+the validity as UTCTime through 2049 and GeneralizedTime from 2050
+(RFC 5280 section 4.1.2.5);
+.It
+the issuer and subject as the common name alone (for
+.Fn nqx5kem
+both are those of
+.Fa icert ) ,
+and the key as a SubjectPublicKeyInfo with no parameters;
+.It
+basicConstraints, critical, cA TRUE and pathLenConstraint 0
+.Pf ( Fn nqx5self
+only);
+.It
+keyUsage, critical: digitalSignature, nonRepudiation and keyCertSign
+for
+.Fn nqx5self ,
+keyEncipherment alone for
+.Fn nqx5kem ;
+.It
+extKeyUsage emailProtection, not critical;
+.It
+subjectKeyIdentifier, the first 20 bytes of the SHA-256 of the public
+key (RFC 7093 section 2, method 1), and for
+.Fn nqx5kem
+an authorityKeyIdentifier, the same of the issuer's key;
+.It
+subjectAltName with the rfc822Name, when there is an address.
+.El
+.Pp
+The signature is the pure form of the algorithm, with the empty context,
+over the DER of the TBSCertificate; a certificate is verified with the
+key it was signed by before it is written.
+.Pp
 .Fn nqx5info
 reads a certificate into
 .Bd -literal -offset indent
@@ -93,6 +132,8 @@ would refuse, a key of the wrong length,
 .Fa na
 not after
 .Fa nb ,
+.Fa nb
+before 1970 or a time after 9999,
 or a key pair or issuer that does not match;
 .Dv NQENOSUP
 for an algorithm with no standard certificate (the hybrids, HQC);
@@ -109,4 +150,58 @@ is too small, with the size in
 .Xr nqcmssign 3 ,
 .Xr nqerr 3
 .Sh STANDARDS
-RFC 5280, RFC 8410, RFC 9881, RFC 9909, RFC 9935.
+RFC 5280, RFC 8410, RFC 9881, RFC 9909, RFC 9935, RFC 7093.
+.Rs
+.%A D. Cooper
+.%A S. Santesson
+.%A S. Farrell
+.%A S. Boeyen
+.%A R. Housley
+.%A W. Polk
+.%T Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
+.%R RFC 5280
+.%D May 2008
+.Re
+.Rs
+.%A J. Massimo
+.%A P. Kampanakis
+.%A S. Turner
+.%A B. E. Westerbaan
+.%T Internet X.509 Public Key Infrastructure \(em Algorithm Identifiers for the Module-Lattice-Based Digital Signature Algorithm (ML-DSA)
+.%R RFC 9881
+.%D October 2025
+.Re
+.Rs
+.%A K. Bashiri
+.%A S. Fluhrer
+.%A S. Gazdag
+.%A D. Van Geest
+.%A S. Kousidis
+.%T Internet X.509 Public Key Infrastructure \(em Algorithm Identifiers for the Stateless Hash-Based Digital Signature Algorithm (SLH-DSA)
+.%R RFC 9909
+.%D December 2025
+.Re
+.Rs
+.%A S. Turner
+.%A P. Kampanakis
+.%A J. Massimo
+.%A B. E. Westerbaan
+.%T Internet X.509 Public Key Infrastructure - Algorithm Identifiers for the Module-Lattice-Based Key-Encapsulation Mechanism (ML-KEM)
+.%R RFC 9935
+.%D March 2026
+.Re
+.Rs
+.%A S. Josefsson
+.%A J. Schaad
+.%T Algorithm Identifiers for Ed25519, Ed448, X25519, and X448 for Use in the Internet X.509 Public Key Infrastructure
+.%R RFC 8410
+.%D August 2018
+.Re
+.Rs
+.%A S. Turner
+.%A S. Kent
+.%A J. Manger
+.%T Additional Methods for Generating Key Identifiers Values
+.%R RFC 7093
+.%D December 2013
+.Re
