@@ -117,14 +117,18 @@ for a
 too small: call it with
 .Fa out
 .Dv NULL
-to learn the size.
+to learn the size;
+.Fa cap
+must be at least
+.Fa *outlen
++ 1, for the NUL.
 .Fn nqdsave
 writes it to
 .Pa noqtis.data.json
 in
 .Fa dir ,
 through a temporary file in the same folder and a rename:
-.Pa .noqtis. Ns Ar pid Ns Ar k Ns Pa .tmp ,
+.Pa .noqtis.\& Ns Ar pid Ns Ar k Ns Pa .tmp ,
 the process id and a number from 0 to 15 in 8 hex digits each, a name
 .Xr nqseal 3
 never takes in as data.
@@ -249,10 +253,24 @@ for an output buffer too small,
 for a record, element or file that is not there or cannot be read or
 written,
 .Dv NQEARG
-for an unknown member, a key that cannot change
+for a
+.Dv NULL
+argument, an unknown member, a key that cannot change
 .Pq Fn nqdset No of Cm path No or Cm name ,
+a member without keys given to
+.Fn nqdkey ,
 a path a capsule cannot hold, or a file that is a link or not a plain
-file,
+file
+.Po
+.Fn nqdsrc ,
+.Fn nqdsha ;
+for
+.Fn nqdload ,
+whose
+.Pa noqtis.data.json
+is a link or not a plain file,
+.Dv NQEDEC
+.Pc ,
 .Dv NQEMEM
 when memory runs out.
 .Sh EXAMPLES
