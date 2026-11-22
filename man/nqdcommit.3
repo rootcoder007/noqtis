@@ -43,6 +43,14 @@ SHA3-256 of the string
 .Ql noqtis-commit-1
 with its NUL, the salt's length as 8 bytes big-endian, the salt and
 the bytes.
+In symbols, with BE64 an 8-byte big-endian integer and
+.Sy ||
+concatenation:
+.Bd -literal -offset indent
+c = SHA3-256("noqtis-commit-1" || 0x00 || BE64(|salt|) || salt || m)
+.Ed
+.Pp
+the tag being 15 bytes and its NUL one.
 The tag keeps the digest from passing for any other digest noqtis
 makes; the length fixes where the salt ends.
 Put it in a
@@ -99,9 +107,26 @@ for a
 too small;
 .Dv NQEARG
 for a salt out of bounds or an unknown format.
+.Sh EXAMPLES
+Commit to a randomisation list before the data are seen:
+.Bd -literal -offset indent
+uint8_t salt[32];
+char hex[65];
+int rc = nqrand(salt, sizeof salt);
+if (rc == NQOK)
+  rc = nqdcommit(salt, sizeof salt, list, listlen, hex);
+/* keep salt secret; hex is the "digest" of a "commits" element,
+   which also needs its alg, created and kind (noqtis-data(5)) */
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-cite 1 ,
 .Xr noqtis-commit 1 ,
 .Xr noqtis-reveal 1 ,
 .Xr nqdnew 3 ,
 .Xr noqtis-data 5
+.Sh STANDARDS
+.Rs
+.%T FIPS 202: SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions
+.%Q NIST
+.%D August 2015
+.Re
