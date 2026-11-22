@@ -94,6 +94,38 @@ when not
 .Dv NULL ,
 is that key's certificate and picks its entry among the recipients,
 else every entry of that algorithm is tried.
+.Ss Constructions
+A signature is over the DER of the signed attributes, tagged as a SET
+OF (RFC 5652 section 5.4): the content type, the signing time and the
+message digest H(content), with H SHA-512 for ML-DSA (RFC 9882) and
+Ed25519 (RFC 8419), and for SLH-DSA the hash of its parameter set
+(RFC 9814): SHA-256 for SLH-DSA-SHA2-128s and -128f, SHA-512 for the
+other SHA2 sets, SHAKE128 (32 bytes) for SLH-DSA-SHAKE-128s and -128f,
+SHAKE256 (64 bytes) for the other SHAKE sets.
+ML-DSA and SLH-DSA sign in their pure form with the empty context.
+.Pp
+An encrypted message is, with
+.Sy ||
+concatenation, CEK 32 random bytes, N 12 random bytes and, for each
+recipient, ek the ML-KEM public key of its certificate:
+.Bd -literal -offset indent
+(c, ss) = ML-KEM.Encaps(ek)                         FIPS 203
+L       = 16 for ML-KEM-512, 32 for ML-KEM-768 and -1024
+OI      = DER(CMSORIforKEMOtherInfo { wrap, kekLength = L })
+            wrap = id-aes128-wrap (L = 16) or id-aes256-wrap (L = 32),
+            no ukm
+KEK     = HKDF-SHA-256(salt = "", IKM = ss, info = OI, L)
+EK      = AES-KW(KEK, CEK)                          RFC 3394, 40 bytes
+(C, T)  = AES-256-GCM(CEK, N, aad = "", content)    16-byte tag T
+.Ed
+.Pp
+Each recipient gets a KEMRecipientInfo (RFC 9629 section 3) with its
+issuer and serial number, the KEM, c, the KDF id-alg-hkdf-with-sha256,
+L, wrap and EK; the AuthEnvelopedData carries N and the tag length 16 in
+its GCMParameters (RFC 5084), C and T.
+.Fn nqcmsdec
+also takes AES-128-GCM, tags of 12 to 16 bytes and authenticated
+attributes, which then are the associated data (RFC 5083 section 2.2).
 .Pp
 Encryption does not say who sent a message: to do both, sign first and
 encrypt the result.
@@ -127,4 +159,62 @@ over 1 GiB.
 .Xr nqsmsign 3 ,
 .Xr nqx5self 3
 .Sh STANDARDS
-RFC 5083, RFC 5084, RFC 8419, RFC 9629, RFC 9814, RFC 9882.
+RFC 5652, RFC 5083, RFC 5084, RFC 8419, RFC 9629, RFC 9814, RFC 9882,
+RFC 9936, RFC 3394 and RFC 5869.
+.Rs
+.%A R. Housley
+.%T Cryptographic Message Syntax (CMS)
+.%R RFC 5652
+.%D September 2009
+.Re
+.Rs
+.%A R. Housley
+.%T Cryptographic Message Syntax (CMS) Authenticated-Enveloped-Data Content Type
+.%R RFC 5083
+.%D November 2007
+.Re
+.Rs
+.%A R. Housley
+.%T Using AES-CCM and AES-GCM Authenticated Encryption in the Cryptographic Message Syntax (CMS)
+.%R RFC 5084
+.%D November 2007
+.Re
+.Rs
+.%A R. Housley
+.%A J. Gray
+.%A T. Okubo
+.%T Using Key Encapsulation Mechanism (KEM) Algorithms in the Cryptographic Message Syntax (CMS)
+.%R RFC 9629
+.%D August 2024
+.Re
+.Rs
+.%A J. Prat
+.%A M. Ounsworth
+.%A D. Van Geest
+.%T Use of ML-KEM in the Cryptographic Message Syntax (CMS)
+.%R RFC 9936
+.%D March 2026
+.Re
+.Rs
+.%A B. Salter
+.%A A. Raine
+.%A D. Van Geest
+.%T Use of the ML-DSA Signature Algorithm in the Cryptographic Message Syntax (CMS)
+.%R RFC 9882
+.%D October 2025
+.Re
+.Rs
+.%A R. Housley
+.%A S. Fluhrer
+.%A P. Kampanakis
+.%A B. Westerbaan
+.%T Use of the SLH-DSA Signature Algorithm in the Cryptographic Message Syntax (CMS)
+.%R RFC 9814
+.%D July 2025
+.Re
+.Rs
+.%A R. Housley
+.%T Use of Edwards-Curve Digital Signature Algorithm (EdDSA) Signatures in the Cryptographic Message Syntax (CMS)
+.%R RFC 8419
+.%D August 2018
+.Re
