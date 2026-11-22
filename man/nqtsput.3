@@ -80,9 +80,12 @@ It checks, in order, that:
 .Pa noqtis.sig
 is a canonical
 .Ql noqtis-seal-1
+or
+.Ql noqtis-seal-2
 seal;
 .It
-the reply is a strict DER RFC 3161 reply and its status is granted;
+the reply is a strict DER RFC 3161 reply and its status is granted or
+grantedWithMods (PKIStatus 0 or 1), and it is not signed with SHA-1;
 .It
 the token's imprint is its hash (SHA-256, SHA-384 or SHA-512) of the
 seal's signature;
@@ -151,10 +154,13 @@ is too small.
 .Pa noqtis.sig
 is not a canonical
 .Ql noqtis-seal-1
+or
+.Ql noqtis-seal-2
 seal.
 .It Bq Er NQEVRFY
-The reply does not check: not granted, not a token in the form noqtis
-reads, an imprint or nonce that differs, a signature or certificate that
+The reply does not check: not granted, signed with SHA-1, not a token in
+the form noqtis reads, an imprint or nonce that differs, a signature or
+certificate that
 does not verify, or no path to an anchor.
 .It Bq Er NQELIM
 More than 32 anchors, or a seal with the token over 1 MiB.
@@ -191,11 +197,17 @@ if (nqtsput("results", rsp, rn, nonce, sizeof nonce, NULL, NULL, 0,
 .Xr noqtis-capsule 5
 .Sh STANDARDS
 .Rs
+.%A C. Adams
+.%A P. Cain
+.%A D. Pinkas
+.%A R. Zuccherato
 .%R RFC 3161
 .%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
 .%D August 2001
 .Re
 .Rs
+.%A S. Santesson
+.%A N. Pope
 .%R RFC 5816
 .%T ESSCertIDv2 Update for RFC 3161
 .%D April 2010
