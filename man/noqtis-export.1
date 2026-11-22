@@ -21,9 +21,9 @@ describes the capsule
 .Pq Xr noqtis-capsule 5
 in a format other tools read.
 The capsule must check first, with the key in its seal
-.Pq Xr noqtis-check 1 ;
-pin the key there with
-.Fl p
+.Pq Xr noqtis-check 1 :
+export compares that key with none, so pin it with
+.Ql noqtis check -p
 before exporting.
 .Bl -tag -width Ds
 .It Cm intoto
@@ -90,8 +90,11 @@ opens it.
 The format, as above.
 .It Fl k Ar key , Fl -key Ns = Ns Ar key
 For
-.Cm dsse :
-the secret signature key.
+.Cm dsse ,
+and only for it: the secret signature key, not under a passphrase
+(there is no
+.Fl -pass-fd ;
+.Xr noqtis-passwd 1 ) .
 .It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
 Its public key.
 Default:
@@ -102,6 +105,11 @@ Write to
 instead of standard output; for
 .Cm bagit ,
 the bag's folder, which must not exist.
+Required for
+.Cm bagit
+and
+.Cm bundle
+(a bundle is never written to standard output).
 .It Fl f , Fl -force
 Replace
 .Ar file
@@ -109,8 +117,8 @@ if it exists, once the new one is whole: an export that fails or is
 stopped leaves the old file as it was.
 .It Fl -no-files
 For
-.Cm bundle :
-leave out every file but the data record.
+.Cm bundle ,
+and only for it: leave out every file but the data record.
 .El
 .Sh EXIT STATUS
 .Bl -tag -width 3n -compact
@@ -148,10 +156,16 @@ $ noqtis check -p me.pub results.nqb
 .Re
 .Rs
 .%T RO-Crate 1.1
-.%U https://w3id.org/ro/crate/1.1
+.%O its identifier https://w3id.org/ro/crate/1.1 is what the metadata names in conformsTo
+.%U https://www.researchobject.org/ro-crate/specification/1.1/
 .Re
 .Rs
-.%R RFC 8493
+.%A J. Kunze
+.%A J. Littman
+.%A E. Madden
+.%A J. Scancella
+.%A C. Adams
 .%T The BagIt File Packaging Format (V1.0)
+.%R RFC 8493
 .%D October 2018
 .Re
