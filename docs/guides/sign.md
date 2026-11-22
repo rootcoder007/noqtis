@@ -58,8 +58,10 @@ Prefer hedged signing unless you need identical bytes.
 Either way, every signature is checked under the public key before
 `noqtis sign` writes it: one made in a disturbed computation (a glitch,
 a flipped memory bit) or with a damaged key would fail, and can give the
-key away, so it is refused (`the signature failed the check after
-signing`, exit 2) and nothing is written.
+key away, so it is refused (`the new signature does not verify with
+me.pub, so it was not written`, exit 2) and nothing is written. The
+check needs the public key beside the secret one (`me.pub` for `me`);
+without it the signature is written unchecked.
 
 ## Pre-hash (HashML-DSA, HashSLH-DSA)
 

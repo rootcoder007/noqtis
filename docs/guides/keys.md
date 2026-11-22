@@ -134,9 +134,11 @@ $ NQPASS=$(cat pass.txt) noqtis sign -k me --pass-env NQPASS report.pdf
 The passphrase is read from the open descriptor `<n>` up to a newline,
 or taken from the environment variable whose name the option gives; it
 is never an argument (other users can read the process list), never
-echoed, and at most 4096 bytes. `noqtis sign` and `noqtis dec` take the
-same options; the other commands that read a secret key refuse a
-protected one and say so.
+echoed, and at most 4096 bytes. `noqtis sign`, `dec`, `unbox`,
+`box --sign`, `cert`, `smime`, `keys certify` and `pgp` take the same
+options. `seal`, `rotate`, `revoke`, `expire`, `idcard`, `pack build`
+and `export --as dsse` take none and refuse a protected key: remove the
+passphrase first (`noqtis passwd --no-pass`).
 
 The file keeps the first line of an unprotected secret key
 (`noqtis-key-1 <alg> sec`); its base64 body is the format
@@ -156,7 +158,9 @@ memory, 1 to 16 passes and 1 to 16 lanes, or memory times passes over
   an encrypted secret (see [CI](https://noqtis.dev/guides/ci/)).
 - Publish the `.pub` file widely and in more than one place, so others can
   pin it.
-- There is no revocation in the capsule format: if a secret key leaks,
-  announce it where you published the public key, make a new key and
-  reseal what matters. A [timestamp](https://noqtis.dev/guides/timestamps/) shows
-  which seals predate the leak.
+- If a secret key leaks, announce it where you published the public key,
+  sign a revocation with it (`noqtis revoke`) or a rotation to a new key
+  (`noqtis rotate`), and reseal what matters. `noqtis check --keys` then
+  accepts a seal by that key only with a
+  [timestamp](https://noqtis.dev/guides/timestamps/) that shows it
+  predates the revocation.
