@@ -7,8 +7,17 @@
 #' The holder of the public key sends nothing; whoever wants to share a
 #' secret with them calls `nqencap()`, sends `ct`, and keeps `ss`. The
 #' key holder's `nqdecap()` gives the same `ss`. The shared secret (32
-#' bytes for ML-KEM, 64 for HQC) is meant as key material for a key
+#' bytes for ML-KEM and for HQC) is meant as key material for a key
 #' derivation or a symmetric cipher, not as text.
+#'
+#' `nqencap()` calls the library's `nqenc()` (`nqencd()` with `seed`),
+#' `nqdecap()` its `nqdec()`. The sizes in bytes (public key, secret key,
+#' ciphertext): ML-KEM-512 800, 1632, 768; ML-KEM-768 1184, 2400, 1088;
+#' ML-KEM-1024 1568, 3168, 1568; HQC-128 2241, 2321, 4433; HQC-192 4514,
+#' 4602, 8978; HQC-256 7237, 7333, 14421. HQC follows its specification
+#' of 2025-08-22 (version 5.0); the HQC team's version 5.1 of 2026-11-09
+#' changes its weights and key format, so its keys and ciphertexts are
+#' not those of this one.
 #'
 #' Decapsulation uses implicit rejection, as FIPS 203 and HQC require: a
 #' changed ciphertext gives an unrelated pseudorandom secret, not an error,
@@ -21,7 +30,7 @@
 #'   [nqalgs()].
 #' @param seed `NULL` (the default) for fresh randomness, or the standard's
 #'   encapsulation seed as a raw vector (m, 32 bytes, for ML-KEM; m and
-#'   salt for HQC), for test vectors.
+#'   salt, 32, 40 or 48 bytes, for HQC-128, -192, -256), for test vectors.
 #'
 #' @return `nqencap()`: a list with the raw vectors `ct` (ciphertext) and
 #'   `ss` (shared secret). `nqdecap()`: the shared secret, a raw vector.
@@ -29,15 +38,19 @@
 #' @section Errors:
 #' An unknown algorithm, a key, ciphertext or seed of the wrong length;
 #' for ML-KEM, a public key that fails the input check of FIPS 203
-#' (section 7.2).
+#' (section 7.2) or a secret key whose stored hash of its public key does
+#' not match (section 7.3); for HQC, a public key whose unused top bits
+#' are not zero or a secret key whose seeds do not re-derive; the random
+#' source failing (both decapsulations draw fresh mask shares).
 #'
 #' @references
 #' National Institute of Standards and Technology (2024).
 #' *Module-Lattice-Based Key-Encapsulation Mechanism Standard*, FIPS 203.
 #' \doi{10.6028/NIST.FIPS.203}
 #'
-#' Aguilar Melchor, C. et al. (2025). *Hamming Quasi-Cyclic (HQC)*,
-#' specification version 5.0.0 of 2025-08-22.
+#' Gaborit, P., Aguilar-Melchor, C., Aragon, N. et al. (2025).
+#' *Hamming Quasi-Cyclic (HQC)*, specification version 5.0 of
+#' 2025-08-22. <https://pqc-hqc.org/>
 #'
 #' @family key encapsulation functions
 #' @seealso [nqkeygen()] makes the key pairs; [nqhash()] can derive keys
