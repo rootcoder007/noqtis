@@ -4,7 +4,7 @@
 .Os
 .Sh NAME
 .Nm noqtis-sign
-.Nd sign a file with ML-DSA or SLH-DSA
+.Nd sign a file with ML-DSA, SLH-DSA, Ed25519 or a hybrid key
 .Sh SYNOPSIS
 .Nm noqtis sign
 .Fl k Ar key
@@ -22,8 +22,10 @@ signs the bytes of
 .Ar file
 with the secret key in
 .Ar key
-and writes the raw signature (the FIPS 204 or FIPS 205 encoding, no
-header) to
+and writes the raw signature (the FIPS 204, FIPS 205 or RFC 8032
+encoding, or for a hybrid key the pair of them as
+.Xr nqsign 3
+lays out, no header) to
 .Ar sig ,
 by default
 .Ar file Ns Pa .sig .
@@ -37,6 +39,7 @@ is required.
 .Pp
 Signing is hedged by default: fresh randomness from the operating system
 is mixed into each signature, so two signatures of one file differ.
+Ed25519 has no randomness: its signatures are always deterministic.
 .Pp
 When the public key file
 .Ar key Ns .pub
@@ -68,8 +71,9 @@ which
 reads as well.
 .It Fl d , Fl -det
 Deterministic signing: the per-signature randomness is all zero (32 bytes
-for ML-DSA, n bytes for SLH-DSA), so the same key, file and options give
-the same signature.
+for ML-DSA and the hybrids, n bytes for SLH-DSA, half the public key's
+length; Ed25519 takes none), so the same key, file and options give the
+same signature.
 .It Fl -ph Ar hash
 The pre-hash variant (HashML-DSA, HashSLH-DSA): the file is hashed with
 .Ar hash
@@ -100,7 +104,7 @@ the message cannot be read from standard input.
 Replace an existing signature file.
 .El
 .Pp
-A file over 1 GiB is refused.
+The signature file is created with mode 0666 less the umask.
 A file that is a capsule manifest
 .Pq Pa noqtis.json
 is signed as given, with a warning: a plain signature is never a seal
@@ -115,7 +119,9 @@ for SLH-DSA, or
 .Fl -ph Cm sha512
 for Ed25519 and the hybrids; a long message then shows a progress bar
 on a terminal.
-Pure SLH-DSA and Ed25519 read the message whole, at most 1 GiB; a
+Pure SLH-DSA, Ed25519 and the hybrids without
+.Fl -ph Cm sha512
+read the message whole, at most 1 GiB; a
 larger one is refused with the pre-hash option that signs it.
 .Sh EXIT STATUS
 0 on success; 2 on a usage error, a context over 255 bytes, an unknown
@@ -151,3 +157,21 @@ big.tar: OK (ML-DSA-65)
 .Xr noqtis-keygen 1 ,
 .Xr noqtis-verify 1 ,
 .Xr nqsign 3
+.Sh STANDARDS
+.Rs
+.%T FIPS 204: Module-Lattice-Based Digital Signature Standard
+.%Q NIST
+.%D August 2024
+.Re
+.Rs
+.%T FIPS 205: Stateless Hash-Based Digital Signature Standard
+.%Q NIST
+.%D August 2024
+.Re
+.Rs
+.%A S. Josefsson
+.%A I. Liusvaara
+.%T Edwards-Curve Digital Signature Algorithm (EdDSA)
+.%R RFC 8032
+.%D January 2017
+.Re

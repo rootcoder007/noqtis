@@ -4,7 +4,7 @@
 .Os
 .Sh NAME
 .Nm noqtis-verify
-.Nd check an ML-DSA or SLH-DSA signature of a file
+.Nd check an ML-DSA, SLH-DSA, Ed25519 or hybrid signature of a file
 .Sh SYNOPSIS
 .Nm noqtis verify
 .Fl p Ar key.pub
@@ -47,7 +47,7 @@ A public signature key file
 .Pq Ql noqtis-key-1 <alg> pub .
 The algorithm comes from the key file.
 .It Fl s Ar sig , Fl -sig Ns = Ns Ar sig
-The raw signature.
+The signature, raw or armored, at most 1 MiB.
 .It Fl c Ar ctx , Fl -ctx Ns = Ns Ar ctx
 The context string the signer used (at most 255 bytes; default empty).
 .It Fl -ph Ar hash
@@ -69,8 +69,25 @@ is printed.
 With
 .Fl -dsse :
 write the envelope's payload to
-.Ar payload .
+.Ar payload ,
+once a signature verified; an existing
+.Ar payload
+is not replaced (exit 2).
 .El
+.Pp
+With
+.Fl -dsse ,
+.Fl s ,
+.Fl c
+and
+.Fl -ph
+are a usage error, and a failure prints
+.Ql <envelope>: FAILED (no signature verifies under <key.pub>)
+or
+.Ql <envelope>: FAILED (not a DSSE envelope)
+on standard output, unless
+.Fl q ;
+both are exit 1.
 .Pp
 The message is read in pieces, as
 .Xr noqtis-sign 1
