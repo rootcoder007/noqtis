@@ -70,7 +70,10 @@
 #' (signing), which exist for test vectors.
 #'
 #' @section Protections inside the library:
-#' No branch and no memory index depends on a secret. ML-DSA and Ed25519
+#' No branch and no memory index depends on a secret, but in Argon2id,
+#' whose later passes read memory where the password leads, as it is
+#' designed to, and in HQC, where a secret-derived bit becomes public in
+#' the three places its specification allows. ML-DSA and Ed25519
 #' signing, the secret-keyed hash of SLH-DSA, and ML-KEM and HQC
 #' decapsulation are also masked: the secret is split into random shares
 #' that change on every call, against power analysis. Every signature is
@@ -110,8 +113,10 @@
 #' Josefsson, S. and Liusvaara, I. (2017). *Edwards-Curve Digital
 #' Signature Algorithm (EdDSA)*, RFC 8032. \doi{10.17487/RFC8032}
 #'
-#' Aguilar Melchor, C. et al. (2025). *Hamming Quasi-Cyclic (HQC)*,
-#' specification version 5.0.0 of 2025-08-22.
+#' Gaborit, P., Aguilar-Melchor, C., Aragon, N. et al. (2025).
+#' *Hamming Quasi-Cyclic (HQC)*, specification version 5.0 of
+#' 2025-08-22 (the version the library follows; version 5.1 of
+#' 2026-11-09 is not implemented). <https://pqc-hqc.org/>
 #'
 #' @section Notice of a newer release:
 #' The package asks nothing of the network on its own. With
@@ -149,8 +154,9 @@ nqver <- function() .Call(Cver)
 #' outputs with stored answers, the power-on self-test a FIPS 140-3
 #' cryptographic module runs before it is used.
 #'
-#' Seven tests run through the library's public interface: SHA-2, SHA-3
-#' and SHAKE on a fixed message; HMAC-SHA-256 and HMAC-SHA-512; key
+#' Seven tests run through the library's public interface: SHA-2, SHA-3,
+#' SHAKE and KangarooTwelve on fixed messages; HMAC-SHA-256 and
+#' HMAC-SHA-512 (RFC 4231, test case 2); key
 #' generation, encapsulation and decapsulation for ML-KEM-512, 768 and
 #' 1024; key generation and deterministic signing and verification for
 #' ML-DSA-44, 65 and 87; SLH-DSA key generation; HQC-128 key generation,
@@ -158,7 +164,9 @@ nqver <- function() .Call(Cver)
 #' signing and verification. Every output and return code of a test is
 #' hashed with SHA-256 and compared with the stored hash, which was made
 #' where the library's test suite checks the same functions against the
-#' NIST test vectors. The whole run takes about a tenth of a second.
+#' NIST test vectors. The whole run takes about a tenth of a second. It
+#' calls the library's `nqselftest()`, whose buffers are static: do not
+#' run it from two threads at once.
 #'
 #' A mismatch means the compiled library does not compute what it should:
 #' a miscompilation, an unsupported compiler option, or faulty hardware.
