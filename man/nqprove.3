@@ -38,7 +38,36 @@ are in the format 2 capsule in
 the seal, the manifest's head and, per file, its entry, its index and
 its Merkle audit path (RFC 9162).
 The proof holds no name, size or digest of the capsule's other files.
-Paths are as the manifest lists them; repeats are proven once.
+Each path is brought to its normal form, as the manifest lists paths,
+and looked up; repeats are proven once, and the entries are in the
+order of their indexes.
+.Pp
+In symbols, with E_i the canonical bytes of entry i of the manifest's
+.Ql files
+array (n entries), H SHA-256 and
+.Sy ||
+concatenation, the tree is the Merkle Tree Hash of RFC 9162 section
+2.1.1:
+.Bd -literal -offset indent
+leaf_i      = H(0x00 || E_i)
+MTH({})     = H("")
+MTH({d})    = d
+MTH(D[0:n]) = H(0x01 || MTH(D[0:k]) || MTH(D[k:n]))
+.Ed
+.Pp
+with k the largest power of two below n; the root is the head's
+.Ql merkle.root .
+The proof is
+.Bd -literal -offset indent
+{"entries": [{"entry": E_i, "index": i, "path": [HEX(h_1), ...]}, ...],
+ "format": "noqtis-proof-1", "head": HEAD, "seal": SEAL}
+.Ed
+.Pp
+where the h are the audit path of RFC 9162 section 2.1.3.1, from the
+leaf upward, HEAD the manifest's head (what the seal signs), SEAL the
+bytes of
+.Pa noqtis.sig ,
+and HEX lower-case hex.
 .Fa *outlen
 gets the proof's size, also when
 .Fa cap
@@ -101,7 +130,10 @@ The capsule is format 1.
 .It Bq Er NQEIO
 A path is not in the manifest, or a file could not be read.
 .It Bq Er NQEDEC
-The seal or the manifest does not parse.
+The seal or the manifest does not parse, the head's root is not that
+of the entries, or a path has no normal form (a path whose normal form
+is over 4096 bytes is
+.Er NQELIM ) .
 .It Bq Er NQELIM
 More paths than a manifest may list.
 .It Bq Er NQEARG
@@ -109,7 +141,9 @@ A
 .Dv NULL
 argument, or
 .Fa np
-0.
+0, or a
+.Dv NULL
+path.
 .It Bq Er NQEMEM
 The allocation hook returned
 .Dv NULL .
@@ -153,7 +187,13 @@ if (nqprove("results", p, 1, NULL, 0, &n) == NQEBUF &&
 .Xr noqtis-capsule 5
 .Sh STANDARDS
 .Rs
+.%A B. Laurie
+.%A E. Messeri
+.%A R. Stradling
 .%R RFC 9162
 .%T Certificate Transparency Version 2.0
 .%D December 2021
 .Re
+.Pp
+RFC 9162 (experimental) obsoletes RFC 6962, whose Merkle Tree Hash and
+audit paths (section 2.1) are the same; the code follows RFC 6962.
