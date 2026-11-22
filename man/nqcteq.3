@@ -28,6 +28,19 @@ learn byte by byte; use
 only for public data.
 .Pp
 It does not order the buffers: it tells only whether they are equal.
+Neither pointer is checked:
+.Fa a
+and
+.Fa b
+must point to
+.Fa len
+readable bytes, and may be
+.Dv NULL
+only when
+.Fa len
+is 0.
+The bytes are ORed together as a ^ b and the result turned into 0 or 1
+without a branch on it.
 .Sh RETURN VALUES
 1 when the buffers are equal, 0 otherwise.
 A
