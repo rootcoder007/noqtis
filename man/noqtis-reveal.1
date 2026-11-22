@@ -21,6 +21,18 @@ record of
 Check the capsule first
 .Pq Xr noqtis-check 1 :
 the commitment counts only if the record is the one sealed.
+.Pp
+It prints
+.Ql <file>: matches commitment <n> of <dir>
+(counting from 1) or
+.Ql <file>: matches no commitment of <dir> .
+.Ar file
+is read whole, at most 1 GiB, and
+.Ar salt
+at most 1 MiB; both are wiped from memory after.
+A commitment's
+.Cm after
+time is not enforced: it says when the file was meant to be revealed.
 .Sh EXIT STATUS
 .Bl -tag -width Ds -compact
 .It 0
@@ -33,3 +45,10 @@ a usage or file error
 .Sh SEE ALSO
 .Xr noqtis-commit 1 ,
 .Xr nqdcommit 3
+.Sh STANDARDS
+.Rs
+.%Q National Institute of Standards and Technology
+.%T SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions
+.%R FIPS 202
+.%D August 2015
+.Re
