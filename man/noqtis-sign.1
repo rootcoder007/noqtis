@@ -104,7 +104,7 @@ the message cannot be read from standard input.
 Replace an existing signature file.
 .El
 .Pp
-The signature file is created with mode 0666 less the umask.
+The signature file is created with mode 0644, whatever the umask.
 A file that is a capsule manifest
 .Pq Pa noqtis.json
 is signed as given, with a warning: a plain signature is never a seal
