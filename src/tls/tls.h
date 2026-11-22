@@ -3,7 +3,7 @@
  * noqtis.h) wrap the context below.
  *
  * What it does: one full handshake with an (EC)DHE key share
- * (X25519MLKEM768, draft-ietf-tls-ecdhe-mlkem, first; X25519 as well;
+ * (X25519MLKEM768, RFC 10024, first; X25519 as well;
  * P-256 and P-384 offered in supported_groups, with a share only when a
  * HelloRetryRequest asks for one), at most one HelloRetryRequest, the
  * server's certificate path checked against caller-supplied anchors

@@ -97,7 +97,7 @@ key tools already read:
   keys, and `noqtis smime` signs and encrypts mail with ML-DSA, SLH-DSA
   and ML-KEM.
 - **OpenPGP**: `noqtis pgp` makes version 6 keys (RFC 9580) with the
-  post-quantum algorithms of the OpenPGP working group's draft, and
+  post-quantum algorithms of RFC 9980, and
   signs, verifies, encrypts and decrypts with them.
 - **Keys on a token**: `noqtis token` signs and decapsulates with keys
   that stay on a PKCS #11 token (a smart card or a hardware security

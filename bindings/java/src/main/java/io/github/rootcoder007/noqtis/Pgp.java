@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * OpenPGP (RFC 9580) in its version 6 forms, with Ed25519 and X25519 and
- * the post-quantum algorithms of draft-ietf-openpgp-pqc: keys, signatures
+ * the post-quantum algorithms of RFC 9980: keys, signatures
  * and encrypted messages. Keys and messages are binary packets; {@link
  * #armor} and {@link #dearmor} make them text and back, and {@link
  * #verify} and {@link #decrypt} take either.

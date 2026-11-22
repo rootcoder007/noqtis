@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 """OpenPGP (RFC 9580) in its version 6 forms, with Ed25519 and X25519
-and the post-quantum algorithms of draft-ietf-openpgp-pqc: keys,
+and the post-quantum algorithms of RFC 9980: keys,
 signatures and encrypted messages. Keys and messages are binary packets;
 :func:`armor` and :func:`dearmor` make them text and back, and
 :func:`verify` and :func:`decrypt` take either.

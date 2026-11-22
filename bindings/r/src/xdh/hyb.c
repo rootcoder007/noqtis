@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* X25519MLKEM768, the hybrid key exchange of draft-ietf-tls-ecdhe-mlkem
+/* X25519MLKEM768, the hybrid key exchange of RFC 10024
  * (TLS group 0x11ec): the client's share is ML-KEM-768's encapsulation
  * key followed by an X25519 public key, the server's an ML-KEM-768
  * ciphertext followed by its X25519 public key, and the shared secret

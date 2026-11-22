@@ -15,7 +15,7 @@ import (
 )
 
 // OpenPGP algorithms, by their OpenPGP numbers: Ed25519 and X25519 of
-// RFC 9580, and those of draft-ietf-openpgp-pqc.
+// RFC 9580, and those of RFC 9980.
 const (
 	PGPX25519   = 25
 	PGPEd25519  = 27

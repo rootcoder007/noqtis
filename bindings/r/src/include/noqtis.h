@@ -1171,7 +1171,7 @@ NQAPI int nqsmdec(nqkalg alg, const uint8_t *sk, size_t sklen,
 
 /* OpenPGP (RFC 9580), version 6, with the algorithms noqtis has, named
  * by their OpenPGP numbers: Ed25519 (NQPGPED25519) and X25519
- * (NQPGPX25519) of the RFC, and those of draft-ietf-openpgp-pqc:
+ * (NQPGPX25519) of the RFC, and those of RFC 9980:
  * ML-DSA-65+Ed25519, ML-KEM-768+X25519, and SLH-DSA-SHAKE-128s, -128f
  * and -256s. Keys, signatures and messages are packets in binary;
  * nqpgparm and nqpgpdearm turn them into ASCII armor and back, and

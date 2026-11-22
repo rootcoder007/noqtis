@@ -2,7 +2,7 @@
 /*
  * OpenPGP (RFC 9580), version 6, with the algorithms noqtis has: Ed25519
  * (27) and X25519 (25) of the RFC, and the post-quantum ones of
- * draft-ietf-openpgp-pqc: ML-DSA-65+Ed25519 (30), ML-KEM-768+X25519 (35)
+ * RFC 9980: ML-DSA-65+Ed25519 (30), ML-KEM-768+X25519 (35)
  * and SLH-DSA-SHAKE-128s, -128f and -256s (32, 33, 34).
  *
  * Written: version 6 keys (a primary signing key, a user ID, an
@@ -1860,7 +1860,7 @@ done:
 /* ---- messages: encrypted ---- */
 
 /* the key that wraps a session key for an ML-KEM-768+X25519 recipient
- * (draft-ietf-openpgp-pqc section 4.2.1) */
+ * (RFC 9980 section 4.2.1) */
 static void kemkek(const uint8_t *mlss, const uint8_t *ecss,
                    const uint8_t *ecct, const uint8_t *ecpk, uint8_t *kek) {
   static const char dom[] = "OpenPGPCompositeKDFv1";
