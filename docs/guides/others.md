@@ -54,8 +54,8 @@ With `-p`, a capsule resealed by anyone else fails the `key` and
 
 - Every file the manifest lists is present, is a regular file, and has
   exactly the recorded size, SHA-256 and SHA3-256.
-- No other file is in the folder (apart from `noqtis.json` and
-  `noqtis.sig` themselves), and no link or special file.
+- No other file is in the folder (apart from `noqtis.json`, `noqtis.sig`
+  and an evidence record `noqtis.ers`), and no link or special file.
 - The manifest is exactly the bytes the holder of the key signed, with a
   post-quantum signature.
 
