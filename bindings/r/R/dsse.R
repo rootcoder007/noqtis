@@ -11,6 +11,9 @@
 #' one signature whose `keyid` is the hex SHA-256 of `pk`. The signature
 #' is checked under `pk` before the envelope is returned.
 #'
+#' They call the library's `nqdsse()` and `nqdssevrfy()` (nqdsse(3)); the
+#' reader takes only padded standard base64.
+#'
 #' @param sk,pk The key pair (`nqdsse()`), or the public key to check
 #'   with (`nqdsseverify()`).
 #' @param payload The payload: a raw vector, or one string, taken as its

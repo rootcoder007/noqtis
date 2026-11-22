@@ -7,6 +7,9 @@
 #' [nqseal()] refused a folder: the first thing in it a capsule cannot
 #' hold.
 #'
+#' They call the library's `nqinsp()` and `nqsealwhy()` (nqinsp(3),
+#' nqseal(3)).
+#'
 #' @inheritParams nqcapid
 #'
 #' @return `nqinspect()`: a data frame with columns `check` (`"info.*"`),
@@ -53,6 +56,10 @@ nqsealwhy <- function(dir) {
 #' RFC 4998 evidence record (`noqtis.ers`), which keeps the seal provable
 #' after its algorithm or the authority's certificate ages: a renewal with
 #' the same `hash` renews the timestamp, another `hash` the hash tree.
+#'
+#' They call the library's `nqtsreq()` and `nqtsput()`, `nqersreq()` and
+#' `nqersput()` (nqtsput(3), nqersput(3), which give the request and the
+#' imprints in full).
 #'
 #' @inheritParams nqinspect
 #' @param nonce `NULL`, or a nonce of at most 32 bytes (a raw vector),
@@ -140,6 +147,10 @@ nqersput <- function(dir, reply, hash = NULL, nonce = NULL, anchors = NULL) {
 #' and removed. `nqchain()` checks an append-only chain of capsules,
 #' oldest first: each sealed in format 2 with the one before as its only
 #' input, all by the first one's key.
+#'
+#' They call libnqd's `nqdpack()`, `nqdunpack()` and `nqdchain()`
+#' (nqdpack(3), nqdchain(3), which give the bundle's layout and the
+#' chain's rules).
 #'
 #' @inheritParams nqinspect
 #' @param file The bundle's path (for `nqpack()`, a file that does not

@@ -19,6 +19,10 @@
 #' and every file it lists: SHA-256 and size of each source, each
 #' schema, and the checks recorded as failed.
 #'
+#' They call libnqd's `nqdnew()`, `nqdload()`, `nqdput()`, `nqdset()`,
+#' `nqddel()`, `nqdsrc()`, `nqdsave()` and `nqdchk()` (nqdnew(3),
+#' nqdchk(3)).
+#'
 #' @param dir Path of the capsule folder.
 #' @param files Paths of files in `dir`, `/` between folders.
 #' @param url,title,publisher,licence Where the files came from;
@@ -127,6 +131,8 @@ nqdcheck <- function(dir) {
 #' schemas the record pins: header, types, missing values, ranges, sets,
 #' row counts and rules (add rules with [nqdput()]).
 #'
+#' They call libnqd's `nqdinfer()` and `nqdschk()` (nqdinfer(3)).
+#'
 #' @inheritParams nqdata
 #' @param put `TRUE` to record the schemas in the data record.
 #' @param delim The field delimiter, one character.
@@ -187,6 +193,9 @@ nqschk <- function(dir, files = NULL) {
 #' Benford's first-digit test. The tests and their error are defined in
 #' the manual page `noqtis-drift(1)`; on the test vectors they match R's
 #' [stats::ks.test()] and [stats::chisq.test()] to 1e-9.
+#'
+#' They call libnqd's `nqdstats()`, `nqddrift()` and `nqddriftat()`
+#' (nqdstats(3)).
 #'
 #' @inheritParams nqschema
 #' @param current `NULL`, or one path per file: the file to compare in
@@ -285,6 +294,8 @@ nqdrift <- function(dir, files = NULL, current = NULL, psiwarn = 0.1,
 #' them), environment, steps, checks, commitments and citation. Nothing
 #' is checked: run [nqcheck()] and [nqdcheck()] first.
 #'
+#' It calls libnqd's `nqddiff()` (nqddiff(3)).
+#'
 #' @param a,b Paths of the two capsule folders, before and after.
 #' @return A data frame with columns `what`, `differs` and `detail`, and
 #'   the attribute `"same"`.
@@ -376,6 +387,10 @@ nqdiff <- function(a, b) {
 #' Socrata, ArcGIS or the Wayback Machine), `nqdreply()` reads the
 #' portal's reply to it, and `nqdwayback()` turns the address of a Wayback
 #' Machine copy into the address of its raw bytes.
+#'
+#' They call libnqd's `nqdaddr()`, `nqdvrfy()`, `nqdfld()`, `nqdrslv()`,
+#' `nqdrsp()` and `nqdwb()` (nqdaddr(3), which also lists the hosts a
+#' reply may not name).
 #'
 #' @inheritParams nqdata
 #' @param file The source's path in `dir`.

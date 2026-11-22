@@ -19,6 +19,11 @@
 #' Versions 3 and 4, RSA, CFB encryption and compressed data are not
 #' supported, and are reported as errors.
 #'
+#' They call the library's `nqpgpgen()`, `nqpgpinfo()`, `nqpgpsign()`,
+#' `nqpgpvrfy()`, `nqpgpenc()`, `nqpgpdec()`, `nqpgparm()` and
+#' `nqpgpdearm()` (nqpgpgen(3), which gives the key encapsulations in
+#' full).
+#'
 #' @param userid The user ID, by convention `"Name <address>"`.
 #' @param alg The primary key's algorithm.
 #' @param encalg The encryption subkey's algorithm, or `NULL` for a key

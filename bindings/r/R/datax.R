@@ -13,6 +13,11 @@
 #' of that file (the bytes from `off` on) against them, reading only the
 #' piece.
 #'
+#' They call libnqd's `nqdparse()`, `nqdschk()`, `nqdsyn()`, `nqddcal()`,
+#' `nqdchunk()` and `nqdpiece()` (nqdnew(3), nqdsyn(3), nqdstats(3),
+#' nqdchunk(3), which give the synthetic stream and the chunk digests in
+#' full).
+#'
 #' @inheritParams nqdata
 #' @param json One string of JSON text.
 #' @param schema One `"schemas"` element, JSON text.
@@ -142,6 +147,10 @@ nqdpiece <- function(dir, file, piece, off = 0) {
 #' writes how to cite the data, from the record's `"cite"`. `nqdreport()`
 #' checks the capsule and its record and writes a report of both, as
 #' `noqtis report` does.
+#'
+#' They call libnqd's `nqdcommit()`, `nqdreveal()`, `nqdcite()` and
+#' `nqdrpt()`; the commitment is SHA3-256("noqtis-commit-1" || 0x00 || the
+#' salt's length as 8 bytes big-endian || salt || content) (nqdcommit(3)).
 #'
 #' @inheritParams nqdata
 #' @param x The content: a raw vector or one string.

@@ -18,6 +18,11 @@
 #' it, or three trusted `"marginal"`. The store is a plain folder that
 #' nothing signs: keep it where only you can write.
 #'
+#' They call the library's `nqksadd()`, `nqkslist()`, `nqksget()`,
+#' `nqkscert()`, `nqkscput()`, `nqkstrust()`, `nqksdel()`, `nqksexp()`,
+#' `nqksimp()` and `nqksurl()` (nqksadd(3), which gives the certification
+#' and the rules of validity in full).
+#'
 #' @param dir The folder of the store; it must exist.
 #' @param pk A public key, a raw vector; for `nqkscertify()`, the public
 #'   key of `sk`.

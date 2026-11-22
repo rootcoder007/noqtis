@@ -17,6 +17,10 @@
 #' [nqsign()] makes, and [nqverify()] checks it; decapsulation needs a
 #' module of version 3.2.
 #'
+#' They call the library's `nqp11open()`, `nqp11close()`, `nqp11toks()`,
+#' `nqp11login()`, `nqp11keys()`, `nqp11pub()`, `nqp11sign()`,
+#' `nqp11dec()` and `nqp11gen()` (nqp11open(3)).
+#'
 #' @param module The path of the PKCS #11 module (a shared library). It
 #'   must have a folder in it: a bare name, which the system would
 #'   search for, is refused.

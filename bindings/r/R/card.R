@@ -16,6 +16,9 @@
 #' and every field is refused with a control character or invalid UTF-8.
 #' `noqtis check --card` names the sealer of a capsule from its card.
 #'
+#' They call the library's `nqcard()` and `nqcardvrfy()`; nqcard(3) gives
+#' the card and its signature in full.
+#'
 #' @param sk,pk The key pair the card is for; for `nqidcheck()`, `pk` is
 #'   `NULL` or the public key the card must be for.
 #' @inheritParams nqrotate

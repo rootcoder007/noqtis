@@ -6,6 +6,9 @@
 #' line, base64 in lines of 64 characters, and the END line.
 #' `nqdearmor()` reads one armor back.
 #'
+#' They call the library's `nqarmlen()`, `nqarmenc()` and `nqarmdec()`
+#' (nqarmenc(3)).
+#'
 #' @param label The label: capitals and digits with single spaces
 #'   between them, such as `"NOQTIS SIGNATURE"`.
 #' @param data A raw vector.
@@ -44,6 +47,9 @@ nqdearmor <- function(text) {
 #' length 0, so that it can issue the certificate of the holder's ML-KEM
 #' key. Certificates are DER; [nqarmor()] with the label `"CERTIFICATE"`
 #' makes the PEM form.
+#'
+#' They call the library's `nqx5self()`, `nqx5kem()` and `nqx5info()`
+#' (nqx5self(3)).
 #'
 #' @param sk,pk The signature key pair (ML-DSA, SLH-DSA or Ed25519).
 #' @param alg The algorithm of the key the certificate is for.
@@ -119,6 +125,10 @@ nqcertinfo <- function(cert) {
 #'
 #' Verification trusts a signer only when its certificate is one of
 #' `anchors`, byte for byte.
+#'
+#' They call the library's `nqcmssign()`, `nqcmsvrfy()`, `nqcmsenc()` and
+#' `nqcmsdec()`, and for S/MIME `nqsmsign()`, `nqsmvrfy()`, `nqsmenc()`
+#' and `nqsmdec()` (nqcmssign(3), nqsmsign(3)).
 #'
 #' @param sk The secret key: a signature key to sign, an ML-KEM key to
 #'   decrypt.

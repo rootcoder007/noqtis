@@ -28,6 +28,12 @@
 #' (`noqtis timestamp`, `noqtis ers`), and `nqcheck()` verifies them when
 #' `anchors` is given.
 #'
+#' `nqseal()` calls the library's `nqseal()`, or `nqseal2()` for format 2,
+#' and `nqsealwhy()` to name what in a folder cannot be sealed;
+#' `nqcheck()` calls `nqchkx()`, or `nqchkp()` for a proof. The manifest
+#' and seal are spelled out in nqseal(3), the checks and their rows in
+#' nqchk(3) and nqrep(3).
+#'
 #' @param dir Path of the folder.
 #' @inheritParams nqsign
 #' @param pk Public key, a raw vector; for `nqseal()` it must pair with `sk`
@@ -178,6 +184,9 @@ nqcheck <- function(dir, pk = NULL, anchors = NULL, only = NULL,
 #' The id is the same for any copy of the capsule, wherever it is kept,
 #' and changes when the folder is sealed again.
 #'
+#' They call the library's `nqcapid()`, `nqfiles()` and `nqprove()`;
+#' nqprove(3) gives the tree and the proof in full.
+#'
 #' @inheritParams nqdata
 #' @param paths The files to prove, as the manifest lists them (`/`
 #'   between folders).
@@ -258,6 +267,9 @@ nqprove <- function(dir, paths) {
 #' its seals pass as they do without the statement.
 #' Both signatures of a rotation are checked before it is returned. Both
 #' algorithms must be post-quantum: Ed25519 alone is refused.
+#'
+#' They call the library's `nqkstmt()`, and `nqkexp()` for `nqexpire()`;
+#' nqkstmt(3) gives the statement and its signatures in full.
 #'
 #' @param sk,pk The key pair the statement is about.
 #' @param alg Its signature algorithm.
