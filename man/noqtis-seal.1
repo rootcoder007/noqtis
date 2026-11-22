@@ -29,7 +29,9 @@ computes each file's size, SHA-256 and SHA3-256, writes the manifest
 (canonical JSON, RFC 8785), signs its exact bytes with the secret key in
 .Ar key
 under the context string
-.Ql noqtis-capsule-1 ,
+.Ql noqtis-capsule-1
+(format 2: its head, under
+.Ql noqtis-capsule-2 ) ,
 and writes the seal
 .Pa noqtis.sig .
 An existing
@@ -41,7 +43,7 @@ at the top of
 are left out of the listing and replaced.
 Both are written through a temporary file beside them, renamed into
 place:
-.Pa .noqtis.json. Ns Ar pid Ns Pa \&. Ns Ar k Ns Pa .tmp
+.Pa .noqtis.json.\& Ns Ar pid Ns Pa \&. Ns Ar k Ns Pa .tmp
 (and the same of
 .Pa noqtis.sig
 and
@@ -111,7 +113,8 @@ it opened before anything was written, so a folder renamed or replaced
 by a link meanwhile is never written through.
 A file put back keeps its permission bits, the set-user-ID, set-group-ID
 and sticky bits too (set after its group, whose change would clear
-them), and, where its owner may give it, its group; its hard links, ACLs and extended attributes are not
+them), and, where its owner may give it, its group; its hard links, ACLs and
+extended attributes are not
 kept, nor its owner when another user made it.
 When they cannot be put back (a write over
 .Ic ulimit -f ,
@@ -201,7 +204,8 @@ verified before it is written, and a key pair that does not match is
 refused.
 .Bl -tag -width Ds
 .It Fl k Ar key , Fl -key Ns = Ns Ar key
-A secret signature key file (ML-DSA or SLH-DSA).
+A secret signature key file: ML-DSA, SLH-DSA or a hybrid of ML-DSA with
+Ed25519; Ed25519 alone is refused.
 .It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
 The matching public key, stored in the seal.
 Default:
@@ -231,6 +235,9 @@ and its id (the SHA-256 of the bytes its seal signs) is recorded under
 .Ar name ,
 by default the folder's last component (1 to 255 bytes, no control
 characters).
+With
+.Fl -format Cm 1
+it is a usage error.
 .Xr noqtis-check 1
 .Fl -lineage
 follows these records back.
@@ -264,6 +271,9 @@ then also have a certificate path to one of them, checked as
 checks it.
 Without it the reply is checked, but not whether the TSA is one to
 trust, and a note on standard error says so.
+Without
+.Fl -tsa
+it is a usage error.
 .It Fl r , Fl -recursive
 Seal, with the same options, every folder under
 .Ar dir
@@ -371,7 +381,20 @@ sealed results with ML-DSA-65 and a timestamp
 .Xr noqtis-capsule 5
 .Sh STANDARDS
 .Rs
-.%R RFC 3161
+.%A C. Adams
+.%A P. Cain
+.%A D. Pinkas
+.%A R. Zuccherato
 .%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%R RFC 3161
 .%D August 2001
+.%O updated by RFC 5816
+.Re
+.Rs
+.%A A. Rundgren
+.%A B. Jordan
+.%A S. Erdtman
+.%T JSON Canonicalization Scheme (JCS)
+.%R RFC 8785
+.%D June 2020
 .Re
