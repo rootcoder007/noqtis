@@ -114,12 +114,21 @@ or not
 .Pq Ql moved ;
 .Fl w
 records the new address.
+A source without a portal is
+.Ql direct ,
+and one whose portal gave no address
+.Ql unresolved .
 With
 .Fl -wayback
 it asks the Wayback Machine for a copy of each source's
 .Cm url
 instead, and records it as
-.Cm archived .
+.Cm archived
+.Pq Ql archived ,
+with or without
+.Fl w ;
+a source without a url, or without a copy, is
+.Ql unresolved .
 .It Cm fetch
 restores each file that is missing: it tries the source's addresses in
 order, its
@@ -282,22 +291,26 @@ when the server takes them and names the file by an ETag or
 Last-Modified (an If-Range); otherwise it fails.
 A file may be at most
 .Fl -max
-bytes (1 GiB when not given; with
+bytes (from 1; 1 GiB when not given; with
 .Cm fetch ,
 its recorded size), and each takes at most
 .Fl -timeout
-seconds (600), with at most 30 seconds' wait for any read; a portal's
+seconds (1 to 86400; 600 when not given),
+with at most 30 seconds' wait for any read; a portal's
 reply may be at most 16 MiB and take 120 seconds.
 .Sh EXIT STATUS
 0 when every file was there or fetched
-.Pq Cm refresh : No every source unchanged ;
-1 when a file could not be fetched with its recorded bytes, or
+.Pq Cm refresh : No every source unchanged ; Cm resolve : No none unresolved ;
+1 when a file could not be fetched with its recorded bytes,
 .Pq Cm refresh
-a source changed;
+a source changed, or
+.Pq Cm resolve
+a source was unresolved;
 3 when
 .Cm refresh
 found nothing changed but a source unreachable;
-2 on a usage, file or network error of
+2 on a usage error, a folder without a data record that reads, a record
+that cannot be written, or a file or network error of
 .Cm add .
 .Sh EXAMPLES
 Record a CSV file of an open-data portal, restore it later, and see
