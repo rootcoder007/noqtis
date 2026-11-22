@@ -46,6 +46,14 @@ its path, its size, the chunk size
 .Fa chunk
 bytes, the last run short.
 The file is not split.
+In symbols, with F the file's bytes, s its size, c the chunk size,
+F[a:b] bytes a to b - 1, and HEX lower-case hex:
+.Bd -literal -offset indent
+d_i  = HEX(SHA-256(F[i c : min((i + 1) c, s)]))   i = 0 .. ceil(s/c) - 1
+elem = {"chunk": c, "digests": [d_0, d_1, ...], "path": path, "size": s}
+.Ed
+.Pp
+in canonical form; an empty file has no digest.
 .Fa out
 and
 .Fa outlen
@@ -108,7 +116,11 @@ when the digests would not fit in a record (64 MiB: take larger chunks);
 .Dv NQEBUF
 for a
 .Fa cap
-too small.
+too small;
+.Dv NQEMEM
+when memory runs out.
+A link or anything but a plain file is
+.Dv NQEARG .
 .Pp
 .Fn nqdpiece
 and
@@ -125,6 +137,20 @@ is set in both cases
 for a
 .Dv NULL
 argument.
+.Sh EXAMPLES
+Record the 1 MiB chunks of a file and check a piece fetched from byte
+2 MiB on:
+.Bd -literal -offset indent
+static char el[1 << 16];
+char why[256];
+size_t n;
+nqdrep *rep = NULL;
+int rc = nqdchunk("results", "data/big.bin", 1 << 20, el, sizeof el,
+                  &n, why, sizeof why);
+if (rc == NQOK)
+  rc = nqdpiece(el, n, "/tmp/piece.bin", (uint64_t)2 << 20, &rep);
+nqdrepfree(rep);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-chunk 1 ,
 .Xr nqdchk 3 ,
