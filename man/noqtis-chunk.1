@@ -24,7 +24,8 @@ once and records in the data record
 .Pq Cm chunks , Xr noqtis-data 5
 the SHA-256 of each run of
 .Fl -size
-bytes (default 1048576; 1024 to 1073741824), the last run short.
+bytes (default 1048576; 1024 to 1073741824), the last run short,
+starting a data record when the folder has none.
 The file is not split.
 Seal the folder afterwards: the seal covers the digests through the
 record.
@@ -36,7 +37,11 @@ or
 .Ar piece ,
 a part of it whose first byte is byte
 .Fl -at
-of the file (a multiple of the chunk size; default 0), against the
+of the file (a multiple of the chunk size; default 0;
+.Fl -at
+without a
+.Ar piece
+is a usage error), against the
 recorded digests: each whole chunk it holds, and a short last one when
 it ends where the file does.
 Only that is read, so a range fetched alone, or the part of a file that
