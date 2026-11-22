@@ -162,7 +162,11 @@ for a file that is not CSV or has rows of different lengths,
 .Dv NQEIO
 for a file that cannot be read,
 .Dv NQELIM
-over the reader's limits.
+over the reader's limits,
+.Dv NQEARG
+for a bad path, a link or anything but a plain file,
+.Dv NQEMEM
+when memory runs out.
 .Fn nqddrift
 and
 .Fn nqddriftat
@@ -192,7 +196,23 @@ for an element that is not
 or a file that lacks one of its columns, cannot be read or has values
 of another kind,
 .Dv NQEARG
-for no files.
+for no files or a
+.Dv NULL
+one.
+.Sh EXAMPLES
+Summarise a file when it is sealed, and later compare a new delivery
+with the summary, with the default levels:
+.Bd -literal -offset indent
+static char st[1 << 20];
+char why[256];
+size_t n;
+nqdrep *rep = NULL;
+int rc = nqdstats("results", "data/a.csv", NULL, st, sizeof st, &n,
+                  why, sizeof why);
+if (rc == NQOK)
+  rc = nqddrift(st, n, "incoming/a.csv", NULL, NULL, &rep);
+nqdrepfree(rep);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-drift 1 ,
 .Xr nqdchk 3 ,
