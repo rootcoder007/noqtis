@@ -277,11 +277,15 @@ Signatures and ciphertexts are raw bytes in the standard's encoding, with
 no header.
 A shared secret file holds the raw 32 bytes.
 .Ss Secrets and files
-Secret key and shared-secret files are created owner-only (mode 0600,
+Secret key and shared-secret files, and the plaintext of
+.Cm unbox ,
+are created owner-only (mode 0600,
 with
 .Dv O_EXCL | O_NOFOLLOW
 on POSIX; on Windows they inherit the folder's ACL) through unbuffered
 streams.
+Every other file a command writes is created with mode 0644 on POSIX,
+whatever the umask.
 No command overwrites an existing file unless given
 .Fl -force .
 A file a command writes (a key, a signature, a shared secret, a report,
@@ -311,7 +315,7 @@ The data record
 and the files of
 .Cm data syn
 are written through
-.Pa .noqtis. Ns Ar pid Ns Ar k Ns Pa .tmp
+.Pa .noqtis.\& Ns Ar pid Ns Ar k Ns Pa .tmp
 (16 hex digits as well) and renamed into place.
 When the command fails, or is stopped by one of the signals
 .Sx SIGNALS
@@ -319,7 +323,8 @@ lists as handled (Ctrl-C, Ctrl-\e,
 .Dv SIGTERM ,
 a closed pipe, a write over
 .Ic ulimit -f ,
-and the others), the temporary file or folder is removed, so a cut output never stands
+and the others), the temporary file or folder is removed, so a cut
+output never stands
 under the name asked for; a temporary file is removed through the folder
 it was made in, so that holds even when the folder is renamed while the
 command runs.
@@ -484,11 +489,21 @@ for reproducible capsules (see
 and the time
 .Cm cert ,
 .Cm smime sign ,
-.Cm keys certify
+.Cm keys certify ,
+.Cm idcard ,
+.Cm commit ,
+.Cm data add Fl -retrieved Cm now ,
+.Cm src
 and the
 .Cm pgp
 commands write as now: a number of seconds since 1970, up to the end
 of the year 9999.
+.Cm rotate
+and
+.Cm revoke
+do not read it: their default
+.Fl -at
+is the clock.
 .El
 .Sh EXIT STATUS
 For every command (each page gives the details):
@@ -600,6 +615,9 @@ results: FAILED (1 of 22 checks failed)
 .%D August 2024
 .Re
 .Rs
-.%T Hamming Quasi-Cyclic (HQC), version 5.0.0
-.%D August 2025
+.%Q HQC team
+.%T Hamming Quasi-Cyclic (HQC), specification, version 5.0.0
+.%D August 22, 2025
+.%O the text the code follows; version 5.1, of November 9, 2026, is the current one
+.%U https://pqc-hqc.org/resources.html
 .Re
