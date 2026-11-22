@@ -71,10 +71,16 @@ To sign and encrypt, sign first and encrypt the result.
 .Pp
 The results are text with CRLF line ends: the header fields
 MIME-Version, Content-Type, Content-Transfer-Encoding and
-Content-Disposition, an empty line, and base64 in lines of 64 characters; the parts are named
+Content-Disposition, an empty line, and base64 in lines of 64
+characters; the parts are named
 .Pa smime.p7m
 and
 .Pa smime.p7s .
+.Sh RETURN VALUES
+Those of
+.Xr nqcmssign 3 ;
+.Dv NQEDEC
+also for an entity that is not of these types.
 .Sh EXAMPLES
 Sign a short text mail, detached:
 .Bd -literal -offset indent
@@ -87,11 +93,6 @@ int rc = nqsmsign(NQMLDSA65, sk, sklen, cert, certlen, ent,
                   sizeof ent - 1, 1, (int64_t)time(NULL), out, sizeof out,
                   &n);
 .Ed
-.Sh RETURN VALUES
-Those of
-.Xr nqcmssign 3 ;
-.Dv NQEDEC
-also for an entity that is not of these types.
 .Sh SEE ALSO
 .Xr noqtis-smime 1 ,
 .Xr noqtis 3 ,
