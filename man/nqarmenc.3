@@ -42,6 +42,18 @@ writes for
 .Fa n
 bytes under
 .Fa label .
+With l the length of the label and c = 4 ceil(n / 3) the number of
+base64 characters, that number is
+.Bd -literal -offset indent
+len = (11 + l + 5 + 1) + c + ceil(c / 64) + (9 + l + 5 + 1)
+.Ed
+.Pp
+These are the BEGIN line with its LF, the base64 in lines of 64 characters (48
+bytes) each ended by an LF, the last line shorter, and the END line with
+its LF; there is no base64 line at all when
+.Fa n
+is 0.
+.Pp
 .Fn nqarmenc
 writes them to
 .Fa out ,
