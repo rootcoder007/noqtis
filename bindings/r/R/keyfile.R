@@ -11,10 +11,12 @@
 #' character, canonical padding, and exactly the algorithm's key size.
 #' `nqwritekey()` writes one. With `pass`, a secret key file is kept
 #' under a passphrase (noqtis-pwkey-1, as `noqtis keygen --pass-fd`
-#' writes it: Argon2id of the passphrase, 64 MiB and 3 passes, then
-#' ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read it.
-#' `nqpwenc()` and `nqpwdec()` are that protection on its own, for a key
-#' kept elsewhere.
+#' writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
+#' then ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read
+#' it. `nqpwenc()` and `nqpwdec()` are that protection on its own, for a
+#' key of up to 65536 bytes kept elsewhere; they call the library's
+#' `nqpwenc()` and `nqpwdec()`, whose manual page nqpwenc(3) gives the
+#' construction in full.
 #'
 #' @param path The key file.
 #' @param key The key, a raw vector (`$pk` or `$sk` of [nqkeygen()]).
@@ -29,7 +31,8 @@
 #' @param x What `nqpwenc()` returned, a raw vector.
 #' @param ad `NULL`, or associated data (a raw vector) bound to it.
 #' @param m,t,p Argon2id's memory in KiB (8192 to 1048576), passes (1 to
-#'   16) and lanes (1 to 16); 0 for the defaults 65536, 3 and 4.
+#'   16) and lanes (1 to 16), with `m` times `t` at most 4194304; 0 for
+#'   the defaults 65536, 3 and 4.
 #'
 #' @return `nqreadkey()`: a list with `alg` (the algorithm name as the
 #'   library spells it), `kind` (`"pub"` or `"sec"`) and `key` (a raw
@@ -52,6 +55,13 @@
 #' @references
 #' Josefsson, S. (2006). *The Base16, Base32, and Base64 Data Encodings*,
 #' RFC 4648. \doi{10.17487/RFC4648}
+#'
+#' Biryukov, A., Dinu, D., Khovratovich, D. and Josefsson, S. (2021).
+#' *Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work
+#' Applications*, RFC 9106. \doi{10.17487/RFC9106}
+#'
+#' Nir, Y. and Langley, A. (2018). *ChaCha20 and Poly1305 for IETF
+#' Protocols*. RFC 8439. \doi{10.17487/RFC8439}
 #'
 #' @family key functions
 #' @seealso [nqkeygen()], [nqsign()].
