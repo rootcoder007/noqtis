@@ -39,8 +39,11 @@ curves.
 - **When**, without a timestamp: `created` is the sealer's own clock.
 - **Correctness or completeness of a result.** A capsule records what was in
   the folder, not how it was produced or whether other inputs were used.
-- **A stolen secret key.** Whoever holds it can seal anything. There is no
-  revocation in the format.
+- **A stolen secret key.** Whoever holds it can seal anything. A
+  revocation or rotation statement (`noqtis revoke`, `noqtis rotate`)
+  limits that only for a checker given it with `check --keys`, and then
+  only through a verified timestamp: a seal passes when its timestamp
+  predates the statement's time.
 - **The machine you run on.** Malware on the sealing or checking machine,
   or a compromised compiler or package, defeats any tool.
 - **Confidentiality.** Capsules are not encrypted; the manifest lists every
@@ -61,7 +64,7 @@ curves.
 | the manifest is what was signed | its SHA-256 against the seal, and the signature over its exact bytes |
 | the key | byte-equal to the pinned key, when one is given |
 | both files are well formed | canonical JSON, exact fields, limits |
-| the timestamp | RFC 3161 token, imprint, signer certificate path to an anchor at genTime (C API with anchors) |
+| the timestamp | RFC 3161 token, imprint, signer certificate path to an anchor at genTime (with anchors: `check --anchor`, `nqchkt`) |
 
 | Not verified | |
 |---|---|
@@ -119,7 +122,8 @@ generate. dudect sees those on the machine it runs on, and only there.
 ### Timing: dudect
 
 **Method.** The fixed-against-random test of Reparaz, Balasch and
-Verbauwhede (*Dude, is my code constant time?*, DATE 2017), written in
+Verbauwhede (*Dude, is my code constant time?*, DATE 2017, pp.
+1697-1702, doi:10.23919/DATE.2017.7927267), written in
 C11 with no dependencies. Each measurement times one call (or a fixed
 batch of calls) with ISO C `timespec_get` on an input of class 0 or
 class 1, the class drawn at random per measurement. Inputs for a chunk
