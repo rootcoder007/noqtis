@@ -71,6 +71,26 @@ the record's last hash, the last timestamp (timestamp renewal); with
 another, the hash of the seal file and of the record's
 ArchiveTimeStampSequence, in binary ascending order (hash-tree renewal,
 a new chain).
+In symbols, with H the hash, S the bytes of
+.Pa noqtis.sig ,
+TS the DER timeStamp element (a ContentInfo) of the record's last
+archive timestamp, SEQ the DER ArchiveTimeStampSequence, and
+.Sy ||
+concatenation, the imprint asked for is
+.Bd -literal -offset indent
+H(S)                                   no record yet
+H(TS)                                  timestamp renewal
+H(min(H(S), H(SEQ)) || max(H(S), H(SEQ)))   hash-tree renewal
+.Ed
+.Pp
+(RFC 4998 section 5.2)
+.Pp
+with min and max in binary order.
+The record is read back the same way; for a hash-tree renewal either
+order of the two values, and H(SEQ) also over the chains without their
+SEQUENCE header, are accepted, for other readings of the RFC's text.
+Each archive timestamp's TSA certificate must be valid at the genTime of
+the one after it, and the last one's now, by the clock.
 .Pp
 .Fn nqersput
 checks the record already there, as
@@ -136,6 +156,12 @@ is not one of the three hashes, or the record there uses another or is
 of encrypted data.
 .It Bq Er NQEIO
 The seal, the record, or the new record could not be read or written.
+.It Bq Er NQELIM
+More than 32 anchors, a record of more than 64 archive timestamps or
+over 1 MiB, or a reduced hash tree beyond its limits.
+.It Bq Er NQEMEM
+The allocation hook returned
+.Dv NULL .
 .El
 .Pp
 .Pf * Fa why
@@ -143,6 +169,23 @@ The seal, the record, or the new record could not be read or written.
 .Dv NULL )
 gets a sentence on what failed, or
 .Dv NULL .
+.Sh EXAMPLES
+Start or renew the record with the hash it already uses:
+.Bd -literal -offset indent
+uint8_t nonce[8], req[128];
+size_t qn;
+const char *why;
+int64_t gt;
+int how;
+if (nqrand(nonce, sizeof nonce) == NQOK &&
+    nqersreq("results", 0, nonce, sizeof nonce, req, sizeof req, &qn,
+             &why) == NQOK) {
+  /* POST req to the TSA; rsp, rn: the body of its reply */
+  if (nqersput("results", 0, rsp, rn, nonce, sizeof nonce, NULL, NULL,
+               0, &gt, &how, &why) != NQOK)
+    fprintf(stderr, "refused: %s\en", why);
+}
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-ers 1 ,
 .Xr noqtis 3 ,
@@ -151,6 +194,19 @@ gets a sentence on what failed, or
 .Xr noqtis-capsule 5
 .Sh STANDARDS
 .Rs
+.%A T. Gondrom
+.%A R. Brandner
+.%A U. Pordesch
 .%R RFC 4998
 .%T Evidence Record Syntax (ERS)
+.%D August 2007
+.Re
+.Rs
+.%A C. Adams
+.%A P. Cain
+.%A D. Pinkas
+.%A R. Zuccherato
+.%R RFC 3161
+.%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%D August 2001
 .Re
