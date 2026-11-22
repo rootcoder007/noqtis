@@ -70,7 +70,13 @@ the seal's key must be exactly the given key, and the seal's algorithm
 the one the key file names (a
 .Ql key.alg
 row fails otherwise).
-Each option that takes a value may be given once.
+Each option that takes a value may be given once, except
+.Fl -anchor ,
+.Fl -only ,
+.Fl -lineage
+and
+.Fl -keys ,
+up to 32 times each.
 .Pp
 Files are opened folder by folder from
 .Ar dir ,
@@ -540,3 +546,31 @@ new.txt: not in the manifest
 .Xr nqchkt 3 ,
 .Xr nqtsput 3 ,
 .Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%A C. Adams
+.%A P. Cain
+.%A D. Pinkas
+.%A R. Zuccherato
+.%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%R RFC 3161
+.%D August 2001
+.%O updated by RFC 5816
+.Re
+.Rs
+.%A T. Gondrom
+.%A R. Brandner
+.%A U. Pordesch
+.%T Evidence Record Syntax (ERS)
+.%R RFC 4998
+.%D August 2007
+.Re
+.Rs
+.%A B. Laurie
+.%A A. Langley
+.%A E. Kasper
+.%T Certificate Transparency
+.%R RFC 6962
+.%D June 2013
+.%O obsoleted by RFC 9162; the SCTs checked are those of RFC 6962
+.Re
