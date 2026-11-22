@@ -45,12 +45,12 @@ The last row is the chain's head: the last link's id
 .Pq Xr nqcapid 3 ,
 which a reader can keep or publish to notice a chain cut back later.
 .Bl -tag -width Ds
-.It Fl p Ar key.pub
-The key every link must be sealed by.
+.It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
+The key every link must be sealed by; a KEM key is refused.
 Without it, the first link's own key is trusted, and a note says so.
 .It Fl -anchor Ar der-file
-A TSA root or issuing certificate (DER), up to 32, for timestamped
-seals.
+A TSA root or issuing certificate (DER; a PEM file is refused), up to
+32, for timestamped seals.
 .It Fl j , Fl -json
 The rows as JSON.
 .El
@@ -62,7 +62,8 @@ The chain checks.
 A link does not check, does not follow the one before it, or is sealed
 by another key.
 .It 2
-A usage error, or a folder that is not there.
+A usage error, a folder that is not there, or a key or anchor file that
+cannot be read or is of the wrong kind.
 .El
 .Sh SEE ALSO
 .Xr noqtis-check 1 ,
