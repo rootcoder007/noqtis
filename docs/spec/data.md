@@ -58,7 +58,17 @@ over code points, in time linear in the value's length;
 [noqtis-data(5)](https://noqtis.dev/reference/man/noqtis-data-5/) gives
 the grammar a reader must hold to. A `mad` rule fails a value further
 from the median than `max` times 1.4826 times the median absolute
-deviation.
+deviation; the reference checker keeps at most 2^23 numbers of one `mad`
+rule, and fails the rule ("too many values to check") when a column
+has more.
 
 How `stats` is made, and the tests made from it, is defined in
 [noqtis-drift(1)](https://noqtis.dev/reference/man/noqtis-drift-1/).
+
+## References
+
+- RFC 8785, JSON Canonicalization Scheme (JCS); RFC 8259, JSON.
+- FIPS 180-4 (SHA-256, the `sha256` and `digests` members); FIPS 202
+  (SHA3-256, the `commits` digests, made as
+  [nqdcommit(3)](https://noqtis.dev/reference/man/nqdcommit-3/) says).
+- RFC 4180, the CSV files that `schemas` and `stats` describe.
