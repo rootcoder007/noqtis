@@ -42,7 +42,7 @@ and
 at the top, and the temporary files it writes them through when one is
 left there
 .Po
-.Pa .noqtis.json. Ns Ar pid Ns Pa \&. Ns Ar k Ns Pa .tmp
+.Pa .noqtis.json.\& Ns Ar pid Ns Pa \&. Ns Ar k Ns Pa .tmp
 and the same of
 .Pa noqtis.sig
 and
@@ -62,7 +62,8 @@ and the secret key
 .Fa sk
 under the context string
 .Ql noqtis-capsule-1
-(pure ML-DSA or SLH-DSA, hedged); verifies the new signature with
+(any signature algorithm of noqtis but Ed25519 alone, pure, hedged);
+verifies the new signature with
 .Fa pk ;
 and only then writes both files, replacing earlier ones: both whole
 under their temporary names first, then
@@ -70,6 +71,42 @@ under their temporary names first, then
 renamed into place and
 .Pa noqtis.sig
 last, so a failure while writing leaves the earlier seal as it was.
+.Pp
+In symbols, with HEX lower-case hex, B64 the padded base64 of RFC 4648
+section 4, T the creation time as
+.Ql YYYY-MM-DDTHH:MM:SSZ ,
+ALG the algorithm's name as
+.Xr nqsign 3
+gives it, and JCS the canonical JSON of RFC 8785:
+.Bd -literal -offset indent
+F_i  = {"path": p_i, "sha256": HEX(SHA-256(file_i)),
+        "sha3_256": HEX(SHA3-256(file_i)), "size": |file_i|}
+man  = JCS({"created": T, "files": [F_1, ..., F_n],
+            "format": "noqtis-capsule-1", "meta": meta})
+sig  = Sign(sk, man, "noqtis-capsule-1")
+seal = JCS({"alg": ALG, "context": "noqtis-capsule-1",
+            "format": "noqtis-seal-1",
+            "manifest_sha256": HEX(SHA-256(man)),
+            "public_key": B64(pk), "signature": B64(sig)})
+.Ed
+.Pp
+where man is the content of
+.Pa noqtis.json
+and seal that of
+.Pa noqtis.sig ,
+the files are in the byte order of their UTF-8 paths,
+.Ql meta
+is left out when
+.Fa meta
+is
+.Dv NULL ,
+and Sign is
+.Xr nqsign 3
+with the 16-byte context
+.Ql noqtis-capsule-1
+and
+.Fa ph
+0.
 .Pp
 .Fa sklen
 and
@@ -88,7 +125,8 @@ member and covered by the signature; noqtis does not interpret it.
 .Pp
 The creation time is the environment variable
 .Ev SOURCE_DATE_EPOCH
-(decimal seconds since the epoch) when it is set and not empty, otherwise
+(decimal seconds since the epoch, at most 12 digits) when it is set and
+not empty, otherwise
 the clock, as an RFC 3339 UTC time to the second.
 .Pp
 .Fa tsa
@@ -166,7 +204,8 @@ or
 is
 .Dv NULL ;
 .Fa alg
-is unknown; a key length is not the algorithm's; the keys are not a pair;
+is not a signature algorithm of noqtis; a key length is not the
+algorithm's; the keys are not a pair;
 .Ev SOURCE_DATE_EPOCH
 is not a plain decimal number (or after the year 9999); or the folder
 holds a symbolic link, a reparse point, a special file, a refused name
@@ -200,7 +239,10 @@ over its present seal, which a new seal would replace.
 .It Bq Er NQENOSUP
 .Fa tsa
 is not
-.Dv NULL .
+.Dv NULL ,
+or
+.Fa alg
+is Ed25519 alone, which is not post-quantum.
 .It Bq Er NQERNG
 The random source failed while signing.
 .El
@@ -256,3 +298,25 @@ if (rc == NQOK)
 .Xr nqsign 3 ,
 .Xr nqtsput 3 ,
 .Xr noqtis-capsule 5
+.Sh STANDARDS
+.Rs
+.%A A. Rundgren
+.%A B. Jordan
+.%A S. Erdtman
+.%T JSON Canonicalization Scheme (JCS)
+.%R RFC 8785
+.%D June 2020
+.Re
+.Rs
+.%A G. Klyne
+.%A C. Newman
+.%T Date and Time on the Internet: Timestamps
+.%R RFC 3339
+.%D July 2002
+.Re
+.Rs
+.%A S. Josefsson
+.%T The Base16, Base32, and Base64 Data Encodings
+.%R RFC 4648
+.%D October 2006
+.Re
