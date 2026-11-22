@@ -70,6 +70,15 @@ The passphrase of a protected
 .Fl s
 key, as in
 .Xr noqtis-sign 1 .
+Either is refused without
+.Fl s ,
+and
+.Fl -pass-fd Ar 0
+is refused when
+.Ar file
+is
+.Ar -
+(standard input cannot carry both).
 .It Fl o Ar out , Fl -out Ns = Ns Ar out
 The output file, or
 .Ar -
@@ -115,3 +124,23 @@ $ noqtis unbox -k bob -s me.pub -o data.csv data.nqk
 .Xr nqkmeini 3
 .Sh STANDARDS
 FIPS 203 (ML-KEM), RFC 5869 (HKDF), RFC 8439 (ChaCha20-Poly1305).
+.Rs
+.%Q National Institute of Standards and Technology
+.%T Module-Lattice-Based Key-Encapsulation Mechanism Standard
+.%R FIPS 203
+.%D August 2024
+.Re
+.Rs
+.%A H. Krawczyk
+.%A P. Eronen
+.%T HMAC-based Extract-and-Expand Key Derivation Function (HKDF)
+.%R RFC 5869
+.%D May 2010
+.Re
+.Rs
+.%A Y. Nir
+.%A A. Langley
+.%T ChaCha20 and Poly1305 for IETF Protocols
+.%R RFC 8439
+.%D June 2018
+.Re
