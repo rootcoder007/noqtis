@@ -24,9 +24,12 @@ libnoqtis, \-lnoqtis
 A
 .Vt nqrep ,
 made by
-.Xr nqchk 3
-or
+.Xr nqchk 3 ,
 .Xr nqchkt 3 ,
+.Xr nqchkx 3 ,
+.Xr nqinsp 3
+or the proof check of
+.Xr nqprove 3 ,
 holds one row per check, in the order the checks ran.
 Its layout is private.
 .Pp
@@ -67,11 +70,16 @@ in canonical form
 exactly the seal's fields, with their types
 .It Cm seal.format
 .Ql noqtis-seal-1
+or
+.Ql noqtis-seal-2
 .It Cm seal.alg
 a known signature algorithm
 .It Cm seal.context
 the context
-.Ql noqtis-capsule-1
+.Ql noqtis-capsule-1 ,
+or
+.Ql noqtis-capsule-2
+for format 2
 .It Cm seal.key
 the public key's size
 .It Cm seal.signature
@@ -80,13 +88,18 @@ the signature's size
 .Pa noqtis.json
 read within the limit
 .It Cm manifest.digest
-its SHA-256 is the seal's
+its SHA-256 (of its head, for format 2) is the seal's
 .It Cm key
 pinned or not, and whether it matches
 .It Cm signature
 the signature over the manifest
 .It Cm timestamp
 the RFC 3161 token
+.It Cm ers
+the evidence record
+.Pa noqtis.ers ,
+when there is one
+.Pq Xr nqersput 3
 .It Cm folder
 the folder listed
 .It Cm file
@@ -125,6 +138,10 @@ one per refused, non-normal, duplicate or case-colliding path
 one per regular file not listed
 .It Cm unsafe
 one per link, special file or refused name
+.It Cm info.*
+what
+.Xr nqinsp 3
+reads, unchecked; always passed
 .El
 .Pp
 Rows after a failure that makes later checks meaningless are left out
