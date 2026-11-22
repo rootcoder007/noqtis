@@ -6,7 +6,9 @@
 #' password and the salt, `t` passes over `m` KiB of memory in `p`
 #' lanes, with an optional secret key and associated data. `nqcteq()`
 #' compares two raw vectors in time that depends only on their length;
-#' compare MACs and tags with it.
+#' compare MACs and tags with it. They call the library's `nqb2b()`,
+#' `nqa2id()` and `nqcteq()`; nqb2b(3) and nqa2id(3) give the
+#' constructions in full.
 #'
 #' @param x The message: a raw vector, or one string (its UTF-8 bytes).
 #' @param key `NULL`, or a raw vector: the BLAKE2b key (0 to 64 bytes), or
@@ -86,7 +88,11 @@ nqcteq <- function(a, b) .Call(Ccteq, .rawarg(a, "a"), .rawarg(b, "b"))
 #' large message can be hashed apart from where the secret key is (a
 #' token, a hardware module). `nqsignmu()` signs that mu: the signature
 #' is the one [nqsign()] gives for the message with the same randomness.
-#' `nqverifymu()` checks a signature against a mu.
+#' `nqverifymu()` checks a signature against a mu. In symbols,
+#' mu = SHAKE256(tr || 0x00 || |ctx| || ctx || M, 64 bytes) with
+#' tr = SHAKE256(pk, 64 bytes), or with 0x01, the hash's DER object
+#' identifier and the hash of M in place of 0x00 and M for a pre-hash.
+#' They call the library's `nqsmu()`, `nqsignmu()` and `nqvrfymu()`.
 #'
 #' @inheritParams nqsign
 #' @inheritParams nqverify
@@ -177,7 +183,8 @@ nqverifymu <- function(pk, mu, sig, alg) {
 #' cannot stream (an error). A stream is used once: after `nqfinish()` it
 #' is an error to use it again. The secret key is not copied into the
 #' stream; it is given again to `nqfinish()` through the stream, which
-#' keeps a reference to it.
+#' keeps a reference to it. They call the library's `nqsini()` or
+#' `nqvini()`, `nqsupd()`, and `nqsfin()` or `nqvfin()` (nqsini(3)).
 #'
 #' @inheritParams nqmu
 #' @param s A stream from `nqsigner()` or `nqverifier()`.
@@ -316,7 +323,11 @@ nqverifyfile <- function(file, pk, sig, alg, ctx = NULL, ph = NULL) {
 #' of any size the same way, in chunks, in the format of `noqtis box`
 #' (noqtis-kstream-1), holding one chunk in memory; `nqunbox()` opens it,
 #' writing each chunk only once its tag verifies, and removes what it
-#' wrote when one does not.
+#' wrote when one does not. A sealed message is the message (at most
+#' 1 GiB) plus 22 bytes plus the KEM ciphertext. They call the
+#' library's `nqkseal()` and `nqkopen()`, and `nqkfeini()` or
+#' `nqkfdini()` with the chunk calls of nqkfeini(3), which give the
+#' constructions in full.
 #'
 #' @param msg The message: a raw vector or one string.
 #' @param x What `nqkseal()` returned.
@@ -499,7 +510,20 @@ nqunbox <- function(input, output, sk, alg, ctx = NULL) {
 #' `nqunboxfrom()` writes the plaintext chunk by chunk, before the
 #' signature at the end is checked, and removes `output` when anything
 #' fails: `output` exists only when every chunk and, with `sender`, the
-#' signature verified.
+#' signature verified. They call the library's `nqkmeini()` and
+#' `nqkmdini()` with the chunk calls of nqkmeini(3), which gives the
+#' construction in full.
+#'
+#' @references
+#' National Institute of Standards and Technology (2024).
+#' *Module-Lattice-Based Key-Encapsulation Mechanism Standard*, FIPS 203.
+#' \doi{10.6028/NIST.FIPS.203}
+#'
+#' Nir, Y. and Langley, A. (2018). *ChaCha20 and Poly1305 for IETF
+#' Protocols*. RFC 8439. \doi{10.17487/RFC8439}
+#'
+#' Krawczyk, H. and Eronen, P. (2010). *HMAC-based Extract-and-Expand Key
+#' Derivation Function (HKDF)*. RFC 5869. \doi{10.17487/RFC5869}
 #'
 #' @param input The file to seal or to open.
 #' @param output The path of the file to write; it must not exist.
