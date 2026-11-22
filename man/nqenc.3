@@ -65,6 +65,11 @@ noqtis provides ML-KEM (FIPS 203) and HQC (version 5.0.0 of 2025-08-22).
 HQC is experimental: NIST selected it in March 2025 but its standard is
 not final, and the final one may differ in its encoding; keys,
 ciphertexts and secrets made now may then not interoperate.
+The code follows the specification of 2025-08-22 (version 5.0, reference
+implementation 5.0.0); the HQC team's version 5.1 of 2026-11-09 adds one
+to the weights w (and w_r for HQC-128 and HQC-256), makes the
+decapsulation key its 32-byte seed alone, and changes the polynomial of
+GF(2^8), so its keys and ciphertexts are not those of this one.
 Use ML-KEM for anything that must last.
 .Pp
 .Vt nqkalg
@@ -103,6 +108,18 @@ makes a key pair from the operating system's random source.
 .Fn nqkkgd
 makes it from the standard's seed: 64 bytes (d || z) for ML-KEM, 32 bytes
 for HQC.
+The secret key holds the public key: for ML-KEM it is
+.Bd -literal -offset indent
+sk = dk_PKE || pk || H(pk) || z            (FIPS 203, Algorithm 16)
+.Ed
+.Pp
+with H SHA3-256, dk_PKE 384k bytes and k 2, 3 or 4; for HQC it is
+.Bd -literal -offset indent
+sk = pk || seed_dk || sigma || seed_KEM    |pk| + 32 + |m| + 32 bytes
+.Ed
+.Pp
+with seed_KEM the 32-byte key-generation seed, seed_dk and sigma derived
+from it, and |m| 16, 24 or 32 bytes.
 .Pp
 .Fn nqenc
 encapsulates to the public key
@@ -116,23 +133,27 @@ takes the encapsulation randomness from
 .Fa seed
 instead, for test vectors: the 32-byte m for ML-KEM, and m || salt for
 HQC (32, 40 or 48 bytes for HQC-128, -192, -256).
-For ML-KEM the public key is checked as FIPS 203 section 7.2 requires.
+For ML-KEM the public key is checked as FIPS 203 section 7.2 requires
+(every coefficient below q = 3329); for HQC, the bits of its last byte
+past the length n of the vector must be zero.
 .Pp
 .Fn nqdec
 recovers the shared secret from
 .Fa ct
 with the secret key
 .Fa sk ;
-for ML-KEM the key is first checked as section 7.3 requires.
+for ML-KEM the key is first checked as section 7.3 requires (the
+H(pk) it holds must equal the hash of the pk it holds), for HQC by the
+check of its public key above and by re-deriving seed_dk and sigma from
+seed_KEM.
 A ciphertext of the right length that was not made for this key, or was
 changed, gives a pseudorandom secret unrelated to the sender's and
 returns
 .Dv NQOK
 (implicit rejection, as both standards require).
-It fails only on malformed sizes, on a secret key whose embedded hash
-does not match
+It fails only on malformed sizes, on a secret key that fails that check
 .Pq Dv NQEDEC ,
-and, as ML-KEM decapsulation is masked with fresh randomness, when the
+and, as both decapsulations are masked with fresh randomness, when the
 operating system's random source fails
 .Pq Dv NQERNG .
 Protocols must therefore confirm the secret, for example by using it in an
@@ -176,8 +197,8 @@ The operating system's random source failed
 .Fn nqkkg ,
 .Fn nqenc ,
 and
-.Fn nqdec
-for ML-KEM, whose masked decapsulation draws fresh mask shares
+.Fn nqdec ,
+whose masked decapsulation draws fresh mask shares
 .Pc .
 .It Bq Er NQENOSUP
 .Fn nqkfind :
@@ -221,15 +242,22 @@ nqwipe(b, sizeof b);
 .Rs
 .%T FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard
 .%Q NIST
-.%D August 2024
+.%D August 13, 2024
 .Re
 .Rs
-.%T Hamming Quasi-Cyclic (HQC), version 5.0.0
-.%D August 2025
+.%A P. Gaborit
+.%A C. Aguilar-Melchor
+.%A N. Aragon
+.%A others
+.%T Hamming Quasi-Cyclic (HQC), version 5.0
+.%U https://pqc-hqc.org/
+.%D August 22, 2025
 .Re
+.Pp
+The HQC team's version 5.1 of November 9, 2026 is not implemented.
 .Sh SECURITY CONSIDERATIONS
 Key generation, encapsulation and decapsulation run in constant time with
 respect to the seeds, the randomness, the secret key and the shared
-secret; ML-KEM decapsulation is also first-order masked.
+secret; both decapsulations are also first-order masked.
 In HQC, a secret-derived bit becomes public in the three places its
 specification allows, and nowhere else.
