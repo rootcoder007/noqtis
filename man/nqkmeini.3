@@ -116,6 +116,49 @@ plaintext.
 The signature is inside the encryption, so only a recipient learns who
 signed; it covers the header, so a recipient cannot seal the plaintext
 to someone else and keep the sender's signature.
+.Pp
+In symbols, with
+.Sy ||
+concatenation, F the 24 fixed bytes of the header, P7 its nonce prefix,
+x the context
+.Fa ctx
+and |x| its length in one byte, FK the file key (32 random bytes), and
+for recipient j its KEM a_j and public key ek_j:
+.Bd -literal -offset indent
+h_j     = SHA3-256(ek_j)
+(c_j, s_j) = ML-KEM.Encaps(ek_j)                    32-byte s_j
+KEK_j   = HKDF-SHA-256(salt = none, IKM = s_j,
+            info = "noqtis-kwrap-2" || h_j || |x| || x || F || c_j,
+            L = 32)
+W_j     = AEAD(KEK_j, 0^96, none, FK)               32 + 16 bytes
+E_j     = a_j || h_j[0..7] || c_j || W_j
+Hdr     = F || E_1 || ... || E_n
+HH      = SHA3-256(Hdr)
+K       = HKDF-SHA-256(salt = none, IKM = FK,
+            info = "noqtis-kstream-2" || |x| || x || HH, L = 32)
+C_i     = AEAD(K, P7 || BE32(i) || f_i, none, M_i)  i = 0, ..., N
+            f_i = 0x01 for i = N, the last chunk, else 0x00
+D       = SHA3-256(HH || M_0 || ... || M_N)
+sigma   = Sign(sk_sender, D, context "noqtis-kstream-2")
+R       = AEAD(K, P7 || BE32(N) || 0x02, none, sigma)  signed only
+stream  = Hdr || C_0 || ... || C_N [|| R]
+.Ed
+.Pp
+AEAD(key, nonce, ad, m) is ChaCha20-Poly1305 of RFC 8439 section 2.8,
+its output the ciphertext then the 16-byte tag; HKDF is that of RFC 5869
+with HMAC-SHA-256, no salt meaning 32 zero bytes; BE32 is 4 bytes, most
+significant first; M_i are the plaintext chunks, all but the last of the
+chunk size.
+Sign is
+.Xr nqsign 3
+of the algorithm in byte 17, pure (not pre-hashed), with the 16-byte
+context string, of which D is the message: the context of FIPS 204 and
+FIPS 205 for ML-DSA and SLH-DSA, Ed25519ctx of RFC 8032 for Ed25519, and
+for the hybrids the context of each part described in
+.Xr nqsign 3 .
+A reader finds its entry by a_j and the 8 bytes of h_j, which it takes
+from its secret key (ML-KEM's decapsulation key holds H(ek), FIPS 203
+section 7.1), and tries only the first entry that matches.
 .Ss Sealing
 .Fn nqkmhlen
 gives in
@@ -194,6 +237,36 @@ returned
 .Dv NQOK ;
 on any error the last chunk's output is wiped, and the earlier chunks
 are the caller's to discard.
+.Pp
+Any error other than
+.Dv NQEBUF
+ends the stream: the context is wiped, and later calls on it return
+.Dv NQESTATE .
+.Fn nqkmefin
+and
+.Fn nqkmdfin
+end it on success too.
+A failed
+.Fn nqkmdupd
+or
+.Fn nqkmdfin
+wipes all
+.Fa cap
+bytes of
+.Fa out ,
+and a failed
+.Fn nqkmefin
+does the same.
+.Fn nqkmeupd
+reads the plaintext before it writes the chunk, so
+.Fa out
+may be
+.Fa in
+when sealing.
+.Fn nqkmdfin
+allocates one buffer of the signature's size, which it frees;
+.Dv NQEMEM
+when it cannot.
 .Sh RETURN VALUES
 .Dv NQOK ,
 or:
@@ -239,7 +312,44 @@ A KEM that is not ML-KEM, or a signature algorithm this library does
 not know.
 .It Dv NQESTATE
 A context used out of order, or after its stream ended.
+.It Dv NQEMEM
+.Fn nqkmdfin
+could not allocate the signature's buffer.
 .El
+.Sh EXAMPLES
+Two recipients with ML-KEM-768 keys, a sender with an ML-DSA-65 key,
+and a message of one chunk:
+.Bd -literal -offset indent
+nqssz sz;
+nqkmctx e, d;
+uint8_t apk[1184], ask[2400], bpk[1184], bsk[2400];
+uint8_t spk[1952], ssk[4032], hdr[4096], *out, back[5];
+size_t hl, ol, bl;
+uint32_t chunk;
+nqsalg sg;
+nqkrcp r[2] = {{NQMLKEM768, apk, sizeof apk},
+               {NQMLKEM768, bpk, sizeof bpk}};
+int rc;
+
+nqssize(NQMLDSA65, &sz);         /* sz.sig is 3309 */
+out = malloc(5 + 16 + sz.sig + 16);
+rc = nqkkg(NQMLKEM768, apk, sizeof apk, ask, sizeof ask);
+if (rc == NQOK) rc = nqkkg(NQMLKEM768, bpk, sizeof bpk, bsk, sizeof bsk);
+if (rc == NQOK) rc = nqskg(NQMLDSA65, spk, sizeof spk, ssk, sizeof ssk);
+/* seal "hello" to both, signed: the header, then the last chunk */
+if (rc == NQOK)
+  rc = nqkmeini(&e, r, 2, NQMLDSA65, NULL, 0, 0, hdr, sizeof hdr, &hl);
+if (rc == NQOK)
+  rc = nqkmefin(&e, (const uint8_t *)"hello", 5, ssk, sizeof ssk, out,
+                5 + 16 + sz.sig + 16, &ol);
+/* the second recipient opens it and checks the sender's signature */
+if (rc == NQOK)
+  rc = nqkmdini(&d, NQMLKEM768, bsk, sizeof bsk, NULL, 0, hdr, hl,
+                &chunk, &sg);
+if (rc == NQOK)
+  rc = nqkmdfin(&d, out, ol, spk, sizeof spk, back, sizeof back, &bl);
+/* rc is NQOK, bl is 5 */
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-box 1 ,
 .Xr noqtis-unbox 1 ,
@@ -247,4 +357,60 @@ A context used out of order, or after its stream ended.
 .Xr nqkfeini 3 ,
 .Xr nqsign 3
 .Sh STANDARDS
-FIPS 203 (ML-KEM), RFC 5869 (HKDF), RFC 8439 (ChaCha20-Poly1305).
+FIPS 203 (ML-KEM), RFC 5869 (HKDF), RFC 8439 (ChaCha20-Poly1305),
+FIPS 202 (SHA3-256), and FIPS 204 and FIPS 205 for the signature.
+The chunked encryption is the STREAM construction of Hoang, Reyhanitabar,
+Rogaway and Vizar.
+.Rs
+.%Q National Institute of Standards and Technology
+.%T Module-Lattice-Based Key-Encapsulation Mechanism Standard
+.%R FIPS 203
+.%D August 2024
+.Re
+.Rs
+.%A H. Krawczyk
+.%A P. Eronen
+.%T HMAC-based Extract-and-Expand Key Derivation Function (HKDF)
+.%R RFC 5869
+.%D May 2010
+.Re
+.Rs
+.%A Y. Nir
+.%A A. Langley
+.%T ChaCha20 and Poly1305 for IETF Protocols
+.%R RFC 8439
+.%D June 2018
+.Re
+.Rs
+.%A V. T. Hoang
+.%A R. Reyhanitabar
+.%A P. Rogaway
+.%A D. Viz\('ar
+.%T Online authenticated-encryption and its nonce-reuse misuse-resistance
+.%B Advances in Cryptology - CRYPTO 2015
+.%I Springer
+.%P pp. 493-517
+.%D 2015
+.%U https://doi.org/10.1007/978-3-662-47989-6_24
+.Re
+.Sh SECURITY CONSIDERATIONS
+An unsigned stream says nothing of its sender: anyone with a recipient's
+public key can write one, and every recipient holds the file key and can
+write another stream to the same header.
+Only
+.Fn nqkmdfin
+with the sender's
+.Fa pk ,
+returning
+.Dv NQOK ,
+shows that the sender signed this plaintext for these recipients.
+.Pp
+Chunks come out before the stream is known to be whole: a truncated or
+altered stream is reported only at the failing chunk or at
+.Fn nqkmdfin .
+Act on the plaintext, or show it, only after that.
+.Pp
+The header shows how many recipients there are, the KEM of each and 8
+bytes of the hash of each public key, enough to tell whether a known key
+is among them.
+The plaintext's length, to within the chunk, is not hidden.
