@@ -121,6 +121,32 @@ is zeroed, and
 .Fn nqpwenc
 leaves nothing in
 .Fa out .
+.Fa sk
+and
+.Fa out
+may not overlap.
+.Pp
+In symbols, with
+.Sy ||
+concatenation, BE32 a number in 4 bytes most significant first, S the
+16-byte salt, P the passphrase, A the caller's
+.Fa ad
+and SK the secret key:
+.Bd -literal -offset indent
+H   = "NQPW" || 0x01 || 0x01 || 0x01
+      || BE32(m) || BE32(t) || BE32(p) || S       35 bytes
+OKM = Argon2id(P, S, t, m, p, T = 44)
+      (version 0x13, no secret value K, no associated data X)
+K   = OKM[0..31],  N = OKM[32..43]
+out = H || ChaCha20-Poly1305(K, N, H || A, SK)
+.Ed
+.Pp
+Argon2id is that of RFC 9106 section 3 with t passes over m KiB in p
+lanes and a 44-byte tag; ChaCha20-Poly1305 is that of RFC 8439
+section 2.8, with associated data H || A, its output the ciphertext then
+the 16-byte tag.
+A new salt makes a new key and nonce for each call, so the nonce is
+never used twice with one key.
 .Sh RETURN VALUES
 .Dv NQOK ,
 or
@@ -159,9 +185,71 @@ Argon2id's memory could not be allocated.
 .It Bq Er NQERNG
 The salt could not be drawn.
 .El
+.Sh EXAMPLES
+A secret key
+.Fa sk
+of
+.Fa sklen
+bytes (at most 4096 here) under a passphrase, with the default
+parameters, and back:
+.Bd -literal -offset indent
+uint8_t file[4096 + NQPWOVH], back[4096];
+const char *pw = "correct horse battery staple";
+size_t n, k;
+int rc = nqpwenc((const uint8_t *)pw, strlen(pw), NULL, 0, 0, 0, 0,
+                 sk, sklen, file, sizeof file, &n);
+
+if (rc == NQOK)
+  rc = nqpwdec((const uint8_t *)pw, strlen(pw), NULL, 0, file, n,
+               back, sizeof back, &k);
+/* back holds the k bytes of sk; NQEVRFY for another passphrase */
+nqwipe(back, sizeof back);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-keygen 1 ,
 .Xr noqtis 3 ,
 .Xr nqa2id 3
 .Sh STANDARDS
 RFC 9106 (Argon2id), RFC 8439 (ChaCha20-Poly1305).
+.Rs
+.%A A. Biryukov
+.%A D. Dinu
+.%A D. Khovratovich
+.%A S. Josefsson
+.%T Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work Applications
+.%R RFC 9106
+.%D September 2021
+.Re
+.Rs
+.%A Y. Nir
+.%A A. Langley
+.%T ChaCha20 and Poly1305 for IETF Protocols
+.%R RFC 8439
+.%D June 2018
+.Re
+.Rs
+.%A A. Biryukov
+.%A D. Dinu
+.%A D. Khovratovich
+.%T Argon2: new generation of memory-hard functions for password hashing and other applications
+.%B 2016 IEEE European Symposium on Security and Privacy (EuroS&P)
+.%I IEEE
+.%P pp. 292-302
+.%D 2016
+.%U https://doi.org/10.1109/EuroSP.2016.31
+.Re
+.Sh SECURITY CONSIDERATIONS
+The file is as strong as the passphrase: Argon2id makes each guess cost
+.Fa m
+KiB of memory and
+.Fa t
+passes, but a short or common passphrase is still found.
+The defaults (64 MiB, 3 passes, 4 lanes) are the second recommended
+option of RFC 9106 section 4; raise
+.Fa m
+where the machines that open the file allow it.
+.Pp
+The parameters and the salt are in the clear, and the length of the
+secret key shows its algorithm.
+The passphrase is not wiped by these functions; the caller wipes it with
+.Xr nqwipe 3 .
