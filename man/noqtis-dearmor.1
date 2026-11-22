@@ -21,7 +21,10 @@ or from standard input when there is none or it is
 and writes the bytes it holds.
 The armor starts at the first byte, with a line
 .Ql -----BEGIN label----- ,
-whatever the label; its lines may end in LF or CRLF.
+whatever the label, as long as it is one
+.Xr noqtis-armor 1
+takes (capitals and digits with single spaces between them, at most 63
+characters); its lines may end in LF or CRLF.
 The text must be one whole armor: base64 in whole groups, the padding
 only at the end, an END line with the label of the BEGIN line, and
 nothing but space and line ends after it.
@@ -53,3 +56,11 @@ $ cmp notes notes.back
 .Xr noqtis 1 ,
 .Xr noqtis-armor 1 ,
 .Xr nqarmenc 3
+.Sh STANDARDS
+.Rs
+.%A S. Josefsson
+.%A S. Leonard
+.%T Textual Encodings of PKIX, PKCS, and CMS Structures
+.%R RFC 7468
+.%D April 2015
+.Re
