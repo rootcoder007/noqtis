@@ -14,11 +14,18 @@
 runs fixed inputs through the public functions of every algorithm
 family and compares what they produce with answers built into the
 library, the kind of self-test a cryptographic module runs before it is
-used (FIPS 140-3, section 7.10):
+used (FIPS 140-3, which takes its requirements from ISO/IEC 19790:2012,
+section 7.10):
 .Bl -bullet -compact
 .It
 SHA-224 to SHA-512/256, SHA3-224 to SHA3-512, SHAKE128 and SHAKE256 of
 .Dq abc ;
+.It
+KangarooTwelve and its 256-bit form of
+.Dq abc ,
+and of 9,000 bytes with the customization string
+.Ql noqtis
+(a tree of two chunks);
 .It
 HMAC-SHA-256 and HMAC-SHA-512 (RFC 4231, test case 2);
 .It
@@ -40,12 +47,33 @@ Each family's keys, ciphertexts, signatures, secrets and return codes
 are hashed with SHA-256; a decapsulation or verification that disagrees
 changes the hash.
 The masked decapsulations and signers run as in normal use.
-It takes about a tenth of a second and allocates nothing.
+It takes about a tenth of a second and allocates nothing: its buffers
+are one static block of about 44 KB, wiped after each test, so it must
+not run in two threads at once.
 .Sh RETURN VALUES
 .Dv NQOK
 when every answer matches;
 .Dv NQEKAT
 when one does not.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+if (nqselftest() != NQOK) {
+  fputs("noqtis: self-test failed, not used\en", stderr);
+  exit(1);
+}
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-selftest 1 ,
 .Xr nqerr 3
+.Sh STANDARDS
+.Rs
+.%T FIPS 140-3: Security Requirements for Cryptographic Modules
+.%Q NIST
+.%D March 22, 2019
+.Re
+.Rs
+.%A M. Nystrom
+.%T Identifiers and Test Vectors for HMAC-SHA-224, HMAC-SHA-256, HMAC-SHA-384, and HMAC-SHA-512
+.%R RFC 4231
+.%D December 2005
+.Re
