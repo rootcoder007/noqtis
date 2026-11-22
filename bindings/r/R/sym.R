@@ -23,7 +23,9 @@
 #' authentication; to encrypt, use `nqsivenc()` or `nqgsivenc()`.
 #'
 #' The ciphers run in time that does not depend on the key or the
-#' message.
+#' message. They call the library's `nqkt()`, `nqsivenc()` and
+#' `nqsivdec()`, `nqgsivenc()` and `nqgsivdec()`, and `nqcha20()`; the
+#' constructions in full are in the manual pages nqkt(3) and nqsivenc(3).
 #'
 #' @param x The message, or for the two decryptions the output of the
 #'   encryption: a raw vector, or one string (its UTF-8 bytes).
