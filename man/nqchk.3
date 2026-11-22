@@ -42,6 +42,24 @@ regular file, size, SHA-256, SHA3-256) as it goes, the sort order and
 duplicates.
 Finally it reports every regular file present but not listed, every link,
 special file or refused name, and listed paths that differ only in case.
+For a format 2 capsule
+.Pq Xr nqseal2 3
+the digest and the signature are those of the manifest's head (the
+manifest without its
+.Ql files
+member) and the seal's
+.Ql head_sha256 ,
+and a
+.Ql manifest.merkle
+row checks the tree over the entries.
+When the folder holds an evidence record,
+.Pa noqtis.ers
+.Pq Xr nqersput 3 ,
+an
+.Ql ers
+row checks it.
+The rows and their names are those of
+.Xr nqrep 3 .
 .Pp
 .Fa trust
 is the public key the capsule must be sealed with,
