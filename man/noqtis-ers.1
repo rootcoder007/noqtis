@@ -70,7 +70,8 @@ At most 32.
 .It Fl -anchor Ar der-file
 A TSA's root or issuing certificate, DER-encoded: the record there and
 the new timestamp must verify under the anchors.
-Without one, each token is checked alone and the TSA is not trusted.
+Without one, each token is checked alone and the TSA is not trusted,
+and a note on standard error says so.
 At most 32.
 .It Fl -hash Ar name
 The new timestamp's hash:
@@ -121,10 +122,20 @@ $ noqtis check -p me.pub --anchor digicert.der results
 .Xr noqtis-capsule 5
 .Sh STANDARDS
 .Rs
-.%R RFC 4998
+.%A T. Gondrom
+.%A R. Brandner
+.%A U. Pordesch
 .%T Evidence Record Syntax (ERS)
+.%R RFC 4998
+.%D August 2007
 .Re
 .Rs
-.%R RFC 3161
+.%A C. Adams
+.%A P. Cain
+.%A D. Pinkas
+.%A R. Zuccherato
 .%T Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)
+.%R RFC 3161
+.%D August 2001
+.%O updated by RFC 5816
 .Re
