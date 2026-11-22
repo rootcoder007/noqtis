@@ -1,8 +1,9 @@
 # Use in CI
 
 `noqtis` is built for scripts: every command exits **0** on success, **1**
-when a verification fails, **2** on a usage, file or library error, and
-`check --json` prints one machine-readable line.
+when a verification fails, **2** on a usage, file or library error (and
+`drift check` and `src refresh` **3** on a warning), and `check --json`
+prints one machine-readable line.
 
 ## Check a capsule as a gate
 
@@ -24,7 +25,7 @@ noqtis check --json -p keys/release.pub dist/ > check.json || {
 ```
 
 The JSON line is
-`{"capsule":"<dir>","ok":<bool>,"result":"<text>","checks":[{"check":"<name>","ok":<bool>,"detail":"<text>"},...]}`;
+`{"capsule":"<dir>","ok":<bool>,"partial":<bool>,"result":"<text>","checks":[{"check":"<name>","ok":<bool>,"detail":"<text>"},...]}`;
 the check names are listed in [noqtis-check(1)](https://noqtis.dev/reference/man/noqtis-check-1/)
 and stay stable.
 
