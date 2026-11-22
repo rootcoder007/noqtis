@@ -25,6 +25,8 @@ and prints what they say:
 .It format
 the manifest's format,
 .Ql noqtis-capsule-1
+or
+.Ql noqtis-capsule-2
 .It alg
 the seal's signature algorithm
 .It key
@@ -53,7 +55,9 @@ The last line says so; run
 to check the capsule.
 When the seal or the manifest does not parse, the failing rows are
 printed as by
-.Xr noqtis-check 1 .
+.Xr noqtis-check 1 ,
+then
+.Ql <dir>: cannot be read as a capsule .
 .Bl -tag -width Ds
 .It Fl j , Fl -json
 Print one line of JSON instead:
