@@ -63,9 +63,12 @@ gets one backslash before it, once.
 .Dv NQEBUF
 with
 .Fa *outlen
-set to the report's length when
+set to the report's length, without the NUL, when
 .Fa cap
-is too small;
+is not at least one more than it, or
+.Fa out
+is
+.Dv NULL ;
 .Dv NQEARG
 for a
 .Fa dir
@@ -77,6 +80,21 @@ or another
 A record that does not read is a failed
 .Ql data.record
 row, not an error.
+.Sh EXAMPLES
+A Markdown report, sized by a first call:
+.Bd -literal -offset indent
+nqrep *cr = NULL;
+size_t n = 0;
+char *md;
+(void)nqchk("results", pk, pklen, &cr);
+if (nqdrpt("results", cr, NULL, NQDMD, NULL, 0, &n) == NQEBUF &&
+    (md = malloc(n + 1)) != NULL) {
+  if (nqdrpt("results", cr, NULL, NQDMD, md, n + 1, &n) == NQOK)
+    fputs(md, stdout);
+  free(md);
+}
+nqrepfree(cr);
+.Ed
 .Sh SEE ALSO
 .Xr noqtis-report 1 ,
 .Xr nqchk 3 ,
