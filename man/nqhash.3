@@ -95,7 +95,13 @@ For a fixed-length hash,
 .Fn nqhfin
 ends the context, which must be started again with
 .Fn nqhini
-before reuse.
+before reuse; a call that fails on
+.Fa out
+or
+.Fa outlen
+leaves the context as it was, and a failed
+.Fn nqhini
+zeroes it.
 For SHAKE,
 .Fn nqhfin
 may be called again to squeeze more output; after the first
@@ -120,6 +126,27 @@ bytes of the tag (1 to
 .Fn nqhlen alg )
 to
 .Fa out .
+In symbols, with H the hash, B its block size in bytes (64 for SHA-224
+and SHA-256, 128 for SHA-384, SHA-512 and SHA-512/t, and the rate for
+SHA-3: 144, 136, 104 and 72 bytes for SHA3-224, -256, -384, -512), K the
+key and
+.Sy ||
+concatenation:
+.Bd -literal -offset indent
+K0  = H(K) || 0x00...  to B bytes       if |K| > B
+K0  = K || 0x00...     to B bytes       otherwise
+tag = H((K0 ^ 0x5c..5c) || H((K0 ^ 0x36..36) || M))
+.Ed
+.Pp
+and the first
+.Fa outlen
+bytes of tag are written.
+.Fa key
+may be
+.Dv NULL
+with
+.Fa keylen
+0.
 Compare tags with
 .Xr nqcteq 3 ,
 never
@@ -187,4 +214,29 @@ if (rc == NQOK)
 .Xr nqcteq 3 ,
 .Xr nqsign 3
 .Sh STANDARDS
-FIPS 180-4 (SHA-2), FIPS 202 (SHA-3, SHAKE), FIPS 198-1 (HMAC).
+.Rs
+.%T FIPS 180-4: Secure Hash Standard (SHS)
+.%Q NIST
+.%D August 2015
+.Re
+.Rs
+.%T FIPS 202: SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions
+.%Q NIST
+.%D August 2015
+.Re
+.Rs
+.%T FIPS 198-1: The Keyed-Hash Message Authentication Code (HMAC)
+.%Q NIST
+.%D July 2008
+.Re
+.Rs
+.%A H. Krawczyk
+.%A M. Bellare
+.%A R. Canetti
+.%T HMAC: Keyed-Hashing for Message Authentication
+.%R RFC 2104
+.%D February 1997
+.Re
+.Pp
+NIST plans to move FIPS 198-1 into SP 800-224 (initial public draft of
+June 28, 2024); the code follows FIPS 198-1.
