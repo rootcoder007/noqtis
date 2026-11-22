@@ -44,6 +44,9 @@ nqwipe(sk, sizeof sk);
 .Xr explicit_bzero 3 ,
 .Xr noqtis 3 ,
 .Xr nqcteq 3
+.Sh STANDARDS
+.Fn memset_explicit
+is that of ISO/IEC 9899:2024 (C23), section 7.26.6.2.
 .Sh CAVEATS
 .Fn nqwipe
 cannot erase copies outside the buffer it is given: registers, swap,
