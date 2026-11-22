@@ -71,6 +71,23 @@ an
 .Vt nqhalg ,
 as in
 .Xr nqsign 3 .
+In symbols, with M the message, x the context, PH the hash
+.Fa ph
+names, OID(PH) the 11-byte DER encoding of its object identifier
+06 09 60 86 48 01 65 03 04 02 nn, and
+.Sy ||
+concatenation:
+.Bd -literal -offset indent
+tr = SHAKE256(pk, 64)
+M' = 0x00 || |x| || x || M                     ph 0
+M' = 0x01 || |x| || x || OID(PH) || PH(M)      ph a hash
+mu = SHAKE256(tr || M', 64)
+.Ed
+.Pp
+where |x| is one byte, PH(M) is 32 bytes for SHAKE128 and 64 for
+SHAKE256 (FIPS 204 Algorithm 4), and the signer's own
+.Em mu
+uses the tr stored in its secret key instead.
 .Pp
 .Fn nqsignmu
 signs
@@ -95,9 +112,9 @@ is the one
 .Fn nqsignd
 gives for the same message, context, pre-hash and
 .Fa rnd ,
-byte for byte, and is checked under the public key held in
+byte for byte, and is checked under the public key computed from
 .Fa sk
-before it is returned.
+(t = A s1 + s2 from rho, s1 and s2) before it is returned.
 .Pp
 .Fn nqvrfymu
 checks
@@ -144,7 +161,10 @@ The signature does not verify.
 The new signature failed the check made after signing; it was wiped.
 .It Bq Er NQENOSUP
 .Fa alg
-is not an ML-DSA set.
+is a signature algorithm of noqtis other than an ML-DSA set (an
+.Fa alg
+noqtis does not know is
+.Dv NQEARG ) .
 .It Bq Er NQERNG
 The random source failed.
 .El
@@ -164,6 +184,11 @@ if (rc == NQOK)
 .Xr noqtis 3 ,
 .Xr nqsign 3
 .Sh STANDARDS
-FIPS 204.
+.Rs
+.%T FIPS 204: Module-Lattice-Based Digital Signature Standard
+.%Q NIST
+.%D August 13, 2024
+.Re
+.Pp
 The tests run every NIST ACVP ML-DSA sigGen and sigVer test with an
 external mu through these functions.
