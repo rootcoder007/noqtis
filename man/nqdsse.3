@@ -81,8 +81,11 @@ does not decode is skipped.
 The payload and each
 .Ql sig
 may be in the standard or the URL-safe alphabet (RFC 4648 sections 4
-and 5), as the DSSE specification allows, each field in one of them and
-padded.
+and 5), as the DSSE specification allows, each field in one of them.
+Each field must also be padded with
+.Ql =
+to a multiple of four characters; this is stricter than DSSE, which
+does not require the padding.
 A field with characters of both alphabets, without its padding, or
 with bits set after its last byte gives
 .Er NQEDEC
