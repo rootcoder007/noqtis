@@ -10,7 +10,9 @@
 .Fl a Ar alg
 .Fl o Ar key
 .Op Fl -seed Ar hex | file
-.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Oo Fl -pass-fd Ar n | Fl -pass-env Ar name
+.Op Fl -kdf Cm argon2id | pbkdf2
+.Oc
 .Op Fl f | Fl -force
 .Sh DESCRIPTION
 .Nm noqtis keygen
@@ -64,11 +66,23 @@ with a key from Argon2id of the passphrase (64 MiB, 3 passes, 4 lanes,
 a random 16-byte salt; noqtis-pwkey-1, see
 .Xr nqpwenc 3 ) ,
 behind the same first line as an unprotected key, which is bound to it.
-.Xr noqtis-sign 1
-and
-.Xr noqtis-dec 1
-read it with the same options; the passphrase is at most 4096 bytes and
-never empty, and is never echoed or printed.
+Every command that reads a secret key reads it with the same options; the
+passphrase is at most 4096 bytes and never empty, and is never echoed or
+printed.
+.It Fl -kdf Cm argon2id | pbkdf2
+With
+.Fl -pass-fd
+or
+.Fl -pass-env :
+how the passphrase becomes the key that protects the secret key.
+.Cm argon2id ,
+the default, is as above;
+.Cm pbkdf2
+is PBKDF2 with HMAC-SHA-256 (RFC 8018), 600000 iterations, the same salt,
+for places whose rules ask for it: it costs no memory, so a guess at the
+passphrase costs an attacker far less than under Argon2id.
+The choice is written in the file's header; reading the key needs no
+option.
 .It Fl f , Fl -force
 Replace existing files.
 Nothing is removed first: the new files replace the old ones only once

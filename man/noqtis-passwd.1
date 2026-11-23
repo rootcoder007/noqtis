@@ -10,6 +10,7 @@
 .Fl k Ar key
 .Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Fl -new-pass-fd Ar n | Fl -new-pass-env Ar name | Fl -no-pass
+.Op Fl -kdf Cm argon2id | pbkdf2
 .Sh DESCRIPTION
 .Nm noqtis passwd
 reads the secret key file
@@ -48,6 +49,17 @@ and
 must name two descriptors.
 .It Fl -no-pass
 Keep the key under no passphrase.
+.It Fl -kdf Cm argon2id | pbkdf2
+How the new passphrase becomes the key that protects the secret key, as
+for
+.Xr noqtis-keygen 1 :
+.Cm argon2id
+(the default) or
+.Cm pbkdf2
+(PBKDF2 with HMAC-SHA-256, 600000 iterations).
+Not with
+.Fl -no-pass .
+The old file is read whichever it was made with.
 .El
 .Pp
 One of
@@ -59,7 +71,9 @@ is required.
 The new file is protected as
 .Xr noqtis-keygen 1
 protects one: ChaCha20-Poly1305 with a key from Argon2id of the
-passphrase (64 MiB, 3 passes, 4 lanes) and a new random salt
+passphrase (64 MiB, 3 passes, 4 lanes), or from PBKDF2 with
+.Fl -kdf Cm pbkdf2 ,
+and a new random salt
 .Pq Xr nqpwenc 3 .
 A copy of the old file, a backup for one, still opens with the old
 passphrase: changing the passphrase does not undo a passphrase that
@@ -80,7 +94,7 @@ me: ML-DSA-65 secret key, now under the new passphrase
 .Xr noqtis-rotate 1 ,
 .Xr nqpwenc 3
 .Sh STANDARDS
-RFC 9106 (Argon2id), RFC 8439 (ChaCha20-Poly1305).
+RFC 9106 (Argon2id), RFC 8018 (PBKDF2), RFC 8439 (ChaCha20-Poly1305).
 .Rs
 .%A A. Biryukov
 .%A D. Dinu
