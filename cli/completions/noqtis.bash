@@ -61,7 +61,8 @@ _noqtis() {
       -f --force" ;;
     verify) opts="-p --pub -s --sig -c --ctx --ph -q --quiet --dsse -o
       --out" ;;
-    export) opts="--as -k --key -p --pub -o --out -f --force --no-files" ;;
+    export) opts="--as -k --key -p --pub --pass-fd --pass-env -o --out -f --force
+      --no-files" ;;
     enc) opts="-p --pub -o --out --stdout -f --force" ;;
     keys) opts="list find add certify addcert trust export bundle import fetch rm path --store --url -n --name -e --email --card -k --key -o --out --pass-fd --pass-env -f --force" ;;
     cert) opts="-k --key -n --name -e --email --days --issuer --kem --show -o --out --pass-fd --pass-env -f --force" ;;
@@ -74,8 +75,8 @@ _noqtis() {
     unbox) opts="-k --key -o --out -c --ctx -s --sender --any-sender --pass-fd --pass-env -f --force" ;;
     dec) opts="-k --key -o --out --stdout --pass-fd --pass-env -f --force" ;;
     hash) opts="-a --alg -c --check" ;;
-    seal) opts="-k --key -p --pub -m --meta --format --input --tsa
-      --anchor -r --recursive" ;;
+    seal) opts="-k --key -p --pub --pass-fd --pass-env -m --meta --format --input
+      --tsa --anchor -r --recursive" ;;
     check) opts="-p --pub -j --json --anchor --only --lineage --proof
       --keys --card -r --recursive" ;;
     diff) opts="-j --json" ;;
@@ -99,11 +100,12 @@ _noqtis() {
       fi
       opts="-d --delim --no-header -j --json --psi-warn --psi-fail --alpha
         --min-n --benford" ;;
-    idcard) opts="-k --key -p --pub --name --orcid --email --url --affil -o
-      --out -f --force --verify" ;;
-    rotate) opts="-k --key -p --pub -n --new --new-pub --at --reason -o --out
-      -f --force" ;;
-    revoke|expire) opts="-k --key -p --pub --at --reason -o --out -f --force" ;;
+    idcard) opts="-k --key -p --pub --pass-fd --pass-env --name --orcid --email
+      --url --affil -o --out -f --force --verify" ;;
+    rotate) opts="-k --key -p --pub -n --new --new-pub --pass-fd --pass-env
+      --new-pass-fd --new-pass-env --at --reason -o --out -f --force" ;;
+    revoke|expire) opts="-k --key -p --pub --pass-fd --pass-env --at --reason
+      -o --out -f --force" ;;
     prove) opts="-p --pub -o --out -f --force" ;;
     inspect) opts="-j --json" ;;
     version) opts="--check" ;;
@@ -122,8 +124,8 @@ _noqtis() {
         COMPREPLY=($(compgen -W "init build check unpack" -- "$cur"))
         return
       fi
-      opts="-t --template -k --key -p --pub --format --lock -o --out -f
-        --force --no-files" ;;
+      opts="-t --template -k --key -p --pub --pass-fd --pass-env --format --lock
+        -o --out -f --force --no-files" ;;
     chunk)
       if [ "$COMP_CWORD" -eq 2 ]; then
         COMPREPLY=($(compgen -W "pin check" -- "$cur"))

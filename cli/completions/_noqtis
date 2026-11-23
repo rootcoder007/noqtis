@@ -185,6 +185,8 @@ _noqtis_cmd() {
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
         '(-p --pub)'{-p,--pub=}'[public key to check against]:key.pub:_files' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '(-m --meta)'{-m,--meta=}'[metadata JSON]:json-file:_files' \
         '--format=[capsule format]:format:(1 2)' \
         '*--input=[an input capsule]:dir:_files -/' \
@@ -206,6 +208,8 @@ _noqtis_cmd() {
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
         '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '--name=[your name]:name:' \
         '--orcid=[your ORCID iD]:id:' \
         '--email=[your e-mail address]:address:' \
@@ -219,6 +223,8 @@ _noqtis_cmd() {
         '--as=[format]:format:(intoto dsse rocrate bagit bundle)' \
         '(-k --key)'{-k,--key=}'[secret key (dsse)]:key:_files' \
         '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '(-o --out)'{-o,--out=}'[file or bag folder to write]:file:_files' \
         '(-f --force)'{-f,--force}'[replace the file]' \
         '--no-files[a bundle of the data record alone]' \
@@ -229,6 +235,8 @@ _noqtis_cmd() {
         '(-t --template)'{-t,--template=}'[the template]:name:(plain r python)' \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
         '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '--format=[capsule format]:format:(1 2)' \
         '*--lock=[a lock file]:file:_files' \
         '(-o --out)'{-o,--out=}'[the bundle file]:file:_files' \
@@ -254,6 +262,10 @@ _noqtis_cmd() {
         '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
         '(-n --new)'{-n,--new=}'[the new secret key (rotate)]:key:_files' \
         '--new-pub=[the new public key (rotate)]:key.pub:_files' \
+        '--pass-fd=[read the passphrase from descriptor]:fd:' \
+        '--pass-env=[read the passphrase from variable]:name:_parameters' \
+        '--new-pass-fd=[read the new key's passphrase from descriptor (rotate)]:fd:' \
+        '--new-pass-env=[read the new key's passphrase from variable (rotate)]:name:_parameters' \
         '--at=[when, YYYY-MM-DDTHH:MM:SSZ]:time:' \
         '--reason=[why]:text:' \
         '(-o --out)'{-o,--out=}'[file to write]:file:_files' \

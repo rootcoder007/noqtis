@@ -112,7 +112,7 @@ int ncrpt(int argc, char **argv) {
     return NCUSE;
   }
   if (pp != NULL) {
-    if (nckrd("report", pp, 0, &pk) != NCOK)
+    if (nckrd("report", pp, &pk) != NCOK)
       return NCUSE;
     if (pk.a.kem) {
       ncmsg("report", "%s is a %s (KEM) key, not a signature key", pp,

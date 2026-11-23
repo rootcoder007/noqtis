@@ -135,7 +135,7 @@ static int add(const char *dir, const char *kp, const char *name,
           "<email>), or their identity card with --card <file>");
     return NCUSE;
   }
-  if (nckrd("keys", kp, 0, &k) != NCOK) return NCUSE;
+  if (nckrd("keys", kp, &k) != NCOK) return NCUSE;
   if (cardp != NULL && ncrdx(cardp, 0, NCRDSMALL, &card, &cn) != NQOK) {
     ncmsg("keys", "cannot read %s%s", cardp, ncwhy());
     goto done;
@@ -171,8 +171,7 @@ static int certify(const char *dir, const char *kp, const ncpw *pwo,
                    const char *q, const char *out, int force) {
   nckey sk = {{0, 0, NULL}, 1, NULL, 0}, pk = {{0, 0, NULL}, 0, NULL, 0};
   nqkse e;
-  uint8_t *pw = NULL;
-  size_t pn = 0, l, cn = 0;
+  size_t l, cn = 0;
   char *pp = NULL, *c = NULL;
   int64_t now;
   int rc, ret = NCUSE;
@@ -182,10 +181,9 @@ static int certify(const char *dir, const char *kp, const ncpw *pwo,
   if (pp == NULL) return nclib("keys", "memory", NQEMEM);
   memcpy(pp, kp, l);
   memcpy(pp + l, ".pub", 5);
-  if (ncpwget("keys", pwo, &pw, &pn) != NCOK) goto done;
-  rc = nckrdp("keys", kp, 1, pw, pn, &sk);
-  ncfree(pw, NQPWLEN, 1);
-  if (rc != NCOK || nckrd("keys", pp, 0, &pk) != NCOK) goto done;
+  if (ncskrd("keys", kp, pwo, "pass", &sk) != NCOK ||
+      nckrd("keys", pp, &pk) != NCOK)
+    goto done;
   if (sk.a.kem || pk.a.kem || sk.a.alg != pk.a.alg) {
     ncmsg("keys", "certify takes a signature key pair; %s is a %s key", kp,
           sk.a.name);

@@ -90,20 +90,16 @@ static void show(const nqx5f *f) {
 /* a signature key pair for cmd: kp and kp.pub */
 static int sigpair(const char *cmd, const char *kp, const ncpw *pwo,
                    nckey *sk, nckey *pk) {
-  uint8_t *pw = NULL;
-  size_t pn = 0, l = strlen(kp);
+  size_t l = strlen(kp);
   char *pp;
   int rc;
-  if (ncpwget(cmd, pwo, &pw, &pn) != NCOK) return NCUSE;
-  rc = nckrdp(cmd, kp, 1, pw, pn, sk);
-  ncfree(pw, NQPWLEN, 1);
-  if (rc != NCOK) return NCUSE;
+  if (ncskrd(cmd, kp, pwo, "pass", sk) != NCOK) return NCUSE;
   if (pk == NULL) return NCOK;
   pp = (char *)malloc(l + 5);
   if (pp == NULL) return nclib(cmd, "memory", NQEMEM);
   memcpy(pp, kp, l);
   memcpy(pp + l, ".pub", 5);
-  rc = nckrd(cmd, pp, 0, pk);
+  rc = nckrd(cmd, pp, pk);
   free(pp);
   return rc;
 }
@@ -200,7 +196,7 @@ int nccert(int argc, char **argv) {
                   nb, now + (int64_t)d * 86400, c, cn, &cn);
   } else {
     if (sigpair("cert", kp, &pwo, &sk, NULL) != NCOK ||
-        nckrd("cert", kem, 0, &kk) != NCOK ||
+        nckrd("cert", kem, &kk) != NCOK ||
         rdcert("cert", issuer, &ic, &icn) != NCOK)
       goto done;
     if (sk.a.kem || !kk.a.kem) {

@@ -496,7 +496,7 @@ int ncseal(int argc, char **argv) {
   const char *mod = NULL, *slot = NULL, *label = NULL, *id = NULL;
   int help = 0, np, rc, ret = NCUSE, nt = 0, na = 0, ni = 0, fmt = 1, i;
   int tok = 0;
-  ncpw pin = {NULL, NULL};
+  ncpw pin = {NULL, NULL}, pwo = {NULL, NULL};
   nqp11 *tp = NULL;
   nqp11k tk;
   ncopt o[] = {
@@ -510,6 +510,8 @@ int ncseal(int argc, char **argv) {
     {'\0', "id", 1, &id, NULL},
     {'\0', "pin-fd", 1, &pin.fd, NULL},
     {'\0', "pin-env", 1, &pin.env, NULL},
+    {'\0', "pass-fd", 1, &pwo.fd, NULL},
+    {'\0', "pass-env", 1, &pwo.env, NULL},
     {'\0', "format", 1, &fv, NULL},
     {'\0', "input", NCMANY, inp, &ni},
     {'\0', "tsa", NCMANY, tsa, &nt},
@@ -551,6 +553,11 @@ int ncseal(int argc, char **argv) {
   if (tok && (kp != NULL || pp != NULL)) {
     ncmsg("seal", "--token seals with a key on the token, whose public "
           "key the token gives: leave out -k and -p");
+    return NCUSE;
+  }
+  if (tok && (pwo.fd != NULL || pwo.env != NULL)) {
+    ncmsg("seal", "--pass-fd and --pass-env give the passphrase of -k; "
+          "the key on the token takes --pin-fd or --pin-env");
     return NCUSE;
   }
   if (na > 0 && nt == 0) {
@@ -629,9 +636,9 @@ int ncseal(int argc, char **argv) {
             "a signature key", nctkname(&tk));
       goto done;
     }
-  } else if (nckrd("seal", pp, 0, &pk) != NCOK) {
+  } else if (nckrd("seal", pp, &pk) != NCOK) {
     goto out;
-  } else if (nckrd("seal", kp, 1, &sk) != NCOK) {
+  } else if (ncskrd("seal", kp, &pwo, "pass", &sk) != NCOK) {
     nckfree(&pk);
     goto out;
   }
@@ -1178,7 +1185,7 @@ int ncchk(int argc, char **argv) {
   pk.n = 0;
   pk.sec = 0;
   if (pp != NULL) {
-    if (nckrd("check", pp, 0, &pk) != NCOK) {
+    if (nckrd("check", pp, &pk) != NCOK) {
       ncfree(pb, pn, 0);
       for (k = 0; k < nk; k++)
         ncfree(stb[k], stl[k], 0);
@@ -1453,7 +1460,7 @@ int ncchain(int argc, char **argv) {
       return NCUSE;
     }
   }
-  if (pp != NULL && nckrd("chain", pp, 0, &pk) != NCOK)
+  if (pp != NULL && nckrd("chain", pp, &pk) != NCOK)
     return NCUSE;
   if (pk.a.kem) {
     ncmsg("chain", "%s is a KEM key, not a signature key", pp);
@@ -1513,7 +1520,7 @@ int ncprove(int argc, char **argv) {
           "noqtis.json and noqtis.sig)", argv[0]);
     return NCUSE;
   }
-  if (pp != NULL && nckrd("prove", pp, 0, &pk) != NCOK)
+  if (pp != NULL && nckrd("prove", pp, &pk) != NCOK)
     return NCUSE;
   /* only what checks is proven: a proof of a broken capsule would be
    * refused anyway, later and further from the cause */

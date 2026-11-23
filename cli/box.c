@@ -106,13 +106,13 @@ static int boxm(const char **kps, int nk, const char *sp, const ncpw *pwo,
   nqkrcp r[NCMAXV];
   nqkmctx c;
   nqssz sz = {0, 0, 0};
-  uint8_t *h = NULL, *a = NULL, *e = NULL, *pw = NULL, nx = 0;
-  size_t hl = 0, got = 0, en = 0, pn = 0, ecap;
+  uint8_t *h = NULL, *a = NULL, *e = NULL, nx = 0;
+  size_t hl = 0, got = 0, en = 0, ecap;
   FILE *in = NULL, *of = NULL;
   int i, nr = 0, rc, ret = NCUSE, bad = 1, more;
 
   for (i = 0; i < nk; i++) {
-    if (nckrd("box", kps[i], 0, &k[nr]) != NCOK) goto done;
+    if (nckrd("box", kps[i], &k[nr]) != NCOK) goto done;
     nr++;
     if (kemkey("box", kps[i], &k[i]) != NCOK) goto done;
     r[i].alg = (nqkalg)k[i].a.alg;
@@ -120,10 +120,7 @@ static int boxm(const char **kps, int nk, const char *sp, const ncpw *pwo,
     r[i].pklen = k[i].n;
   }
   if (sp != NULL) {
-    if (ncpwget("box", pwo, &pw, &pn) != NCOK) goto done;
-    rc = nckrdp("box", sp, 1, pw, pn, &sk);
-    ncfree(pw, NQPWLEN, 1);
-    if (rc != NCOK) goto done;
+    if (ncskrd("box", sp, pwo, "pass", &sk) != NCOK) goto done;
     if (sk.a.kem || nqssize((nqsalg)sk.a.alg, &sz) != NQOK) {
       ncmsg("box", "%s is a %s key; --sign takes a signature key", sp,
             sk.a.name);
@@ -266,7 +263,7 @@ int ncbox(int argc, char **argv) {
   /* one key and no signature: the stream of one recipient, as before */
   if (nkp > 1 || sp != NULL)
     return boxm(kps, nkp, sp, &pwo, out, ctx, cl, chunk, force, argv[0]);
-  if (nckrd("box", kp, 0, &k) != NCOK)
+  if (nckrd("box", kp, &k) != NCOK)
     return NCUSE;
   if (kemkey("box", kp, &k) != NCOK || nqksize((nqkalg)k.a.alg, &z) != NQOK)
     goto done;
@@ -373,7 +370,7 @@ static int unboxm(FILE *in, const char *inp, const uint8_t *fx,
     return NCUSE;
   }
   if (sp != NULL) {
-    if (nckrd("unbox", sp, 0, &spk) != NCOK) return NCUSE;
+    if (nckrd("unbox", sp, &spk) != NCOK) return NCUSE;
     if (spk.a.kem || spk.a.alg != (int)sg) {
       ncmsg("unbox", "%s is signed with %s, and %s is a %s key", inp,
             nqsname(sg), sp, spk.a.name);
@@ -505,8 +502,8 @@ int ncunbox(int argc, char **argv) {
   nckey k = {{0, 0, NULL}, 0, NULL, 0};
   nqkfctx c;
   nqksz z = {0, 0, 0, 0};
-  uint8_t h[NQKFHDR + 1568], *e = NULL, *a = NULL, *pw = NULL, nx = 0;
-  size_t cl, got = 0, pn = 0, an = 0, hn = 0;
+  uint8_t h[NQKFHDR + 1568], *e = NULL, *a = NULL, nx = 0;
+  size_t cl, got = 0, an = 0, hn = 0;
   uint32_t chunk = 0;
   FILE *in = NULL, *of = NULL;
 
@@ -532,11 +529,7 @@ int ncunbox(int argc, char **argv) {
     ncmsg("unbox", "--pass-fd 0 and a stream on stdin cannot share it");
     return NCUSE;
   }
-  if (ncpwget("unbox", &pwo, &pw, &pn) != NCOK)
-    return NCUSE;
-  rc = nckrdp("unbox", kp, 1, pw, pn, &k);
-  ncfree(pw, NQPWLEN, 1);
-  if (rc != NCOK)
+  if (ncskrd("unbox", kp, &pwo, "pass", &k) != NCOK)
     return NCUSE;
   if (kemkey("unbox", kp, &k) != NCOK ||
       nqksize((nqkalg)k.a.alg, &z) != NQOK)

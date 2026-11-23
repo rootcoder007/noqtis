@@ -110,7 +110,7 @@ static int pinit(int argc, char **argv) {
 
 /* The keys of a build, read as seal will read them: NCOK when they are a
  * signature key pair, else the reason said and NCUSE. */
-static int pkeys(const char *kp, const char *pp) {
+static int pkeys(const char *kp, const char *pp, const ncpw *pwo) {
   nckey sk = {{0, 0, NULL}, 0, NULL, 0}, pk = {{0, 0, NULL}, 0, NULL, 0};
   char dp[4200];
   int rc = NCUSE;
@@ -121,9 +121,9 @@ static int pkeys(const char *kp, const char *pp) {
     }
     pp = dp;
   }
-  if (nckrd("pack build", pp, 0, &pk) != NCOK)
+  if (nckrd("pack build", pp, &pk) != NCOK)
     return NCUSE;
-  if (nckrd("pack build", kp, 1, &sk) != NCOK) {
+  if (ncskrd("pack build", kp, pwo, "pass", &sk) != NCOK) {
     nckfree(&pk);
     return NCUSE;
   }
@@ -155,8 +155,11 @@ static int pbuild(int argc, char **argv) {
   static const char *const keep[3] = {NQDFILE, "noqtis.json", "noqtis.sig"};
   ncsnap was[3];
   int np, help, nl = 0, force = 0, nof = 0, rc, k, a;
+  ncpw pwo = {NULL, NULL};
   ncopt o[] = {{'k', "key", 1, &kp, NULL},
                {'p', "pub", 1, &pp, NULL},
+               {'\0', "pass-fd", 1, &pwo.fd, NULL},
+               {'\0', "pass-env", 1, &pwo.env, NULL},
                {'\0', "format", 1, &fv, NULL},
                {'\0', "lock", NCMANY, lk, &nl},
                {'o', "out", 1, &out, NULL},
@@ -190,7 +193,7 @@ static int pbuild(int argc, char **argv) {
   }
   if (out != NULL && !force && ncexist(out))
     return ncwfail("pack build", out, force);
-  if ((rc = pkeys(kp, pp)) != NCOK)
+  if ((rc = pkeys(kp, pp, &pwo)) != NCOK)
     return rc;
   /* what no check ahead can foresee (a link among the files, a bundle
    * that cannot be written) is undone: the record and the seal are kept
@@ -233,6 +236,11 @@ static int pbuild(int argc, char **argv) {
   if (fv != NULL) {
     av[a++] = arg("--format");
     av[a++] = arg(fv);
+  }
+  /* a descriptor's passphrase is kept from pkeys (ncskrd) */
+  if (pwo.fd != NULL || pwo.env != NULL) {
+    av[a++] = arg(pwo.fd != NULL ? "--pass-fd" : "--pass-env");
+    av[a++] = arg(pwo.fd != NULL ? pwo.fd : pwo.env);
   }
   av[a++] = argv[0];
   av[a] = NULL;

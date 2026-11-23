@@ -43,8 +43,8 @@ static void fphex(const uint8_t fp[32], char out[65]) {
   out[64] = 0;
 }
 
-static int mkcard(const char *kp, const char *pp, const char *const v[5],
-                  const char *out, int force) {
+static int mkcard(const char *kp, const char *pp, const ncpw *pwo,
+                  const char *const v[5], const char *out, int force) {
   nckey sk = {{0, 0, NULL}, 0, NULL, 0}, pk = {{0, 0, NULL}, 0, NULL, 0};
   char *dp = NULL, *b = NULL;
   size_t n = 0;
@@ -66,8 +66,8 @@ static int mkcard(const char *kp, const char *pp, const char *const v[5],
     ret = ncwfail("idcard", out, force);
     goto done;
   }
-  if (nckrd("idcard", pp, 0, &pk) != NCOK) goto done;
-  if (nckrd("idcard", kp, 1, &sk) != NCOK) goto done;
+  if (nckrd("idcard", pp, &pk) != NCOK) goto done;
+  if (ncskrd("idcard", kp, pwo, "pass", &sk) != NCOK) goto done;
   if (sk.a.kem || pk.a.kem || sk.a.alg != pk.a.alg) {
     ncmsg("idcard", "%s and %s are not a signature key pair", kp, pp);
     goto done;
@@ -154,7 +154,7 @@ static int vrcard(const char *path, const char *pp) {
   char why[200], hx[65];
   int rc;
   if (pp != NULL) {
-    if (nckrd("idcard", pp, 0, &pk) != NCOK) return NCUSE;
+    if (nckrd("idcard", pp, &pk) != NCOK) return NCUSE;
     if (pk.a.kem) {
       ncmsg("idcard", "%s is a %s (KEM) key, not a signature key", pp,
             pk.a.name);
@@ -197,6 +197,7 @@ static int vrcard(const char *path, const char *pp) {
 int ncidc(int argc, char **argv) {
   const char *kp = NULL, *pp = NULL, *out = NULL, *vf = NULL, *v[5] = {0};
   int help = 0, force = 0, npos;
+  ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
     {'p', "pub", 1, &pp, NULL},
@@ -207,7 +208,9 @@ int ncidc(int argc, char **argv) {
     {'\0', "affil", 1, &v[4], NULL},
     {'o', "out", 1, &out, NULL},
     {'f', "force", 0, NULL, &force},
-    {'\0', "verify", 1, &vf, NULL}
+    {'\0', "verify", 1, &vf, NULL},
+    {'\0', "pass-fd", 1, &pwo.fd, NULL},
+    {'\0', "pass-env", 1, &pwo.env, NULL}
   };
   if (ncargs("idcard", argc, argv, o, sizeof o / sizeof o[0], &npos,
              &help) != NCOK)
@@ -222,7 +225,8 @@ int ncidc(int argc, char **argv) {
   }
   if (vf != NULL) {
     if (kp != NULL || out != NULL || force || v[0] != NULL ||
-        v[1] != NULL || v[2] != NULL || v[3] != NULL || v[4] != NULL) {
+        v[1] != NULL || v[2] != NULL || v[3] != NULL || v[4] != NULL ||
+        pwo.fd != NULL || pwo.env != NULL) {
       ncmsg("idcard", "--verify checks a card: it takes only -p");
       return NCUSE;
     }
@@ -232,5 +236,5 @@ int ncidc(int argc, char **argv) {
     ncuse(stderr, "idcard");
     return NCUSE;
   }
-  return mkcard(kp, pp, v, out, force);
+  return mkcard(kp, pp, &pwo, v, out, force);
 }

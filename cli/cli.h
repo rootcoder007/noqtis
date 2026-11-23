@@ -413,8 +413,8 @@ typedef struct {
   size_t n;
 } nckey;
 
-/* Reads a key file; sec is the kind the caller needs (1 secret). */
-int nckrd(const char *cmd, const char *path, int sec, nckey *k);
+/* Reads a public key file; a secret one is read with ncskrd. */
+int nckrd(const char *cmd, const char *path, nckey *k);
 void nckfree(nckey *k);
 /* The key store's folder into out: opt (--store) when given, else the
  * variable NOQTIS_KEYS, else noqtis/keys under XDG_CONFIG_HOME or
@@ -442,10 +442,14 @@ int ncpwget(const char *cmd, const ncpw *o, uint8_t **b, size_t *n);
  * --pass-env, "new-pass" for --new-pass-fd and --new-pass-env */
 int ncpwgetn(const char *cmd, const ncpw *o, const char *opt, uint8_t **b,
              size_t *n);
-/* nckrd, and a secret key file under a passphrase (noqtis-pwkey-1)
- * opened with pw (pwn bytes; NULL when none was given). */
-int nckrdp(const char *cmd, const char *path, int sec, const uint8_t *pw,
-           size_t pwn, nckey *k);
+/* Reads a secret key file, one under a passphrase (noqtis-pwkey-1)
+ * opened with the passphrase of the options o (opt "pass" for --pass-fd
+ * and --pass-env, "new-pass" for --new-pass-*): the one way the commands
+ * read a secret key, so each takes those options. A descriptor is read
+ * once; later calls for it reuse the bytes. NCOK, or NCUSE with a
+ * message. */
+int ncskrd(const char *cmd, const char *path, const ncpw *o,
+           const char *opt, nckey *k);
 /* Writes a secret key file under the passphrase pw. */
 int nckwrp(FILE *f, const ncalg *a, const uint8_t *pw, size_t pwn,
            const uint8_t *b, size_t n);

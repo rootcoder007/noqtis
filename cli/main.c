@@ -288,13 +288,14 @@ static const nccmd cmds[] = {
    "          shake128 shake256 kt128 kt256\n"},
   {"seal", ncseal, "seal a capsule folder",
    "usage: noqtis seal -k <key> [-p <key.pub>] [--meta <json-file>]\n"
+   "                   [--pass-fd <n> | --pass-env <name>]\n"
    "                   [--format 1|2] [--input [<name>=]<dir>]...\n"
    "                   [--tsa <url>]... [--anchor <der-file>]...\n"
    "                   [-r|--recursive] <dir>\n"
    "       noqtis seal --token [--module <path>] [--slot <n>]\n"
    "                   (--label <name> | --id <hex>)\n"
    "                   [--pin-fd <n> | --pin-env <name>] [the options\n"
-   "                   above but -k and -p] <dir>\n"
+   "                   above but -k, -p and --pass-*] <dir>\n"
    "  Writes noqtis.json and noqtis.sig into <dir>, covering every file.\n"
    "  The public key defaults to <key>.pub.\n"
    "  --token   seal with a signature key that stays on a PKCS #11\n"
@@ -314,7 +315,9 @@ static const nccmd cmds[] = {
    "            the token at seal time too (up to 32)\n"
    "  -r        seal every folder under <dir> (and <dir>) that holds\n"
    "            noqtis.json or noqtis.data.json, deepest first; <dir>\n"
-   "            last\n"},
+   "            last\n"
+   "  --pass-fd, --pass-env  the passphrase of a protected <key> (with\n"
+   "            -r, a descriptor is read once for every folder)\n"},
   {"check", ncchk, "check a sealed capsule folder",
    "usage: noqtis check [-p <key.pub>] [--json] [--anchor <der-file>]...\n"
    "                    [--only <path>]... [--lineage <dir>]...\n"
@@ -371,8 +374,8 @@ static const nccmd cmds[] = {
    "  -o  write to <file> (default stdout); -f replaces it\n"},
   {"export", ncexp, "a capsule as in-toto, DSSE, RO-Crate, BagIt or a bundle",
    "usage: noqtis export --as intoto|dsse|rocrate|bagit|bundle [-k <key>]\n"
-   "                     [-p <key.pub>] [-o <file|dir>] [-f] [--no-files]\n"
-   "                     <dir>\n"
+   "                     [-p <key.pub>] [--pass-fd <n> | --pass-env <name>]\n"
+   "                     [-o <file|dir>] [-f] [--no-files] <dir>\n"
    "  The capsule must check. intoto: an in-toto Statement v1 of its\n"
    "  files and their SHA-256; dsse: that statement in a DSSE envelope\n"
    "  signed with -k (check it with `noqtis verify --dsse`); rocrate:\n"
@@ -381,10 +384,12 @@ static const nccmd cmds[] = {
    "  bundle: the capsule in the one file -o (noqtis-bundle-1), which\n"
    "  `noqtis check <file>` checks; --no-files leaves out every file but\n"
    "  the data record.\n"
-   "  -o  write to <file> (default stdout); -f replaces it\n"},
+   "  -o  write to <file> (default stdout); -f replaces it\n"
+   "  --pass-fd, --pass-env  the passphrase of a protected <key>\n"},
   {"pack", ncpack, "start, build and check a reproducibility bundle",
    "usage: noqtis pack init [-t|--template plain|r|python] <dir>\n"
    "       noqtis pack build -k <key> [-p <key.pub>] [--format 1|2]\n"
+   "                         [--pass-fd <n> | --pass-env <name>]\n"
    "                         [--lock <file>]... [-o <file>] [-f]\n"
    "                         [--no-files] <dir>\n"
    "       noqtis pack check [-p <key.pub>] <dir|file>\n"
@@ -400,38 +405,49 @@ static const nccmd cmds[] = {
    "          record (`noqtis data check`, lock files included), and that\n"
    "          the environment and at least one lock file are recorded\n"
    "  unpack  the bundle file into a new folder\n"
+   "  --pass-fd, --pass-env  the passphrase of a protected <key> (build)\n"
    "  Exit 0 when everything passes, 1 when a check fails or a bundle is\n"
    "  malformed, 2 on a usage or file error.\n"},
   {"rotate", ncrot, "say that a seal key was replaced by a new one",
    "usage: noqtis rotate -k <key> [-p <key.pub>] -n <new> [--new-pub <new.pub>]\n"
+   "                     [--pass-fd <n> | --pass-env <name>]\n"
+   "                     [--new-pass-fd <n> | --new-pass-env <name>]\n"
    "                     [--at <time>] [--reason <text>] [-o <file>] [-f]\n"
    "  Writes a key statement (JSON), signed by both keys, that <key> was\n"
    "  replaced by <new> from <time> (YYYY-MM-DDTHH:MM:SSZ, UTC; default\n"
    "  now). `noqtis check -p <key.pub> --keys <file>` then accepts seals\n"
    "  made with <new>, and seals made with <key> only with a verified\n"
    "  timestamp from before <time>.\n"
-   "  -o  write to <file> (default stdout); -f replaces it\n"},
+   "  -o  write to <file> (default stdout); -f replaces it\n"
+   "  --pass-fd, --pass-env  the passphrase of a protected <key>;\n"
+   "  --new-pass-fd, --new-pass-env  that of <new> (one descriptor may\n"
+   "  give both)\n"},
   {"revoke", ncrev, "say that a seal key must no longer be trusted",
    "usage: noqtis revoke -k <key> [-p <key.pub>] [--at <time>]\n"
+   "                     [--pass-fd <n> | --pass-env <name>]\n"
    "                     [--reason <text>] [-o <file>] [-f]\n"
    "  Writes a key statement (JSON), signed by <key>, that it is revoked\n"
    "  from <time> (YYYY-MM-DDTHH:MM:SSZ, UTC; default now). With it,\n"
    "  `noqtis check --keys` accepts a seal made with <key> only with a\n"
    "  verified timestamp from before <time>.\n"
-   "  -o  write to <file> (default stdout); -f replaces it\n"},
+   "  -o  write to <file> (default stdout); -f replaces it\n"
+   "  --pass-fd, --pass-env  the passphrase of a protected <key>\n"},
   {"expire", ncexpire, "say until when a seal key seals",
    "usage: noqtis expire -k <key> [-p <key.pub>] --at <time>\n"
+   "                     [--pass-fd <n> | --pass-env <name>]\n"
    "                     [--reason <text>] [-o <file>] [-f]\n"
    "  Writes a key statement (JSON), signed by <key>, that it seals until\n"
    "  <time> (YYYY-MM-DDTHH:MM:SSZ, UTC) and not after. With it, `noqtis\n"
    "  check --keys` accepts a seal made with <key> as before until that\n"
    "  time has come, and from then on only with a verified timestamp\n"
    "  from before <time>.\n"
-   "  -o  write to <file> (default stdout); -f replaces it\n"},
+   "  -o  write to <file> (default stdout); -f replaces it\n"
+   "  --pass-fd, --pass-env  the passphrase of a protected <key>\n"},
   {"idcard", ncidc, "make or check an identity card for a signing key",
    "usage: noqtis idcard -k <key> [-p <key.pub>] --name <name>\n"
    "                     [--orcid <id>] [--email <addr>] [--url <url>]\n"
-   "                     [--affil <text>] [-o <file>] [-f]\n"
+   "                     [--affil <text>] [--pass-fd <n> | --pass-env <name>]\n"
+   "                     [-o <file>] [-f]\n"
    "       noqtis idcard --verify <card> [-p <key.pub>]\n"
    "  Writes an identity card (JSON) that binds the public key of <key> to\n"
    "  a name and, when given, an ORCID iD, an e-mail address, an https://\n"
@@ -441,6 +457,7 @@ static const nccmd cmds[] = {
    "  --orcid  0000-0002-1825-0097 or https://orcid.org/...; its check\n"
    "           digit must be right, and the card holds the bare iD\n"
    "  -o  write to <file> (default stdout); -f replaces it\n"
+   "  --pass-fd, --pass-env  the passphrase of a protected <key>\n"
    "  Exit 0 when a card is written or verifies, 1 when it does not\n"
    "  verify, 2 on a usage or file error.\n"},
   {"timestamp", ncts, "add a timestamp to a sealed capsule",

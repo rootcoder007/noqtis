@@ -300,8 +300,8 @@ int ncpasswd(int argc, char **argv) {
     {'\0', "new-pass-env", 1, &new.env, NULL},
     {'\0', "no-pass", 0, NULL, &none}
   };
-  uint8_t *opw = NULL, *npw = NULL;
-  size_t on = 0, nn = 0;
+  uint8_t *npw = NULL;
+  size_t nn = 0;
   nckey k = {{0, 0, NULL}, 1, NULL, 0};
   FILE *f;
 
@@ -332,9 +332,7 @@ int ncpasswd(int argc, char **argv) {
           "descriptor; give each passphrase its own");
     return NCUSE;
   }
-  if (ncpwget("passwd", &old, &opw, &on) != NCOK)
-    return NCUSE;
-  if (nckrdp("passwd", kp, 1, opw, on, &k) != NCOK)
+  if (ncskrd("passwd", kp, &old, "pass", &k) != NCOK)
     goto done;
   if (ncpwgetn("passwd", &new, "new-pass", &npw, &nn) != NCOK)
     goto done;
@@ -357,7 +355,6 @@ int ncpasswd(int argc, char **argv) {
          npw != NULL ? "the new passphrase" : "no passphrase");
   ret = NCOK;
 done:
-  ncfree(opw, NQPWLEN, 1);
   ncfree(npw, NQPWLEN, 1);
   nckfree(&k);
   return ret;
@@ -403,7 +400,7 @@ static int pubof(const char *kp, const nckey *k, nckey *p, int *have) {
     free(pp);
     return NCOK;
   }
-  if (nckrd("sign", pp, 0, p) != NCOK)
+  if (nckrd("sign", pp, p) != NCOK)
     goto done;
   if (p->a.kem || p->a.alg != k->a.alg) {
     ncmsg("sign", "%s (%s) is not the public key of %s (%s): nothing was "
@@ -436,7 +433,7 @@ static int vas(const char *kp, const nckey *k, const uint8_t *msg,
     free(pp);
     return NCOK; /* nothing to check against */
   }
-  if (nckrd("sign", pp, 0, &p) != NCOK)
+  if (nckrd("sign", pp, &p) != NCOK)
     goto done;
   if (p.a.kem || p.a.alg != k->a.alg) {
     ncmsg("sign", "%s (%s) is not the public key of %s (%s): nothing was "
@@ -474,8 +471,6 @@ int ncsign(int argc, char **argv) {
     {'\0', "pass-env", 1, &pwo.env, NULL},
     {'f', "force", 0, NULL, &force}
   };
-  uint8_t *pw = NULL;
-  size_t pwn = 0;
   nckey k = {{0, 0, NULL}, 0, NULL, 0};
   nqssz z = {0, 0, 0};
   uint8_t *msg = NULL, *sig = NULL, rnd[64];
@@ -505,11 +500,7 @@ int ncsign(int argc, char **argv) {
     ncmsg("sign", "--pass-fd 0 and a message on stdin cannot share it");
     return NCUSE;
   }
-  if (ncpwget("sign", &pwo, &pw, &pwn) != NCOK)
-    return NCUSE;
-  rc = nckrdp("sign", kp, 1, pw, pwn, &k);
-  ncfree(pw, NQPWLEN, 1);
-  if (rc != NCOK)
+  if (ncskrd("sign", kp, &pwo, "pass", &k) != NCOK)
     return NCUSE;
   if (k.a.kem) {
     ncmsg("sign", "%s is a %s (KEM) key, not a signature key", kp,
@@ -675,7 +666,7 @@ int ncvrfy(int argc, char **argv) {
   if (phopt("verify", ph, &phv) != NCOK ||
       ctxopt("verify", ctx, &cn) != NCOK)
     return NCUSE;
-  if (nckrd("verify", kp, 0, &k) != NCOK)
+  if (nckrd("verify", kp, &k) != NCOK)
     return NCUSE;
   if (k.a.kem) {
     ncmsg("verify", "%s is a %s (KEM) key, not a signature key", kp,

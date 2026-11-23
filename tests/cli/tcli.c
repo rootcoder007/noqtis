@@ -2357,6 +2357,108 @@ static void tpass(void) {
   penv("NQTPW2", NULL);
 }
 
+/* every command that reads a secret key takes --pass-fd and --pass-env,
+ * and without them names them: seal (with -r, one descriptor read once
+ * for every folder), rotate (--new-pass-* for -n), revoke, expire,
+ * idcard, pack build (its inner seal), export --as dsse */
+static void tpassk(void) {
+  static const char *pw = "a long pass phrase 1";
+  static const char *need = "--pass-fd <n> or --pass-env <name>";
+  rmdirs("qpk");
+  mkd("qpk");
+  mkd("qpk/a");
+  mkd("qpk/b");
+  wrs("qpk/a/x.txt", "x\n");
+  wrs("qpk/b/y.txt", "y\n");
+  penv("NQTPW", pw);
+  penv("NQTPW2", "another pass phrase");
+  want(0, "keygen -a ML-DSA-44 -o q.sk --force --pass-env NQTPW", NULL);
+  want(0, "keygen -a ML-DSA-44 -o q.sk2 --force --pass-env NQTPW2", NULL);
+  want(0, "keygen -a ML-DSA-44 -o q.sk3 --force --pass-env NQTPW", NULL);
+  /* seal */
+  want(2, "seal -k q.sk qpk/a", NULL);
+  ok(has("q.err", need) && !has("q.err", "keygen, sign and dec"),
+     "seal: a protected key names the options seal takes");
+  ok(!exists("qpk/a/noqtis.sig"), "seal: nothing sealed without it");
+  want(2, "seal -k q.sk --pass-env NQTPW2 qpk/a", NULL);
+  ok(has("q.err", "wrong passphrase"), "seal: a wrong passphrase");
+  want(0, "seal -k q.sk --pass-env NQTPW qpk/a", NULL);
+  ok(!has("q.out", pw) && !has("q.err", pw), "seal prints no passphrase");
+  want(0, "check -p q.sk.pub qpk/a", NULL);
+  want(0, "seal -k q.sk --pass-env NQTPW qpk/b", NULL);
+  want(2, "seal --token --label x --pass-env NQTPW qpk/a", NULL);
+  ok(has("q.err", "--pin-fd"), "seal --token: --pass-env is refused");
+  /* rotate, revoke, expire */
+  want(2, "rotate -k q.sk -n q.sk2 --pass-env NQTPW -o q.rt", NULL);
+  ok(has("q.err", "--new-pass-fd <n> or --new-pass-env <name>"),
+     "rotate: the new key names --new-pass-*");
+  want(0, "rotate -k q.sk -n q.sk2 --pass-env NQTPW --new-pass-env NQTPW2 "
+          "--at 2026-01-01T00:00:00Z -o q.rt", NULL);
+  ok(has("q.rt", "\"kind\":\"rotate\""), "rotate with protected keys");
+  want(2, "revoke -k q.sk -o q.rv", NULL);
+  ok(has("q.err", need), "revoke: a protected key names the options");
+  want(2, "revoke -k q.sk --pass-env NQTPW --new-pass-env NQTPW2 -o q.rv",
+       NULL);
+  want(0, "revoke -k q.sk --pass-env NQTPW -o q.rv", NULL);
+  want(2, "expire -k q.sk --at 2099-01-01T00:00:00Z -o q.ex", NULL);
+  ok(has("q.err", need), "expire: a protected key names the options");
+  want(0, "expire -k q.sk --pass-env NQTPW --at 2099-01-01T00:00:00Z "
+          "-o q.ex", NULL);
+  /* idcard */
+  want(2, "idcard -k q.sk --name A -o q.idc", NULL);
+  ok(has("q.err", need), "idcard: a protected key names the options");
+  want(0, "idcard -k q.sk --name A --pass-env NQTPW -o q.idc", NULL);
+  want(0, "idcard --verify q.idc -p q.sk.pub", NULL);
+  want(2, "idcard --verify q.idc --pass-env NQTPW", NULL);
+  /* export --as dsse */
+  want(2, "export --as dsse -k q.sk -o q.env qpk/a", NULL);
+  ok(has("q.err", need), "export: a protected key names the options");
+  want(0, "export --as dsse -k q.sk --pass-env NQTPW -o q.env qpk/a", NULL);
+  want(0, "verify -p q.sk.pub --dsse q.env", NULL);
+  want(2, "export --as intoto --pass-env NQTPW qpk/a", NULL);
+  /* pack build: its own check of the keys and its seal */
+  want(0, "pack init qpk/p", NULL);
+  want(2, "pack build -k q.sk qpk/p", NULL);
+  ok(has("q.err", need), "pack build: a protected key names the options");
+  want(0, "pack build -k q.sk --pass-env NQTPW qpk/p", NULL);
+  want(0, "check -p q.sk.pub qpk/p", NULL);
+#ifndef _WIN32
+  /* a descriptor: read once, also where the key is read twice */
+  wrs("q.pw", "a long pass phrase 1\n");
+  wrs("q.pw2", "another pass phrase\n");
+  want(0, "seal -r -k q.sk --pass-fd 3 qpk 3<q.pw", NULL);
+  ok(has("q.err", "3 capsules, 3 sealed, 0 failed"),
+     "seal -r: one descriptor's passphrase for every folder");
+  want(0, "check -p q.sk.pub qpk/a", NULL);
+  want(0, "check -p q.sk.pub qpk/b", NULL);
+  want(0, "rotate -k q.sk -n q.sk2 --pass-fd 3 --new-pass-fd 4 "
+          "--at 2026-01-01T00:00:00Z -f -o q.rt 3<q.pw 4<q.pw2", NULL);
+  want(0, "rotate -k q.sk -n q.sk3 --pass-fd 3 --new-pass-fd 3 "
+          "--at 2026-01-01T00:00:00Z -f -o q.rt 3<q.pw", NULL);
+  want(0, "revoke -k q.sk --pass-fd 3 -f -o q.rv 3<q.pw", NULL);
+  want(0, "expire -k q.sk --pass-fd 3 --at 2099-01-01T00:00:00Z -f "
+          "-o q.ex 3<q.pw", NULL);
+  want(0, "idcard -k q.sk --name A --pass-fd 3 -f -o q.idc 3<q.pw", NULL);
+  want(0, "export --as dsse -k q.sk --pass-fd 3 -f -o q.env qpk/a 3<q.pw",
+       NULL);
+  want(0, "verify -p q.sk.pub --dsse q.env", NULL);
+  want(0, "pack build -k q.sk --pass-fd 3 qpk/p 3<q.pw", NULL);
+  want(0, "check -p q.sk.pub qpk/p", NULL);
+  want(2, "seal -k q.sk --pass-fd 3 qpk/a 3<q.pw2", NULL);
+  ok(has("q.err", "wrong passphrase"), "seal --pass-fd: a wrong one");
+  remove("q.pw");
+  remove("q.pw2");
+#endif
+  penv("NQTPW", NULL);
+  penv("NQTPW2", NULL);
+  rmdirs("qpk");
+  remove("q.env");
+  remove("q.rt");
+  remove("q.rv");
+  remove("q.ex");
+  remove("q.idc");
+}
+
 /* the test-only cap on a message read whole, or unset with NULL */
 static void tenv(const char *name, const char *v) {
 #ifdef _WIN32
@@ -2957,6 +3059,21 @@ static void ttoken(void) {
   ok(has("q.err", "--pin-fd wants a descriptor number"),
      "the PIN option is named as it was given");
   want(0, "check -p q.tp.pub qtk", NULL);
+#ifndef _WIN32
+  /* -r: the PIN of one descriptor, read once, for every folder (the
+   * token file by its full path: each run works inside its folder) */
+  mkd("qtk/in");
+  wrs("qtk/in/b.txt", "inner\n");
+  want(0, "seal --token --label sig --pin-env NQTPIN qtk/in", NULL);
+  penv("NQTOKFILE", absp("q.tk", 0));
+  wrs("q.pin", "1234\n");
+  want(0, "seal -r --token --label sig --pin-fd 3 qtk 3<q.pin", NULL);
+  ok(has("q.err", "2 capsules, 2 sealed, 0 failed"),
+     "seal --token -r: one PIN descriptor for every folder");
+  want(0, "check -p q.tp.pub qtk/in", NULL);
+  penv("NQTOKFILE", "q.tk");
+  remove("q.pin");
+#endif
   want(2, "token", NULL);
   want(2, "token nothing", NULL);
   want(2, "token list extra", NULL);
@@ -3265,6 +3382,7 @@ int main(int argc, char **argv) {
   }
   tdet();
   tpass();
+  tpassk();
   tstream();
   tbox();
   tarm();

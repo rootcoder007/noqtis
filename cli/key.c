@@ -148,12 +148,12 @@ static int atkey(const char *cmd, const char *q, nckey *k) {
   return NCOK;
 }
 
-int nckrd(const char *cmd, const char *path, int sec, nckey *k) {
-  return nckrdp(cmd, path, sec, NULL, 0, k);
-}
-
-int nckrdp(const char *cmd, const char *path, int sec, const uint8_t *pw,
-           size_t pwn, nckey *k) {
+/* a key file of the kind sec; a secret one under a passphrase opened
+ * with pw (pwn bytes; NULL when none was given), and when none was, the
+ * options of that name (opt: "pass", "new-pass") are what it asks for */
+static int nckrdp(const char *cmd, const char *path, int sec,
+                  const uint8_t *pw, size_t pwn, const char *opt,
+                  nckey *k) {
   uint8_t *t, *d;
   size_t tn, hl, pk, sk, want, i, dn;
   char hdr[96], ad[96], *alg, *kind;
@@ -223,9 +223,8 @@ int nckrdp(const char *cmd, const char *path, int sec, const uint8_t *pw,
     size_t an = adof(&k->a, ad, sizeof ad), got = 0;
     if (pw == NULL) {
       ncfree(d, dn, 1);
-      ncmsg(cmd, "%s is protected by a passphrase: give it with --pass-fd "
-            "<n> or --pass-env <name> (keygen, sign and dec take them)",
-            path);
+      ncmsg(cmd, "%s is protected by a passphrase: give it with --%s-fd "
+            "<n> or --%s-env <name>", path, opt, opt);
       return NCUSE;
     }
     k->b = (uint8_t *)malloc(want);
@@ -274,6 +273,25 @@ bad:
   return NCUSE;
 }
 
+int nckrd(const char *cmd, const char *path, nckey *k) {
+  return nckrdp(cmd, path, 0, NULL, 0, "pass", k);
+}
+
+int ncskrd(const char *cmd, const char *path, const ncpw *o,
+           const char *opt, nckey *k) {
+  uint8_t *pw;
+  size_t pn;
+  int rc;
+  k->b = NULL;
+  k->n = 0;
+  k->sec = 1;
+  if (ncpwgetn(cmd, o, opt, &pw, &pn) != NCOK)
+    return NCUSE;
+  rc = nckrdp(cmd, path, 1, pw, pn, opt, k);
+  ncfree(pw, NQPWLEN, 1);
+  return rc;
+}
+
 int nckwrp(FILE *f, const ncalg *a, const uint8_t *pw, size_t pwn,
            const uint8_t *b, size_t n) {
   char ad[96];
@@ -303,6 +321,22 @@ static int fdnum(const char *s) {
   return (int)v;
 }
 
+/* passphrases read from a descriptor, kept for the rest of the run: a
+ * descriptor gives its bytes only once, and seal -r (each folder), pack
+ * build (its seal) and rotate (one descriptor for both keys) ask again;
+ * wiped at exit */
+static struct {
+  int fd;
+  size_t n;
+  uint8_t b[NQPWLEN];
+} pwc[2];
+static int npwc;
+
+static void pwcwipe(void) {
+  nqwipe(pwc, sizeof pwc);
+  npwc = 0;
+}
+
 int ncpwget(const char *cmd, const ncpw *o, uint8_t **b, size_t *n) {
   return ncpwgetn(cmd, o, "pass", b, n);
 }
@@ -321,11 +355,18 @@ int ncpwgetn(const char *cmd, const ncpw *o, const char *opt, uint8_t **b,
   if (*b == NULL)
     return nclib(cmd, "memory", NQEMEM);
   if (o->fd != NULL) {
-    int fd = fdnum(o->fd), rc;
+    int fd = fdnum(o->fd), rc, i;
     if (fd < 0) {
       ncmsg(cmd, "--%s-fd wants a descriptor number, not %s", opt,
             ncesc(o->fd));
       goto fail;
+    }
+    for (i = 0; i < npwc && pwc[i].fd != fd; i++)
+      ;
+    if (i < npwc) {
+      memcpy(*b, pwc[i].b, pwc[i].n);
+      *n = pwc[i].n;
+      return NCOK;
     }
     rc = ncrdfd(fd, *b, NQPWLEN, n);
     if (rc == NQELIM) {
@@ -336,6 +377,15 @@ int ncpwgetn(const char *cmd, const ncpw *o, const char *opt, uint8_t **b,
     if (rc != NQOK) {
       ncmsg(cmd, "cannot read a passphrase from descriptor %d", fd);
       goto fail;
+    }
+    /* ponytail: two slots, the most one command reads (old and new key) */
+    if (*n > 0 && npwc < 2) {
+      if (npwc == 0)
+        (void)atexit(pwcwipe);
+      pwc[npwc].fd = fd;
+      pwc[npwc].n = *n;
+      memcpy(pwc[npwc].b, *b, *n);
+      npwc++;
     }
   } else {
     const char *v = getenv(o->env);

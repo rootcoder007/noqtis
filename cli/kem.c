@@ -57,7 +57,7 @@ int ncenc(int argc, char **argv) {
     return NCUSE;
   }
   sp = sout ? NULL : argv[0];
-  if (nckrd("enc", kp, 0, &k) != NCOK)
+  if (nckrd("enc", kp, &k) != NCOK)
     return NCUSE;
   if (!k.a.kem) {
     ncmsg("enc", "%s is a %s (signature) key, not a KEM key", kp,
@@ -131,8 +131,6 @@ int ncdec(int argc, char **argv) {
     {'\0', "pass-env", 1, &pwo.env, NULL},
     {'f', "force", 0, NULL, &force}
   };
-  uint8_t *pw = NULL;
-  size_t pwn = 0;
   nckey k = {{0, 0, NULL}, 0, NULL, 0};
   nqksz z = {0, 0, 0, 0};
   uint8_t *ct = NULL, *ss = NULL;
@@ -158,11 +156,7 @@ int ncdec(int argc, char **argv) {
     ncmsg("dec", "--pass-fd 0 and a ciphertext on stdin cannot share it");
     return NCUSE;
   }
-  if (ncpwget("dec", &pwo, &pw, &pwn) != NCOK)
-    return NCUSE;
-  rc = nckrdp("dec", kp, 1, pw, pwn, &k);
-  ncfree(pw, NQPWLEN, 1);
-  if (rc != NCOK)
+  if (ncskrd("dec", kp, &pwo, "pass", &k) != NCOK)
     return NCUSE;
   if (!k.a.kem) {
     ncmsg("dec", "%s is a %s (signature) key, not a KEM key", kp,

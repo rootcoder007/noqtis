@@ -506,10 +506,13 @@ static int emit(const char *out, int force, const char *b, size_t n) {
 int ncexp(int argc, char **argv) {
   const char *as = NULL, *kp = NULL, *pp = NULL, *out = NULL;
   int help = 0, force = 0, nof = 0, np, rc;
+  ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'\0', "as", 1, &as, NULL},
     {'k', "key", 1, &kp, NULL},
     {'p', "pub", 1, &pp, NULL},
+    {'\0', "pass-fd", 1, &pwo.fd, NULL},
+    {'\0', "pass-env", 1, &pwo.env, NULL},
     {'o', "out", 1, &out, NULL},
     {'f', "force", 0, NULL, &force},
     {'\0', "no-files", 0, NULL, &nof}
@@ -541,6 +544,11 @@ int ncexp(int argc, char **argv) {
   if ((strcmp(as, "dsse") == 0) != (kp != NULL)) {
     ncmsg("export", kp == NULL ? "--as dsse signs: give the key with -k"
                                : "-k signs a DSSE envelope: give --as dsse");
+    return NCUSE;
+  }
+  if (kp == NULL && (pwo.fd != NULL || pwo.env != NULL)) {
+    ncmsg("export", "--pass-fd and --pass-env give the passphrase of -k; "
+          "there is none");
     return NCUSE;
   }
   if (strcmp(as, "bagit") == 0 && out == NULL) {
@@ -591,8 +599,8 @@ int ncexp(int argc, char **argv) {
       if (dp != NULL) snprintf(dp, dn, "%s.pub", kp);
       pp = dp;
     }
-    if (pp != NULL && nckrd("export", pp, 0, &pk) == NCOK &&
-        nckrd("export", kp, 1, &sk) == NCOK) {
+    if (pp != NULL && nckrd("export", pp, &pk) == NCOK &&
+        ncskrd("export", kp, &pwo, "pass", &sk) == NCOK) {
       if (sk.a.kem || pk.a.kem || sk.a.alg != pk.a.alg) {
         ncmsg("export", "%s and %s are not a signature key pair", kp, pp);
       } else {
@@ -628,7 +636,7 @@ int ncvdsse(const char *kp, const char *env, const char *out, int quiet) {
   size_t en = 0, pn = 0;
   char ty[256];
   int rc, ret = NCUSE;
-  if (nckrd("verify", kp, 0, &k) != NCOK) return NCUSE;
+  if (nckrd("verify", kp, &k) != NCOK) return NCUSE;
   if (k.a.kem) {
     ncmsg("verify", "%s is a %s (KEM) key, not a signature key", kp,
           k.a.name);
