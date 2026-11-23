@@ -64,7 +64,7 @@ int nqdsse(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
   }
   rc = nqssize(alg, &sz);
   if (rc != NQOK) return rc;
-  if (sklen != sz.sk || pklen != sz.pk) return NQEARG;
+  if (!nqsxlen(alg, sklen) || pklen != sz.pk) return NQEARG;
   memset(&m, 0, sizeof m);
   memset(&o, 0, sizeof o);
   rc = pae(&m, type, payload, n);

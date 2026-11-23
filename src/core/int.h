@@ -139,6 +139,8 @@ int nqrel(uint8_t *p, size_t n, const volatile uint32_t *v, const uint32_t *t,
 #define NQFV1 2u  /* skip the first verdict */
 #define NQFV2 4u  /* skip the second verdict */
 #define NQFV3 8u  /* skip the key's own check */
+#define NQFX1 16u /* skip the container's integrity value (api/sig.c) */
+#define NQFX2 32u /* skip the container's public key check */
 #ifdef NQTEST
 extern unsigned nqtflt;
 #define NQFLT(b) (nqtflt & (b))

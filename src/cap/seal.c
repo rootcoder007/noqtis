@@ -385,7 +385,9 @@ int nqcsealsg(const char *dir, nqsalg alg, nqcsg sg, void *u, size_t sklen,
   if (alg == NQED25519) return NQENOSUP;
   an = nqsname(alg);
   if (an == NULL) return NQENOSUP;
-  if ((sklen != NQCNOSK && sklen != sz.sk) || pklen != sz.pk) return NQEARG;
+  if ((sklen != NQCNOSK && !nqsxlen(alg, sklen)) || pklen != sz.pk) {
+    return NQEARG;
+  }
   if (nqctime(created, ts) != NQOK) return NQEARG;
   if (meta != NULL) {
     size_t ml = strlen(meta);

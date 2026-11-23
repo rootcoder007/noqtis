@@ -351,6 +351,22 @@ NQAPI int nqsign(nqsalg alg, const uint8_t *sk, size_t sklen,
                  const uint8_t *msg, size_t msglen,
                  const uint8_t *ctx, size_t ctxlen, int ph,
                  uint8_t *sig, size_t siglen, size_t *outlen);
+/* The version 2 secret-key container (docs/spec/keyfile.md): the key S
+ * with, for Ed25519 and the hybrids, the Ed25519 public key P, and
+ * T = SHA3-256("noqtis-sk-2" || 0x00 || name || 0x00 || S || P). Every
+ * signing function takes S (as before) or the container X; with X, T is
+ * computed again after signing and, for Ed25519 and the hybrids, the
+ * public key derived again from the seed and compared with P, and a
+ * signature leaves only when both hold (NQEFLT otherwise), so that a
+ * change to any stored byte of the key, the fields that only feed the
+ * signer's randomness among them, is caught. nqsxsz gives X's length;
+ * nqsxmk makes X from S (x may be sk; xlen at least nqsxsz's); nqsxchk
+ * checks X: NQOK, NQEDEC when damaged, NQENOSUP for a key of S's length
+ * (no integrity value), NQEARG for an unknown alg. */
+NQAPI int nqsxsz(nqsalg alg, size_t *n);
+NQAPI int nqsxmk(nqsalg alg, const uint8_t *sk, size_t sklen, uint8_t *x,
+                 size_t xlen);
+NQAPI int nqsxchk(nqsalg alg, const uint8_t *x, size_t xlen);
 /* rnd is the standard's per-signature randomness (32 bytes for ML-DSA
  * and the hybrids, n bytes for SLH-DSA, none for Ed25519: rnd may then be
  * NULL with rndlen 0); all zero gives the deterministic variant. Ed25519

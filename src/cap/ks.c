@@ -131,10 +131,10 @@ static int mk(int exp, nqsalg alg, const uint8_t *sk, size_t sklen,
   }
   /* statements are about post-quantum seal keys (Ed25519 alone is not) */
   if (!pq(alg) || (rot && !pq(nalg))) return NQENOSUP;
-  if (nqssize(alg, &sz) != NQOK || pklen != sz.pk || sklen != sz.sk)
+  if (nqssize(alg, &sz) != NQOK || pklen != sz.pk || !nqsxlen(alg, sklen))
     return NQEARG;
   if (rot && (nqssize(nalg, &nsz) != NQOK || npklen != nsz.pk ||
-              nsklen != nsz.sk ||
+              !nqsxlen(nalg, nsklen) ||
               (nalg == alg && npklen == pklen &&
                memcmp(npk, pk, pklen) == 0))) {
     return NQEARG;

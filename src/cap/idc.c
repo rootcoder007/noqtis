@@ -180,7 +180,9 @@ int nqcard(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
   }
   /* cards are for post-quantum keys, as seals and statements are */
   if (alg == NQED25519 || nqssize(alg, &sz) != NQOK) return NQENOSUP;
-  if (pklen != sz.pk || sklen != sz.sk || pklen > NQCARDPK) return NQEARG;
+  if (pklen != sz.pk || !nqsxlen(alg, sklen) || pklen > NQCARDPK) {
+    return NQEARG;
+  }
   if (nqctime(created, ts) != NQOK) return NQEARG;
   memset(&b, 0, sizeof b);
   memset(&o, 0, sizeof o);
