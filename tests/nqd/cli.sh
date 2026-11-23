@@ -1156,7 +1156,7 @@ ok 2 "pack build, the bundle exists" env TZ=Asia/Tokyo "$nq" pack build \
   -k "$w/k" -o "$w/p.nqb" "$p"
 has "$w/err" "exists (use --force" "pack build says the bundle exists"
 ok 2 "pack build, a bad format" env TZ=Asia/Tokyo "$nq" pack build \
-  -k "$w/k" --format 3 "$p"
+  -k "$w/k" --format 4 "$p"
 n=$((n + 1))
 if [ "$c0" != "$(cksum <"$p/noqtis.data.json")" ]; then
   bad=$((bad + 1))
@@ -1322,7 +1322,7 @@ for i in 1 2 3 4 5; do
   mkdir -p "$w/l$i"
   echo "$i" >"$w/l$i/f"
 done
-ok 0 "chain: start" "$nq" seal --format 2 -k "$w/k" "$w/l1"
+ok 0 "chain: start" "$nq" seal --format 3 -k "$w/k" "$w/l1"
 ok 0 "chain: link 2" "$nq" seal -k "$w/k" --input prev="$w/l1" "$w/l2"
 ok 0 "chain: link 3" "$nq" seal -k "$w/k" --input prev="$w/l2" "$w/l3"
 ok 0 "chain" "$nq" chain -p "$w/k.pub" "$w/l1" "$w/l2" "$w/l3"
