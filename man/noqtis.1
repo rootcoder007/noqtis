@@ -252,7 +252,7 @@ prints them, without regard to case:
 (key encapsulation).
 .Ss Key files
 A key file is text: one header line, then the key bytes in the standard's
-own encoding (FIPS 203, 204, 205; HQC v5.0.0) as base64 (RFC 4648, with
+own encoding (FIPS 203, 204, 205; HQC version 5.1) as base64 (RFC 4648, with
 padding) in lines of 64 characters:
 .Bd -literal -offset indent
 noqtis-key-1 <algorithm> <pub|sec>
@@ -271,6 +271,9 @@ that is not exactly three space-separated fields, the wrong kind of key
 where a secret key is needed, or the reverse
 .Pc ,
 and a key whose decoded length is not the algorithm's size.
+An HQC secret key file of HQC specification 5.0, written by noqtis
+before 0.3.0, is refused by every command, which says so; an HQC
+public key file of 5.0 cannot be told from a 5.1 one.
 The base64 encoder and decoder run in constant time.
 .Pp
 Signatures and ciphertexts are raw bytes in the standard's encoding, with
@@ -616,8 +619,7 @@ results: FAILED (1 of 22 checks failed)
 .Re
 .Rs
 .%Q HQC team
-.%T Hamming Quasi-Cyclic (HQC), specification, version 5.0.0
-.%D August 22, 2025
-.%O the text the code follows; version 5.1, of November 9, 2026, is the current one
-.%U https://pqc-hqc.org/resources.html
+.%T Hamming Quasi-Cyclic (HQC), specification, version 5.1
+.%D November 9, 2026
+.%U https://pqc-hqc.org/doc/hqc_specifications_v5.1.pdf
 .Re

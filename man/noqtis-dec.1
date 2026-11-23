@@ -32,6 +32,12 @@ unrelated pseudorandom secret and exit status 0.
 Whether the secrets agree shows only when they are used, for example when
 an authenticated cipher keyed from them fails.
 A ciphertext of the wrong length is refused (exit 2).
+An HQC secret key made for specification 5.0 (by noqtis before 0.3.0)
+is refused with a message saying so and exit 2: make a new key pair
+with
+.Nm noqtis Cm keygen .
+A 5.0 ciphertext has the length of a 5.1 one and gives, by implicit
+rejection, an unrelated secret.
 .Bl -tag -width Ds
 .It Fl k Ar key , Fl -key Ns = Ns Ar key
 A secret KEM key file.
@@ -76,7 +82,7 @@ $ noqtis dec -k box --stdout msg.ct | wc -c
 .Xr noqtis-enc 1 ,
 .Xr nqenc 3
 .Sh STANDARDS
-FIPS 203 (ML-KEM), HQC version 5.0.0.
+FIPS 203 (ML-KEM), HQC version 5.1.
 .Rs
 .%Q National Institute of Standards and Technology
 .%T Module-Lattice-Based Key-Encapsulation Mechanism Standard
@@ -85,8 +91,7 @@ FIPS 203 (ML-KEM), HQC version 5.0.0.
 .Re
 .Rs
 .%Q HQC team
-.%T Hamming Quasi-Cyclic (HQC), specification, version 5.0.0
-.%D August 22, 2025
-.%O the text the code follows; version 5.1, of November 9, 2026, is the current one
-.%U https://pqc-hqc.org/resources.html
+.%T Hamming Quasi-Cyclic (HQC), specification, version 5.1
+.%D November 9, 2026
+.%U https://pqc-hqc.org/doc/hqc_specifications_v5.1.pdf
 .Re

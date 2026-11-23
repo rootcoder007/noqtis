@@ -39,6 +39,9 @@ otherwise the argument must be an even number of hex digits.
 The seed must have the standard's length: 32 bytes (xi) for ML-DSA;
 3n bytes (SK.seed || SK.prf || PK.seed) for SLH-DSA, that is 48, 72 or 96;
 64 bytes (d || z) for ML-KEM; 32 bytes for HQC.
+For HQC the seed is also the secret key, and the same seed gives
+another key pair than it did before noqtis 0.3.0 (HQC specification 5.1
+in place of 5.0).
 A seed of another length is a library error (exit 2).
 Anyone who knows the seed knows the secret key.
 A seed given as hex digits on the command line can be read by other users

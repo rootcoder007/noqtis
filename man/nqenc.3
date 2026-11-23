@@ -61,15 +61,14 @@ libnoqtis, \-lnoqtis
 A key encapsulation mechanism lets anyone with a public key make a
 ciphertext and a 32-byte shared secret, which only the holder of the
 secret key can recover from the ciphertext.
-noqtis provides ML-KEM (FIPS 203) and HQC (version 5.0.0 of 2025-08-22).
+noqtis provides ML-KEM (FIPS 203) and HQC (the HQC specification,
+version 5.1 of 2026-11-09).
 HQC is experimental: NIST selected it in March 2025 but its standard is
 not final, and the final one may differ in its encoding; keys,
 ciphertexts and secrets made now may then not interoperate.
-The code follows the specification of 2025-08-22 (version 5.0, reference
-implementation 5.0.0); the HQC team's version 5.1 of 2026-11-09 adds one
-to the weights w (and w_r for HQC-128 and HQC-256), makes the
-decapsulation key its 32-byte seed alone, and changes the polynomial of
-GF(2^8), so its keys and ciphertexts are not those of this one.
+Keys and ciphertexts of the earlier version 5.0 do not interoperate
+with those of 5.1, and noqtis no longer reads them: see
+.Sx CAVEATS .
 Use ML-KEM for anything that must last.
 .Pp
 .Vt nqkalg
@@ -79,9 +78,9 @@ names the parameter set:
 .It Dv NQMLKEM512 Ta ML-KEM-512 Ta 800 Ta 1632 Ta 768 Ta 32
 .It Dv NQMLKEM768 Ta ML-KEM-768 Ta 1184 Ta 2400 Ta 1088 Ta 32
 .It Dv NQMLKEM1024 Ta ML-KEM-1024 Ta 1568 Ta 3168 Ta 1568 Ta 32
-.It Dv NQHQC128 Ta HQC-128 Ta 2241 Ta 2321 Ta 4433 Ta 32
-.It Dv NQHQC192 Ta HQC-192 Ta 4514 Ta 4602 Ta 8978 Ta 32
-.It Dv NQHQC256 Ta HQC-256 Ta 7237 Ta 7333 Ta 14421 Ta 32
+.It Dv NQHQC128 Ta HQC-128 Ta 2241 Ta 32 Ta 4433 Ta 32
+.It Dv NQHQC192 Ta HQC-192 Ta 4514 Ta 32 Ta 8978 Ta 32
+.It Dv NQHQC256 Ta HQC-256 Ta 7237 Ta 32 Ta 14421 Ta 32
 .El
 .Pp
 .Fn nqksize
@@ -108,18 +107,16 @@ makes a key pair from the operating system's random source.
 .Fn nqkkgd
 makes it from the standard's seed: 64 bytes (d || z) for ML-KEM, 32 bytes
 for HQC.
-The secret key holds the public key: for ML-KEM it is
+An ML-KEM secret key holds the public key:
 .Bd -literal -offset indent
 sk = dk_PKE || pk || H(pk) || z            (FIPS 203, Algorithm 16)
 .Ed
 .Pp
-with H SHA3-256, dk_PKE 384k bytes and k 2, 3 or 4; for HQC it is
-.Bd -literal -offset indent
-sk = pk || seed_dk || sigma || seed_KEM    |pk| + 32 + |m| + 32 bytes
-.Ed
-.Pp
-with seed_KEM the 32-byte key-generation seed, seed_dk and sigma derived
-from it, and |m| 16, 24 or 32 bytes.
+with H SHA3-256, dk_PKE 384k bytes and k 2, 3 or 4.
+An HQC secret key is the 32-byte seed itself (dk = seed_KEM, as
+specification 5.1 makes it by default): any 32 bytes are a key, and
+.Fn nqkkgd
+with a key as its seed gives the same key pair again.
 .Pp
 .Fn nqenc
 encapsulates to the public key
@@ -143,14 +140,16 @@ recovers the shared secret from
 with the secret key
 .Fa sk ;
 for ML-KEM the key is first checked as section 7.3 requires (the
-H(pk) it holds must equal the hash of the pk it holds), for HQC by the
-check of its public key above and by re-deriving seed_dk and sigma from
-seed_KEM.
+H(pk) it holds must equal the hash of the pk it holds); for HQC the key
+pair is first derived again from the seed.
 A ciphertext of the right length that was not made for this key, or was
 changed, gives a pseudorandom secret unrelated to the sender's and
 returns
 .Dv NQOK
 (implicit rejection, as both standards require).
+An HQC secret key that is not 32 bytes, among them one made for
+specification 5.0 (2321, 4602 or 7333 bytes), gives
+.Dv NQEDEC .
 It fails only on malformed sizes, on a secret key that fails that check
 .Pq Dv NQEDEC ,
 and, as both decapsulations are masked with fresh randomness, when the
@@ -249,15 +248,28 @@ nqwipe(b, sizeof b);
 .%A C. Aguilar-Melchor
 .%A N. Aragon
 .%A others
-.%T Hamming Quasi-Cyclic (HQC), version 5.0
-.%U https://pqc-hqc.org/
-.%D August 22, 2025
+.%T Hamming Quasi-Cyclic (HQC), version 5.1
+.%U https://pqc-hqc.org/doc/hqc_specifications_v5.1.pdf
+.%D November 9, 2026
 .Re
-.Pp
-The HQC team's version 5.1 of November 9, 2026 is not implemented.
+.Sh CAVEATS
+noqtis 0.3.0 follows HQC specification 5.1; earlier releases followed
+5.0, whose keys, ciphertexts and shared secrets differ.
+A 5.0 secret key has another length and is refused
+.Pq Dv NQEDEC .
+A 5.0 public key or ciphertext has the same length as a 5.1 one and
+cannot be told apart: encapsulating to a 5.0 public key gives a
+ciphertext and secret that a 5.0 implementation does not share, and a
+5.0 ciphertext decapsulates, by implicit rejection, to an unrelated
+secret.
+Make new HQC key pairs.
 .Sh SECURITY CONSIDERATIONS
 Key generation, encapsulation and decapsulation run in constant time with
 respect to the seeds, the randomness, the secret key and the shared
 secret; both decapsulations are also first-order masked.
-In HQC, a secret-derived bit becomes public in the three places its
-specification allows, and nowhere else.
+In HQC, a secret-derived bit becomes public in the one place its
+specification allows (whether a draw of the key-generation sampler is
+kept), and nowhere else.
+Because an HQC secret key is only its seed, HQC decapsulation first
+derives the key pair again; that step is constant time but not masked,
+and only the parts the masked decryption uses are split into shares.
