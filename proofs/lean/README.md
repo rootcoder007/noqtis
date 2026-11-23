@@ -20,7 +20,7 @@ side-channel property.
 | `Mldsa.lean` | src/mldsa/md.h, poly.c, sign.c | Montgomery `nqmdmr`, `nqmdrd`, `nqmdcq`, Power2Round, `nqmddec` equal to FIPS 204's Decompose for both γ₂, FIPS 204's Lemma 2 (UseHint(MakeHint(z, r), r) = HighBits(r + z)), 1753 a primitive 512th root of unity |
 | `Ct.lean` | src/core/int.h, core.c, mldsa/poly.c, mlkem/ring.h | `nqctmask`, `nqctsel`, `nqcmov`, `nqcteq`, `nqmkps` for every word, and the wrap in `nqmddec`, `nqmdmkh`, `nqmdchk` for every word in the range the code gives them; the byte order of the 32-bit load/store helpers (the 64-bit ones are built from them or the same way) |
 | `Slh.lean` | src/slh/slh.c, in.h | WOTS+ len = 2n + 3, the checksum fits, FIPS 205's m, the signature sizes |
-| `Gf.lean` | src/hqc/code.c | `gm` is the GF(2⁸) product mod 0x11D, `ginv` the inverse, α = x of order 255 |
+| `Gf.lean` | src/hqc/code.c, mdec.c | `gm` is the GF(2⁸) product mod x⁸ + x⁴ + x³ + x + 1 (0x11B, HQC specification 5.1), `ginv` the inverse, `gexp`'s step is the product by α = x + 1, and α has order 255 |
 | `Ntt.lean` | src/mlkem/kem.c (`nqmkntt`, `nqmkint`, `nqmkdot`), src/mldsa/poly.c (`nqmdntt`, `nqmdint`) | X²⁵⁶ + 1 = ∏ (X² − 17^(2i+1)) over Z₃₃₂₉ (the 128 moduli of ML-KEM's incomplete NTT) and = ∏ (X − 1753^(2i+1)) over Z₈₃₈₀₄₁₇ (ML-DSA's complete NTT) |
 | `Enc.lean` | src/mlkem (`nqmkbe`/`nqmkbd`), src/mldsa/poly.c (`nqmdbpk`/`nqmdbun`) | ByteEncode_d and ByteDecode_d are inverse bijections between L values of d bits and the d·L/8-byte string |
 
@@ -51,7 +51,7 @@ those also depends on axioms `<theorem>._native.bv_decide.ax_*` that
 accepted its certificate; that trusts the Lean compiler and runtime as
 `Lean.ofReduceBool` does (earlier Lean versions used that axiom by name).
 `#print axioms` on each shows this. The exhaustive checks
-(`Gf.ginv_spec`, `Gf.alpha_order`, `Slh`) use `decide`, which the kernel
+(`Gf.ginv_spec`, `Gf.step_gm`, `Gf.alpha_order`, `Slh`) use `decide`, which the kernel
 checks itself. There is no `sorry`.
 
 Not proved: that the NTT and inverse NTT butterfly networks of
