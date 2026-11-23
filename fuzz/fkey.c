@@ -98,8 +98,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   }
   if (fclose(f) != 0) return 0;
   for (sec = 0; sec < 2; sec++) {
+    static const ncpw none = {NULL, NULL};
     memset(&k, 0, sizeof k);
-    if (nckrd("fkey", file, sec, &k) == NCOK) {
+    if ((sec ? ncskrd("fkey", file, &none, "pass", &k)
+             : nckrd("fkey", file, &k)) == NCOK) {
       size_t pk = 0, sk = 0;
       if (k.b == NULL || ncksz(&k.a, &pk, &sk) != NQOK ||
           k.n != (sec ? sk : pk)) {
