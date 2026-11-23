@@ -4,7 +4,9 @@
  *
  * Public interface. Every function returns NQOK (0) or a negative NQE*
  * code; a failed verification is NQEVRFY, never NQOK. Callers allocate
- * every output buffer and pass its length.
+ * every output buffer and pass its length; the exceptions are the
+ * reports (nqrep, freed with nqrepfree) and the handles (nqp11, nqtls)
+ * that a few functions make.
  */
 #ifndef NOQTIS_H
 #define NOQTIS_H
@@ -60,7 +62,10 @@ NQAPI const char *nqver(void);
 /* Known answers for every algorithm family (hashes, HMAC, ML-KEM,
  * ML-DSA, SLH-DSA key generation, HQC, Ed25519 and a hybrid), run in
  * about a tenth of a second: NQOK, or NQEKAT when one does not match. A
- * module can run it once before use, as FIPS 140-3 asks. */
+ * module can run it once before use, as FIPS 140-3 asks. The masked
+ * decapsulations and signatures draw on the random source, so without
+ * one (NQFREE with no nqsetrng) it returns NQEKAT. Safe to call from
+ * several threads at once: one test runs at a time, the others wait. */
 NQAPI int nqselftest(void);
 
 /* ---- core ----------------------------------------------------------- */
@@ -131,8 +136,10 @@ NQAPI int nqsetstop(nqstopfn fn, void *user);
 typedef void (*nqtmpfn)(int ev, const char *path, void *user);
 NQAPI int nqsettmp(nqtmpfn fn, void *user);
 
-/* Replaces the allocator the capsule and parser layers and Argon2id
- * (nqa2id, nqpwenc, nqpwdec) use; NULL for both
+/* Replaces the allocator the capsule and parser layers (JSON, DER,
+ * CMS, OpenPGP, TLS), the multi-recipient stream (noqtis-kstream-2),
+ * PKCS #11 and Argon2id (nqa2id, nqpwenc, nqpwdec) use (the data layer
+ * has its own, nqdsetal); NULL for both
  * restores malloc/free. Setting it is safe while other threads work,
  * but memory is freed by the allocator in place at that moment: set it
  * before anything is allocated, or make both free either's memory. */
@@ -443,10 +450,12 @@ NQAPI int nqencd(nqkalg alg, const uint8_t *pk, size_t pklen,
                  const uint8_t *seed, size_t seedlen,
                  uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 /* Implicit rejection: a bad ciphertext yields a pseudorandom secret and
- * NQOK, as the standards require. It fails on malformed sizes (NQEARG,
- * NQEBUF), on a secret key whose embedded hash does not match (NQEDEC),
- * and, since ML-KEM decapsulation is masked with fresh randomness, when
- * the operating system's random source fails (NQERNG). */
+ * NQOK, as the standards require. It fails on a NULL argument or an
+ * unknown alg (NQEARG), on ss shorter than the shared secret (NQEBUF),
+ * on a secret key or ciphertext of the wrong length or a secret key that
+ * does not check (its embedded hash, for HQC its stored seeds: NQEDEC),
+ * and, since ML-KEM and HQC decapsulation are masked with fresh
+ * randomness, when the random source (nqsetrng) fails (NQERNG). */
 NQAPI int nqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
                 const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 
