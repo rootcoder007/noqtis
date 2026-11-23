@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* libFuzzer target over the command line tool's key files (cli/key.c:
- * the "noqtis-key-1 <alg> <pub|sec>" line and the base64 body, read as
- * a public and as a secret key), and the library's handling of whatever
+ * the "noqtis-key-1 <alg> <pub|sec>" or "noqtis-key-2 <alg> sec" line
+ * and the base64 body, read as a public and as a secret key; a version 2
+ * key read must hold its integrity value), and the library's handling
+ * of whatever
  * key they give: a public key verifies a fixed signature or
  * encapsulates (deterministically), a secret key signs (ML-DSA; SLH-DSA
  * signing is too slow to fuzz) or decapsulates. A key file is read from
@@ -102,9 +104,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     memset(&k, 0, sizeof k);
     if ((sec ? ncskrd("fkey", file, &none, "pass", &k)
              : nckrd("fkey", file, &k)) == NCOK) {
-      size_t pk = 0, sk = 0;
-      if (k.b == NULL || ncksz(&k.a, &pk, &sk) != NQOK ||
-          k.n != (sec ? sk : pk)) {
+      size_t pk = 0, sk = 0, xn = 0;
+      if (k.b == NULL || ncksz(&k.a, &pk, &sk) != NQOK) abort();
+      /* a signature secret key is S (version 1) or its container X
+       * (version 2), which the reader has checked */
+      if (sec && !k.a.kem && nqsxsz((nqsalg)k.a.alg, &xn) == NQOK &&
+          k.n == xn) {
+        if (nqsxchk((nqsalg)k.a.alg, k.b, k.n) != NQOK) abort();
+      } else if (k.n != (sec ? sk : pk)) {
         abort();
       }
       use(&k);

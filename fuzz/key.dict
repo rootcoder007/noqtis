@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # libFuzzer dictionary for fkey: the key file header line.
 "noqtis-key-1 "
+"noqtis-key-2 "
+"Ed25519"
+"ML-DSA-65+Ed25519"
 " pub\x0a"
 " sec\x0a"
 "\x0d\x0a"
