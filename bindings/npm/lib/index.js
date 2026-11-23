@@ -1453,10 +1453,14 @@ export const capsule = Object.freeze({
    * Seals the files: returns { 'noqtis.json', 'noqtis.sig' } as bytes, to
    * store beside them. Options: `meta` (a JSON value or JSON text, kept in
    * the manifest), `time` (creation time in seconds since 1970; default
-   * the clock), `format` (1, the default, or 2: a Merkle tree over the
-   * files, for capsule.prove), `inputs` (format 2, the default with it:
-   * [{ name, id }], the capsules this one was made from, each id the
-   * 32 bytes capsule.id gives).
+   * the clock), `format` (1, the default; 3: a Merkle tree over the
+   * files with a secret salt in each leaf, for capsule.prove, so that a
+   * proof confirms no guess of the other files; 2: the same without
+   * salts, whose proofs let such a guess be confirmed, for readers older
+   * than 0.3.0), `inputs` (format 3, the default with it: [{ name, id }],
+   * the capsules this one was made from, each id the 32 bytes capsule.id
+   * gives), `saltKey` (format 3, the default with it: 32 secret bytes the
+   * salts are derived from, for a reproducible capsule; else fresh).
    */
   seal(files, alg, secretKey, publicKey, opts = {}) {
     const a = salg(alg);
@@ -1468,11 +1472,18 @@ export const capsule = Object.freeze({
         : JSON.stringify(opts.meta);
     }
     const ins = opts.inputs;
-    const fmt = opts.format === undefined ? (ins === undefined ? 1 : 2)
-      : opts.format;
-    if (fmt !== 1 && fmt !== 2) throw new NoqtisError(CODES.EARG, 'format');
+    const sk3 = opts.saltKey === undefined ? undefined
+      : key(opts.saltKey, 'saltKey');
+    const fmt = opts.format === undefined
+      ? (ins === undefined && sk3 === undefined ? 1 : 3) : opts.format;
+    if (fmt !== 1 && fmt !== 2 && fmt !== 3) {
+      throw new NoqtisError(CODES.EARG, 'format');
+    }
     if (fmt === 1 && ins !== undefined) {
-      throw new NoqtisError(CODES.EARG, 'inputs need format 2');
+      throw new NoqtisError(CODES.EARG, 'inputs need format 3 or 2');
+    }
+    if (sk3 !== undefined && (fmt !== 3 || sk3.length !== 32)) {
+      throw new NoqtisError(CODES.EARG, 'saltKey: 32 bytes, format 3');
     }
     if (ins !== undefined && !Array.isArray(ins)) {
       throw new TypeError('noqtis: inputs must be an array');
@@ -1506,8 +1517,15 @@ export const capsule = Object.freeze({
             M.HEAPU8.set(id, pi + 36 * i);
             M.HEAPU32[(pi + 36 * i + 32) >>> 2] = h.str(x.name);
           });
-          check(M._nqseal2(pd, a.id, psk, sk.length, ppk, pk.length, pm,
-            list.length ? pi : 0, list.length));
+          if (fmt === 3) {
+            const pk3 = sk3 === undefined ? 0 : h.put(sk3);
+            check(M._nqseal3(pd, a.id, psk, sk.length, ppk, pk.length, pm,
+              list.length ? pi : 0, list.length, pk3,
+              sk3 === undefined ? 0 : 32));
+          } else {
+            check(M._nqseal2(pd, a.id, psk, sk.length, ppk, pk.length, pm,
+              list.length ? pi : 0, list.length));
+          }
         }
       } finally {
         M._unsetenv(ev);

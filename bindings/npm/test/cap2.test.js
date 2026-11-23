@@ -53,11 +53,32 @@ test('format 2 seals, checks, ids and lists', () => {
   assert.equal(y.sha256, Buffer.from(hash('sha256', f.get('sub/y.bin')))
     .toString('hex'));
   assert.throws(() => capsule.seal(files(), 'ML-DSA-44', k.secretKey,
-    k.publicKey, { format: 3 }), err(codes.EARG));
+    k.publicKey, { format: 4 }), err(codes.EARG));
+  assert.throws(() => capsule.seal(files(), 'ML-DSA-44', k.secretKey,
+    k.publicKey, { format: 2, saltKey: new Uint8Array(32) }),
+  err(codes.EARG));
   assert.throws(() => capsule.seal(files(), 'ML-DSA-44', k.secretKey,
     k.publicKey, { format: 1, inputs: [] }), err(codes.EARG));
   assert.throws(() => capsule.id(files()), err(codes.EIO));
   assert.throws(() => capsule.files(files()), NoqtisError);
+});
+
+test('format 3: salted leaves, proofs, salt keys', () => {
+  const k = sign.keygen('ML-DSA-44');
+  const f = sealed('ML-DSA-44', k, { format: 3, time: T0 });
+  assert.equal(JSON.parse(dec.decode(f.get('noqtis.sig'))).format,
+    'noqtis-seal-3');
+  assert.equal(capsule.check(f, { trust: k.publicKey }).ok, true);
+  const p = capsule.prove(f, ['f1.csv']);
+  const t = dec.decode(p);
+  assert.equal(JSON.parse(t).format, 'noqtis-proof-2');
+  assert.ok(!t.includes('f0.csv') && !t.includes('sub/y.bin'));
+  assert.equal(capsule.check(f, { proof: p, trust: k.publicKey }).ok, true);
+  const sk = new Uint8Array(32).map((_, i) => i);
+  const a = sealed('ML-DSA-44', k, { saltKey: sk, time: T0 });
+  const b = sealed('ML-DSA-44', k, { saltKey: sk, time: T0 });
+  assert.deepEqual(a.get('noqtis.json'), b.get('noqtis.json'));
+  assert.equal(capsule.check(a, { trust: k.publicKey }).ok, true);
 });
 
 test('proofs', () => {

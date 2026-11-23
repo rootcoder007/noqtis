@@ -251,10 +251,13 @@ export interface SealOptions {
   meta?: unknown;
   /** Creation time in seconds since 1970; default the clock. */
   time?: number;
-  /** 1 (the default) or 2: a Merkle tree over the files. */
-  format?: 1 | 2;
-  /** Format 2: the capsules this one was made from, by capsule.id. */
+  /** 1 (the default); 3: a Merkle tree over the files with a secret
+   * salt in each leaf; 2: the same unsalted, for readers before 0.3.0. */
+  format?: 1 | 2 | 3;
+  /** Formats 3 and 2: the capsules this one was made from, by capsule.id. */
   inputs?: { name: string; id: Bytes }[];
+  /** Format 3: 32 secret bytes the salts are derived from (reproducible). */
+  saltKey?: Bytes;
 }
 
 export interface KeyOptions {
@@ -278,7 +281,9 @@ export const capsule: {
     opts?: SealOptions): { 'noqtis.json': Bytes; 'noqtis.sig': Bytes };
   /** The capsule's id (32 bytes); nothing is checked. */
   id(files: Files): Bytes;
-  /** A proof (JSON bytes) that paths are files of a format 2 capsule. */
+  /** A proof (JSON bytes) that paths are files of a format 3 or 2
+   * capsule; of format 2, its hashes let a guess of another file be
+   * confirmed. */
   prove(files: Files, paths: string | string[]): Bytes;
   /** The files the manifest lists; nothing is checked. */
   files(files: Files): FileEntry[];
