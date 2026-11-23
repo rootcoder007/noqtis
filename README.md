@@ -81,7 +81,9 @@ and the [threat model](https://noqtis.dev/security/).
   runs known answers for every algorithm family in about a tenth of a
   second.
 - **Embedded**: `-DNQFREE=ON` builds the algorithms alone, for firmware and
-  kernels: no operating system, no allocator, randomness from the caller.
+  kernels: no operating system, randomness from the caller, and no
+  allocator except for Argon2id, which takes one from the caller
+  (`nqsetal`).
 
 ## Mail, key management and hardware tokens
 
