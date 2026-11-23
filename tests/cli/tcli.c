@@ -2455,6 +2455,50 @@ static void tpass(void) {
   remove("q.pw");
   remove("q.pw2");
 #endif
+  /* --kdf pbkdf2: such a key file signs and decrypts, read as any other;
+   * the header's KDF byte (the sixth: "NQPW", version, KDF) is 2, so
+   * its base64 starts TlFQVwEC (TlFQVwEB for Argon2id) */
+  want(0, "keygen -a ML-DSA-44 -o q.pb --force --pass-env NQTPW --kdf pbkdf2",
+       NULL);
+  ok(has("q.pb", "sec\nTlFQVwEC"), "keygen --kdf pbkdf2: the KDF byte is 2");
+  want(0, "sign -k q.pb -o q.psig --force --pass-env NQTPW q.m", NULL);
+  want(0, "verify -p q.pb.pub -s q.psig q.m", NULL);
+  want(2, "sign -k q.pb -o q.psig --force --pass-env NQTPW2 q.m", NULL);
+  ok(has("q.err", "wrong passphrase"), "a PBKDF2 key: a wrong passphrase");
+  want(0, "keygen -a ML-KEM-512 -o q.pbk --force --pass-env NQTPW "
+          "--kdf pbkdf2", NULL);
+  want(0, "enc -p q.pbk.pub -o q.pct --force q.pss", NULL);
+  want(0, "dec -k q.pbk -o q.pss2 --force --pass-env NQTPW q.pct", NULL);
+  ok(same("q.pss", "q.pss2"), "a PBKDF2 KEM key decrypts");
+  want(0, "keygen -a ML-DSA-44 -o q.pb2 --force --pass-env NQTPW "
+          "--kdf argon2id", NULL);
+  ok(has("q.pb2", "sec\nTlFQVwEB"), "keygen --kdf argon2id: the KDF byte is 1");
+  want(2, "keygen -a ML-DSA-44 -o q.pb2 --force --pass-env NQTPW --kdf scrypt",
+       NULL);
+  ok(has("q.err", "give argon2id or pbkdf2"), "keygen: an unknown --kdf");
+  want(2, "keygen -a ML-DSA-44 -o q.pb2 --force --kdf pbkdf2", NULL);
+  ok(has("q.err", "--pass-fd or --pass-env"),
+     "keygen: --kdf without a passphrase");
+  want(0, "passwd -k q.pb --pass-env NQTPW --new-pass-env NQTPW2", NULL);
+  ok(has("q.pb", "sec\nTlFQVwEB"), "passwd: Argon2id by default");
+  want(0, "passwd -k q.pb --pass-env NQTPW2 --new-pass-env NQTPW --kdf pbkdf2",
+       NULL);
+  ok(has("q.pb", "sec\nTlFQVwEC"), "passwd --kdf pbkdf2");
+  want(0, "sign -k q.pb -o q.psig --force --pass-env NQTPW q.m", NULL);
+  want(0, "verify -p q.pb.pub -s q.psig q.m", NULL);
+  want(2, "passwd -k q.pb --pass-env NQTPW --new-pass-env NQTPW2 --kdf md5",
+       NULL);
+  ok(has("q.err", "give argon2id or pbkdf2"), "passwd: an unknown --kdf");
+  want(2, "passwd -k q.pb --pass-env NQTPW --no-pass --kdf pbkdf2", NULL);
+  remove("q.pb");
+  remove("q.pb.pub");
+  remove("q.pb2");
+  remove("q.pb2.pub");
+  remove("q.pbk");
+  remove("q.pbk.pub");
+  remove("q.pct");
+  remove("q.pss");
+  remove("q.pss2");
   /* a passphrase for an unprotected key: a warning */
   want(0, "keygen -a ML-DSA-44 -o q.pk --force", NULL);
   want(0, "sign -k q.pk -o q.psig --force --pass-env NQTPW q.m", NULL);

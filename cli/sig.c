@@ -158,8 +158,8 @@ static int feed(const char *cmd, const char *path, nqsctx *s, nqsctx *v) {
 }
 
 int nckeygen(int argc, char **argv) {
-  const char *an = NULL, *out = NULL, *sd = NULL;
-  int force = 0, help = 0, np, rc, wrc;
+  const char *an = NULL, *out = NULL, *sd = NULL, *kv = NULL;
+  int force = 0, help = 0, np, rc, wrc, kdf;
   ncpw pwo = {NULL, NULL};
   ncopt o[] = {
     {'a', "alg", 1, &an, NULL},
@@ -167,6 +167,7 @@ int nckeygen(int argc, char **argv) {
     {'\0', "seed", 1, &sd, NULL},
     {'\0', "pass-fd", 1, &pwo.fd, NULL},
     {'\0', "pass-env", 1, &pwo.env, NULL},
+    {'\0', "kdf", 1, &kv, NULL},
     {'f', "force", 0, NULL, &force}
   };
   ncalg a = {0, 0, NULL};
@@ -189,6 +190,13 @@ int nckeygen(int argc, char **argv) {
   }
   if (ncfind(an, &a) != NQOK) {
     ncmsg("keygen", "unknown algorithm %s (see `noqtis algs`)", an);
+    return NCUSE;
+  }
+  if (nckdf("keygen", kv, &kdf) != NCOK)
+    return NCUSE;
+  if (kv != NULL && pwo.fd == NULL && pwo.env == NULL) {
+    ncmsg("keygen", "--kdf names how a passphrase protects the key: give "
+          "--pass-fd or --pass-env too");
     return NCUSE;
   }
   if (ncksz(&a, &pkn, &skn) != NQOK)
@@ -236,7 +244,7 @@ int nckeygen(int argc, char **argv) {
     fs = NULL;
     goto done;
   }
-  rc = pw != NULL ? nckwrp(fs, &a, pw, pwn, sk, skn)
+  rc = pw != NULL ? nckwrp(fs, &a, kdf, pw, pwn, sk, skn)
                   : nckwr(fs, &a, 1, sk, skn);
   wrc = rc;
   sl[1] = nckeep(fs, rc != NQOK);
@@ -289,8 +297,8 @@ done:
  * none, written over the file by a rename (ncclose), so a failure
  * leaves the old file whole. */
 int ncpasswd(int argc, char **argv) {
-  const char *kp = NULL;
-  int help = 0, np, none = 0, rc, ret = NCUSE;
+  const char *kp = NULL, *kv = NULL;
+  int help = 0, np, none = 0, rc, ret = NCUSE, kdf;
   ncpw old = {NULL, NULL}, new = {NULL, NULL};
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
@@ -298,7 +306,8 @@ int ncpasswd(int argc, char **argv) {
     {'\0', "pass-env", 1, &old.env, NULL},
     {'\0', "new-pass-fd", 1, &new.fd, NULL},
     {'\0', "new-pass-env", 1, &new.env, NULL},
-    {'\0', "no-pass", 0, NULL, &none}
+    {'\0', "no-pass", 0, NULL, &none},
+    {'\0', "kdf", 1, &kv, NULL}
   };
   uint8_t *npw = NULL;
   size_t nn = 0;
@@ -327,6 +336,13 @@ int ncpasswd(int argc, char **argv) {
           "both");
     return NCUSE;
   }
+  if (nckdf("passwd", kv, &kdf) != NCOK)
+    return NCUSE;
+  if (kv != NULL && none) {
+    ncmsg("passwd", "--kdf names how the new passphrase protects the key; "
+          "--no-pass leaves it under none");
+    return NCUSE;
+  }
   if (old.fd != NULL && new.fd != NULL && strcmp(old.fd, new.fd) == 0) {
     ncmsg("passwd", "--pass-fd and --new-pass-fd name the same "
           "descriptor; give each passphrase its own");
@@ -341,7 +357,7 @@ int ncpasswd(int argc, char **argv) {
     ncwfail("passwd", kp, 1);
     goto done;
   }
-  rc = npw != NULL ? nckwrp(f, &k.a, npw, nn, k.b, k.n)
+  rc = npw != NULL ? nckwrp(f, &k.a, kdf, npw, nn, k.b, k.n)
                    : nckwr(f, &k.a, 1, k.b, k.n);
   if (ncclose(f, kp, rc != NQOK) != 0 || rc != NQOK) {
     if (rc == NQEMEM)

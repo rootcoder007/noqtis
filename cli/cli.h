@@ -450,9 +450,13 @@ int ncpwgetn(const char *cmd, const ncpw *o, const char *opt, uint8_t **b,
  * message. */
 int ncskrd(const char *cmd, const char *path, const ncpw *o,
            const char *opt, nckey *k);
-/* Writes a secret key file under the passphrase pw. */
-int nckwrp(FILE *f, const ncalg *a, const uint8_t *pw, size_t pwn,
+/* Writes a secret key file under the passphrase pw, derived by kdf
+ * (NQPWA2 Argon2id, NQPWPB PBKDF2; nqpwenc2). */
+int nckwrp(FILE *f, const ncalg *a, int kdf, const uint8_t *pw, size_t pwn,
            const uint8_t *b, size_t n);
+/* --kdf: NULL or "argon2id" NQPWA2, "pbkdf2" NQPWPB; NCOK, or NCUSE with
+ * a message. */
+int nckdf(const char *cmd, const char *s, int *kdf);
 
 /* A hash by its command-line name (sha256, sha3-256, ...). */
 int nchalg(const char *name, nqhalg *h);

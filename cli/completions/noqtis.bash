@@ -55,8 +55,8 @@ _noqtis() {
       return ;;
   esac
   case $cmd in
-    keygen) opts="-a --alg -o --out --seed --pass-fd --pass-env -f --force" ;;
-    passwd) opts="-k --key --pass-fd --pass-env --new-pass-fd --new-pass-env --no-pass" ;;
+    keygen) opts="-a --alg -o --out --seed --pass-fd --pass-env --kdf -f --force" ;;
+    passwd) opts="-k --key --pass-fd --pass-env --new-pass-fd --new-pass-env --no-pass --kdf" ;;
     sign) opts="-k --key -o --out -a --armor -c --ctx -d --det --ph --pass-fd --pass-env
       -f --force" ;;
     verify) opts="-p --pub -s --sig -c --ctx --ph -q --quiet --dsse -o

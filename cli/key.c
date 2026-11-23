@@ -317,7 +317,18 @@ int ncskrd(const char *cmd, const char *path, const ncpw *o,
   return rc;
 }
 
-int nckwrp(FILE *f, const ncalg *a, const uint8_t *pw, size_t pwn,
+int nckdf(const char *cmd, const char *s, int *kdf) {
+  *kdf = NQPWA2;
+  if (s == NULL || strcmp(s, "argon2id") == 0) return NCOK;
+  if (strcmp(s, "pbkdf2") == 0) {
+    *kdf = NQPWPB;
+    return NCOK;
+  }
+  ncmsg(cmd, "--kdf %s: give argon2id or pbkdf2", ncesc(s));
+  return NCUSE;
+}
+
+int nckwrp(FILE *f, const ncalg *a, int kdf, const uint8_t *pw, size_t pwn,
            const uint8_t *b, size_t n) {
   char ad[96];
   size_t an = adof(a, ad, sizeof ad), on = 0;
@@ -325,8 +336,8 @@ int nckwrp(FILE *f, const ncalg *a, const uint8_t *pw, size_t pwn,
   int rc;
   if (e == NULL)
     return NQEMEM;
-  rc = nqpwenc(pw, pwn, (const uint8_t *)ad, an, 0, 0, 0, b, n, e,
-               n + NQPWOVH, &on);
+  rc = nqpwenc2(kdf, pw, pwn, (const uint8_t *)ad, an, 0, 0, 0, b, n, e,
+                n + NQPWOVH, &on);
   if (rc == NQOK)
     rc = nckwr(f, a, 1, e, on);
   ncfree(e, n + NQPWOVH, 1);

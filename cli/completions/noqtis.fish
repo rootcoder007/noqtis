@@ -19,6 +19,7 @@ complete -c noqtis -n "__fish_seen_subcommand_from passwd" -s k -l key -r -F -d 
 complete -c noqtis -n "__fish_seen_subcommand_from passwd rotate" -l new-pass-fd -x -d 'read the new passphrase from descriptor'
 complete -c noqtis -n "__fish_seen_subcommand_from passwd rotate" -l new-pass-env -x -d 'read the new passphrase from variable'
 complete -c noqtis -n "__fish_seen_subcommand_from passwd" -l no-pass -d 'keep the key under no passphrase'
+complete -c noqtis -n "__fish_seen_subcommand_from keygen passwd" -l kdf -x -a "argon2id pbkdf2" -d 'how the passphrase protects the key'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a box -d 'seal a file to an ML-KEM key'
 complete -c noqtis -n "not __fish_seen_subcommand_from $cmds" -a unbox -d 'open a boxed file'
 complete -c noqtis -n "__fish_seen_subcommand_from box" -l chunk -x -d 'chunk size in bytes'

@@ -38,7 +38,8 @@ static int nchelp(int argc, char **argv);
 static const nccmd cmds[] = {
   {"keygen", nckeygen, "make a key pair",
    "usage: noqtis keygen -a <alg> -o <key> [--seed <hex|file>]\n"
-   "                     [--pass-fd <n> | --pass-env <name>] [--force]\n"
+   "                     [--pass-fd <n> | --pass-env <name>\n"
+   "                      [--kdf argon2id|pbkdf2]] [--force]\n"
    "  Writes the secret key to <key> (owner-only) and the public key to\n"
    "  <key>.pub. <alg> is a signature or KEM name from `noqtis algs`.\n"
    "  --seed  deterministic key generation from the standard's seed\n"
@@ -47,18 +48,23 @@ static const nccmd cmds[] = {
    "          (Argon2id, 64 MiB, 3 passes), read from descriptor <n> up\n"
    "          to a newline, or from the variable named <name>; never\n"
    "          from the command line\n"
+   "  --kdf   how the passphrase becomes the key's key: argon2id (the\n"
+   "          default) or pbkdf2 (PBKDF2-HMAC-SHA-256, 600000 iterations,\n"
+   "          for places whose rules ask for it); reading needs nothing\n"
    "  --force replace existing files\n"},
   {"passwd", ncpasswd, "change or remove a secret key's passphrase",
    "usage: noqtis passwd -k <key> [--pass-fd <n> | --pass-env <name>]\n"
    "                     (--new-pass-fd <n> | --new-pass-env <name> |\n"
-   "                      --no-pass)\n"
+   "                      --no-pass) [--kdf argon2id|pbkdf2]\n"
    "  Writes the secret key in <key> again, under the new passphrase\n"
    "  (Argon2id, 64 MiB, 3 passes) or, with --no-pass, under none. The\n"
    "  key itself and <key>.pub do not change.\n"
    "  --pass-fd, --pass-env  the passphrase <key> is under now\n"
    "  --new-pass-fd, --new-pass-env  the new one, read from descriptor\n"
    "          <n> up to a newline, or from the variable named <name>;\n"
-   "          never from the command line\n"},
+   "          never from the command line\n"
+   "  --kdf   how the new passphrase becomes the key's key: argon2id\n"
+   "          (the default) or pbkdf2, as for keygen\n"},
   {"sign", ncsign, "sign a file",
    "usage: noqtis sign -k <key> [-o <sig>] [-a] [-c <ctx>] [-d]\n"
    "                   [--ph <hash>] [--pass-fd <n> | --pass-env <name>]\n"

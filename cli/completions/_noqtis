@@ -21,6 +21,7 @@ _noqtis_cmd() {
         '--seed[seed as hex or a seed file]:seed:_files' \
         '--pass-fd=[read the passphrase from descriptor]:fd:' \
         '--pass-env=[read the passphrase from variable]:name:_parameters' \
+        '--kdf=[how the passphrase protects the key]:kdf:(argon2id pbkdf2)' \
         '(-f --force)'{-f,--force}'[replace existing files]' ;;
     keys)
       _arguments \
@@ -116,7 +117,8 @@ _noqtis_cmd() {
         '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '--new-pass-fd=[read the new passphrase from descriptor]:fd:' \
         '--new-pass-env=[read the new passphrase from variable]:name:_parameters' \
-        '--no-pass[keep the key under no passphrase]' ;;
+        '--no-pass[keep the key under no passphrase]' \
+        '--kdf=[how the new passphrase protects the key]:kdf:(argon2id pbkdf2)' ;;
     sign)
       _arguments \
         '(-k --key)'{-k,--key=}'[secret key]:key:_files' \
