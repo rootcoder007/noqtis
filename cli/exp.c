@@ -389,9 +389,14 @@ static int bagin(const char *dir, const char *bag, const cinfo *ci) {
   const char *p, *tags[5] = {"bagit.txt", "bag-info.txt",
                              "manifest-sha256.txt", "noqtis.json",
                              "noqtis.sig"};
-  time_t now = (time_t)ncnow();
-  struct tm gt, *g = &gt;
+  struct tm g;
   int rc = NCUSE;
+  /* the date first: a SOURCE_DATE_EPOCH this time_t cannot hold is
+   * refused, not written wrapped */
+  if (ncgmtime(ncnow(), &g) != NCOK) {
+    ncmsg("export", "%s", NCSDETT);
+    return NCUSE;
+  }
   {
     tbuf d;
     int ok;
@@ -417,12 +422,8 @@ static int bagin(const char *dir, const char *bag, const cinfo *ci) {
     bpath(&man, p);
     tstr(&man, "\n");
   }
-  if (ncgmtime(now, &gt) != NCOK) g = NULL;
-  if (g != NULL)
-    snprintf(day, sizeof day, "%04d-%02d-%02d", g->tm_year + 1900,
-             g->tm_mon + 1, g->tm_mday);
-  else
-    memcpy(day, "1970-01-01", 11);
+  snprintf(day, sizeof day, "%04d-%02d-%02d", g.tm_year + 1900,
+           g.tm_mon + 1, g.tm_mday);
   snprintf(line, sizeof line, "Bagging-Date: %s\nPayload-Oxum: %llu.%lu\n",
            day, ci->bytes, (unsigned long)ci->nfiles);
   tstr(&info, line);

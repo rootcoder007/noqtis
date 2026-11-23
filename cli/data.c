@@ -87,8 +87,10 @@ static int optime(const char *v, char out[21]) {
       ncmsg(NULL, "%s", NCSDEBAD);
       return NCUSE;
     }
-    if (ncgmtime((time_t)t, &tm) != NCOK)
+    if (ncgmtime(t, &tm) != NCOK) {
+      ncmsg(NULL, "%s", NCSDETT);
       return NCUSE;
+    }
     strftime(out, 21, "%Y-%m-%dT%H:%M:%SZ", &tm);
     return NCOK;
   }

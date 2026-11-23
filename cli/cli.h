@@ -217,13 +217,16 @@ int ncexist(const char *path);
 /* 1 when path names a regular file (after links). */
 int ncisreg(const char *path);
 /* The UTC calendar time of t into *tm (gmtime_r, gmtime_s on Windows;
- * gmtime itself is not thread-safe). NCOK or NCUSE. */
-int ncgmtime(time_t t, struct tm *tm);
+ * gmtime itself is not thread-safe). NCOK, or NCUSE, also for a t this
+ * system's time_t does not hold (with 32 bits, past January 2038). */
+int ncgmtime(int64_t t, struct tm *tm);
 /* SOURCE_DATE_EPOCH when set, else the clock, in seconds; -1 when
  * SOURCE_DATE_EPOCH is not a plain decimal number of seconds up to the
  * end of the year 9999 (the caller says so, with NCSDEBAD) */
 int64_t ncnow(void);
 #define NCSDEBAD "SOURCE_DATE_EPOCH is not a number of seconds up to the year 9999"
+/* the clock always fits time_t; SOURCE_DATE_EPOCH may not */
+#define NCSDETT "SOURCE_DATE_EPOCH is past what this system's time_t holds (with 32 bits, January 2038)"
 /* Closes f; for a file from ncopen, gives it its name when whole, and
  * removes it when bad or when the close or the rename fails (any other
  * f: removes path then). 0 on success. */

@@ -76,9 +76,9 @@ static void show(const nqx5f *f) {
   nchexe(f->fp, 32, hx);
   hx[64] = '\0';
   nb[0] = na[0] = '\0';
-  if (ncgmtime((time_t)f->nb, &t) == NCOK)
+  if (ncgmtime(f->nb, &t) == NCOK)
     strftime(nb, sizeof nb, "%Y-%m-%dT%H:%M:%SZ", &t);
-  if (ncgmtime((time_t)f->na, &t) == NCOK)
+  if (ncgmtime(f->na, &t) == NCOK)
     strftime(na, sizeof na, "%Y-%m-%dT%H:%M:%SZ", &t);
   printf("name         %s\n", ncesc(f->name));
   printf("email        %s\n", ncesc(f->email));

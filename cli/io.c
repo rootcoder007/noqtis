@@ -95,11 +95,14 @@ FILE *ncfopen(const char *path, const char *mode) {
 #endif
 }
 
-int ncgmtime(time_t t, struct tm *tm) {
+int ncgmtime(int64_t t, struct tm *tm) {
+  time_t v = (time_t)t;
+  if ((int64_t)v != t)
+    return NCUSE;
 #ifdef _WIN32
-  return gmtime_s(tm, &t) == 0 ? NCOK : NCUSE;
+  return gmtime_s(tm, &v) == 0 ? NCOK : NCUSE;
 #else
-  return gmtime_r(&t, tm) != NULL ? NCOK : NCUSE;
+  return gmtime_r(&v, tm) != NULL ? NCOK : NCUSE;
 #endif
 }
 

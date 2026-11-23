@@ -147,7 +147,7 @@ static void now(char out[21]) {
   struct tm tm;
   int64_t t = ncnow();
   out[0] = '\0';
-  if (t >= 0 && ncgmtime((time_t)t, &tm) == NCOK)
+  if (t >= 0 && ncgmtime(t, &tm) == NCOK)
     strftime(out, 21, "%Y-%m-%dT%H:%M:%SZ", &tm);
 }
 

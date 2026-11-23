@@ -97,7 +97,7 @@ static int wrout(const char *out, int kind, const uint8_t *b, size_t n,
 static void stamp(int64_t at, char *o, size_t cap) {
   struct tm g;
   o[0] = '\0';
-  if (ncgmtime((time_t)at, &g) == NCOK)
+  if (ncgmtime(at, &g) == NCOK)
     strftime(o, cap, "%Y-%m-%dT%H:%M:%SZ", &g);
 }
 
