@@ -42,6 +42,9 @@ so neither the type nor the payload can be changed or confused. The
 envelope is canonical JSON with \code{payload} (base64), \code{payloadType} and
 one signature whose \code{keyid} is the hex SHA-256 of \code{pk}. The signature
 is checked under \code{pk} before the envelope is returned.
+
+They call the library's \code{nqdsse()} and \code{nqdssevrfy()} (nqdsse(3)); the
+reader takes only padded standard base64.
 }
 \section{Errors}{
 

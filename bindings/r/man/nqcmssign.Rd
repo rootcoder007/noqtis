@@ -78,6 +78,10 @@ an empty line, the body) and write an S/MIME message.
 \details{
 Verification trusts a signer only when its certificate is one of
 \code{anchors}, byte for byte.
+
+They call the library's \code{nqcmssign()}, \code{nqcmsvrfy()}, \code{nqcmsenc()} and
+\code{nqcmsdec()}, and for S/MIME \code{nqsmsign()}, \code{nqsmvrfy()}, \code{nqsmenc()}
+and \code{nqsmdec()} (nqcmssign(3), nqsmsign(3)).
 }
 \examples{
 k <- nqkeygen("ML-DSA-44")

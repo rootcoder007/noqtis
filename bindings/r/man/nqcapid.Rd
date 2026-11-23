@@ -39,6 +39,9 @@ against the files.
 
 The id is the same for any copy of the capsule, wherever it is kept,
 and changes when the folder is sealed again.
+
+They call the library's \code{nqcapid()}, \code{nqfiles()} and \code{nqprove()};
+nqprove(3) gives the tree and the proof in full.
 }
 \section{Errors}{
 

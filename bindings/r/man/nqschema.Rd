@@ -38,6 +38,9 @@ the data record instead. \code{nqschk()} checks the files against the
 schemas the record pins: header, types, missing values, ranges, sets,
 row counts and rules (add rules with \code{\link[=nqdput]{nqdput()}}).
 }
+\details{
+They call libnqd's \code{nqdinfer()} and \code{nqdschk()} (nqdinfer(3)).
+}
 \examples{
 d <- file.path(tempdir(), "sch")
 dir.create(d)

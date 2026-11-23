@@ -112,7 +112,7 @@ signature does not verify. \code{nqpgparmor()}: one string.
 }
 \description{
 OpenPGP (RFC 9580) in its version 6 forms, with Ed25519 and X25519 of
-that RFC and the post-quantum algorithms of draft-ietf-openpgp-pqc.
+that RFC and the post-quantum algorithms of RFC 9980.
 \code{nqpgpkeygen()} makes a key; \code{nqpgpinfo()} reads one; \code{nqpgpsign()}
 and \code{nqpgpverify()} sign and check; \code{nqpgpencrypt()} and
 \code{nqpgpdecrypt()} encrypt and open; \code{nqpgparmor()} and
@@ -128,6 +128,11 @@ take the armored text.
 
 Versions 3 and 4, RSA, CFB encryption and compressed data are not
 supported, and are reported as errors.
+
+They call the library's \code{nqpgpgen()}, \code{nqpgpinfo()}, \code{nqpgpsign()},
+\code{nqpgpvrfy()}, \code{nqpgpenc()}, \code{nqpgpdec()}, \code{nqpgparm()} and
+\code{nqpgpdearm()} (nqpgpgen(3), which gives the key encapsulations in
+full).
 }
 \examples{
 k <- nqpgpkeygen("Ada Example <ada@example.org>", "ed25519")

@@ -17,7 +17,7 @@ nqdecap(sk, ct, alg)
 
 \item{seed}{\code{NULL} (the default) for fresh randomness, or the standard's
 encapsulation seed as a raw vector (m, 32 bytes, for ML-KEM; m and
-salt for HQC), for test vectors.}
+salt, 32, 40 or 48 bytes, for HQC-128, -192, -256), for test vectors.}
 
 \item{sk}{Secret key, a raw vector.}
 
@@ -36,8 +36,17 @@ from the ciphertext with the secret key.
 The holder of the public key sends nothing; whoever wants to share a
 secret with them calls \code{nqencap()}, sends \code{ct}, and keeps \code{ss}. The
 key holder's \code{nqdecap()} gives the same \code{ss}. The shared secret (32
-bytes for ML-KEM, 64 for HQC) is meant as key material for a key
+bytes for ML-KEM and for HQC) is meant as key material for a key
 derivation or a symmetric cipher, not as text.
+
+\code{nqencap()} calls the library's \code{nqenc()} (\code{nqencd()} with \code{seed}),
+\code{nqdecap()} its \code{nqdec()}. The sizes in bytes (public key, secret key,
+ciphertext): ML-KEM-512 800, 1632, 768; ML-KEM-768 1184, 2400, 1088;
+ML-KEM-1024 1568, 3168, 1568; HQC-128 2241, 32, 4433; HQC-192 4514,
+32, 8978; HQC-256 7237, 32, 14421. HQC follows its specification
+version 5.1 of 2026-11-09, whose secret key is its 32-byte seed; keys
+and ciphertexts of version 5.0 (noqtis before 0.3.0) do not
+interoperate with these, and a 5.0 secret key is refused.
 
 Decapsulation uses implicit rejection, as FIPS 203 and HQC require: a
 changed ciphertext gives an unrelated pseudorandom secret, not an error,
@@ -49,7 +58,10 @@ HQC decapsulation are masked against power analysis.
 
 An unknown algorithm, a key, ciphertext or seed of the wrong length;
 for ML-KEM, a public key that fails the input check of FIPS 203
-(section 7.2).
+(section 7.2) or a secret key whose stored hash of its public key does
+not match (section 7.3); for HQC, a public key whose unused top bits
+are not zero or a secret key that is not 32 bytes; the random
+source failing (both decapsulations draw fresh mask shares).
 }
 
 \examples{
@@ -70,8 +82,9 @@ National Institute of Standards and Technology (2024).
 \emph{Module-Lattice-Based Key-Encapsulation Mechanism Standard}, FIPS 203.
 \doi{10.6028/NIST.FIPS.203}
 
-Aguilar Melchor, C. et al. (2025). \emph{Hamming Quasi-Cyclic (HQC)},
-specification version 5.0.0 of 2025-08-22.
+Gaborit, P., Aguilar-Melchor, C., Aragon, N. et al. (2025).
+\emph{Hamming Quasi-Cyclic (HQC)}, specification version 5.1 of
+2026-11-09. \url{https://pqc-hqc.org/}
 }
 \seealso{
 \code{\link[=nqkeygen]{nqkeygen()}} makes the key pairs; \code{\link[=nqhash]{nqhash()}} can derive keys

@@ -62,6 +62,10 @@ bytes may be taken for it. \code{nqdfield()} reads one field of an element.
 Socrata, ArcGIS or the Wayback Machine), \code{nqdreply()} reads the
 portal's reply to it, and \code{nqdwayback()} turns the address of a Wayback
 Machine copy into the address of its raw bytes.
+
+They call libnqd's \code{nqdaddr()}, \code{nqdvrfy()}, \code{nqdfld()}, \code{nqdrslv()},
+\code{nqdrsp()} and \code{nqdwb()} (nqdaddr(3), which also lists the hosts a
+reply may not name).
 }
 \examples{
 rs <- '{"base":"https://data.example.org","id":"abcd-1234","kind":"socrata"}'

@@ -58,8 +58,9 @@ deterministic signature instead (all-zero randomness for ML-DSA and
 SLH-DSA, RFC 8032's own nonce for Ed25519), the same bytes every time,
 for reproducible output and test vectors.
 
-Every signature is verified under the public key held in the secret
-key before it is returned. A signature that fails that check was made
+Every signature is verified under the secret key's own public key
+(held in it, or for ML-DSA computed from it) before it is returned.
+A signature that fails that check was made
 while the computation was disturbed (a voltage or clock glitch, a
 flipped memory bit) or with a damaged key; such a signature can give
 the key away, so it is never returned and \code{nqsign()} signals an error.
@@ -69,7 +70,13 @@ context verifies only with the same one, which keeps signatures made
 for one purpose from being accepted for another. \code{ph} selects the
 pre-hash variants (HashML-DSA, HashSLH-DSA), which sign the hash of
 \code{msg}; they verify only as pre-hash signatures with the same hash.
-Ed25519 takes neither a context nor a pre-hash in this interface.
+For Ed25519 a context gives Ed25519ctx and \code{ph = "sha512"} Ed25519ph
+(RFC 8032 section 5.1; no other hash); a hybrid signs both parts under
+\code{"noqtis-hybrid:"} followed by the context, so neither part passes as
+a plain signature.
+
+\code{nqsign()} calls the library's \code{nqsign()} (\code{nqsignd()} when \code{rnd} is
+given or \code{det = TRUE}), \code{nqverify()} its \code{nqvrfy()}.
 }
 \section{Errors}{
 

@@ -48,6 +48,11 @@ and removed. \code{nqchain()} checks an append-only chain of capsules,
 oldest first: each sealed in format 2 with the one before as its only
 input, all by the first one's key.
 }
+\details{
+They call libnqd's \code{nqdpack()}, \code{nqdunpack()} and \code{nqdchain()}
+(nqdpack(3), nqdchain(3), which give the bundle's layout and the
+chain's rules).
+}
 \section{Errors}{
 
 A bundle that is cut, out of order or names a path a capsule cannot

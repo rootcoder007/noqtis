@@ -58,6 +58,11 @@ writes how to cite the data, from the record's \code{"cite"}. \code{nqdreport()}
 checks the capsule and its record and writes a report of both, as
 \verb{noqtis report} does.
 }
+\details{
+They call libnqd's \code{nqdcommit()}, \code{nqdreveal()}, \code{nqdcite()} and
+\code{nqdrpt()}; the commitment is SHA3-256("noqtis-commit-1" || 0x00 || the
+salt's length as 8 bytes big-endian || salt || content) (nqdcommit(3)).
+}
 \section{Errors}{
 
 A record without \code{"cite"} (\code{nqdcite()}), a folder with neither a seal

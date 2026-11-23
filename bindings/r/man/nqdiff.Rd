@@ -20,6 +20,9 @@ records: sources, schemas, summaries (counts, medians, PSI between
 them), environment, steps, checks, commitments and citation. Nothing
 is checked: run \code{\link[=nqcheck]{nqcheck()}} and \code{\link[=nqdcheck]{nqdcheck()}} first.
 }
+\details{
+It calls libnqd's \code{nqddiff()} (nqddiff(3)).
+}
 \examples{
 a <- file.path(tempdir(), "da")
 b <- file.path(tempdir(), "db")

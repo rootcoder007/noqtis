@@ -70,6 +70,10 @@ name), \code{"steps"}, \code{"commits"} (appended), or sets \code{"env"} or
 or name \code{key}, or the whole member. \code{nqdcheck()} checks the record
 and every file it lists: SHA-256 and size of each source, each
 schema, and the checks recorded as failed.
+
+They call libnqd's \code{nqdnew()}, \code{nqdload()}, \code{nqdput()}, \code{nqdset()},
+\code{nqddel()}, \code{nqdsrc()}, \code{nqdsave()} and \code{nqdchk()} (nqdnew(3),
+nqdchk(3)).
 }
 \examples{
 d <- file.path(tempdir(), "cap")

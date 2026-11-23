@@ -28,6 +28,10 @@ whether it has a timestamp, and its meta. \code{nqsealwhy()} says why
 \code{\link[=nqseal]{nqseal()}} refused a folder: the first thing in it a capsule cannot
 hold.
 }
+\details{
+They call the library's \code{nqinsp()} and \code{nqsealwhy()} (nqinsp(3),
+nqseal(3)).
+}
 \examples{
 d <- file.path(tempdir(), "insp")
 dir.create(d)

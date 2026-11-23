@@ -48,6 +48,9 @@ A key that expires is treated the same from its time on; until then
 its seals pass as they do without the statement.
 Both signatures of a rotation are checked before it is returned. Both
 algorithms must be post-quantum: Ed25519 alone is refused.
+
+They call the library's \code{nqkstmt()}, and \code{nqkexp()} for \code{nqexpire()};
+nqkstmt(3) gives the statement and its signatures in full.
 }
 \section{Errors}{
 

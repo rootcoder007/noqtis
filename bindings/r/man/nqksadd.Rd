@@ -100,6 +100,11 @@ A key is valid when its owner is trusted \code{"ultimate"} (the store
 owner's own keys), or when one valid key trusted \code{"full"} certified
 it, or three trusted \code{"marginal"}. The store is a plain folder that
 nothing signs: keep it where only you can write.
+
+They call the library's \code{nqksadd()}, \code{nqkslist()}, \code{nqksget()},
+\code{nqkscert()}, \code{nqkscput()}, \code{nqkstrust()}, \code{nqksdel()}, \code{nqksexp()},
+\code{nqksimp()} and \code{nqksurl()} (nqksadd(3), which gives the certification
+and the rules of validity in full).
 }
 \examples{
 d <- file.path(tempdir(), "nqkeys")

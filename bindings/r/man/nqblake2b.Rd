@@ -46,7 +46,9 @@ for Argon2id.}
 password and the salt, \code{t} passes over \code{m} KiB of memory in \code{p}
 lanes, with an optional secret key and associated data. \code{nqcteq()}
 compares two raw vectors in time that depends only on their length;
-compare MACs and tags with it.
+compare MACs and tags with it. They call the library's \code{nqb2b()},
+\code{nqa2id()} and \code{nqcteq()}; nqb2b(3) and nqa2id(3) give the
+constructions in full.
 }
 \section{Errors}{
 

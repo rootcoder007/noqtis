@@ -63,6 +63,9 @@ The self-signed certificate is a certification authority of path
 length 0, so that it can issue the certificate of the holder's ML-KEM
 key. Certificates are DER; \code{\link[=nqarmor]{nqarmor()}} with the label \code{"CERTIFICATE"}
 makes the PEM form.
+
+They call the library's \code{nqx5self()}, \code{nqx5kem()} and \code{nqx5info()}
+(nqx5self(3)).
 }
 \examples{
 k <- nqkeygen("ML-DSA-44")

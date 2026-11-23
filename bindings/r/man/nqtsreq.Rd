@@ -46,6 +46,11 @@ RFC 4998 evidence record (\code{noqtis.ers}), which keeps the seal provable
 after its algorithm or the authority's certificate ages: a renewal with
 the same \code{hash} renews the timestamp, another \code{hash} the hash tree.
 }
+\details{
+They call the library's \code{nqtsreq()} and \code{nqtsput()}, \code{nqersreq()} and
+\code{nqersput()} (nqtsput(3), nqersput(3), which give the request and the
+imprints in full).
+}
 \section{Errors}{
 
 A reply that does not check (with what failed), a folder that is not

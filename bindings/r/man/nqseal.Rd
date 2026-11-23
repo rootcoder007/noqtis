@@ -112,6 +112,12 @@ The library makes no network requests: an RFC 3161 timestamp, or an
 RFC 4998 evidence record, is added to a seal by the command-line tool
 (\verb{noqtis timestamp}, \verb{noqtis ers}), and \code{nqcheck()} verifies them when
 \code{anchors} is given.
+
+\code{nqseal()} calls the library's \code{nqseal()}, or \code{nqseal2()} for format 2,
+and \code{nqsealwhy()} to name what in a folder cannot be sealed;
+\code{nqcheck()} calls \code{nqchkx()}, or \code{nqchkp()} for a proof. The manifest
+and seal are spelled out in nqseal(3), the checks and their rows in
+nqchk(3) and nqrep(3).
 }
 \section{Errors}{
 

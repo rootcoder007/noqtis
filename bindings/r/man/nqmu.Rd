@@ -48,7 +48,11 @@ for a message under a public key, as \code{\link[=nqsign]{nqsign()}} computes it
 large message can be hashed apart from where the secret key is (a
 token, a hardware module). \code{nqsignmu()} signs that mu: the signature
 is the one \code{\link[=nqsign]{nqsign()}} gives for the message with the same randomness.
-\code{nqverifymu()} checks a signature against a mu.
+\code{nqverifymu()} checks a signature against a mu. In symbols,
+mu = SHAKE256(tr || 0x00 || |ctx| || ctx || M, 64 bytes) with
+tr = SHAKE256(pk, 64 bytes), or with 0x01, the hash's DER object
+identifier and the hash of M in place of 0x00 and M for a pre-hash.
+They call the library's \code{nqsmu()}, \code{nqsignmu()} and \code{nqvrfymu()}.
 }
 \section{Errors}{
 

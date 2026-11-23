@@ -69,7 +69,8 @@ SLH-DSA, pure Ed25519 and the pure hybrids read the message twice and
 cannot stream (an error). A stream is used once: after \code{nqfinish()} it
 is an error to use it again. The secret key is not copied into the
 stream; it is given again to \code{nqfinish()} through the stream, which
-keeps a reference to it.
+keeps a reference to it. They call the library's \code{nqsini()} or
+\code{nqvini()}, \code{nqsupd()}, and \code{nqsfin()} or \code{nqvfin()} (nqsini(3)).
 }
 \section{Errors}{
 

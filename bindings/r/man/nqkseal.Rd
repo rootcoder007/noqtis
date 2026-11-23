@@ -44,7 +44,11 @@ with HKDF-SHA-256); only the holder of the secret key opens it with
 of any size the same way, in chunks, in the format of \verb{noqtis box}
 (noqtis-kstream-1), holding one chunk in memory; \code{nqunbox()} opens it,
 writing each chunk only once its tag verifies, and removes what it
-wrote when one does not.
+wrote when one does not. A sealed message is the message (at most
+1 GiB) plus 22 bytes plus the KEM ciphertext. They call the
+library's \code{nqkseal()} and \code{nqkopen()}, and \code{nqkfeini()} or
+\code{nqkfdini()} with the chunk calls of nqkfeini(3), which give the
+constructions in full.
 }
 \section{Errors}{
 

@@ -78,7 +78,9 @@ messages give away their XOR. It is for protocols that add their own
 authentication; to encrypt, use \code{nqsivenc()} or \code{nqgsivenc()}.
 
 The ciphers run in time that does not depend on the key or the
-message.
+message. They call the library's \code{nqkt()}, \code{nqsivenc()} and
+\code{nqsivdec()}, \code{nqgsivenc()} and \code{nqgsivdec()}, and \code{nqcha20()}; the
+constructions in full are in the manual pages nqkt(3) and nqsivenc(3).
 }
 \examples{
 nqkt("abc")

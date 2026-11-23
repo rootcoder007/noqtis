@@ -67,6 +67,9 @@ public key with \code{pk}. The key must be post-quantum: Ed25519 alone is
 refused. The ORCID iD's check digit (ISO 7064 MOD 11-2) is verified,
 and every field is refused with a control character or invalid UTF-8.
 \verb{noqtis check --card} names the sealer of a capsule from its card.
+
+They call the library's \code{nqcard()} and \code{nqcardvrfy()}; nqcard(3) gives
+the card and its signature in full.
 }
 \section{Errors}{
 

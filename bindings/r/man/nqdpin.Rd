@@ -64,6 +64,10 @@ Benford's first-digit test. The tests and their error are defined in
 the manual page \code{noqtis-drift(1)}; on the test vectors they match R's
 \code{\link[stats:ks.test]{stats::ks.test()}} and \code{\link[stats:chisq.test]{stats::chisq.test()}} to 1e-9.
 }
+\details{
+They call libnqd's \code{nqdstats()}, \code{nqddrift()} and \code{nqddriftat()}
+(nqdstats(3)).
+}
 \examples{
 d <- file.path(tempdir(), "dft")
 dir.create(d)

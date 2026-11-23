@@ -27,6 +27,10 @@ armor is an error.
 line, base64 in lines of 64 characters, and the END line.
 \code{nqdearmor()} reads one armor back.
 }
+\details{
+They call the library's \code{nqarmlen()}, \code{nqarmenc()} and \code{nqarmdec()}
+(nqarmenc(3)).
+}
 \examples{
 a <- nqarmor("NOQTIS TEST", as.raw(1:40))
 cat(a)

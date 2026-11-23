@@ -36,7 +36,8 @@ so the new file never inherits its permissions.}
 \item{ad}{\code{NULL}, or associated data (a raw vector) bound to it.}
 
 \item{m, t, p}{Argon2id's memory in KiB (8192 to 1048576), passes (1 to
-16) and lanes (1 to 16); 0 for the defaults 65536, 3 and 4.}
+16) and lanes (1 to 16), with \code{m} times \code{t} at most 4194304; 0 for
+the defaults 65536, 3 and 4.}
 
 \item{x}{What \code{nqpwenc()} returned, a raw vector.}
 }
@@ -54,10 +55,12 @@ padded base64 (RFC 4648) with LF or CRLF line ends and no other
 character, canonical padding, and exactly the algorithm's key size.
 \code{nqwritekey()} writes one. With \code{pass}, a secret key file is kept
 under a passphrase (noqtis-pwkey-1, as \verb{noqtis keygen --pass-fd}
-writes it: Argon2id of the passphrase, 64 MiB and 3 passes, then
-ChaCha20-Poly1305); \code{nqreadkey()} needs the same \code{pass} to read it.
-\code{nqpwenc()} and \code{nqpwdec()} are that protection on its own, for a key
-kept elsewhere.
+writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
+then ChaCha20-Poly1305); \code{nqreadkey()} needs the same \code{pass} to read
+it. \code{nqpwenc()} and \code{nqpwdec()} are that protection on its own, for a
+key of up to 65536 bytes kept elsewhere; they call the library's
+\code{nqpwenc()} and \code{nqpwdec()}, whose manual page nqpwenc(3) gives the
+construction in full.
 }
 \details{
 A secret key file is created readable by its owner only (on
@@ -96,6 +99,13 @@ unlink(h)
 \references{
 Josefsson, S. (2006). \emph{The Base16, Base32, and Base64 Data Encodings},
 RFC 4648. \doi{10.17487/RFC4648}
+
+Biryukov, A., Dinu, D., Khovratovich, D. and Josefsson, S. (2021).
+\emph{Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work
+Applications}, RFC 9106. \doi{10.17487/RFC9106}
+
+Nir, Y. and Langley, A. (2018). \emph{ChaCha20 and Poly1305 for IETF
+Protocols}. RFC 8439. \doi{10.17487/RFC8439}
 }
 \seealso{
 \code{\link[=nqkeygen]{nqkeygen()}}, \code{\link[=nqsign]{nqsign()}}.

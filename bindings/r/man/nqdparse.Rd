@@ -64,6 +64,12 @@ run of \code{chunk} bytes of a large file, and \code{nqdpiece()} checks a piece
 of that file (the bytes from \code{off} on) against them, reading only the
 piece.
 }
+\details{
+They call libnqd's \code{nqdparse()}, \code{nqdschk()}, \code{nqdsyn()}, \code{nqddcal()},
+\code{nqdchunk()} and \code{nqdpiece()} (nqdnew(3), nqdsyn(3), nqdstats(3),
+nqdchunk(3), which give the synthetic stream and the chunk digests in
+full).
+}
 \section{Errors}{
 
 JSON that is not a record, a file that is not CSV, a schema with no

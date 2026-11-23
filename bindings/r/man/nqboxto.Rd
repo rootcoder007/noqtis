@@ -67,7 +67,9 @@ if the sender had sealed it to someone else.
 \code{nqunboxfrom()} writes the plaintext chunk by chunk, before the
 signature at the end is checked, and removes \code{output} when anything
 fails: \code{output} exists only when every chunk and, with \code{sender}, the
-signature verified.
+signature verified. They call the library's \code{nqkmeini()} and
+\code{nqkmdini()} with the chunk calls of nqkmeini(3), which gives the
+construction in full.
 }
 \section{Errors}{
 
@@ -90,6 +92,17 @@ nqboxto(f, g, list(ann$pk, bob$pk), c("ML-KEM-768", "ML-KEM-1024"),
 nqunboxfrom(g, h, bob$sk, "ML-KEM-1024", sender = me$pk)
 identical(readBin(h, "raw", 5120), readBin(f, "raw", 5120))
 unlink(c(f, g, h))
+}
+\references{
+National Institute of Standards and Technology (2024).
+\emph{Module-Lattice-Based Key-Encapsulation Mechanism Standard}, FIPS 203.
+\doi{10.6028/NIST.FIPS.203}
+
+Nir, Y. and Langley, A. (2018). \emph{ChaCha20 and Poly1305 for IETF
+Protocols}. RFC 8439. \doi{10.17487/RFC8439}
+
+Krawczyk, H. and Eronen, P. (2010). \emph{HMAC-based Extract-and-Expand Key
+Derivation Function (HKDF)}. RFC 5869. \doi{10.17487/RFC5869}
 }
 \seealso{
 Other key encapsulation functions:

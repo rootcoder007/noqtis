@@ -79,6 +79,10 @@ The key types are those of PKCS #11 version 3.2 (ML-DSA, SLH-DSA and
 ML-KEM) and Ed25519. A signature made on a token is the one
 \code{\link[=nqsign]{nqsign()}} makes, and \code{\link[=nqverify]{nqverify()}} checks it; decapsulation needs a
 module of version 3.2.
+
+They call the library's \code{nqp11open()}, \code{nqp11close()}, \code{nqp11toks()},
+\code{nqp11login()}, \code{nqp11keys()}, \code{nqp11pub()}, \code{nqp11sign()},
+\code{nqp11dec()} and \code{nqp11gen()} (nqp11open(3)).
 }
 \examples{
 \dontrun{
