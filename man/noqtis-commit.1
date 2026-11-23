@@ -40,8 +40,11 @@ is read whole, at most 1 GiB.
 A folder without a data record gets one.
 The salt is written before the record names the commitment, so a record
 never names one whose salt was lost.
-Without the salt the digest says nothing of the file; with it anyone
-can check that a file is the one committed to
+The commitment is binding if SHA3-256 is collision resistant (opening
+it to another file needs a collision) and hiding if SHA3-256 with the
+secret 32-byte salt behaves as a pseudorandom function: without the
+salt, a guess of the file cannot be confirmed.
+With the salt anyone can check that a file is the one committed to
 .Pq Xr noqtis-reveal 1 .
 Keep the file and its salt out of the capsule until the reveal, and
 seal the capsule with a timestamp
