@@ -190,7 +190,8 @@ _noqtis_cmd() {
         '--pass-fd=[read the passphrase from descriptor]:fd:' \
         '--pass-env=[read the passphrase from variable]:name:_parameters' \
         '(-m --meta)'{-m,--meta=}'[metadata JSON]:json-file:_files' \
-        '--format=[capsule format]:format:(1 2)' \
+        '--format=[capsule format]:format:(1 2 3)' \
+        '--salt-key=[secret salt key, format 3]:file:_files' \
         '*--input=[an input capsule]:dir:_files -/' \
         '*--tsa[RFC 3161 timestamp authority]:url:_urls' \
         '*--anchor[trusted root certificate]:der-file:_files' \
@@ -246,7 +247,7 @@ _noqtis_cmd() {
         '(-p --pub)'{-p,--pub=}'[its public key]:key.pub:_files' \
         '--pass-fd=[read the passphrase from descriptor]:fd:' \
         '--pass-env=[read the passphrase from variable]:name:_parameters' \
-        '--format=[capsule format]:format:(1 2)' \
+        '--format=[capsule format]:format:(1 2 3)' \
         '*--lock=[a lock file]:file:_files' \
         '(-o --out)'{-o,--out=}'[the bundle file]:file:_files' \
         '(-f --force)'{-f,--force}'[replace the file]' \

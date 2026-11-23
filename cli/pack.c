@@ -187,8 +187,9 @@ static int pbuild(int argc, char **argv) {
   }
   /* what the later steps would refuse is refused here, before the
    * record is rewritten: a refused build leaves the folder as it was */
-  if (fv != NULL && strcmp(fv, "1") != 0 && strcmp(fv, "2") != 0) {
-    ncmsg("pack build", "--format %s: give 1 or 2", fv);
+  if (fv != NULL && strcmp(fv, "1") != 0 && strcmp(fv, "2") != 0 &&
+      strcmp(fv, "3") != 0) {
+    ncmsg("pack build", "--format %s: give 1, 2 or 3", fv);
     return NCUSE;
   }
   if (out != NULL && !force && ncexist(out))

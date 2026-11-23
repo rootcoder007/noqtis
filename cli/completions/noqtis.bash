@@ -39,7 +39,7 @@ _noqtis() {
       return ;;
     --tsa | -c | --ctx | --format | --at | --reason | --as | --name | \
       --orcid | --email | --url | --affil)
-      [ "$prev" = --format ] && COMPREPLY=($(compgen -W "1 2" -- "$cur"))
+      [ "$prev" = --format ] && COMPREPLY=($(compgen -W "1 2 3" -- "$cur"))
       [ "$prev" = --as ] &&
         COMPREPLY=($(compgen -W "intoto dsse rocrate bagit bundle" -- "$cur"))
       return ;;
@@ -78,7 +78,7 @@ _noqtis() {
     unbox) opts="-k --key -o --out -c --ctx -s --sender --any-sender --pass-fd --pass-env -f --force" ;;
     dec) opts="-k --key -o --out --stdout --pass-fd --pass-env -f --force" ;;
     hash) opts="-a --alg -c --check" ;;
-    seal) opts="-k --key -p --pub --pass-fd --pass-env -m --meta --format --input
+    seal) opts="-k --key -p --pub --pass-fd --pass-env -m --meta --format --salt-key --input
       --tsa --anchor -r --recursive --token --module --slot --label --id
       --pin-fd --pin-env" ;;
     check) opts="-p --pub -j --json --anchor --only --lineage --proof

@@ -379,7 +379,7 @@ static const nccmd cmds[] = {
    "  (as `noqtis check` with -p and --anchor), each after the first has\n"
    "  exactly one input, the one before it, and every one is sealed by\n"
    "  the same key. The last row is the chain's head: the last link's id.\n"
-   "  Start a chain with `noqtis seal --format 2 <dir>`; add a link with\n"
+   "  Start a chain with `noqtis seal --format 3 <dir>`; add a link with\n"
    "  `noqtis seal --input prev=<last> <new>`.\n"
    "  Exit 0 when the chain checks, 1 when it does not, 2 on a usage\n"
    "  error.\n"},
@@ -409,7 +409,7 @@ static const nccmd cmds[] = {
    "  --pass-fd, --pass-env  the passphrase of a protected <key>\n"},
   {"pack", ncpack, "start, build and check a reproducibility bundle",
    "usage: noqtis pack init [-t|--template plain|r|python] <dir>\n"
-   "       noqtis pack build -k <key> [-p <key.pub>] [--format 1|2]\n"
+   "       noqtis pack build -k <key> [-p <key.pub>] [--format 1|2|3]\n"
    "                         [--pass-fd <n> | --pass-env <name>]\n"
    "                         [--lock <file>]... [-o <file>] [-f]\n"
    "                         [--no-files] <dir>\n"
