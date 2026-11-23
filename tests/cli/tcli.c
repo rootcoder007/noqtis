@@ -2356,6 +2356,30 @@ static void penv(const char *name, const char *v) {
 
 /* secret keys under a passphrase: keygen, sign and dec with --pass-env
  * and --pass-fd, the refusals, and the passphrase never printed */
+/* sets the iteration count t of the PBKDF2 key file p (header bytes 11
+ * to 14, big-endian; bytes 9 and 10 are m's low bytes, 0 under PBKDF2):
+ * base64 characters 12 to 19 of the body are bytes 9 to 14 */
+static void setit(const char *p, unsigned long t) {
+  unsigned char h[6];
+  size_t n = 0;
+  unsigned char *b = rd(p, &n);
+  char *e, *s = b != NULL ? strstr((char *)b, "sec\n") : NULL;
+  if (s == NULL || (size_t)(s - (char *)b) + 24 > n) {
+    fprintf(stderr, "tcli: %s is not a key file\n", p);
+    exit(2);
+  }
+  h[0] = h[1] = 0;
+  h[2] = (unsigned char)(t >> 24);
+  h[3] = (unsigned char)(t >> 16);
+  h[4] = (unsigned char)(t >> 8);
+  h[5] = (unsigned char)t;
+  e = b64(h, 6);
+  memcpy(s + 4 + 12, e, 8);
+  wr(p, b, n);
+  free(e);
+  free(b);
+}
+
 static void tpass(void) {
   static const char *pw = "a long pass phrase 1";
   remove("q.pk");
@@ -2510,6 +2534,22 @@ static void tpass(void) {
        NULL);
   ok(has("q.err", "give argon2id or pbkdf2"), "passwd: an unknown --kdf");
   want(2, "passwd -k q.pb --pass-env NQTPW --no-pass --kdf pbkdf2", NULL);
+  /* an iteration count out of range: refused, naming PBKDF2 */
+  cp("q.pb", "q.pbx");
+  setit("q.pbx", 10000001ul);
+  want(2, "sign -k q.pbx -o q.psig --force --pass-env NQTPW q.m", NULL);
+  ok(has("q.err", "PBKDF2") && has("q.err", "100000 to 10000000") &&
+     !has("q.err", "memory"), "a PBKDF2 count over the range: its message");
+  cp("q.pb", "q.pbx");
+  setit("q.pbx", 99999ul);
+  want(2, "sign -k q.pbx -o q.psig --force --pass-env NQTPW q.m", NULL);
+  ok(has("q.err", "PBKDF2") && has("q.err", "100000 to 10000000") &&
+     !has("q.err", "asks for more"),
+     "a PBKDF2 count under the range: its message");
+  cp("q.pb", "q.pbx");
+  setit("q.pbx", 600000ul);
+  want(0, "sign -k q.pbx -o q.psig --force --pass-env NQTPW q.m", NULL);
+  remove("q.pbx");
   remove("q.pb");
   remove("q.pb.pub");
   remove("q.pb2");

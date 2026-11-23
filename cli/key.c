@@ -248,13 +248,14 @@ static int nckrdp(const char *cmd, const char *path, int sec,
   if (rc == NQOK && sec && i == want + NQPWOVH &&
       memcmp(d, "NQPW", 4) == 0) {
     size_t an = adof(&k->a, ad, sizeof ad), got = 0;
+    int kb = d[5];
     if (pw == NULL) {
       ncfree(d, dn, 1);
       ncmsg(cmd, "%s is protected by a passphrase: give it with --%s-fd "
             "<n> or --%s-env <name>", path, opt, opt);
       return NCUSE;
     }
-    if (kdf != NULL) *kdf = d[5];
+    if (kdf != NULL) *kdf = kb;
     k->b = (uint8_t *)malloc(want);
     rc = k->b == NULL ? NQEMEM
                       : nqpwdec(pw, pwn, (const uint8_t *)ad, an, d, i,
@@ -266,6 +267,10 @@ static int nckrdp(const char *cmd, const char *path, int sec,
       if (rc == NQEVRFY)
         ncmsg(cmd, "%s: wrong passphrase, or the key file was changed",
               path);
+      else if (rc == NQELIM && kb == NQPWPB)
+        ncmsg(cmd, "%s: its PBKDF2 iteration count is outside what noqtis "
+              "allows (%u to %u, with m and p 0); it was not written by "
+              "noqtis keygen", path, NQPWIMIN, NQPWIMAX);
       else if (rc == NQELIM)
         ncmsg(cmd, "%s asks for more memory or passes than noqtis allows "
               "(at most %u MiB, %u passes, %u lanes); it was not written "
