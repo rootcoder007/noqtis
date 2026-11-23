@@ -496,17 +496,21 @@ and the time
 .Cm idcard ,
 .Cm commit ,
 .Cm data add Fl -retrieved Cm now ,
-.Cm src
-and the
+.Cm src ,
+the
 .Cm pgp
-commands write as now: a number of seconds since 1970, up to the end
-of the year 9999.
+commands,
 .Cm rotate
 and
 .Cm revoke
-do not read it: their default
-.Fl -at
-is the clock.
+(their default
+.Fl -at )
+and
+.Cm export Fl -as Cm bagit
+(its Bagging-Date) write as now: a number of seconds since 1970, up to
+the end of the year 9999.
+No check reads it: expiry and certificate validity are judged by the
+system clock.
 .El
 .Sh EXIT STATUS
 For every command (each page gives the details):
