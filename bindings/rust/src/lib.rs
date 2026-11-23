@@ -615,6 +615,32 @@ pub fn argon2id(
     Ok(out)
 }
 
+/// PBKDF2 (RFC 8018): `n` bytes (1 to 1024) of the password and the salt
+/// after `iters` iterations (1 to 100000000) of the HMAC of `alg`
+/// ("SHA-256", "SHA3-512", ...; not SHAKE). It costs an attacker no
+/// memory: where the choice is free, [`argon2id`] is the one to use.
+pub fn pbkdf2(alg: &str, pw: &[u8], salt: &[u8], iters: u32, n: usize) -> Result<Vec<u8>> {
+    let i = hid(alg)?;
+    if !(1..=1024).contains(&n) {
+        return Err(Error::why(-1, "n: 1 to 1024 bytes"));
+    }
+    let mut out = vec![0u8; n];
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe {
+        ffi::nqpbkdf2(
+            i,
+            pw.as_ptr(),
+            pw.len(),
+            salt.as_ptr(),
+            salt.len(),
+            iters,
+            out.as_mut_ptr(),
+            n,
+        )
+    })?;
+    Ok(out)
+}
+
 /// A digest of data given in pieces, as [`hash`] gives it for the whole:
 /// [`update`](Hasher::update) (or `io::Write`) any number of times, then
 /// [`finish`](Hasher::finish); for SHAKE, `finish` may be called again

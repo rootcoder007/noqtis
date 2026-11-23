@@ -273,6 +273,47 @@ fn external_mu() {
 }
 
 #[test]
+fn pbkdf2_and_pwenc2() {
+    // RFC 7914 section 11: "passwd", "salt", 1 iteration, 64 bytes
+    let want = unhex(
+        "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc\
+         49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783",
+    );
+    assert_eq!(
+        noqtis::pbkdf2("SHA-256", b"passwd", b"salt", 1, 64).unwrap(),
+        want
+    );
+    assert_eq!(
+        code(noqtis::pbkdf2("SHA-256", b"passwd", b"salt", 0, 64)),
+        Code::Arg
+    );
+    assert_eq!(code(noqtis::pbkdf2("SHA-256", b"", b"", 1, 0)), Code::Arg);
+    // a key under PBKDF2, with a key file's first line as ad, opens again
+    let (_, sk) = sign::keygen("ML-DSA-44", None).unwrap();
+    let ad = b"noqtis-key-1 ML-DSA-44 sec";
+    let e = keyfile::pwenc2(keyfile::KDF_PBKDF2, b"pass", &sk, ad, 0, 100000, 0).unwrap();
+    assert_eq!(e[5], keyfile::KDF_PBKDF2 as u8);
+    assert_eq!(keyfile::pwdec(b"pass", &e, ad).unwrap(), sk);
+    assert_eq!(code(keyfile::pwdec(b"wrong", &e, ad)), Code::Verify);
+    assert_eq!(
+        code(keyfile::pwenc2(
+            keyfile::KDF_PBKDF2,
+            b"pass",
+            &sk,
+            ad,
+            0,
+            99999,
+            0
+        )),
+        Code::Arg
+    );
+    assert_eq!(
+        code(keyfile::pwenc2(3, b"pass", &sk, ad, 0, 0, 0)),
+        Code::Arg
+    );
+}
+
+#[test]
 fn blake2b_and_argon2id() {
     let Some(v) = kv("b2b/kat.txt") else { return };
     for r in &v {

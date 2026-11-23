@@ -168,6 +168,48 @@ pub fn pwenc(passphrase: &[u8], sk: &[u8], ad: &[u8], m: u32, t: u32, p: u32) ->
     Ok(out)
 }
 
+/// The derivation of [`pwenc`]: Argon2id.
+pub const KDF_ARGON2ID: i32 = 1;
+/// PBKDF2 with HMAC-SHA-256, for places whose rules ask for it.
+pub const KDF_PBKDF2: i32 = 2;
+
+/// [`pwenc`] under the derivation `kdf`: [`KDF_ARGON2ID`] with `m`, `t`
+/// and `p` as there, or [`KDF_PBKDF2`] with `t` the iteration count (0:
+/// 600000; 100000 to 10000000) and `m` and `p` 0. [`pwdec`] reads both.
+pub fn pwenc2(
+    kdf: i32,
+    passphrase: &[u8],
+    sk: &[u8],
+    ad: &[u8],
+    m: u32,
+    t: u32,
+    p: u32,
+) -> Result<Vec<u8>> {
+    let cap = sk.len() + 51;
+    let mut out = vec![0u8; cap];
+    let mut n = 0usize;
+    // SAFETY: the buffers are valid for the lengths passed
+    crate::rc(unsafe {
+        ffi::nqpwenc2(
+            kdf,
+            passphrase.as_ptr(),
+            passphrase.len(),
+            ad.as_ptr(),
+            ad.len(),
+            m,
+            t,
+            p,
+            sk.as_ptr(),
+            sk.len(),
+            out.as_mut_ptr(),
+            cap,
+            &mut n,
+        )
+    })?;
+    out.truncate(n);
+    Ok(out)
+}
+
 /// The key [`pwenc`] protected: [`Code::Verify`](crate::Code) for a wrong
 /// passphrase or `ad`, or any changed byte; [`Code::Limit`](crate::Code)
 /// for parameters over the limits (a file cannot ask for more memory or

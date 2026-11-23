@@ -249,8 +249,8 @@ kem::enbox("ML-KEM-768", &kp, &mut File::open("big.csv").unwrap(),
 `sign::Verifier`, `Hasher`, `kem::Boxer` and `kem::Unboxer` are the
 other streams (`io::Write` where they take bytes); `kem::seal` and
 `kem::open` a message; `sign::mu`, `signmu` and `verifymu` ML-DSA with
-an external mu; `blake2b`, `argon2id`, `cteq` and `wipe` the primitives.
-`cap::sealwhy`, `tsreq`, `tsput`, `ersreq`, `ersput`, `rotate`,
+an external mu; `blake2b`, `argon2id`, `pbkdf2`, `cteq` and `wipe` the
+primitives. `cap::sealwhy`, `tsreq`, `tsput`, `ersreq`, `ersput`, `rotate`,
 `revoke` and the `dsse` module reach the rest of the capsule
 functions; `data::checkschema`, `synth`, `calibrate`, `chunks`,
 `piece`, `commit`, `reveal`, `commitment`, `cite`, `report`, `pack`,

@@ -552,6 +552,31 @@ extern "C" {
         out: *mut u8,
         ol: usize,
     ) -> c_int;
+    pub fn nqpbkdf2(
+        alg: c_int,
+        pw: *const u8,
+        pwl: usize,
+        salt: *const u8,
+        sl: usize,
+        iters: u32,
+        out: *mut u8,
+        ol: usize,
+    ) -> c_int;
+    pub fn nqpwenc2(
+        kdf: c_int,
+        pw: *const u8,
+        pwl: usize,
+        ad: *const u8,
+        al: usize,
+        m: u32,
+        t: u32,
+        p: u32,
+        sk: *const u8,
+        skl: usize,
+        out: *mut u8,
+        cap: usize,
+        outlen: *mut usize,
+    ) -> c_int;
     pub fn nqpwenc(
         pw: *const u8,
         pwl: usize,
