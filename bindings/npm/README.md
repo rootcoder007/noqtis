@@ -207,8 +207,8 @@ for await (const p of kem.box('ML-KEM-768', kemPk, createReadStream('big.csv')))
 
 `sign.verifier`, `hasher`, `kem.sealer` and `kem.opener` are the other
 streams; `kem.seal` and `kem.open` a message; `sign.mu`, `signmu` and
-`verifymu` ML-DSA with an external mu; `blake2b`, `argon2id` and `cteq`
-the primitives. `capsule.inspect`, `sealWhy`, `tsreq`, `tsput`,
+`verifymu` ML-DSA with an external mu; `blake2b`, `argon2id`, `pbkdf2`
+and `cteq` the primitives. `capsule.inspect`, `sealWhy`, `tsreq`, `tsput`,
 `ersreq`, `ersput`, `pack`, `unpack` and `chain` reach the rest of the
 capsule functions (on files in memory, returning what changed);
 `data.key`, `del`, `synth`, `calibrate`, `chunks`, `piece`, `commit`,

@@ -737,6 +737,32 @@ export function argon2id(pw, salt, opts = {}) {
 }
 
 /**
+ * PBKDF2 (RFC 8018): `opts.length` bytes (1 to 1024, default 32) of the
+ * password and the salt after `iters` iterations (1 to 100000000) of the
+ * HMAC of `alg` ('sha256', 'sha3-512', ...; not SHAKE). It costs an
+ * attacker no memory: where the choice is free, argon2id is the one to
+ * use.
+ */
+export function pbkdf2(alg, pw, salt, iters, opts = {}) {
+  const id = halg(alg);
+  const p = bytes(pw, 'pw');
+  const s = bytes(salt, 'salt');
+  const n = opts.length === undefined ? 32 : opts.length;
+  if (!Number.isInteger(n) || n < 1 || n > 1024) {
+    throw new NoqtisError(CODES.EARG, 'length: 1 to 1024 bytes');
+  }
+  if (!Number.isInteger(iters) || iters < 0 || iters > 0xffffffff) {
+    throw new NoqtisError(CODES.EARG, 'an iteration count');
+  }
+  return run((h) => {
+    const o = h.alloc(n);
+    check(M._nqpbkdf2(id, h.put(p), p.length, h.put(s), s.length, iters, o,
+      n));
+    return h.get(o, n);
+  });
+}
+
+/**
  * A digest of data given in pieces, as hash() gives it for the whole:
  * update() any number of times, then digest(); for SHAKE, digest(n) may
  * be called again to squeeze more output.
@@ -2079,6 +2105,24 @@ export const keyfile = Object.freeze({
       k.length, o, cap, n), k.length + 51));
   },
 
+  /** The derivations of pwenc2(): Argon2id (pwenc's), PBKDF2-HMAC-SHA-256. */
+  KDF_ARGON2ID: 1,
+  KDF_PBKDF2: 2,
+
+  /**
+   * pwenc() under the derivation kdf: KDF_ARGON2ID with opts m, t and p as
+   * there, or KDF_PBKDF2 with opts.t the iteration count (0 or absent:
+   * 600000; 100000 to 10000000). pwdec() reads both.
+   */
+  pwenc2(kdf, passphrase, sk, opts = {}) {
+    const pw = bytes(passphrase, 'passphrase');
+    const k = key(sk, 'sk');
+    const ad = opts.ad === undefined ? new Uint8Array(0) : bytes(opts.ad, 'ad');
+    return run((h) => sized(h, (o, cap, n) => M._nqpwenc2(kdf, h.put(pw),
+      pw.length, h.put(ad), ad.length, opts.m || 0, opts.t || 0, opts.p || 0,
+      h.put(k), k.length, o, cap, n), k.length + 51));
+  },
+
   /**
    * The key pwenc() protected: EVRFY for a wrong passphrase or ad, or any
    * changed byte; ELIM for parameters over the limits.
@@ -3382,5 +3426,5 @@ export const keystore = Object.freeze({
 export default {
   init, version, selftest, algs, random, hash, hmac, sign, kem, capsule, dsse,
   idcard, keyfile, data, armor, mail, pgp, keystore, NoqtisError, codes, errmsg, cteq, blake2b, argon2id,
-  hasher, kt128, kt256, chacha20, sivenc, sivdec, gsivenc, gsivdec,
+  pbkdf2, hasher, kt128, kt256, chacha20, sivenc, sivdec, gsivenc, gsivdec,
 };

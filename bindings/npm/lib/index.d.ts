@@ -149,6 +149,9 @@ export function gsivdec(key: Data, nonce: Data, data: Data, ad?: Data): Bytes;
 /** Argon2id (RFC 9106): opts t (3), m KiB (65536), p (4), length (32). */
 export function argon2id(pw: Data, salt: Data, opts?: { t?: number; m?: number;
   p?: number; length?: number; key?: Data; ad?: Data }): Bytes;
+/** PBKDF2 (RFC 8018) on the HMAC of alg: opts length (32). */
+export function pbkdf2(alg: Exclude<HashAlg, 'shake128' | 'shake256'>, pw: Data,
+  salt: Data, iters: number, opts?: { length?: number }): Bytes;
 /** A digest of data given in pieces. */
 export function hasher(alg: HashAlg): Hasher;
 
@@ -359,6 +362,13 @@ export const keyfile: {
     opts?: { passphrase?: Data }): string;
   /** sk under a passphrase (noqtis-pwkey-1). */
   pwenc(passphrase: Data, sk: Bytes,
+    opts?: { ad?: Data; m?: number; t?: number; p?: number }): Bytes;
+  /** Argon2id, the derivation of pwenc(). */
+  readonly KDF_ARGON2ID: 1;
+  /** PBKDF2 with HMAC-SHA-256. */
+  readonly KDF_PBKDF2: 2;
+  /** pwenc() under kdf; with KDF_PBKDF2, t is the iteration count. */
+  pwenc2(kdf: 1 | 2, passphrase: Data, sk: Bytes,
     opts?: { ad?: Data; m?: number; t?: number; p?: number }): Bytes;
   /** The key pwenc() protected; EVRFY for a wrong passphrase. */
   pwdec(passphrase: Data, data: Bytes, opts?: { ad?: Data }): Bytes;

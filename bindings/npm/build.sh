@@ -32,7 +32,7 @@ nqkstmt nqkexp nqdsse nqdssevrfy nqcard nqcardvrfy nqrepn nqrepi nqrepfree
 nqdparse nqdjson nqdrfree nqdput nqdset nqdsrc nqdchk nqdinfer nqdschk
 nqdstats nqddrift nqddriftat nqddiff nqdrepn nqdrepi nqdrepj nqdrepfree nqdaddr nqdvrfy
 nqdfld nqdrslv nqdrsp nqdwb
-nqcteq nqb2b nqa2id nqhini nqhupd nqhfin nqpwenc nqpwdec
+nqcteq nqb2b nqa2id nqhini nqhupd nqhfin nqpwenc nqpwdec nqpbkdf2 nqpwenc2
 nqkt nqcha20 nqsivenc nqsivdec nqgsivenc nqgsivdec
 nqsmu nqsignmu nqvrfymu nqsini nqvini nqsupd nqsfin nqvfin
 nqkseal nqkopen nqkfeini nqkfeupd nqkfefin nqkfdini nqkfdupd nqkfdfin

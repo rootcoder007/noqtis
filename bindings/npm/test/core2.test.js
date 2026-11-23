@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { init, sign, kem, keyfile, hash, hasher, blake2b, argon2id, cteq,
-  algs, codes, NoqtisError } from '../lib/main.js';
+  pbkdf2, algs, codes, NoqtisError } from '../lib/main.js';
 
 await init();
 
@@ -84,6 +84,25 @@ test('passphrase key files: known answers, round trips, failures', () => {
     assert.equal(e.code, codes.EVRFY);
     assert.ok(!/nope|pass/.test(e.message), e.message);
   }
+});
+
+test('PBKDF2 and a key file under it', () => {
+  // RFC 7914 section 11: "passwd", "salt", 1 iteration, 64 bytes
+  assert.deepEqual(pbkdf2('sha256', 'passwd', 'salt', 1, { length: 64 }),
+    hx('55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc' +
+      '49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783'));
+  assert.equal(code(() => pbkdf2('sha256', 'passwd', 'salt', 0)), codes.EARG);
+  const { secretKey } = sign.keygen('ML-DSA-44');
+  const ad = 'noqtis-key-1 ML-DSA-44 sec';
+  const e = keyfile.pwenc2(keyfile.KDF_PBKDF2, 'pass', secretKey,
+    { ad, t: 100000 });
+  assert.equal(e[5], keyfile.KDF_PBKDF2);
+  assert.deepEqual(keyfile.pwdec('pass', e, { ad }), secretKey);
+  const b = Buffer.from(e).toString('base64');
+  const txt = ad + '\n' + (b.match(/.{1,64}/g) || []).join('\n') + '\n';
+  assert.deepEqual(keyfile.decode(txt, { passphrase: 'pass' }).key, secretKey);
+  assert.equal(code(() => keyfile.pwenc2(keyfile.KDF_PBKDF2, 'pass',
+    secretKey, { t: 99999 })), codes.EARG);
 });
 
 test('streaming signatures are the one-call ones', () => {
