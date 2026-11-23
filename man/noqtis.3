@@ -80,9 +80,11 @@ AES-SIV, AES-GCM-SIV and the ChaCha20 stream:
 .Fn nqgsivdec ,
 .Fn nqcha20 .
 .It Xr nqpwenc 3
-A secret key under a passphrase:
+A secret key under a passphrase, and PBKDF2:
 .Fn nqpwenc ,
-.Fn nqpwdec .
+.Fn nqpwenc2 ,
+.Fn nqpwdec ,
+.Fn nqpbkdf2 .
 .It Xr nqkseal 3
 One message sealed to an ML-KEM public key:
 .Fn nqkseal ,
@@ -113,7 +115,10 @@ A store of other people's keys, their certifications and trust:
 .Fn nqkscert ,
 .Fn nqkscput ,
 .Fn nqkstrust ,
-.Fn nqksdel .
+.Fn nqksdel ,
+.Fn nqksexp ,
+.Fn nqksimp ,
+.Fn nqksurl .
 .It Xr nqx5self 3
 X.509 certificates for noqtis keys:
 .Fn nqx5self ,
@@ -147,9 +152,37 @@ ASCII armor, bytes as text and back:
 .Fn nqarmenc ,
 .Fn nqarmdec .
 .It Xr nqseal 3
-Seal a folder.
+Seal a folder, and why a folder cannot be sealed:
+.Fn nqseal ,
+.Fn nqsealwhy .
+.It Xr nqseal2 3
+Seal a format 2 capsule, and a capsule's id:
+.Fn nqseal2 ,
+.Fn nqcapid .
 .It Xr nqchk 3
 Check a capsule.
+.It Xr nqchkx 3
+Check a capsule partially or with its inputs.
+.It Xr nqprove 3
+Prove some files of a capsule, and check such a proof:
+.Fn nqprove ,
+.Fn nqchkp .
+.It Xr nqinsp 3
+Read what a capsule says, without checking it:
+.Fn nqinsp ,
+.Fn nqfiles .
+.It Xr nqkstmt 3
+Key statements, a rotation, a revocation or an expiry:
+.Fn nqkstmt ,
+.Fn nqkexp .
+.It Xr nqcard 3
+Identity cards for signing keys:
+.Fn nqcard ,
+.Fn nqcardvrfy .
+.It Xr nqdsse 3
+DSSE envelopes:
+.Fn nqdsse ,
+.Fn nqdssevrfy .
 .It Xr nqchkt 3
 Check a capsule and its RFC 3161 timestamp.
 .It Xr nqtsput 3
@@ -189,13 +222,42 @@ Error codes and texts,
 .It Xr nqp11open 3
 Keys on a PKCS #11 token:
 .Fn nqp11open ,
+.Fn nqp11close ,
+.Fn nqp11why ,
 .Fn nqp11toks ,
 .Fn nqp11login ,
 .Fn nqp11keys ,
 .Fn nqp11pub ,
 .Fn nqp11sign ,
 .Fn nqp11dec ,
-.Fn nqp11gen .
+.Fn nqp11gen ,
+.Fn nqp11seal .
+.It Xr nqtlnew 3
+A TLS 1.3 client over the caller's transport:
+.Fn nqtlnew ,
+.Fn nqtlct ,
+.Fn nqtlhs ,
+.Fn nqtlwr ,
+.Fn nqtlrd ,
+.Fn nqtlend ,
+.Fn nqtlwhy ,
+.Fn nqtlfree .
+.It Xr nqdnew 3
+The data layer, in
+.In nqd.h
+and libnqd: data records, and from them
+.Xr nqdaddr 3 ,
+.Xr nqdchain 3 ,
+.Xr nqdchk 3 ,
+.Xr nqdchunk 3 ,
+.Xr nqdcommit 3 ,
+.Xr nqddiff 3 ,
+.Xr nqdinfer 3 ,
+.Xr nqdpack 3 ,
+.Xr nqdrpt 3 ,
+.Xr nqdstats 3
+and
+.Xr nqdsyn 3 .
 .El
 .Ss Conventions
 .Bl -bullet
