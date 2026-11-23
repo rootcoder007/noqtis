@@ -472,6 +472,33 @@ and
 are handled.
 .Sh ENVIRONMENT
 .Bl -tag -width NOQTIS_PROGRESS
+.It Ev NOQTIS_PKCS11
+The PKCS #11 module of
+.Cm token
+and
+.Cm seal Fl -token
+when
+.Fl -module
+is not given; see
+.Xr noqtis-token 1 .
+.It Ev NOQTIS_KEYS
+The folder of the key store; see
+.Xr noqtis-keys 1 .
+.It Ev XDG_CONFIG_HOME , Ev HOME , Ev APPDATA
+Where the key store is when
+.Ev NOQTIS_KEYS
+is not set; see
+.Xr noqtis-keys 1 .
+.It Ev SSL_CERT_FILE , Ev NOQTIS_CT_LOGS
+For an
+.Ql https://
+address given to
+.Cm check
+or a TSA of
+.Cm seal :
+the roots to trust in place of the system's, and the Certificate
+Transparency log list; see
+.Xr noqtis-check 1 .
 .It Ev NOQTIS_PROGRESS
 .Cm seal ,
 .Cm check
