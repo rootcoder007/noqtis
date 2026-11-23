@@ -266,6 +266,46 @@ func TestExternalMu(t *testing.T) {
 	}
 }
 
+func TestPBKDF2(t *testing.T) {
+	// RFC 7914 section 11: "passwd", "salt", 1 iteration, 64 bytes
+	want := unhex("55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc" +
+		"49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783")
+	if !bytes.Equal(must(PBKDF2("SHA-256", []byte("passwd"), []byte("salt"), 1, 64)), want) {
+		t.Fatal("pbkdf2")
+	}
+	if _, err := PBKDF2("SHA-256", []byte("passwd"), []byte("salt"), 0, 64); code(err) != -1 {
+		t.Fatal("no iterations", err)
+	}
+	if _, err := PBKDF2("SHA-256", nil, nil, 1, 0); code(err) != -1 {
+		t.Fatal("no output", err)
+	}
+}
+
+func TestPWEnc2(t *testing.T) {
+	// a secret key file under PBKDF2, written by hand as keygen
+	// --kdf pbkdf2 writes it, opens with DecodeKeyPW
+	_, sk := pair(SignKeyGen("ML-DSA-44", nil))
+	a := must(kalg("ML-DSA-44"))
+	pw := []byte("pass")
+	e := must(PWEnc2(KDFPBKDF2, pw, sk, keyad(a), 0, 100000, 0))
+	if e[5] != KDFPBKDF2 {
+		t.Fatal("the KDF byte", e[5])
+	}
+	txt := string(keyad(a)) + "\n" + string(b64e(e)) + "\n"
+	if !bytes.Equal(must(DecodeKeyPW([]byte(txt), pw)).Key, sk) {
+		t.Fatal("round trip")
+	}
+	if _, err := DecodeKeyPW([]byte(txt), []byte("wrong")); code(err) != -3 {
+		t.Fatal("wrong passphrase", err)
+	}
+	if _, err := PWEnc2(KDFPBKDF2, pw, sk, nil, 0, 99999, 0); code(err) != -1 {
+		t.Fatal("too few iterations", err)
+	}
+	if _, err := PWEnc2(3, pw, sk, nil, 0, 0, 0); code(err) != -1 {
+		t.Fatal("another kdf", err)
+	}
+}
+
 func TestBlake2bArgon2id(t *testing.T) {
 	for _, r := range kv(t, "b2b/kat.txt") {
 		h := unhex(r["hash"])

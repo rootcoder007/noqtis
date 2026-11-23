@@ -223,7 +223,7 @@ err = noqtis.Box("ML-KEM-768", kemPK, in, out, nil, 0)
 `NewVerifier`, `NewHasher`, `NewBoxer` and `NewUnboxer` are the other
 streams (`io.Writer`s where they take bytes); `KSeal` and `KOpen` a
 message; `Mu`, `SignMu` and `VerifyMu` ML-DSA with an external mu;
-`Blake2b`, `Argon2id`, `CTEq` and `Wipe` the primitives. `SealWhy`,
+`Blake2b`, `Argon2id`, `PBKDF2`, `CTEq` and `Wipe` the primitives. `SealWhy`,
 `TSReq`, `TSPut`, `ERSReq`, `ERSPut`, `Rotate`, `Revoke`, `DSSE` and
 `DSSEVerify` reach the rest of the capsule functions; `SchemaCheckElem`,
 `Synth`, `Calibrate`, `Chunks`, `Piece`, `Commit`, `Reveal`,

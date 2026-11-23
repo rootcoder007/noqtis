@@ -64,6 +64,26 @@ func Argon2id(pw, salt []byte, c Argon2Cost, n int, key, ad []byte) ([]byte, err
 	return out, nil
 }
 
+// PBKDF2 is n bytes (1 to 1024) of PBKDF2 (RFC 8018) of the password and
+// the salt after iters iterations (1 to 100000000) of the HMAC of alg
+// ("SHA-256", "SHA3-512", ...; not SHAKE). It costs an attacker no
+// memory: where the choice is free, Argon2id is the one to use.
+func PBKDF2(alg string, pw, salt []byte, iters uint32, n int) ([]byte, error) {
+	i, err := hid(alg)
+	if err != nil {
+		return nil, err
+	}
+	if n < 1 || n > 1024 {
+		return nil, why(-1, "n: 1 to 1024 bytes")
+	}
+	out := make([]byte, n)
+	if err := rc(C.nqpbkdf2(C.nqhalg(i), u8(pw), sz(pw), u8(salt), sz(salt), C.uint32_t(iters),
+		u8(out), sz(out))); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // cctx is a context in C memory, wiped and freed by drop or, when it is
 // lost, by the garbage collector.
 type cctx struct {
@@ -152,6 +172,26 @@ func PWEnc(pw, sk, ad []byte, m, t, p uint32) ([]byte, error) {
 	var n C.size_t
 	if err := rc(C.nqpwenc(u8(pw), sz(pw), u8(ad), sz(ad), C.uint32_t(m), C.uint32_t(t), C.uint32_t(p),
 		u8(sk), sz(sk), u8(out), sz(out), &n)); err != nil {
+		return nil, err
+	}
+	return out[:n], nil
+}
+
+// The derivations of PWEnc2: Argon2id, PWEnc's, and PBKDF2 with
+// HMAC-SHA-256, for places whose rules ask for it.
+const (
+	KDFArgon2id = 1
+	KDFPBKDF2   = 2
+)
+
+// PWEnc2 is PWEnc under the derivation kdf: KDFArgon2id with m, t and p
+// as there, or KDFPBKDF2 with t the iteration count (0: 600000; 100000
+// to 10000000) and m and p 0. PWDec reads both.
+func PWEnc2(kdf int, pw, sk, ad []byte, m, t, p uint32) ([]byte, error) {
+	out := make([]byte, len(sk)+51)
+	var n C.size_t
+	if err := rc(C.nqpwenc2(C.int(kdf), u8(pw), sz(pw), u8(ad), sz(ad), C.uint32_t(m), C.uint32_t(t),
+		C.uint32_t(p), u8(sk), sz(sk), u8(out), sz(out), &n)); err != nil {
 		return nil, err
 	}
 	return out[:n], nil
