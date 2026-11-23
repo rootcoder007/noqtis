@@ -66,27 +66,31 @@ read them, with the key file's first line as
 .Fa ad .
 .Pp
 The format, all numbers big-endian:
-.Bl -column "ciphertext of sk" "sklen" -offset indent
+.Bl -column "KDF: 1 Argon2id (version 0x13), 2 PBKDF2-HMAC-SHA-256" "sklen" -offset indent
 .It Sy field Ta Sy bytes
 .It Li NQPW Ta 4
 .It version, 1 Ta 1
-.It KDF, 1: Argon2id 0x13 Ta 1
+.It KDF: 1 Argon2id (version 0x13), 2 PBKDF2-HMAC-SHA-256 Ta 1
 .It AEAD, 1: ChaCha20-Poly1305 Ta 1
-.It Fa m , No KiB Ta 4
-.It Fa t , No passes Ta 4
-.It Fa p , No lanes Ta 4
+.It Fa m , No KiB (0 under PBKDF2) Ta 4
+.It Fa t , No passes, or PBKDF2 iterations Ta 4
+.It Fa p , No lanes (0 under PBKDF2) Ta 4
 .It salt, random Ta 16
 .It ciphertext of Fa sk Ta Fa sklen
 .It tag Ta 16
 .El
 .Pp
-Argon2id
+The KDF of the passphrase and the salt, Argon2id
 .Pq Xr nqa2id 3
-of the passphrase and the salt with
+with
 .Fa t ,
 .Fa m
 and
-.Fa p
+.Fa p ,
+or PBKDF2 with
+.Fa t
+iterations
+.Pq see Fn nqpwenc2 ,
 gives 44 bytes: the AEAD's key and its nonce.
 The associated data is the 35-byte header followed by
 .Fa ad
@@ -112,7 +116,11 @@ are 0 for the defaults
 (3) and
 .Dv NQPWP
 (4).
-Both functions enforce the same limits: memory
+.Fn nqpwenc ,
+.Fn nqpwenc2
+and
+.Fn nqpwdec
+enforce the same Argon2id limits: memory
 .Dv NQPWMMIN
 (8 MiB) to
 .Dv NQPWMMAX
@@ -149,19 +157,22 @@ In symbols, with
 .Sy ||
 concatenation, BE32 a number in 4 bytes most significant first, S the
 16-byte salt, P the passphrase, A the caller's
-.Fa ad
-and SK the secret key:
+.Fa ad ,
+SK the secret key and kdf the KDF byte:
 .Bd -literal -offset indent
-H   = "NQPW" || 0x01 || 0x01 || 0x01
+H   = "NQPW" || 0x01 || kdf || 0x01
       || BE32(m) || BE32(t) || BE32(p) || S       35 bytes
-OKM = Argon2id(P, S, t, m, p, T = 44)
+OKM = Argon2id(P, S, t, m, p, T = 44)             if kdf = 1
       (version 0x13, no secret value K, no associated data X)
+OKM = PBKDF2(PRF = HMAC-SHA-256, P, S, c = t, dkLen = 44)
+                                                  if kdf = 2, m = p = 0
 K   = OKM[0..31],  N = OKM[32..43]
 out = H || ChaCha20-Poly1305(K, N, H || A, SK)
 .Ed
 .Pp
 Argon2id is that of RFC 9106 section 3 with t passes over m KiB in p
-lanes and a 44-byte tag; ChaCha20-Poly1305 is that of RFC 8439
+lanes and a 44-byte tag; PBKDF2 is that of RFC 8018 section 5.2 with
+HMAC-SHA-256 as its PRF; ChaCha20-Poly1305 is that of RFC 8439
 section 2.8, with associated data H || A, its output the ciphertext then
 the 16-byte tag.
 A new salt makes a new key and nonce for each call, so the nonce is
@@ -184,9 +195,10 @@ the header's KDF byte is 2,
 is the iteration count (0 for
 .Dv NQPWI ,
 600000; from
-.Dv NQPWIMIN
-to
-.Dv NQPWIMAX ) ,
+.Dv NQPWIMIN ,
+100000, to
+.Dv NQPWIMAX ,
+10000000),
 .Fa m
 and
 .Fa p
@@ -198,28 +210,61 @@ reads both; the KDF byte is in H, so the tag covers it.
 .Fn nqpbkdf2
 is PBKDF2 itself on the HMAC of
 .Fa alg
-.Pq Xr nqhash 3 :
+.Pq Xr nqhash 3 ,
+a SHA-2 or SHA-3 hash
+.Pf ( Dv NQS224
+to
+.Dv NQS3512 ;
+not SHAKE):
 .Fa outlen
 bytes (1 to
-.Dv NQPBOMAX )
-after
+.Dv NQPBOMAX ,
+1024) after
 .Fa iters
 iterations (1 to
-.Dv NQPBIMAX ) .
+.Dv NQPBIMAX ,
+100000000).
 It costs an attacker no memory, which Argon2id does.
 .Sh RETURN VALUES
+Each function returns
 .Dv NQOK ,
 or
-.Bl -tag -width NQEMEM
+.Bl -tag -width NQENOSUP
 .It Bq Er NQEARG
 A passphrase that is empty or too long, an
 .Fa ad
 over 1024 bytes, a key that is empty or too long, parameters outside
 the limits (for
-.Fn nqpwenc ) ,
+.Fn nqpwenc
+and
+.Fn nqpwenc2 ) ,
+a
+.Fa kdf
+other than
+.Dv NQPWA2
+and
+.Dv NQPWPB
+.Pq for Fn nqpwenc2 ,
+an
+.Fa outlen
+or
+.Fa iters
+outside its limits
+.Pq for Fn nqpbkdf2 ,
 or a
 .Dv NULL
-pointer.
+pointer (for
+.Fn nqpbkdf2 :
+.Fa out ,
+or
+.Fa pw
+or
+.Fa salt
+given with a length).
+.It Bq Er NQENOSUP
+.Fa alg
+is SHAKE
+.Pq Fn nqpbkdf2 .
 .It Bq Er NQEBUF
 .Fa cap
 is too small;
@@ -228,14 +273,17 @@ or
 .Pf * Fa sklen
 gets the size needed.
 .It Bq Er NQEDEC
+.Fn nqpwdec :
 .Fa in
 is not noqtis-pwkey-1 (magic, version, KDF or AEAD), or is too short.
 .It Bq Er NQELIM
+.Fn nqpwdec :
 .Fa in
 asks for parameters outside the limits, or holds a key over
 .Dv NQPWMAX .
 .It Bq Er NQEVRFY
-The passphrase is wrong, or a byte of
+.Fn nqpwdec :
+the passphrase is wrong, or a byte of
 .Fa in
 or
 .Fa ad
@@ -243,7 +291,10 @@ differs.
 .It Bq Er NQEMEM
 Argon2id's memory could not be allocated.
 .It Bq Er NQERNG
-The salt could not be drawn.
+.Fn nqpwenc
+or
+.Fn nqpwenc2 :
+the salt could not be drawn.
 .El
 .Sh EXAMPLES
 A secret key
@@ -289,6 +340,14 @@ RFC 9106 (Argon2id), RFC 8439 (ChaCha20-Poly1305), RFC 8018 (PBKDF2).
 .%D June 2018
 .Re
 .Rs
+.%A K. Moriarty
+.%A B. Kaliski
+.%A A. Rusch
+.%T PKCS #5: Password-Based Cryptography Specification Version 2.1
+.%R RFC 8018
+.%D January 2017
+.Re
+.Rs
 .%A A. Biryukov
 .%A D. Dinu
 .%A D. Khovratovich
@@ -309,6 +368,11 @@ The defaults (64 MiB, 3 passes, 4 lanes) are the second recommended
 option of RFC 9106 section 4; raise
 .Fa m
 where the machines that open the file allow it.
+A PBKDF2 file
+.Pq Dv NQPWPB
+costs a guesser
+.Fa t
+HMAC-SHA-256 iterations per guess and no memory.
 .Pp
 The parameters and the salt are in the clear, and the length of the
 secret key shows its algorithm.
