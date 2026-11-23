@@ -400,7 +400,8 @@ static void tsig(const char *alg, int full) {
   sn(a, sizeof a, "keygen -a %s -o q.k", alg);
   want(0, a, NULL);
   nosec("q.k", alg);
-  sn(m, sizeof m, "noqtis-key-1 %s sec\n", alg);
+  /* a signature secret key: the version 2 container */
+  sn(m, sizeof m, "noqtis-key-2 %s sec\n", alg);
   ok(has("q.k", m), "secret key file header");
   sn(m, sizeof m, "noqtis-key-1 %s pub\n", alg);
   ok(has("q.k.pub", m), "public key file header");
@@ -1618,7 +1619,8 @@ static void pristine(void) {
   wrs("qref/a.txt", "first\n");
   wrs("qref/b.txt", "second\n");
   wrs("qref/sub/c.txt", "third\n");
-  want(0, "seal -k q.c qref", NULL);
+  /* format 1, whose seal and manifest the checks below change */
+  want(0, "seal --format 1 -k q.c qref", NULL);
 }
 
 /* check <url>: the capsule served by tsad's www mode from this folder */
@@ -2078,7 +2080,7 @@ static void tinsp(void) {
   wrs("q.meta", "{\"project\":\"demo\",\"n\":2}");
   want(0, "seal -k q.ik --meta q.meta qins", NULL);
   want(0, "inspect qins", NULL);
-  ok(has("q.out", "format     noqtis-capsule-1\n"), "inspect: format");
+  ok(has("q.out", "format     noqtis-capsule-3\n"), "inspect: format");
   ok(has("q.out", "alg        ML-DSA-44\n"), "inspect: alg");
   ok(has("q.out", "files      2\n"), "inspect: files");
   ok(has("q.out", "bytes      18\n"), "inspect: bytes");
@@ -2091,7 +2093,7 @@ static void tinsp(void) {
   ok(has("q.out", "not checked"), "inspect says nothing was checked");
   ok(!has("q.out", "OK"), "inspect never says OK");
   want(0, "inspect --json qins", NULL);
-  ok(has("q.out", "\"checked\":false,\"format\":\"noqtis-capsule-1\","
+  ok(has("q.out", "\"checked\":false,\"format\":\"noqtis-capsule-3\","
          "\"alg\":\"ML-DSA-44\",\"key_sha256\":\""),
      "inspect --json: fields");
   ok(has("q.out", "\"files\":2,\"bytes\":18,\"timestamp\":false,"
@@ -2380,6 +2382,94 @@ static void setit(const char *p, unsigned long t) {
   free(b);
 }
 
+/* the bytes of the base64 body of a key file (b, n bytes: the first line
+ * skipped, line ends ignored), in a new buffer of *on bytes */
+static unsigned char *kbody(const unsigned char *b, size_t n, size_t *on) {
+  static const char a[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  unsigned char *o = (unsigned char *)malloc(n), *nl;
+  unsigned long v = 0;
+  size_t i, k = 0, bits = 0;
+  if (o == NULL || (nl = (unsigned char *)memchr(b, 10, n)) == NULL) exit(2);
+  for (i = (size_t)(nl - b) + 1; i < n; i++) {
+    const char *c = b[i] != 0 ? strchr(a, b[i]) : NULL;
+    if (c == NULL) continue; /* line ends and padding */
+    v = (v << 6) | (unsigned long)(c - a);
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      o[k++] = (unsigned char)(v >> bits);
+    }
+  }
+  *on = k;
+  return o;
+}
+
+/* writes a key file: the first line hdr, then b in base64, 64 a line */
+static void wkey(const char *p, const char *hdr, const unsigned char *b,
+                 size_t n) {
+  char *t = b64(b, n), *f, *w;
+  size_t tl = strlen(t), q;
+  f = (char *)malloc(strlen(hdr) + tl + tl / 64 + 8);
+  if (f == NULL) exit(2);
+  w = f + sprintf(f, "%s\n", hdr);
+  for (q = 0; q < tl; q += 64) {
+    size_t c = tl - q < 64 ? tl - q : 64;
+    memcpy(w, t + q, c);
+    w += c;
+    *w++ = '\n';
+  }
+  *w = '\0';
+  wrs(p, f);
+  free(f);
+  free(t);
+}
+
+/* the version 2 secret-key container (docs/spec/keyfile.md): a damaged
+ * key is refused when read; a version 1 key still signs, with a note,
+ * and passwd writes it again as version 2 */
+static void tkeyv2(void) {
+  size_t n, xn;
+  unsigned char *b, *x;
+  remove("q.v2");
+  remove("q.v2.pub");
+  remove("q.v1");
+  remove("q.v2s");
+  wrs("q.m", "hello\n");
+  want(0, "keygen -a ML-DSA-65 -o q.v2", NULL);
+  ok(has("q.v2", "noqtis-key-2 ML-DSA-65 sec\n"), "keygen writes version 2");
+  want(0, "sign -k q.v2 -o q.v2s q.m", NULL);
+  ok(!has("q.err", "note:"), "a version 2 key signs without a note");
+  want(0, "verify -p q.v2.pub -s q.v2s q.m", NULL);
+  /* X = S || T for ML-DSA-65: S is X without its last 32 bytes */
+  b = rd("q.v2", &n);
+  if (b == NULL) exit(2);
+  x = kbody(b, n, &xn);
+  free(b);
+  ok(xn == 4032 + 32, "the container's length");
+  wkey("q.v1", "noqtis-key-1 ML-DSA-65 sec", x, xn - 32);
+  want(0, "sign -k q.v1 -o q.v2s --force q.m", NULL);
+  ok(has("q.err", "note: q.v1 is a version 1 key file"),
+     "a version 1 key signs, with a note");
+  want(0, "verify -p q.v2.pub -s q.v2s q.m", NULL);
+  want(0, "passwd -k q.v1 --no-pass", NULL);
+  ok(has("q.v1", "noqtis-key-2 ML-DSA-65 sec\n") && same("q.v1", "q.v2"),
+     "passwd writes a version 1 key again as version 2, the same file");
+  /* a bit of K (bytes 32 to 63, which only feed the signer's randomness)
+   * changed: a well-formed file whose key no longer matches its
+   * integrity value */
+  x[40] ^= 1;
+  wkey("q.v2", "noqtis-key-2 ML-DSA-65 sec", x, xn);
+  free(x);
+  want(2, "sign -k q.v2 -o q.v2s --force q.m", NULL);
+  ok(has("q.err", "integrity value does not match"),
+     "a damaged version 2 key is refused when read");
+  remove("q.v1");
+  remove("q.v2");
+  remove("q.v2.pub");
+  remove("q.v2s");
+}
+
 static void tpass(void) {
   static const char *pw = "a long pass phrase 1";
   remove("q.pk");
@@ -2393,7 +2483,7 @@ static void tpass(void) {
   penv("NQTPWE", NULL);
   want(0, "keygen -a ML-DSA-44 -o q.pk --pass-env NQTPW", NULL);
   ok(has("q.out", "under the passphrase"), "keygen says the key is protected");
-  ok(has("q.pk", "noqtis-key-1 ML-DSA-44 sec"),
+  ok(has("q.pk", "noqtis-key-2 ML-DSA-44 sec"),
      "a protected key keeps the key file's first line");
   want(2, "sign -k q.pk -o q.psig q.m", NULL);
   ok(has("q.err", "protected by a passphrase"),
@@ -3610,6 +3700,7 @@ int main(int argc, char **argv) {
       tsig(slh[i], 0);
   }
   tdet();
+  tkeyv2();
   tpass();
   tpassk();
   tstream();

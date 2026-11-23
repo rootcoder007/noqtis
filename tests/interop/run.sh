@@ -49,7 +49,8 @@ for a in ML-DSA-65 SLH-DSA-SHAKE-128f; do
   : > c/empty
   want 0 "$nq" keygen -a "$a" -o "k$a"
   want 0 "$nq" keygen -a "$a" -o "o$a"
-  want 0 "$nq" seal -k "k$a" c
+  # format 1: the one rmoriebricklayer reads
+  want 0 "$nq" seal --format 1 -k "k$a" c
   want 0 Rscript "$here/blchk.R" c "k$a.pub"
   want 0 Rscript "$here/blchk.R" c -
   want 1 Rscript "$here/blchk.R" c "o$a.pub"
