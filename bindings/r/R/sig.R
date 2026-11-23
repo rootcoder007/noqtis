@@ -107,12 +107,16 @@ nqkeygen <- function(alg, seed = NULL) {
 #' SLH-DSA, RFC 8032's own nonce for Ed25519), the same bytes every time,
 #' for reproducible output and test vectors.
 #'
-#' Every signature is verified under the secret key's own public key
-#' (held in it, or for ML-DSA computed from it) before it is returned.
-#' A signature that fails that check was made
-#' while the computation was disturbed (a voltage or clock glitch, a
-#' flipped memory bit) or with a damaged key; such a signature can give
-#' the key away, so it is never returned and `nqsign()` signals an error.
+#' Every signature is checked before it is returned: it must verify,
+#' twice, under a public key checked against the secret key (for ML-DSA
+#' computed from it and compared with the hash and t0 it holds, for
+#' SLH-DSA the one it holds, for Ed25519 derived from it twice). A
+#' signature that fails was made while the computation was disturbed (a
+#' voltage or clock glitch, a flipped memory bit) or with a damaged key;
+#' such a signature can give the key away, so it is never returned and
+#' `nqsign()` signals an error. This holds for one fault; a change to the
+#' parts of a key not tied to its public key (ML-DSA's K, SLH-DSA's
+#' SK.prf, the Ed25519 seed) gives a valid signature instead.
 #'
 #' `ctx` is the standards' context string: a signature made with one
 #' context verifies only with the same one, which keeps signatures made
