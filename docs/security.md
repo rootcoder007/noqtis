@@ -14,8 +14,8 @@ and advisory within 90 days. See `SECURITY.md`.
 
 **What NOQTIS protects.** The integrity and origin of a set of files: that
 a folder holds exactly the files a key holder sealed, byte for byte, and
-nothing else; and, with a timestamp, that the seal existed at a time a TSA
-vouches for. Signatures are post-quantum (ML-DSA, SLH-DSA), so the record
+nothing else; and, with a timestamp, that the seal existed no later than
+the time the TSA signed. Signatures are post-quantum (ML-DSA, SLH-DSA), so the record
 stays checkable after large quantum computers break RSA and elliptic
 curves.
 
@@ -182,8 +182,8 @@ the release runner, and ships the results as
 | ML-DSA-87 unmasked sign | one key vs others | 20,000 | 4.55 | fail, see below |
 | SLH-DSA-SHA2-128f sign | one key and opt_rand vs others | 1,250 | 5.72 | fail, see below |
 | SLH-DSA-SHAKE-128f sign | one key and opt_rand vs others | 625 | 4.83 | fail, see below |
-| HQC-128 / 192 / 256 decaps | one key vs others | 10,000 / 5,000 / 2,500 | 1.57 / 2.73 / 1.51 | pass |
-| HQC-128 / 192 / 256 decaps | valid vs random ciphertexts | 10,000 / 5,000 / 2,500 | 0.43 / 1.69 / 2.08 | pass |
+| HQC-128 / 192 / 256 decaps (HQC 5.0, before 0.3.0) | one key vs others | 10,000 / 5,000 / 2,500 | 1.57 / 2.73 / 1.51 | pass |
+| HQC-128 / 192 / 256 decaps (HQC 5.0, before 0.3.0) | valid vs random ciphertexts | 10,000 / 5,000 / 2,500 | 0.43 / 1.69 / 2.08 | pass |
 
 The three failures are in crops (keeping the fastest 24 to 56% of the
 measurements) of the slowest targets, 0.8 ms per ML-DSA-87 signature and
@@ -205,7 +205,7 @@ These show what the designs above exclude, and they fail:
 | SampleNTT alone on the same rho (768) | 185.5 | 3.37 us mean difference, more than keygen's 2.76 us |
 | ML-KEM-768 unmasked decaps, keys from keygen | 135.9 | each key has its own rho |
 | ML-DSA-44 unmasked sign, keys from keygen, one rnd | 21.0 | rho and c~ differ by class |
-| HQC-128 decaps, keys from keygen | 2.70 | the sampler's counts differ by key; not resolved at 5,000 (an earlier run at 2,000 gave 6.17) |
+| HQC-128 decaps, keys from keygen (HQC 5.0, before 0.3.0) | 2.70 | the sampler's counts differ by key; not resolved at 5,000 (an earlier run at 2,000 gave 6.17) |
 
 So ML-KEM key generation does not pass a fixed-vs-random-seed test, and
 cannot: its time depends on rho, which FIPS 203 makes public. Its
@@ -232,7 +232,7 @@ the gadgets' opaque copies, every 64-bit lane of the masked Keccak, the
 share polynomials after each linear step, the stored key as it is loaded
 and split, and the unmasked output. In every other build the hooks are
 `((void)0)`: the release objects are byte-identical with and without
-them (all 37 objects of `libnoqtis.a`, GCC 16.2.1 and Clang 22.1.8,
+them (all objects of `libnoqtis.a`, GCC 16.2.1 and Clang 22.1.8,
 Release, compared with `cmp`). A trace is one call; each recorded value
 gives one sample under two models: its Hamming weight (the value model)
 and its Hamming distance from the value recorded before it (the
@@ -263,12 +263,12 @@ same code with every mask forced to zero and must be flagged.
 | ML-DSA-65 sign, key test | 1,250 | 939,728 | 5.60, 0: pass | 4 | leaks (8,399) | no points |
 | ML-DSA-87 sign, key test | 1,250 | 1,271,728 | 5.20, 0: pass | 0 | leaks (11,680) | no points |
 | ML-DSA-44 sign, nonce test | 2,500 | 672,528 | 5.14, 0: pass | 104,959 | none | leaks (z is public) |
-| HQC-128 decaps | 2,000 | 6,008,081 | 5.44, 0: pass | 745,969 | leaks (288) | leaks |
+| HQC-128 decaps (HQC 5.0, before 0.3.0) | 2,000 | 6,008,081 | 5.44, 0: pass | 745,969 | leaks (288) | leaks |
 | Ed25519 sign | 10,000 | 49,376 | 4.71, 0: pass | 0 | leaks (20) | no points |
 | SLH-DSA-SHA2-128 PRF, 64 lanes | 500 | 379,024 | 4.86, 0: pass | 1 | leaks (13) | |
 | SLH-DSA-SHAKE-128 PRF | 4,000 | 4,200 | 3.64, 0: pass | 0 | leaks (10) | |
 | control: ML-KEM-768, masks zero | 2,500 | 155,184 | 87,511 points: flagged | | | |
-| control: HQC-128, masks zero | 1,000 | 6,008,081 | 2,237,509 points: flagged | | | |
+| control: HQC-128, masks zero (HQC 5.0, before 0.3.0) | 1,000 | 6,008,081 | 2,237,509 points: flagged | | | |
 | control: Ed25519, masks zero | 10,000 | 49,376 | 13,208 points: flagged | | | |
 | control: SLH-DSA-SHA2-128 PRF, masks zero | 500 | 379,024 | 2,784 points: flagged | | | |
 | control: SLH-DSA-SHAKE-128 PRF, masks zero | 4,000 | 4,200 | 26 points: flagged | | | |
@@ -315,7 +315,7 @@ masked. HQC decapsulation runs HQC key generation again from its 32-byte
 key (specification 5.1) before the masked part: that step, which computes
 y, x and s = x + h y, is constant time but not masked, and only y and
 sigma are then split into shares. Masking costs time: HQC decapsulation about 20 times (HQC-128
-22 ms instead of 1.1 ms), SLH-DSA signing about 2.5 times for the SHAKE
+22 ms instead of 1.1 ms, measured on HQC 5.0 before 0.3.0), SLH-DSA signing about 2.5 times for the SHAKE
 sets and about 6 times for the SHA-2 sets. No physical power or electromagnetic traces have been taken.
 
 ## Test vectors
@@ -333,6 +333,19 @@ JSON files NIST's ACVP server publishes and in Google's/C2SP's Wycheproof:
 | HMAC | ACVP HMAC-SHA2 and HMAC-SHA3 |
 | HMAC_DRBG | ACVP hmacDRBG |
 | RSA, ECDSA (verification, for timestamps) | Wycheproof RSA PKCS#1 v1.5, RSA-PSS, ECDSA P-256 and P-384 |
+| Ed25519 (RFC 8032) | RFC 8032 section 7.1; Wycheproof `ed25519_test.json` |
+| X25519 (RFC 7748) | Wycheproof `x25519_test.json`; RFC 7748 section 5.2 |
+| AES-GCM | Wycheproof `aes_gcm_test.json` |
+| ChaCha20, ChaCha20-Poly1305 (RFC 8439) | every vector of appendix A.2; section 2.8.2; Wycheproof `chacha20_poly1305_test.json` |
+| AES-SIV (RFC 5297), AES-GCM-SIV (RFC 8452) | every vector of appendix A and of appendix C |
+| KangarooTwelve (RFC 9861) | every vector of section 5 |
+| BLAKE2b (RFC 7693) | appendix A and appendix E; the BLAKE2 reference's keyed answers |
+| Argon2id (RFC 9106) | section 5.3; OpenSSL 3.5's answers |
+| PBKDF2 (RFC 8018) | RFC 7914 section 11 |
+| HKDF (RFC 5869) | Wycheproof `hkdf_sha256/384/512_test.json` |
+| SHA-1 (verification only) | NIST CAVP byte-oriented vectors |
+| AES key wrap, OCB, EAX | RFC 3394 section 4, RFC 7253 appendix A, the EAX paper's appendix G |
+| TLS 1.3 client | RFC 8448 traces |
 | RFC 3161 tokens | real tokens from five public TSAs, a local OpenSSL TSA and rmoriebricklayer's, plus a mutation test of every byte |
 
 Each test prints how many vectors of each set ran, passed and were
@@ -351,9 +364,12 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
   (links, `..`, case collisions, special files), allocation failures, and
   a golden sample capsule.
 - Fuzzing: libFuzzer targets for every parser of untrusted bytes (DER,
-  X.509, OCSP, timestamp tokens, JSON, capsules, key files, base64) and
-  for the command line's arguments, 90 seconds each on every push and an
-  hour weekly (`fuzz/`). OSS-Fuzz declined the project for now as too new
+  X.509, OCSP, timestamp tokens, JSON, capsules, key files, base64,
+  OpenPGP, CMS, armor, sealed streams and sealed messages, passphrase
+  files, proofs, evidence records, key statements, identity cards, the
+  symmetric ciphers, TLS and the data layer) and for the command line's
+  arguments, 90 seconds each on every push and pull request, and an hour
+  each when started by hand (`fuzz/`). OSS-Fuzz declined the project for now as too new
   ([oss-fuzz#16392](https://github.com/google/oss-fuzz/pull/16392)), so
   the fuzzers run in this repository's CI only.
 - Bounded proofs with CBMC (`proofs/cbmc/`, on every push): for every
