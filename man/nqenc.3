@@ -146,7 +146,7 @@ A ciphertext of the right length that was not made for this key, or was
 changed, gives a pseudorandom secret unrelated to the sender's and
 returns
 .Dv NQOK
-(implicit rejection, as both standards require).
+(implicit rejection, as FIPS 203 and the HQC specification require).
 An HQC secret key that is not 32 bytes, among them one made for
 specification 5.0 (2321, 4602 or 7333 bytes), gives
 .Dv NQEDEC .
