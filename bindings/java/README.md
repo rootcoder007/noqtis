@@ -187,12 +187,17 @@ FAIL file report.txt: size differs
   anchors (`withAnchors`, DER), a partial check (`withOnly`; `partial()` then says only some files were checked), folders to
   find a format 2 capsule's inputs in (`withLineage`) and key statements
   (`withStmts`).
-- `seal2(dir, alg, sk, pk, meta, inputs)` seals in format 2 (a Merkle
-  tree over the files), recording the capsules it was made from
-  (`new Capsule.Input(id, name)`, the id from `capid`).
-- `prove(dir, List.of("data/in.csv"))` writes a proof (noqtis-proof-1)
-  that shows those files of a format 2 capsule and nothing of the
-  others; `checkProof(proof, opts, dir)` checks one.
+- `seal3(dir, alg, sk, pk, meta, inputs, saltKey)` seals in format 3 (a
+  Merkle tree over the files, a secret salt in each leaf; `saltKey` null
+  for fresh salts, or 32 secret bytes for a reproducible capsule),
+  recording the capsules it was made from (`new Capsule.Input(id,
+  name)`, the id from `capid`); `seal2` seals in format 2, the same tree
+  unsalted, for readers older than 0.3.0.
+- `prove(dir, List.of("data/in.csv"))` writes a proof that shows those
+  files and none of the others' names, sizes or digests; of a format 3
+  capsule (noqtis-proof-2) nothing in it confirms a guess of another
+  file, of a format 2 one (noqtis-proof-1) its hashes do (see
+  `noqtis-prove(1)`); `checkProof(proof, opts, dir)` checks one.
 - `inspect(dir)` says what a capsule says without checking anything (the
   `info.*` rows, `report.get("info.alg")`); `files(dir)` adds one
   `info.file` row per listed file.

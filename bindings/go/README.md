@@ -144,12 +144,17 @@ for _, row := range r.Failed() {
   key in the seal, and the `key` row says so. `CheckOpts` also takes TSA
   `Anchors` (DER), `Only` (a partial check: `Partial()` then says only some files were checked), `Lineage` (folders to find
   a format 2 capsule's inputs in) and key statements (`Stmts`).
-- `Seal2(dir, alg, sk, pk, meta, inputs)` seals in format 2 (a Merkle
-  tree over the files), recording the capsules it was made from
-  (`noqtis.Input{ID, Name}`, the ID from `CapID`).
-- `Prove(dir, []string{"data/in.csv"})` writes a proof (noqtis-proof-1)
-  that shows those files of a format 2 capsule and nothing of the
-  others; `CheckProof(proof, opts, dir)` checks one.
+- `Seal3(dir, alg, sk, pk, meta, inputs, saltKey)` seals in format 3 (a
+  Merkle tree over the files, a secret salt in each leaf; `saltKey` nil
+  for fresh salts, or 32 secret bytes for a reproducible capsule),
+  recording the capsules it was made from (`noqtis.Input{ID, Name}`, the
+  ID from `CapID`); `Seal2` seals in format 2, the same tree unsalted,
+  for readers older than 0.3.0.
+- `Prove(dir, []string{"data/in.csv"})` writes a proof that shows those
+  files and none of the others' names, sizes or digests; of a format 3
+  capsule (noqtis-proof-2) nothing in it confirms a guess of another
+  file, of a format 2 one (noqtis-proof-1) its hashes do (see
+  `noqtis-prove(1)`); `CheckProof(proof, opts, dir)` checks one.
 - `Inspect(dir)` says what a capsule says without checking anything (the
   `info.*` rows, `Report.Get("info.alg")`); `Files(dir)` adds one
   `info.file` row per listed file.

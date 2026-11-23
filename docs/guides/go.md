@@ -57,8 +57,10 @@ FAIL file report.txt: size differs
 
 - `Seal` writes `noqtis.json` and `noqtis.sig` into the folder; `meta`
   is JSON text (an object), signed with the manifest and never
-  interpreted. `Seal2` seals in format 2, with the capsules it was made
-  from.
+  interpreted. `Seal3` seals in format 3 (a Merkle tree with a secret
+  salt in each leaf, for proofs that confirm no guess of other files),
+  with the capsules it was made from; `Seal2` in format 2, unsalted, for
+  readers older than 0.3.0.
 - `Check` returns a `*Report` also when the capsule fails: `OK()` is
   true only when every check passed, and `Rows` lists every check.
   Without `Trust` it accepts the key in the seal, and the `key` row says

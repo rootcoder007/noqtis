@@ -72,7 +72,7 @@ after `init()` is synchronous.
 | `capsule.seal(files, alg, sk, pk, { meta, time, format, inputs })` | `{ 'noqtis.json', 'noqtis.sig' }`; `format: 2` adds a Merkle tree over the files; `inputs: [{ name, id }]` records the capsules it was made from |
 | `capsule.check(files, { trust, anchors, only, lineage, keys, proof })` | `{ ok, code, checks: [{ check, ok, detail }] }` |
 | `capsule.id(files)` | the capsule's id, 32 bytes (nothing checked) |
-| `capsule.prove(files, paths)` | a proof (JSON bytes) that `paths` are in the format 2 capsule |
+| `capsule.prove(files, paths)` | a proof (JSON bytes) that `paths` are in the format 3 or 2 capsule |
 | `capsule.files(files)` | `[{ path, size, sha256 }]` as the manifest lists them (nothing checked) |
 | `capsule.rotate(alg, sk, pk, newAlg, newSk, newPk, { at, reason })`, `capsule.revoke(alg, sk, pk, { at, reason })` | a key statement (JSON bytes) for `check`'s `keys` |
 | `idcard.make(alg, sk, pk, { name, orcid, email, url, affil }, { at })` | an identity card (JSON bytes) for the key, signed by it; the ORCID check digit is verified |
@@ -120,10 +120,10 @@ authorities, for seals that carry a timestamp token; the library itself
 makes no network requests, so it cannot obtain one: seal with the CLI's
 `noqtis seal --tsa <url>` to add one.
 
-### Format 2, proofs, lineage and key statements
+### Format 3, proofs, lineage and key statements
 
 ```js
-const out = capsule.seal(files, 'ML-DSA-65', sk, pk, { format: 2 });
+const out = capsule.seal(files, 'ML-DSA-65', sk, pk, { format: 3 });
 // ... files now holds noqtis.json and noqtis.sig too
 const proof = capsule.prove(files, ['data/a.csv']);
 capsule.check(null, { proof, trust: pk }).ok;   // the proof alone
@@ -131,7 +131,11 @@ capsule.check(files, { proof, trust: pk }).ok;  // and the proven files
 ```
 
 A proof holds the seal, the manifest's head and each proven file's entry
-and Merkle audit path, and nothing of the other files.
+and Merkle audit path, and none of the other files' names, sizes or
+digests; of a format 3 capsule (salted leaves; `saltKey` makes the
+salts reproducible) nothing in it confirms a guess of another file, of
+a format 2 one (`format: 2`, for readers older than 0.3.0) its hashes
+do.
 `seal(..., { inputs: [{ name: 'raw', id: capsule.id(raw) }] })` records
 the capsules one was made from; `check(files, { lineage: [raw] })` finds
 each among those capsules by id and checks it, to 64 levels.

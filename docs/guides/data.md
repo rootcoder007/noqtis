@@ -225,7 +225,7 @@ The format is in the capsule specification, section 14.
 ## Keep a chain of capsules
 
 ```sh
-noqtis seal --format 2 -k me log/2026-01
+noqtis seal --format 3 -k me log/2026-01
 noqtis seal -k me --input prev=log/2026-01 log/2026-02
 noqtis chain -p me.pub log/2026-01 log/2026-02
 ```

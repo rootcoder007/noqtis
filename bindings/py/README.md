@@ -100,14 +100,18 @@ Without `pk`, `check` trusts the key inside the seal and its report says
 so. `anchors=[der, ...]` requires an RFC 3161 timestamp under one of the
 given TSA certificates.
 
-### Format 2, proofs and lineage
+### Format 3, proofs and lineage
 
-`seal(..., format=2)` adds a Merkle tree over the files to the manifest
-and signs its head. `prove` then shows some files to a reader without
-the names or digests of the others:
+`seal(..., format=3)` adds a Merkle tree over the files, with a secret
+salt in each leaf, to the manifest and signs its head. `prove` then
+shows some files to a reader without the names, sizes or digests of the
+others, and with nothing that confirms a guess of them
+(`salt_key=` 32 secret bytes makes the salts reproducible). `format=2`
+is the same tree unsalted, for readers older than 0.3.0: its proofs let
+a guess of another file be confirmed.
 
 ```python
-noqtis.seal("results/", sk, pk, format=2)
+noqtis.seal("results/", sk, pk, format=3)
 proof = noqtis.prove("results/", ["tables/t1.csv"])    # bytes (JSON)
 noqtis.check(proof=proof, pk=pk).ok                    # the proof alone
 noqtis.check("results/", pk, proof=proof).ok           # and the files

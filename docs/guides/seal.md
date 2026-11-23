@@ -99,7 +99,7 @@ wrong at once. The rows:
 | Row | Passes when |
 |---|---|
 | `seal.read`, `seal.parse`, `seal.canonical`, `seal.fields`, `seal.format` | `noqtis.sig` is canonical JSON with exactly the fields of `noqtis-seal-1` |
-| `seal.alg`, `seal.context`, `seal.key`, `seal.signature` | a known algorithm, the context `noqtis-capsule-1` (`noqtis-capsule-2` in format 2), a key and signature of the right sizes |
+| `seal.alg`, `seal.context`, `seal.key`, `seal.signature` | a known algorithm, the context `noqtis-capsule-1` (`noqtis-capsule-2` and `-3` in formats 2 and 3), a key and signature of the right sizes |
 | `manifest.read`, `manifest.digest` | `noqtis.json` is readable and its SHA-256 is the seal's |
 | `key` | the seal's key is the one given with `-p` (or says it was not pinned) |
 | `signature` | the signature over `noqtis.json` verifies |
