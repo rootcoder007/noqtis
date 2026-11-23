@@ -233,7 +233,7 @@ func report(c C.int, r *C.nqrep) (*Report, error) {
 	return out, nil
 }
 
-func seal(dir, alg string, sk, pk []byte, meta string, in []Input, two bool) error {
+func seal(dir, alg string, sk, pk []byte, meta string, in []Input, ver int, skey []byte) error {
 	a, err := find(alg, "sign")
 	if err != nil {
 		return err
@@ -251,7 +251,7 @@ func seal(dir, alg string, sk, pk []byte, meta string, in []Input, two bool) err
 		}
 	}
 	csk, cpk := m.bytes(sk), m.bytes(pk)
-	if !two {
+	if ver == 1 {
 		return rc(C.nqseal(d, C.nqsalg(a.ID), csk, sz(sk), cpk, sz(pk), mt, nil))
 	}
 	var ci *C.nqcin
@@ -267,6 +267,13 @@ func seal(dir, alg string, sk, pk []byte, meta string, in []Input, two bool) err
 			}
 		}
 	}
+	if ver == 3 {
+		var ck *C.uint8_t
+		if len(skey) > 0 {
+			ck = m.bytes(skey)
+		}
+		return rc(C.nqseal3(d, C.nqsalg(a.ID), csk, sz(sk), cpk, sz(pk), mt, ci, C.size_t(len(in)), ck, sz(skey)))
+	}
 	return rc(C.nqseal2(d, C.nqsalg(a.ID), csk, sz(sk), cpk, sz(pk), mt, ci, C.size_t(len(in))))
 }
 
@@ -275,14 +282,28 @@ func seal(dir, alg string, sk, pk []byte, meta string, in []Input, two bool) err
 // manifest, or "" for none. The creation time is SOURCE_DATE_EPOCH when
 // set, else the clock.
 func Seal(dir, alg string, sk, pk []byte, meta string) error {
-	return seal(dir, alg, sk, pk, meta, nil, false)
+	return seal(dir, alg, sk, pk, meta, nil, 1, nil)
 }
 
 // Seal2 is Seal in format 2: the manifest also carries a Merkle tree
 // over its entries, so that Prove can show single files without the
-// rest, and the capsules it was made from (at most 1024 inputs).
+// rest's names, sizes or digests, and the capsules it was made from (at
+// most 1024 inputs). Its leaves are unsalted: anyone who can guess a
+// file not shown can confirm the guess from a proof. Seal3 salts them.
 func Seal2(dir, alg string, sk, pk []byte, meta string, in []Input) error {
-	return seal(dir, alg, sk, pk, meta, in, true)
+	return seal(dir, alg, sk, pk, meta, in, 2, nil)
+}
+
+// Seal3 is Seal2 in format 3: each entry also carries a secret 32-byte
+// salt in its Merkle leaf, so that a proof lets no one confirm a guess of
+// the files it does not show. saltKey nil draws fresh salts; else it is
+// the 32-byte salt key they are derived from, for a reproducible
+// capsule, to keep secret.
+func Seal3(dir, alg string, sk, pk []byte, meta string, in []Input, saltKey []byte) error {
+	if saltKey != nil && len(saltKey) != 32 {
+		return ErrArg
+	}
+	return seal(dir, alg, sk, pk, meta, in, 3, saltKey)
 }
 
 // CapID is the id of the capsule in dir: the SHA-256 of the bytes its

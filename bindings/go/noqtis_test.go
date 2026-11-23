@@ -454,6 +454,45 @@ func TestSeal2ProveLineage(t *testing.T) {
 	}
 }
 
+func TestSeal3Prove(t *testing.T) {
+	pk, sk := must2(t)(SignKeyGen("ML-DSA-44", nil))
+	b := mkfiles(t)
+	if err := Seal3(b, "ML-DSA-44", sk, pk, "", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if x, _ := must(Inspect(b)).Get("info.format"); x.Detail != "noqtis-capsule-3" {
+		t.Fatal(x)
+	}
+	if r := must(Check(b, &CheckOpts{Trust: pk})); !r.OK() {
+		t.Fatal(r)
+	}
+	pf := must(Prove(b, []string{"data/b.csv"}))
+	if !strings.Contains(string(pf), `"format":"noqtis-proof-2"`) ||
+		strings.Contains(string(pf), "a.txt") {
+		t.Fatal(string(pf))
+	}
+	o := &CheckOpts{Trust: pk}
+	if r := must(CheckProof(pf, o, b)); !r.OK() {
+		t.Fatal(r)
+	}
+	// a salt key: the same manifest twice
+	key := make([]byte, 32)
+	t.Setenv("SOURCE_DATE_EPOCH", "1767225600")
+	if err := Seal3(b, "ML-DSA-44", sk, pk, "", nil, key); err != nil {
+		t.Fatal(err)
+	}
+	m1 := must(os.ReadFile(filepath.Join(b, "noqtis.json")))
+	if err := Seal3(b, "ML-DSA-44", sk, pk, "", nil, key); err != nil {
+		t.Fatal(err)
+	}
+	if m2 := must(os.ReadFile(filepath.Join(b, "noqtis.json"))); string(m1) != string(m2) {
+		t.Fatal("a salt key gave two manifests")
+	}
+	if err := Seal3(b, "ML-DSA-44", sk, pk, "", nil, key[:31]); !errors.Is(err, ErrArg) {
+		t.Fatal(err)
+	}
+}
+
 func TestKeyFiles(t *testing.T) {
 	pk, sk := must2(t)(SignKeyGen("ML-DSA-44", nil))
 	s := must(EncodeKey("ml-dsa-44", "pub", pk))
