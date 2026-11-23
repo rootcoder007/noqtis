@@ -75,13 +75,15 @@ curves.
 
 ## Constant time and masking
 
-**Claim.** In key generation, signing, encapsulation and decapsulation, no
-branch, memory index or variable-time instruction (division, variable
-shifts) depends on a secret key, seed, signing randomness or shared
-secret, except the values the standards themselves make public (for
-example ML-DSA's rejection decisions and hint, SLH-DSA's published tree
-roots). ML-DSA signing and ML-KEM decapsulation are also first-order
-masked. The evidence for the masking is a simulated TVLA over the values
+**Claim.** In key generation, signing, encapsulation and decapsulation
+there is no secret-dependent branch or table index, except the one the
+HQC specification accepts (whether a key-generation draw is kept), and
+no variable-time instruction (division, variable shifts) on a secret
+key, seed, signing randomness or shared secret; the values the
+standards themselves make public (for example ML-DSA's rejection
+decisions and hint, SLH-DSA's published tree roots) are not secrets.
+ML-DSA signing, ML-KEM and HQC decapsulation, SLH-DSA's secret-keyed
+hash and Ed25519 signing are also first-order masked. The evidence for the masking is a simulated TVLA over the values
 the code computes, not power or EM traces from real hardware: it shows
 the shares are used as intended, not that a given chip leaks nothing,
 and compilers and processors can recombine shares in ways a simulation
@@ -398,10 +400,12 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
 
 ## Design choices that limit damage
 
-- No third-party code at run time; one allocator hook; no `malloc` in the
-  algorithm code; no recursion in parsers.
+- No third-party code at run time; one allocator hook; the algorithm code
+  allocates nothing, except Argon2id's memory and the multi-recipient
+  stream, both through `nqsetal`; no recursion in parsers.
 - Secrets are wiped on every path, including freed capsule memory.
-- Randomness comes only from the operating system; there is no fallback.
+- Randomness from the operating system, or from the source set with
+  `nqsetrng`; there is no fallback.
 - Fail closed everywhere: verification returns `NQOK` only for a valid
   signature, and unknown fields, non-canonical JSON or an uncheckable
   timestamp are failures.
