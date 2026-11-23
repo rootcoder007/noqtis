@@ -140,6 +140,13 @@ complete -c noqtis -n "__fish_seen_subcommand_from keygen passwd sign dec seal r
 complete -c noqtis -n "__fish_seen_subcommand_from keygen sign enc dec prove" -s f -l force -d 'replace existing files'
 complete -c noqtis -n "__fish_seen_subcommand_from timestamp" -l force -d 'replace an existing timestamp'
 complete -c noqtis -n "__fish_seen_subcommand_from sign dec seal" -s k -l key -r -F -d 'secret key'
+complete -c noqtis -n "__fish_seen_subcommand_from seal" -l token -d 'sign with a key on a PKCS #11 token'
+complete -c noqtis -n "__fish_seen_subcommand_from seal" -l module -r -F -d 'PKCS #11 module'
+complete -c noqtis -n "__fish_seen_subcommand_from seal" -l slot -x -d 'slot of the token'
+complete -c noqtis -n "__fish_seen_subcommand_from seal" -l label -x -d 'label of the key on the token'
+complete -c noqtis -n "__fish_seen_subcommand_from seal" -l id -x -d 'ID of the key on the token, in hex'
+complete -c noqtis -n "__fish_seen_subcommand_from seal" -l pin-fd -x -d 'read the PIN from descriptor'
+complete -c noqtis -n "__fish_seen_subcommand_from seal" -l pin-env -x -d 'read the PIN from variable'
 complete -c noqtis -n "__fish_seen_subcommand_from verify enc seal check prove" -s p -l pub -r -F -d 'public key'
 complete -c noqtis -n "__fish_seen_subcommand_from verify" -s s -l sig -r -F -d signature
 complete -c noqtis -n "__fish_seen_subcommand_from sign verify" -s c -l ctx -x -d 'context string'
