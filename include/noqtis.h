@@ -1241,7 +1241,10 @@ NQAPI int nqsmdec(nqkalg alg, const uint8_t *sk, size_t sklen,
  * signature under it (msg must be UTF-8 text). nqpgpvrfy checks one
  * of the three under the certificate cert: msg is what a detached
  * signature signs (NULL otherwise); the data comes back in out, and
- * *at gets the signature's time.
+ * *at gets the signature's time. The at of nqpgpsign and nqpgpenc is
+ * the time written into the signature or message; whether a key given
+ * to them has expired is judged by the system clock. nqpgpvrfy and
+ * nqpgpdec judge the signer's key at the time its signature states.
  *
  * nqpgpenc encrypts msg to the encryption subkeys of nc certificates
  * (at most 64) and, with pw not NULL, to that passphrase as well
