@@ -153,4 +153,4 @@ output it shows must stay true. The R package's reference at
 3. CI must be green. A maintainer reviews every line; expect questions.
 
 By contributing you agree that your contribution is licensed under the
-project's licence, Apache-2.0 WITH LLVM-exception.
+project's licence, LGPL-3.0-or-later.

@@ -307,4 +307,6 @@ reference managers.
 
 ## License
 
-Apache-2.0 WITH LLVM-exception. See LICENSE and NOTICE.
+LGPL-3.0-or-later; versions up to 0.2.2 were released under Apache-2.0.
+See LICENSE (the GNU Lesser General Public License version 3), COPYING
+(the GNU General Public License version 3, which it adds to) and NOTICE.

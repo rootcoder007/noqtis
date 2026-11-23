@@ -337,7 +337,9 @@ and `getMessage()` adds what was wrong.
   refuse); an executable jar can say `Enable-Native-Access: ALL-UNNAMED`
   in its manifest instead.
 
-Licensed under Apache-2.0 WITH LLVM-exception.
+LGPL-3.0-or-later; versions up to 0.2.2 were released under Apache-2.0.
+See LICENSE (the GNU Lesser General Public License version 3), COPYING
+(the GNU General Public License version 3, which it adds to) and NOTICE.
 
 ## Citation
 

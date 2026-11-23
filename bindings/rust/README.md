@@ -315,7 +315,9 @@ value (-1 for NQEARG, ...), `kind()` the same as a `noqtis::Code`
 - `cargo package` needs the library inside the crate: run
   `sh tools/vendor.sh` first (it copies `../../src` to `vendor/`).
 
-Licensed under Apache-2.0 WITH LLVM-exception.
+LGPL-3.0-or-later; versions up to 0.2.2 were released under Apache-2.0.
+See LICENSE (the GNU Lesser General Public License version 3), COPYING
+(the GNU General Public License version 3, which it adds to) and NOTICE.
 
 ## Citation
 

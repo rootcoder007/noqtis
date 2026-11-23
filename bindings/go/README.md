@@ -286,7 +286,9 @@ value (-1 for NQEARG, ...), `Msg` the library's message (`nqerr`) and
 - Secret keys and shared secrets are plain `[]byte`: overwrite them
   yourself when that matters.
 
-Licensed under Apache-2.0 WITH LLVM-exception.
+LGPL-3.0-or-later; versions up to 0.2.2 were released under Apache-2.0.
+See LICENSE (the GNU Lesser General Public License version 3), COPYING
+(the GNU General Public License version 3, which it adds to) and NOTICE.
 
 ## Citation
 

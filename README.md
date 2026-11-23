@@ -240,4 +240,23 @@ who reviewed this work.
 
 ## Licence
 
-Apache-2.0 WITH LLVM-exception. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+LGPL-3.0-or-later; versions up to 0.2.2 were released under Apache-2.0.
+See [LICENSE](LICENSE), [COPYING.LESSER](COPYING.LESSER) (the GNU Lesser
+General Public License version 3) and [COPYING](COPYING) (the GNU General
+Public License version 3, which it adds to), and [NOTICE](NOTICE).
+
+### Linking
+
+Section 4 of the licence sets what a program that uses noqtis (a
+"Combined Work") must do when it is conveyed, however it links: say
+that it uses noqtis and that noqtis is under the LGPL, ship the two
+licence texts, and with any copyright notices it shows also show
+noqtis's (4 a to c); and, when noqtis's own binary goes with it, give
+noqtis's source as the GPL's section 6 says. Linked dynamically, through
+a shared library the user can replace, that is all (4 d 1). Linked
+statically, the program must also let the user relink it with a
+modified noqtis (4 d 0): ship its object files, or its source, in a form
+that can be relinked. For a device sold with the program installed,
+section 4 e adds the installation information. The program's own code
+may stay under any licence. This summarizes the licence text; it is not
+legal advice.
