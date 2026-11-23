@@ -1,16 +1,19 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* HQC-KEM, HQC-128/192/256 as the specification of 2025-08-22 defines
- * them (reference implementation v5.0.0, the version NIST selected).
+/* HQC-KEM, HQC-128/192/256 as the specification version 5.1 of
+ * 2026-11-09 defines them (reference implementation v5.1.0). Keys and
+ * ciphertexts of version 5.0 are not read: a 5.0 secret key has another
+ * length (NQEDEC); a 5.0 public key or ciphertext has the same length as
+ * a 5.1 one and cannot be told apart by it.
  * Internal interface; the public nqkkg / nqenc / nqdec dispatch here.
  *
- * Encodings: pk = seed_ek || s; sk = pk || seed_dk || sigma || seed_kem;
+ * Encodings: pk = seed_ek || s; sk = seed_kem (32 bytes);
  * ct = u || v || salt; the shared secret is 32 bytes.
  *
  * Every function takes the buffer lengths. Returns: NQOK; NQEARG for an
  * alg that is not HQC, a NULL pointer or a seed of the wrong length;
  * NQEBUF for an output buffer that is too small; NQEDEC for an input key
- * or ciphertext of the wrong length, a public key with bits set past the
- * code length, or a secret key whose seeds do not derive from each other.
+ * or ciphertext of the wrong length or a public key with bits set past the
+ * code length (any 32 bytes are a secret key).
  * A ciphertext of the right length always decapsulates (implicit
  * rejection): a bad one gives a pseudorandom secret and NQOK. */
 #ifndef NQHQC_H
@@ -23,15 +26,15 @@
 
 /* byte lengths: public key, secret key, ciphertext, message (m) */
 #define NQHQPK1 2241
-#define NQHQSK1 2321
+#define NQHQSK1 32
 #define NQHQCT1 4433
 #define NQHQM1 16
 #define NQHQPK3 4514
-#define NQHQSK3 4602
+#define NQHQSK3 32
 #define NQHQCT3 8978
 #define NQHQM3 24
 #define NQHQPK5 7237
-#define NQHQSK5 7333
+#define NQHQSK5 32
 #define NQHQCT5 14421
 #define NQHQM5 32
 #define NQHQSEED 32  /* key-generation seed */

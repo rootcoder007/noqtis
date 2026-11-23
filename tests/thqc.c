@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* HQC tests: the official known answers of the reference implementation
- * v5.0.0 (300 vectors, through the digests in vectors/hqc), round trips,
+ * v5.1.0 (specification 5.1; 300 vectors, through the digests in
+ * vectors/hqc), its Reed-Solomon vectors (2,400, vectors/hqc/hqc-rs.txt,
+ * past the capacity too), round trips, the refusal of a 5.0 secret key,
  * implicit rejection to the exact J value, the decoder at its capacity,
  * the polynomial product against a direct one, the masked decapsulation
  * against the unmasked one, and the API's errors.
@@ -15,6 +17,7 @@
 #include "noqtis.h"
 #include "core/int.h"
 #include "core/json.h"
+#include "aead/aead.h"
 #include "hash/h.h"
 #include "hqc/hqc.h"
 #include "hqc/hqci.h"
@@ -26,23 +29,58 @@ static const int lvls[3] = {1, 3, 5};
 static uint8_t pk[NQHQPK5], sk[NQHQSK5], ct[NQHQCT5], bad[NQHQCT5];
 
 /* ---- the KAT randomness ----
- * The reference's KAT generator seeds its randombytes per vector with the
- * 48-byte seed of the .rsp file: SHAKE256(seed || 0x00), squeezed in
- * order. Key generation draws seed_kem (32), encapsulation m (k bytes)
- * and then the salt (16). */
+ * The reference's KAT generator (v5.1.0, lib/nist-rng) seeds the NIST
+ * AES-256 CTR_DRBG of the PQC KATs per vector with the 48-byte seed of the
+ * .rsp file (no derivation function, no personalisation). Key generation
+ * draws seed_kem (32), encapsulation m (k bytes) and then, in a second
+ * call, the salt (16). */
 typedef struct {
-  nqkctx k;
+  uint8_t key[32], v[16];
 } kprng;
 
-static void kpini(kprng *r, const uint8_t seed[48]) {
-  const uint8_t z = 0;
-  nqshkini(&r->k, 256);
-  nqkabs(&r->k, seed, 48);
-  nqkabs(&r->k, &z, 1);
+static void kpinc(uint8_t v[16]) {
+  int j;
+  for (j = 15; j >= 0; j--) {
+    if (++v[j] != 0) break;
+  }
 }
 
+/* CTR_DRBG_Update with 48 bytes of data (or none) */
+static void kpupd(kprng *r, const uint8_t *data) {
+  uint8_t t[48];
+  nqaes a;
+  int i;
+  NQTEQI(nqaesk(&a, r->key, 32), NQOK);
+  for (i = 0; i < 3; i++) {
+    kpinc(r->v);
+    nqaes1(&a, r->v, t + 16 * i);
+  }
+  if (data != NULL) {
+    for (i = 0; i < 48; i++) t[i] ^= data[i];
+  }
+  memcpy(r->key, t, 32);
+  memcpy(r->v, t + 32, 16);
+}
+
+static void kpini(kprng *r, const uint8_t seed[48]) {
+  memset(r, 0, sizeof *r);
+  kpupd(r, seed);
+}
+
+/* randombytes(out, len): one call */
 static void kpget(kprng *r, uint8_t *out, size_t len) {
-  nqksqz(&r->k, out, len);
+  uint8_t b[16];
+  nqaes a;
+  NQTEQI(nqaesk(&a, r->key, 32), NQOK);
+  while (len > 0) {
+    size_t n = len < 16 ? len : 16;
+    kpinc(r->v);
+    nqaes1(&a, r->v, b);
+    memcpy(out, b, n);
+    out += n;
+    len -= n;
+  }
+  kpupd(r, NULL);
 }
 
 static int alglv(long lv, nqkalg *alg) {
@@ -64,7 +102,8 @@ static int katone(nqkalg alg, const uint8_t seed[48],
   int ok = 1;
   kpini(&r, seed);
   kpget(&r, ks, sizeof ks);
-  kpget(&r, es, p->k + NQHQSALT);
+  kpget(&r, es, p->k);
+  kpget(&r, es + p->k, NQHQSALT);
   if (nqhqkgd(alg, ks, sizeof ks, pk, p->pk, sk, p->sk) != NQOK) ok = 0;
   if (nqhqencd(alg, pk, p->pk, es, p->k + NQHQSALT, ct, p->ct, ss, 32) !=
       NQOK) {
@@ -147,6 +186,68 @@ static void tkat(void) {
   }
 }
 
+/* vectors/hqc/hqc-rs.txt: the reference's Reed-Solomon vectors
+ * (kats/rs/hqc-{1,3,5}/rs.tv), "level clean corrupted decoded" per line: the
+ * decoder gives exactly the reference's message, also past the capacity,
+ * and for a clean codeword the encoder gives the codeword back */
+static void trs(void) {
+  char *buf = NULL, *line, *next;
+  size_t len = 0;
+  long run[3] = {0, 0, 0}, pass[3] = {0, 0, 0};
+  int i;
+  if (nqreadf("vectors/hqc/hqc-rs.txt", 1u << 20, &buf, &len) != NQOK) {
+    fprintf(stderr, "vectors/hqc/hqc-rs.txt is missing\n");
+    NQTCHK(0);
+    return;
+  }
+  for (line = buf; line != NULL && *line != '\0'; line = next) {
+    static char hc[2 * NQHQN1 + 1], hm[2 * NQHQK + 1];
+    uint8_t cw[NQHQN1], want[NQHQK], out[NQHQN1];
+    size_t n1 = 0, n2 = 0;
+    long lv, clean;
+    nqkalg alg;
+    const nqhqp *p;
+    int s, ok;
+    next = strchr(line, '\n');
+    if (next != NULL) *next++ = '\0';
+    if (*line != '\0' && line[strlen(line) - 1] == '\r') {
+      line[strlen(line) - 1] = '\0';
+    }
+    if (line[0] == '#' || line[0] == '\0') continue;
+    if (sscanf(line, "%ld %ld %180s %64s", &lv, &clean, hc, hm) != 4 ||
+        alglv(lv, &alg) != 0 ||
+        nqunhex(hc, strlen(hc), cw, sizeof cw, &n1) != NQOK ||
+        nqunhex(hm, strlen(hm), want, sizeof want, &n2) != NQOK) {
+      fprintf(stderr, "malformed RS vector line\n");
+      NQTCHK(0);
+      continue;
+    }
+    p = nqhqpar(alg);
+    s = lv == 1 ? 0 : lv == 3 ? 1 : 2;
+    NQTEQI(n1, p->n1);
+    NQTEQI(n2, p->k);
+    run[s]++;
+    nqhqrsd(p, out, cw);
+    ok = memcmp(out, want, p->k) == 0;
+    if (clean) {
+      nqhqrse(p, out, want);
+      ok &= memcmp(out, cw, p->n1) == 0;
+    }
+    if (ok) {
+      pass[s]++;
+    } else {
+      fprintf(stderr, "HQC-%ld RS vector %ld fails\n", lv, run[s] - 1);
+    }
+  }
+  nqfree(buf, len + 1);
+  for (i = 0; i < 3; i++) {
+    printf("HQC-%d RS vectors: %ld run, %ld passed\n", lvls[i], run[i],
+           pass[i]);
+    NQTEQI(run[i], 800);
+    NQTEQI(pass[i], run[i]);
+  }
+}
+
 /* ---- sizes and errors ---- */
 
 static void tsize(void) {
@@ -167,7 +268,7 @@ static void tsize(void) {
     if (p == NULL) continue;
     NQTEQI(p->k, ms[i]);
     NQTEQI(p->pk, 32 + p->nb);
-    NQTEQI(p->sk, p->pk + 64 + p->k);
+    NQTEQI(p->sk, 32);
     NQTEQI(p->ct, p->nb + p->vb + 16);
     NQTEQI(p->nw, (p->n + 63) / 64);
     NQTEQI(p->nb, (p->n + 7) / 8);
@@ -185,7 +286,7 @@ static void tsize(void) {
 static void terr(void) {
   const nqhqp *p = nqhqpar(NQHQC128);
   uint8_t seed[32], es[40], ss[32], ss2[32];
-  size_t offs[4], i;
+  size_t i;
   for (i = 0; i < 40; i++) {
     seed[i % 32] = (uint8_t)(i + 1);
     es[i] = (uint8_t)(3 * i);
@@ -232,22 +333,29 @@ static void terr(void) {
   NQTEQI(nqhqdec(NQMLKEM512, sk, NQHQSK1, ct, NQHQCT1, ss2, 32), NQEARG);
   NQTEQI(nqhqdec(NQHQC128, sk, NQHQSK1, ct, NQHQCT1, ss2, 32), NQOK);
   NQTEQM(ss, ss2, 32);
-  /* a secret key whose seeds were damaged: seed_ek, seed_dk, sigma and
-   * seed_kem each, and a bit past n in its public half */
-  offs[0] = 4;
-  offs[1] = p->pk + 2;
-  offs[2] = p->pk + 39;
-  offs[3] = p->sk - 2;
-  for (i = 0; i < 4; i++) {
-    sk[offs[i]] ^= 1;
-    NQTEQI(nqhqdec(NQHQC128, sk, NQHQSK1, ct, NQHQCT1, ss2, 32), NQEDEC);
-    sk[offs[i]] ^= 1;
+  NQTEQI(nqhqdecp(NQHQC128, sk, NQHQSK1, ct, NQHQCT1, ss2, 32), NQOK);
+  NQTEQM(ss, ss2, 32);
+  /* a secret key of specification 5.0 (ek || seed_dk || sigma ||
+   * seed_kem: 2321, 4602, 7333 bytes) is refused by its length, by both
+   * decapsulations and for every set */
+  for (i = 0; i < 3; i++) {
+    static const size_t old[3] = {2321, 4602, 7333};
+    static uint8_t osk[7333];
+    const nqhqp *q = nqhqpar(algs[i]);
+    memset(osk, 0x42, sizeof osk);
+    NQTEQI(nqhqdec(algs[i], osk, old[i], ct, q->ct, ss2, 32), NQEDEC);
+    NQTEQI(nqhqdecp(algs[i], osk, old[i], ct, q->ct, ss2, 32), NQEDEC);
+    NQTEQI(nqdec(algs[i], osk, old[i], ct, q->ct, ss2, 32), NQEDEC);
   }
-  sk[p->pk - 1] ^= 0x40;
-  NQTEQI(nqhqdec(NQHQC128, sk, NQHQSK1, ct, NQHQCT1, ss2, 32), NQEDEC);
-  sk[p->pk - 1] ^= 0x40;
+  /* any 32 bytes are a key: a changed byte gives another key, whose
+   * decapsulation of ct is its rejection value */
+  sk[5] ^= 1;
+  NQTEQI(nqhqdec(NQHQC128, sk, NQHQSK1, ct, NQHQCT1, ss2, 32), NQOK);
+  NQTCHK(memcmp(ss, ss2, 32) != 0);
+  sk[5] ^= 1;
   NQTEQI(nqhqdec(NQHQC128, sk, NQHQSK1, ct, NQHQCT1, ss2, 32), NQOK);
   NQTEQM(ss, ss2, 32);
+  (void)p;
 }
 
 /* ---- round trips and implicit rejection ---- */
@@ -258,7 +366,10 @@ static void tround(void) {
     const nqhqp *p = nqhqpar(algs[i]);
     uint8_t ss[32], ss2[32], ss3[32], pk2[NQHQPK5];
     NQTEQI(nqhqkg(algs[i], pk, p->pk, sk, p->sk), NQOK);
-    NQTEQM(pk, sk, p->pk);
+    /* sk is the seed: it gives the same key pair again */
+    NQTEQI(nqhqkgd(algs[i], sk, 32, pk2, p->pk, ss3, 32), NQOK);
+    NQTEQM(pk2, pk, p->pk);
+    NQTEQM(ss3, sk, 32);
     NQTEQI(nqhqenc(algs[i], pk, p->pk, ct, p->ct, ss, 32), NQOK);
     NQTEQI(nqhqdec(algs[i], sk, p->sk, ct, p->ct, ss2, 32), NQOK);
     NQTEQM(ss, ss2, 32);
@@ -277,13 +388,14 @@ static void tround(void) {
 
 /* a flipped bit in u, in v and in the salt gives exactly
  * J(H(ek) || sigma || c') = SHA3-256(SHA3-256(ek || 1) || sigma || c' ||
- * 3), every time */
+ * 3), sigma the bytes 32 .. 32 + k of SHAKE256(seed_kem || k), every
+ * time */
 static void treject(void) {
   int i, j;
   for (i = 0; i < 3; i++) {
     const nqhqp *p = nqhqpar(algs[i]);
     uint8_t seed[32], es[NQHQM5 + NQHQSALT], ss[32], ss2[32], ss3[32];
-    uint8_t hek[32], kb[32], b1 = 1, b3 = 3;
+    uint8_t hek[32], kb[32], sig[NQHQM5], b1 = 1, b3 = 3, kd;
     size_t pos[3];
     nqkctx k;
     for (j = 0; j < 32; j++) {
@@ -302,6 +414,12 @@ static void treject(void) {
     nqkabs(&k, pk, p->pk);
     nqkabs(&k, &b1, 1);
     nqksqz(&k, hek, 32);
+    kd = (uint8_t)p->k;
+    nqshkini(&k, 256);
+    nqkabs(&k, seed, 32);
+    nqkabs(&k, &kd, 1);
+    nqksqz(&k, kb, 32);
+    nqksqz(&k, sig, p->k);
     pos[0] = 9;
     pos[1] = p->nb + 790;
     pos[2] = p->ct - 3;
@@ -310,7 +428,7 @@ static void treject(void) {
       bad[pos[j]] ^= 4;
       nqs3ini(&k, 256);
       nqkabs(&k, hek, 32);
-      nqkabs(&k, sk + p->pk + 32, p->k);
+      nqkabs(&k, sig, p->k);
       nqkabs(&k, bad, p->ct);
       nqkabs(&k, &b3, 1);
       nqksqz(&k, kb, 32);
@@ -508,6 +626,7 @@ int main(void) {
   tsize();
   tmul();
   tcode();
+  trs();
   terr();
   tround();
   treject();

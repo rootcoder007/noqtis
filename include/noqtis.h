@@ -452,10 +452,12 @@ NQAPI int nqencd(nqkalg alg, const uint8_t *pk, size_t pklen,
 /* Implicit rejection: a bad ciphertext yields a pseudorandom secret and
  * NQOK, as the standards require. It fails on a NULL argument or an
  * unknown alg (NQEARG), on ss shorter than the shared secret (NQEBUF),
- * on a secret key or ciphertext of the wrong length or a secret key that
- * does not check (its embedded hash, for HQC its stored seeds: NQEDEC),
- * and, since ML-KEM and HQC decapsulation are masked with fresh
- * randomness, when the random source (nqsetrng) fails (NQERNG). */
+ * on a secret key or ciphertext of the wrong length (NQEDEC; an HQC
+ * secret key of specification 5.0 is one: HQC follows specification 5.1,
+ * whose secret key is the 32-byte seed), on an ML-KEM secret key whose
+ * embedded hash does not match (NQEDEC), and, since ML-KEM and HQC
+ * decapsulation are masked with fresh randomness, when the random source
+ * (nqsetrng) fails (NQERNG). */
 NQAPI int nqdec(nqkalg alg, const uint8_t *sk, size_t sklen,
                 const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen);
 

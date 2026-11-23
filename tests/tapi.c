@@ -394,11 +394,11 @@ static const nqkalg kalgs[6] = {NQMLKEM512, NQMLKEM768, NQMLKEM1024,
 static const char *const kn[6] = {"ML-KEM-512", "ML-KEM-768",
                                   "ML-KEM-1024", "HQC-128", "HQC-192",
                                   "HQC-256"};
-/* FIPS 203 table 3 and the HQC specification: pk, sk, ct, ss */
+/* FIPS 203 table 3 and the HQC specification 5.1 table 9: pk, sk, ct, ss */
 static const size_t ksz[6][4] = {
     {800, 1632, 768, 32},    {1184, 2400, 1088, 32},
-    {1568, 3168, 1568, 32},  {2241, 2321, 4433, 32},
-    {4514, 4602, 8978, 32},  {7237, 7333, 14421, 32}};
+    {1568, 3168, 1568, 32},  {2241, 32, 4433, 32},
+    {4514, 32, 8978, 32},    {7237, 32, 14421, 32}};
 static const size_t kmsg[6] = {32, 32, 32, 32, 40, 48};
 
 static uint8_t kpk[KPKX + 8], ksk[KSKX + 8], kpk2[KPKX], ksk2[KSKX];

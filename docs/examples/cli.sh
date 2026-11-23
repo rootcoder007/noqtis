@@ -229,7 +229,7 @@ code 1 noqtis chain -p me.pub log/1 log/3
 # ---- noqtis-algs(1), noqtis-version(1), noqtis(1)
 same "ML-DSA-65              sig     1952    4032    3309    -" \
   "$(noqtis algs | grep '^ML-DSA-65 ')"
-same "HQC-256                kem     7237    7333   14421   32" \
+same "HQC-256                kem     7237      32   14421   32" \
   "$(noqtis algs | grep '^HQC-256 ')"
 same "noqtis" "$(noqtis version | cut -d' ' -f1)"
 same "$(noqtis version)" "$(noqtis --version)"

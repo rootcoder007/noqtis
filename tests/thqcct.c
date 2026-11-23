@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Constant-time check of HQC (ctgrind): built with -DNQCTGRIND and run
- * under valgrind memcheck, the secrets (key seed, the secret half of the
- * key, m and the salt) are marked undefined, so any branch or address
- * that depends on them is reported as a use of an uninitialised value.
- * The module's sources are compiled into this file so that the three
- * places the specification lets a secret-derived bit become public
- * (NQHQDCL in kem.c) are declassified here, and only here.
+ * under valgrind memcheck, the secrets (key seed, the decapsulation key,
+ * m and the salt) are marked undefined, so any branch or address that
+ * depends on them is reported as a use of an uninitialised value. The
+ * module's sources are compiled into this file so that the one place the
+ * specification lets a secret-derived bit become public (NQHQDCL in
+ * kem.c: whether a draw of the key-generation sampler is kept) is
+ * declassified here, and only here.
  *
  * Without NQCTGRIND it runs the same calls through the library as a
  * plain smoke test. */
@@ -50,7 +51,6 @@ int main(void) {
     NQTEQI(nqhqkgd(algs[i], seed, sizeof seed, pk, p->pk, sk, p->sk),
            NQOK);
     PUBLIC(pk, p->pk);
-    PUBLIC(sk, p->pk); /* sk starts with a copy of pk */
     /* encapsulation: m and the salt are secret */
     SECRET(es, sizeof es);
     NQTEQI(nqhqencd(algs[i], pk, p->pk, es, p->k + NQHQSALT, ct, p->ct,
@@ -58,9 +58,10 @@ int main(void) {
            NQOK);
     PUBLIC(ct, p->ct);
     PUBLIC(ss, 32);
-    /* decapsulation of the ciphertext and of a tampered one: the secret
-     * half of the key is secret */
-    SECRET(sk + p->pk, p->sk - p->pk);
+    /* decapsulation of the ciphertext and of a tampered one: the key
+     * (seed_kem) is secret; the key pair derived from it again inside
+     * keeps only the declassified sampler decisions public */
+    SECRET(sk, p->sk);
     NQTEQI(nqhqdec(algs[i], sk, p->sk, ct, p->ct, ss2, 32), NQOK);
     PUBLIC(ss2, 32);
     ct[100] ^= 1;

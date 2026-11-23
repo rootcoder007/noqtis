@@ -44,7 +44,10 @@ if Rscript "$here/dv.R" "$w/g" > /dev/null 2>&1 ||
   echo "FAIL: a changed output was not reported"
   exit 1
 fi
-all="hash ML-KEM-512 ML-KEM-768 ML-KEM-1024 HQC-128 HQC-192 HQC-256
+# HQC is not compared: noqtis follows HQC specification 5.1 and
+# rmoriebricklayer 1.1 the earlier 5.0, whose keys and known answers
+# differ; add HQC-128 HQC-192 HQC-256 back when both follow the same one
+all="hash ML-KEM-512 ML-KEM-768 ML-KEM-1024
 ML-DSA-44 ML-DSA-65 ML-DSA-87
 SLH-DSA-SHA2-128f SLH-DSA-SHAKE-128f SLH-DSA-SHA2-192f SLH-DSA-SHAKE-192f
 SLH-DSA-SHA2-256f SLH-DSA-SHAKE-256f SLH-DSA-SHA2-128s SLH-DSA-SHAKE-128s

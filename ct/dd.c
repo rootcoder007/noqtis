@@ -506,42 +506,49 @@ static void rsl(const tg *t, const uint8_t *in) {
 
 /* ---- HQC ---- */
 
-/* Decapsulation draws y again from seed_dk with the specification's
- * rejection sampler (SampleFixedWeightVect$), whose time grows with the
- * 24-bit draws it rejects and the positions it draws twice; the code
- * declares both public, as the specification allows. They are fixed per
- * key, so keys differ in time by them. The key test therefore uses keys
- * whose sampler rejected nothing and repeated nothing, as most keys do,
- * and asks whether anything else differs; target hqc128x is the raw
- * comparison. This counts both, replaying the sampler on seed_dk. */
+/* Decapsulation runs key generation again from seed_kem, and so the
+ * specification's rejection sampler (SampleFixedWeightVect$) for y and x,
+ * whose time grows with the 24-bit draws it rejects and the positions it
+ * draws twice; the code declares both public, as the specification
+ * allows. They are fixed per key, so keys differ in time by them. The key
+ * test therefore uses keys whose sampler rejected nothing and repeated
+ * nothing, as most keys do, and asks whether anything else differs;
+ * target hqc128x is the raw comparison. This counts both, replaying the
+ * sampler: seed_pke = SHAKE256(seed_kem || k), seed_dk the first half of
+ * SHA3-512(seed_pke || 2), then 3-byte little-endian draws of
+ * SHAKE256(seed_dk) for y and for x. */
 static unsigned hqcnt(const nqhqp *p, const uint8_t *sk) {
   uint32_t sup[NQHQWM];
-  uint8_t buf[3 * NQHQWM + 8], d = 1;
-  const size_t bl = 3 * (size_t)p->w, rem = bl % 8;
-  size_t i = 0, j = bl, k;
+  uint8_t b[3], spke[32], kp[64], d = (uint8_t)p->k, two = 2;
+  size_t i, k, v;
   unsigned rej = 0, dup = 0;
   nqkctx x;
   nqshkini(&x, 256);
-  nqkabs(&x, sk + p->pk, 32);
+  nqkabs(&x, sk, 32);
   nqkabs(&x, &d, 1);
-  while (i < p->w) {
-    uint32_t s, rp = 0;
-    for (;;) {
-      if (j == bl) {
-        nqksqz(&x, buf, bl - rem);
-        if (rem) nqksqz(&x, buf + bl - rem, 8);
-        j = 0;
+  nqksqz(&x, spke, 32);
+  nqs3ini(&x, 512);
+  nqkabs(&x, spke, 32);
+  nqkabs(&x, &two, 1);
+  nqksqz(&x, kp, 64);
+  nqshkini(&x, 256);
+  nqkabs(&x, kp, 32);
+  for (v = 0; v < 2; v++) {
+    i = 0;
+    while (i < p->w) {
+      uint32_t s, rp = 0;
+      nqksqz(&x, b, 3);
+      s = (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16);
+      if (s >= p->thr) {
+        rej++;
+        continue;
       }
-      s = ((uint32_t)buf[j] << 16) | ((uint32_t)buf[j + 1] << 8) | buf[j + 2];
-      j += 3;
-      if (s < p->thr) break;
-      rej++;
+      s %= p->n;
+      for (k = 0; k < i; k++) rp |= sup[k] == s;
+      sup[i] = s;
+      dup += rp;
+      i += 1u ^ rp;
     }
-    s %= p->n;
-    for (k = 0; k < i; k++) rp |= sup[k] == s;
-    sup[i] = s;
-    dup += rp;
-    i += 1u ^ rp;
   }
   return rej * 1000u + dup;
 }
