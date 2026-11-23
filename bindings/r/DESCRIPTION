@@ -32,7 +32,7 @@ Description: Post-quantum signatures, key encapsulation and sealed records,
     messages; a key store keeps and certifies other people's public keys, and
     keys held on a 'PKCS #11' token sign and decapsulate without leaving it.
     Keys and nonces come from the operating system's random generator.
-License: Apache License (== 2.0)
+License: LGPL (>= 3)
 Copyright: see file inst/COPYRIGHTS
 URL: https://noqtis.dev, https://github.com/rootcoder007/noqtis
 BugReports: https://github.com/rootcoder007/noqtis/issues

@@ -2,6 +2,8 @@
 # ../../NOTICE, for `cargo package`
 /vendor/
 /LICENSE
+/COPYING
+/COPYING.LESSER
 /NOTICE
 /target/
 Cargo.lock

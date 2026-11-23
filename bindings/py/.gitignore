@@ -1,6 +1,9 @@
-# made by setup.py from ../../src, ../../include, ../../LICENSE, ../../NOTICE
+# made by setup.py from ../../src, ../../include, ../../LICENSE,
+# ../../COPYING, ../../COPYING.LESSER, ../../NOTICE
 /vendor/
 /LICENSE
+/COPYING
+/COPYING.LESSER
 /NOTICE
 /build/
 /dist/

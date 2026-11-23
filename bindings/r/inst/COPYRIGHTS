@@ -6,8 +6,9 @@ vignette are
 
   Copyright 2026 Vansh Singh Ruhela (rootcoder007)
 
-and licensed under the Apache License, Version 2.0, with LLVM
-Exceptions (SPDX: Apache-2.0 WITH LLVM-exception); see LICENSE.note.
+and licensed under the GNU Lesser General Public License, version 3 or
+(at your option) any later version (SPDX: LGPL-3.0-or-later). Versions
+up to 0.2.2 were released under Apache-2.0 WITH LLVM-exception.
 
 Bundled C library
 -----------------
@@ -19,7 +20,7 @@ unmodified copy of the noqtis C library
 that repository:
 
   Copyright 2026 Vansh Singh Ruhela (rootcoder007)
-  License: Apache-2.0 WITH LLVM-exception (see LICENSE.note)
+  License: LGPL-3.0-or-later
 
 The library is an independent implementation of public standards
 (FIPS 180-4, FIPS 202, FIPS 203, FIPS 204, FIPS 205, SP 800-90A, the
@@ -44,6 +45,7 @@ keys that were not kept.
 Licence note
 ------------
 
-The licence field names the Apache License 2.0; inst/LICENSE.note
-carries the LLVM Exceptions, additional permissions on top of it, so
-the package grants exactly what Apache-2.0 WITH LLVM-exception grants.
+The licence field, LGPL (>= 3), names the GNU Lesser General Public
+License version 3 or later, whose text R ships in
+share/licenses/LGPL-3 (with the GNU General Public License version 3 it
+adds to, share/licenses/GPL-3).
