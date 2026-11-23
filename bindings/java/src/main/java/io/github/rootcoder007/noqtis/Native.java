@@ -244,7 +244,10 @@ final class Native {
   static final MethodHandle NQHINI = fn("nqhini", I, P, I);
   static final MethodHandle NQHUPD = fn("nqhupd", I, P, P, Z);
   static final MethodHandle NQHFIN = fn("nqhfin", I, P, P, Z);
+  static final MethodHandle NQPBKDF2 = fn("nqpbkdf2", I, I, P, Z, P, Z, I, P, Z);
   static final MethodHandle NQPWENC = fn("nqpwenc", I, P, Z, P, Z, I, I, I, P, Z, P, Z, P);
+  static final MethodHandle NQPWENC2 =
+      fn("nqpwenc2", I, I, P, Z, P, Z, I, I, I, P, Z, P, Z, P);
   static final MethodHandle NQPWDEC = fn("nqpwdec", I, P, Z, P, Z, P, Z, P, Z, P);
   static final MethodHandle NQSMU = fn("nqsmu", I, I, P, Z, P, Z, P, Z, I, P, Z);
   static final MethodHandle NQSIGNMU = fn("nqsignmu", I, I, P, Z, P, Z, P, Z, P, Z, P);

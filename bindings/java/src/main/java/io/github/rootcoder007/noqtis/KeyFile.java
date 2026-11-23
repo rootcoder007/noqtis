@@ -205,6 +205,48 @@ public final class KeyFile {
     }
   }
 
+  /** The derivation of {@link #pwenc}: Argon2id. */
+  public static final int KDF_ARGON2ID = 1;
+
+  /** PBKDF2 with HMAC-SHA-256, for places whose rules ask for it. */
+  public static final int KDF_PBKDF2 = 2;
+
+  /**
+   * {@link #pwenc} under the derivation kdf: {@link #KDF_ARGON2ID} with m, t
+   * and p as there, or {@link #KDF_PBKDF2} with t the iteration count (0:
+   * 600000; 100000 to 10000000) and m and p 0. {@link #pwdec} reads both.
+   *
+   * @param kdf {@link #KDF_ARGON2ID} or {@link #KDF_PBKDF2}
+   * @param pw the passphrase, 1 to 4096 bytes
+   * @param sk the secret key
+   * @param ad the associated data (null for none)
+   * @param m memory in KiB, or 0
+   * @param t passes or iterations, or 0
+   * @param p lanes, or 0
+   * @return the protected key
+   */
+  public static byte[] pwenc2(int kdf, byte[] pw, byte[] sk, byte[] ad, int m, int t, int p) {
+    byte[] x = ad == null ? new byte[0] : ad;
+    try (Arena a = Arena.ofConfined()) {
+      MemorySegment ps = Native.in(a, pw), ks = Native.in(a, sk);
+      try {
+        return Native.sized(
+            a,
+            sk.length + 51L,
+            (o, cap, n) ->
+                (int)
+                    Native.NQPWENC2.invoke(
+                        kdf, ps, (long) pw.length, Native.in(a, x), (long) x.length, m, t, p,
+                        ks, (long) sk.length, o, cap, n));
+      } finally {
+        Native.wipe(ps, pw.length);
+        Native.wipe(ks, sk.length);
+      }
+    } catch (Throwable e) {
+      throw Native.wrap(e);
+    }
+  }
+
   /**
    * The key {@link #pwenc} protected: {@link NoqtisException.Code#VERIFY}
    * for a wrong passphrase or ad, or any changed byte;

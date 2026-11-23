@@ -71,6 +71,23 @@ final class More {
     eq(fails(() -> KeyFile.pwdec(pw, o2, ad)), Code.VERIFY, "changed");
     byte[] sk = Sign.keygen("ML-DSA-44").sk();
     eq(fails(() -> KeyFile.pwenc(pw, sk, null, 1024, 1, 1)), Code.ARG, "small memory");
+    // RFC 7914 section 11: "passwd", "salt", 1 iteration, 64 bytes
+    byte[] pb =
+        h("55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc"
+            + "49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783");
+    ok(Arrays.equals(Noqtis.pbkdf2("SHA-256", b("passwd"), b("salt"), 1, 64), pb), "pbkdf2");
+    eq(fails(() -> Noqtis.pbkdf2("SHA-256", b("passwd"), b("salt"), 0, 64)), Code.ARG, "pbkdf2 0");
+    // a secret key file under PBKDF2, as keygen --kdf pbkdf2 writes one
+    byte[] kad = b("noqtis-key-1 ML-DSA-44 sec");
+    byte[] pe = KeyFile.pwenc2(KeyFile.KDF_PBKDF2, b("pass"), sk, kad, 0, 100000, 0);
+    ok(pe[5] == KeyFile.KDF_PBKDF2, "the KDF byte");
+    ok(Arrays.equals(KeyFile.pwdec(b("pass"), pe, kad), sk), "pwenc2 round trip");
+    String pt = "noqtis-key-1 ML-DSA-44 sec\n" + java.util.Base64.getMimeEncoder(64, b("\n"))
+        .encodeToString(pe) + "\n";
+    ok(Arrays.equals(KeyFile.decode(b(pt), "pass".toCharArray()).key(), sk), "PBKDF2 key file");
+    eq(fails(() -> KeyFile.pwenc2(KeyFile.KDF_PBKDF2, b("pass"), sk, kad, 0, 99999, 0)), Code.ARG,
+        "pwenc2 few iterations");
+    eq(fails(() -> KeyFile.pwenc2(3, b("pass"), sk, kad, 0, 0, 0)), Code.ARG, "pwenc2 kdf");
     String t = KeyFile.encode("ML-DSA-44", "sec", sk, "pass".toCharArray());
     ok(t.startsWith("noqtis-key-1 ML-DSA-44 sec\n"), "header");
     ok(Arrays.equals(KeyFile.decode(b(t), "pass".toCharArray()).key(), sk), "round trip");

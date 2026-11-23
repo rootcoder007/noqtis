@@ -536,4 +536,40 @@ public final class Noqtis {
       throw Native.wrap(x);
     }
   }
+
+  /**
+   * PBKDF2 (RFC 8018): n bytes (1 to 1024) of the password and the salt
+   * after iters iterations (1 to 100000000) of the HMAC of alg
+   * ("SHA-256", "SHA3-512", ...; not SHAKE). It costs an attacker no
+   * memory: where the choice is free, {@link #argon2id} is the one to use.
+   *
+   * @param alg the hash of the HMAC
+   * @param pw the password
+   * @param salt the salt
+   * @param iters the iteration count
+   * @param n the output size
+   * @return the derived bytes
+   */
+  public static byte[] pbkdf2(String alg, byte[] pw, byte[] salt, int iters, int n) {
+    int i = hid(alg);
+    if (n < 1 || n > 1024) {
+      throw new NoqtisException(-1, "n: 1 to 1024 bytes");
+    }
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment o = Native.out(m, n), ps = Native.in(m, pw);
+      try {
+        Native.rc(
+            (int)
+                Native.NQPBKDF2.invoke(
+                    i, ps, (long) pw.length, Native.in(m, salt), (long) salt.length, iters, o,
+                    (long) n));
+        return Native.bytes(o, n);
+      } finally {
+        Native.wipe(ps, pw.length);
+        Native.wipe(o, n);
+      }
+    } catch (Throwable x) {
+      throw Native.wrap(x);
+    }
+  }
 }

@@ -273,9 +273,9 @@ try (InputStream in = Files.newInputStream(Path.of("big.csv"));
 `Verifier`, `Hasher`, `Box.Sealer` and `Box.Opener` are the other
 streams; `Kem.seal` and `Kem.open` a message; `Sign.mu`, `signmu` and
 `verifymu` ML-DSA with an external mu; `Noqtis.blake2b`, `argon2id`,
-`cteq` and `wipe` the primitives. `Capsule.sealWhy`, `tsreq`, `tsput`,
-`ersreq`, `ersput`, `rotate`, `revoke` and the `Dsse` class reach the
-rest of the capsule functions; `Data.checkSchema`, `synth`,
+`pbkdf2`, `cteq` and `wipe` the primitives. `Capsule.sealWhy`, `tsreq`,
+`tsput`, `ersreq`, `ersput`, `rotate`, `revoke` and the `Dsse` class
+reach the rest of the capsule functions; `Data.checkSchema`, `synth`,
 `calibrate`, `chunks`, `piece`, `commit`, `reveal`, `commitment`,
 `cite`, `report`, `pack`, `unpack`, `checkPack`, `chain` and `env` the
 rest of the data layer (`env` lists the boot layer's modules and the
