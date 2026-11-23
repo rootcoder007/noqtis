@@ -335,17 +335,31 @@ the operating system's random source failed.
 .Fn nqsign
 or
 .Fn nqsignd :
-the signature just made does not verify under the public key derived
-again from the secret key, which happens only when the computation was
-disturbed (a glitch, a flipped memory bit).
-The signature is not released: a faulty signature can give away the key
-(Bruinderink and Pessl, and Ravi et al., for ML-DSA; Castelnovi et al.\&
-and Gen\(^et et al. for SLH-DSA; Romailler and Pelissier for Ed25519).
-A signature is returned only if it verifies under the public key derived
-from the secret key: this detects any fault that makes the signature
-invalid, not a fault in the secret key itself (the public key is
-derived from that same key), a fault that skips the check, or one that
-still gives a valid signature.
+the signature just made failed the checks before release, which
+happens only when the computation was disturbed (a glitch, a flipped
+memory bit) or the stored secret key was changed.
+The signature is not released, and the output is zero: a faulty
+signature can give away the key (Bruinderink and Pessl, and Ravi et
+al., for ML-DSA; Castelnovi et al.\& and Gen\(^et et al. for SLH-DSA;
+Romailler and Pelissier for Ed25519).
+.Pp
+The fault model is one fault, during signing or in the stored secret
+key.
+Under it a signature is released only if it verifies, twice and
+independently, under a public key checked against the secret key: for
+ML-DSA the key computed again from s1 and s2 must hash to the stored tr
+and give the stored t0; for SLH-DSA it is the stored PK.seed and
+PK.root; for Ed25519 a second derivation from the seed, with fresh
+shares, must give the same key.
+The verdicts make a mask that zeroes the signature unless every check
+held, with no branch between the checks and the release.
+Outside the model: two coordinated faults, a change to the output after
+the call returns, and the parts of a key that are not tied to its public
+key (ML-DSA's K, SLH-DSA's SK.prf, the Ed25519 seed), where a change
+gives a valid signature instead (for the Ed25519 seed, one under another
+key).
+.Pa docs/security.md
+says what such a signature can reveal.
 .It Bq Er NQENOSUP
 .Fn nqsfind :
 no algorithm has that name.
