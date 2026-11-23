@@ -772,9 +772,10 @@ NQAPI int nqkstmt(nqsalg alg, const uint8_t *sk, size_t sklen,
 /* A key statement of the kind "expire": the holder of the key pair (sk,
  * pk) of alg says that the key seals until at and not after. Until then
  * a check with the statement accepts its seals as it does without one;
- * from then on (by SOURCE_DATE_EPOCH when set, else the clock) it
- * accepts only a seal with a verified timestamp from before at, as for
- * a key revoked at at. The limits and results are nqkstmt's. */
+ * from then on (by the system clock: SOURCE_DATE_EPOCH, which sets only
+ * the times noqtis writes, does not change it) it accepts only a seal
+ * with a verified timestamp from before at, as for a key revoked at at.
+ * The limits and results are nqkstmt's. */
 NQAPI int nqkexp(nqsalg alg, const uint8_t *sk, size_t sklen,
                  const uint8_t *pk, size_t pklen, int64_t at,
                  const char *reason, char *out, size_t cap, size_t *outlen);
