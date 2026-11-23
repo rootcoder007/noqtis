@@ -183,7 +183,7 @@ Decaps(dk, c):  m' = K-PKE.Decrypt(dk_PKE, c)
                 (K', r') = G(m' || h)               h = H(ek) from dk
                 Kbar = J(z || c)
                 ss = K'    if K-PKE.Encrypt(ek, m', r') = c
-                ss = Kbar  otherwise          (compared in constant time)
+                ss = Kbar  otherwise     (compared in constant time)
 .Ed
 .Pp
 HQC (specification 5.1), with H(x) = SHA3-256(x || 0x01),
@@ -209,7 +209,7 @@ Decaps(dk, c):  (ek, y, sigma) = KeyGen(dk)
                 K' || theta' = G(H(ek) || m' || salt)
                 Kbar = J(H(ek) || sigma || c)
                 ss = K'    if Encaps(ek; m', salt) gives c
-                ss = Kbar  otherwise          (compared in constant time)
+                ss = Kbar  otherwise     (compared in constant time)
 .Ed
 .Pp
 Both are key encapsulation mechanisms built with a Fujisaki-Okamoto
