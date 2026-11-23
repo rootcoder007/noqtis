@@ -231,8 +231,12 @@ With
 .Fl -token ,
 the signature is made on a PKCS #11 token
 .Pq Xr noqtis-token 1 , Xr nqp11seal 3 :
-the secret key never leaves it, and the public key stored in the seal is
-the one the token gives for that key.
+noqtis never reads the secret key (the token signs); a key made by
+.Nm noqtis token keygen
+is marked sensitive and not extractable, and for a key made otherwise
+that depends on how it was made.
+The public key stored in the seal is the one the token gives for that
+key.
 .Fl k ,
 .Fl p ,
 .Fl -pass-fd
@@ -402,6 +406,14 @@ With
 the token's PKCS #11 module; default the
 .Ev NOQTIS_PKCS11
 variable.
+Here
+.Fl m
+is
+.Fl -meta ,
+not the module as in
+.Xr noqtis-token 1 :
+give the module as
+.Fl -module .
 .It Fl -slot Ar n
 With
 .Fl -token :
@@ -480,7 +492,7 @@ sealed results with ML-DSA-65 and a timestamp
 With a key that stays on a token:
 .Bd -literal -offset indent
 $ export NOQTIS_PKCS11=/usr/lib/softhsm/libsofthsm2.so
-$ noqtis token keygen -a ML-DSA-65 -n release -o release.pub \e
+$ noqtis token keygen -a ML-DSA-65 --label release -o release.pub \e
     --pin-env PIN
 $ noqtis seal --token --label release --pin-env PIN results
 sealed results with ML-DSA-65

@@ -45,6 +45,9 @@ libnoqtis, \-lnoqtis
 These functions sign and decapsulate with private keys that stay on a
 token: a smart card, a hardware security module, or a software token.
 .Pp
+HQC keys cannot be made on a token: PKCS #11 3.2 defines no HQC key
+type.
+.Pp
 .Fn nqp11open
 loads the PKCS #11 module at the path
 .Fa module
@@ -157,7 +160,11 @@ does
 with the signature key
 .Fa k
 of the token.
-The key never leaves the token: the manifest is signed there with
+noqtis never reads the secret key (the token signs); a key made by
+.Fn nqp11gen
+is marked sensitive and not extractable, and for a key made otherwise
+that depends on how it was made.
+The manifest is signed on the token with
 .Fn nqp11sign ,
 the public key written to the seal is the one
 .Fn nqp11pub

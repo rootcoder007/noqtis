@@ -8,45 +8,45 @@
 .Sh SYNOPSIS
 .Nm noqtis token
 .Cm list
-.Op Fl m Ar module
+.Op Fl -module Ar module
 .Nm noqtis token
 .Cm keys
-.Op Fl m Ar module
+.Op Fl -module Ar module
 .Op Fl -slot Ar n
 .Op Fl -pin-fd Ar n | Fl -pin-env Ar name
 .Nm noqtis token
 .Cm keygen
 .Fl a Ar alg
-.Fl n Ar label
+.Fl -label Ar label
 .Op Fl o Ar key.pub
 .Op Fl -force
-.Op Fl m Ar module
+.Op Fl -module Ar module
 .Op Fl -slot Ar n
 .Op Fl -pin-fd Ar n | Fl -pin-env Ar name
 .Nm noqtis token
 .Cm pub
-.Fl n Ar label | Fl -id Ar hex
+.Fl -label Ar label | Fl -id Ar hex
 .Fl o Ar key.pub
 .Op Fl -force
-.Op Fl m Ar module
+.Op Fl -module Ar module
 .Op Fl -slot Ar n
 .Op Fl -pin-fd Ar n | Fl -pin-env Ar name
 .Nm noqtis token
 .Cm sign
-.Fl n Ar label | Fl -id Ar hex
+.Fl -label Ar label | Fl -id Ar hex
 .Op Fl c Ar ctx
 .Op Fl o Ar sig
 .Op Fl -force
-.Op Fl m Ar module
+.Op Fl -module Ar module
 .Op Fl -slot Ar n
 .Op Fl -pin-fd Ar n | Fl -pin-env Ar name
 .Ar file
 .Nm noqtis token
 .Cm dec
-.Fl n Ar label | Fl -id Ar hex
+.Fl -label Ar label | Fl -id Ar hex
 .Fl o Ar ss
 .Op Fl -force
-.Op Fl m Ar module
+.Op Fl -module Ar module
 .Op Fl -slot Ar n
 .Op Fl -pin-fd Ar n | Fl -pin-env Ar name
 .Ar ct
@@ -55,7 +55,8 @@
 works with private keys that stay on a token: a smart card, a hardware
 security module, or a software token.
 The token's maker ships a PKCS #11 module, a shared library;
-.Fl m
+.Fl -module
+.Pq or Fl m
 gives its path, and the variable
 .Ev NOQTIS_PKCS11
 gives it when the option is absent.
@@ -64,6 +65,8 @@ refused, since the system would search its own folders for it.
 .Pp
 The key types are those of PKCS #11 version 3.2, ML-DSA, SLH-DSA and
 ML-KEM, and Ed25519.
+HQC keys cannot be made on a token: PKCS #11 3.2 defines no HQC key
+type.
 .Bl -tag -width "keygen"
 .It Cm list
 Print the tokens present: slot, label, maker, model and serial number.
@@ -107,7 +110,7 @@ The module must be of version 3.2.
 .El
 .Pp
 A key is named by its label
-.Pq Fl n
+.Pq Fl -label , or Fl n
 or by its ID in hexadecimal
 .Pq Fl -id ;
 exactly one key must answer.
@@ -122,7 +125,7 @@ never from the command line.
 .Bl -tag -width NOQTIS_PKCS11
 .It Ev NOQTIS_PKCS11
 The path of the PKCS #11 module, when
-.Fl m
+.Fl -module
 is not given.
 .El
 .Sh EXIT STATUS
@@ -133,9 +136,10 @@ The token's own reason is printed as the CKR number of the standard.
 .Bd -literal
 $ export NOQTIS_PKCS11=/usr/lib/softhsm/libsofthsm2.so
 $ noqtis token list
-$ noqtis token keygen -a ML-DSA-65 -n release -o release.pub \e
+$ noqtis token keygen -a ML-DSA-65 --label release -o release.pub \e
       --pin-env PIN
-$ noqtis token sign -n release -o app.tar.sig --pin-env PIN app.tar
+$ noqtis token sign --label release -o app.tar.sig --pin-env PIN \e
+      app.tar
 $ noqtis verify -p release.pub -s app.tar.sig app.tar
 .Ed
 .Sh SEE ALSO
