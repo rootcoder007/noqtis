@@ -16,7 +16,7 @@ A chain is a log of capsules to which a link is only ever added.
 Start it by sealing the first in format 3 (or 2), and add each next one with
 the last as its only input:
 .Bd -literal -offset indent
-$ noqtis seal --format 3 -k me log/1
+$ noqtis seal -k me log/1
 $ noqtis seal -k me --input prev=log/1 log/2
 $ noqtis seal -k me --input prev=log/2 log/3
 .Ed

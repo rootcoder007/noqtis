@@ -260,6 +260,21 @@ noqtis-key-1 <algorithm> <pub|sec>
 \&...
 .Ed
 .Pp
+A signature secret key is written as
+.Ql noqtis-key-2 <algorithm> sec ,
+whose body is the version 2 container of
+.Xr nqsxmk 3 :
+the key, for Ed25519 and the hybrids its public key, and an integrity
+value that every signature checks again before it leaves, so that a
+change to any stored byte of the key is refused instead of signed with.
+Reading such a file checks the value and refuses a damaged key.
+A signature secret key of version 1, written before noqtis 0.3.0, still
+works, with a
+.Ql note:
+that it has no integrity value;
+.Xr noqtis-passwd 1
+writes it again as version 2.
+.Pp
 Readers accept
 .Ql \en
 or
@@ -576,13 +591,13 @@ $ noqtis seal -k me results
 sealed results with ML-DSA-65
 $ noqtis check -p me.pub results
 \&...
-results: OK (22 checks passed)
+results: OK (23 checks passed)
 $ echo extra >> results/report.txt
 $ noqtis check -p me.pub results; echo $?
 \&...
 FAIL  file                report.txt: size differs
 \&...
-results: FAILED (1 of 22 checks failed)
+results: FAILED (1 of 23 checks failed)
 1
 .Ed
 .Sh SEE ALSO

@@ -82,7 +82,7 @@ file that cannot be written, or a library error.
 Seal in format 3, prove one file, and check the proof without the rest
 of the folder:
 .Bd -literal -offset indent
-$ noqtis seal --format 3 -k me results
+$ noqtis seal -k me results
 $ noqtis prove -p me.pub -o in.proof results data/in.csv
 $ noqtis check -p me.pub --proof in.proof
 .Ed

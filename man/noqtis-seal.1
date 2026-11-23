@@ -294,8 +294,8 @@ noqtis does not interpret it.
 .It Fl -format Cm 1 | 2 | 3
 The capsule format
 .Pq Xr noqtis-capsule 5 .
-Format 1 (the default) signs the whole manifest.
-Format 3 adds a Merkle tree over the file entries, each leaf holding a
+Format 3, the default from noqtis 0.3.0, has a Merkle tree over the
+file entries, each leaf holding a
 secret salt of 32 bytes, and signs the manifest's head, which holds the
 tree's root but not the list of files, so that
 .Xr noqtis-prove 1
@@ -303,9 +303,15 @@ can show some files to a reader without the names, sizes or digests of
 the others, and with nothing that confirms a guess of them.
 Format 2 is the same tree without salts: a proof then lets anyone who
 can guess another file confirm the guess.
-It is for readers older than noqtis 0.3.0, which do not read format 3.
+Format 1 signs the whole manifest, a flat list of the files, and has no
+proofs.
+Formats 1 and 2 are for readers older than noqtis 0.3.0, which do not
+read format 3.
+With fresh salts two seals of the same files differ; give
+.Fl -salt-key
+for a capsule that can be made again byte for byte.
 .It Fl -salt-key Ar file
-Format 3 (implied): derive each salt from the 32 bytes in
+Format 3 only: derive each salt from the 32 bytes in
 .Ar file
 and the file's path, instead of drawing fresh ones, so that sealing the
 same files again (with
@@ -317,11 +323,8 @@ secret: whoever has it can compute every salt.
 Not taken with
 .Fl -token .
 .It Fl -input Oo Ar name Ns = Oc Ns Ar dir
-A sealed capsule this one was made from, up to 32 times; it implies
-.Fl -format Cm 3
-unless
-.Fl -format Cm 2
-is given.
+A sealed capsule this one was made from, up to 32 times (formats 3
+and 2).
 The input must check
 .Pq Xr noqtis-check 1 ,
 and its id (the SHA-256 of the bytes its seal signs) is recorded under
@@ -464,7 +467,9 @@ the path of the PKCS #11 module, when
 is not given.
 .It Ev SOURCE_DATE_EPOCH
 Seconds since 1970-01-01T00:00:00Z to record as the creation time,
-for reproducible capsules.
+for reproducible capsules (in format 3 with
+.Fl -salt-key
+as well).
 A value that is not a plain decimal number is refused.
 .El
 .Sh FILES
@@ -496,9 +501,20 @@ $ ls results
 data  noqtis.json  noqtis.sig  report.txt
 .Ed
 .Pp
-A reproducible capsule:
+A reproducible capsule: the time from
+.Ev SOURCE_DATE_EPOCH
+and the salts from a secret salt key, so that the same files give the
+same capsule again:
 .Bd -literal -offset indent
-$ SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me results
+$ head -c 32 /dev/urandom > salt.key; chmod 600 salt.key
+$ SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me --salt-key salt.key \e
+    results
+sealed results with ML-DSA-65
+.Ed
+.Pp
+For readers older than noqtis 0.3.0:
+.Bd -literal -offset indent
+$ noqtis seal -k me --format 1 results
 sealed results with ML-DSA-65
 .Ed
 .Pp

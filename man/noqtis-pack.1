@@ -14,6 +14,7 @@
 .Op Fl p Ar key.pub
 .Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl -format Cm 1 | 2 | 3
+.Op Fl -salt-key Ar file
 .Op Fl -lock Ar file ...
 .Op Fl o Ar file
 .Op Fl f
@@ -67,10 +68,15 @@ seal
 .Fl k ,
 .Fl p ,
 .Fl -format ,
+.Fl -salt-key ,
 .Fl -pass-fd
 and
 .Fl -pass-env
-as there; a passphrase from a descriptor is read once, for the check
+as there: format 3 unless told, with fresh salts unless
+.Fl -salt-key
+is given, so that with it and
+.Ev SOURCE_DATE_EPOCH
+the same folder gives the same bundle; a passphrase from a descriptor is read once, for the check
 of the keys and the seal
 .Pc ,
 and with

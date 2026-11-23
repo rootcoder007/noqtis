@@ -16,6 +16,14 @@
 reads the secret key file
 .Ar key
 and writes it again under another passphrase, or under none.
+A signature secret key of version 1
+.Pq Ql noqtis-key-1 <alg> sec ,
+written before noqtis 0.3.0, is written again as version 2, with the
+integrity value that signing checks
+.Pq Xr nqsxmk 3 ;
+this is the way to add one to an old key, with
+.Fl -no-pass
+for a key under no passphrase.
 The key itself does not change: its public key
 .Pq Ar key Ns Pa .pub ,
 every signature made with it and everything sealed to it stay as they
@@ -96,7 +104,8 @@ me: ML-DSA-65 secret key, now under the new passphrase (Argon2id)
 .Xr noqtis 1 ,
 .Xr noqtis-keygen 1 ,
 .Xr noqtis-rotate 1 ,
-.Xr nqpwenc 3
+.Xr nqpwenc 3 ,
+.Xr nqsxmk 3
 .Sh STANDARDS
 RFC 9106 (Argon2id), RFC 8018 (PBKDF2), RFC 8439 (ChaCha20-Poly1305).
 .Rs

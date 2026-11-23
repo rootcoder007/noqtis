@@ -481,13 +481,13 @@ $ noqtis check -p me.pub results
       check               detail
 ok    seal.read           noqtis.sig
 \&...
-ok    signature           ML-DSA-65 signature over noqtis.json is valid
+ok    signature           ML-DSA-65 signature over the manifest's head is valid
 ok    folder              listed
 ok    file                data/in.csv
 ok    file                report.txt
 \&...
 ok    manifest.order      files sorted by path, no repeats
-results: OK (22 checks passed)
+results: OK (23 checks passed)
 .Ed
 .Pp
 After a file was changed and one added:
@@ -497,7 +497,7 @@ $ noqtis check -p me.pub results; echo $?
 FAIL  file                report.txt: size differs
 \&...
 FAIL  extra               new.txt: not in the manifest
-results: FAILED (2 of 23 checks failed)
+results: FAILED (2 of 24 checks failed)
 noqtis check: file: a sealed file changed after sealing: restore it from the original, or seal the folder again if the change was intended
 noqtis check: extra: a file was added after sealing: remove it, or seal the folder again to include it
 1

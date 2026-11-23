@@ -354,10 +354,17 @@ shares, must give the same key.
 The verdicts make a mask that zeroes the signature unless every check
 held, with no branch between the checks and the release.
 Outside the model: two coordinated faults, a change to the output after
-the call returns, and the parts of a key that are not tied to its public
-key (ML-DSA's K, SLH-DSA's SK.prf, the Ed25519 seed), where a change
-gives a valid signature instead (for the Ed25519 seed, one under another
-key).
+the call returns, and, for a key given as
+.Va S
+alone, the parts of a key that are not tied to its public key (ML-DSA's
+K, SLH-DSA's SK.prf, the Ed25519 seed), where a change gives a valid
+signature instead (for the Ed25519 seed, one under another key).
+Given as the version 2 container of
+.Xr nqsxmk 3 ,
+the key carries an integrity value that is checked again after
+signing, and a change to any of its stored bytes ends in
+.Er NQEFLT
+too.
 .Pa docs/security.md
 says what such a signature can reveal.
 .It Bq Er NQENOSUP
@@ -418,6 +425,7 @@ Build with
 .Xr noqtis 3 ,
 .Xr nqerr 3 ,
 .Xr nqhash 3 ,
+.Xr nqsxmk 3 ,
 .Xr nqwipe 3
 .Pp
 The arithmetic of ML-DSA (the reductions, Power2Round, Decompose and

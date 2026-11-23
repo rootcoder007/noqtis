@@ -1,0 +1,198 @@
+.\" SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+.Dd November 23, 2026
+.Dt NQSXMK 3
+.Os
+.Sh NAME
+.Nm nqsxmk ,
+.Nm nqsxchk ,
+.Nm nqsxsz
+.Nd the version 2 secret-key container, with an integrity value
+.Sh LIBRARY
+libnoqtis, \-lnoqtis
+.Sh SYNOPSIS
+.In noqtis.h
+.Ft int
+.Fn nqsxsz "nqsalg alg" "size_t *n"
+.Ft int
+.Fo nqsxmk
+.Fa "nqsalg alg"
+.Fa "const uint8_t *sk"
+.Fa "size_t sklen"
+.Fa "uint8_t *x"
+.Fa "size_t xlen"
+.Fc
+.Ft int
+.Fn nqsxchk "nqsalg alg" "const uint8_t *x" "size_t xlen"
+.Sh DESCRIPTION
+For a signature algorithm with standard secret key
+.Va S
+(FIPS 204, FIPS 205, RFC 8032, or for a hybrid the ML-DSA key followed
+by the 32-byte Ed25519 seed) the container is
+.Bd -literal -offset indent
+X = S || P || T
+T = SHA3-256("noqtis-sk-2" || 0x00 || alg || 0x00 || S || P)
+.Ed
+.Pp
+with
+.Va P
+the Ed25519 public key (32 bytes) for Ed25519 and the hybrids and empty
+otherwise, and
+.Va alg
+the algorithm's name as
+.Xr nqsname 3
+gives it.
+.Pp
+.Fn nqsxsz
+sets
+.Fa *n
+to the length of
+.Fa alg Ns 's
+container: that of
+.Va S
+plus 32, or plus 64 for Ed25519 and the hybrids.
+.Fn nqsxmk
+writes the container of
+.Fa sk
+(which must be
+.Va S )
+to
+.Fa x ,
+deriving
+.Va P ;
+.Fa x
+may be
+.Fa sk
+when it has room, and
+.Fa xlen
+must be at least
+.Fn nqsxsz Ns 's
+length.
+.Fn nqsxchk
+checks a container: its length,
+.Va T ,
+and for Ed25519 and the hybrids that
+.Va P
+is the public key of the seed.
+.Pp
+.Xr nqsign 3 ,
+.Fn nqsignd ,
+.Xr nqsignmu 3
+and the streaming signer
+.Xr nqsini 3
+take either
+.Va S
+or the container
+.Va X .
+With
+.Va X
+they sign with
+.Va S
+and then, after the signature is made and before it is released,
+compute
+.Va T
+again from the key in memory and compare it with the stored
+.Va T ,
+and for Ed25519 and the hybrids derive the public key from the seed
+again and compare it with
+.Va P .
+Each comparison leaves a verdict, and the signature leaves only through
+the mask the verdicts make, as for the signers' own checks: a change
+to any stored byte of the key, the fields that only feed the signer's
+randomness (ML-DSA's K, SLH-DSA's SK.prf, the Ed25519 seed) among them,
+ends in
+.Er NQEFLT
+with the output zero.
+With
+.Va S
+alone signing is checked as before, without this check.
+.Pp
+The capsule, CMS, DSSE, card and key-statement functions that take a
+secret key take either form too.
+.Sh RETURN VALUES
+These functions return
+.Dv NQOK
+on success, or:
+.Bl -tag -width Er
+.It Bq Er NQEARG
+an unknown
+.Fa alg ,
+or a
+.Dv NULL
+pointer.
+.It Bq Er NQEBUF
+.Fn nqsxmk :
+.Fa xlen
+is too small.
+.It Bq Er NQEDEC
+.Fn nqsxmk :
+.Fa sklen
+is not the length of
+.Va S .
+.Fn nqsxchk :
+the container is damaged (any changed byte), or has a length that is
+neither
+.Va S Ns 's
+nor
+.Va X Ns 's .
+.It Bq Er NQENOSUP
+.Fn nqsxchk :
+.Fa xlen
+is the length of
+.Va S :
+a key with no integrity value (version 1).
+.El
+.Pp
+.Fn nqsxmk
+wipes
+.Fa x
+when it fails.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+nqssz z;
+size_t xn;
+uint8_t pk[1952], x[4032 + 32], sig[3309];
+size_t n;
+nqssize(NQMLDSA65, &z);
+nqsxsz(NQMLDSA65, &xn);               /* 4064 */
+nqskg(NQMLDSA65, pk, z.pk, x, z.sk);  /* S in the first z.sk bytes */
+nqsxmk(NQMLDSA65, x, z.sk, x, xn);    /* in place: X */
+if (nqsign(NQMLDSA65, x, xn, msg, msglen, NULL, 0, 0,
+           sig, sizeof sig, &n) == NQEFLT) {
+  /* the key or the computation was disturbed: nothing released */
+}
+nqwipe(x, sizeof x);
+.Ed
+.Sh SEE ALSO
+.Xr noqtis-keygen 1 ,
+.Xr noqtis-passwd 1 ,
+.Xr noqtis 3 ,
+.Xr nqsign 3 ,
+.Xr nqwipe 3
+.Pp
+.Pa docs/spec/keyfile.md
+of the source tree specifies the container and the key files that
+carry it, with known answers in
+.Pa tests/vectors/skx/kat.txt .
+.Sh STANDARDS
+SHA3-256 is that of FIPS 202.
+.Va T
+is noqtis's own and is not part of any standard key encoding: a
+standard key is
+.Va S ,
+and
+.Fn nqsxmk
+makes the container of an imported one.
+.Sh SECURITY CONSIDERATIONS
+.Va T
+detects faults, not an attacker: it is a hash, not a MAC, and whoever
+can write the key can write
+.Va T
+too.
+It is a deterministic function of
+.Va S
+and
+.Va P ,
+so it reveals nothing the key does not; seen apart from the key it
+would only let someone confirm a guess of the whole key.
+The fault model is one fault; two coordinated faults (in both verdicts,
+or in a verdict and the masking) are outside it.

@@ -24,6 +24,16 @@ writes the secret key to
 .Ar key Ns Pa .pub .
 Both are key files in the format described in
 .Xr noqtis 1 .
+The secret key of a signature algorithm is written in the version 2
+container
+.Pq first line Ql noqtis-key-2 <alg> sec ,
+which holds, beside the key, an integrity value: every signature made
+with it checks that value again before the signature leaves, so that a
+change to any stored byte of the key is refused rather than signed with
+.Pq Xr nqsxmk 3 .
+KEM secret keys and public keys keep
+.Ql noqtis-key-1 .
+noqtis before 0.3.0 does not read a version 2 file.
 It prints one line naming the algorithm and both files.
 .Bl -tag -width Ds
 .It Fl a Ar alg , Fl -alg Ns = Ns Ar alg
@@ -117,6 +127,8 @@ $ noqtis keygen -a ML-DSA-65 -o me
 ML-DSA-65 key pair: me (secret), me.pub (public)
 $ head -1 me.pub
 noqtis-key-1 ML-DSA-65 pub
+$ head -1 me
+noqtis-key-2 ML-DSA-65 sec
 .Ed
 .Pp
 A deterministic ML-DSA-44 key from a 32-byte seed:
@@ -145,7 +157,8 @@ ML-DSA-65 key pair: me (secret, under the passphrase), me.pub (public)
 .Xr noqtis-sign 1 ,
 .Xr nqenc 3 ,
 .Xr nqpwenc 3 ,
-.Xr nqsign 3
+.Xr nqsign 3 ,
+.Xr nqsxmk 3
 .Sh STANDARDS
 RFC 9106 (Argon2id), RFC 8018 (PBKDF2), RFC 8439 (ChaCha20-Poly1305).
 .Rs
