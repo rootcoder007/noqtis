@@ -441,6 +441,38 @@ fn seal_and_check() {
 }
 
 #[test]
+fn seal3_prove() {
+    let (pk, sk) = sign::keygen("ML-DSA-44", None).unwrap();
+    let b = tmp("f3");
+    files(&b);
+    cap::seal3(&b, "ML-DSA-44", &sk, &pk, None, &[], None).unwrap();
+    assert_eq!(
+        cap::inspect(&b).unwrap().get("info.format").unwrap().detail,
+        "noqtis-capsule-3"
+    );
+    let o = cap::Opts {
+        trust: Some(pk.clone()),
+        ..cap::Opts::default()
+    };
+    assert!(cap::check(&b, &o).unwrap().ok());
+    let pf = cap::prove(&b, &["data/b.csv"]).unwrap();
+    let s = String::from_utf8(pf.clone()).unwrap();
+    assert!(s.contains(r#""format":"noqtis-proof-2""#), "{s}");
+    assert!(!s.contains("a.txt"), "{s}");
+    assert!(cap::checkp(&pf, &o, Some(&b)).unwrap().ok());
+    // a salt key gives the same salts each time
+    let key = [7u8; 32];
+    cap::seal3(&b, "ML-DSA-44", &sk, &pk, None, &[], Some(&key)).unwrap();
+    let m1 = fs::read_to_string(b.join("noqtis.json")).unwrap();
+    let salt = |m: &str| m.split(r#""salt":""#).nth(1).unwrap()[..64].to_string();
+    cap::seal3(&b, "ML-DSA-44", &sk, &pk, None, &[], Some(&key)).unwrap();
+    let m2 = fs::read_to_string(b.join("noqtis.json")).unwrap();
+    assert_eq!(salt(&m1), salt(&m2));
+    assert!(cap::check(&b, &o).unwrap().ok());
+    fs::remove_dir_all(&b).unwrap();
+}
+
+#[test]
 fn seal2_prove_lineage() {
     let (pk, sk) = sign::keygen("ML-DSA-44", None).unwrap();
     let a = tmp("in");

@@ -203,6 +203,19 @@ extern "C" {
         inp: *const Cin,
         nin: usize,
     ) -> c_int;
+    pub fn nqseal3(
+        dir: *const c_char,
+        alg: c_int,
+        sk: *const u8,
+        sklen: usize,
+        pk: *const u8,
+        pklen: usize,
+        meta: *const c_char,
+        inp: *const Cin,
+        nin: usize,
+        skey: *const u8,
+        skeylen: usize,
+    ) -> c_int;
     pub fn nqcapid(dir: *const c_char, id: *mut u8) -> c_int;
     pub fn nqchkx(dir: *const c_char, o: *const Copt, rep: *mut *mut Rep) -> c_int;
     pub fn nqprove(

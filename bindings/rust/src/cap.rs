@@ -160,8 +160,10 @@ pub fn seal(
 }
 
 /// [`seal`] in format 2: the manifest also carries a Merkle tree over its
-/// entries, so that [`prove`] can show single files without the rest,
-/// and the capsules it was made from (`inputs`, at most 1024).
+/// entries, so that [`prove`] can show single files without the rest's
+/// names, sizes or digests, and the capsules it was made from (`inputs`,
+/// at most 1024). Its leaves are unsalted: anyone who can guess a file
+/// not shown can confirm the guess from a proof. [`seal3`] salts them.
 pub fn seal2(
     dir: impl AsRef<Path>,
     alg: &str,
@@ -201,6 +203,58 @@ pub fn seal2(
                 ins.as_ptr()
             },
             ins.len(),
+        )
+    })
+}
+
+/// [`seal2`] in format 3: each entry also carries a secret 32-byte salt
+/// in its Merkle leaf, so that a proof lets no one confirm a guess of the
+/// files it does not show. `salt_key` `None` draws fresh salts; else the
+/// 32-byte salt key they are derived from, for a reproducible capsule, to
+/// keep secret.
+pub fn seal3(
+    dir: impl AsRef<Path>,
+    alg: &str,
+    sk: &[u8],
+    pk: &[u8],
+    meta: Option<&str>,
+    inputs: &[Input],
+    salt_key: Option<&[u8; 32]>,
+) -> Result<()> {
+    let a = find(alg, Kind::Sign)?;
+    let d = cpath(dir.as_ref())?;
+    let m = copt(meta)?;
+    let names = inputs
+        .iter()
+        .map(|i| cs(i.name.as_bytes(), "input name"))
+        .collect::<Result<Vec<_>>>()?;
+    let ins: Vec<ffi::Cin> = inputs
+        .iter()
+        .zip(&names)
+        .map(|(i, n)| ffi::Cin {
+            id: i.id,
+            name: n.as_ptr(),
+        })
+        .collect();
+    // SAFETY: the strings, the array and the key live until the call
+    // returns
+    rc(unsafe {
+        ffi::nqseal3(
+            d.as_ptr(),
+            a.id,
+            sk.as_ptr(),
+            sk.len(),
+            pk.as_ptr(),
+            pk.len(),
+            m.as_ref().map_or(ptr::null(), |x| x.as_ptr()),
+            if ins.is_empty() {
+                ptr::null()
+            } else {
+                ins.as_ptr()
+            },
+            ins.len(),
+            salt_key.map_or(ptr::null(), |k| k.as_ptr()),
+            salt_key.map_or(0, |k| k.len()),
         )
     })
 }
