@@ -24,6 +24,10 @@ capsules, from the [noqtis](https://github.com/rootcoder007/noqtis) C
 library, through the Foreign Function and Memory API (JDK 22 or later):
 the jar calls the shared library `libnoqtis` directly, with no JNI code
 to compile and no dependencies.
+Use a JDK release that carries the November 2026 security update
+(25.0.5.1 or later; CVE-2026-114938 is a flaw of the JDK's own Base64
+decoder, which this binding does not call). JDK 22 to 24 no longer
+receive fixes.
 
 | Family | Algorithms | Standard |
 |---|---|---|
