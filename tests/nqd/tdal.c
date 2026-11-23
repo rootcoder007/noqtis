@@ -146,7 +146,7 @@ static int fedit(void) {
     rc = nqdset(r, "sources", "data/a.csv", "url",
                 "\"https://example.org/a.csv\"", 27, why, sizeof why);
   if (rc == NQOK)
-    rc = nqdput(r, "checks", "{\"name\":\"n\",\"status\":\"pass\"}", 29,
+    rc = nqdput(r, "checks", "{\"name\":\"n\",\"status\":\"pass\"}", 28,
                 why, sizeof why);
   if (rc == NQOK)
     rc = nqddel(r, "checks", "n");
