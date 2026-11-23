@@ -503,7 +503,7 @@ out:
 }
 
 int ncseal(int argc, char **argv) {
-  const char *kp = NULL, *pp = NULL, *mp = NULL, *fv = NULL;
+  const char *kp = NULL, *pp = NULL, *mp = NULL, *fv = NULL, *skp = NULL;
   const char *tsa[NCMAXV], *anc[NCMAXV], *inp[NCMAXV];
   const char *mod = NULL, *slot = NULL, *label = NULL, *id = NULL;
   int help = 0, np, rc, ret = NCUSE, nt = 0, na = 0, ni = 0, fmt = 1, i;
@@ -525,6 +525,7 @@ int ncseal(int argc, char **argv) {
     {'\0', "pass-fd", 1, &pwo.fd, NULL},
     {'\0', "pass-env", 1, &pwo.env, NULL},
     {'\0', "format", 1, &fv, NULL},
+    {'\0', "salt-key", 1, &skp, NULL},
     {'\0', "input", NCMANY, inp, &ni},
     {'\0', "tsa", NCMANY, tsa, &nt},
     {'\0', "anchor", NCMANY, anc, &na}
@@ -533,8 +534,8 @@ int ncseal(int argc, char **argv) {
   char inm[NCMAXV][NQCNAMEMAXC + 1];
   nckey sk = {{0, 0, NULL}, 0, NULL, 0}, pk = {{0, 0, NULL}, 0, NULL, 0};
   ncanc an;
-  uint8_t *meta = NULL;
-  size_t mn = 0;
+  uint8_t *meta = NULL, *skey = NULL;
+  size_t mn = 0, skn = 0;
   char *dp = NULL;
   const char *who;
   ncsnap old[2], *bad;
@@ -581,15 +582,27 @@ int ncseal(int argc, char **argv) {
       fmt = 1;
     } else if (strcmp(fv, "2") == 0) {
       fmt = 2;
+    } else if (strcmp(fv, "3") == 0) {
+      fmt = 3;
     } else {
-      ncmsg("seal", "--format %s: give 1 or 2", fv);
+      ncmsg("seal", "--format %s: give 1, 2 or 3", fv);
       return NCUSE;
     }
   }
-  /* inputs are a format 2 field */
-  if (ni > 0 && fv == NULL) fmt = 2;
-  if (ni > 0 && fmt != 2) {
-    ncmsg("seal", "--input needs format 2 (--format 2)");
+  /* inputs are a field of the Merkle formats: format 3 unless told */
+  if (ni > 0 && fv == NULL) fmt = 3;
+  if (ni > 0 && fmt == 1) {
+    ncmsg("seal", "--input needs format 3 or 2 (--format 3)");
+    return NCUSE;
+  }
+  if (skp != NULL && fv == NULL && ni == 0) fmt = 3;
+  if (skp != NULL && fmt != 3) {
+    ncmsg("seal", "--salt-key gives the salts of format 3 (--format 3)");
+    return NCUSE;
+  }
+  if (skp != NULL && tok) {
+    ncmsg("seal", "--salt-key is not taken with --token: a token seal "
+          "gets fresh salts");
     return NCUSE;
   }
   for (i = 0; i < ni; i++) {
@@ -611,6 +624,15 @@ int ncseal(int argc, char **argv) {
   }
   if (ancrd("seal", anc, na, &an) != NCOK)
     return NCUSE;
+  if (skp != NULL) {
+    if (ncrdx(skp, 1, 64, &skey, &skn) != NQOK || skn != 32) {
+      ncmsg("seal", "--salt-key %s: give a file of exactly 32 bytes%s", skp,
+            skey == NULL ? ncwhy() : "");
+      if (skey != NULL) ncfree(skey, skn, 1);
+      ancfree(&an);
+      return NCUSE;
+    }
+  }
   if (pp == NULL && !tok) {
     size_t l = strlen(kp);
     dp = (char *)malloc(l + 5);
@@ -691,7 +713,10 @@ int ncseal(int argc, char **argv) {
   errno = 0;
   if (tok)
     rc = nqp11seal(tp, &tk, argv[0], fmt, (const char *)meta,
-                   fmt == 2 ? ins : NULL, fmt == 2 ? (size_t)ni : 0);
+                   fmt >= 2 ? ins : NULL, fmt >= 2 ? (size_t)ni : 0);
+  else if (fmt == 3)
+    rc = nqseal3(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
+                 (const char *)meta, ins, (size_t)ni, skey, skn);
   else
     rc = fmt == 2
              ? nqseal2(argv[0], (nqsalg)sk.a.alg, sk.b, sk.n, pk.b, pk.n,
@@ -767,6 +792,7 @@ done:
     nqp11close(tp);
 out:
   ancfree(&an);
+  if (skey != NULL) ncfree(skey, skn, 1);
   free(meta);
   free(dp);
   return ret;
@@ -812,12 +838,12 @@ static const ncfix fixes[] = {
    "canonical form noqtis writes): " RESEAL},
   {"seal.fields", NULL, "noqtis.sig was edited or made by another tool: "
    RESEAL},
-  {"seal.format", NULL, "noqtis.sig is not a noqtis-seal-1 or noqtis-seal-2 "
+  {"seal.format", NULL, "noqtis.sig is not a noqtis-seal-1, -2 or -3 "
    "seal: " RESEAL},
   {"seal.alg", NULL, "the seal's algorithm is not one this noqtis knows "
    "(`noqtis algs`): use a newer noqtis, or " RESEAL},
   {"seal.context", NULL, "the seal's context is not the capsule context of "
-   "its format (\"noqtis-capsule-1\" or \"noqtis-capsule-2\"), so its "
+   "its format (\"noqtis-capsule-1\", \"-2\" or \"-3\"), so its "
    "signature was not made for a capsule: " RESEAL},
   {"seal.key", NULL, "the seal's public_key is damaged: " RESEAL},
   {"seal.signature", NULL, "the seal's signature is damaged: " RESEAL},
@@ -836,7 +862,7 @@ static const ncfix fixes[] = {
   {"manifest.fields", NULL, "noqtis.json was edited or made by another "
    "tool: " RESEAL},
   {"manifest.format", NULL, "noqtis.json is not a manifest of the seal's "
-   "format (noqtis-capsule-1 or noqtis-capsule-2): " RESEAL},
+   "format (noqtis-capsule-1, -2 or -3): " RESEAL},
   {"manifest.created", NULL, "the manifest's created time is not RFC 3339 "
    "UTC: " RESEAL},
   {"manifest.order", NULL, "the manifest's files are not sorted, so it "
@@ -1505,6 +1531,15 @@ int ncchain(int argc, char **argv) {
 }
 
 /* noqtis prove: a proof of some files of a format 2 capsule */
+/* where s starts in b[0..n), or NULL */
+static const char *findm(const char *b, size_t n, const char *s) {
+  size_t k = strlen(s), i;
+  for (i = 0; k <= n && i <= n - k; i++) {
+    if (memcmp(b + i, s, k) == 0) return b + i;
+  }
+  return NULL;
+}
+
 int ncprove(int argc, char **argv) {
   const char *pp = NULL, *out = NULL;
   int help = 0, force = 0, np, rc, ret = NCUSE;
@@ -1570,7 +1605,7 @@ int ncprove(int argc, char **argv) {
   }
   if (rc == NQENOSUP) {
     ncmsg("prove", "%s is a format 1 capsule: seal it again with "
-          "`noqtis seal --format 2` to prove single files", argv[0]);
+          "`noqtis seal --format 3` to prove single files", argv[0]);
   } else if (rc == NQEIO) {
     ncmsg("prove", "a path is not in the manifest of %s (paths are "
           "relative to the folder, '/' separated)", argv[0]);
@@ -1584,6 +1619,13 @@ int ncprove(int argc, char **argv) {
     ret = ncwfail("prove", out, force);
   } else {
     ret = NCOK;
+  }
+  /* a format 2 proof (noqtis-proof-1) shows unsalted leaves */
+  if (ret == NCOK && b != NULL && n > 0 &&
+      findm(b, n, "\"format\":\"noqtis-proof-1\"") != NULL) {
+    ncmsg("prove", "note: %s is a format 2 capsule: the hashes in this "
+          "proof let anyone who can guess another of its files confirm "
+          "the guess; `noqtis seal --format 3` salts them", argv[0]);
   }
   free(b);
   return ret;
