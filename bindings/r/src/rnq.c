@@ -533,6 +533,46 @@ static SEXP Cseal2(SEXP dir, SEXP alg, SEXP sk, SEXP pk, SEXP meta,
   return Rf_ScalarInteger(rc);
 }
 
+/* nqseal3: as Cseal2, with skey NULL or a raw vector of 32 bytes */
+static SEXP Cseal3(SEXP dir, SEXP alg, SEXP sk, SEXP pk, SEXP meta,
+                   SEXP ids, SEXP names, SEXP skey) {
+  int a = ival(alg, "alg"), rc;
+  const char *m = NULL, *d;
+  const char **nm;
+  size_t n, i, k;
+  nqcin *in = NULL;
+  chkraw(sk, "sk", 0);
+  chkraw(pk, "pk", 0);
+  if (skey != R_NilValue) {
+    chkraw(skey, "salt_key", 0);
+    if (XLENGTH(skey) != 32) Rf_error("'salt_key' must be 32 bytes");
+  }
+  if (meta != R_NilValue) {
+    if (TYPEOF(meta) != STRSXP || XLENGTH(meta) != 1 ||
+        STRING_ELT(meta, 0) == NA_STRING)
+      Rf_error("'meta' must be one string of JSON text");
+    m = Rf_translateCharUTF8(STRING_ELT(meta, 0));
+  }
+  nm = strs(names, "names", 1, &n);
+  if (TYPEOF(ids) != VECSXP || (size_t)XLENGTH(ids) != n)
+    Rf_error("'inputs': one id per name");
+  if (n > 1024) Rf_error("at most 1024 inputs");
+  if (n > 0) in = (nqcin *)R_alloc(n, sizeof *in);
+  for (i = 0; i < n; i++) {
+    SEXP e = VECTOR_ELT(ids, (R_xlen_t)i);
+    chkraw(e, "inputs", 0);
+    if (XLENGTH(e) != 32) Rf_error("an input id is 32 bytes");
+    for (k = 0; k < 32; k++) in[i].id[k] = RAW(e)[k];
+    in[i].name = nm[i];
+  }
+  d = rpath(dir);
+  rc = nqseal3(d, (nqsalg)a, rp(sk), rn(sk), rp(pk), rn(pk), m, in, n,
+               skey == R_NilValue ? NULL : RAW(skey),
+               skey == R_NilValue ? 0 : 32);
+  if (rc != NQOK) fail(rc, "nqseal3");
+  return Rf_ScalarInteger(rc);
+}
+
 static SEXP Ccapid(SEXP dir) {
   int rc;
   SEXP out = PROTECT(rawn(32));
@@ -2288,7 +2328,7 @@ static const R_CallMethodDef calls[] = {
   CDEF(Chini, 1), CDEF(Chupd, 2), CDEF(Chfin, 2), CDEF(Chmac, 3),
   CDEF(Ckg, 3),   CDEF(Csign, 6), CDEF(Cvrfy, 6), CDEF(Cenc, 3),
   CDEF(Cdec, 3),  CDEF(Cseal, 5), CDEF(Cchk, 7),  CDEF(Cerr, 1),
-  CDEF(Cseal2, 7), CDEF(Ccapid, 1), CDEF(Cprove, 2), CDEF(Cfiles, 1),
+  CDEF(Cseal2, 7), CDEF(Cseal3, 8), CDEF(Ccapid, 1), CDEF(Cprove, 2), CDEF(Cfiles, 1),
   CDEF(Ckstmt, 8), CDEF(Cdsse, 5), CDEF(Cdssevrfy, 3),
   CDEF(Ccard, 9), CDEF(Ccardvrfy, 2),
   CDEF(Cdload, 1), CDEF(Cdput, 3), CDEF(Cdadd, 4), CDEF(Cddel, 3),

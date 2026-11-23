@@ -28,7 +28,8 @@
 #' (`noqtis timestamp`, `noqtis ers`), and `nqcheck()` verifies them when
 #' `anchors` is given.
 #'
-#' `nqseal()` calls the library's `nqseal()`, or `nqseal2()` for format 2,
+#' `nqseal()` calls the library's `nqseal()`, or `nqseal3()` and
+#' `nqseal2()` for formats 3 and 2,
 #' and `nqsealwhy()` to name what in a folder cannot be sealed;
 #' `nqcheck()` calls `nqchkx()`, or `nqchkp()` for a proof. The manifest
 #' and seal are spelled out in nqseal(3), the checks and their rows in
@@ -48,13 +49,20 @@
 #'   certificates of trusted timestamp authorities; the seal must then
 #'   carry an RFC 3161 timestamp token that verifies under one of them,
 #'   and an evidence record, when the folder has one, must verify too.
-#' @param format `1` (the default) or `2`. Format 2 adds a Merkle tree over
-#'   the files to the manifest and signs its head, so that [nqprove()] can
-#'   show some files without the others.
+#' @param format `1` (the default), `3` or `2`. Formats 3 and 2 add a
+#'   Merkle tree over the files to the manifest and sign its head, so that
+#'   [nqprove()] can show some files without the others; format 3 puts a
+#'   secret salt in each leaf, so that a proof confirms no guess of the
+#'   files it does not show, while format 2's unsalted leaves let such a
+#'   guess be confirmed (format 2 is for readers older than 0.3.0).
 #' @param inputs `NULL`, or the folders of the capsules this one was made
-#'   from (format 2, the default with it). Each is recorded by its id
+#'   from (format 3, the default with it). Each is recorded by its id
 #'   ([nqcapid()]) under its name: `names(inputs)` where given, else the
 #'   folder's last component. Check the inputs first.
+#' @param salt_key `NULL` for fresh salts, or a raw vector of 32 secret
+#'   bytes the salts of format 3 are derived from (format 3, the default
+#'   with it), for a reproducible capsule. Keep it secret: whoever has it
+#'   can compute every salt.
 #' @param only `NULL`, or the paths (as the manifest lists them, `/`
 #'   between folders) of the files to check; the others are not read, and
 #'   `partial` rows say so.
@@ -125,8 +133,9 @@
 #' unlink(d, recursive = TRUE)
 #' @export
 nqseal <- function(dir, sk, pk, alg, meta = NULL,
-                   format = if (is.null(inputs)) 1L else 2L,
-                   inputs = NULL) {
+                   format = if (is.null(inputs) && is.null(salt_key)) 1L
+                            else 3L,
+                   inputs = NULL, salt_key = NULL) {
   a <- .alg(alg, "sig")
   .rawarg(sk, "sk")
   .rawarg(pk, "pk")
@@ -134,12 +143,21 @@ nqseal <- function(dir, sk, pk, alg, meta = NULL,
     stop("'meta' must be NULL or one string of JSON text", call. = FALSE)
   }
   format <- .fmt(format, inputs)
+  if (!is.null(salt_key)) {
+    .rawarg(salt_key, "salt_key")
+    if (length(salt_key) != 32L || format != 3) {
+      stop("'salt_key' must be 32 bytes, for format 3", call. = FALSE)
+    }
+  }
   d <- .dir(dir)
   if (format == 1) {
     .Call(Cseal, d, a$id, sk, pk, meta)
-  } else {
+  } else if (format == 2) {
     ins <- .inputs(inputs)
     .Call(Cseal2, d, a$id, sk, pk, meta, ins$ids, ins$names)
+  } else {
+    ins <- .inputs(inputs)
+    .Call(Cseal3, d, a$id, sk, pk, meta, ins$ids, ins$names, salt_key)
   }
   invisible(file.path(dir, c("noqtis.json", "noqtis.sig")))
 }
@@ -174,12 +192,13 @@ nqcheck <- function(dir, pk = NULL, anchors = NULL, only = NULL,
 #' files a capsule's manifest holds. Neither checks anything: use
 #' [nqcheck()] for that.
 #'
-#' `nqprove()` writes a proof (`noqtis-proof-1`, JSON) that some files are
-#' in a format 2 capsule: the seal, the manifest's head (the Merkle root
-#' and the number of files) and, per file, its entry and Merkle audit path
-#' (RFC 9162). The proof holds nothing of the capsule's other files, not
-#' even their names or digests. `nqcheck(proof = )` checks it, alone or
-#' against the files.
+#' `nqprove()` writes a proof (JSON) that some files are in a format 3 or
+#' format 2 capsule: the seal, the manifest's head (the Merkle root and
+#' the number of files) and, per file, its entry and Merkle audit path
+#' (RFC 9162). The proof holds none of the capsule's other files' names,
+#' sizes or digests; of a format 2 capsule its hashes let a guess of
+#' another file be confirmed, of a format 3 one they do not.
+#' `nqcheck(proof = )` checks it, alone or against the files.
 #'
 #' The id is the same for any copy of the capsule, wherever it is kept,
 #' and changes when the folder is sealed again.
@@ -369,14 +388,15 @@ nqexpire <- function(sk, pk, alg, at, reason = NULL) {
   )
 }
 
-#' The format, 1 or 2; inputs need 2.
+#' The format, 1, 2 or 3; inputs need 3 or 2.
 #' @noRd
 .fmt <- function(format, inputs) {
-  if (!is.numeric(format) || length(format) != 1L || !format %in% c(1, 2)) {
-    stop("'format' must be 1 or 2", call. = FALSE)
+  if (!is.numeric(format) || length(format) != 1L ||
+      !format %in% c(1, 2, 3)) {
+    stop("'format' must be 1, 2 or 3", call. = FALSE)
   }
   if (format == 1 && !is.null(inputs)) {
-    stop("'inputs' need format 2", call. = FALSE)
+    stop("'inputs' need format 3 or 2", call. = FALSE)
   }
   format
 }

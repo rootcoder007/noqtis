@@ -36,10 +36,14 @@ test_that("format 2 seals, checks, ids and lists", {
   expect_identical(y$sha256, nqhash(as.raw(0:255), "sha256", hex = TRUE))
   writeLines("x", file.path(d, "f1.csv"))
   expect_false(attr(nqcheck(d, k$pk), "ok"))
-  expect_error(nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 3), "format")
+  expect_error(nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 4), "format")
   expect_error(
     nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 1, inputs = d),
-    "format 2"
+    "format 3"
+  )
+  expect_error(
+    nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 2, salt_key = raw(32)),
+    "salt_key"
   )
   e <- mkcap()
   on.exit(unlink(e, recursive = TRUE), add = TRUE)
@@ -236,6 +240,30 @@ test_that("a key statement's reason must be one string", {
     nqrevoke(k1$sk, k1$pk, "ML-DSA-44", at = t0, reason = 1),
     "'reason' must be NULL or one string"
   )
+})
+
+test_that("format 3 seals, proofs and salt keys", {
+  k <- nqkeygen("ML-DSA-44")
+  d <- mkcap()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 3)
+  expect_match(readLines(file.path(d, "noqtis.sig"), warn = FALSE),
+               "noqtis-seal-3", fixed = TRUE)
+  expect_true(attr(nqcheck(d, k$pk), "ok"))
+  p <- nqprove(d, "f1.csv")
+  s <- rawToChar(p)
+  expect_match(s, "\"format\":\"noqtis-proof-2\"", fixed = TRUE)
+  expect_false(grepl("f0.csv", s, fixed = TRUE))
+  expect_true(attr(nqcheck(d, k$pk, proof = p), "ok"))
+  old <- Sys.getenv("SOURCE_DATE_EPOCH", NA)
+  Sys.setenv(SOURCE_DATE_EPOCH = "1767225600")
+  on.exit(if (is.na(old)) Sys.unsetenv("SOURCE_DATE_EPOCH") else
+    Sys.setenv(SOURCE_DATE_EPOCH = old), add = TRUE)
+  nqseal(d, k$sk, k$pk, "ML-DSA-44", salt_key = as.raw(0:31))
+  m1 <- readLines(file.path(d, "noqtis.json"), warn = FALSE)
+  nqseal(d, k$sk, k$pk, "ML-DSA-44", salt_key = as.raw(0:31))
+  expect_identical(readLines(file.path(d, "noqtis.json"), warn = FALSE), m1)
+  expect_true(attr(nqcheck(d, k$pk), "ok"))
 })
 
 test_that("a format 2 seal keeps its meta", {

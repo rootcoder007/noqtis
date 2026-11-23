@@ -30,12 +30,13 @@ files a capsule's manifest holds. Neither checks anything: use
 \code{\link[=nqcheck]{nqcheck()}} for that.
 }
 \details{
-\code{nqprove()} writes a proof (\code{noqtis-proof-1}, JSON) that some files are
-in a format 2 capsule: the seal, the manifest's head (the Merkle root
-and the number of files) and, per file, its entry and Merkle audit path
-(RFC 9162). The proof holds nothing of the capsule's other files, not
-even their names or digests. \code{nqcheck(proof = )} checks it, alone or
-against the files.
+\code{nqprove()} writes a proof (JSON) that some files are in a format 3 or
+format 2 capsule: the seal, the manifest's head (the Merkle root and
+the number of files) and, per file, its entry and Merkle audit path
+(RFC 9162). The proof holds none of the capsule's other files' names,
+sizes or digests; of a format 2 capsule its hashes let a guess of
+another file be confirmed, of a format 3 one they do not.
+\code{nqcheck(proof = )} checks it, alone or against the files.
 
 The id is the same for any copy of the capsule, wherever it is kept,
 and changes when the folder is sealed again.
