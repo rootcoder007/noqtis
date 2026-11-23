@@ -389,7 +389,7 @@ static int bagin(const char *dir, const char *bag, const cinfo *ci) {
   const char *p, *tags[5] = {"bagit.txt", "bag-info.txt",
                              "manifest-sha256.txt", "noqtis.json",
                              "noqtis.sig"};
-  time_t now = time(NULL);
+  time_t now = (time_t)ncnow();
   struct tm gt, *g = &gt;
   int rc = NCUSE;
   {
@@ -553,6 +553,11 @@ int ncexp(int argc, char **argv) {
   }
   if (strcmp(as, "bagit") == 0 && out == NULL) {
     ncmsg("export", "--as bagit: give the new bag folder with -o");
+    return NCUSE;
+  }
+  /* its Bagging-Date is the day of SOURCE_DATE_EPOCH when set */
+  if (strcmp(as, "bagit") == 0 && ncnow() < 0) {
+    ncmsg("export", "%s", NCSDEBAD);
     return NCUSE;
   }
   if (strcmp(as, "bundle") == 0 && (out == NULL || strcmp(out, "-") == 0)) {

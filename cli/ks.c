@@ -5,7 +5,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 /* YYYY-MM-DDTHH:MM:SSZ, 1970 or later, to seconds; NCUSE otherwise */
 static int when(const char *s, int64_t *t) {
@@ -107,7 +106,7 @@ static int stmt(const char *cmd, int argc, char **argv, int kind) {
   };
   nckey sk = {{0, 0, NULL}, 0, NULL, 0}, pk = {{0, 0, NULL}, 0, NULL, 0};
   nckey nsk = {{0, 0, NULL}, 0, NULL, 0}, npk = {{0, 0, NULL}, 0, NULL, 0};
-  int64_t t = (int64_t)time(NULL);
+  int64_t t = -1;
   size_t n = 0;
   char *b = NULL;
   /* one table: -n, --new-pub and --new-pass-* are refused below for a
@@ -129,6 +128,11 @@ static int stmt(const char *cmd, int argc, char **argv, int kind) {
   if (at != NULL && when(at, &t) != NCOK) {
     ncmsg(cmd, "--at %s: give a UTC time as YYYY-MM-DDTHH:MM:SSZ, 1970 or "
           "later", at);
+    return NCUSE;
+  }
+  /* the default is now, SOURCE_DATE_EPOCH when set, as for a seal */
+  if (at == NULL && (t = ncnow()) < 0) {
+    ncmsg(cmd, "%s", NCSDEBAD);
     return NCUSE;
   }
   if (rs != NULL && strlen(rs) > 255) {
