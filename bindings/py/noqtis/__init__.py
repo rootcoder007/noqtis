@@ -214,13 +214,20 @@ def _salg(sk: bytes, pk: bytes) -> Alg:
     """The signature algorithm a key pair belongs to. SLH-DSA with SHA-2
     and with SHAKE have the same sizes: the pair decides, as the one whose
     key generation from sk's seeds gives pk."""
-    c = [a for a in SIGS if a.pk == len(pk) and a.sk == len(sk)]
+    # sk is the key S or its version 2 container
+    c = [a for a in SIGS
+         if a.pk == len(pk) and len(sk) in (a.sk, _c.sxsz(a.id))]
     if len(c) == 1:
         return c[0]
+    # (an SLH-DSA-128 container and an Ed25519 one are both 96 bytes,
+    # with 32-byte public keys)
     for a in c:
-        n = a.pk // 2
-        if _c.skg(a.id, sk[:3 * n])[0] == pk:
-            return a
+        seed = sk[:32] if a.name == "Ed25519" else sk[:3 * (a.pk // 2)]
+        try:
+            if _c.skg(a.id, seed)[0] == pk:
+                return a
+        except NoqtisError:
+            pass
     raise ArgError(-1, "sk and pk are not a key pair noqtis knows; "
                    "pass alg=")
 
@@ -296,14 +303,15 @@ def seal(dir: PathLike, sk: Bytes, pk: Bytes,
     ``alg`` defaults to the algorithm of the key pair. The creation time
     is SOURCE_DATE_EPOCH when set, else the clock.
 
-    ``format=3`` writes capsule format 3: the manifest carries a Merkle
-    tree over its files with a secret salt in each leaf, so that
-    ``prove`` can show some files and a proof confirms no guess of the
-    others; ``salt_key`` (32 secret bytes, format 3, the default with it)
-    derives the salts, for a reproducible capsule, else they are fresh.
+    ``format`` is 3 by default: the manifest carries a Merkle tree over
+    its files with a secret salt in each leaf, so that ``prove`` can show
+    some files and a proof confirms no guess of the others. The salts are
+    fresh, so two seals of the same files differ; ``salt_key`` (32 secret
+    bytes) derives them instead, for a reproducible capsule.
     ``format=2`` writes the same tree without salts (a proof lets a guess
-    of another file be confirmed), for readers older than 0.3.0.
-    ``inputs`` (format 3, the default with it) records the capsules this
+    of another file be confirmed), and ``format=1`` a flat manifest with
+    no tree, both for readers older than 0.3.0.
+    ``inputs`` (formats 3 and 2) records the capsules this
     one was made from: each a capsule folder (named by its last
     component) or a ``(name, folder)`` pair, or ``(name, id)`` with the
     32-byte id from ``capid``. Check the inputs before you name them;
@@ -317,8 +325,7 @@ def seal(dir: PathLike, sk: Bytes, pk: Bytes,
         m = json.dumps(dict(meta), allow_nan=False, separators=(",", ":"))
     else:
         raise TypeError("meta: a dict, a JSON string or None")
-    f = format if format is not None else \
-        (1 if inputs is None and salt_key is None else 3)
+    f = 3 if format is None else format
     if f not in (1, 2, 3):
         raise ArgError(-1, "format: 1, 2 or 3")
     if f == 1 and inputs is not None:

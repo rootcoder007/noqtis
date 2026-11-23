@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-"""The CLI's key files (docs/guides/keys.md): a header line
-``noqtis-key-1 <algorithm> <pub|sec>`` and the key bytes as padded base64
-in lines of 64 characters, as ``noqtis keygen`` writes them.
+"""The CLI's key files (docs/guides/keys.md, docs/spec/keyfile.md): a
+header line ``noqtis-key-1 <algorithm> <pub|sec>`` and the key bytes as
+padded base64 in lines of 64 characters, as ``noqtis keygen`` writes
+them. A signature secret key is written as ``noqtis-key-2 <algorithm>
+sec`` and holds the version 2 container (``noqtis.sign.sxmake``): the key
+with an integrity value that every signature checks. ``decode`` gives the
+container of a version 2 file and the key S of a version 1 file, and the
+signing functions take either.
 
 ``decode`` is as strict as the CLI's reader: the exact header, ``\\n`` or
 ``\\r\\n`` line ends and nothing else outside the base64 alphabet,
@@ -28,6 +33,8 @@ from ._alg import KEMS, SIGS, Alg, Bytes, buf, path
 from ._err import ArgError, DecodeError, FileError, UnsupportedError
 
 MAGIC = "noqtis-key-1"
+MAGIC2 = "noqtis-key-2"
+"""The first word of a signature secret key in the version 2 container."""
 _B64 = re.compile(rb"[A-Za-z0-9+/]*={0,2}")
 
 
@@ -93,8 +100,12 @@ def pwdec(passphrase: Pass, data: Bytes, ad: Bytes = b"") -> bytes:
     return _c.pwdec(_pw(passphrase), buf(ad, "ad"), buf(data, "data"))
 
 
-def _ad(a: Alg) -> bytes:
-    return ("%s %s sec" % (MAGIC, a.name)).encode("ascii")
+def _ad(a: Alg, magic: str = MAGIC) -> bytes:
+    return ("%s %s sec" % (magic, a.name)).encode("ascii")
+
+
+def _sign(a: Alg) -> bool:
+    return any(x.name == a.name for x in SIGS)
 
 
 def encode(alg: str, kind: str, key: Bytes,
@@ -107,16 +118,27 @@ def encode(alg: str, kind: str, key: Bytes,
     if kind not in ("pub", "sec"):
         raise ArgError(-1, "kind: 'pub' or 'sec'")
     k = buf(key, "key")
-    if len(k) != _size(a, kind):
+    magic = MAGIC
+    if kind == "sec" and _sign(a):
+        # a signature secret key is written in the version 2 container:
+        # S becomes one, a container is taken as it is once checked
+        magic = MAGIC2
+        if len(k) == a.sk:
+            k = _c.sxmk(a.id, k)
+        elif len(k) != _c.sxsz(a.id) or _c.sxchk(a.id, k) != 0:
+            raise ArgError(-1, "%s secret key: %d bytes, neither the key "
+                           "(%d) nor a sound container (%d)" % (
+                               a.name, len(k), a.sk, _c.sxsz(a.id)))
+    elif len(k) != _size(a, kind):
         raise ArgError(-1, "%s %s key: %d bytes, not %d" % (
             a.name, kind, _size(a, kind), len(k)))
     if passphrase is not None:
         if kind != "sec":
             raise ArgError(-1, "a passphrase protects a secret key only")
-        k = pwenc(passphrase, k, _ad(a))
+        k = pwenc(passphrase, k, _ad(a, magic))
     b = base64.b64encode(k).decode("ascii")
     body = "".join(b[i:i + 64] + "\n" for i in range(0, len(b), 64))
-    return "%s %s %s\n%s" % (MAGIC, a.name, kind, body)
+    return "%s %s %s\n%s" % (magic, a.name, kind, body)
 
 
 def decode(text: Union[str, Bytes],
@@ -138,16 +160,22 @@ def decode(text: Union[str, Bytes],
     if head.endswith(b"\r"):
         head = head[:-1]
     f = head.split(b" ")
-    if len(f) != 3 or f[0] != MAGIC.encode() or f[2] not in (b"pub", b"sec"):
+    v2 = len(f) == 3 and f[0] == MAGIC2.encode() and f[2] == b"sec"
+    if len(f) != 3 or (f[0] != MAGIC.encode() and not v2) or \
+            f[2] not in (b"pub", b"sec"):
         raise DecodeError(-4, "not a noqtis key file (want a first line "
-                          "\"%s <alg> <pub|sec>\")" % MAGIC)
+                          "\"%s <alg> <pub|sec>\" or \"%s <alg> sec\")"
+                          % (MAGIC, MAGIC2))
     try:
         name = f[1].decode("ascii")
     except UnicodeDecodeError:
         raise DecodeError(-4, "not a noqtis key file") from None
     a = _alg(name)
     kind = f[2].decode("ascii")
-    want = _size(a, kind)
+    if v2 and not _sign(a):
+        raise DecodeError(-4, "a %s key has no version 2 container (only "
+                          "signature keys do)" % a.name)
+    want = _c.sxsz(a.id) if v2 else _size(a, kind)
     body = t[nl + 1:].replace(b"\r", b"").replace(b"\n", b"")
     bad = DecodeError(-4, "the key is not %d bytes of base64 for %s (the "
                       "file is damaged or cut short)" % (want, a.name))
@@ -161,11 +189,15 @@ def decode(text: Union[str, Bytes],
         if passphrase is None:
             raise ArgError(-1, "the key is protected by a passphrase: give "
                            "passphrase=")
-        k = pwdec(passphrase, k, _ad(a))
+        k = pwdec(passphrase, k, _ad(a, MAGIC2 if v2 else MAGIC))
     elif passphrase is not None and kind == "sec" and len(k) == want:
         raise ArgError(-1, "the key is not protected by a passphrase")
     if len(k) != want:
         raise bad
+    if v2 and _c.sxchk(a.id, k) != 0:
+        raise DecodeError(-4, "the secret key is damaged: its integrity "
+                          "value does not match (restore the file from a "
+                          "copy)")
     return Key(a.name, kind, k)
 
 

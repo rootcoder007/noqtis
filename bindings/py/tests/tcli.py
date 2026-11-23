@@ -24,7 +24,8 @@ def run(*a, ok=(0,)):
 def rdkey(path):
     with open(str(path), encoding="ascii") as f:
         lines = f.read().split("\n")
-    assert lines[0].startswith("noqtis-key-1 ")
+    # noqtis-key-2: a signature secret key in the version 2 container
+    assert lines[0].startswith(("noqtis-key-1 ", "noqtis-key-2 "))
     return base64.b64decode("".join(lines[1:]))
 
 
@@ -39,7 +40,8 @@ def test_keygen_seed(tmp_path, alg):
     mod = noqtis.kem if kind == "kem" else noqtis.sign
     pk, sk = mod.keygen(alg, seed)
     assert rdkey(str(k) + ".pub") == pk
-    assert rdkey(k) == sk
+    want = sk if kind == "kem" else noqtis.sign.sxmake(alg, sk)
+    assert rdkey(k) == want
 
 
 def test_sign_both_ways(tmp_path):

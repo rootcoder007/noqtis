@@ -93,9 +93,12 @@ def test_secret_never_in_messages():
 
 def test_key_file_text(tmp_path):
     pk, sk = sign.keygen("ML-DSA-44")
+    # a signature secret key: the version 2 container, under the
+    # passphrase with the rest
+    x = sign.sxmake("ML-DSA-44", sk)
     t = keyfile.encode("ML-DSA-44", "sec", sk, passphrase="pw")
-    assert t.startswith("noqtis-key-1 ML-DSA-44 sec\n")
-    assert keyfile.decode(t, "pw").key == sk
+    assert t.startswith("noqtis-key-2 ML-DSA-44 sec\n")
+    assert keyfile.decode(t, "pw").key == x
     with pytest.raises(noqtis.ArgError):
         keyfile.decode(t)
     with pytest.raises(noqtis.VerifyError):
@@ -104,7 +107,7 @@ def test_key_file_text(tmp_path):
         keyfile.encode("ML-DSA-44", "pub", pk, passphrase="pw")
     f = tmp_path / "k"
     keyfile.write(f, "ML-DSA-44", "sec", sk, passphrase=b"pw")
-    assert keyfile.read(f, "sec", passphrase="pw").key == sk
+    assert keyfile.read(f, "sec", passphrase="pw").key == x
 
 
 @pytest.mark.skipif(CLI is None, reason="no noqtis CLI built")

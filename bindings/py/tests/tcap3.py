@@ -52,3 +52,18 @@ def test_tsreq(gold):
         noqtis.tsput(gold, b"\x30\x00")
     with pytest.raises(noqtis.NoqtisError):
         noqtis.ersput(gold, b"\x30\x00")
+
+
+def test_seal_default_is_format_3(tmp_path):
+    pk, sk = noqtis.sign.keygen("ML-DSA-44")
+    for fmt, want in ((None, "noqtis-capsule-3"), (1, "noqtis-capsule-1")):
+        d = tmp_path / ("f%s" % fmt)
+        d.mkdir()
+        (d / "a.txt").write_text("a\n")
+        if fmt is None:
+            noqtis.seal(d, sk, pk)
+        else:
+            noqtis.seal(d, sk, pk, format=fmt)
+        rows = {r.check: r.detail for r in noqtis.inspect(d).rows}
+        assert rows["info.format"] == want
+        assert noqtis.check(d, pk).ok

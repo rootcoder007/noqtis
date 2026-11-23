@@ -12,10 +12,10 @@ from typing import Optional, Tuple
 
 from . import _noqtis as _c
 from ._alg import AlgLike, Bytes, buf, find, hid, opt
-from ._err import ArgError, DecodeError
+from ._err import ArgError, DecodeError, UnsupportedError
 
 __all__ = ["Signer", "Verifier", "keygen", "mu", "rndlen", "sign",
-           "signmu", "verify", "verifymu"]
+           "signmu", "sxcheck", "sxmake", "sxsize", "verify", "verifymu"]
 
 
 def rndlen(alg: AlgLike) -> int:
@@ -72,6 +72,35 @@ def verify(alg: AlgLike, pk: Bytes, msg: Bytes, sig: Bytes, ctx: Bytes = b"",
     rc = _c.vrfy(a.id, p, buf(msg, "msg"), buf(ctx, "ctx"), _ph(prehash),
                  buf(sig, "sig"))
     return rc == 0
+
+
+# ---- the version 2 secret-key container (docs/spec/keyfile.md) ----
+
+def sxsize(alg: AlgLike) -> int:
+    """The length of ``alg``'s version 2 secret-key container: the key S,
+    for Ed25519 and the hybrids the Ed25519 public key P, and the
+    integrity value T = SHA3-256 of a domain string, the name, S and P."""
+    return _c.sxsz(find(alg, "sign").id)
+
+
+def sxmake(alg: AlgLike, sk: Bytes) -> bytes:
+    """The version 2 container of the secret key ``sk``. Every signing
+    function takes it in place of ``sk``: after signing it checks the
+    integrity value (and the public key) again, so that a change to any
+    stored byte of the key raises FaultError before a signature leaves."""
+    return _c.sxmk(find(alg, "sign").id, buf(sk, "sk"))
+
+
+def sxcheck(alg: AlgLike, x: Bytes) -> bool:
+    """True when ``x`` is a sound container; False when it is damaged.
+    A key S with no container raises UnsupportedError."""
+    rc = _c.sxchk(find(alg, "sign").id, buf(x, "x"))
+    if rc == 0:
+        return True
+    if rc == _c.EDEC:
+        return False
+    raise UnsupportedError(rc, "a key with no integrity value (version 1): "
+                           "sxmake makes its container")
 
 
 # ---- ML-DSA with an external mu ----

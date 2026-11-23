@@ -128,8 +128,59 @@ def test_read_kind_and_write(tmp_path):
     with pytest.raises(noqtis.FileError):
         keyfile.write(p, "ML-DSA-44", "sec", sk)  # never overwritten
     keyfile.write(p, "ML-DSA-44", "sec", sk, force=True)
-    assert keyfile.read(p, "sec").key == sk
+    assert keyfile.read(p, "sec").key == noqtis.sign.sxmake("ML-DSA-44", sk)
     with pytest.raises(noqtis.ArgError):
         keyfile.read(p, "pub")
     with pytest.raises(noqtis.FileError):
         keyfile.read(tmp_path / "missing")
+
+
+@pytest.mark.parametrize("alg", ["ML-DSA-44", "Ed25519", "ML-DSA-65+Ed25519",
+                                 "SLH-DSA-SHA2-128f"])
+def test_version_2_container(alg):
+    pk, sk = noqtis.sign.keygen(alg)
+    n = noqtis.sign.sxsize(alg)
+    x = noqtis.sign.sxmake(alg, sk)
+    assert len(x) == n and x[:len(sk)] == sk
+    assert noqtis.sign.sxcheck(alg, x)
+    with pytest.raises(noqtis.UnsupportedError):
+        noqtis.sign.sxcheck(alg, sk)
+    # every byte: a changed one is a damaged container
+    for i in range(0, n, max(1, n // 97)):
+        y = bytearray(x)
+        y[i] ^= 0x20
+        assert not noqtis.sign.sxcheck(alg, bytes(y))
+    # signs as S does; a changed byte of K, the seed or T: FaultError
+    sig = noqtis.sign.sign(alg, x, b"m")
+    assert noqtis.sign.verify(alg, pk, b"m", sig)
+    y = bytearray(x)
+    y[-1] ^= 1
+    with pytest.raises(noqtis.FaultError):
+        noqtis.sign.sign(alg, bytes(y), b"m")
+    # the key file: version 2, read back as X; version 1 still read as S
+    t = keyfile.encode(alg, "sec", sk)
+    assert t.startswith("noqtis-key-2 %s sec\n" % alg)
+    assert keyfile.decode(t).key == x
+    assert keyfile.encode(alg, "sec", x) == t
+    b = base64.b64encode(sk).decode("ascii")
+    v1 = "noqtis-key-1 %s sec\n" % alg + "".join(
+        b[i:i + 64] + "\n" for i in range(0, len(b), 64))
+    assert keyfile.decode(v1).key == sk
+    # a damaged version 2 file: refused when read
+    b = base64.b64encode(bytes(y)).decode("ascii")
+    bad = "noqtis-key-2 %s sec\n" % alg + "".join(
+        b[i:i + 64] + "\n" for i in range(0, len(b), 64))
+    with pytest.raises(noqtis.DecodeError, match="integrity value"):
+        keyfile.decode(bad)
+    with pytest.raises(noqtis.ArgError):
+        keyfile.encode(alg, "sec", bytes(y))
+    # seal finds the algorithm from a container too
+    assert noqtis._salg(x, pk).name == alg
+
+
+def test_version_2_is_for_signature_keys_only():
+    _pk, sk = noqtis.kem.keygen("ML-KEM-768")
+    t = keyfile.encode("ML-KEM-768", "sec", sk)
+    assert t.startswith("noqtis-key-1 ML-KEM-768 sec\n")
+    with pytest.raises(noqtis.DecodeError):
+        keyfile.decode(t.replace("noqtis-key-1", "noqtis-key-2", 1))

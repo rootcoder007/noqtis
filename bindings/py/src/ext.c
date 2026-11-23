@@ -215,6 +215,54 @@ static PyObject *psign(PyObject *self, PyObject *args) {
   return r;
 }
 
+/* sxsz(alg) -> the length of the version 2 secret-key container */
+static PyObject *psxsz(PyObject *self, PyObject *args) {
+  int alg, rc;
+  size_t n = 0;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "i", &alg)) return NULL;
+  rc = nqsxsz((nqsalg)alg, &n);
+  if (rc != NQOK) return fail(rc);
+  return PyLong_FromSize_t(n);
+}
+
+/* sxmk(alg, sk) -> the container X of sk */
+static PyObject *psxmk(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *sk;
+  Py_ssize_t kl;
+  size_t n = 0;
+  PyObject *x;
+  uint8_t *o;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#", &alg, &sk, &kl)) return NULL;
+  rc = nqsxsz((nqsalg)alg, &n);
+  if (rc != NQOK) return fail(rc);
+  if ((x = obuf(n, &o)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqsxmk((nqsalg)alg, U8(sk), SZ(kl), o, n);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(x);
+    return fail(rc);
+  }
+  return x;
+}
+
+/* sxchk(alg, x) -> NQOK, NQEDEC (damaged) or NQENOSUP (S alone) */
+static PyObject *psxchk(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *x;
+  Py_ssize_t xl;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#", &alg, &x, &xl)) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqsxchk((nqsalg)alg, U8(x), SZ(xl));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK && rc != NQEDEC && rc != NQENOSUP) return fail(rc);
+  return PyLong_FromLong(rc);
+}
+
 /* vrfy(alg, pk, msg, ctx, ph, sig) -> NQOK, NQEVRFY or NQEDEC; any other
  * code raises */
 static PyObject *pvrfy(PyObject *self, PyObject *args) {
@@ -3355,6 +3403,9 @@ static PyMethodDef meths[] = {
   {"skg", pskg, METH_VARARGS, "nqskg / nqskgd"},
   {"sign", psign, METH_VARARGS, "nqsign / nqsignd"},
   {"vrfy", pvrfy, METH_VARARGS, "nqvrfy"},
+  {"sxsz", psxsz, METH_VARARGS, "nqsxsz"},
+  {"sxmk", psxmk, METH_VARARGS, "nqsxmk"},
+  {"sxchk", psxchk, METH_VARARGS, "nqsxchk"},
   {"kkg", pkkg, METH_VARARGS, "nqkkg / nqkkgd"},
   {"enc", penc, METH_VARARGS, "nqenc / nqencd"},
   {"dec", pdec, METH_VARARGS, "nqdec"},

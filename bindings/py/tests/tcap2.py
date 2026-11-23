@@ -124,7 +124,7 @@ def test_prove(tmp_path, key):
     with pytest.raises(noqtis.ArgError):
         noqtis.check()
     e = mk(tmp_path / "v1")
-    noqtis.seal(e, sk, pk)
+    noqtis.seal(e, sk, pk, format=1)
     with pytest.raises(noqtis.UnsupportedError):
         noqtis.prove(e, ["f0.csv"])
 

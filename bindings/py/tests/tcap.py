@@ -35,7 +35,7 @@ def test_golden_reseal(gold, tmp_path, monkeypatch):
         (d / f).parent.mkdir(parents=True, exist_ok=True)
         (d / f).write_bytes((gold / f).read_bytes())
     meta = '{"project":"golden","n":1.50,"tags":["a","b"]}'
-    noqtis.seal(d, sk, pk, meta=meta)
+    noqtis.seal(d, sk, pk, meta=meta, format=1)  # the golden capsule's
     assert (d / "noqtis.json").read_bytes() == \
         (GOLD / "noqtis.json").read_bytes()
     # nqseal signs with fresh randomness: all but the signature is equal

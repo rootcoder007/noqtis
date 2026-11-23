@@ -102,8 +102,11 @@ given TSA certificates.
 
 ### Format 3, proofs and lineage
 
-`seal(..., format=3)` adds a Merkle tree over the files, with a secret
-salt in each leaf, to the manifest and signs its head. `prove` then
+`seal` writes format 3 by default: a Merkle tree over the files, with a
+secret salt in each leaf, in the manifest, whose head is signed. The
+salts are fresh, so two seals of the same files differ unless
+`salt_key=` is given; `format=1` writes the flat manifest of before
+0.3.0. `prove` then
 shows some files to a reader without the names, sizes or digests of the
 others, and with nothing that confirms a guess of them
 (`salt_key=` 32 secret bytes makes the salts reproducible). `format=2`
@@ -173,7 +176,12 @@ raises `DecodeError` for text that is not an envelope.
 
 `noqtis.keyfile` reads and writes the text key files `noqtis keygen`
 makes (`noqtis-key-1 <alg> <pub|sec>`, then base64), as strictly as the
-command-line tool reads them:
+command-line tool reads them. A signature secret key is written as `noqtis-key-2 <alg> sec`, the
+version 2 container (`noqtis.sign.sxmake`: the key with an integrity value), and read
+back as that container, which every signing function takes in place of
+the key and checks again after signing, so that a change to any stored
+byte of the key is refused rather than signed with; a version 1 file
+still reads, as the key.
 
 ```python
 from noqtis import keyfile
