@@ -53,8 +53,8 @@ noqtis check -p me.pub results/         # exit 1: "report.txt: size differs"
 - No file was added, removed or renamed, and no link or special file was
   slipped in.
 - The list itself is exactly what the holder of the secret key signed,
-  with a post-quantum signature (ML-DSA or SLH-DSA) that stays hard to
-  forge after quantum computers break RSA and elliptic curves.
+  with a signature (ML-DSA or SLH-DSA) designed to resist attacks by
+  quantum computers, which would break RSA and elliptic-curve signatures.
 - With `-p key.pub`, it was that key that sealed it; without `-p`, only
   that *someone* did (anyone can make a capsule that checks without
   `-p`), and the report says so.
@@ -71,10 +71,10 @@ and the [threat model](https://noqtis.dev/security/).
   evidence record beside the seal, renewed before a time-stamping
   authority's certificate expires or a hash weakens, so when a folder was
   sealed stays provable for decades.
-- **Masked against power analysis**: ML-DSA signing, ML-KEM and HQC
+- **First-order masking**: ML-DSA signing, ML-KEM and HQC
   decapsulation, SLH-DSA's secret-keyed hash and Ed25519 signing work on
-  random shares of the key, checked by a simulated power analysis (TVLA)
-  in CI.
+  two random shares of the key, checked by a simulated first-order power
+  analysis (TVLA) in CI; no measurement on hardware has been made.
 - **No faulty signature leaves the library**: each one is verified under
   the public key before it is returned, since a signature made in a
   glitched computation can give the key away.

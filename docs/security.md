@@ -15,9 +15,9 @@ and advisory within 90 days. See `SECURITY.md`.
 **What NOQTIS protects.** The integrity and origin of a set of files: that
 a folder holds exactly the files a key holder sealed, byte for byte, and
 nothing else; and, with a timestamp, that the seal existed no later than
-the time the TSA signed. Signatures are post-quantum (ML-DSA, SLH-DSA), so the record
-stays checkable after large quantum computers break RSA and elliptic
-curves.
+the time the TSA signed. The record is signed with a signature (ML-DSA
+or SLH-DSA) designed to resist attacks by quantum computers, which would
+break RSA and elliptic-curve signatures.
 
 **Against whom.**
 
