@@ -68,7 +68,9 @@ static void tsig(nqp11 *p, nqsalg alg, const char *label) {
   NQTEQI(nqp11seal(NULL, &k, ".", 1, NULL, NULL, 0), NQEARG);
   NQTEQI(nqp11seal(p, NULL, ".", 1, NULL, NULL, 0), NQEARG);
   NQTEQI(nqp11seal(p, &k, NULL, 1, NULL, NULL, 0), NQEARG);
-  NQTEQI(nqp11seal(p, &k, ".", 3, NULL, NULL, 0), NQEARG);
+  /* formats are 1 to 3 */
+  NQTEQI(nqp11seal(p, &k, ".", 0, NULL, NULL, 0), NQEARG);
+  NQTEQI(nqp11seal(p, &k, ".", 4, NULL, NULL, 0), NQEARG);
   NQTCHK(sn == z.sig);
   /* a signature key does not decapsulate */
   NQTEQI(nqp11dec(p, &k, ct, 768, ss, 32), NQEARG);
