@@ -74,8 +74,10 @@ test('passphrase key files: known answers, round trips, failures', () => {
     p: 1 })), codes.EARG);
   const t = keyfile.encode('ML-DSA-44', 'sec', secretKey,
     { passphrase: 'pass' });
-  assert.ok(t.startsWith('noqtis-key-1 ML-DSA-44 sec\n'));
-  assert.deepEqual(keyfile.decode(t, { passphrase: 'pass' }).key, secretKey);
+  // a signature key: its version 2 container, under the passphrase
+  assert.ok(t.startsWith('noqtis-key-2 ML-DSA-44 sec\n'));
+  assert.deepEqual(keyfile.decode(t, { passphrase: 'pass' }).key,
+    sign.sxmake('ML-DSA-44', secretKey));
   assert.equal(code(() => keyfile.decode(t)), codes.EARG);
   try {
     keyfile.decode(t, { passphrase: 'nope' });

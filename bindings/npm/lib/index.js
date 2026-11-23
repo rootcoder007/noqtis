@@ -414,6 +414,53 @@ export const sign = Object.freeze({
     });
   },
 
+  /**
+   * The length of the version 2 secret-key container of alg: the key S,
+   * for Ed25519 and the hybrids the Ed25519 public key P, and the
+   * integrity value T, SHA3-256 of a domain string, the name, S and P
+   * (docs/spec/keyfile.md).
+   */
+  sxsize(alg) {
+    const a = salg(alg);
+    return run((h) => {
+      const pn = h.alloc(4);
+      check(M._nqsxsz(a.id, pn));
+      return h.u32(pn);
+    });
+  },
+
+  /**
+   * The version 2 container of secretKey. Every signing function takes it
+   * in place of the key: after signing it checks the integrity value (and
+   * for Ed25519 and the hybrids the public key) again, so a change to any
+   * stored byte of the key throws EFLT before a signature leaves.
+   */
+  sxmake(alg, secretKey) {
+    const a = salg(alg);
+    const sk = key(secretKey, 'secretKey');
+    const n = sign.sxsize(alg);
+    return run((h) => {
+      const px = h.alloc(n);
+      check(M._nqsxmk(a.id, h.put(sk), sk.length, px, n));
+      return h.get(px, n);
+    });
+  },
+
+  /**
+   * true for a sound container, false for a damaged one; a key with no
+   * container (version 1) throws ENOSUP.
+   */
+  sxcheck(alg, container) {
+    const a = salg(alg);
+    const x = key(container, 'container');
+    return run((h) => {
+      const rc = M._nqsxchk(a.id, h.put(x), x.length);
+      if (rc === CODES.EDEC) return false;
+      check(rc);
+      return true;
+    });
+  },
+
   /** true when sig verifies for the message whose mu is mu. */
   verifymu(alg, publicKey, mu, sig) {
     const a = salg(alg);
@@ -1453,14 +1500,15 @@ export const capsule = Object.freeze({
    * Seals the files: returns { 'noqtis.json', 'noqtis.sig' } as bytes, to
    * store beside them. Options: `meta` (a JSON value or JSON text, kept in
    * the manifest), `time` (creation time in seconds since 1970; default
-   * the clock), `format` (1, the default; 3: a Merkle tree over the
-   * files with a secret salt in each leaf, for capsule.prove, so that a
-   * proof confirms no guess of the other files; 2: the same without
-   * salts, whose proofs let such a guess be confirmed, for readers older
-   * than 0.3.0), `inputs` (format 3, the default with it: [{ name, id }],
-   * the capsules this one was made from, each id the 32 bytes capsule.id
-   * gives), `saltKey` (format 3, the default with it: 32 secret bytes the
-   * salts are derived from, for a reproducible capsule; else fresh).
+   * the clock), `format` (3, the default: a Merkle tree over the files
+   * with a secret salt in each leaf, for capsule.prove, so that a proof
+   * confirms no guess of the other files; 2: the same without salts,
+   * whose proofs let such a guess be confirmed; 1: a flat manifest, signed
+   * whole; 2 and 1 for readers older than 0.3.0), `inputs` (formats 3 and
+   * 2: [{ name, id }], the capsules this one was made from, each id the 32
+   * bytes capsule.id gives), `saltKey` (format 3: 32 secret bytes the
+   * salts are derived from, for a reproducible capsule; else fresh, so two
+   * seals of the same files differ).
    */
   seal(files, alg, secretKey, publicKey, opts = {}) {
     const a = salg(alg);
@@ -1474,8 +1522,7 @@ export const capsule = Object.freeze({
     const ins = opts.inputs;
     const sk3 = opts.saltKey === undefined ? undefined
       : key(opts.saltKey, 'saltKey');
-    const fmt = opts.format === undefined
-      ? (ins === undefined && sk3 === undefined ? 1 : 3) : opts.format;
+    const fmt = opts.format === undefined ? 3 : opts.format;
     if (fmt !== 1 && fmt !== 2 && fmt !== 3) {
       throw new NoqtisError(CODES.EARG, 'format');
     }
@@ -2046,8 +2093,22 @@ export const keyfile = Object.freeze({
     if (kind !== 'pub' && kind !== 'sec') {
       throw new NoqtisError(CODES.EARG, 'kind must be pub or sec');
     }
-    const k = key(keyBytes, 'key');
-    if (k.length !== (kind === 'pub' ? a.pk : a.sk)) {
+    let k = key(keyBytes, 'key');
+    let magic = 'noqtis-key-1';
+    let made = false;
+    if (kind === 'sec' && sigs.get(a.name.toUpperCase()) === a) {
+      // a signature secret key is written in the version 2 container:
+      // the key becomes one, a container is taken once it checks
+      magic = 'noqtis-key-2';
+      if (k.length === a.sk) {
+        k = sign.sxmake(a.name, k);
+        made = true;
+      } else if (k.length !== sign.sxsize(a.name) ||
+          !sign.sxcheck(a.name, k)) {
+        throw new NoqtisError(CODES.EARG,
+          'neither the secret key nor a sound container');
+      }
+    } else if (k.length !== (kind === 'pub' ? a.pk : a.sk)) {
       throw new NoqtisError(CODES.EARG, 'key length');
     }
     let body = k;
@@ -2056,11 +2117,12 @@ export const keyfile = Object.freeze({
         throw new NoqtisError(CODES.EARG, 'a passphrase protects a secret key only');
       }
       body = keyfile.pwenc(opts.passphrase, k,
-        { ad: `noqtis-key-1 ${a.name} sec` });
+        { ad: `${magic} ${a.name} sec` });
     }
     const b = b64e(body);
     if (body !== k) body.fill(0);
-    let s = `noqtis-key-1 ${a.name} ${kind}\n`;
+    if (made) k.fill(0);
+    let s = `${magic} ${a.name} ${kind}\n`;
     for (let i = 0; i < b.length; i += 64) s += `${b.slice(i, i + 64)}\n`;
     return s;
   },
@@ -2077,7 +2139,8 @@ export const keyfile = Object.freeze({
     if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
     const head = lines.shift() || '';
     const f = head.split(' ');
-    if (f.length !== 3 || f[0] !== 'noqtis-key-1' ||
+    const v2 = f.length === 3 && f[0] === 'noqtis-key-2' && f[2] === 'sec';
+    if (f.length !== 3 || (f[0] !== 'noqtis-key-1' && !v2) ||
         (f[2] !== 'pub' && f[2] !== 'sec')) {
       throw new NoqtisError(CODES.EDEC, 'not a noqtis key file');
     }
@@ -2085,9 +2148,13 @@ export const keyfile = Object.freeze({
     if (!a || a.name !== f[1]) {
       throw new NoqtisError(CODES.ENOSUP, `algorithm ${f[1]}`);
     }
+    if (v2 && sigs.get(a.name.toUpperCase()) !== a) {
+      throw new NoqtisError(CODES.EDEC,
+        `a ${a.name} key has no version 2 container (only signature keys do)`);
+    }
     const body = lines.join('');
     let k = b64d(body);
-    const want = f[2] === 'pub' ? a.pk : a.sk;
+    const want = v2 ? sign.sxsize(a.name) : f[2] === 'pub' ? a.pk : a.sk;
     const prot = f[2] === 'sec' && k.length === want + 51 &&
       k[0] === 0x4e && k[1] === 0x51 && k[2] === 0x50 && k[3] === 0x57;
     if (prot) {
@@ -2096,7 +2163,7 @@ export const keyfile = Object.freeze({
           'the key is protected by a passphrase: give opts.passphrase');
       }
       const e = k;
-      k = keyfile.pwdec(opts.passphrase, e, { ad: `noqtis-key-1 ${a.name} sec` });
+      k = keyfile.pwdec(opts.passphrase, e, { ad: `${f[0]} ${a.name} sec` });
       e.fill(0);
     } else if (opts.passphrase !== undefined && f[2] === 'sec' &&
         k.length === want) {
@@ -2106,6 +2173,11 @@ export const keyfile = Object.freeze({
     if (k.length !== want) {
       k.fill(0);
       throw new NoqtisError(CODES.EDEC, 'key length');
+    }
+    if (v2 && !sign.sxcheck(a.name, k)) {
+      k.fill(0);
+      throw new NoqtisError(CODES.EDEC, 'the secret key is damaged: its ' +
+        'integrity value does not match (restore the file from a copy)');
     }
     return { alg: a.name, kind: f[2], key: k };
   },

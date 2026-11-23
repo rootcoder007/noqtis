@@ -107,7 +107,7 @@ test('proofs', () => {
   assert.throws(() => capsule.check(f, { proof: p, only: ['f1.csv'] }),
     err(codes.EARG));
   assert.throws(() => capsule.check(null), TypeError);
-  const v1 = sealed('ML-DSA-65', k);
+  const v1 = sealed('ML-DSA-65', k, { format: 1 });
   assert.throws(() => capsule.prove(v1, ['f0.csv']), err(codes.ENOSUP));
 });
 
@@ -240,4 +240,17 @@ test('a hybrid key seals; Ed25519 alone does not', () => {
   const e = sign.keygen('Ed25519');
   assert.throws(() => capsule.seal(files(), 'Ed25519', e.secretKey,
     e.publicKey), err(codes.ENOSUP));
+});
+
+test('capsule.seal writes format 3 by default, and 1 when told', () => {
+  const { publicKey, secretKey } = sign.keygen('ML-DSA-44');
+  const files = { 'a.txt': new TextEncoder().encode('a\n') };
+  for (const [opts, want] of [[{}, 'noqtis-capsule-3'],
+    [{ format: 1 }, 'noqtis-capsule-1']]) {
+    const s = capsule.seal(files, 'ML-DSA-44', secretKey, publicKey, opts);
+    const m = JSON.parse(new TextDecoder().decode(s['noqtis.json']));
+    assert.equal(m.format, want);
+    const all = { ...files, ...s };
+    assert.ok(capsule.check(all, { trust: publicKey }).ok);
+  }
 });

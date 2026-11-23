@@ -13,6 +13,7 @@ import { host } from './wasi.js';
 const FNS = [
   'nqerr', 'nqver', 'nqselftest', 'nqwipe', 'nqrand', 'nqhlen', 'nqhash',
   'nqhmac', 'nqssize', 'nqsname', 'nqskg', 'nqskgd', 'nqsign', 'nqsignd',
+  'nqsxsz', 'nqsxmk', 'nqsxchk',
   'nqvrfy', 'nqksize', 'nqkname', 'nqkkg', 'nqkkgd', 'nqenc', 'nqencd',
   'nqdec', 'nqseal', 'nqseal2', 'nqseal3', 'nqcapid', 'nqchkt', 'nqchkx', 'nqchkp',
   'nqprove', 'nqfiles', 'nqkstmt', 'nqkexp', 'nqdsse', 'nqdssevrfy', 'nqcard',

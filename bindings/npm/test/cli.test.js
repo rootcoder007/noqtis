@@ -51,7 +51,8 @@ for (const alg of SIG) {
     const js = sign.keygen(alg, { seed });
     assert.equal(pub.alg, alg);
     assert.equal(hex(pub.key), hex(js.publicKey));
-    assert.equal(hex(sec.key), hex(js.secretKey));
+    // the CLI writes the secret key in the version 2 container
+    assert.equal(hex(sec.key), hex(sign.sxmake(alg, js.secretKey)));
     // the JS key file is the CLI's, byte for byte
     assert.equal(keyfile.encode(alg, 'pub', js.publicKey),
       readFileSync(`${k}.pub`, 'utf8'));

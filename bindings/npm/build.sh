@@ -25,7 +25,7 @@ if [ "$ver" != "$want" ] && [ -z "${NQWASIANY:-}" ]; then
 fi
 
 fns='nqerr nqver nqselftest nqwipe nqrand nqhlen nqhash nqhmac
-nqssize nqsname nqskg nqskgd nqsign nqsignd nqvrfy
+nqssize nqsname nqskg nqskgd nqsign nqsignd nqvrfy nqsxsz nqsxmk nqsxchk
 nqksize nqkname nqkkg nqkkgd nqenc nqencd nqdec
 nqseal nqseal2 nqseal3 nqcapid nqchkt nqchkx nqchkp nqprove nqfiles
 nqkstmt nqkexp nqdsse nqdssevrfy nqcard nqcardvrfy nqrepn nqrepi nqrepfree

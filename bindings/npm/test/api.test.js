@@ -289,16 +289,20 @@ test('key files', () => {
       ? sign.keygen(a) : kem.keygen(a);
     for (const [kind, b] of [['pub', k.publicKey], ['sec', k.secretKey]]) {
       const t = keyfile.encode(a, kind, b);
-      assert.ok(t.startsWith(`noqtis-key-1 ${a} ${kind}\n`));
+      // a signature secret key: the version 2 container
+      const v2 = kind === 'sec' && !a.startsWith('ML-KEM') && !a.startsWith('HQC');
+      const want = v2 ? sign.sxmake(a, b) : b;
+      assert.ok(t.startsWith(`noqtis-key-${v2 ? 2 : 1} ${a} ${kind}\n`));
       assert.ok(t.split('\n').every((l) => l.length <= 64 || l.startsWith('n')));
       const d = keyfile.decode(t);
       assert.equal(d.alg, a);
       assert.equal(d.kind, kind);
-      assert.equal(hex(d.key), hex(b));
-      assert.equal(hex(keyfile.decode(t.replace(/\n/g, '\r\n')).key), hex(b));
+      assert.equal(hex(d.key), hex(want));
+      assert.equal(hex(keyfile.decode(t.replace(/\n/g, '\r\n')).key),
+        hex(want));
       // the base64 matches Buffer's
       assert.equal(t.split('\n').slice(1).join(''),
-        Buffer.from(b).toString('base64'));
+        Buffer.from(want).toString('base64'));
     }
   }
   const t = keyfile.encode('ML-DSA-44', 'pub', sign.keygen('ML-DSA-44')
@@ -363,4 +367,43 @@ test('no secret is left in WebAssembly memory', () => {
         `${a} z`);
     }
   }
+});
+
+test('the version 2 secret-key container', () => {
+  const b64 = (k) => Buffer.from(k).toString('base64').match(/.{1,64}/g)
+    .join('\n') + '\n';
+  for (const a of ['ML-DSA-44', 'Ed25519', 'ML-DSA-65+Ed25519',
+    'SLH-DSA-SHA2-128f']) {
+    const { publicKey, secretKey } = sign.keygen(a);
+    const n = sign.sxsize(a);
+    const x = sign.sxmake(a, secretKey);
+    assert.equal(x.length, n);
+    assert.equal(hex(x.slice(0, secretKey.length)), hex(secretKey));
+    assert.ok(sign.sxcheck(a, x));
+    assert.throws(() => sign.sxcheck(a, secretKey), NoqtisError);
+    for (let i = 0; i < n; i += Math.max(1, Math.floor(n / 97))) {
+      const y = x.slice();
+      y[i] ^= 0x20;
+      assert.equal(sign.sxcheck(a, y), false, `${a} byte ${i}`);
+    }
+    assert.ok(sign.verify(a, publicKey, 'm', sign.sign(a, x, 'm')));
+    const y = x.slice();
+    y[n - 1] ^= 1;
+    assert.throws(() => sign.sign(a, y, 'm'),
+      (e) => e.code === codes.EFLT);
+    const t = keyfile.encode(a, 'sec', secretKey);
+    assert.ok(t.startsWith(`noqtis-key-2 ${a} sec\n`));
+    assert.equal(hex(keyfile.decode(t).key), hex(x));
+    assert.equal(keyfile.encode(a, 'sec', x), t);
+    const v1 = `noqtis-key-1 ${a} sec\n${b64(secretKey)}`;
+    assert.equal(hex(keyfile.decode(v1).key), hex(secretKey));
+    assert.throws(() => keyfile.decode(`noqtis-key-2 ${a} sec\n${b64(y)}`),
+      /integrity value/);
+    assert.throws(() => keyfile.encode(a, 'sec', y), NoqtisError);
+  }
+  const e = kem.keygen('ML-KEM-768');
+  const t = keyfile.encode('ML-KEM-768', 'sec', e.secretKey);
+  assert.ok(t.startsWith('noqtis-key-1 ML-KEM-768 sec\n'));
+  assert.throws(() => keyfile.decode(t.replace('key-1', 'key-2')),
+    NoqtisError);
 });

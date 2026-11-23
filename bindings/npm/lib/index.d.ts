@@ -169,6 +169,12 @@ export const sign: {
   /** The signature of the message whose mu is mu; opts.rnd or deterministic. */
   signmu(alg: SignAlg, secretKey: Bytes, mu: Bytes, opts?: SignOptions): Bytes;
   verifymu(alg: SignAlg, publicKey: Bytes, mu: Bytes, sig: Bytes): boolean;
+  /** The length of alg's version 2 secret-key container. */
+  sxsize(alg: SignAlg): number;
+  /** The version 2 container of secretKey: signing checks it again. */
+  sxmake(alg: SignAlg, secretKey: Bytes): Bytes;
+  /** true for a sound container, false for a damaged one. */
+  sxcheck(alg: SignAlg, container: Bytes): boolean;
   /** A signature over a message given in pieces. */
   signer(alg: SignAlg, secretKey: Bytes, opts?: SignOptions): Signer;
   /** verify() over a message given in pieces. */
@@ -251,8 +257,9 @@ export interface SealOptions {
   meta?: unknown;
   /** Creation time in seconds since 1970; default the clock. */
   time?: number;
-  /** 1 (the default); 3: a Merkle tree over the files with a secret
-   * salt in each leaf; 2: the same unsalted, for readers before 0.3.0. */
+  /** 3 (the default): a Merkle tree over the files with a secret salt
+   * in each leaf, fresh unless saltKey is given; 2: the same unsalted;
+   * 1: a flat manifest; 2 and 1 for readers before 0.3.0. */
   format?: 1 | 2 | 3;
   /** Formats 3 and 2: the capsules this one was made from, by capsule.id. */
   inputs?: { name: string; id: Bytes }[];

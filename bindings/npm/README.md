@@ -80,6 +80,7 @@ after `init()` is synchronous.
 | `dsse.sign(alg, sk, pk, type, payload)` | a DSSE envelope (canonical JSON bytes) |
 | `dsse.verify(alg, pk, envelope)` | `{ payload, payloadType }`, or `null` when no signature verifies |
 | `keyfile.encode(alg, 'pub' \| 'sec', key)`, `keyfile.decode(text)` | the CLI's key file text, and back (`{ alg, kind, key }`) |
+| `sign.sxmake(alg, sk)`, `sign.sxcheck(alg, x)`, `sign.sxsize(alg)` | the version 2 secret-key container: the key with an integrity value that signing checks again; `keyfile` writes signature secret keys in it (`noqtis-key-2`) and reads it back |
 | `NoqtisError`, `codes`, `errmsg(code)` | errors carry the library's `NQE*` code in `.code` and its message |
 | `version()` | the library version |
 | `selftest()` | runs the library's known-answer self-test; throws (code `EKAT`) when an answer differs |
@@ -132,10 +133,11 @@ capsule.check(files, { proof, trust: pk }).ok;  // and the proven files
 
 A proof holds the seal, the manifest's head and each proven file's entry
 and Merkle audit path, and none of the other files' names, sizes or
-digests; of a format 3 capsule (salted leaves; `saltKey` makes the
-salts reproducible) nothing in it confirms a guess of another file, of
-a format 2 one (`format: 2`, for readers older than 0.3.0) its hashes
-do.
+digests; of a format 3 capsule (salted leaves; the default of
+`capsule.seal`, whose salts are fresh unless `saltKey` makes them
+reproducible) nothing in it confirms a guess of another file, of a
+format 2 one (`format: 2`, for readers older than 0.3.0) its hashes do;
+`format: 1` writes the flat manifest of before 0.3.0.
 `seal(..., { inputs: [{ name: 'raw', id: capsule.id(raw) }] })` records
 the capsules one was made from; `check(files, { lineage: [raw] })` finds
 each among those capsules by id and checks it, to 64 levels.

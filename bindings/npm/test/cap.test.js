@@ -57,8 +57,10 @@ test('seal and check round trip', () => {
   for (const alg of ['ML-DSA-65', 'SLH-DSA-SHA2-128f']) {
     const { publicKey: pk, secretKey: sk } = sign.keygen(alg);
     const f = files();
+    // format 3 (the default) with a salt key: reproducible
+    const saltKey = new Uint8Array(32).fill(7);
     const out = capsule.seal(f, alg, sk, pk, {
-      meta: { project: 'js', n: 2 }, time: 1700000000,
+      meta: { project: 'js', n: 2 }, time: 1700000000, saltKey,
     });
     const json = new TextDecoder().decode(out['noqtis.json']);
     assert.match(json, /"created":"2023-11-14T22:13:20Z"/);
@@ -69,9 +71,9 @@ test('seal and check round trip', () => {
     assert.equal(capsule.check(f, { trust: pk }).ok, true);
     const other = sign.keygen(alg).publicKey;
     assert.equal(capsule.check(f, { trust: other }).ok, false);
-    // the same files and time give the same manifest
+    // the same files, time and salt key give the same manifest
     const again = capsule.seal(files(), alg, sk, pk, {
-      meta: { project: 'js', n: 2 }, time: 1700000000,
+      meta: { project: 'js', n: 2 }, time: 1700000000, saltKey,
     });
     assert.equal(new TextDecoder().decode(again['noqtis.json']), json);
   }
