@@ -11,9 +11,8 @@
 .Fn nqselftest void
 .Sh DESCRIPTION
 .Fn nqselftest
-runs fixed inputs through the public functions of every algorithm
-family and compares what they produce with answers built into the
-library, the kind of self-test a cryptographic module runs before it is
+runs fixed inputs through the functions of every algorithm family
+and compares what they produce with answers built into the library, the kind of self-test a cryptographic module runs before it is
 used (FIPS 140-3, which takes its requirements from ISO/IEC 19790:2012,
 section 7.10):
 .Bl -bullet -compact
@@ -40,9 +39,34 @@ SLH-DSA-SHA2-128f and SLH-DSA-SHAKE-128f: a key pair from a fixed seed;
 HQC-128: a key pair, an encapsulation and the decapsulation;
 .It
 Ed25519 and ML-DSA-44+Ed25519: a key pair, a deterministic signature and
-its verification.
+its verification;
+.It
+BLAKE2b-512 of
+.Dq abc
+(RFC 7693, appendix A);
+.It
+HKDF-SHA-256 (RFC 5869, test case A.1): the extract and the expand;
+.It
+PBKDF2-HMAC-SHA-256 (RFC 7914, section 11, one iteration);
+.It
+Argon2id (RFC 9106, section 5.3: 32 KiB, 3 passes, 4 lanes);
+.It
+AES-256-GCM (the GCM specification, test case 14) and ChaCha20-Poly1305
+(RFC 8439, section 2.8.2): sealing, opening, and opening with a changed
+tag, which must fail;
+.It
+the ChaCha20 stream (RFC 8439, appendix A.2, test vector 1);
+.It
+AES-SIV (RFC 5297, appendix A.1) and AES-256-GCM-SIV (RFC 8452,
+appendix C.2): sealing, opening, and opening a changed ciphertext, which
+must fail;
+.It
+X25519 (RFC 7748, section 5.2, the first vector).
 .El
 .Pp
+That is 17 tests; each of the last ten runs the inputs of the published
+vector named, so its stored answer is also the SHA-256 of the return
+codes and the published outputs.
 Each family's keys, ciphertexts, signatures, secrets and return codes
 are hashed with SHA-256; a decapsulation or verification that disagrees
 changes the hash.
@@ -52,9 +76,16 @@ with no
 .Xr nqsetrng 3 )
 it returns
 .Er NQEKAT .
-It takes about a tenth of a second and allocates nothing: its buffers
-are one static block of about 44 KB, wiped after each test, held under
-a lock.
+The freestanding build has no AES-GCM, ChaCha20, AES-SIV, AES-GCM-SIV
+or X25519, and leaves their six tests out; it runs the Argon2id test
+only once
+.Xr nqsetal 3
+has given it an allocator.
+It takes about a tenth of a second.
+Its buffers are one static block of about 44 KB, wiped after each test,
+held under a lock; only Argon2id allocates, 32 KiB through the
+.Xr nqsetal 3
+hook.
 It may be called from several threads at once; one test runs at a
 time and the others wait.
 The lock is a spin lock, held for one test at a time (well under a
@@ -82,7 +113,8 @@ if (nqselftest() != NQOK) {
 .Ed
 .Sh SEE ALSO
 .Xr noqtis-selftest 1 ,
-.Xr nqerr 3
+.Xr nqerr 3 ,
+.Xr nqsetal 3
 .Sh STANDARDS
 .Rs
 .%T FIPS 140-3: Security Requirements for Cryptographic Modules
