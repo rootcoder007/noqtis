@@ -431,20 +431,67 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
 - Fail closed everywhere: verification returns `NQOK` only for a valid
   signature, and unknown fields, non-canonical JSON or an uncheckable
   timestamp are failures.
-- No faulty signature is released. A signature made while the
+- Signatures are checked before release. A signature made while the
   computation was disturbed (a voltage or clock glitch, a flipped memory
   bit) can give the key away (Bruinderink and Pessl 2018 and Ravi et al.
   2019 for ML-DSA, Castelnovi et al. 2018 and Genêt et al. 2018 for
   SLH-DSA, Romailler and Pelissier 2017 for Ed25519; Bindel et al. 2016
-  for lattice signatures in general), so
-  `nqsign` verifies every signature, and each half of a hybrid, under
-  the public key derived again from the secret key before returning it;
-  one that fails is zeroed and the call returns `NQEFLT`. ML-DSA checks
-  from the message representative it already has and SLH-DSA from the
-  digest, so this costs one verification, and for ML-DSA also one
-  computation of the public key from the secret key. It catches a fault
-  that makes the signature invalid; not a fault in the stored key, from
-  which the public key is derived, nor one that skips the check.
+  for lattice signatures in general).
+
+  **The fault model**: one fault, either during signing (an instruction
+  skipped, a value changed) or in the stored secret key (a bit of it
+  changed). Under it, `nqsign`, `nqsignd` and `nqsignmu` release a
+  signature, and each half of a hybrid, only if all of these hold:
+  - it verifies under the public key, computed twice, independently,
+    the second time through a call the compiler cannot merge with the
+    first (checked in the Release object code with GCC and Clang on
+    x86-64);
+  - that public key is checked against the secret key: for ML-DSA, the
+    public key computed again from s1 and s2 must hash to the tr the key
+    holds, and the t0 it gives must be the stored t0; for SLH-DSA the
+    verification is under the PK.seed and PK.root the key holds; for
+    Ed25519 the public key is derived a second time from the seed, with
+    fresh shares, and the two must be equal.
+
+  Each check leaves a verdict word that holds a fixed tag only if the
+  check held (a skipped check, or a word stuck at all zeros or all
+  ones, reads as failed), and the signature leaves only through a mask
+  made from the verdicts, applied twice, each pass reading them again:
+  there is no branch between the checks and the release. A signature
+  that fails is zeroed and the call returns `NQEFLT`. `tests/flt/tflt.c`
+  injects, for every signing algorithm but the slow SLH-DSA "s" sets, a
+  flipped bit in the signature, each verdict skipped in turn, and a
+  change to each field of the stored secret key, and checks each case.
+  Cost per signature, Release on one x86-64 machine under load: within
+  the noise for ML-DSA (one more verification and one SHAKE256 of the
+  public key), up to about a tenth more for SLH-DSA (one more
+  verification), and about 1.6 to 2 times for Ed25519 alone (a second
+  masked key derivation and a full verification).
+
+  Outside the model: two coordinated faults (in both verdicts, or in a
+  verdict and a masking pass); a change to the caller's buffer after the
+  call returns; and the parts of a key that are not tied to its public
+  key, where a change gives a valid signature instead:
+  - ML-DSA's K, and the per-signature randomness: they only change y
+    (rho' = H(K || rnd || mu)), so the result is a signature as hedged
+    signing makes; a fault in the computation of c or of the
+    commitment hash makes the signature fail the check. A fault in mu
+    gives a valid signature of another message representative, whose y
+    is also new, since rho' depends on mu.
+  - SLH-DSA's SK.prf and opt_rand: they only change the randomizer R, as
+    FIPS 205's hedged variant does; the signature spends one more
+    pseudorandom FORS and hypertree path, as any further signature does.
+  - Ed25519's 32-byte seed: the key holds no public half to compare
+    with, so a change to the stored seed gives a valid signature under
+    another key, which the true public key refuses and which, SHA-512
+    taken as a random oracle, says nothing of the true scalar. A change
+    to the nonce's inputs gives a signature with another nonce, as
+    hedged signing does; the dangerous case, the same nonce with another
+    challenge (Romailler and Pelissier), fails the second verification,
+    which computes the challenge again from the second public key.
+  For faults that only change the randomness of hedged Fiat-Shamir
+  signatures see Aranha et al. (EUROCRYPT 2020); none of the arguments
+  above is a proof in this repository.
 - A known-answer self-test, `nqselftest()` (`noqtis selftest`, and in
   every binding): fixed inputs through every algorithm family (SHA-1,
   SHA-2, SHA-3, SHAKE, KangarooTwelve and BLAKE2b, HMAC, HKDF, PBKDF2,
