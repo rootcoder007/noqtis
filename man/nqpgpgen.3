@@ -116,6 +116,20 @@ The data comes back in
 and
 .Fa *at
 gets the time of the signature.
+The
+.Fa at
+of
+.Fn nqpgpsign
+and
+.Fn nqpgpenc
+is the time written into the signature or the message; whether a key
+given to them has expired is judged by the system clock, whatever
+.Fa at
+is.
+.Fn nqpgpvrfy
+and
+.Fn nqpgpdec
+judge the signer\(aqs key at the time its signature states.
 .Pp
 .Fn nqpgpenc
 encrypts
