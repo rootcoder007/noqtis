@@ -684,7 +684,8 @@ static const nccmd cmds[] = {
    "usage: noqtis algs\n"},
   {"selftest", ncself, "run the known-answer self-test",
    "usage: noqtis selftest\n"
-   "  Runs nqselftest: known answers for every algorithm family. Exit 0\n"
+   "  Runs nqselftest: known answers for every algorithm family (SLH-DSA\n"
+   "  by its key generation only; nqselftest(3) lists the tests). Exit 0\n"
    "  when every one matches, 1 when one does not.\n"},
   {"version", ncver, "print the version",
    "usage: noqtis version [--check]\n"
