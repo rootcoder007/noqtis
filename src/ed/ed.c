@@ -540,6 +540,12 @@ int nqedsign(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
   return nqedsignz(sk, msg, msglen, ctx, ctxlen, ph, NULL, sig);
 }
 
+/* nqedvrfy through a pointer the compiler must read at each call, for
+ * the second verdict of nqedsignz */
+static int (*volatile edv2)(const uint8_t *, const uint8_t *, size_t,
+                            const uint8_t *, size_t, int,
+                            const uint8_t *) = nqedvrfy;
+
 int nqedsignz(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
               const uint8_t *ctx, size_t ctxlen, int ph,
               const uint8_t z[32], uint8_t sig[NQEDSIG]) {
@@ -593,29 +599,51 @@ int nqedsignz(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
     for (i = 0; i < 32; i++) x[i] = (int64_t)s0[i] + s1[i];
     modl(out + 32, x);
     {
-      /* the check after signing: [S]B + [k](-A) must be R; a fault
-       * while signing gives a signature that fails it, not returned */
+      /* The checks before release. First, [S]B + [k](-A) must be R
+       * under A, the key the signing shares gave. Second, the public key
+       * is derived again from sk with fresh shares (nqedkg) and the
+       * signature verified under it by the verifier itself, through a
+       * call the compiler cannot merge; third, the two keys must be
+       * equal, so that a fault in the scalar or its shares while
+       * signing shows. out leaves only through nqrel, which zeroes it
+       * unless all three verdicts hold. (A fault in the stored seed
+       * itself gives a valid signature under an unrelated key, which
+       * reveals nothing of the true one: noqtis.h, nqsign(3).) */
+      static const uint32_t tg[3] = {NQVTA, NQVTB, NQVTC};
+      volatile uint32_t v[3] = {0, 0, 0};
       ge q2, p2;
-      uint8_t t[32];
+      uint8_t t[32], pk2[32];
+      int ok = 0, rk, rr;
       NQEDDECL(pk, 32);
       NQEDDECL(out, 64);
       NQEDDECL(k, sizeof k);
-      if (unneg(q2, pk) != 0) {
-        rc = NQEFLT;
-      } else {
+      memset(t, 0, sizeof t);
+      memset(pk2, 0, sizeof pk2);
+      if (NQFLT(NQFSIG)) out[40] ^= 1;
+      if (unneg(q2, pk) == 0) {
         gmul(p2, q2, k);
         gbase(q2, out + 32);
         gadd(p2, q2);
         gpack(t, p2);
-        if (memcmp(t, out, 32) != 0) rc = NQEFLT;
+        ok = nqcteq(t, out, 32);
       }
+      if (!NQFLT(NQFV1)) v[0] = nqvif(ok, NQVTA);
+      rk = nqedkg(sk, pk2);
+      if (!NQFLT(NQFV2)) {
+        v[1] = nqvok(rk | edv2(pk2, msg, msglen, ctx, ctxlen, ph, out),
+                     NQVTB);
+      }
+      if (!NQFLT(NQFV3)) v[2] = nqvok(rk, nqvif(nqcteq(pk, pk2, 32), NQVTC));
+      rr = nqrel(out, NQEDSIG, v, tg, 3);
       nqwipe(p2, sizeof p2);
       nqwipe(q2, sizeof q2);
+      NQLKST(10);
+      for (i = 0; i < 64; i++) NQLK(out[i], NQLKOUT);
+      /* the whole signature at the end, released or zero, with no
+       * branch on the verdicts: sig may overlap msg */
+      memcpy(sig, out, NQEDSIG);
+      rc = rk != NQOK ? rk : rr;
     }
-    NQLKST(10);
-    for (i = 0; i < 64; i++) NQLK(out[i], NQLKOUT);
-    /* the whole signature at the end: sig may overlap msg */
-    if (rc == NQOK) memcpy(sig, out, NQEDSIG);
   }
   nqwipe(h, sizeof h);
   nqwipe(r, sizeof r);
