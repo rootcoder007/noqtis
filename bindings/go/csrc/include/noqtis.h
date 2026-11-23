@@ -375,7 +375,8 @@ NQAPI int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
  * gives with the same rnd, and nqvrfymu accepts what nqvrfy accepts.
  * rnd is NULL (rndlen 0) for the hedged signature, or 32 bytes (all
  * zero: deterministic). The signature is checked under the public key
- * in sk before it is returned (NQEFLT otherwise). */
+ * derived again from the secret key before it is returned (NQEFLT
+ * otherwise). */
 #define NQMU 64
 NQAPI int nqsmu(nqsalg alg, const uint8_t *pk, size_t pklen,
                 const uint8_t *msg, size_t msglen, const uint8_t *ctx,
@@ -1241,7 +1242,10 @@ NQAPI int nqsmdec(nqkalg alg, const uint8_t *sk, size_t sklen,
  * signature under it (msg must be UTF-8 text). nqpgpvrfy checks one
  * of the three under the certificate cert: msg is what a detached
  * signature signs (NULL otherwise); the data comes back in out, and
- * *at gets the signature's time.
+ * *at gets the signature's time. The at of nqpgpsign and nqpgpenc is
+ * the time written into the signature or message; whether a key given
+ * to them has expired is judged by the system clock. nqpgpvrfy and
+ * nqpgpdec judge the signer's key at the time its signature states.
  *
  * nqpgpenc encrypts msg to the encryption subkeys of nc certificates
  * (at most 64) and, with pw not NULL, to that passphrase as well

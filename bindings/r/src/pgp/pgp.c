@@ -1557,7 +1557,7 @@ int nqpgpsign(const uint8_t *key, size_t kn, const uint8_t *pw, size_t pwlen,
       mode < NQPGPINLINE || mode > NQPGPCLEAR)
     return NQEARG;
   if (kn > PGPMAX || n > PGPMAX) return NQELIM;
-  rc = certread(key, kn, at, &c);
+  rc = certread(key, kn, nqcreal(), &c);
   if (rc != NQOK) return rc;
   nqdwini(&w);
   nqdwini(&t);
@@ -2203,7 +2203,7 @@ int nqpgpenc(const uint8_t *const *certs, const size_t *certlens, size_t nc,
       rc = NQEARG;
       break;
     }
-    rc = certread(certs[i], certlens[i], at, &c);
+    rc = certread(certs[i], certlens[i], nqcreal(), &c);
     if (rc != NQOK) break;
     /* a certificate with no encryption subkey cannot receive */
     rc = c.hasenc ? pkesk(&w, &c.enc, sk) : NQEARG;
@@ -2213,7 +2213,7 @@ int nqpgpenc(const uint8_t *const *certs, const size_t *certlens, size_t nc,
   if (rc != NQOK) goto done;
   /* what is encrypted: a signed message, or the literal data alone */
   if (signer != NULL) {
-    rc = certread(signer, signerlen, at, &sc);
+    rc = certread(signer, signerlen, nqcreal(), &sc);
     if (rc == NQOK) {
       if (!sc.prim.sec || (sc.flags & 0x02) == 0) rc = NQEARG;
       if (rc == NQOK) rc = keysec(&sc.prim, spw, spwlen, sec);
