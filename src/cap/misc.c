@@ -57,17 +57,19 @@ void nqb64e(const uint8_t *in, size_t n, char *out) {
   out[o] = 0;
 }
 
-static int b64v(unsigned char c) {
+/* url: the URL-safe alphabet (RFC 4648 section 5) in place of the
+ * standard one */
+static int b64v(unsigned char c, int url) {
   if (c >= 'A' && c <= 'Z') return c - 'A';
   if (c >= 'a' && c <= 'z') return c - 'a' + 26;
   if (c >= '0' && c <= '9') return c - '0' + 52;
-  if (c == '+') return 62;
-  if (c == '/') return 63;
+  if (c == (url ? '-' : '+')) return 62;
+  if (c == (url ? '_' : '/')) return 63;
   return -1;
 }
 
-int nqb64d(const char *s, size_t n, uint8_t *out, size_t cap,
-           size_t *outlen) {
+static int b64d(const char *s, size_t n, uint8_t *out, size_t cap,
+                size_t *outlen, int url) {
   size_t i, o = 0, pad = 0, need;
   if (s == NULL || outlen == NULL || (out == NULL && cap != 0)) {
     return NQEARG;
@@ -78,12 +80,13 @@ int nqb64d(const char *s, size_t n, uint8_t *out, size_t cap,
   need = n / 4 * 3 - pad;
   if (need > cap) return NQEBUF;
   for (i = 0; i < n; i += 4) {
-    int a = b64v((unsigned char)s[i]), b = b64v((unsigned char)s[i + 1]);
+    int a = b64v((unsigned char)s[i], url);
+    int b = b64v((unsigned char)s[i + 1], url);
     int c, d;
     uint32_t v;
     int last = i + 4 == n;
-    c = (last && pad == 2) ? 0 : b64v((unsigned char)s[i + 2]);
-    d = (last && pad >= 1) ? 0 : b64v((unsigned char)s[i + 3]);
+    c = (last && pad == 2) ? 0 : b64v((unsigned char)s[i + 2], url);
+    d = (last && pad >= 1) ? 0 : b64v((unsigned char)s[i + 3], url);
     if (a < 0 || b < 0 || c < 0 || d < 0) return NQEDEC;
     v = ((uint32_t)a << 18) | ((uint32_t)b << 12) | ((uint32_t)c << 6) |
         (uint32_t)d;
@@ -96,6 +99,24 @@ int nqb64d(const char *s, size_t n, uint8_t *out, size_t cap,
   }
   *outlen = o;
   return NQOK;
+}
+
+int nqb64d(const char *s, size_t n, uint8_t *out, size_t cap,
+           size_t *outlen) {
+  return b64d(s, n, out, cap, outlen, 0);
+}
+
+/* either alphabet, the one the text uses: a "-" or "_" makes it URL-safe,
+ * and then a "+" or "/" is an error (b64d refuses it). Public data only:
+ * it branches on the text. */
+int nqb64du(const char *s, size_t n, uint8_t *out, size_t cap,
+            size_t *outlen) {
+  size_t i;
+  int url = 0;
+  for (i = 0; s != NULL && i < n; i++) {
+    if (s[i] == '-' || s[i] == '_') url = 1;
+  }
+  return b64d(s, n, out, cap, outlen, url);
 }
 
 /* ---- sorting ---- */

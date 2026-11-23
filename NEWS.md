@@ -31,6 +31,7 @@
 - Fixed: `noqtis timestamp` on a capsule with an evidence record (`noqtis.ers`) asked every `--tsa` before it refused, and then said that no TSA gave a timestamp; it refuses before any request now, and says why: a timestamp would change the seal the record is over, and `noqtis ers` renews the record's timestamp.
 - Fixed: `noqtis seal -r --token` with a wrong PIN tried it again for every folder, and a token locks its PIN after a few wrong tries; the run now stops at the first folder whose seal could not open the token.
 - Fixed: `nqselftest` can run in several threads at once. Its tests share one working buffer, and two calls at the same time could change each other's data and return `NQEKAT`; a lock now lets one test at a time use it. The freestanding build, which has no threads, is as before.
+- Fixed: `nqdssevrfy` reads DSSE envelopes whose payload or signature is in the URL-safe base64 alphabet, as the DSSE specification requires a verifier to ("verifiers MUST accept either"); it read the standard alphabet only, and refused such envelopes. Each field is in one alphabet, padded; `nqdsse` writes the standard alphabet as before.
 
 # noqtis 0.2.2
 
