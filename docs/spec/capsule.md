@@ -275,7 +275,9 @@ input over a limit with a failing check, and MUST NOT silently truncate.
   about 100 bytes per file for the folder listing); the 512 MiB limit bounds
   this.
 - Two independent digests per file mean that a second-preimage attack on
-  one hash function alone does not let an attacker swap a file.
+  one hash function alone does not let an attacker swap a file. In
+  format 2 the list of entries is bound to the signature through a
+  SHA-256 Merkle tree, so there it rests on SHA-256 alone.
 - Case-colliding and non-portable names are refused so that a capsule
   checks the same on every file system.
 - In format 2 the signature covers the file list only through the Merkle
