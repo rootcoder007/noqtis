@@ -116,7 +116,10 @@ nqkeygen <- function(alg, seed = NULL) {
 #' such a signature can give the key away, so it is never returned and
 #' `nqsign()` signals an error. This holds for one fault; a change to the
 #' parts of a key not tied to its public key (ML-DSA's K, SLH-DSA's
-#' SK.prf, the Ed25519 seed) gives a valid signature instead.
+#' SK.prf, the Ed25519 seed) gives a valid signature instead, unless
+#' `sk` is the version 2 container of [nqsxmk()], which `nqreadkey()`
+#' returns for a key file of version 2: then a change to any stored byte
+#' of the key is caught as well.
 #'
 #' `ctx` is the standards' context string: a signature made with one
 #' context verifies only with the same one, which keeps signatures made
@@ -131,7 +134,8 @@ nqkeygen <- function(alg, seed = NULL) {
 #' `nqsign()` calls the library's `nqsign()` (`nqsignd()` when `rnd` is
 #' given or `det = TRUE`), `nqverify()` its `nqvrfy()`.
 #'
-#' @param sk Secret key, a raw vector (as from [nqkeygen()]).
+#' @param sk Secret key, a raw vector (as from [nqkeygen()]), or its
+#'   version 2 container (from [nqsxmk()] or [nqreadkey()]).
 #' @param msg The message: a raw vector, or one string, which is signed as
 #'   its UTF-8 bytes.
 #' @param alg Signature algorithm name, one of the `"sig"` rows of
@@ -251,4 +255,89 @@ nqverify <- function(pk, msg, sig, alg, ctx = NULL, ph = NULL) {
     return(FALSE)
   }
   stop(sprintf("noqtis: nqvrfy: %s", .Call(Cerr, rc)), call. = FALSE)
+}
+
+#' The secret-key container with an integrity value
+#'
+#' `nqsxmk()` turns a signature secret key into its version 2 container:
+#' the key S, for Ed25519 and the hybrids the Ed25519 public key P, and
+#' the integrity value T, the SHA3-256 hash of `"noqtis-sk-2"`, the
+#' algorithm's name, S and P (docs/spec/keyfile.md in the noqtis
+#' sources). Every signing function takes the container in place of the
+#' key. After signing it computes T again from the key in memory, and for
+#' Ed25519 and the hybrids derives the public key from the seed again; a
+#' signature is returned only when both match, so a change to any stored
+#' byte of the key (one fault) signals an error instead of giving a
+#' signature. `nqsxchk()` checks a container, `nqsxsz()` gives its size.
+#' [nqwritekey()] writes signature keys in this form and [nqreadkey()]
+#' returns it.
+#'
+#' T is a deterministic function of the key: it reveals nothing the key
+#' does not, and it is not a MAC (anyone who can write the key can write
+#' T too). It guards against faults, not against an attacker.
+#'
+#' @param sk A signature secret key, a raw vector (`$sk` of
+#'   [nqkeygen()]).
+#' @param x A container, a raw vector.
+#' @param alg The signature algorithm, one of the `"sig"` rows of
+#'   [nqalgs()].
+#'
+#' @return `nqsxmk()`: the container, a raw vector of `nqsxsz(alg)` bytes.
+#'   `nqsxchk()`: `TRUE` for a sound container, `FALSE` for a damaged one
+#'   (any changed byte); an error for a key without a container.
+#'   `nqsxsz()`: the container's size in bytes.
+#'
+#' @section Errors:
+#' An unknown algorithm; for `nqsxmk()` a key of the wrong length; for
+#' `nqsxchk()` a key of the plain key's length, which has no integrity
+#' value.
+#'
+#' @references
+#' National Institute of Standards and Technology (2015). *SHA-3
+#' Standard: Permutation-Based Hash and Extendable-Output Functions*,
+#' FIPS 202. \doi{10.6028/NIST.FIPS.202}
+#'
+#' @family signature functions
+#' @seealso [nqsign()], [nqreadkey()].
+#'
+#' @examples
+#' k <- nqkeygen("ML-DSA-44")
+#' x <- nqsxmk(k$sk, "ML-DSA-44")
+#' length(x) == nqsxsz("ML-DSA-44")
+#' nqsxchk(x, "ML-DSA-44")
+#' nqverify(k$pk, "hello", nqsign(x, "hello", "ML-DSA-44"), "ML-DSA-44")
+#' # one changed byte (here in K, which only feeds the signer's
+#' # randomness): the container no longer checks, and signing refuses
+#' y <- x
+#' y[40] <- xor(y[40], as.raw(1))
+#' nqsxchk(y, "ML-DSA-44")
+#' try(nqsign(y, "hello", "ML-DSA-44"))
+#' @export
+nqsxmk <- function(sk, alg) {
+  a <- .alg(alg, "sig")
+  .rawarg(sk, "sk")
+  if (length(sk) != a$sk) {
+    stop(sprintf("a %s secret key is %d bytes, not %d", a$name, a$sk,
+                 length(sk)), call. = FALSE)
+  }
+  .Call(Csxmk, a$id, sk)
+}
+
+#' @rdname nqsxmk
+#' @export
+nqsxchk <- function(x, alg) {
+  a <- .alg(alg, "sig")
+  .rawarg(x, "x")
+  rc <- .Call(Csxchk, a$id, x)
+  if (rc == -8L) {
+    stop("a key with no integrity value (version 1): nqsxmk() makes its ",
+         "container", call. = FALSE)
+  }
+  rc == 0L
+}
+
+#' @rdname nqsxmk
+#' @export
+nqsxsz <- function(alg) {
+  .Call(Csxsz, .alg(alg, "sig")$id)
 }

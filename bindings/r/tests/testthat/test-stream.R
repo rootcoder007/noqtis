@@ -49,8 +49,9 @@ test_that("key files under a passphrase round-trip", {
   f <- tempfile()
   on.exit(unlink(f))
   nqwritekey(f, k$sk, "ML-DSA-44", "sec", pass = "pw")
-  expect_match(readLines(f, n = 1L), "^noqtis-key-1 ML-DSA-44 sec$")
-  expect_identical(nqreadkey(f, pass = "pw")$key, k$sk)
+  # a signature key: its version 2 container, under the passphrase
+  expect_match(readLines(f, n = 1L), "^noqtis-key-2 ML-DSA-44 sec$")
+  expect_identical(nqreadkey(f, pass = "pw")$key, nqsxmk(k$sk, "ML-DSA-44"))
   expect_error(nqreadkey(f), "protected by a passphrase")
   expect_error(nqreadkey(f, pass = "no"), "verification failed")
   expect_error(nqwritekey(tempfile(), k$pk, "ML-DSA-44", "pub", pass = "x"),

@@ -26,11 +26,11 @@ test_that("capsule arguments are checked before any work", {
     nqseal(d, k$sk, k$pk, "ML-DSA-44", inputs = NA_character_),
     "folders of capsules"
   )
-  expect_error(nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 3), "1 or 2")
+  expect_error(nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 4), "1, 2 or 3")
   expect_error(nqseal(d, k$sk, k$pk, "ML-DSA-44", meta = 1), "JSON text")
   expect_error(
     nqseal(d, k$sk, k$pk, "ML-DSA-44", format = 1, inputs = d),
-    "need format 2"
+    "need format 3 or 2"
   )
   expect_error(nqcapid(file.path(d, "nowhere")), "existing folder")
 })

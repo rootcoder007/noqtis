@@ -1,2 +1,4 @@
 Test keys only: noqtis keygen -a ML-DSA-44 --seed 000102...1f -o k44
+by noqtis 0.2 (k44: a secret key file of version 1), and by 0.3.0 (k44x:
+the same secret key in the version 2 container, docs/spec/keyfile.md)
 (the seed is public, as for the golden capsule's key). Never use them.

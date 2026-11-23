@@ -55,6 +55,12 @@ sig <- nqsignfile("big.csv", sk, "ML-DSA-65")   # 64 KiB at a time
 nqbox("big.csv", "big.csv.nqk", kem$pk, "ML-KEM-768")
 ```
 
+`nqwritekey()` writes a signature secret key as `noqtis-key-2`, the
+version 2 container of `nqsxmk()` (the key with an integrity value that
+every signature checks again), and `nqreadkey()` returns that container,
+which the signing functions take in place of the key; a version 1 file
+still reads, as the key.
+
 `nqpwenc2(sk, pass, kdf = "pbkdf2")` gives the protected key (noqtis-pwkey-1, the body of such a key file) under
 PBKDF2-HMAC-SHA-256 (600000 iterations) instead of Argon2id; `nqpwdec()`
 reads both.

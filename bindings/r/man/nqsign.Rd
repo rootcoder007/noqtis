@@ -10,7 +10,8 @@ nqsign(sk, msg, alg, ctx = NULL, det = FALSE, ph = NULL, rnd = NULL)
 nqverify(pk, msg, sig, alg, ctx = NULL, ph = NULL)
 }
 \arguments{
-\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}).}
+\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}), or its
+version 2 container (from \code{\link[=nqsxmk]{nqsxmk()}} or \code{\link[=nqreadkey]{nqreadkey()}}).}
 
 \item{msg}{The message: a raw vector, or one string, which is signed as
 its UTF-8 bytes.}
@@ -67,7 +68,10 @@ voltage or clock glitch, a flipped memory bit) or with a damaged key;
 such a signature can give the key away, so it is never returned and
 \code{nqsign()} signals an error. This holds for one fault; a change to the
 parts of a key not tied to its public key (ML-DSA's K, SLH-DSA's
-SK.prf, the Ed25519 seed) gives a valid signature instead.
+SK.prf, the Ed25519 seed) gives a valid signature instead, unless
+\code{sk} is the version 2 container of \code{\link[=nqsxmk]{nqsxmk()}}, which \code{nqreadkey()}
+returns for a key file of version 2: then a change to any stored byte
+of the key is caught as well.
 
 \code{ctx} is the standards' context string: a signature made with one
 context verifies only with the same one, which keeps signatures made
@@ -136,6 +140,7 @@ DSSE envelope; \code{\link[=nqseal]{nqseal()}} signs a whole folder.
 Other signature functions:
 \code{\link[=nqdsse]{nqdsse()}},
 \code{\link[=nqmu]{nqmu()}},
-\code{\link[=nqsigner]{nqsigner()}}
+\code{\link[=nqsigner]{nqsigner()}},
+\code{\link[=nqsxmk]{nqsxmk()}}
 }
 \concept{signature functions}

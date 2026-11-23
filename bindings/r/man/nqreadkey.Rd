@@ -33,7 +33,8 @@ nqpwdec(x, pass, ad = NULL)
 or one string. Never written or shown anywhere; an error never
 repeats it.}
 
-\item{key}{The key, a raw vector (\verb{$pk} or \verb{$sk} of \code{\link[=nqkeygen]{nqkeygen()}}).}
+\item{key}{The key, a raw vector (\verb{$pk} or \verb{$sk} of \code{\link[=nqkeygen]{nqkeygen()}}, or a
+container from \code{\link[=nqsxmk]{nqsxmk()}}).}
 
 \item{alg}{The algorithm name, one of \code{nqalgs()$name} (case is ignored).}
 
@@ -70,9 +71,14 @@ key.
 exact header line \verb{noqtis-key-1 <algorithm> <pub|sec>}, then the key as
 padded base64 (RFC 4648) with LF or CRLF line ends and no other
 character, canonical padding, and exactly the algorithm's key size.
-\code{nqwritekey()} writes one. With \code{pass}, a secret key file is kept
-under a passphrase (noqtis-pwkey-1, as \verb{noqtis keygen --pass-fd}
-writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
+\code{nqwritekey()} writes one. A signature secret key is written as
+\verb{noqtis-key-2 <algorithm> sec} holding its version 2 container
+(\code{\link[=nqsxmk]{nqsxmk()}}: the key with an integrity value that every signature
+checks), and \code{nqreadkey()} returns that container, which checks when
+it is read and signs as the key does; a key file of version 1 (before
+noqtis 0.3.0) still reads, as the key alone. With \code{pass}, a secret
+key file is kept under a passphrase (noqtis-pwkey-1, as
+\verb{noqtis keygen --pass-fd} writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
 then ChaCha20-Poly1305); \code{nqreadkey()} needs the same \code{pass} to read
 it. \code{nqpwenc()} and \code{nqpwdec()} are that protection on its own, for a
 key of up to 65536 bytes kept elsewhere; \code{nqpwenc2()} is \code{nqpwenc()}
@@ -92,7 +98,8 @@ secret key files where timing cannot be observed.
 \section{Errors}{
 
 \code{nqreadkey()}: a file that is not a key file (a wrong header, a
-non-canonical or cut-short body, a key of the wrong size); a key under
+non-canonical or cut-short body, a key of the wrong size); a version 2
+key whose integrity value does not match; a key under
 a passphrase without \code{pass}, a wrong passphrase or a changed file.
 \code{nqwritekey()}: an unknown algorithm, a key of the wrong size for it,
 or an existing file without \code{force = TRUE}.
@@ -102,7 +109,8 @@ or an existing file without \code{force = TRUE}.
 k <- nqkeygen("ML-DSA-44")
 f <- tempfile()
 nqwritekey(f, k$sk, "ML-DSA-44", "sec")
-identical(nqreadkey(f)$key, k$sk)
+# a signature key reads back as its version 2 container
+identical(nqreadkey(f)$key, nqsxmk(k$sk, "ML-DSA-44"))
 readLines(f, n = 1)
 g <- tempfile()
 nqwritekey(g, k$pk, "ML-DSA-44", "pub")
@@ -115,7 +123,10 @@ y <- nqpwenc2(k$sk, "a passphrase", "pbkdf2", t = 100000)
 identical(nqpwdec(y, "a passphrase"), k$sk)
 h <- tempfile()
 nqwritekey(h, k$sk, "ML-DSA-44", "sec", pass = "a passphrase")
-identical(nqreadkey(h, pass = "a passphrase")$key, k$sk)
+identical(
+  nqreadkey(h, pass = "a passphrase")$key,
+  nqsxmk(k$sk, "ML-DSA-44")
+)
 unlink(h)
 }
 \references{

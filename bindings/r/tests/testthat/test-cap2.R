@@ -83,7 +83,8 @@ test_that("proofs", {
   expect_error(nqcheck(d, k$pk, proof = p, only = "f1.csv"), "proof")
   e <- mkcap()
   on.exit(unlink(e, recursive = TRUE), add = TRUE)
-  nqseal(e, k$sk, k$pk, "ML-DSA-65")
+  # a format 1 capsule has no proofs
+  nqseal(e, k$sk, k$pk, "ML-DSA-65", format = 1)
   expect_error(nqprove(e, "f0.csv"), "noqtis")
 })
 
@@ -274,4 +275,23 @@ test_that("a format 2 seal keeps its meta", {
   man <- readLines(file.path(d, "noqtis.json"), warn = FALSE)
   expect_match(paste(man, collapse = ""), '"run":7', fixed = TRUE)
   expect_true(attr(nqcheck(d, k$pk), "ok"))
+})
+
+test_that("nqseal writes format 3 by default, and 1 when told", {
+  k <- nqkeygen("ML-DSA-44")
+  for (f in list(NULL, 1L)) {
+    d <- tempfile("nqfmt")
+    dir.create(d)
+    writeLines("a", file.path(d, "a.txt"))
+    if (is.null(f)) {
+      nqseal(d, k$sk, k$pk, "ML-DSA-44")
+    } else {
+      nqseal(d, k$sk, k$pk, "ML-DSA-44", format = f)
+    }
+    r <- nqinspect(d)
+    want <- if (is.null(f)) "noqtis-capsule-3" else "noqtis-capsule-1"
+    expect_identical(r$detail[r$check == "info.format"], want)
+    expect_true(attr(nqcheck(d, k$pk), "ok"))
+    unlink(d, recursive = TRUE)
+  }
 })

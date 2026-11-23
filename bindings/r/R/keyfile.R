@@ -1,6 +1,7 @@
-# The CLI's key files (docs/guides/keys.md): a header line
-# "noqtis-key-1 <algorithm> <pub|sec>", then the key bytes as padded base64
-# in lines of 64 characters.
+# The CLI's key files (docs/guides/keys.md, docs/spec/keyfile.md): a
+# header line "noqtis-key-1 <algorithm> <pub|sec>", or "noqtis-key-2
+# <algorithm> sec" for a signature secret key in the version 2 container,
+# then the key bytes as padded base64 in lines of 64 characters.
 
 #' Read and write the command-line tool's key files
 #'
@@ -9,9 +10,14 @@
 #' exact header line `noqtis-key-1 <algorithm> <pub|sec>`, then the key as
 #' padded base64 (RFC 4648) with LF or CRLF line ends and no other
 #' character, canonical padding, and exactly the algorithm's key size.
-#' `nqwritekey()` writes one. With `pass`, a secret key file is kept
-#' under a passphrase (noqtis-pwkey-1, as `noqtis keygen --pass-fd`
-#' writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
+#' `nqwritekey()` writes one. A signature secret key is written as
+#' `noqtis-key-2 <algorithm> sec` holding its version 2 container
+#' ([nqsxmk()]: the key with an integrity value that every signature
+#' checks), and `nqreadkey()` returns that container, which checks when
+#' it is read and signs as the key does; a key file of version 1 (before
+#' noqtis 0.3.0) still reads, as the key alone. With `pass`, a secret
+#' key file is kept under a passphrase (noqtis-pwkey-1, as
+#' `noqtis keygen --pass-fd` writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
 #' then ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read
 #' it. `nqpwenc()` and `nqpwdec()` are that protection on its own, for a
 #' key of up to 65536 bytes kept elsewhere; `nqpwenc2()` is `nqpwenc()`
@@ -22,7 +28,8 @@
 #' construction in full.
 #'
 #' @param path The key file.
-#' @param key The key, a raw vector (`$pk` or `$sk` of [nqkeygen()]).
+#' @param key The key, a raw vector (`$pk` or `$sk` of [nqkeygen()], or a
+#'   container from [nqsxmk()]).
 #' @param alg The algorithm name, one of `nqalgs()$name` (case is ignored).
 #' @param kind `"pub"` for a public key, `"sec"` for a secret key.
 #' @param force `TRUE` to replace an existing file; it is removed first,
@@ -55,7 +62,8 @@
 #'
 #' @section Errors:
 #' `nqreadkey()`: a file that is not a key file (a wrong header, a
-#' non-canonical or cut-short body, a key of the wrong size); a key under
+#' non-canonical or cut-short body, a key of the wrong size); a version 2
+#' key whose integrity value does not match; a key under
 #' a passphrase without `pass`, a wrong passphrase or a changed file.
 #' `nqwritekey()`: an unknown algorithm, a key of the wrong size for it,
 #' or an existing file without `force = TRUE`.
@@ -78,7 +86,8 @@
 #' k <- nqkeygen("ML-DSA-44")
 #' f <- tempfile()
 #' nqwritekey(f, k$sk, "ML-DSA-44", "sec")
-#' identical(nqreadkey(f)$key, k$sk)
+#' # a signature key reads back as its version 2 container
+#' identical(nqreadkey(f)$key, nqsxmk(k$sk, "ML-DSA-44"))
 #' readLines(f, n = 1)
 #' g <- tempfile()
 #' nqwritekey(g, k$pk, "ML-DSA-44", "pub")
@@ -91,7 +100,10 @@
 #' identical(nqpwdec(y, "a passphrase"), k$sk)
 #' h <- tempfile()
 #' nqwritekey(h, k$sk, "ML-DSA-44", "sec", pass = "a passphrase")
-#' identical(nqreadkey(h, pass = "a passphrase")$key, k$sk)
+#' identical(
+#'   nqreadkey(h, pass = "a passphrase")$key,
+#'   nqsxmk(k$sk, "ML-DSA-44")
+#' )
 #' unlink(h)
 #' @export
 nqreadkey <- function(path, pass = NULL) {
@@ -109,13 +121,26 @@ nqreadkey <- function(path, pass = NULL) {
   }
   f <- .kfhead(b[seq_len(nl[1L] - 1L)], path)
   a <- .kalg(f[2L])
-  want <- if (f[3L] == "pub") a$pk else a$sk
-  k <- .kfopen(.kfbody(b[-seq_len(nl[1L])]), f[3L], a, want, pass, path)
+  v2 <- f[1L] == "noqtis-key-2"
+  if (v2 && a$type != "sig") {
+    stop(sprintf(paste0(
+      "%s: a %s key has no version 2 container (only signature keys do)"
+    ), path, a$name), call. = FALSE)
+  }
+  want <- if (v2) nqsxsz(a$name) else if (f[3L] == "pub") a$pk else a$sk
+  k <- .kfopen(.kfbody(b[-seq_len(nl[1L])]), f[3L], a, want, pass, path,
+               f[1L])
   if (is.null(k) || length(k) != want) {
     stop(sprintf(paste0(
       "%s: the key is not %d bytes of base64 for %s (the ",
       "file is damaged or cut short)"
     ), path, want, a$name), call. = FALSE)
+  }
+  if (v2 && !nqsxchk(k, a$name)) {
+    stop(sprintf(paste0(
+      "%s: the secret key is damaged: its integrity value does not ",
+      "match (restore the file from a copy)"
+    ), path), call. = FALSE)
   }
   list(alg = a$name, kind = f[3L], key = k)
 }
@@ -136,21 +161,36 @@ nqwritekey <- function(path, key, alg, kind = c("sec", "pub"),
     stop("'alg' must be one algorithm name; see nqalgs()", call. = FALSE)
   }
   a <- .kalg(alg)
-  want <- if (kind == "pub") a$pk else a$sk
-  if (length(key) != want) {
-    stop(sprintf(
-      "a %s %s key is %d bytes, not %d", a$name, kind, want,
-      length(key)
-    ), call. = FALSE)
+  magic <- "noqtis-key-1"
+  if (kind == "sec" && a$type == "sig") {
+    # a signature secret key: the version 2 container, made from the key
+    # or taken as it is once it checks
+    magic <- "noqtis-key-2"
+    if (length(key) == a$sk) {
+      key <- nqsxmk(key, a$name)
+    } else if (length(key) != nqsxsz(a$name) || !nqsxchk(key, a$name)) {
+      stop(sprintf(
+        "a %s secret key is %d bytes (or a sound container of %d), not %d",
+        a$name, a$sk, nqsxsz(a$name), length(key)
+      ), call. = FALSE)
+    }
+  } else {
+    want <- if (kind == "pub") a$pk else a$sk
+    if (length(key) != want) {
+      stop(sprintf(
+        "a %s %s key is %d bytes, not %d", a$name, kind, want,
+        length(key)
+      ), call. = FALSE)
+    }
   }
   if (!is.null(pass)) {
     if (kind != "sec") {
       stop("a passphrase protects a secret key only", call. = FALSE)
     }
-    key <- nqpwenc(key, pass, charToRaw(sprintf("noqtis-key-1 %s sec", a$name)))
+    key <- nqpwenc(key, pass, charToRaw(sprintf("%s %s sec", magic, a$name)))
   }
   .kfclear(path, force)
-  txt <- c(sprintf("noqtis-key-1 %s %s", a$name, kind), .b64enc(key))
+  txt <- c(sprintf("%s %s %s", magic, a$name, kind), .b64enc(key))
   old <- Sys.umask(if (kind == "sec") "077" else "022")
   on.exit(Sys.umask(old), add = TRUE)
   con <- file(path, open = "wb")
@@ -219,8 +259,9 @@ nqpwdec <- function(x, pass, ad = NULL) {
 #' @param want The key's size.
 #' @param pass The passphrase, or NULL.
 #' @param path The key file, for messages.
+#' @param magic The file's first word, part of the passphrase's ad.
 #' @noRd
-.kfopen <- function(k, kind, a, want, pass, path) {
+.kfopen <- function(k, kind, a, want, pass, path, magic = "noqtis-key-1") {
   sec <- kind == "sec" && !is.null(k)
   prot <- sec && length(k) == want + 51L &&
     identical(k[1:4], charToRaw("NQPW"))
@@ -230,7 +271,7 @@ nqpwdec <- function(x, pass, ad = NULL) {
     )
   }
   if (prot) {
-    ad <- charToRaw(sprintf("noqtis-key-1 %s sec", a$name))
+    ad <- charToRaw(sprintf("%s %s sec", magic, a$name))
     return(nqpwdec(k, pass, ad))
   }
   if (!is.null(pass) && sec && length(k) == want) {
@@ -316,12 +357,13 @@ nqpwdec <- function(x, pass, ad = NULL) {
 .kfbad <- function(path) {
   stop(sprintf(paste0(
     "%s is not a noqtis key file (want a first line ",
-    "\"noqtis-key-1 <alg> <pub|sec>\")"
+    "\"noqtis-key-1 <alg> <pub|sec>\" or \"noqtis-key-2 <alg> sec\")"
   ), path), call. = FALSE)
 }
 
 #' The header fields of a key file, or an error: the exact line
-#' "noqtis-key-1 <alg> <pub|sec>" (a CR before the LF dropped).
+#' "noqtis-key-1 <alg> <pub|sec>" or "noqtis-key-2 <alg> sec" (a CR
+#' before the LF dropped).
 #' @noRd
 .kfhead <- function(h, path) {
   if (length(h) > 0L && h[length(h)] == as.raw(13L)) {
@@ -332,7 +374,9 @@ nqpwdec <- function(x, pass, ad = NULL) {
   }
   f <- strsplit(rawToChar(h), " ", fixed = TRUE)[[1L]]
   if (length(f) != 3L || !grepl(" [^ ]+$", rawToChar(h)) ||
-        f[1L] != "noqtis-key-1" || !(f[3L] %in% c("pub", "sec"))) {
+        !(f[1L] %in% c("noqtis-key-1", "noqtis-key-2")) ||
+        !(f[3L] %in% c("pub", "sec")) ||
+        (f[1L] == "noqtis-key-2" && f[3L] != "sec")) {
     .kfbad(path)
   }
   f

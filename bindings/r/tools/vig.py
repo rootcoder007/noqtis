@@ -26,7 +26,7 @@ GROUPS = [
      ["nqsign", "nqsigner", "nqmu", "nqdsse"]),
     ("keys", "Keys: making, storing, identifying and replacing them",
      "Key pairs, the key files of the command-line tool, identity cards that say whose key it is, and statements that rotate or revoke a seal key.",
-     ["nqkeygen", "nqreadkey", "nqidcard", "nqrotate"]),
+     ["nqkeygen", "nqreadkey", "nqsxmk", "nqidcard", "nqrotate"]),
     ("key-encapsulation", "Key encapsulation and sealing to a key",
      "Agreeing a shared secret with ML-KEM or HQC, and sealing a message or a file so only the holder of a key can open it.",
      ["nqencap", "nqkseal", "nqboxto"]),

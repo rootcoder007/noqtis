@@ -22,7 +22,8 @@ nqsignfile(file, sk, alg, ctx = NULL, ph = NULL, det = FALSE)
 nqverifyfile(file, pk, sig, alg, ctx = NULL, ph = NULL)
 }
 \arguments{
-\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}).}
+\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}), or its
+version 2 container (from \code{\link[=nqsxmk]{nqsxmk()}} or \code{\link[=nqreadkey]{nqreadkey()}}).}
 
 \item{alg}{\code{"ML-DSA-44"}, \code{"ML-DSA-65"} or \code{"ML-DSA-87"}.}
 
@@ -102,6 +103,7 @@ define the signatures and their pre-hash variants.
 Other signature functions:
 \code{\link[=nqdsse]{nqdsse()}},
 \code{\link[=nqmu]{nqmu()}},
-\code{\link[=nqsign]{nqsign()}}
+\code{\link[=nqsign]{nqsign()}},
+\code{\link[=nqsxmk]{nqsxmk()}}
 }
 \concept{signature functions}

@@ -29,7 +29,8 @@ nqcheck(
 \arguments{
 \item{dir}{Path of the folder.}
 
-\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}).}
+\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}), or its
+version 2 container (from \code{\link[=nqsxmk]{nqsxmk()}} or \code{\link[=nqreadkey]{nqreadkey()}}).}
 
 \item{pk}{Public key, a raw vector; for \code{nqseal()} it must pair with \code{sk}
 and is written into the seal; for \code{nqcheck()}, \code{NULL} accepts the key
@@ -122,7 +123,8 @@ RFC 4998 evidence record, is added to a seal by the command-line tool
 (\verb{noqtis timestamp}, \verb{noqtis ers}), and \code{nqcheck()} verifies them when
 \code{anchors} is given.
 
-\code{nqseal()} calls the library's \code{nqseal()}, or \code{nqseal2()} for format 2,
+\code{nqseal()} calls the library's \code{nqseal()}, or \code{nqseal3()} and
+\code{nqseal2()} for formats 3 and 2,
 and \code{nqsealwhy()} to name what in a folder cannot be sealed;
 \code{nqcheck()} calls \code{nqchkx()}, or \code{nqchkp()} for a proof. The manifest
 and seal are spelled out in nqseal(3), the checks and their rows in

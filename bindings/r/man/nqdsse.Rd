@@ -73,6 +73,7 @@ version 1. \url{https://github.com/dsse-lf/dsse}
 Other signature functions:
 \code{\link[=nqmu]{nqmu()}},
 \code{\link[=nqsign]{nqsign()}},
-\code{\link[=nqsigner]{nqsigner()}}
+\code{\link[=nqsigner]{nqsigner()}},
+\code{\link[=nqsxmk]{nqsxmk()}}
 }
 \concept{signature functions}

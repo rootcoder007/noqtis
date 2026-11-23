@@ -78,7 +78,7 @@ test_that("sealing the golden files again gives the golden manifest", {
     Sys.setenv(SOURCE_DATE_EPOCH = old)
   }, add = TRUE)
   p <- nqseal(d, k$sk, k$pk, "ML-DSA-44",
-    meta = '{"project":"golden","n":1.50,"tags":["a","b"]}'
+    meta = '{"project":"golden","n":1.50,"tags":["a","b"]}', format = 1
   )
   expect_true(all(file.exists(p)))
   rd <- function(f) readBin(f, "raw", file.size(f))

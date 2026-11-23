@@ -46,13 +46,14 @@ h$alg
 
 ## Read and write the command-line tool's key files
 
-`nqreadkey()`, `nqwritekey()`, `nqpwenc()`, `nqpwdec()`: `nqreadkey()` reads a key file written by `noqtis keygen` (or by `nqwritekey()`), as strictly as the command-line tool reads it: the exact header line `noqtis-key-1 <algorithm> <pub|sec>`, then the key as padded base64 (RFC 4648) with LF or CRLF line ends and no other character, canonical padding, and exactly the algorithm's key size. `nqwritekey()` writes one. With `pass`, a secret key file is kept under a passphrase (noqtis-pwkey-1, as `noqtis keygen --pass-fd` writes it: Argon2id of the passphrase, 64 MiB and 3 passes, then ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read it. `nqpwenc()` and `nqpwdec()` are that protection on its own, for a key kept elsewhere.
+`nqreadkey()`, `nqwritekey()`, `nqpwenc()`, `nqpwdec()`: `nqreadkey()` reads a key file written by `noqtis keygen` (or by `nqwritekey()`), as strictly as the command-line tool reads it: the exact header line `noqtis-key-1 <algorithm> <pub|sec>`, then the key as padded base64 (RFC 4648) with LF or CRLF line ends and no other character, canonical padding, and exactly the algorithm's key size. `nqwritekey()` writes one. A signature secret key is written as `noqtis-key-2 <algorithm> sec` holding its version 2 container (`nqsxmk()`: the key with an integrity value that every signature checks), and `nqreadkey()` returns that container, which checks when it is read and signs as the key does; a key file of version 1 (before noqtis 0.3.0) still reads, as the key alone. With `pass`, a secret key file is kept under a passphrase (noqtis-pwkey-1, as `noqtis keygen --pass-fd` writes it: Argon2id of the passphrase, 64 MiB and 3 passes, then ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read it. `nqpwenc()` and `nqpwdec()` are that protection on its own, for a key kept elsewhere.
 
 ```{r nqreadkey}
 k <- nqkeygen("ML-DSA-44")
 f <- tempfile()
 nqwritekey(f, k$sk, "ML-DSA-44", "sec")
-identical(nqreadkey(f)$key, k$sk)
+# a signature key reads back as its version 2 container
+identical(nqreadkey(f)$key, nqsxmk(k$sk, "ML-DSA-44"))
 readLines(f, n = 1)
 g <- tempfile()
 nqwritekey(g, k$pk, "ML-DSA-44", "pub")
@@ -63,8 +64,29 @@ x <- nqpwenc(k$sk, "a passphrase", m = 8192, t = 1, p = 1)
 identical(nqpwdec(x, "a passphrase"), k$sk)
 h <- tempfile()
 nqwritekey(h, k$sk, "ML-DSA-44", "sec", pass = "a passphrase")
-identical(nqreadkey(h, pass = "a passphrase")$key, k$sk)
+identical(
+  nqreadkey(h, pass = "a passphrase")$key,
+  nqsxmk(k$sk, "ML-DSA-44")
+)
 unlink(h)
+```
+
+## The secret-key container with an integrity value
+
+`nqsxmk()`, `nqsxchk()`, `nqsxsz()`: `nqsxmk()` turns a signature secret key into its version 2 container: the key S, for Ed25519 and the hybrids the Ed25519 public key P, and the integrity value T, the SHA3-256 hash of `"noqtis-sk-2"`, the algorithm's name, S and P. Every signing function takes the container in place of the key. After signing it computes T again from the key in memory, and for Ed25519 and the hybrids derives the public key from the seed again; a signature is returned only when both match, so a change to any stored byte of the key (one fault) signals an error instead of giving a signature. `nqsxchk()` checks a container, `nqsxsz()` gives its size. T is a deterministic function of the key: it reveals nothing the key does not, and it is not a MAC; it guards against faults, not against an attacker.
+
+```{r nqsxmk}
+k <- nqkeygen("ML-DSA-44")
+x <- nqsxmk(k$sk, "ML-DSA-44")
+length(x) == nqsxsz("ML-DSA-44")
+nqsxchk(x, "ML-DSA-44")
+nqverify(k$pk, "hello", nqsign(x, "hello", "ML-DSA-44"), "ML-DSA-44")
+# one changed byte (here in K, which only feeds the signer's
+# randomness): the container no longer checks, and signing refuses
+y <- x
+y[40] <- xor(y[40], as.raw(1))
+nqsxchk(y, "ML-DSA-44")
+try(nqsign(y, "hello", "ML-DSA-44"))
 ```
 
 ## Identity cards for a signing key

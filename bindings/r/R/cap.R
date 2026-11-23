@@ -49,19 +49,21 @@
 #'   certificates of trusted timestamp authorities; the seal must then
 #'   carry an RFC 3161 timestamp token that verifies under one of them,
 #'   and an evidence record, when the folder has one, must verify too.
-#' @param format `1` (the default), `3` or `2`. Formats 3 and 2 add a
+#' @param format `3` (the default), `2` or `1`. Formats 3 and 2 add a
 #'   Merkle tree over the files to the manifest and sign its head, so that
 #'   [nqprove()] can show some files without the others; format 3 puts a
 #'   secret salt in each leaf, so that a proof confirms no guess of the
 #'   files it does not show, while format 2's unsalted leaves let such a
-#'   guess be confirmed (format 2 is for readers older than 0.3.0).
+#'   guess be confirmed. Format 3's salts are fresh, so two seals of the
+#'   same files differ unless `salt_key` is given. Formats 2 and 1 (a
+#'   flat manifest, signed whole) are for readers older than 0.3.0.
 #' @param inputs `NULL`, or the folders of the capsules this one was made
-#'   from (format 3, the default with it). Each is recorded by its id
+#'   from (formats 3 and 2). Each is recorded by its id
 #'   ([nqcapid()]) under its name: `names(inputs)` where given, else the
 #'   folder's last component. Check the inputs first.
 #' @param salt_key `NULL` for fresh salts, or a raw vector of 32 secret
-#'   bytes the salts of format 3 are derived from (format 3, the default
-#'   with it), for a reproducible capsule. Keep it secret: whoever has it
+#'   bytes the salts of format 3 are derived from, for a reproducible
+#'   capsule. Keep it secret: whoever has it
 #'   can compute every salt.
 #' @param only `NULL`, or the paths (as the manifest lists them, `/`
 #'   between folders) of the files to check; the others are not read, and
@@ -132,9 +134,7 @@
 #' attr(nqcheck(d, other$pk), "ok")
 #' unlink(d, recursive = TRUE)
 #' @export
-nqseal <- function(dir, sk, pk, alg, meta = NULL,
-                   format = if (is.null(inputs) && is.null(salt_key)) 1L
-                            else 3L,
+nqseal <- function(dir, sk, pk, alg, meta = NULL, format = 3L,
                    inputs = NULL, salt_key = NULL) {
   a <- .alg(alg, "sig")
   .rawarg(sk, "sk")

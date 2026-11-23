@@ -282,6 +282,40 @@ static SEXP Csign(SEXP alg, SEXP sk, SEXP msg, SEXP ctx, SEXP ph, SEXP rnd) {
   return sig;
 }
 
+/* the version 2 secret-key container (docs/spec/keyfile.md) */
+static SEXP Csxsz(SEXP alg) {
+  size_t n = 0;
+  int rc = nqsxsz((nqsalg)ival(alg, "alg"), &n);
+  if (rc != NQOK) fail(rc, "nqsxsz");
+  return Rf_ScalarInteger((int)n);
+}
+
+static SEXP Csxmk(SEXP alg, SEXP sk) {
+  int a = ival(alg, "alg"), rc;
+  size_t n = 0;
+  SEXP x;
+  chkraw(sk, "sk", 0);
+  rc = nqsxsz((nqsalg)a, &n);
+  if (rc != NQOK) fail(rc, "nqsxsz");
+  x = PROTECT(rawn(n));
+  rc = nqsxmk((nqsalg)a, rp(sk), rn(sk), RAW(x), n);
+  if (rc != NQOK) {
+    nqwipe(RAW(x), n);
+    fail(rc, "nqsxmk");
+  }
+  UNPROTECT(1);
+  return x;
+}
+
+/* NQOK, NQEDEC (damaged) or NQENOSUP (a key with no container) */
+static SEXP Csxchk(SEXP alg, SEXP x) {
+  int rc;
+  chkraw(x, "x", 0);
+  rc = nqsxchk((nqsalg)ival(alg, "alg"), rp(x), rn(x));
+  if (rc != NQOK && rc != NQEDEC && rc != NQENOSUP) fail(rc, "nqsxchk");
+  return Rf_ScalarInteger(rc);
+}
+
 /* The library's return code: NQOK, NQEVRFY, or another error. An empty
  * key or signature is passed as a valid pointer with length 0, so it is
  * judged by its length (a failed verification), not as a NULL argument. */
@@ -2327,6 +2361,7 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cver, 0),  CDEF(Cself, 0), CDEF(Calgs, 0), CDEF(Crand, 1), CDEF(Chash, 3),
   CDEF(Chini, 1), CDEF(Chupd, 2), CDEF(Chfin, 2), CDEF(Chmac, 3),
   CDEF(Ckg, 3),   CDEF(Csign, 6), CDEF(Cvrfy, 6), CDEF(Cenc, 3),
+  CDEF(Csxsz, 1), CDEF(Csxmk, 2), CDEF(Csxchk, 2),
   CDEF(Cdec, 3),  CDEF(Cseal, 5), CDEF(Cchk, 7),  CDEF(Cerr, 1),
   CDEF(Cseal2, 7), CDEF(Cseal3, 8), CDEF(Ccapid, 1), CDEF(Cprove, 2), CDEF(Cfiles, 1),
   CDEF(Ckstmt, 8), CDEF(Cdsse, 5), CDEF(Cdssevrfy, 3),

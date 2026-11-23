@@ -1,5 +1,6 @@
 # Key files: fixtures made once with the CLI,
 #   noqtis keygen -a ML-DSA-44 --seed 000102...1f -o k44
+# by noqtis 0.2 (k44, version 1) and by 0.3.0 (k44x, version 2)
 fx <- function(f) file.path("fixtures", "keys", f)
 td <- function() {
   d <- tempfile("nqkey")
@@ -13,6 +14,11 @@ test_that("a key file the CLI made reads back as the seed's key pair", {
   p <- nqreadkey(fx("k44.pub"))
   expect_identical(s, list(alg = "ML-DSA-44", kind = "sec", key = k$sk))
   expect_identical(p, list(alg = "ML-DSA-44", kind = "pub", key = k$pk))
+  # version 2: the container of the same key
+  expect_identical(
+    nqreadkey(fx("k44x")),
+    list(alg = "ML-DSA-44", kind = "sec", key = nqsxmk(k$sk, "ML-DSA-44"))
+  )
 })
 
 test_that("nqwritekey writes the CLI's bytes, and reads them back", {
@@ -22,13 +28,14 @@ test_that("nqwritekey writes the CLI's bytes, and reads them back", {
   nqwritekey(file.path(d, "k"), k$sk, "ml-dsa-44", "sec")
   nqwritekey(file.path(d, "k.pub"), k$pk, "ML-DSA-44", "pub")
   rd <- function(f) readBin(f, "raw", file.size(f))
-  expect_identical(rd(file.path(d, "k")), rd(fx("k44")))
+  expect_identical(rd(file.path(d, "k")), rd(fx("k44x")))
   expect_identical(rd(file.path(d, "k.pub")), rd(fx("k44.pub")))
   for (a in c("SLH-DSA-SHAKE-128f", "ML-KEM-768", "HQC-128")) {
     kk <- nqkeygen(a)
     f <- file.path(d, a)
     nqwritekey(f, kk$sk, a, "sec")
-    expect_identical(nqreadkey(f)$key, kk$sk)
+    want <- if (a == "SLH-DSA-SHAKE-128f") nqsxmk(kk$sk, a) else kk$sk
+    expect_identical(nqreadkey(f)$key, want)
   }
 })
 
@@ -41,7 +48,7 @@ test_that("a secret key file is owner-only and never overwritten", {
   expect_error(nqwritekey(f, k$sk, "ML-DSA-44", "sec"), "exists")
   k2 <- nqkeygen("ML-DSA-44")
   nqwritekey(f, k2$sk, "ML-DSA-44", "sec", force = TRUE)
-  expect_identical(nqreadkey(f)$key, k2$sk)
+  expect_identical(nqreadkey(f)$key, nqsxmk(k2$sk, "ML-DSA-44"))
   expect_identical(format(file.mode(f)), "600")
 })
 
@@ -156,4 +163,43 @@ test_that("an existing folder in the way is not removed", {
     "cannot remove"
   )
   expect_true(file.exists(file.path(f, "inside")))
+})
+
+test_that("the version 2 container: made, checked, signs, refused damaged", {
+  for (a in c("ML-DSA-44", "Ed25519", "ML-DSA-65+Ed25519",
+              "SLH-DSA-SHA2-128f")) {
+    k <- nqkeygen(a)
+    x <- nqsxmk(k$sk, a)
+    expect_length(x, nqsxsz(a))
+    expect_identical(x[seq_along(k$sk)], k$sk)
+    expect_true(nqsxchk(x, a))
+    expect_error(nqsxchk(k$sk, a), "no integrity value")
+    expect_error(nqsxmk(x, a), "bytes")
+    for (i in unique(round(seq(1, length(x), length.out = 40)))) {
+      y <- x
+      y[i] <- xor(y[i], as.raw(0x20))
+      expect_false(nqsxchk(y, a))
+    }
+    expect_true(nqverify(k$pk, "m", nqsign(x, "m", a), a))
+    y <- x
+    y[length(y)] <- xor(y[length(y)], as.raw(1))
+    expect_error(nqsign(y, "m", a), "fault")
+    # a damaged version 2 file is refused when read
+    d <- td()
+    f <- file.path(d, "k")
+    writeLines(c(sprintf("noqtis-key-2 %s sec", a), .b64enc(y)), f)
+    expect_error(nqreadkey(f), "integrity value")
+    expect_error(nqwritekey(file.path(d, "k2"), y, a), "sound container")
+    # a version 1 file still reads, as the key
+    writeLines(c(sprintf("noqtis-key-1 %s sec", a), .b64enc(k$sk)), f)
+    expect_identical(nqreadkey(f)$key, k$sk)
+    unlink(d, recursive = TRUE)
+  }
+  # KEM keys have no container
+  d <- td()
+  f <- file.path(d, "e")
+  e <- nqkeygen("ML-KEM-768")
+  writeLines(c("noqtis-key-2 ML-KEM-768 sec", .b64enc(e$sk)), f)
+  expect_error(nqreadkey(f), "no version 2 container")
+  unlink(d, recursive = TRUE)
 })

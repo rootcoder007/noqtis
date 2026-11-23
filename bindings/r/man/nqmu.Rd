@@ -27,7 +27,8 @@ needs the same one.}
 \item{ph}{\code{NULL} for the pure algorithm, or a hash name (see \code{\link[=nqhash]{nqhash()}})
 for HashML-DSA / HashSLH-DSA, which hash \code{msg} with it first.}
 
-\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}).}
+\item{sk}{Secret key, a raw vector (as from \code{\link[=nqkeygen]{nqkeygen()}}), or its
+version 2 container (from \code{\link[=nqsxmk]{nqsxmk()}} or \code{\link[=nqreadkey]{nqreadkey()}}).}
 
 \item{mu}{The 64-byte mu, a raw vector (from \code{nqmu()}).}
 
@@ -76,6 +77,7 @@ National Institute of Standards and Technology (2024).
 Other signature functions:
 \code{\link[=nqdsse]{nqdsse()}},
 \code{\link[=nqsign]{nqsign()}},
-\code{\link[=nqsigner]{nqsigner()}}
+\code{\link[=nqsigner]{nqsigner()}},
+\code{\link[=nqsxmk]{nqsxmk()}}
 }
 \concept{signature functions}
