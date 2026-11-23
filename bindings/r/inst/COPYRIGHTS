@@ -23,7 +23,7 @@ that repository:
 
 The library is an independent implementation of public standards
 (FIPS 180-4, FIPS 202, FIPS 203, FIPS 204, FIPS 205, SP 800-90A, the
-HQC specification v5.0.0); it contains no third-party code.
+HQC specification version 5.1); it contains no third-party code.
 
 Test fixtures
 -------------

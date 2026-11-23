@@ -73,7 +73,8 @@
 #' No branch and no memory index depends on a secret, but in Argon2id,
 #' whose later passes read memory where the password leads, as it is
 #' designed to, and in HQC, where a secret-derived bit becomes public in
-#' the three places its specification allows. ML-DSA and Ed25519
+#' the one place its specification allows (whether a key-generation
+#' draw is kept). ML-DSA and Ed25519
 #' signing, the secret-keyed hash of SLH-DSA, and ML-KEM and HQC
 #' decapsulation are also masked: the secret is split into random shares
 #' that change on every call, against power analysis. Every signature is
@@ -114,9 +115,8 @@
 #' Signature Algorithm (EdDSA)*, RFC 8032. \doi{10.17487/RFC8032}
 #'
 #' Gaborit, P., Aguilar-Melchor, C., Aragon, N. et al. (2025).
-#' *Hamming Quasi-Cyclic (HQC)*, specification version 5.0 of
-#' 2025-08-22 (the version the library follows; version 5.1 of
-#' 2026-11-09 is not implemented). <https://pqc-hqc.org/>
+#' *Hamming Quasi-Cyclic (HQC)*, specification version 5.1 of
+#' 2026-11-09. <https://pqc-hqc.org/>
 #'
 #' @section Notice of a newer release:
 #' The package asks nothing of the network on its own. With

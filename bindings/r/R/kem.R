@@ -13,11 +13,11 @@
 #' `nqencap()` calls the library's `nqenc()` (`nqencd()` with `seed`),
 #' `nqdecap()` its `nqdec()`. The sizes in bytes (public key, secret key,
 #' ciphertext): ML-KEM-512 800, 1632, 768; ML-KEM-768 1184, 2400, 1088;
-#' ML-KEM-1024 1568, 3168, 1568; HQC-128 2241, 2321, 4433; HQC-192 4514,
-#' 4602, 8978; HQC-256 7237, 7333, 14421. HQC follows its specification
-#' of 2025-08-22 (version 5.0); the HQC team's version 5.1 of 2026-11-09
-#' changes its weights and key format, so its keys and ciphertexts are
-#' not those of this one.
+#' ML-KEM-1024 1568, 3168, 1568; HQC-128 2241, 32, 4433; HQC-192 4514,
+#' 32, 8978; HQC-256 7237, 32, 14421. HQC follows its specification
+#' version 5.1 of 2026-11-09, whose secret key is its 32-byte seed; keys
+#' and ciphertexts of version 5.0 (noqtis before 0.3.0) do not
+#' interoperate with these, and a 5.0 secret key is refused.
 #'
 #' Decapsulation uses implicit rejection, as FIPS 203 and HQC require: a
 #' changed ciphertext gives an unrelated pseudorandom secret, not an error,
@@ -40,7 +40,7 @@
 #' for ML-KEM, a public key that fails the input check of FIPS 203
 #' (section 7.2) or a secret key whose stored hash of its public key does
 #' not match (section 7.3); for HQC, a public key whose unused top bits
-#' are not zero or a secret key whose seeds do not re-derive; the random
+#' are not zero or a secret key that is not 32 bytes; the random
 #' source failing (both decapsulations draw fresh mask shares).
 #'
 #' @references
@@ -49,8 +49,8 @@
 #' \doi{10.6028/NIST.FIPS.203}
 #'
 #' Gaborit, P., Aguilar-Melchor, C., Aragon, N. et al. (2025).
-#' *Hamming Quasi-Cyclic (HQC)*, specification version 5.0 of
-#' 2025-08-22. <https://pqc-hqc.org/>
+#' *Hamming Quasi-Cyclic (HQC)*, specification version 5.1 of
+#' 2026-11-09. <https://pqc-hqc.org/>
 #'
 #' @family key encapsulation functions
 #' @seealso [nqkeygen()] makes the key pairs; [nqhash()] can derive keys
