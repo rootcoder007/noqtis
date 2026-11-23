@@ -16,6 +16,19 @@
 .Op Fl -anchor Ar der-file ...
 .Op Fl r | Fl -recursive
 .Ar dir
+.Nm noqtis seal
+.Fl -token
+.Op Fl -module Ar path
+.Op Fl -slot Ar n
+.Fl -label Ar name | Fl -id Ar hex
+.Op Fl -pin-fd Ar n | Fl -pin-env Ar name
+.Op Fl m Ar json-file
+.Op Fl -format Cm 1 | 2
+.Op Fl -input Oo Ar name Ns = Oc Ns Ar dir ...
+.Op Fl -tsa Ar url ...
+.Op Fl -anchor Ar der-file ...
+.Op Fl r | Fl -recursive
+.Ar dir
 .Sh DESCRIPTION
 .Nm noqtis seal
 turns the folder
@@ -212,6 +225,19 @@ when it is set (a decimal number of seconds), otherwise the clock.
 The secret key and the public key must be one pair: the new seal is
 verified before it is written, and a key pair that does not match is
 refused.
+.Pp
+With
+.Fl -token ,
+the signature is made on a PKCS #11 token
+.Pq Xr noqtis-token 1 , Xr nqp11seal 3 :
+the secret key never leaves it, and the public key stored in the seal is
+the one the token gives for that key.
+.Fl k
+and
+.Fl p
+are then refused, and so is a KEM key; every other option works as
+without it.
+.Pp
 The secret key must not be under a passphrase: this command takes no
 .Fl -pass-fd
 or
@@ -340,9 +366,44 @@ When a capsule still finds no descriptor left
 .Pq Er EMFILE , Er ENFILE ,
 the run stops there, says so, and puts back every capsule it had
 resealed, so the whole tree is as it was.
+.It Fl -token
+Seal with a signature key on a PKCS #11 token instead of
+.Fl k :
+an ML-DSA or SLH-DSA key.
+An Ed25519 key alone is refused, as it is with
+.Fl k .
+.It Fl -module Ar path
+With
+.Fl -token :
+the token's PKCS #11 module; default the
+.Ev NOQTIS_PKCS11
+variable.
+.It Fl -slot Ar n
+With
+.Fl -token :
+the slot of the token, when more than one is present.
+.It Fl -label Ar name , Fl -id Ar hex
+With
+.Fl -token :
+the key, by its label or by its ID in hexadecimal; exactly one key must
+answer.
+.It Fl -pin-fd Ar n , Fl -pin-env Ar name
+With
+.Fl -token :
+the token's PIN, read from descriptor
+.Ar n
+or from the environment variable
+.Ar name ,
+never from the command line.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds
+.It Ev NOQTIS_PKCS11
+With
+.Fl -token :
+the path of the PKCS #11 module, when
+.Fl -module
+is not given.
 .It Ev SOURCE_DATE_EPOCH
 Seconds since 1970-01-01T00:00:00Z to record as the creation time,
 for reproducible capsules.
@@ -360,7 +421,10 @@ the seal
 .Fl -tsa
 was given); 2 on a usage error, a link to a folder met by
 .Fl r ,
-keys that are not a signature key pair,
+keys that are not a signature key pair, with
+.Fl -token
+a key that is not one signature key on the token, a wrong PIN or a
+token that refuses (its CKR number is printed),
 an unsealable folder, a limit, a file that cannot be read or written, or
 no TSA that gave a timestamp.
 .Sh EXAMPLES
@@ -388,11 +452,23 @@ $ noqtis seal -k me --tsa http://timestamp.digicert.com \e
 timestamp from http://timestamp.digicert.com: genTime 2026-10-29T09:34:03Z, verified under a TSA anchor
 sealed results with ML-DSA-65 and a timestamp
 .Ed
+.Pp
+With a key that stays on a token:
+.Bd -literal -offset indent
+$ export NOQTIS_PKCS11=/usr/lib/softhsm/libsofthsm2.so
+$ noqtis token keygen -a ML-DSA-65 -n release -o release.pub \e
+    --pin-env PIN
+$ noqtis seal --token --label release --pin-env PIN results
+sealed results with ML-DSA-65
+$ noqtis check -p release.pub results
+.Ed
 .Sh SEE ALSO
 .Xr noqtis 1 ,
 .Xr noqtis-check 1 ,
 .Xr noqtis-keygen 1 ,
 .Xr noqtis-prove 1 ,
+.Xr noqtis-token 1 ,
+.Xr nqp11seal 3 ,
 .Xr nqseal 3 ,
 .Xr nqtsput 3 ,
 .Xr noqtis-capsule 5

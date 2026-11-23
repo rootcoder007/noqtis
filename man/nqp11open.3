@@ -12,7 +12,8 @@
 .Nm nqp11pub ,
 .Nm nqp11sign ,
 .Nm nqp11dec ,
-.Nm nqp11gen
+.Nm nqp11gen ,
+.Nm nqp11seal
 .Nd keys on a PKCS #11 token
 .Sh LIBRARY
 libnoqtis, \-lnoqtis
@@ -38,6 +39,8 @@ libnoqtis, \-lnoqtis
 .Fn nqp11dec "nqp11 *p" "const nqp11k *k" "const uint8_t *ct" "size_t ctlen" "uint8_t *ss" "size_t sslen"
 .Ft int
 .Fn nqp11gen "nqp11 *p" "int kem" "int alg" "const char *label" "nqp11k *k"
+.Ft int
+.Fn nqp11seal "nqp11 *p" "const nqp11k *k" "const char *dir" "int fmt" "const char *meta" "const nqcin *in" "size_t nin"
 .Sh DESCRIPTION
 These functions sign and decapsulate with private keys that stay on a
 token: a smart card, a hardware security module, or a software token.
@@ -135,6 +138,30 @@ false, and keeps the public key on the token too, both under
 and one random
 .Dv CKA_ID .
 .Pp
+.Fn nqp11seal
+seals the folder
+.Fa dir
+as
+.Xr nqseal 3
+does
+.Pq Fa fmt No 1
+or as
+.Fn nqseal2
+does
+.Pq Fa fmt No 2 , with Fa in No and Fa nin No as there ; for format 1 they are Dv NULL No and 0 ,
+with the signature key
+.Fa k
+of the token.
+The key never leaves the token: the manifest is signed there with
+.Fn nqp11sign ,
+the public key written to the seal is the one
+.Fn nqp11pub
+gives, and the signature is checked under it before anything is
+written.
+.Fa meta
+is the JSON object of the caller's metadata, or
+.Dv NULL .
+.Pp
 A handle is for one thread at a time.
 .Sh RETURN VALUES
 .Dv NQOK
@@ -161,11 +188,23 @@ with the count or the size needed in
 or
 .Fa *siglen ;
 .Dv NQEARG
-for a bad argument and a key of the wrong kind.
+for a bad argument and a key of the wrong kind
+(for
+.Fn nqp11seal ,
+a KEM key or a
+.Fa fmt
+other than 1 and 2).
+.Fn nqp11seal
+gives also the returns of
+.Xr nqseal 3 ,
+and
+.Dv NQENOSUP
+for an Ed25519 key, which alone never seals.
 .Sh SEE ALSO
 .Xr noqtis-token 1 ,
 .Xr noqtis 3 ,
 .Xr nqdec 3 ,
+.Xr nqseal 3 ,
 .Xr nqsign 3
 .Sh STANDARDS
 OASIS PKCS #11 Specification Version 3.2.
