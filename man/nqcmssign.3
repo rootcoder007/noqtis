@@ -63,6 +63,7 @@ The certificates must hold at the time
 or with
 .Fa at
 0 at the signing time the message states, else now by the system clock.
+The certificate\(aqs validity is judged at the message\(aqs signing time when it carries one, and that time is the signer\(aqs claim unless a timestamp covers it.
 On success the content is copied to
 .Fa out
 when that is not

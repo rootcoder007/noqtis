@@ -83,6 +83,7 @@ A signature that does not verify prints a line with
 .Ql FAILED
 on standard output.
 The certificates must be valid at the signing time the message states.
+The certificate\(aqs validity is judged at the message\(aqs signing time when it carries one, and that time is the signer\(aqs claim unless a timestamp covers it.
 .It Cm encrypt
 Encrypt
 .Ar file
