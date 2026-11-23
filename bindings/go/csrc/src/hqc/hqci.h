@@ -14,8 +14,9 @@
 #define NQHQN1 90    /* Reed-Solomon length */
 #define NQHQK 32     /* message bytes */
 #define NQHQD 29     /* Reed-Solomon correcting capacity */
-#define NQHQWM 149   /* the largest of w, we, wr */
+#define NQHQWM 150   /* the largest of w, we, wr */
 #define NQHQCTM 14421
+#define NQHQPKM 7237
 
 typedef struct {
   uint32_t n;      /* ambient length, a prime */
@@ -40,18 +41,20 @@ typedef struct {
 const nqhqp *nqhqpar(nqkalg alg);
 
 /* Tells a constant-time checker that a secret-derived value may be
- * public. Used only where the specification accepts it: the rejection
- * test of the key-generation sampler, the fact that a draw repeated an
- * earlier position, and the validity of a secret key. */
+ * public. Used only where the specification accepts it: whether a draw of
+ * the key-generation sampler is kept (it was below the rejection threshold
+ * and did not repeat an earlier position). */
 #ifndef NQHQDCL
 #define NQHQDCL(ptr, len) ((void)(ptr), (void)(len))
 #endif
 
-/* kem.c, for the masked decapsulation: the public h of ek's seed, the
- * secret y of seed_dk, and H(ek) */
+/* kem.c, for the masked decapsulation: the public h of ek's seed, H(ek),
+ * and the key pair again from the 32-byte decapsulation key (seed_kem):
+ * ek (public), y and sigma (secret), unmasked but constant time */
 void nqhqpubh(const nqhqp *p, uint64_t *h, const uint8_t *seed);
-void nqhqsecy(const nqhqp *p, uint64_t *y, const uint8_t *seed);
 void nqhqhek(const nqhqp *p, uint8_t hek[32], const uint8_t *ek);
+void nqhqexp(const nqhqp *p, const uint8_t *dk, uint8_t *ek, uint64_t *y,
+             uint8_t *sig);
 /* mdec.c: the masked decapsulation of a checked sk and ct; NQOK, or the
  * random source's error */
 int nqhqmdec(const nqhqp *p, const uint8_t *sk, const uint8_t *ct,

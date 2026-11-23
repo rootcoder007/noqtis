@@ -110,6 +110,10 @@ size_t nqb64n(size_t n); /* encoded length, without the NUL */
 void nqb64e(const uint8_t *in, size_t n, char *out);
 int nqb64d(const char *s, size_t n, uint8_t *out, size_t cap,
            size_t *outlen);
+/* the same, reading the standard or the URL-safe alphabet (RFC 4648
+ * section 5), padded, one alphabet per text (DSSE allows either) */
+int nqb64du(const char *s, size_t n, uint8_t *out, size_t cap,
+            size_t *outlen);
 
 /* ---- sorting: a stable merge sort of an index array ---- */
 

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* First-order masked HQC decapsulation (HQC v5.0.0, 2025-08-22).
+/* First-order masked HQC decapsulation (HQC specification 5.1,
+ * 2026-11-09, reference v5.1.0).
  *
  * Every value that depends on the decapsulation key is held as two
  * shares, each uniform on its own: Boolean (x = x0 ^ x1) for vectors,
@@ -7,6 +8,12 @@
  * Reed-Muller sums. Linear steps act share by share; the others use fresh
  * randomness, so that no single value depends on the key.
  *
+ *   key load   the decapsulation key is the 32-byte seed_kem: the key
+ *              pair is derived from it again (XOF, I, both rejection
+ *              samplers, h, s = x + h y: the key generation of HQC-PKE),
+ *              UNMASKED but constant time, as key generation itself is;
+ *              ek is public; only y and sigma are then split into shares,
+ *              and x, the seeds and the unmasked y are wiped
  *   y          split afresh into two dense shares on every call
  *   v - u y    u y0 and u y1, each with the constant-time product
  *   RM decode  each bit to arithmetic shares (Goubin, CHES 2001), the
@@ -17,8 +24,9 @@
  *   RS decode  syndromes share by share (a linear map), Berlekamp's
  *              algorithm with masked field products (Trichina's gadget
  *              over GF(256)) and its degrees and conditions as masked
- *              integers and masks, the roots by evaluating at public
- *              points (linear), the error values with masked inverses
+ *              integers and masks, the error locator, z and sigma_odd
+ *              evaluated at the public message locations (linear), the
+ *              error values with masked inverses and masked selection
  *   G, J       masked SHA3-512 and SHA3-256 (msk.h); J's sigma split
  *              afresh
  *   c'         Sendrier's sampler with a masked multiply-high and a
@@ -160,7 +168,7 @@ static uint32_t gm(uint32_t a, uint32_t b) {
   int i;
   for (i = 0; i < 2; i++) {
     uint32_t hi = p >> 8;
-    p = (p & 0xFFu) ^ hi ^ (hi << 2) ^ (hi << 3) ^ (hi << 4);
+    p = (p & 0xFFu) ^ hi ^ (hi << 1) ^ (hi << 3) ^ (hi << 4);
   }
   return p;
 }
@@ -170,8 +178,8 @@ static void gexp(uint32_t e[255]) {
   int i;
   for (i = 0; i < 255; i++) {
     e[i] = x;
-    x <<= 1;
-    x ^= 0x11Du & (0u - (x >> 8));
+    x ^= x << 1;
+    x ^= 0x11Bu & (0u - (x >> 8));
   }
 }
 
@@ -222,9 +230,8 @@ static void mginv(mw z, const mw a, nqmrg *g) {
 
 typedef struct {
   mw c[NQHQN1], syn[2 * NQHQD], sg[NQHQD + 1], sgc[NQHQD + 1],
-      xsp[NQHQD + 1], z[NQHQD + 1], er[NQHQN1], ev[NQHQN1], bj[NQHQD],
-      ej[NQHQD];
-  mw dsg, dsgp, pp, dp, d, dd, deg;
+      xsp[NQHQD + 1], z[NQHQD + 1], so[NQHQD + 1], m[NQHQK];
+  mw dsg, dsgp, pp, dp, d, dd;
 } rsst;
 
 static void mrssyn(const nqhqp *p, rsst *s, const uint32_t *e) {
@@ -299,124 +306,60 @@ static void mrselp(const nqhqp *p, rsst *s, nqmrg *g) {
       mxor(s->d, s->d, t);
     }
   }
-  s->deg[0] = s->dsg[0];
-  s->deg[1] = s->dsg[1];
   nqwipe(dsgc, sizeof dsgc);
   nqwipe(dx, sizeof dx);
   nqwipe(dxsp, sizeof dxsp);
   nqwipe(m12, sizeof m12);
 }
 
-/* er[j]: all ones when alpha^-j is a root of sg (Horner at a public
- * point is linear) */
-static void mrsroot(const nqhqp *p, rsst *s, const uint32_t *e,
-                    nqmrg *g) {
-  size_t j, t;
-  for (j = 0; j < p->n1; j++) {
-    const uint32_t x = e[(255 - j) % 255];
-    mw v, u;
-    v[0] = s->sg[p->dl][0];
-    v[1] = s->sg[p->dl][1];
-    for (t = p->dl; t-- > 0;) {
-      mgc(u, v, x);
-      mxor(v, u, s->sg[t]);
-    }
-    mz(s->er[j], v, 8, g);
+/* poly (dl + 1 masked coefficients) at a public x: Horner, linear */
+static void mrseval(const nqhqp *p, mw v, mw *poly, uint32_t x) {
+  size_t t;
+  mw u;
+  v[0] = poly[p->dl][0];
+  v[1] = poly[p->dl][1];
+  for (t = p->dl; t-- > 0;) {
+    mgc(u, v, x);
+    mxor(v, u, poly[t]);
   }
 }
 
-/* the error evaluator z, rsz of code.c */
-static void mrsz(const nqhqp *p, rsst *s, nqmrg *g) {
-  uint32_t i, j;
-  mw m, t, ip;
+/* rscor of code.c on shares: z, sigma_odd, and the message bytes */
+static void mrscor(const nqhqp *p, rsst *s, const uint32_t *e, nqmrg *g) {
+  size_t i, j;
+  mw t, acc;
   pub(s->z[0], 1);
-  for (i = 1; i <= p->dl; i++) {
-    pub(ip, i - 1);
-    mlt(m, ip, s->deg, g); /* i - 1 < deg: i <= deg */
-    mand(s->z[i], m, s->sg[i], g);
-  }
-  mxor(s->z[1], s->z[1], s->syn[0]);
-  for (i = 2; i <= p->dl; i++) {
-    mw acc;
-    pub(ip, i - 1);
-    mlt(m, ip, s->deg, g);
-    acc[0] = s->syn[i - 1][0];
-    acc[1] = s->syn[i - 1][1];
-    for (j = 1; j < i; j++) {
-      mgm(t, s->sg[j], s->syn[i - j - 1], g);
+  for (i = 0; i < p->dl; i++) {
+    acc[0] = s->syn[i][0];
+    acc[1] = s->syn[i][1];
+    for (j = 0; j < i; j++) {
+      mgm(t, s->sg[j + 1], s->syn[i - 1 - j], g);
       mxor(acc, acc, t);
     }
-    mand(acc, m, acc, g);
-    mxor(s->z[i], s->z[i], acc);
+    mxor(s->z[i + 1], acc, s->sg[i + 1]);
   }
-}
-
-/* the error values at the marked positions, rsev of code.c */
-static void mrsev(const nqhqp *p, rsst *s, const uint32_t *e, nqmrg *g) {
-  const uint32_t dl = p->dl;
-  uint32_t i, j, k;
-  mw cnt, real, m2, m12, found, t, jp;
-  for (j = 0; j < dl; j++) {
-    pub(s->bj[j], 0);
-    pub(s->ej[j], 0);
+  for (i = 0; i <= p->dl; i++) {
+    if (i & 1u) { /* i is public */
+      s->so[i][0] = s->sg[i][0];
+      s->so[i][1] = s->sg[i][1];
+    } else {
+      pub(s->so[i], 0);
+    }
   }
-  pub(cnt, 0);
-  for (i = 0; i < p->n1; i++) {
-    pub(found, 0);
-    for (j = 0; j < dl; j++) {
-      pub(jp, j);
-      mxor(t, cnt, jp);
-      mz(m2, t, 8, g);
-      mand(m12, s->er[i], m2, g);
-      t[0] = m12[0] & e[i];
-      t[1] = m12[1] & e[i];
-      mxor(s->bj[j], s->bj[j], t);
-      t[0] = m12[0] & 1u;
-      t[1] = m12[1] & 1u;
-      mxor(found, found, t);
-    }
-    nqmsadd(cnt, cnt, found, g);
-  }
-  real[0] = cnt[0];
-  real[1] = cnt[1];
-  for (i = 0; i < dl; i++) {
-    mw t1, t2, inv, invp, u, m1, ip;
-    pub(t1, 1);
-    pub(t2, 1);
-    pub(invp, 1);
-    mginv(inv, s->bj[i], g);
-    for (j = 1; j <= dl; j++) {
-      mgm(invp, invp, inv, g);
-      mgm(u, invp, s->z[j], g);
-      mxor(t1, t1, u);
-    }
-    for (k = 1; k < dl; k++) {
-      mgm(u, inv, s->bj[(i + k) % dl], g);
-      u[0] ^= 1u;
-      mgm(t2, t2, u, g);
-    }
-    pub(ip, i);
-    mlt(m1, ip, real, g);
-    mginv(u, t2, g);
-    mgm(u, t1, u, g);
-    mand(s->ej[i], m1, u, g);
-  }
-  pub(cnt, 0);
-  for (i = 0; i < p->n1; i++) {
-    pub(found, 0);
-    pub(s->ev[i], 0);
-    for (j = 0; j < dl; j++) {
-      pub(jp, j);
-      mxor(t, cnt, jp);
-      mz(m2, t, 8, g);
-      mand(m12, s->er[i], m2, g);
-      mand(t, m12, s->ej[j], g);
-      mxor(s->ev[i], s->ev[i], t);
-      t[0] = m12[0] & 1u;
-      t[1] = m12[1] & 1u;
-      mxor(found, found, t);
-    }
-    nqmsadd(cnt, cnt, found, g);
+  for (i = 0; i < p->k; i++) {
+    const size_t pos = p->n1 - p->k + i;
+    const uint32_t x = e[(255 - pos) % 255];
+    mw num, den, v, er, nz, ok, inv;
+    mrseval(p, v, s->sg, x);
+    mz(er, v, 8, g);            /* all ones when sigma(x) = 0 */
+    mrseval(p, num, s->z, x);
+    mrseval(p, den, s->so, x);
+    mnz(nz, den, 8, g);         /* all ones when den != 0 */
+    mand(ok, er, nz, g);
+    mginv(inv, den, g);
+    mgm(t, num, inv, g);
+    mand(t, ok, t, g);
+    mxor(s->m[i], s->c[pos], t);
   }
 }
 
@@ -434,13 +377,10 @@ static void mrsd(const nqhqp *p, uint8_t *m0, uint8_t *m1,
   }
   mrssyn(p, &s, e);
   mrselp(p, &s, g);
-  mrsroot(p, &s, e, g);
-  mrsz(p, &s, g);
-  mrsev(p, &s, e, g);
+  mrscor(p, &s, e, g);
   for (i = 0; i < p->k; i++) {
-    const size_t j = 2 * p->dl + i;
-    m0[i] = (uint8_t)op(s.c[j][0] ^ s.ev[j][0]);
-    m1[i] = (uint8_t)op(s.c[j][1] ^ s.ev[j][1]);
+    m0[i] = (uint8_t)op(s.m[i][0]);
+    m1[i] = (uint8_t)op(s.m[i][1]);
   }
   nqwipe(&s, sizeof s);
 }
@@ -491,7 +431,7 @@ static void mrmd(const nqhqp *p, uint8_t *o0, uint8_t *o1,
       const size_t k = 2 * (i * mult + c);
       for (b = 0; b < 128; b++) {
         const size_t wi = k + (size_t)(b >> 6);
-        const unsigned sh = (unsigned)(b & 63);
+        const unsigned sh = (unsigned)((b & 63) ^ 7);
         const uint32_t hi = nqmr32(g) << 1;
         const uint32_t x0 = (uint32_t)((cw0[wi] >> sh) & 1u) | hi;
         const uint32_t x1 = (uint32_t)((cw1[wi] >> sh) & 1u) | hi;
@@ -666,23 +606,16 @@ static void mfws(const nqhqp *p, uint64_t *v0, uint64_t *v1, size_t w,
   nqwipe(sup, sizeof sup);
 }
 
-/* the stream xget of kem.c reads: a whole number of 8-byte words, the
- * tail of a request taken from a further word */
+/* the XOF stream of theta, read in order */
 typedef struct {
   const uint8_t *s0, *s1;
   size_t pos;
 } xst;
 
 static void xtake(xst *x, uint8_t *o0, uint8_t *o1, size_t len) {
-  const size_t rem = len % 8, head = len - rem;
-  memcpy(o0, x->s0 + x->pos, head);
-  memcpy(o1, x->s1 + x->pos, head);
-  x->pos += head;
-  if (rem != 0) {
-    memcpy(o0 + head, x->s0 + x->pos, rem);
-    memcpy(o1 + head, x->s1 + x->pos, rem);
-    x->pos += 8;
-  }
+  memcpy(o0, x->s0 + x->pos, len);
+  memcpy(o1, x->s1 + x->pos, len);
+  x->pos += len;
 }
 
 static void b2w(uint64_t *w, size_t nw, const uint8_t *b, size_t nb) {
@@ -720,8 +653,9 @@ typedef struct {
   uint8_t rw0[NQHQN1], rw1[NQHQN1], m0[NQHQK], m1[NQHQK];
   uint8_t gi0[32 + NQHQK + NQHQSALT + 1], gi1[32 + NQHQK];
   uint8_t kt0[64], kt1[64], kb0[32], kb1[32];
-  uint8_t xs0[3 * (4 * NQHQWM + 8)], xs1[3 * (4 * NQHQWM + 8)];
-  uint8_t xi0[33], xi1[32];
+  uint8_t xs0[3 * 4 * NQHQWM], xs1[3 * 4 * NQHQWM];
+  uint8_t xi0[32], xi1[32];
+  uint8_t ek[NQHQPKM], sig[NQHQK];
   uint8_t fb0[4 * NQHQWM], fb1[4 * NQHQWM];
   uint8_t ji1[32 + NQHQK];
 } mdst;
@@ -737,8 +671,8 @@ int nqhqmdec(const nqhqp *p, const uint8_t *sk, const uint8_t *ct,
              uint8_t *ss) {
   mdst st, *s = &st;
   nqmrg gs, *g = &gs;
-  const uint8_t *ek = sk, *salt = ct + p->nb + p->vb;
-  const uint8_t *sig = sk + p->pk + 32;
+  const uint8_t *ek = s->ek, *salt = ct + p->nb + p->vb;
+  const uint8_t *sig = s->sig;
   uint8_t hek[32], jin[32 + NQHQK + NQHQCTM + 1];
   size_t i, gl, jl;
   xst x;
@@ -746,9 +680,9 @@ int nqhqmdec(const nqhqp *p, const uint8_t *sk, const uint8_t *ct,
   mw keep;
   int rc = nqmrini(g);
   memset(s, 0, sizeof *s);
-  /* ---- the key, loaded and split: y, and sigma for J ---- */
+  /* ---- the key, expanded (unmasked) and split: y, and sigma for J ---- */
   NQLKST(1);
-  nqhqsecy(p, s->p0, sk + p->pk);
+  nqhqexp(p, sk, s->ek, s->p0, s->sig);
   for (i = 0; i < p->nw; i++) {
     const uint64_t r =
         nqmr64(g) & (i + 1 == p->nw ? p->top : ~(uint64_t)0);
@@ -789,9 +723,8 @@ int nqhqmdec(const nqhqp *p, const uint8_t *sk, const uint8_t *ct,
   /* ---- the XOF of theta: the bytes r2, e and r1 are drawn from ---- */
   memcpy(s->xi0, s->kt0 + 32, 32);
   memcpy(s->xi1, s->kt1 + 32, 32);
-  s->xi0[32] = 1;
-  jl = 2 * (4 * (size_t)p->wr + 8) + 4 * (size_t)p->we + 8;
-  nqmkec(s->xs0, s->xs1, jl, s->xi0, s->xi1, 33, 32, 136, 0x1f, g);
+  jl = 2 * 4 * (size_t)p->wr + 4 * (size_t)p->we;
+  nqmkec(s->xs0, s->xs1, jl, s->xi0, s->xi1, 32, 32, 136, 0x1f, g);
   x.s0 = s->xs0;
   x.s1 = s->xs1;
   x.pos = 0;

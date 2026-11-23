@@ -1,19 +1,21 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* HQC-PKE and HQC-KEM (specification of 2025-08-22, reference v5.0.0):
- * the seed expansion, the three samplers, encryption, decryption and the
- * salted Fujisaki-Okamoto transform with implicit rejection.
+/* HQC-PKE and HQC-KEM (specification version 5.1 of 2026-11-09,
+ * reference v5.1.0): the seed expansion, the three samplers, encryption,
+ * decryption and the salted Fujisaki-Okamoto transform with implicit
+ * rejection.
  *
  * Hashes: I, H, G, J are SHA3-512 / SHA3-256 / SHA3-512 / SHA3-256 of the
  * input followed by a domain byte (2, 1, 0, 3); the XOF is SHAKE256 of the
- * seed followed by the byte 1. A request for a length that is not a
- * multiple of 8 squeezes the rounded-up length and drops the tail, as the
- * reference does (the known answers depend on it).
+ * seed alone, squeezed as a stream. The decapsulation key is seed_kem;
+ * SHAKE256(seed_kem || k) gives seed_pke and then sigma, so decapsulation
+ * runs the key generation of HQC-PKE again.
  *
  * Constant time: the samplers write positions with masks; the only
- * secret-derived values that steer control flow are the ones the
- * specification accepts (marked NQHQDCL): the rejection test of the
- * key-generation sampler on unused randomness, whether a draw repeated an
- * earlier position, and whether a secret key is self-consistent. */
+ * secret-derived value that steers control flow is the one the
+ * specification accepts (marked NQHQDCL): whether a draw of the
+ * key-generation sampler is kept (below the rejection threshold, and not a
+ * repeat of an earlier position). Since decapsulation runs key generation,
+ * that also holds for decapsulation; it is a fixed property of the key. */
 #include <string.h>
 
 #include "noqtis.h"
@@ -23,11 +25,11 @@
 #include "hqc/hqci.h"
 
 static const nqhqp pars[3] = {
-    {17669, 46, 384, 66, 75, 75, 16, 15, 243079u, 16767881u, 277, 2209,
+    {17669, 46, 384, 67, 76, 76, 16, 15, 243079u, 16767881u, 277, 2209,
      276, 2208, NQHQPK1, NQHQSK1, NQHQCT1, 0x1Fu},
-    {35851, 56, 640, 100, 114, 114, 24, 16, 119800u, 16742417u, 561, 4482,
+    {35851, 56, 640, 101, 114, 114, 24, 16, 119800u, 16742417u, 561, 4482,
      560, 4480, NQHQPK3, NQHQSK3, NQHQCT3, 0x7FFu},
-    {57637, 90, 640, 131, 149, 149, 32, 29, 74517u, 16772367u, 901, 7205,
+    {57637, 90, 640, 132, 150, 150, 32, 29, 74517u, 16772367u, 901, 7205,
      900, 7200, NQHQPK5, NQHQSK5, NQHQCT5, 0x1FFFFFFFFFu},
 };
 
@@ -92,21 +94,20 @@ static void hsh(uint8_t *out, unsigned bits, uint8_t dom,
 }
 
 static void xini(nqkctx *x, const uint8_t *seed, size_t len) {
-  const uint8_t d = 1;
   nqshkini(x, 256);
   nqkabs(x, seed, len);
+}
+
+/* the KEM's XOF: SHAKE256(seed_kem || k), k the message bytes */
+static void kxini(const nqhqp *p, nqkctx *x, const uint8_t *seed) {
+  const uint8_t d = (uint8_t)p->k;
+  nqshkini(x, 256);
+  nqkabs(x, seed, 32);
   nqkabs(x, &d, 1);
 }
 
 static void xget(nqkctx *x, uint8_t *out, size_t len) {
-  size_t rem = len % 8;
-  uint8_t t[8];
-  nqksqz(x, out, len - rem);
-  if (rem != 0) {
-    nqksqz(x, t, 8);
-    memcpy(out + len - rem, t, rem);
-    nqwipe(t, sizeof t);
-  }
+  nqksqz(x, out, len);
 }
 
 /* ---- sampling ---- */
@@ -148,35 +149,26 @@ static void wsup(const nqhqp *p, uint64_t *v, const uint32_t *sup,
 }
 
 /* SampleFixedWeightVect$: uniform distinct positions by rejection of
- * 24-bit samples (key generation) */
+ * 24-bit samples, 3 bytes little-endian each (key generation) */
 static void fwu(const nqhqp *p, nqkctx *x, uint64_t *v, size_t w) {
   uint32_t sup[NQHQWM];
-  uint8_t buf[3 * NQHQWM];
-  size_t blen = 3 * w, i = 0, j = blen, k;
+  uint8_t buf[3];
+  size_t i = 0, k;
   memset(sup, 0, sizeof sup);
   while (i < w) {
-    uint32_t s, rej, dup = 0;
-    for (;;) {
-      if (j == blen) {
-        xget(x, buf, blen);
-        j = 0;
-      }
-      s = ((uint32_t)buf[j] << 16) | ((uint32_t)buf[j + 1] << 8) |
-          (uint32_t)buf[j + 2];
-      j += 3;
-      rej = ((s - p->thr) >> 31) ^ 1u; /* s >= thr */
-      NQHQDCL(&rej, sizeof rej);
-      if (rej == 0) {
-        break;
-      }
-    }
+    uint32_t s, keep, dup = 0;
+    xget(x, buf, 3);
+    s = (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) |
+        ((uint32_t)buf[2] << 16);
+    keep = (s - p->thr) >> 31; /* s < thr */
     s = brt(p, s);
     for (k = 0; k < i; k++) {
       dup |= ~nqctmask(sup[k] ^ s) & 1u;
     }
+    keep &= dup ^ 1u;
     sup[i] = s;
-    NQHQDCL(&dup, sizeof dup);
-    i += 1u ^ dup;
+    NQHQDCL(&keep, sizeof keep);
+    i += keep;
   }
   wsup(p, v, sup, w);
   nqwipe(sup, sizeof sup);
@@ -225,26 +217,14 @@ static void pubh(const nqhqp *p, uint64_t *h, const uint8_t *seed) {
   nqwipe(&x, sizeof x);
 }
 
-/* y from seed_dk (the first draw of key generation) */
-static void secy(const nqhqp *p, uint64_t *y, const uint8_t *seed) {
-  nqkctx x;
-  xini(&x, seed, 32);
-  fwu(p, &x, y, p->w);
-  nqwipe(&x, sizeof x);
-}
-
-void nqhqsecy(const nqhqp *p, uint64_t *y, const uint8_t *seed) {
-  secy(p, y, seed);
-}
-
 void nqhqhek(const nqhqp *p, uint8_t hek[32], const uint8_t *ek) {
   hsh(hek, 256, 1, ek, p->pk, NULL, 0, NULL, 0);
 }
 
 /* ---- HQC-PKE ---- */
 
-/* ek = seed_ek || s, s = x + y h; seed_dk out */
-static void pkekg(const nqhqp *p, uint8_t *ek, uint8_t *sdk,
+/* ek = seed_ek || s, s = x + y h; y out when ycp is not NULL */
+static void pkekg(const nqhqp *p, uint8_t *ek, uint64_t *ycp,
                   const uint8_t *spke) {
   uint8_t kp[64];
   uint64_t x[NQHQNW], y[NQHQNW], h[NQHQNW];
@@ -262,7 +242,7 @@ static void pkekg(const nqhqp *p, uint8_t *ek, uint8_t *sdk,
   }
   memcpy(ek, kp + 32, 32);
   w2b(ek + 32, p->nb, h);
-  memcpy(sdk, kp, 32);
+  if (ycp != NULL) memcpy(ycp, y, p->nw * 8);
   nqwipe(kp, sizeof kp);
   nqwipe(x, sizeof x);
   nqwipe(y, sizeof y);
@@ -304,12 +284,11 @@ static void pkeenc(const nqhqp *p, uint8_t *ct, const uint8_t *ek,
   nqwipe(rsw, sizeof rsw);
 }
 
-static void pkedec(const nqhqp *p, uint8_t *m, const uint8_t *sdk,
+static void pkedec(const nqhqp *p, uint8_t *m, const uint64_t *y,
                    const uint8_t *ct) {
-  uint64_t y[NQHQNW], u[NQHQNW], v[NQHQNW];
+  uint64_t u[NQHQNW], v[NQHQNW];
   uint8_t rsw[NQHQN1];
   size_t i;
-  secy(p, y, sdk);
   b2w(u, p->nw, ct, p->nb);
   b2w(v, p->vw, ct + p->nb, p->vb);
   nqhqmul(p, u, y, u);
@@ -318,7 +297,6 @@ static void pkedec(const nqhqp *p, uint8_t *m, const uint8_t *sdk,
   }
   nqhqrmd(p, rsw, v);
   nqhqrsd(p, m, rsw);
-  nqwipe(y, sizeof y);
   nqwipe(u, sizeof u);
   nqwipe(v, sizeof v);
   nqwipe(rsw, sizeof rsw);
@@ -332,23 +310,17 @@ static int ekok(const nqhqp *p, const uint8_t *ek) {
   return (ek[p->pk - 1] >> (8 - spare)) == 0;
 }
 
-/* sk's stored seeds re-derive from its seed_kem; constant time */
-static int dkok(const nqhqp *p, const uint8_t *dk) {
-  uint8_t spke[32], sig[NQHQK], kp[64];
-  uint64_t ok;
+/* the key pair again from dk = seed_kem: ek, y and sigma */
+void nqhqexp(const nqhqp *p, const uint8_t *dk, uint8_t *ek, uint64_t *y,
+             uint8_t *sig) {
+  uint8_t spke[32];
   nqkctx x;
-  xini(&x, dk + p->pk + 32 + p->k, 32);
+  kxini(p, &x, dk);
   xget(&x, spke, 32);
   xget(&x, sig, p->k);
   nqwipe(&x, sizeof x);
-  hsh(kp, 512, 2, spke, 32, NULL, 0, NULL, 0);
-  ok = eqm(kp, dk + p->pk, 32) & eqm(sig, dk + p->pk + 32, p->k) &
-       eqm(kp + 32, dk, 32);
+  pkekg(p, ek, y, spke);
   nqwipe(spke, sizeof spke);
-  nqwipe(sig, sizeof sig);
-  nqwipe(kp, sizeof kp);
-  NQHQDCL(&ok, sizeof ok);
-  return ok != 0;
 }
 
 int nqhqsz(nqkalg alg, nqksz *sz) {
@@ -364,26 +336,20 @@ int nqhqsz(nqkalg alg, nqksz *sz) {
 int nqhqkgd(nqkalg alg, const uint8_t *seed, size_t seedlen,
             uint8_t *pk, size_t pklen, uint8_t *sk, size_t sklen) {
   const nqhqp *p = nqhqpar(alg);
-  uint8_t spke[32], sig[NQHQK], sdk[32];
+  uint8_t spke[32];
   nqkctx x;
   if (p == NULL || seed == NULL || pk == NULL || sk == NULL) {
     return NQEARG;
   }
   if (seedlen != NQHQSEED) return NQEARG;
   if (pklen < p->pk || sklen < p->sk) return NQEBUF;
-  xini(&x, seed, 32);
+  kxini(p, &x, seed);
   xget(&x, spke, 32);
-  xget(&x, sig, p->k);
   nqwipe(&x, sizeof x);
-  pkekg(p, pk, sdk, spke);
-  /* sk = ek || seed_dk || sigma || seed_kem */
-  memmove(sk + p->pk + 32 + p->k, seed, 32);
-  memcpy(sk, pk, p->pk);
-  memcpy(sk + p->pk, sdk, 32);
-  memcpy(sk + p->pk + 32, sig, p->k);
+  /* sk = seed_kem */
+  memmove(sk, seed, 32);
+  pkekg(p, pk, NULL, spke);
   nqwipe(spke, sizeof spke);
-  nqwipe(sig, sizeof sig);
-  nqwipe(sdk, sizeof sdk);
   return NQOK;
 }
 
@@ -446,7 +412,6 @@ static int dchk(const nqhqp *p, const uint8_t *sk, size_t sklen,
   if (p == NULL || sk == NULL || ct == NULL || ss == NULL) return NQEARG;
   if (sklen != p->sk || ctlen != p->ct) return NQEDEC;
   if (sslen < NQHQSS) return NQEBUF;
-  if (!ekok(p, sk) || !dkok(p, sk)) return NQEDEC;
   return NQOK;
 }
 
@@ -466,6 +431,8 @@ int nqhqdecp(nqkalg alg, const uint8_t *sk, size_t sklen,
              const uint8_t *ct, size_t ctlen, uint8_t *ss, size_t sslen) {
   const nqhqp *p = nqhqpar(alg);
   uint8_t m[NQHQK], hek[32], kt[64], kb[32], ct2[NQHQCTM];
+  uint8_t ek[NQHQPKM], sig[NQHQK];
+  uint64_t y[NQHQNW];
   const uint8_t *salt;
   uint64_t keep;
   uint8_t k8;
@@ -473,12 +440,13 @@ int nqhqdecp(nqkalg alg, const uint8_t *sk, size_t sklen,
   int rc = dchk(p, sk, sklen, ct, ctlen, ss, sslen);
   if (rc != NQOK) return rc;
   salt = ct + p->nb + p->vb;
-  pkedec(p, m, sk + p->pk, ct);
-  hsh(hek, 256, 1, sk, p->pk, NULL, 0, NULL, 0);          /* H(ek) */
+  nqhqexp(p, sk, ek, y, sig);
+  pkedec(p, m, y, ct);
+  hsh(hek, 256, 1, ek, p->pk, NULL, 0, NULL, 0);          /* H(ek) */
   hsh(kt, 512, 0, hek, 32, m, p->k, salt, NQHQSALT);      /* G */
-  pkeenc(p, ct2, sk, m, kt + 32);
+  pkeenc(p, ct2, ek, m, kt + 32);
   memcpy(ct2 + p->nb + p->vb, salt, NQHQSALT);
-  hsh(kb, 256, 3, hek, 32, sk + p->pk + 32, p->k, ct, p->ct); /* J */
+  hsh(kb, 256, 3, hek, 32, sig, p->k, ct, p->ct);         /* J */
   keep = eqm(ct, ct2, p->ct); /* all ones when the re-encryption is c */
   k8 = (uint8_t)bar64(keep);
   for (i = 0; i < NQHQSS; i++) {
@@ -488,6 +456,8 @@ int nqhqdecp(nqkalg alg, const uint8_t *sk, size_t sklen,
   nqwipe(kt, sizeof kt);
   nqwipe(kb, sizeof kb);
   nqwipe(ct2, sizeof ct2);
+  nqwipe(y, sizeof y);
+  nqwipe(sig, sizeof sig);
   nqwipe(&keep, sizeof keep);
   nqwipe(&k8, sizeof k8);
   return NQOK;

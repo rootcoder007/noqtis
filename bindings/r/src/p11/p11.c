@@ -653,8 +653,13 @@ int nqp11gen(nqp11 *p, int kem, int alg, const char *label, nqp11k *k) {
                                           &hpub, &hpriv));
   if (rc != NQOK) return rc;
   rc = keyread(p, hpriv, k);
-  /* a token that made a key it then cannot describe */
-  return rc == NQOK && k->alg == alg && k->kem == (kem != 0) ? NQOK : NQEIO;
+  if (rc == NQOK && k->alg == alg && k->kem == (kem != 0)) return NQOK;
+  /* a token that made a key it then cannot describe: the pair is not
+   * left on it */
+  (void)FN(p, FDESTROY, fobj)(p->sess, hpriv);
+  (void)FN(p, FDESTROY, fobj)(p->sess, hpub);
+  memset(k, 0, sizeof *k);
+  return NQEIO;
 }
 
 #endif

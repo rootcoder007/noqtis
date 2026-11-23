@@ -150,7 +150,7 @@ int nqdssevrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
     rc = NQEMEM;
     goto out;
   }
-  if (nqb64d(pl->str, pl->len, p, pcap, &pn) != NQOK) {
+  if (nqb64du(pl->str, pl->len, p, pcap, &pn) != NQOK) {
     rc = NQEDEC;
     goto out;
   }
@@ -164,7 +164,7 @@ int nqdssevrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
     if (e == NULL || e->type != NQJOBJ) continue;
     sv = nqjget(e, "sig");
     if (sv == NULL || sv->type != NQJSTR ||
-        nqb64d(sv->str, sv->len, sg, sz.sig, &gn) != NQOK) {
+        nqb64du(sv->str, sv->len, sg, sz.sig, &gn) != NQOK) {
       continue;
     }
     if (nqvrfy(alg, pk, pklen, (const uint8_t *)m.p, m.n, NULL, 0, 0, sg,

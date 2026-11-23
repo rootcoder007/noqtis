@@ -1,15 +1,17 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* The codes of HQC: a shortened Reed-Solomon code over GF(256) (field
- * polynomial x^8 + x^4 + x^3 + x^2 + 1) concatenated with a duplicated
- * Reed-Muller code RM(1,7).
+/* The codes of HQC (specification 5.1): a shortened Reed-Solomon code
+ * over GF(256) (field polynomial x^8 + x^4 + x^3 + x + 1, primitive
+ * element alpha = x + 1) concatenated with a duplicated Reed-Muller code
+ * RM(1,7).
  *
  * Every operation on a codeword is constant time: field products use no
- * tables (multiply with holes), Berlekamp's algorithm, the error values
- * and the Reed-Muller peak search keep their state with masks, and tables
- * are only ever indexed by public counters. The roots of the error
- * locator are found by evaluating it at the n1 points that can be error
- * positions (the reference evaluates it at all 256 field elements with an
- * additive FFT; the values at those points are the same). */
+ * tables (multiply with holes), Berlekamp's algorithm and the Reed-Muller
+ * peak search keep their state with masks, and tables are only ever
+ * indexed by public counters. As the specification's RS.Decode, the
+ * decoder looks for errors only at the k message positions (the error
+ * locator evaluated at their inverse locations) and corrects them with
+ * Forney's z / sigma_odd; past the capacity it returns the same
+ * best-effort message as the reference. */
 #include <string.h>
 
 #include "noqtis.h"
@@ -29,7 +31,7 @@ static uint32_t cz(uint32_t x) {
 
 /* ---- GF(256) ---- */
 
-/* a * b, carry-less with holes then two folds of x^8 = x^4+x^3+x^2+1 */
+/* a * b, carry-less with holes then two folds of x^8 = x^4+x^3+x+1 */
 static uint32_t gm(uint32_t a, uint32_t b) {
   uint32_t a0 = a & 0x11u, a1 = a & 0x22u, a2 = a & 0x44u, a3 = a & 0x88u;
   uint32_t b0 = b & 0x11u, b1 = b & 0x22u, b2 = b & 0x44u, b3 = b & 0x88u;
@@ -40,7 +42,7 @@ static uint32_t gm(uint32_t a, uint32_t b) {
   int i;
   for (i = 0; i < 2; i++) {
     uint32_t hi = p >> 8;
-    p = (p & 0xFFu) ^ hi ^ (hi << 2) ^ (hi << 3) ^ (hi << 4);
+    p = (p & 0xFFu) ^ hi ^ (hi << 1) ^ (hi << 3) ^ (hi << 4);
   }
   return p;
 }
@@ -56,14 +58,14 @@ static uint32_t ginv(uint32_t a) {
   return gm(t, t);
 }
 
-/* e[i] = alpha^i for i < 255 (public) */
+/* e[i] = alpha^i for i < 255, alpha = x + 1 (public) */
 static void gexp(uint32_t e[255]) {
   uint32_t x = 1;
   int i;
   for (i = 0; i < 255; i++) {
     e[i] = x;
-    x <<= 1;
-    x ^= 0x11Du & (0u - (x >> 8));
+    x ^= x << 1;
+    x ^= 0x11Bu & (0u - (x >> 8));
   }
 }
 
@@ -168,112 +170,66 @@ static uint32_t rselp(const nqhqp *p, uint32_t *sg, const uint32_t *syn) {
   return dsg;
 }
 
-/* er[j] = 1 when alpha^-j is a root of sg, j < n1 */
-static void rsroot(const nqhqp *p, uint8_t *er, const uint32_t *sg,
-                   const uint32_t *e) {
-  size_t j, t;
-  for (j = 0; j < p->n1; j++) {
-    uint32_t x = e[(255 - j) % 255], v = sg[p->dl];
-    for (t = p->dl; t-- > 0;) {
-      v = gm(v, x) ^ sg[t];
-    }
-    er[j] = (uint8_t)(cz(v) & 1u);
-  }
+/* x^-pos for the message position pos = n1 - k + i (public) */
+static uint32_t rsloc(const nqhqp *p, const uint32_t *e, size_t i) {
+  return e[(255 - (p->n1 - p->k + i)) % 255];
 }
 
-/* the error evaluator z (dl + 1 coefficients) */
-static void rsz(const nqhqp *p, uint32_t *z, const uint32_t *sg,
-                uint32_t deg, const uint32_t *syn) {
-  uint32_t i, j;
+/* poly (dl + 1 coefficients) at x */
+static uint32_t rseval(const nqhqp *p, const uint32_t *poly, uint32_t x) {
+  uint32_t v = poly[p->dl];
+  size_t t;
+  for (t = p->dl; t-- > 0;) {
+    v = gm(v, x) ^ poly[t];
+  }
+  return v;
+}
+
+/* RS.Decode.CorrectErrors: the error evaluator z, sigma_odd, and the
+ * corrected message bytes (msg[i] is codeword byte n1 - k + i) */
+static void rscor(const nqhqp *p, uint8_t *msg, const uint32_t *c,
+                  const uint32_t *sg, const uint32_t *syn,
+                  const uint32_t *e) {
+  uint32_t z[NQHQD + 1], so[NQHQD + 1];
+  size_t i, j;
   z[0] = 1;
-  for (i = 1; i <= p->dl; i++) {
-    uint32_t m = cbar(0u - ((i - deg - 1) >> 31)); /* i <= deg */
-    z[i] = m & sg[i];
-  }
-  z[1] ^= syn[0];
-  for (i = 2; i <= p->dl; i++) {
-    uint32_t m = cbar(0u - ((i - deg - 1) >> 31));
-    z[i] ^= m & syn[i - 1];
-    for (j = 1; j < i; j++) {
-      z[i] ^= m & gm(sg[j], syn[i - j - 1]);
+  for (i = 0; i < p->dl; i++) {
+    uint32_t acc = syn[i];
+    for (j = 0; j < i; j++) {
+      acc ^= gm(sg[j + 1], syn[i - 1 - j]);
     }
+    z[i + 1] = acc ^ sg[i + 1];
   }
-}
-
-/* the error values ev[i] at the positions er marks */
-static void rsev(const nqhqp *p, uint32_t *ev, const uint32_t *z,
-                 const uint8_t *er, const uint32_t *e) {
-  const uint32_t dl = p->dl;
-  uint32_t bj[NQHQD], ej[NQHQD];
-  uint32_t cnt = 0, real, i, j, k;
-  for (j = 0; j < dl; j++) {
-    bj[j] = 0;
-    ej[j] = 0;
+  for (i = 0; i <= p->dl; i++) {
+    so[i] = (i & 1u) ? sg[i] : 0;
   }
-  for (i = 0; i < p->n1; i++) {
-    uint32_t found = 0, m1 = cbar(0u - (uint32_t)er[i]);
-    for (j = 0; j < dl; j++) {
-      uint32_t m2 = cbar(cz(j ^ cnt));
-      bj[j] += m1 & m2 & e[i];
-      found += m1 & m2 & 1u;
-    }
-    cnt += found;
+  for (i = 0; i < p->k; i++) {
+    const uint32_t x = rsloc(p, e, i);
+    const uint32_t num = rseval(p, z, x), den = rseval(p, so, x);
+    /* an error here: sigma(x) = 0, and a nonzero denominator */
+    const uint32_t ok = cbar(cz(rseval(p, sg, x)) & nqctmask(den));
+    const uint32_t mag = gm(num, ginv(den));
+    msg[i] = (uint8_t)(c[p->n1 - p->k + i] ^ (ok & mag));
   }
-  real = cnt;
-  for (i = 0; i < dl; i++) {
-    uint32_t t1 = 1, t2 = 1, inv = ginv(bj[i]), invp = 1, m1;
-    for (j = 1; j <= dl; j++) {
-      invp = gm(invp, inv);
-      t1 ^= gm(invp, z[j]);
-    }
-    for (k = 1; k < dl; k++) {
-      t2 = gm(t2, 1u ^ gm(inv, bj[(i + k) % dl]));
-    }
-    m1 = cbar(0u - ((i - real) >> 31)); /* i < real */
-    ej[i] = m1 & gm(t1, ginv(t2));
-  }
-  cnt = 0;
-  for (i = 0; i < p->n1; i++) {
-    uint32_t found = 0, m1 = cbar(0u - (uint32_t)er[i]);
-    ev[i] = 0;
-    for (j = 0; j < dl; j++) {
-      uint32_t m2 = cbar(cz(j ^ cnt));
-      ev[i] += m1 & m2 & ej[j];
-      found += m1 & m2 & 1u;
-    }
-    cnt += found;
-  }
-  nqwipe(bj, sizeof bj);
-  nqwipe(ej, sizeof ej);
+  nqwipe(z, sizeof z);
+  nqwipe(so, sizeof so);
 }
 
 void nqhqrsd(const nqhqp *p, uint8_t *msg, const uint8_t *cw) {
   uint32_t e[255];
-  uint32_t c[NQHQN1], ev[NQHQN1];
-  uint32_t syn[2 * NQHQD], sg[NQHQD + 1], z[NQHQD + 1], deg;
-  uint8_t er[NQHQN1], out[NQHQN1];
+  uint32_t c[NQHQN1];
+  uint32_t syn[2 * NQHQD], sg[NQHQD + 1];
   size_t i;
   gexp(e);
   for (i = 0; i < p->n1; i++) {
     c[i] = cw[i];
   }
   rssyn(p, syn, c, e);
-  deg = rselp(p, sg, syn);
-  rsroot(p, er, sg, e);
-  rsz(p, z, sg, deg, syn);
-  rsev(p, ev, z, er, e);
-  for (i = 0; i < p->n1; i++) {
-    out[i] = (uint8_t)(c[i] ^ ev[i]);
-  }
-  memcpy(msg, out + 2 * p->dl, p->k);
+  (void)rselp(p, sg, syn);
+  rscor(p, msg, c, sg, syn, e);
   nqwipe(c, sizeof c);
-  nqwipe(ev, sizeof ev);
   nqwipe(syn, sizeof syn);
   nqwipe(sg, sizeof sg);
-  nqwipe(z, sizeof z);
-  nqwipe(er, sizeof er);
-  nqwipe(out, sizeof out);
-  nqwipe(&deg, sizeof deg);
 }
 
 /* ---- Reed-Muller ---- */
@@ -282,9 +238,9 @@ void nqhqrsd(const nqhqp *p, uint8_t *msg, const uint8_t *cw) {
 static void rmbyte(uint64_t *w, uint32_t m) {
   uint32_t a, u0, u1, u2, u3;
   a = 0u - ((m >> 7) & 1u);
-  a ^= (0u - (m & 1u)) & 0xaaaaaaaau;
-  a ^= (0u - ((m >> 1) & 1u)) & 0xccccccccu;
-  a ^= (0u - ((m >> 2) & 1u)) & 0xf0f0f0f0u;
+  a ^= (0u - (m & 1u)) & 0x55555555u;
+  a ^= (0u - ((m >> 1) & 1u)) & 0x33333333u;
+  a ^= (0u - ((m >> 2) & 1u)) & 0x0f0f0f0fu;
   a ^= (0u - ((m >> 3) & 1u)) & 0xff00ff00u;
   a ^= (0u - ((m >> 4) & 1u)) & 0xffff0000u;
   u0 = a;
@@ -313,7 +269,9 @@ void nqhqrme(const nqhqp *p, uint64_t *cw, const uint8_t *msg) {
   }
 }
 
-/* soft decoding: add the copies, Hadamard transform, take the peak */
+/* soft decoding: add the copies, Hadamard transform, take the peak; bit
+ * j of a codeword byte is position 8 (j / 8) + 7 - j % 8 (ByteToBit(.,
+ * 7 - k) of the specification) */
 void nqhqrmd(const nqhqp *p, uint8_t *msg, const uint64_t *cw) {
   size_t mult = p->n2 / 128, i, c;
   int32_t h[2][128];
@@ -326,7 +284,8 @@ void nqhqrmd(const nqhqp *p, uint8_t *msg, const uint64_t *cw) {
     for (c = 0; c < mult; c++) {
       size_t k = 2 * (i * mult + c);
       for (b = 0; b < 128; b++) {
-        h[0][b] += (int32_t)((cw[k + (size_t)(b >> 6)] >> (b & 63)) & 1u);
+        h[0][b] +=
+            (int32_t)((cw[k + (size_t)(b >> 6)] >> ((b & 63) ^ 7)) & 1u);
       }
     }
     for (pass = 0; pass < 7; pass++) {

@@ -1016,10 +1016,10 @@ int nqdput(nqdrec *r, const char *m, const char *json, size_t n, char *why,
     }
     a = qdjgetw(r->root, m);
   }
-  if (f->akey == NULL)
-    return qdjadd(a, e);
-  /* keyed: replace, or insert in order */
-  {
+  if (f->akey == NULL) {
+    rc = qdjadd(a, e);
+  } else {
+    /* keyed: replace, or insert in order */
     const char *k = keyof(e, f->akey);
     for (i = 0; i < a->n; i++) {
       int c = strcmp(keyof(a->k[i], f->akey), k);
@@ -1031,16 +1031,18 @@ int nqdput(nqdrec *r, const char *m, const char *json, size_t n, char *why,
       if (c > 0)
         break;
     }
-    if ((rc = qdjadd(a, e)) != NQOK)
-      return rc;
-    {
+    if ((rc = qdjadd(a, e)) == NQOK) {
       size_t j;
       for (j = a->n - 1; j > i; j--)
         a->k[j] = a->k[j - 1];
       a->k[i] = e;
     }
   }
-  return NQOK;
+  /* a call that fails leaves no empty member behind (one a record may
+   * not have) */
+  if (rc != NQOK && a->n == 0)
+    qdjdel(r->root, m);
+  return rc;
 }
 
 int nqddel(nqdrec *r, const char *m, const char *key) {
