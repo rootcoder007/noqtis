@@ -1,0 +1,18 @@
+# Capsule format 3 known answers, written by gen.py from the
+# specification (docs/spec/capsule.md section 16) with hashlib.
+# key: the salt key; file: a path and its bytes in hex; salt and
+# leaf: per path; root: the Merkle root; manifest: noqtis.json of a
+# seal of the files at created, with the key.
+key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+created 2026-01-01T00:00:00Z
+file a.txt 610a
+file data/b.csv 782c790a312c320a
+file data/deep/c.bin 00010203040506
+salt a.txt fbbec1d5f03753d2b9a2e15325ba4c23660b863abeed1ed4faaedc648cdedebe
+salt data/b.csv 000d3e7107bd6c0206186244ab187cd3db1f7ceefb7b88a4be97c5f918e29fe9
+salt data/deep/c.bin 8a73927f3e51b996fb46185ecf3e9140fb08f0cab6b740064cb79e673dd8e6a9
+leaf a.txt 2a43f1cbfc6fe16a549e45f5c32c3e384c75b853fa4ccd119d81307f4a638271
+leaf data/b.csv f642d49f2b47aaca7090ae0795f207c11949c03523fe9e8159958154e2083d49
+leaf data/deep/c.bin 8f60e803e3077ff9f2283475b5bbea406f92dc79f6ee8c08f3bc50ee598a5ed2
+root 95fb5d868ded8be36b94c58375c5c2bd05bfbfd244101ab9834cdcb7c91249be
+manifest {"created":"2026-01-01T00:00:00Z","files":[{"path":"a.txt","salt":"fbbec1d5f03753d2b9a2e15325ba4c23660b863abeed1ed4faaedc648cdedebe","sha256":"87428fc522803d31065e7bce3cf03fe475096631e5e07bbd7a0fde60c4cf25c7","sha3_256":"be5215abf72333a73b992dafdf4ab59884b948452e0015cfaddaa0b87a0e4515","size":2},{"path":"data/b.csv","salt":"000d3e7107bd6c0206186244ab187cd3db1f7ceefb7b88a4be97c5f918e29fe9","sha256":"81bf9fa83c6f7f151bd491a98cd7d933de3965289e3ebd77c6c425f7eaa16392","sha3_256":"1089b9ab3242e4875b671588167ffc59bcac62c4a02f16de025f810f9d2a9403","size":8},{"path":"data/deep/c.bin","salt":"8a73927f3e51b996fb46185ecf3e9140fb08f0cab6b740064cb79e673dd8e6a9","sha256":"57355ac3303c148f11aef7cb179456b9232cde33a818dfda2c2fcb9325749a6b","sha3_256":"59b1add388b7d625d2797894a4d88c7554a796a5a3d8ae232bf5f86bd72d5756","size":7}],"format":"noqtis-capsule-3","merkle":{"alg":"sha256","leaves":3,"root":"95fb5d868ded8be36b94c58375c5c2bd05bfbfd244101ab9834cdcb7c91249be"}}
