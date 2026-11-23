@@ -79,11 +79,18 @@ or nothing to compare)
 .Sh EXAMPLES
 .Bd -literal -offset indent
 $ noqtis diff results-2025 results-2026
-      manifest  3 files, then 3
-diff  file      data/a.csv changed: 89 -> 111 bytes, SHA-256 7a16...
+      manifest  2 files, then 2
+diff  file      data/a.csv changed: 17 -> 21 bytes, SHA-256 95ce625d92b5... -> bc814dc8be02...
+diff  file      noqtis.data.json changed: 191 -> 191 bytes, SHA-256 783599e62263... -> dbcf858ab41b...
 diff  schema    data/a.csv: rows {"max":3,"min":3} -> {"max":4,"min":4}
-results-2025 and results-2026: 2 differences
+results-2025 and results-2026: 3 differences
 .Ed
+.Pp
+The schema is kept in the data record,
+.Pa noqtis.data.json ,
+which the manifest lists, so a changed schema also gives a
+.Ql file
+row for the record.
 .Sh SEE ALSO
 .Xr noqtis-check 1 ,
 .Xr noqtis-data 1 ,
