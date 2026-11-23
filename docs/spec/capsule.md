@@ -370,7 +370,10 @@ signature over the canonical bytes of `head`, as for a capsule, then each
 entry's path to the head's `root` for the tree size `leaves`, by RFC 9162
 §2.1.3.2. The tree size is authenticated by the signed head, not by the
 path. A proof holds no name, size or digest of the entries it does not
-prove.
+prove, but the hashes on its audit paths are of unsalted leaves: anyone
+who can guess a file that is not shown (its path and content) can
+compute its leaf and confirm the guess. Format 3 (§16) salts the leaves
+so that this is not possible.
 
 ### 11.6 Example
 
@@ -535,6 +538,150 @@ last link's id: kept or published, it shows later that the chain was not
 cut back. Unlike `--lineage`, which follows inputs as a tree to 64
 levels, a chain is checked one link at a time, at any length.
 
+## 16. Format 3: salted Merkle leaves
+
+A format 2 proof (§11.5) shows the hashes of other entries on its audit
+paths. A format 2 leaf is `SHA-256(0x00 || entry)` with nothing secret in
+it, so anyone who can guess a hidden file's entry (its path, and its
+content, from which its size and digests follow) can compute that leaf
+and compare it with a hash in the proof: a proof lets a guess of a file
+be confirmed. Format 3 puts a secret 256-bit salt in every leaf, so that
+a proof shows nothing of the entries it does not prove that a guess can
+be checked against. Its manifest format is `noqtis-capsule-3`, its seal
+format `noqtis-seal-3` and its signing context `noqtis-capsule-3`.
+Formats 1 and 2 are unchanged: they are written on request and read and
+checked as before.
+
+### 16.1 The manifest
+
+As §11.1, with `"format":"noqtis-capsule-3"`, and each file entry has one
+more member, `salt`, 64 lower-case hex digits (32 bytes). In canonical
+order the entry is
+
+```text
+{"path":P,"salt":S,"sha256":D2,"sha3_256":D3,"size":N}
+```
+
+and a checker MUST refuse any other layout, exactly as for format 1
+(§3.1). Salts MUST be distinct; a checker refuses a manifest where two
+are equal (`manifest.fields`).
+
+### 16.2 The tree
+
+As §11.2, with one change: a leaf is
+
+```text
+leaf = SHA-256(0x02 || salt || entry)
+```
+
+where `salt` is the 32 bytes the entry's `salt` member encodes and
+`entry` is the entry's canonical bytes exactly as they appear in the
+manifest (its `salt` member included). Nodes are
+`SHA-256(0x01 || left || right)` and the tree splits as in §11.2. The
+first byte separates the three kinds of input (RFC 6962 §2.1): 0x00 for
+a format 2 leaf, 0x01 for a node, 0x02 for a format 3 leaf, so a node
+never passes for a leaf, nor a leaf of one format for one of the other.
+
+### 16.3 Salts
+
+`noqtis seal` draws each salt as 32 fresh bytes from the library's
+random source (`nqrand`: the operating system's, or the one set with
+`nqsetrng`). A seal that must be reproducible (§6, `SOURCE_DATE_EPOCH`)
+takes a salt key K of 32 bytes instead (`--salt-key`, `nqseal3`), and
+each salt is
+
+```text
+salt = SHA3-256("noqtis-salt-3" || 0x00 || K || P)
+```
+
+with P the entry's path as UTF-8. K is secret: whoever holds it can
+compute every salt and confirm guesses as against format 2. Paths are
+unique within a manifest, so the salts are distinct. The salts are not
+secret from whoever holds the whole manifest: the manifest is the
+capsule holder's, and a proof carries the salts of the entries it shows
+only. The freestanding build (`NQFREE`) has no capsule code, so it has
+no salt source to provide.
+
+### 16.4 The head, the seal, ids and lineage
+
+As §11.3 and §11.4 with the format 3 names: the seal signs the head with
+the context `noqtis-capsule-3` and holds its SHA-256 as `head_sha256`;
+the capsule's id is that hash. The head holds no salt (salts are in the
+entries, which the head leaves out).
+
+### 16.5 Proofs
+
+A proof of a format 3 capsule has the shape of §11.5 with
+`"format":"noqtis-proof-2"`; each `entry` is the entry as the manifest
+lists it, its salt included, and its leaf is computed as in §16.2. A
+`noqtis-proof-1` proof is of a format 2 capsule only, and a
+`noqtis-proof-2` proof of a format 3 capsule only.
+
+### 16.6 What a proof shows
+
+A format 3 proof shows:
+
+- the proven entries in full: path, salt, size and both digests;
+- the head: the number of entries (`leaves`), `created`, the root,
+  `inputs` and `meta`;
+- for each proven entry, its index, and so the shape of the tree and
+  where in it the entry sits; and the hashes on its audit path.
+
+It shows nothing else of the other entries a guess can be checked
+against: each leaf of an entry not shown is `SHA-256(0x02 || salt ||
+entry)` with a salt of 256 bits the reader does not have, which,
+modelling SHA-256 as a random oracle, is indistinguishable from random
+whatever the entry; a node above only such leaves is a hash of values
+indistinguishable from random, and is so too. A reader holding a
+candidate file therefore cannot confirm that it is, or is not, one of the
+capsule's other entries. This is the salted-digest construction of
+selective disclosure in ISO/IEC 18013-5 (each mobile document item
+digested with a random salt of its own) and of the IETF's Selective
+Disclosure for JWTs (each disclosure carries a salt of at least 128
+bits), and the hiding argument of a hash commitment with a random
+opening value. Binding is unchanged: the signed root fixes each salt
+and entry unless SHA-256 collisions are found (§11.2, §9).
+
+Not hidden: the number of entries, the position of each proven entry,
+what the head holds, and whatever the proven entries' paths say. A salt
+key (§16.3) that leaks, or a manifest given out whole, hides nothing.
+
+### 16.7 Size and limits
+
+Each entry grows by the 74 bytes of `,"salt":"..."` and its leaf by one
+SHA-256 block's worth of input; the limits of §8 are unchanged, so the
+512 MiB manifest limit is reached with fewer files of long paths than in
+format 1. Proofs grow by 74 bytes per proven entry.
+
+### 16.8 Which format is written, and older readers
+
+`noqtis seal` writes format 1 unless told otherwise: a whole capsule
+needs no tree, and every noqtis reads it. `--input` (which needs a
+Merkle manifest) and `--format 3` write format 3, and `--format 2`
+still writes format 2 for readers older than 0.3.0. `noqtis prove`
+takes format 2 and format 3 capsules and says, for format 2, that its
+proofs let a guess of another file be confirmed.
+
+noqtis before 0.3.0 does not read format 3. Its `noqtis check` takes a
+`noqtis-seal-3` seal for a format 1 seal with an unknown member and
+prints
+
+```text
+FAIL  seal.fields  missing, unknown or mistyped fields
+```
+
+and exits 1; its `noqtis check --proof` refuses a `noqtis-proof-2`
+proof at `proof.fields`. A format 3 capsule needs noqtis 0.3.0 or later.
+
+### 16.9 Timestamps, evidence records, exports and remote checks
+
+A timestamp (§5.3) and an evidence record are over the seal's
+signature, which format 3 does not change. Bundles (§14) and chains
+(§15) hold seals and manifests as they are. `noqtis export` (in-toto,
+BagIt, RO-Crate) lists each file's path and digests and never its salt.
+`noqtis check <url>` fetches the same two files and checks them as a
+local capsule.
+
 ## References
 
 - RFC 8785, JSON Canonicalization Scheme (JCS).
@@ -549,5 +696,10 @@ levels, a chain is checked one link at a time, at any length.
 - RFC 8032, Edwards-Curve Digital Signature Algorithm (EdDSA), for the
   Ed25519 part of a hybrid.
 - RFC 2119 and RFC 8174 (BCP 14), the key words.
+- RFC 6962, Certificate Transparency, §2.1 (the leaf and node prefixes).
+- ISO/IEC 18013-5:2021, Personal identification — ISO-compliant
+  driving licence — Part 5: Mobile driving licence (mDL) application
+  (salted digests of the data items).
+- IETF OAuth working group, Selective Disclosure for JWTs (SD-JWT).
 - FIPS 180-4 (SHA-2), FIPS 202 (SHA-3), FIPS 204 (ML-DSA), FIPS 205
   (SLH-DSA).
