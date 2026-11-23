@@ -14,6 +14,7 @@
  * module (NQEDEC). */
 #include <string.h>
 
+#include "api/sx.h"
 #include "core/int.h"
 #include "ed/ed.h"
 #include "mldsa/mldsa.h"
@@ -66,6 +67,134 @@ static int sizes(nqsalg alg, nqssz *sz) {
   sz->sk = p->sk;
   sz->sig = p->sig;
   return NQOK;
+}
+
+/* ---- the version 2 container (docs/spec/keyfile.md) ---- */
+
+/* the length of P: 32 for Ed25519 and the hybrids, else 0 */
+static size_t xpk(nqsalg alg) {
+  return alg == NQED25519 || ishy(alg) ? NQEDPK : 0;
+}
+
+int nqsxsz(nqsalg alg, size_t *n) {
+  nqssz sz;
+  if (n == NULL) return NQEARG;
+  *n = 0;
+  if (sizes(alg, &sz) != NQOK) return NQEARG;
+  *n = sz.sk + xpk(alg) + 32;
+  return NQOK;
+}
+
+int nqsxlen(nqsalg alg, size_t n) {
+  nqssz sz;
+  size_t x;
+  if (sizes(alg, &sz) != NQOK || nqsxsz(alg, &x) != NQOK) return 0;
+  return n == sz.sk || n == x;
+}
+
+size_t nqsxs(nqsalg alg, size_t n) {
+  nqssz sz;
+  size_t x;
+  if (sizes(alg, &sz) != NQOK || nqsxsz(alg, &x) != NQOK) return n;
+  return n == x ? sz.sk : n;
+}
+
+/* T of S (sn bytes) and P (pn bytes) */
+static int xtag(nqsalg alg, const uint8_t *s, size_t sn, const uint8_t *p,
+                size_t pn, uint8_t t[32]) {
+  static const char dom[] = "noqtis-sk-2";
+  const char *an = nqsname(alg);
+  static const uint8_t z = 0;
+  nqhctx h;
+  int rc = an == NULL ? NQEARG : nqhini(&h, NQS3256);
+  if (rc == NQOK) rc = nqhupd(&h, (const uint8_t *)dom, sizeof dom);
+  if (rc == NQOK) rc = nqhupd(&h, (const uint8_t *)an, strlen(an));
+  if (rc == NQOK) rc = nqhupd(&h, &z, 1);
+  if (rc == NQOK) rc = nqhupd(&h, s, sn);
+  if (rc == NQOK && pn > 0) rc = nqhupd(&h, p, pn);
+  if (rc == NQOK) rc = nqhfin(&h, t, 32);
+  nqwipe(&h, sizeof h);
+  return rc;
+}
+
+/* the Ed25519 public key of S (its last 32 bytes are the seed) */
+static int xedpk(const uint8_t *s, size_t sn, uint8_t pk[NQEDPK]) {
+  return nqedkg(s + sn - NQEDSK, pk);
+}
+
+int nqsxmk(nqsalg alg, const uint8_t *sk, size_t sklen, uint8_t *x,
+           size_t xlen) {
+  nqssz sz;
+  size_t xn, e = xpk(alg);
+  int rc;
+  if (sk == NULL || x == NULL || sizes(alg, &sz) != NQOK) return NQEARG;
+  (void)nqsxsz(alg, &xn);
+  if (sklen != sz.sk) return NQEDEC;
+  if (xlen < xn) return NQEBUF;
+  memmove(x, sk, sz.sk); /* x may be sk */
+  rc = e > 0 ? xedpk(x, sz.sk, x + sz.sk) : NQOK;
+  if (rc == NQOK) rc = xtag(alg, x, sz.sk, x + sz.sk, e, x + sz.sk + e);
+  if (rc != NQOK) nqwipe(x, xn);
+  return rc;
+}
+
+int nqsxchk(nqsalg alg, const uint8_t *x, size_t xlen) {
+  nqssz sz;
+  size_t xn, e = xpk(alg);
+  uint8_t t[32], pk[NQEDPK];
+  int rc, ok;
+  if (x == NULL || sizes(alg, &sz) != NQOK) return NQEARG;
+  (void)nqsxsz(alg, &xn);
+  if (xlen == sz.sk) return NQENOSUP; /* S alone: no integrity value */
+  if (xlen != xn) return NQEDEC;
+  rc = xtag(alg, x, sz.sk, x + sz.sk, e, t);
+  ok = rc == NQOK && nqcteq(t, x + sz.sk + e, 32);
+  if (rc == NQOK && e > 0) {
+    rc = xedpk(x, sz.sk, pk);
+    ok &= rc == NQOK && nqcteq(pk, x + sz.sk, NQEDPK);
+  }
+  nqwipe(t, sizeof t);
+  nqwipe(pk, sizeof pk);
+  if (rc != NQOK) return rc;
+  return ok ? NQOK : NQEDEC;
+}
+
+int nqsxrel(nqsalg alg, const uint8_t *x, size_t xlen, uint8_t *sig,
+            size_t n) {
+  static const uint32_t tg[2] = {NQVTA, NQVTB};
+  volatile uint32_t v[2] = {0, 0};
+  nqssz sz;
+  size_t xn, e = xpk(alg);
+  uint8_t t[32], pk[NQEDPK];
+  int rc, rt, rk = NQOK;
+  if (sizes(alg, &sz) != NQOK || nqsxsz(alg, &xn) != NQOK) return NQEARG;
+  if (xlen == sz.sk) return NQOK; /* S alone: the signers' checks only */
+  if (xlen != xn) return NQEDEC;
+  memset(t, 0, sizeof t);
+  memset(pk, 0, sizeof pk);
+  /* T again from the key in memory, after signing */
+  rt = xtag(alg, x, sz.sk, x + sz.sk, e, t);
+  if (!NQFLT(NQFX1)) {
+    v[0] = nqvok(rt, nqvif(nqcteq(t, x + sz.sk + e, 32), NQVTA));
+  }
+  /* and the public key derived again from the seed, against P */
+  if (e > 0) rk = xedpk(x, sz.sk, pk);
+  if (!NQFLT(NQFX2)) {
+    v[1] = e > 0 ? nqvok(rk, nqvif(nqcteq(pk, x + sz.sk, NQEDPK), NQVTB))
+                 : NQVTB;
+  }
+  rc = nqrel(sig, n, v, tg, 2);
+  nqwipe(t, sizeof t);
+  nqwipe(pk, sizeof pk);
+  return rc;
+}
+
+int nqsxend(nqsalg alg, const uint8_t *x, size_t xlen, uint8_t *sig,
+            size_t n, int rc) {
+  if (rc == NQOK) return nqsxrel(alg, x, xlen, sig, n);
+  if (rc == NQEDEC && nqsxchk(alg, x, xlen) == NQEDEC) rc = NQEFLT;
+  nqwipe(sig, n);
+  return rc;
 }
 
 int nqssize(nqsalg alg, nqssz *sz) {
@@ -280,7 +409,7 @@ static int sign(nqsalg alg, const uint8_t *sk, size_t sklen,
                 size_t ctxlen, int ph, const uint8_t *rnd, size_t rndlen,
                 int det, uint8_t *sig, size_t siglen, size_t *outlen) {
   nqssz sz;
-  size_t n = 0;
+  size_t n = 0, kl;
   int rc;
   if (outlen != NULL) {
     *outlen = 0;
@@ -292,14 +421,17 @@ static int sign(nqsalg alg, const uint8_t *sk, size_t sklen,
   if (siglen < sz.sig) {
     return NQEBUF;
   }
+  /* a version 2 container (api/sx.h) signs with its key S, and is
+   * checked after signing */
+  kl = nqsxs(alg, sklen);
   if (ismd(alg)) {
-    rc = nqmdsign((int)alg, sk, sklen, msg, msglen, ctx, ctxlen, ph, rnd,
+    rc = nqmdsign((int)alg, sk, kl, msg, msglen, ctx, ctxlen, ph, rnd,
                   rndlen, sig, sz.sig, &n);
   } else if (alg == NQED25519) {
     int e = edph(ph);
     if (e < 0) {
       rc = NQENOSUP;
-    } else if (sklen != NQEDSK) {
+    } else if (kl != NQEDSK) {
       rc = NQEDEC;
     } else {
       rc = edsign(sk, msg, msglen, ctx, ctxlen, e, det, sig);
@@ -312,7 +444,7 @@ static int sign(nqsalg alg, const uint8_t *sk, size_t sklen,
     int e = edph(ph);
     if (e < 0) {
       rc = NQENOSUP;
-    } else if (sklen != sz.sk) {
+    } else if (kl != sz.sk) {
       rc = NQEDEC;
     } else {
       /* Ed25519 first, while msg is whole: sig may overlap msg, and
@@ -329,12 +461,13 @@ static int sign(nqsalg alg, const uint8_t *sk, size_t sklen,
     }
     nqwipe(es, sizeof es);
   } else if (rnd == NULL) {
-    rc = nqslsign(alg, sk, sklen, msg, msglen, ctx, ctxlen, ph, sig,
+    rc = nqslsign(alg, sk, kl, msg, msglen, ctx, ctxlen, ph, sig,
                   sz.sig, &n);
   } else {
-    rc = nqslsignd(alg, sk, sklen, msg, msglen, ctx, ctxlen, ph, rnd,
+    rc = nqslsignd(alg, sk, kl, msg, msglen, ctx, ctxlen, ph, rnd,
                    rndlen, sig, sz.sig, &n);
   }
+  if (kl != sklen) rc = nqsxend(alg, sk, sklen, sig, sz.sig, rc);
   if (rc != NQOK) {
     nqwipe(sig, sz.sig);
     return rc;
@@ -464,9 +597,13 @@ int nqsignmu(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *mu,
   }
   (void)sizes(alg, &sz);
   if (siglen < sz.sig) return NQEBUF;
-  /* the masked signer, as nqsign uses; rnd NULL draws it from nqrand */
-  rc = nqmdsmu((int)alg, sk, sklen, mu, rnd, rndlen, NQMDMASK, sig, sz.sig,
-               &n);
+  /* the masked signer, as nqsign uses; rnd NULL draws it from nqrand;
+   * a version 2 container signs with S and is checked after */
+  rc = nqmdsmu((int)alg, sk, nqsxs(alg, sklen), mu, rnd, rndlen, NQMDMASK,
+               sig, sz.sig, &n);
+  if (nqsxs(alg, sklen) != sklen) {
+    rc = nqsxend(alg, sk, sklen, sig, sz.sig, rc);
+  }
   if (rc != NQOK) {
     nqwipe(sig, sz.sig);
     return rc;

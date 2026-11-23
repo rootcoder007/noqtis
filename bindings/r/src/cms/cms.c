@@ -328,7 +328,7 @@ int nqx5self(nqsalg alg, const uint8_t *sk, size_t sklen, const uint8_t *pk,
     return NQEARG;
   on = sigoid(alg, o);
   if (on == 0 || nqssize(alg, &sz) != NQOK) return NQENOSUP;
-  if (pklen != sz.pk || sklen != sz.sk) return NQEARG;
+  if (pklen != sz.pk || !nqsxlen(alg, sklen)) return NQEARG;
   nqdwini(&t);
   nqdwini(&s);
   /* subjectAltName: rfc822Name, where S/MIME looks for the address */
@@ -377,7 +377,7 @@ int nqx5kem(nqsalg ialg, const uint8_t *isk, size_t isklen,
   if (alg < NQMLKEM512 || alg > NQMLKEM1024 || nqksize(alg, &kz) != NQOK ||
       nqssize(ialg, &sz) != NQOK || sigoid(ialg, o) == 0)
     return NQENOSUP;
-  if (pklen != kz.pk || isklen != sz.sk) return NQEARG;
+  if (pklen != kz.pk || !nqsxlen(ialg, isklen)) return NQEARG;
   rc = nqcprs(icert, icertlen, &ic);
   if (rc != NQOK) return rc == NQEMEM ? rc : NQEDEC;
   /* the issuer's certificate is one this key signs under, and a CA */
@@ -536,7 +536,7 @@ int nqcmssign(nqsalg alg, const uint8_t *sk, size_t sklen,
   if (n > CMSMAX) return NQELIM;
   memset(&sz, 0, sizeof sz);
   if (nqssize(alg, &sz) != NQOK || alg > NQED25519) return NQENOSUP;
-  if (sklen != sz.sk) return NQEARG;
+  if (!nqsxlen(alg, sklen)) return NQEARG;
   rc = nqcprs(cert, certlen, &c);
   if (rc != NQOK) return rc == NQEMEM ? rc : NQEDEC;
   /* the certificate is this key's */

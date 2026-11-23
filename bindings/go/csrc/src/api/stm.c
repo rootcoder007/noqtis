@@ -18,6 +18,7 @@
  * kept). */
 #include <string.h>
 
+#include "api/sx.h"
 #include "core/int.h"
 #include "ed/ed.h"
 #include "hash/h.h"
@@ -70,7 +71,7 @@ static int ini(nqsctx *c, nqsalg alg, const uint8_t *key, size_t klen,
       (ishy(alg) && ctxlen > CTXMAX - HYBL)) {
     return NQEARG;
   }
-  if (klen != (sec ? z.sk : z.pk)) return NQEDEC;
+  if (sec ? !nqsxlen(alg, klen) : klen != z.pk) return NQEDEC;
   /* what cannot stream: pure SLH-DSA and pure Ed25519, and Ed25519ph
    * (alone or in a hybrid) with a hash other than SHA-512 */
   if (ph == 0 && !ismd(alg)) return NQENOSUP;
@@ -204,7 +205,7 @@ int nqsfin(nqsctx *c, const uint8_t *sk, size_t sklen, const uint8_t *rnd,
   nqssz z;
   uint8_t mu[NQMDMU], dig[NQHMAX], m[2 + CTXMAX + NQMDOID + NQHMAX];
   uint8_t r[32], es[NQEDSIG];
-  size_t dl = 0, n = 0, want;
+  size_t dl = 0, n = 0, want, kl;
   int rc;
   if (outlen != NULL) *outlen = 0;
   if (c == NULL) return NQEARG;
@@ -226,8 +227,9 @@ int nqsfin(nqsctx *c, const uint8_t *sk, size_t sklen, const uint8_t *rnd,
   } else {
     rc = fin(&s, mu, dig, &dl);
   }
+  kl = nqsxs(s.alg, sklen);
   if (rc == NQOK && ismd(s.alg)) {
-    rc = nqmdsmu((int)s.alg, sk, sklen, mu, rnd, rndlen, NQMDMASK, sig,
+    rc = nqmdsmu((int)s.alg, sk, kl, mu, rnd, rndlen, NQMDMASK, sig,
                  z.sig, &n);
   } else if (rc == NQOK && s.alg == NQED25519) {
     rc = rnd == NULL ? nqrand(r, 32) : NQOK;
@@ -266,8 +268,12 @@ int nqsfin(nqsctx *c, const uint8_t *sk, size_t sklen, const uint8_t *rnd,
       nqcmov(r, sk + 2 * p->n, p->n, (uint8_t)(1u + nqctmask(zz)));
     }
     if (rc == NQOK) {
-      rc = nqslsigi(s.alg, sk, sklen, m, ml, r, p->n, sig, z.sig, &n);
+      rc = nqslsigi(s.alg, sk, kl, m, ml, r, p->n, sig, z.sig, &n);
     }
+  }
+  /* a version 2 container: checked after signing (api/sx.h) */
+  if (kl != sklen && sig != NULL && siglen >= z.sig) {
+    rc = nqsxend(s.alg, sk, sklen, sig, z.sig, rc);
   }
   nqwipe(&s, sizeof s);
   nqwipe(mu, sizeof mu);

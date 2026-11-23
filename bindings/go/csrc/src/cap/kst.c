@@ -694,7 +694,7 @@ int nqkscert(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
     return NQEARG;
   /* certifications are by post-quantum keys, as cards and seals are */
   if (alg == NQED25519 || nqssize(alg, &sz) != NQOK) return NQENOSUP;
-  if (pklen != sz.pk || sklen != sz.sk) return NQEARG;
+  if (pklen != sz.pk || !nqsxlen(alg, sklen)) return NQEARG;
   if (nqctime(at, ts) != NQOK) return NQEARG;
   rc = getpub(dir, fp, &kem, &ta, tpk, sizeof tpk, &tl);
   if (rc == NQOK) rc = getmeta(dir, fp, name, email, &trust);

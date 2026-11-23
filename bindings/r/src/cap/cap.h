@@ -13,6 +13,7 @@
 #include "noqtis.h"
 #include "core/json.h"
 #include "der/x509.h"
+#include "api/sx.h"
 
 #define NQCMAN "noqtis.json"
 #define NQCSIG "noqtis.sig"
@@ -175,7 +176,7 @@ typedef struct {
 int nqcwalk(const char *dir, nqclist *l);
 void nqclfree(nqclist *l);
 /* *sec = whether dir/rel starts like a noqtis secret key ("noqtis-key-1
- * <alg> sec"), as nqcdigx decides it */
+ * <alg> sec" or "noqtis-key-2 <alg> sec"), as nqcdigx decides it */
 int nqcsec(const char *dir, const char *rel, int *sec);
 /* Streams dir/rel (a regular file, never through a link) into SHA-256
  * and SHA3-256. */
@@ -184,7 +185,7 @@ int nqcdig(const char *dir, const char *rel, uint64_t *size,
 /* nqcdig that stops after max + 1 bytes (*size then exceeds max, the
  * digests are not of the whole file), and sets *sec (when not NULL) to
  * whether the file starts with a noqtis secret key header
- * ("noqtis-key-1 <alg> sec"). */
+ * ("noqtis-key-1 <alg> sec" or "noqtis-key-2 <alg> sec"). */
 int nqcdigx(const char *dir, const char *rel, uint64_t max, uint64_t *size,
             uint8_t s2[32], uint8_t s3[32], int *sec);
 /* Reads dir/name (at most max bytes, never through a link) into a fresh
