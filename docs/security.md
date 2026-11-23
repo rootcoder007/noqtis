@@ -364,19 +364,24 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
   bounded proof says nothing about longer inputs; those are left to the
   fuzzers and the tests.
 - Proofs of the arithmetic in Lean 4 with Mathlib (`proofs/lean/`, built
-  in CI when they change): the Montgomery and Barrett reductions, the
+  in CI when they or the C they model change): the Montgomery and Barrett reductions, the
   compression and rounding steps and their error bounds, Power2Round,
   Decompose and the hint lemma of FIPS 204, the roots of unity and the
   factorisations of X^256 + 1 behind both number-theoretic transforms,
   ByteEncode and ByteDecode as inverses, the constant-time selection and
   comparison tricks for every 32-bit word, the SLH-DSA sizes and HQC's
-  GF(2^8) arithmetic. They prove the mathematics of a model written to
+  GF(2^8) arithmetic (specification 5.1: the product modulo
+  x^8 + x^4 + x^3 + x + 1, the inverse, and the table of powers of
+  alpha = x + 1, which has order 255). They prove the mathematics of a model written to
   mirror the C expression by expression. They do not prove that the C
   code computes that model, that the transform networks compute the
   transforms, or anything about timing or power; the link from model to
   code is by inspection and by the tests. `proofs/lean/README.md` lists
   each theorem, the C function it is about, the C behaviour it assumes
-  and the axioms it uses. There is no `sorry`.
+  and the axioms it uses. There is no `sorry`. Nothing about the formats
+  (the Merkle tree, capsules, key files) is proved in this repository:
+  the CBMC proofs cover the readers' memory safety and the Lean proofs
+  only arithmetic.
 - OpenSSL 3.5 or later: `tests/ossl/xossl.c` checks that ML-DSA, all
   twelve SLH-DSA sets and ML-KEM give the same keys, signatures,
   ciphertexts and secrets as OpenSSL from the same seeds, that the
