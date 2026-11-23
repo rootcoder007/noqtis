@@ -418,7 +418,11 @@ fn seal_and_check() {
     files(&d1);
     cap::seal1(&d1, "ML-DSA-65", &sk, &pk, None).unwrap();
     assert_eq!(
-        cap::inspect(&d1).unwrap().get("info.format").unwrap().detail,
+        cap::inspect(&d1)
+            .unwrap()
+            .get("info.format")
+            .unwrap()
+            .detail,
         "noqtis-capsule-1"
     );
     fs::remove_dir_all(&d1).unwrap();
