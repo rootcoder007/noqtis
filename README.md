@@ -78,7 +78,8 @@ and the [threat model](https://noqtis.dev/security/).
   the public key before it is returned, since a signature made in a
   glitched computation can give the key away.
 - **A self-test**: `noqtis selftest` (and `nqselftest()` in every binding)
-  runs known answers for every algorithm family in about a tenth of a
+  runs known answers for every algorithm family (SLH-DSA by its key
+  generation only; `nqselftest(3)` lists the tests) in about a tenth of a
   second.
 - **Embedded**: `-DNQFREE=ON` builds the algorithms alone, for firmware and
   kernels: no operating system, randomness from the caller, and no

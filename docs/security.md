@@ -424,10 +424,18 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
   from the message representative it already has and SLH-DSA from the
   digest, so this costs one verification.
 - A known-answer self-test, `nqselftest()` (`noqtis selftest`, and in
-  every binding): fixed inputs through every family, all outputs hashed
-  and compared with stored answers, in about a tenth of a second, as a
-  FIPS 140-3 module tests itself before use. A mismatch (`NQEKAT`) means
-  the build or the machine is broken.
+  every binding): fixed inputs through every algorithm family (SHA-1,
+  SHA-2, SHA-3, SHAKE, KangarooTwelve and BLAKE2b, HMAC, HKDF, PBKDF2,
+  Argon2id, HMAC_DRBG, ML-KEM, HQC, ML-DSA, SLH-DSA key generation but
+  not its signing, Ed25519 and a hybrid, X25519 and ECDH, RSA and ECDSA
+  verification, AES-GCM, ChaCha20-Poly1305, ChaCha20, AES-SIV,
+  AES-GCM-SIV, AES key wrap, OCB and EAX), all outputs hashed and
+  compared with stored answers, in about a tenth of a second, as a
+  FIPS 140-3 module tests itself before use. Eighteen of its 25 tests
+  run the inputs of a published vector (`nqselftest(3)` names each). A
+  mismatch (`NQEKAT`) means the build or the machine is broken. SLH-DSA
+  signing is left out because one signature takes longer than the whole
+  self-test.
 - Time that lasts: an RFC 3161 timestamp proves when a seal existed only
   while its TSA's certificate and hash hold. An RFC 4998 evidence record
   (`noqtis ers`) is renewed before either fails, by a timestamp over the
