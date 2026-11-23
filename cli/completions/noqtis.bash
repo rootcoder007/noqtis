@@ -76,7 +76,8 @@ _noqtis() {
     dec) opts="-k --key -o --out --stdout --pass-fd --pass-env -f --force" ;;
     hash) opts="-a --alg -c --check" ;;
     seal) opts="-k --key -p --pub --pass-fd --pass-env -m --meta --format --input
-      --tsa --anchor -r --recursive" ;;
+      --tsa --anchor -r --recursive --token --module --slot --label --id
+      --pin-fd --pin-env" ;;
     check) opts="-p --pub -j --json --anchor --only --lineage --proof
       --keys --card -r --recursive" ;;
     diff) opts="-j --json" ;;

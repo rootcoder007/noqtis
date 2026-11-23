@@ -192,6 +192,13 @@ _noqtis_cmd() {
         '*--input=[an input capsule]:dir:_files -/' \
         '*--tsa[RFC 3161 timestamp authority]:url:_urls' \
         '*--anchor[trusted root certificate]:der-file:_files' \
+        '--token[seal with a key on a PKCS #11 token]' \
+        '--module=[PKCS #11 module]:module:_files' \
+        '--slot=[slot of the token]:slot:' \
+        '--label=[label of the key on the token]:label:' \
+        '--id=[hexadecimal ID of the key on the token]:id:' \
+        '--pin-fd=[read the PIN from descriptor]:fd:' \
+        '--pin-env=[read the PIN from variable]:name:_parameters' \
         ':dir:_files -/' ;;
     check)
       _arguments \
