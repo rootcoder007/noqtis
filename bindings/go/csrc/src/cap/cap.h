@@ -24,6 +24,10 @@
 #define NQCFMT2 "noqtis-capsule-2"
 #define NQCSFMT2 "noqtis-seal-2"
 #define NQCCTX2 "noqtis-capsule-2"
+/* format 3: format 2 with a secret salt in every Merkle leaf */
+#define NQCFMT3 "noqtis-capsule-3"
+#define NQCSFMT3 "noqtis-seal-3"
+#define NQCCTX3 "noqtis-capsule-3"
 #define NQCINMAX 1024 /* inputs of one capsule */
 #define NQCKFMT "noqtis-keys-1" /* key statements, and their context */
 #define NQCKMAX 32 /* key statements in one check, and rotations followed */
@@ -226,6 +230,13 @@ int nqcersck(const char *dir, const uint8_t *const *anc,
 
 /* SHA-256(0x00 || e): the leaf of one entry's canonical bytes */
 void nqcmleaf(const char *e, size_t n, uint8_t out[32]);
+/* SHA-256(0x02 || salt || e): the leaf of a format 3 entry */
+void nqcmleaf3(const uint8_t salt[32], const char *e, size_t n,
+               uint8_t out[32]);
+/* SHA3-256("noqtis-salt-3" || 0x00 || key || path): the salt of the entry
+ * at path under the salt key key (32 bytes), for reproducible capsules */
+int nqcsaltk(const uint8_t key[32], const char *path, size_t n,
+             uint8_t out[32]);
 /* the root of n leaves (32 bytes each, in order); SHA-256("") for none */
 void nqcmroot(const uint8_t *lv, size_t n, uint8_t out[32]);
 /* the audit path of leaf m: *len sibling hashes, leaf upward, into path
@@ -248,7 +259,8 @@ int nqcseal(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
             const uint8_t *pk, size_t pklen, const char *meta,
             const char *tsa, int64_t created, const uint8_t *rnd,
             size_t rndlen, int *why);
-/* nqcseal writing format ver (1 or 2), with nin inputs (format 2 only). */
+/* nqcseal writing format ver (1, 2 or 3), with nin inputs (formats 2 and
+ * 3 only). */
 /* What signs a seal: the signature of msg under the context ctx, as
  * nqsign makes it, written to sig (cap bytes), its length to *siglen. */
 typedef int (*nqcsg)(void *u, const uint8_t *msg, size_t n,
@@ -262,12 +274,19 @@ typedef int (*nqcsg)(void *u, const uint8_t *msg, size_t n,
 int nqcsealsg(const char *dir, nqsalg alg, nqcsg sg, void *u, size_t sklen,
               const uint8_t *pk, size_t pklen, const char *meta,
               const char *tsa, int64_t created, int ver, const nqcin *in,
-              size_t nin, int *why);
+              size_t nin, const uint8_t *skey, int *why);
 int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
              const uint8_t *pk, size_t pklen, const char *meta,
              const char *tsa, int64_t created, const uint8_t *rnd,
              size_t rndlen, int ver, const nqcin *in, size_t nin,
              int *why);
+/* nqcsealx with, for format 3, the 32-byte salt key skey (NULL: fresh
+ * salts from nqrand) */
+int nqcsealk(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
+             const uint8_t *pk, size_t pklen, const char *meta,
+             const char *tsa, int64_t created, const uint8_t *rnd,
+             size_t rndlen, int ver, const nqcin *in, size_t nin,
+             const uint8_t *skey, int *why);
 /* "too many files", "path too long", ... for an NQCL* code; NULL for 0. */
 const char *nqclwhy(int lim);
 

@@ -28,7 +28,8 @@ static const char *const fld1[] = {"alg",        "context",
                                    "format",     "manifest_sha256",
                                    "public_key", "signature",
                                    "timestamp"};
-/* noqtis-seal-2: head_sha256 in place of manifest_sha256 (same order) */
+/* noqtis-seal-2 and -3: head_sha256 in place of manifest_sha256 (same
+ * order) */
 static const char *const fld2[] = {"alg",        "context",
                                    "format",     "head_sha256",
                                    "public_key", "signature",
@@ -59,7 +60,9 @@ static int rdseal(const char *dir, rseal *s, const char **why) {
   if (rc != NQOK) return rc;
   {
     const nqjs *f = nqjget(s->v, "format");
-    s->f = f != NULL && f->type == NQJSTR && strcmp(f->str, NQCSFMT2) == 0
+    s->f = f != NULL && f->type == NQJSTR &&
+                   (strcmp(f->str, NQCSFMT2) == 0 ||
+                    strcmp(f->str, NQCSFMT3) == 0)
                ? fld2
                : fld1;
   }

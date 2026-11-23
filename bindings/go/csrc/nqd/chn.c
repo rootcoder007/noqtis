@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* Chains: an append-only log of capsules, each sealed in format 2 with
+/* Chains: an append-only log of capsules, each sealed in format 3 or 2 with
  * the one before as its only input (`noqtis seal --input`), so the seal
  * of each link signs the id of the last. nqdchain checks a chain in
  * order: every link checks, each names exactly the link before it, and
@@ -12,7 +12,7 @@
 
 /* the ids of the inputs of the capsule in dir, read from its manifest
  * and bound to its seal: the bytes the seal signs (the manifest, or in
- * format 2 its head) must hash to the capsule's id */
+ * formats 2 and 3 its head) must hash to the capsule's id */
 static int inputs(const char *dir, const uint8_t id[32], uint8_t *ids,
                   size_t max, size_t *n, char *why, size_t cap) {
   static const char ff[] = ",\"files\":[";
@@ -37,7 +37,7 @@ static int inputs(const char *dir, const uint8_t id[32], uint8_t *ids,
   }
   s = strstr(m, ff);
   e = s != NULL ? strstr(s, fe) : NULL;
-  if (e != NULL && e[sizeof fe - 1] != '2')
+  if (e != NULL && e[sizeof fe - 1] != '2' && e[sizeof fe - 1] != '3')
     e = NULL;
   if (e == NULL) {
     /* format 1: the manifest is what the seal signs, and has no inputs */

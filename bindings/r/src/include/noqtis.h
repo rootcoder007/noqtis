@@ -708,14 +708,27 @@ typedef struct {
 } nqcin;
 /* nqseal in format 2 (noqtis-capsule-2, noqtis-seal-2): the manifest also
  * carries a Merkle tree over its entries, so that nqprove can show single
- * files without the rest, and the nin capsules it was made from (at most
- * 1024; in may be NULL when nin is 0). The seal signs the manifest's head
- * (everything but the list of files). */
+ * files without the rest's names, sizes or digests, and the nin capsules
+ * it was made from (at most 1024; in may be NULL when nin is 0). The seal
+ * signs the manifest's head (everything but the list of files). Its
+ * leaves are unsalted: anyone who can guess a file not shown (path and
+ * content) can confirm the guess from a proof. nqseal3 salts them. */
 NQAPI int nqseal2(const char *dir, nqsalg alg, const uint8_t *sk,
                   size_t sklen, const uint8_t *pk, size_t pklen,
                   const char *meta, const nqcin *in, size_t nin);
+/* nqseal2 in format 3 (noqtis-capsule-3, noqtis-seal-3): each entry also
+ * carries a salt of 32 bytes, in its Merkle leaf too, so that a proof
+ * lets no one confirm a guess of the files it does not show. skey NULL
+ * (skeylen 0): fresh salts from nqrand; else the 32-byte salt key the
+ * salts are derived from (noqtis-capsule(5)), for a reproducible capsule:
+ * keep it secret, as whoever has it can compute every salt. */
+NQAPI int nqseal3(const char *dir, nqsalg alg, const uint8_t *sk,
+                  size_t sklen, const uint8_t *pk, size_t pklen,
+                  const char *meta, const nqcin *in, size_t nin,
+                  const uint8_t *skey, size_t skeylen);
 /* The id of the capsule in dir: the SHA-256 of the bytes its seal signs
- * (manifest_sha256 of a format 1 seal, head_sha256 of a format 2 one),
+ * (manifest_sha256 of a format 1 seal, head_sha256 of a format 2 or 3
+ * one),
  * read from noqtis.sig. Nothing else is checked: check the capsule first
  * (nqchk) before relying on it. */
 NQAPI int nqcapid(const char *dir, uint8_t id[32]);
@@ -851,10 +864,13 @@ NQAPI int nqdssevrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
                      size_t *outlen, char type[256]);
 /* nqchkt with the options of o (NULL: none). */
 NQAPI int nqchkx(const char *dir, const nqcopt *o, nqrep **rep);
-/* A proof (noqtis-proof-1) that the files paths[0..np) are in the format 2
- * capsule in dir: the seal, the manifest's head (its Merkle root and leaf
- * count) and, per file, its entry and audit path, so that nqchkp can
- * check those files and learns nothing of the others' names or digests.
+/* A proof that the files paths[0..np) are in the format 2 (noqtis-proof-1)
+ * or format 3 (noqtis-proof-2) capsule in dir: the seal, the manifest's
+ * head (its Merkle root and leaf count) and, per file, its entry and audit
+ * path, so that nqchkp can check those files and learns none of the
+ * others' names, sizes or digests. For format 2 the hashes on the paths
+ * are of unsalted leaves, so a guess of another file can be confirmed;
+ * for format 3 it cannot (noqtis-capsule(5)).
  * Written to out (cap bytes); *outlen gets the size, also with NQEBUF
  * when cap is too small. NQENOSUP for a format 1 capsule, NQEIO for a
  * path the manifest does not list. Check the capsule (nqchk) first. */
@@ -1378,8 +1394,9 @@ NQAPI int nqp11dec(nqp11 *p, const nqp11k *k, const uint8_t *ct,
                    size_t ctlen, uint8_t *ss, size_t sslen);
 NQAPI int nqp11gen(nqp11 *p, int kem, int alg, const char *label,
                    nqp11k *k);
-/* Seals dir as nqseal (fmt 1) or nqseal2 (fmt 2; in and nin as there,
- * and they must be NULL and 0 for fmt 1) does, with the signature key k
+/* Seals dir as nqseal (fmt 1), nqseal2 (fmt 2) or nqseal3 with fresh
+ * salts (fmt 3) does (in and nin as there, and they must be NULL and 0
+ * for fmt 1), with the signature key k
  * of the token: the key never leaves it, and the public key written to
  * the seal is the token's own (nqp11pub). The signature is checked
  * before anything is written. The returns of nqseal and of nqp11sign;

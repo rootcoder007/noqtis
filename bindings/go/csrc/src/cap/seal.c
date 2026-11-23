@@ -9,7 +9,11 @@
  * nqseal2 writes format 2: the manifest also holds the inputs and a Merkle
  * tree over the entries (each leaf the hash of an entry's canonical
  * bytes), and the seal signs the head, the manifest without its "files"
- * member, with the context "noqtis-capsule-2". */
+ * member, with the context "noqtis-capsule-2".
+ *
+ * nqseal3 writes format 3: format 2 with a salt of 32 bytes in every
+ * entry, in its Merkle leaf too, so that a proof of some files confirms
+ * no guess of the others; the context is "noqtis-capsule-3". */
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -145,11 +149,13 @@ typedef struct {
   size_t nin;
   size_t fs, fe;
   uint8_t *lv; /* the leaves, 32 bytes per entry */
+  const uint8_t *skey; /* format 3: the salt key, or NULL for fresh salts */
 } mopt;
 
 static int manifest(const char *dir, const nqclist *l, const char *ts,
                     const nqjs *meta, nqcbuf *m, int *sec, mopt *o) {
   size_t i;
+  uint8_t salt[32];
   int rc = NQOK;
   nqcputs(m, "{\"created\":");
   nqcjstr(m, ts, strlen(ts));
@@ -175,6 +181,16 @@ static int manifest(const char *dir, const nqclist *l, const char *ts,
     es = m->n;
     nqcputs(m, "{\"path\":");
     nqcjstr(m, l->e[i].path, l->e[i].len);
+    if (o->ver == 3) {
+      rc = o->skey != NULL
+               ? nqcsaltk(o->skey, l->e[i].path, l->e[i].len, salt)
+               : nqrand(salt, sizeof salt);
+      if (rc != NQOK) return rc;
+      nqhex(salt, 32, hx);
+      nqcputs(m, ",\"salt\":\"");
+      nqcputs(m, hx);
+      nqcput(m, "\"", 1);
+    }
     nqhex(s2, 32, hx);
     nqcputs(m, ",\"sha256\":\"");
     nqcputs(m, hx);
@@ -186,14 +202,18 @@ static int manifest(const char *dir, const nqclist *l, const char *ts,
     nqcput(m, "}", 1);
     if (o->ver == 2 && m->err == NQOK) {
       nqcmleaf(m->p + es, m->n - es, o->lv + 32 * i);
+    } else if (o->ver == 3 && m->err == NQOK) {
+      nqcmleaf3(salt, m->p + es, m->n - es, o->lv + 32 * i);
     }
   }
+  nqwipe(salt, sizeof salt);
   nqcputs(m, "],");
   o->fe = m->n;
-  if (o->ver == 2) {
+  if (o->ver >= 2) {
     uint8_t root[32];
     char hx[65];
-    nqcputs(m, "\"format\":\"" NQCFMT2 "\"");
+    nqcputs(m, o->ver == 3 ? "\"format\":\"" NQCFMT3 "\""
+                           : "\"format\":\"" NQCFMT2 "\"");
     if (o->nin > 0) {
       nqcputs(m, ",\"inputs\":[");
       for (i = 0; i < o->nin; i++) {
@@ -235,7 +255,11 @@ static int sealjson(nqcbuf *s, int ver, const char *an, const uint8_t *mh,
   if (b == NULL) return NQEMEM;
   nqcputs(s, "{\"alg\":");
   nqcjstr(s, an, strlen(an));
-  if (ver == 2) {
+  if (ver == 3) {
+    nqcputs(s, ",\"context\":\"" NQCCTX3 "\",\"format\":\"" NQCSFMT3 "\"");
+    nqhex(mh, 32, hx);
+    nqcputs(s, ",\"head_sha256\":\"");
+  } else if (ver == 2) {
     nqcputs(s, ",\"context\":\"" NQCCTX2 "\",\"format\":\"" NQCSFMT2 "\"");
     nqhex(mh, 32, hx);
     nqcputs(s, ",\"head_sha256\":\"");
@@ -290,6 +314,15 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
              const char *tsa, int64_t created, const uint8_t *rnd,
              size_t rndlen, int ver, const nqcin *in, size_t nin,
              int *why) {
+  return nqcsealk(dir, alg, sk, sklen, pk, pklen, meta, tsa, created, rnd,
+                  rndlen, ver, in, nin, NULL, why);
+}
+
+int nqcsealk(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
+             const uint8_t *pk, size_t pklen, const char *meta,
+             const char *tsa, int64_t created, const uint8_t *rnd,
+             size_t rndlen, int ver, const nqcin *in, size_t nin,
+             const uint8_t *skey, int *why) {
   sksg k;
   if (why != NULL) *why = 0;
   if (sk == NULL) return NQEARG;
@@ -299,16 +332,17 @@ int nqcsealx(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
   k.rnd = rnd;
   k.rndlen = rndlen;
   return nqcsealsg(dir, alg, skfn, &k, sklen, pk, pklen, meta, tsa, created,
-                   ver, in, nin, why);
+                   ver, in, nin, skey, why);
 }
 
 int nqcsealsg(const char *dir, nqsalg alg, nqcsg sg, void *u, size_t sklen,
               const uint8_t *pk, size_t pklen, const char *meta,
               const char *tsa, int64_t created, int ver, const nqcin *in,
-              size_t nin, int *why) {
-  static const uint8_t c1[] = NQCCTX, c2[] = NQCCTX2;
-  const uint8_t *ctx = ver == 2 ? c2 : c1;
-  size_t cl = (ver == 2 ? sizeof c2 : sizeof c1) - 1, i, lvn = 0;
+              size_t nin, const uint8_t *skey, int *why) {
+  static const uint8_t c1[] = NQCCTX, c2[] = NQCCTX2, c3[] = NQCCTX3;
+  const uint8_t *ctx = ver == 3 ? c3 : ver == 2 ? c2 : c1;
+  size_t cl = (ver == 3 ? sizeof c3 : ver == 2 ? sizeof c2 : sizeof c1) - 1,
+         i, lvn = 0;
   mopt o;
   nqcbuf hd;
   const uint8_t *sb; /* the signed bytes: the manifest, or its head */
@@ -325,8 +359,9 @@ int nqcsealsg(const char *dir, nqsalg alg, nqcsg sg, void *u, size_t sklen,
   int rc, sec = 0;
   if (why != NULL) *why = 0;
   if (dir == NULL || sg == NULL || pk == NULL) return NQEARG;
-  if (ver != 1 && ver != 2) return NQEARG;
-  if (nin > 0 && (ver != 2 || in == NULL)) return NQEARG;
+  if (ver < 1 || ver > 3) return NQEARG;
+  if (nin > 0 && (ver < 2 || in == NULL)) return NQEARG;
+  if (skey != NULL && ver != 3) return NQEARG;
   if (nin > NQCINMAX) return NQELIM;
   /* an evidence record covers the seal there: a new one would replace
    * the data object the record proves */
@@ -341,6 +376,7 @@ int nqcsealsg(const char *dir, nqsalg alg, nqcsg sg, void *u, size_t sklen,
   o.ver = ver;
   o.in = in;
   o.nin = nin;
+  o.skey = skey;
   /* a timestamp needs a request to a TSA over the network, which the
    * library does not make; the CLI is to add it */
   if (tsa != NULL) return NQENOSUP;
@@ -374,7 +410,7 @@ int nqcsealsg(const char *dir, nqsalg alg, nqcsg sg, void *u, size_t sklen,
   }
   notmp(&l);
   rc = sealable(&l);
-  if (rc == NQOK && ver == 2) {
+  if (rc == NQOK && ver >= 2) {
     lvn = (l.n > 0 ? l.n : 1) * 32;
     o.lv = (uint8_t *)nqmal(lvn);
     if (o.lv == NULL) rc = NQEMEM;
@@ -392,7 +428,7 @@ int nqcsealsg(const char *dir, nqsalg alg, nqcsg sg, void *u, size_t sklen,
   if (rc == NQELIM && m.n > nqclim.man && why != NULL) *why = NQCLMAN;
   sb = (const uint8_t *)m.p;
   sn = m.n;
-  if (rc == NQOK && ver == 2) {
+  if (rc == NQOK && ver >= 2) {
     /* the head: the manifest without "files":[...], */
     nqcput(&hd, m.p, o.fs);
     nqcput(&hd, m.p + o.fe, m.n - o.fe);
@@ -444,6 +480,19 @@ int nqseal2(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
                   in, nin, NULL);
 }
 
+int nqseal3(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
+            const uint8_t *pk, size_t pklen, const char *meta,
+            const nqcin *in, size_t nin, const uint8_t *skey,
+            size_t skeylen) {
+  int64_t t = nqcnow();
+  if (t < 0) return NQEARG;
+  if ((skey == NULL) != (skeylen == 0) || (skey != NULL && skeylen != 32)) {
+    return NQEARG;
+  }
+  return nqcsealk(dir, alg, sk, sklen, pk, pklen, meta, NULL, t, NULL, 0, 3,
+                  in, nin, skey, NULL);
+}
+
 int nqcapid(const char *dir, uint8_t id[32]) {
   char *b = NULL;
   size_t n = 0, hn = 0, i;
@@ -459,7 +508,8 @@ int nqcapid(const char *dir, uint8_t id[32]) {
   f = nqjget(v, "format");
   rc = NQEDEC;
   if (f != NULL && f->type == NQJSTR) {
-    h = strcmp(f->str, NQCSFMT2) == 0 ? nqjget(v, "head_sha256")
+    h = strcmp(f->str, NQCSFMT2) == 0 || strcmp(f->str, NQCSFMT3) == 0
+            ? nqjget(v, "head_sha256")
         : strcmp(f->str, NQCSFMT) == 0 ? nqjget(v, "manifest_sha256")
                                        : NULL;
     if (h != NULL && h->type == NQJSTR && (hn = h->len) == 64) {
@@ -497,7 +547,7 @@ int nqp11seal(nqp11 *p, const nqp11k *k, const char *dir, int fmt,
   tksg g;
   int rc;
   if (p == NULL || k == NULL || dir == NULL || k->kem) return NQEARG;
-  if (fmt != 1 && fmt != 2) return NQEARG;
+  if (fmt < 1 || fmt > 3) return NQEARG;
   if (t < 0) return NQEARG;
   if (nqssize((nqsalg)k->alg, &sz) != NQOK) return NQEARG;
   pk = (uint8_t *)nqmal(sz.pk);
@@ -507,7 +557,7 @@ int nqp11seal(nqp11 *p, const nqp11k *k, const char *dir, int fmt,
     g.p = p;
     g.k = k;
     rc = nqcsealsg(dir, (nqsalg)k->alg, tkfn, &g, NQCNOSK, pk, pn, meta, NULL,
-                   t, fmt, in, nin, NULL);
+                   t, fmt, in, nin, NULL, NULL);
   }
   nqfree(pk, sz.pk);
   return rc;
