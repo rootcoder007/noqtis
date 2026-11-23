@@ -39,30 +39,34 @@ printf 'r\n' > results/report.txt
 same "ML-DSA-65 key pair: me (secret), me.pub (public)" \
   "$(noqtis keygen -a ML-DSA-65 -o me)"
 same "noqtis-key-1 ML-DSA-65 pub" "$(head -1 me.pub)"
-same "noqtis-key-1 ML-DSA-65 sec" "$(head -1 me)"
+same "noqtis-key-2 ML-DSA-65 sec" "$(head -1 me)"
 echo '{"project":"demo"}' > meta.json
 same "sealed results with ML-DSA-65" \
   "$(noqtis seal -k me -m meta.json results)"
 same "data noqtis.json noqtis.sig report.txt" "$(ls results | tr '\n' ' ' |
   sed 's/ $//')"
-same "results: OK (22 checks passed)" \
+same "results: OK (23 checks passed)" \
   "$(noqtis check -p me.pub results | tail -1)"
-same "ok    signature           ML-DSA-65 signature over noqtis.json is valid" \
+same "ok    signature           ML-DSA-65 signature over the manifest's head is valid" \
   "$(noqtis check -p me.pub results | grep '^ok    signature ')"
 same "ok    key                 not pinned: accepted the public key in the seal (no trusted key given)" \
   "$(noqtis check results 2> /dev/null | grep '^ok    key ')"
-same "results: OK (22 checks passed)" \
+same "results: OK (23 checks passed)" \
   "$(SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me results > /dev/null &&
      noqtis check -p me.pub results | tail -1)"
 same '{"created":"2026-01-01T00:00:00Z",' "$(cut -c1-34 results/noqtis.json)"
-# the same folder, SOURCE_DATE_EPOCH and --meta give a byte-identical
-# manifest (guides/seal.md); the signature differs, ML-DSA signs hedged
+# the same folder, SOURCE_DATE_EPOCH, salt key and --meta give a
+# byte-identical manifest (guides/seal.md); the signature differs, ML-DSA
+# signs hedged
 mkdir -p repro/data
 printf 'a,b\n' > repro/data/in.csv
 printf 'r\n' > repro/report.txt
-SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me -m meta.json repro > /dev/null
+head -c 32 /dev/urandom > salt.key
+SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me --salt-key salt.key \
+  -m meta.json repro > /dev/null
 cp repro/noqtis.json first.json
-SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me -m meta.json repro > /dev/null
+SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me --salt-key salt.key \
+  -m meta.json repro > /dev/null
 same "manifests identical" \
   "$(cmp -s first.json repro/noqtis.json && echo manifests identical ||
      echo manifests differ)"
@@ -70,10 +74,10 @@ echo extra >> results/report.txt
 code 1 noqtis check -p me.pub results
 same "FAIL  file                report.txt: size differs" \
   "$(noqtis check -p me.pub results | grep '^FAIL' || true)"
-same "results: FAILED (1 of 22 checks failed)" \
+same "results: FAILED (1 of 23 checks failed)" \
   "$(noqtis check -p me.pub results | tail -1 || true)"
 touch results/new.txt
-same "results: FAILED (2 of 23 checks failed)" \
+same "results: FAILED (2 of 24 checks failed)" \
   "$(noqtis check -p me.pub results | tail -1 || true)"
 if command -v jq > /dev/null 2>&1; then
   same "report.txt: size differs new.txt: not in the manifest" \
@@ -102,7 +106,11 @@ same "in.proof: PARTIAL OK (19 checks passed; not every file was checked)" \
 code 1 noqtis check -p other.pub --proof in.proof
 same "r2: PARTIAL OK (24 checks passed; not every file was checked)" \
   "$(noqtis check -p me.pub --only data/in.csv r2 | tail -1)"
-code 2 noqtis prove repro report.txt
+# a format 1 capsule has no proofs
+mkdir r1
+printf 'r\n' > r1/report.txt
+noqtis seal --format 1 -k me r1 > /dev/null
+code 2 noqtis prove r1 report.txt
 mkdir r3
 printf 'x\n' > r3/sum.txt
 noqtis seal -k me --input raw=r2 r3 > /dev/null

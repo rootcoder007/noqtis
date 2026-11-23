@@ -44,7 +44,7 @@ $ noqtis check -p alice.pub results
 ...
 ok    key                 the seal's key is the trusted key
 ...
-results: OK (22 checks passed)
+results: OK (23 checks passed)
 ```
 
 With `-p`, a capsule resealed by anyone else fails the `key` and

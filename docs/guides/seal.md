@@ -53,15 +53,25 @@ a dataset DOI, a commit).
 
 The creation time comes from `SOURCE_DATE_EPOCH` when it is set:
 
+A seal is in format 3 unless `--format` says otherwise: its Merkle
+leaves each hold a secret salt, fresh for every seal, so two seals of
+the same files differ. `--salt-key` derives the salts from a secret
+file of 32 bytes instead:
+
 ```sh
-$ SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me results
+$ head -c 32 /dev/urandom > salt.key; chmod 600 salt.key
+$ SOURCE_DATE_EPOCH=1767225600 noqtis seal -k me --salt-key salt.key results
 sealed results with ML-DSA-65
 $ cut -c1-34 results/noqtis.json
 {"created":"2026-01-01T00:00:00Z",
 ```
 
-With the same files, time and metadata, `noqtis.json` is byte-identical.
-The signature still differs between runs (hedged signing).
+With the same files, time, salt key and metadata, `noqtis.json` is
+byte-identical. Keep the salt key as secret as the signing key: whoever
+has it can compute every salt, and so confirm a guess of a file a proof
+does not show. The signature still differs between runs (hedged
+signing). `--format 1` writes the format of before 0.3.0, which has no
+salts (and no proofs), for readers older than 0.3.0.
 
 ### With a key on a token
 

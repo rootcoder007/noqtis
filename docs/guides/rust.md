@@ -45,14 +45,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 It prints:
 
 ```text
-check: true (22 checks)
+check: true (23 checks)
 after edit: false
 FAIL file report.txt: size differs
 ```
 
 - `cap::seal` writes `noqtis.json` and `noqtis.sig` into the folder;
   `meta` is JSON text (an object), signed with the manifest and never
-  interpreted. `cap::seal3` seals in format 3 (a Merkle tree with a
+  interpreted, in format 3 (fresh salts; `cap::seal1` writes format 1).
+  `cap::seal3` seals in format 3 (a Merkle tree with a
   secret salt in each leaf, for proofs that confirm no guess of other
   files), with the capsules it was made from; `cap::seal2` in format 2,
   unsalted, for readers older than 0.3.0.

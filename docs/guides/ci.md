@@ -39,18 +39,25 @@ only the job can read, seal, and remove it:
 - name: seal the results
   env:
     NQKEY: ${{ secrets.NOQTIS_KEY }}   # the whole secret key file
+    NQSALT: ${{ secrets.NOQTIS_SALT }} # 32 secret bytes, in base64
   run: |
     umask 077
     printf '%s\n' "$NQKEY" > "$RUNNER_TEMP/key"
+    printf '%s' "$NQSALT" | base64 -d > "$RUNNER_TEMP/salt"
     SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) \
       noqtis seal -k "$RUNNER_TEMP/key" -p keys/release.pub \
-        -m build-meta.json results/
-    rm -f "$RUNNER_TEMP/key"
+        --salt-key "$RUNNER_TEMP/salt" -m build-meta.json results/
+    rm -f "$RUNNER_TEMP/key" "$RUNNER_TEMP/salt"
     noqtis check -p keys/release.pub results/
 ```
 
-`SOURCE_DATE_EPOCH` from the commit makes the manifest reproducible: the
-same commit gives the same `noqtis.json`. Put the commit, the workflow run
+`SOURCE_DATE_EPOCH` from the commit and the salt key make the manifest
+reproducible: the same commit gives the same `noqtis.json`. The seal is
+in format 3, the default from 0.3.0, whose Merkle leaves each hold a
+secret salt; without `--salt-key` the salts are fresh and two seals of
+the same files differ. Keep the salt key secret, as the signing key:
+whoever has it can compute every salt. `--format 1` writes the format of
+before 0.3.0 instead, with no salts and no proofs. Put the commit, the workflow run
 and the tool versions in `build-meta.json` so the capsule records how the
 results were made.
 
@@ -178,9 +185,9 @@ A scheduled workflow with `mode: refresh` and `write: "true"`, then a
 seal and a commit or pull request of its own, keeps a capsule's data in
 step with its sources; `fail-on: never` lets it run to the end.
 
-For a reproducible manifest, set `SOURCE_DATE_EPOCH` for the seal step
-(for example `echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >>
-"$GITHUB_ENV"` in an earlier step). The repository's own
+The action seals in format 3 with fresh salts, so two runs over the
+same files give two different manifests; for a reproducible one, seal
+with the command line as above (`SOURCE_DATE_EPOCH` and `--salt-key`). The repository's own
 `.github/workflows/action.yml` uses the action this way on all three
 systems: it seals a sample folder, checks it, changes one byte and
 asserts that the check fails, and that `report` passes with outputs

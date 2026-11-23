@@ -55,7 +55,7 @@ print("sha3-256:", noqtis.hash("SHA3-256", b"abc").hex())
 It prints:
 
 ```text
-check: True 22 checks
+check: True 23 checks
 after edit: False
 FAIL file report.txt: size differs
 verify: True

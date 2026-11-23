@@ -468,10 +468,27 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
   verification), and about 1.6 to 2 times for Ed25519 alone (a second
   masked key derivation and a full verification).
 
+  With the version 2 secret-key container (`docs/spec/keyfile.md`,
+  `nqsxmk(3)`), which `noqtis keygen` writes from 0.3.0, the key carries
+  an integrity value T, SHA3-256 of a domain string, the algorithm's name,
+  the key and (for Ed25519 and the hybrids) its public key. After the
+  signature is made the signer computes T again from the key in memory,
+  and for Ed25519 and the hybrids derives the public key from the seed
+  again; each comparison leaves a verdict, and the signature leaves only
+  through the mask of those verdicts with the others. A change to any
+  stored byte of such a key, the fields listed below among them, then
+  ends in `NQEFLT` with the output zero. `tests/flt/tflt.c` flips the
+  first and last byte of every field of the container (each field of the
+  key, P and T) for every signing algorithm, the SLH-DSA "s" sets in the
+  separate test `tflts`, and skips each of the two container verdicts in
+  turn; each ends in `NQEFLT` with the output zero. T is a hash, not a
+  MAC: it detects faults, not an attacker who can write the key file.
+
   Outside the model: two coordinated faults (in both verdicts, or in a
   verdict and a masking pass); a change to the caller's buffer after the
-  call returns; and the parts of a key that are not tied to its public
-  key, where a change gives a valid signature instead:
+  call returns; and, for a key given without its container (version 1,
+  or a raw key passed to the C API), the parts of a key that are not tied
+  to its public key, where a change gives a valid signature instead:
   - ML-DSA's K, and the per-signature randomness: they only change y
     (rho' = H(K || rnd || mu)), so the result is a signature as hedged
     signing makes; a fault in the computation of c or of the

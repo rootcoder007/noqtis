@@ -65,6 +65,24 @@ where a secret key is needed or the reverse), or a key whose length is not
 the algorithm's. The base64 decoder runs in constant time, so reading a
 secret key leaks nothing through timing.
 
+A signature secret key (ML-DSA, SLH-DSA, Ed25519, the hybrids) is
+written as `noqtis-key-2 <alg> sec`, and its body is the version 2
+container of `docs/spec/keyfile.md`: the standard's key, for Ed25519 and
+the hybrids its public key, then an integrity value (SHA3-256 of the
+rest, under a domain string and the algorithm's name). Every signature
+made with it computes that value again after signing, and for Ed25519
+and the hybrids derives the public key again, and releases the signature
+only when both match: a bit of the stored key changed, in any field,
+ends in an error, never in a signature made with a damaged key. Reading
+the file checks it too and refuses a damaged key ("restore the file
+from a copy"). KEM secret keys and public keys stay `noqtis-key-1`.
+
+A signature secret key file of version 1 (`noqtis-key-1 <alg> sec`,
+written before 0.3.0) still works, without that check; the tool says so
+in a `note:`, and `noqtis passwd -k <key>` (with `--no-pass` for a key
+under no passphrase) writes it again as version 2. noqtis before 0.3.0
+does not read a version 2 file.
+
 Because the bytes are the standard's encoding, a public key (after
 base64-decoding the body) and NOQTIS's raw signatures can be checked by any
 conforming FIPS 204/205 implementation; the ML-DSA module is cross-checked
@@ -149,7 +167,9 @@ it); the file keeps the KDF it was under unless `--kdf` names one, and
 the command says which KDF protects the new file.
 
 The file keeps the first line of an unprotected secret key
-(`noqtis-key-1 <alg> sec`); its base64 body is the format
+(`noqtis-key-2 <alg> sec` for a signature key, `noqtis-key-1 <alg> sec`
+for a KEM key), and for a version 2 key the integrity value is inside
+the encryption with the rest; its base64 body is the format
 noqtis-pwkey-1 (`nqpwenc(3)`): `NQPW`, the version, the KDF (1
 Argon2id, 2 PBKDF2-HMAC-SHA-256) and the AEAD (ChaCha20-Poly1305) as
 one byte each, the memory, passes (or iterations) and lanes, a random
