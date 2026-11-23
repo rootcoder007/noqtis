@@ -57,3 +57,12 @@ if (nqhmac(NQS256, key, keylen, msg, msglen, tag, sizeof tag) == NQOK &&
 .Xr noqtis 3 ,
 .Xr nqhash 3 ,
 .Xr nqwipe 3
+.Pp
+.Pa proofs/lean/Ct.lean
+of the source tree proves the word operations of
+.Fn nqcteq ,
+.Fn nqctmask ,
+.Fn nqctsel
+and
+.Fn nqcmov
+correct for every 32-bit word, as Lean models of the C expressions.

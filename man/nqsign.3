@@ -405,6 +405,14 @@ Build with
 .Xr nqerr 3 ,
 .Xr nqhash 3 ,
 .Xr nqwipe 3
+.Pp
+The arithmetic of ML-DSA (the reductions, Power2Round, Decompose and
+the hint lemma of FIPS 204, the NTT's roots) and the SLH-DSA sizes are
+proved in Lean in
+.Pa proofs/lean
+of the source tree
+.Pq Pa Mldsa.lean , Ntt.lean , Enc.lean , Slh.lean ;
+that the C computes those models is checked by tests, not proved.
 .Sh STANDARDS
 .Rs
 .%T FIPS 204: Module-Lattice-Based Digital Signature Standard

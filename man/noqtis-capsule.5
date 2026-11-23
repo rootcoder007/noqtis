@@ -467,6 +467,12 @@ Its seal:
 .Xr nqchkt 3 ,
 .Xr nqdpack 3 ,
 .Xr nqseal 3
+.Pp
+The DER, base64 and JSON readers have bounded proofs with CBMC (no
+access out of bounds, overflow or undefined shift for every input up to
+a size) in
+.Pa proofs/cbmc
+of the source tree; its README gives the bounds.
 .Sh STANDARDS
 .Rs
 .%A S. Bradner

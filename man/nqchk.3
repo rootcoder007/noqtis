@@ -141,3 +141,9 @@ nqrepfree(rep);
 .Xr nqrep 3 ,
 .Xr nqseal 3 ,
 .Xr noqtis-capsule 5
+.Pp
+The DER, base64 and JSON readers have bounded proofs with CBMC (no
+access out of bounds, overflow or undefined shift for every input up to
+a size) in
+.Pa proofs/cbmc
+of the source tree; its README gives the bounds.
