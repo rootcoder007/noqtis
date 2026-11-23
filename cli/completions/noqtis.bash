@@ -34,6 +34,9 @@ _noqtis() {
     --ph)
       COMPREPLY=($(compgen -W "$hashes" -- "$cur"))
       return ;;
+    --kdf)
+      COMPREPLY=($(compgen -W "argon2id pbkdf2" -- "$cur"))
+      return ;;
     --tsa | -c | --ctx | --format | --at | --reason | --as | --name | \
       --orcid | --email | --url | --affil)
       [ "$prev" = --format ] && COMPREPLY=($(compgen -W "1 2" -- "$cur"))
