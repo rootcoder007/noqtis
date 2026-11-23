@@ -56,11 +56,12 @@ noqtis check -p me.pub results/         # exit 1: "report.txt: size differs"
   with a post-quantum signature (ML-DSA or SLH-DSA) that stays hard to
   forge after quantum computers break RSA and elliptic curves.
 - With `-p key.pub`, it was that key that sealed it; without `-p`, only
-  that *someone* did, and the report says so.
+  that *someone* did (anyone can make a capsule that checks without
+  `-p`), and the report says so.
 - Anything NOQTIS cannot check is a failed check, never a silent pass.
 
 It does **not** prove that a result is correct, when it was sealed
-(without a timestamp), or who owns a key: see
+(unless it carries a timestamp), or who owns a key: see
 [what a check proves](https://noqtis.dev/guides/others/)
 and the [threat model](https://noqtis.dev/security/).
 
@@ -104,7 +105,10 @@ key tools already read:
   signs, verifies, encrypts and decrypts with them.
 - **Keys on a token**: `noqtis token` signs and decapsulates with keys
   that stay on a PKCS #11 token (a smart card or a hardware security
-  module).
+  module), and `noqtis seal --token` seals a folder with one.
+- **Passphrase-protected keys**: Argon2id by default, or
+  PBKDF2-HMAC-SHA-256 (`--kdf pbkdf2`) where rules require it;
+  `noqtis passwd` changes the passphrase.
 - **Text armor**: `sign -a` and `box -a` write a signature or a sealed
   file as text (RFC 7468), to paste into a message.
 
@@ -155,7 +159,8 @@ cmake --install build --prefix ~/.local
 
 `-DNQTESTS=OFF` skips the tests; `-DNQFREE=ON` builds the freestanding,
 algorithms-only library (it needs only `memcpy`, `memmove`, `memset` and
-`strcmp`; give it a random source with `nqsetrng`). The install gives the `noqtis` tool,
+`strcmp`; give it a random source with `nqsetrng` and, for Argon2id, an
+allocator with `nqsetal`). The install gives the `noqtis` tool,
 `libnoqtis`, `noqtis.h`, `noqtis.pc`, a CMake package and the manual pages
 (`-DNQMAN=OFF` skips them), so other projects build against it with
 `pkg-config --cflags --libs noqtis` or
@@ -186,7 +191,8 @@ nqrepfree(rep);
   [Rust](https://noqtis.dev/guides/rust/),
   [Go](https://noqtis.dev/guides/go/) and
   [Java](https://noqtis.dev/guides/java/), the capsule format,
-  the C, Python, JavaScript and R API references, the command line, and
+  the C, Python, JavaScript, R, Rust, Go and Java API references, the
+  command line, and
   [why post-quantum provenance now](https://noqtis.dev/explain/why/).
 - Manual pages, installed with the library: `man noqtis`, `man noqtis-seal`,
   `man noqtis-inspect`, `man noqtis-timestamp`,
@@ -216,8 +222,9 @@ people's work.
   and Ed25519 (RFC 8032; Bernstein, Duif, Lange, Schwabe and Yang).
 - The test vectors are NIST's, from the Automated Cryptographic Validation
   Protocol, and those of Project Wycheproof.
-- The checks run on CBMC (bounded proofs), dudect and Valgrind (timing),
-  libFuzzer and OSS-Fuzz (fuzzing) and OpenSSL 3.5 (agreement on the same
+- The checks run on CBMC (bounded proofs), Lean 4 and Mathlib (proofs of
+  the arithmetic), dudect and Valgrind (timing), libFuzzer and
+  ClusterFuzzLite (fuzzing) and OpenSSL 3.5 (agreement on the same
   inputs).
 - Timestamps and evidence records follow RFC 3161 and RFC 4998.
 
