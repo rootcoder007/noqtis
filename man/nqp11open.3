@@ -175,6 +175,22 @@ is the JSON object of the caller's metadata, or
 .Dv NULL .
 .Pp
 A handle is for one thread at a time.
+.Pp
+In symbols, for
+.Fn nqp11seal ,
+so that a token seal is the same object as one of
+.Xr nqseal 3 :
+.Bd -literal -offset indent
+pk  = the public key of the token's key (nqp11pub)
+man = the manifest (format 1) or its head (format 2), as nqseal(3)
+C_SignInit(session, {CKM_ML_DSA or CKM_SLH_DSA,
+           CK_SIGN_ADDITIONAL_CONTEXT{hedge 0, "noqtis-capsule-1"}}, key)
+sig = C_Sign(session, man)
+written only if Verify(pk, man, sig, "noqtis-capsule-1") holds
+.Ed
+.Pp
+The hedge value 0 asks for a hedged signature when the token can make
+one.
 .Sh RETURN VALUES
 .Dv NQOK
 on success.
