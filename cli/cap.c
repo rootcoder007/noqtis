@@ -276,6 +276,11 @@ static const char *pathval(const char *cmd, char **argv, int k) {
 
 const char *nclab;
 
+/* seal --token could not open the token (a wrong PIN, a missing module):
+ * the -r run stops, as every folder after would ask the same, and a PIN
+ * tried again counts against the few a token allows before it locks */
+static int tkbad;
+
 int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
   char **a, **fs = NULL, **own;
   size_t nf = 0, i, nc = 0, nok = 0, nbad = 0, no = 0, nref = 0;
@@ -383,6 +388,7 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
     }
   }
   ncnofd = 0;
+  tkbad = 0;
   if ((home = nchome()) < 0) {
     ret = nclib(cmd, "the working folder", NQEIO);
     goto out;
@@ -455,6 +461,12 @@ int ncrec(const char *cmd, int (*fn)(int, char **), int argc, char **argv) {
       ret = NCUSE;
     else if (rc == NCBAD && ret == NCOK)
       ret = NCBAD;
+    if (seal && tkbad) {
+      ncmsg(cmd, "-r: stopped at %s: the token did not open, and it is not "
+            "asked again for the folders after it", ncesc(fs[i]));
+      ret = NCUSE;
+      break;
+    }
     if (seal && ncnofd) {
       /* out of descriptors: the run stops, and every capsule is put back */
       ncmsg(cmd, "-r: stopped at %s, out of open files: every capsule "
@@ -629,8 +641,10 @@ int ncseal(int argc, char **argv) {
     }
   }
   if (tok) {
-    if (nctkopen(mod, slot, &pin, label, id, &tp, &tk) != NCOK)
+    if (nctkopen(mod, slot, &pin, label, id, &tp, &tk) != NCOK) {
+      tkbad = 1;
       goto out;
+    }
     if (tk.kem) {
       ncmsg("seal", "the key on the token is a %s (KEM) key; seals need "
             "a signature key", nctkname(&tk));

@@ -3122,6 +3122,12 @@ static void ttoken(void) {
   want(0, "seal -r --token --label sig --pin-fd 3 qtk 3<q.pin", NULL);
   ok(has("q.err", "2 capsules, 2 sealed, 0 failed"),
      "seal --token -r: one PIN descriptor for every folder");
+  /* a wrong PIN is tried once, not once a folder: a token locks after
+   * a few */
+  want(2, "seal -r --token --label sig --pin-env NQTPINX qtk", NULL);
+  ok(has("q.err", "the token did not open") &&
+     has("q.err", "1 capsules, 0 sealed, 1 failed"),
+     "seal --token -r: a wrong PIN stops the run");
   want(0, "check -p q.tp.pub qtk/in", NULL);
   penv("NQTOKFILE", "q.tk");
   remove("q.pin");

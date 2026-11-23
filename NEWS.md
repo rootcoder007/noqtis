@@ -29,6 +29,7 @@
 - Fixed: `noqtis smime decrypt` wrote the decrypted message readable by everyone (mode 0644); it is owner-only (0600) now, as `unbox`, `dec`, `pgp decrypt` and `token dec` write what they decrypt.
 - Fixed: `noqtis rotate` and `noqtis revoke` took their default `--at` from the clock even when `SOURCE_DATE_EPOCH` was set, `export --as bagit` its `Bagging-Date`, and the evidence record (`noqtis ers`, `check`, `nqersput`) checked its last timestamp at the clock's time: all now take `SOURCE_DATE_EPOCH` when it is set, as `seal`, `idcard` and the key expiry check do, and refuse one that is not a number. Network timeouts and the certificate of an https server still go by the clock.
 - Fixed: `noqtis timestamp` on a capsule with an evidence record (`noqtis.ers`) asked every `--tsa` before it refused, and then said that no TSA gave a timestamp; it refuses before any request now, and says why: a timestamp would change the seal the record is over, and `noqtis ers` renews the record's timestamp.
+- Fixed: `noqtis seal -r --token` with a wrong PIN tried it again for every folder, and a token locks its PIN after a few wrong tries; the run now stops at the first folder whose seal could not open the token.
 
 # noqtis 0.2.2
 
