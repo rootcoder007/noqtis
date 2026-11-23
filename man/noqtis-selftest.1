@@ -11,10 +11,12 @@
 .Nm noqtis selftest
 runs
 .Xr nqselftest 3 :
-fixed inputs through every algorithm family (SHA-2, SHA-3, SHAKE and
-KangarooTwelve, HMAC, ML-KEM, ML-DSA, SLH-DSA key generation, HQC,
-Ed25519 and a hybrid, BLAKE2b, HKDF, PBKDF2, Argon2id, AES-GCM,
-ChaCha20-Poly1305, ChaCha20, AES-SIV, AES-GCM-SIV and X25519), each
+fixed inputs through every algorithm family (SHA-1, SHA-2, SHA-3,
+SHAKE, KangarooTwelve and BLAKE2b, HMAC, HKDF, PBKDF2, Argon2id,
+HMAC_DRBG, ML-KEM, HQC, ML-DSA, SLH-DSA key generation (not its
+signing), Ed25519 and a hybrid, X25519 and ECDH, RSA and ECDSA
+verification, AES-GCM, ChaCha20-Poly1305, ChaCha20, AES-SIV,
+AES-GCM-SIV, AES key wrap, OCB and EAX), each
 family\(aqs outputs compared by their SHA-256 with the known
 answers built into the library.
 It prints

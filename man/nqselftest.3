@@ -61,24 +61,74 @@ AES-SIV (RFC 5297, appendix A.1) and AES-256-GCM-SIV (RFC 8452,
 appendix C.2): sealing, opening, and opening a changed ciphertext, which
 must fail;
 .It
-X25519 (RFC 7748, section 5.2, the first vector).
+X25519 (RFC 7748, section 5.2, the first vector);
+.It
+SHA-1 of the two examples of FIPS 180-4
+.Pq Dq abc No and the 448-bit message ;
+.It
+HMAC_DRBG with SHA-256 (NIST SP 800-90A; the NIST ACVP set
+hmacDRBG-1.0, test group 14, test 196): instantiation, a reseed and
+two requests;
+.It
+AES key wrap (RFC 3394, section 4.1): wrapping, unwrapping, and
+unwrapping a changed text, which must fail;
+.It
+AES-128-OCB (RFC 7253, appendix A, the second vector) and AES-128-EAX
+(Bellare, Rogaway and Wagner, appendix G, the second vector): sealing,
+opening, and opening with a changed tag, which must fail;
+.It
+RSA verification, PKCS#1 v1.5 and PSS with SHA-256 (test 1 of
+Wycheproof's rsa_signature_2048_sha256 and rsa_pss_2048_sha256_mgf1_32
+sets), and ECDSA P-256 verification with SHA-256 (test 1 of
+ecdsa_secp256r1_sha256): the key read, the signature verified, and a
+changed signature, which must fail;
+.It
+ECDH over P-256 (RFC 8448, section 5): the client's public key and its
+shared secret with the server's share.
 .El
 .Pp
-That is 17 tests; each of the last ten runs the inputs of the published
-vector named, so its stored answer is also the SHA-256 of the return
-codes and the published outputs.
+That is 25 tests; tests 7 to 24, from BLAKE2b on, each run the inputs
+of the published vector named, so their stored answers are also the
+SHA-256 of the return codes and the published outputs.
+The answers of tests 0 to 4 and 6 were computed by this library when
+its test suite had checked the same functions against the NIST ACVP and
+KAT vectors, and that of test 5 (HQC-128) with the HQC reference
+implementation v5.1.0: they catch a build that differs from those, not
+an error the library always made.
+.Pp
+Not covered: SLH-DSA signing (only its key generation: one SLH-DSA-128f
+signature, which is masked, takes longer than the whole self-test),
+HQC-192 and HQC-256, and the formats and protocols built on these
+algorithms (capsules, OpenPGP, CMS, TLS 1.3).
+.Pp
 Each family's keys, ciphertexts, signatures, secrets and return codes
 are hashed with SHA-256; a decapsulation or verification that disagrees
 changes the hash.
+In symbols: test k runs its calls in a fixed order; call j returns
+rc_j (nothing, for a function that returns nothing) and writes outputs
+o_j.
+With byte(rc) the low 8 bits of rc in two's complement and
+.Sy ||
+concatenation:
+.Bd -literal -offset indent
+D_k = SHA-256(byte(rc_1) || o_1 || byte(rc_2) || o_2 || ...)
+test k passes  iff  D_k = A_k        (A_k stored in src/api/kat.h)
+.Ed
+.Pp
+For tests 7 to 24, A_k is the same hash over the return codes and the
+outputs the published vector gives (0x00 for
+.Dv NQOK ,
+0xfd for
+.Dv NQEVRFY ) .
 The masked decapsulations and signers run as in normal use, so the
 self-test needs the random source: without one (a freestanding build
 with no
 .Xr nqsetrng 3 )
 it returns
 .Er NQEKAT .
-The freestanding build has no AES-GCM, ChaCha20, AES-SIV, AES-GCM-SIV
-or X25519, and leaves their six tests out; it runs the Argon2id test
-only once
+The freestanding build has no AES-GCM, ChaCha20, AES-SIV, AES-GCM-SIV,
+X25519, AES key wrap, OCB, EAX, RSA, ECDSA or ECDH, and leaves their
+twelve tests out; it runs the Argon2id test only once
 .Xr nqsetal 3
 has given it an allocator.
 It takes about a tenth of a second.
@@ -126,4 +176,139 @@ if (nqselftest() != NQOK) {
 .%T Identifiers and Test Vectors for HMAC-SHA-224, HMAC-SHA-256, HMAC-SHA-384, and HMAC-SHA-512
 .%R RFC 4231
 .%D December 2005
+.Re
+.Rs
+.%T Information technology \(em Security techniques \(em Security requirements for cryptographic modules
+.%R ISO/IEC 19790:2012
+.%D 2012
+.Re
+.Rs
+.%T FIPS 180-4: Secure Hash Standard (SHS)
+.%Q NIST
+.%D August 2015
+.Re
+.Rs
+.%A M-J. Saarinen
+.%A J-P. Aumasson
+.%T The BLAKE2 Cryptographic Hash and Message Authentication Code (MAC)
+.%R RFC 7693
+.%D November 2015
+.Re
+.Rs
+.%A H. Krawczyk
+.%A P. Eronen
+.%T HMAC-based Extract-and-Expand Key Derivation Function (HKDF)
+.%R RFC 5869
+.%D May 2010
+.Re
+.Rs
+.%A C. Percival
+.%A S. Josefsson
+.%T The scrypt Password-Based Key Derivation Function
+.%R RFC 7914
+.%D August 2016
+.Re
+.Rs
+.%A A. Biryukov
+.%A D. Dinu
+.%A D. Khovratovich
+.%A S. Josefsson
+.%T Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work Applications
+.%R RFC 9106
+.%D September 2021
+.Re
+.Rs
+.%A M. Dworkin
+.%T Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC
+.%R NIST SP 800-38D
+.%D November 2007
+.Re
+.Rs
+.%A Y. Nir
+.%A A. Langley
+.%T ChaCha20 and Poly1305 for IETF Protocols
+.%R RFC 8439
+.%D June 2018
+.Re
+.Rs
+.%A D. Harkins
+.%T Synthetic Initialization Vector (SIV) Authenticated Encryption Using the Advanced Encryption Standard (AES)
+.%R RFC 5297
+.%D October 2008
+.Re
+.Rs
+.%A S. Gueron
+.%A A. Langley
+.%A Y. Lindell
+.%T AES-GCM-SIV: Nonce Misuse-Resistant Authenticated Encryption
+.%R RFC 8452
+.%D April 2019
+.Re
+.Rs
+.%A A. Langley
+.%A M. Hamburg
+.%A S. Turner
+.%T Elliptic Curves for Security
+.%R RFC 7748
+.%D January 2016
+.Re
+.Rs
+.%A E. Barker
+.%A J. Kelsey
+.%T Recommendation for Random Number Generation Using Deterministic Random Bit Generators
+.%R NIST SP 800-90A Rev. 1
+.%D June 2015
+.Re
+.Rs
+.%A J. Schaad
+.%A R. Housley
+.%T Advanced Encryption Standard (AES) Key Wrap Algorithm
+.%R RFC 3394
+.%D September 2002
+.Re
+.Rs
+.%A T. Krovetz
+.%A P. Rogaway
+.%T The OCB Authenticated-Encryption Algorithm
+.%R RFC 7253
+.%D May 2014
+.Re
+.Rs
+.%A M. Bellare
+.%A P. Rogaway
+.%A D. Wagner
+.%T The EAX Mode of Operation
+.%B Fast Software Encryption (FSE 2004)
+.%I Springer
+.%D 2004
+.Re
+.Rs
+.%A K. Moriarty
+.%A B. Kaliski
+.%A J. Jonsson
+.%A A. Rusch
+.%T PKCS #1: RSA Cryptography Specifications Version 2.2
+.%R RFC 8017
+.%D November 2016
+.Re
+.Rs
+.%T FIPS 186-5: Digital Signature Standard (DSS)
+.%Q NIST
+.%D February 3, 2023
+.Re
+.Rs
+.%A M. Thomson
+.%T Example Handshake Traces for TLS 1.3
+.%R RFC 8448
+.%D January 2019
+.Re
+.Rs
+.%T Project Wycheproof
+.%Q C2SP
+.%U https://github.com/C2SP/wycheproof
+.Re
+.Rs
+.%T ACVP-Server
+.%Q NIST
+.%U https://github.com/usnistgov/ACVP-Server
 .Re
