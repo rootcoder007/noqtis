@@ -4,7 +4,11 @@
  * bytes), a node SHA-256(0x01 || left || right), a tree of n leaves is
  * split at the largest power of two below n, and the empty tree's hash is
  * SHA-256 of nothing. The audit path of a leaf lists the sibling hashes
- * from the leaf up. */
+ * from the leaf up.
+ *
+ * Format 3 (noqtis-capsule-3) has the same tree with salted leaves,
+ * SHA-256(0x02 || salt || entry): the prefix 0x02 keeps them apart from
+ * format 2 leaves (0x00) and from nodes (0x01). */
 #include <string.h>
 
 #include "cap/cap.h"
@@ -18,6 +22,31 @@ void nqcmleaf(const char *e, size_t n, uint8_t out[32]) {
   nqs2upd(&c, &z, 1);
   nqs2upd(&c, (const uint8_t *)e, n);
   nqs2fin(&c, out);
+}
+
+void nqcmleaf3(const uint8_t salt[32], const char *e, size_t n,
+               uint8_t out[32]) {
+  nqs2ctx c;
+  static const uint8_t t = 2;
+  nqs2ini(&c, 32);
+  nqs2upd(&c, &t, 1);
+  nqs2upd(&c, salt, 32);
+  nqs2upd(&c, (const uint8_t *)e, n);
+  nqs2fin(&c, out);
+}
+
+int nqcsaltk(const uint8_t key[32], const char *path, size_t n,
+             uint8_t out[32]) {
+  static const char tag[] = "noqtis-salt-3";
+  nqhctx h;
+  /* the tag with its NUL, so that no tag || key || path is another's */
+  int rc = nqhini(&h, NQS3256);
+  if (rc == NQOK) rc = nqhupd(&h, (const uint8_t *)tag, sizeof tag);
+  if (rc == NQOK) rc = nqhupd(&h, key, 32);
+  if (rc == NQOK) rc = nqhupd(&h, (const uint8_t *)path, n);
+  if (rc == NQOK) rc = nqhfin(&h, out, 32);
+  nqwipe(&h, sizeof h);
+  return rc;
 }
 
 static void node(const uint8_t l[32], const uint8_t r[32], uint8_t out[32]) {

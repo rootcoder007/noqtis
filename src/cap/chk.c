@@ -18,6 +18,7 @@
  * The result is NQOK only when every row passed, NQEVRFY otherwise (the
  * report is still returned); NQEARG and NQEMEM return no report. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "cap/cap.h"
@@ -166,7 +167,7 @@ static int canon(const char *buf, size_t n, nqjs **v, int *iscanon) {
 
 typedef struct {
   int ok;          /* every seal row passed so far */
-  int ver;         /* 1: noqtis-seal-1, 2: noqtis-seal-2 */
+  int ver;         /* 1, 2 or 3: noqtis-seal-1, -2 or -3 */
   nqsalg alg;
   nqssz sz;
   const char *an;
@@ -207,25 +208,29 @@ static void rdsealb(nqrep *r, const char *b, size_t n, seal *s) {
   add(r, "seal.canonical", c,
       c ? "canonical JSON" : "not canonical JSON (RFC 8785)", NULL, NULL);
   f = str(s->v, "format", &fl);
-  s->ver = f != NULL && fl == strlen(NQCSFMT2) &&
+  s->ver = f != NULL && fl == strlen(NQCSFMT3) &&
+                   memcmp(f, NQCSFMT3, fl) == 0
+               ? 3
+           : f != NULL && fl == strlen(NQCSFMT2) &&
                    memcmp(f, NQCSFMT2, fl) == 0
                ? 2
                : 1;
   s->an = str(s->v, "alg", NULL);
   s->ctx = str(s->v, "context", &s->ctxlen);
-  mh = str(s->v, s->ver == 2 ? "head_sha256" : "manifest_sha256", &mhn);
+  mh = str(s->v, s->ver >= 2 ? "head_sha256" : "manifest_sha256", &mhn);
   pk = str(s->v, "public_key", &pkl);
   sg = str(s->v, "signature", &sgl);
   s->tsb = str(s->v, "timestamp", &s->tsn);
-  rc = keys(s->v, s->ver == 2 ? n2 : n1, 7, 6) && f && s->an && s->ctx &&
+  rc = keys(s->v, s->ver >= 2 ? n2 : n1, 7, 6) && f && s->an && s->ctx &&
        mh && pk && sg &&
        (nqjget(s->v, "timestamp") == NULL || s->tsb != NULL);
   add(r, "seal.fields", rc,
-      rc ? (s->ver == 2 ? "the fields of noqtis-seal-2"
-                        : "the fields of noqtis-seal-1")
+      rc ? (s->ver == 3   ? "the fields of noqtis-seal-3"
+            : s->ver == 2 ? "the fields of noqtis-seal-2"
+                          : "the fields of noqtis-seal-1")
          : "missing, unknown or mistyped fields", NULL, NULL);
   if (!rc) return;
-  rc = s->ver == 2 || (fl == strlen(NQCSFMT) && memcmp(f, NQCSFMT, fl) == 0);
+  rc = s->ver >= 2 || (fl == strlen(NQCSFMT) && memcmp(f, NQCSFMT, fl) == 0);
   add(r, "seal.format", rc, "\"", f, "\"");
   if (!rc) return;
   /* one row: known, and post-quantum (Ed25519 alone is not; a hybrid
@@ -245,12 +250,13 @@ static void rdsealb(nqrep *r, const char *b, size_t n, seal *s) {
    * anything else (a plain `noqtis sign`, another protocol's context,
    * the other format) is never a seal */
   {
-    const char *want = s->ver == 2 ? NQCCTX2 : NQCCTX;
+    const char *want = s->ver == 3 ? NQCCTX3 : s->ver == 2 ? NQCCTX2 : NQCCTX;
     rc = s->ctxlen == strlen(want) && memcmp(s->ctx, want, s->ctxlen) == 0;
     add(r, "seal.context", rc, "\"", s->ctx,
         rc ? "\""
-           : (s->ver == 2 ? "\": not the capsule context \"" NQCCTX2 "\""
-                          : "\": not the capsule context \"" NQCCTX "\""));
+           : (s->ver == 3   ? "\": not the capsule context \"" NQCCTX3 "\""
+              : s->ver == 2 ? "\": not the capsule context \"" NQCCTX2 "\""
+                            : "\": not the capsule context \"" NQCCTX "\""));
   }
   if (!rc) return;
   s->pk = (uint8_t *)nqmal(s->sz.pk);
@@ -276,7 +282,7 @@ static void rdsealb(nqrep *r, const char *b, size_t n, seal *s) {
   rc = hex32(mh, mhn, s->mh);
   if (!rc) {
     add(r, "seal.fields", 0,
-        s->ver == 2 ? "head_sha256 is not 64 lower-case hex"
+        s->ver >= 2 ? "head_sha256 is not 64 lower-case hex"
                     : "manifest_sha256 is not 64 lower-case hex",
         NULL, NULL);
     return;
@@ -525,7 +531,8 @@ static int cint(scan *c, uint64_t *v) {
 
 /* where the "files" member starts (*fs) and where "format" starts (*fe)
  * in a manifest in the canonical layout; 0 when it is not */
-static int head(const char *buf, size_t n, size_t *fs, size_t *fe) {
+static int head(const char *buf, size_t n, int ver, size_t *fs,
+                size_t *fe) {
   scan c;
   char t[1];
   size_t k;
@@ -543,6 +550,7 @@ static int head(const char *buf, size_t n, size_t *fs, size_t *fe) {
   if (!lit(&c, "]")) {
     for (;;) {
       if (!lit(&c, "{\"path\":") || !cstr(&c, t, 0, &k) ||
+          (ver == 3 && (!lit(&c, ",\"salt\":") || !chex(&c, h))) ||
           !lit(&c, ",\"sha256\":") || !chex(&c, h) ||
           !lit(&c, ",\"sha3_256\":") || !chex(&c, h) ||
           !lit(&c, ",\"size\":") || !cint(&c, &v) || !lit(&c, "}")) {
@@ -586,6 +594,7 @@ typedef struct {
   uint64_t size;
   uint8_t s2[32];
   uint8_t s3[32];
+  uint8_t salt[32]; /* format 3 */
 } ent;
 
 /* one entry, checked against the folder list l (NULL: not listed) */
@@ -762,7 +771,7 @@ static void u64s(uint64_t v, char out[24]);
 /* the members after "format" of a format 2 manifest: inputs, merkle (the
  * root must be of the leaves lv[0..cnt)), meta */
 static void tail2(nqrep *r, const char *buf, size_t n, size_t at,
-                  const uint8_t *lv, size_t cnt, insp *in) {
+                  const uint8_t *lv, size_t cnt, insp *in, const char *fn) {
   static const char *const nm[] = {"merkle", "inputs", "meta"};
   nqcbuf o;
   nqjs *v = NULL;
@@ -774,8 +783,7 @@ static void tail2(nqrep *r, const char *buf, size_t n, size_t at,
   memset(&o, 0, sizeof o);
   /* buf[at] is the comma after format; the rest, braced, is an object */
   if (at >= n || buf[at] != ',' || buf[n - 1] != '}') {
-    add(r, "manifest.fields", 0, "no merkle member (noqtis-capsule-2)",
-        NULL, NULL);
+    add(r, "manifest.fields", 0, "no merkle member (", fn, ")");
     return;
   }
   nqcput(&o, "{", 1);
@@ -850,8 +858,7 @@ static void tail2(nqrep *r, const char *buf, size_t n, size_t at,
   }
   add(r, "manifest.parse", 1, "a JSON object", NULL, NULL);
   add(r, "manifest.canonical", 1, "canonical JSON", NULL, NULL);
-  add(r, "manifest.fields", 1, "the fields of noqtis-capsule-2", NULL,
-      NULL);
+  add(r, "manifest.fields", 1, "the fields of ", fn, NULL);
   nqcmroot(lv, cnt, root);
   ok = lvs >= 0 && (uint64_t)lvs == (uint64_t)cnt &&
        memcmp(root, want, 32) == 0;
@@ -901,11 +908,16 @@ static void fltend(nqrep *r, const flt *f, size_t cnt) {
       "files, and files present but not listed, were not", NULL, NULL);
 }
 
+/* memcmp order of 32-byte salts, for qsort */
+static int saltcmp(const void *a, const void *b) {
+  return memcmp(a, b, 32);
+}
+
 static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
                    const nqclist *l, insp *in, int ver, const flt *f) {
   char cr[64], fmt[64];
   size_t crn = 0, fmn = 0, cnt = 0, lvc = 0, es = 0;
-  uint8_t *lv = NULL;
+  uint8_t *lv = NULL, *sa = NULL; /* the leaves; format 3: the salts */
   unsigned char *seen = NULL;
   ent *e = NULL, *prev = NULL;
   scan c;
@@ -943,6 +955,11 @@ static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
         c.err = "a files entry does not start with a canonical path";
         goto bad;
       }
+      if (ver == 3 && (!lit(&c, ",\"salt\":") || !chex(&c, e->salt))) {
+        c.err = "a files entry has no salt of 64 lower-case hex after its "
+                "path (noqtis-capsule-3)";
+        goto bad;
+      }
       if (!lit(&c, ",\"sha256\":") || !chex(&c, e->s2) ||
           !lit(&c, ",\"sha3_256\":") || !chex(&c, e->s3)) {
         c.err = "a files entry has no sha256 and sha3_256 of 64 "
@@ -954,11 +971,13 @@ static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
                 "or more fields";
         goto bad;
       }
-      if (ver == 2) {
+      if (ver >= 2) {
         if (cnt == lvc) {
           size_t nc = lvc == 0 ? 64 : lvc * 2;
           uint8_t *nb = (uint8_t *)nqmal(nc * 32);
-          if (nb == NULL) {
+          uint8_t *ns = ver == 3 ? (uint8_t *)nqmal(nc * 32) : NULL;
+          if (nb == NULL || (ver == 3 && ns == NULL)) {
+            if (nb != NULL) nqfree(nb, nc * 32);
             r->err = NQEMEM;
             goto out;
           }
@@ -966,10 +985,20 @@ static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
             memcpy(nb, lv, cnt * 32);
             nqfree(lv, lvc * 32);
           }
+          if (sa != NULL) {
+            memcpy(ns, sa, cnt * 32);
+            nqfree(sa, lvc * 32);
+          }
           lv = nb;
+          sa = ns;
           lvc = nc;
         }
-        nqcmleaf(buf + es, c.i - es, lv + 32 * cnt);
+        if (ver == 3) {
+          nqcmleaf3(e->salt, buf + es, c.i - es, lv + 32 * cnt);
+          memcpy(sa + 32 * cnt, e->salt, 32);
+        } else {
+          nqcmleaf(buf + es, c.i - es, lv + 32 * cnt);
+        }
       }
       if (++cnt > nqclim.files) {
         add(r, "manifest.fields", 0, "too many files listed (too many "
@@ -1025,12 +1054,25 @@ static void chkman(nqrep *r, const char *dir, const char *buf, size_t n,
     c.err = "format does not follow files, or is not a short string";
     goto bad;
   }
-  if (ver == 2) {
-    int ok = fmn == strlen(NQCFMT2) && memcmp(fmt, NQCFMT2, fmn) == 0;
+  if (ver >= 2) {
+    const char *want = ver == 3 ? NQCFMT3 : NQCFMT2;
+    int ok = fmn == strlen(want) && memcmp(fmt, want, fmn) == 0;
     size_t r0 = r->n;
-    tail2(r, buf, n, c.i, lv, cnt, in);
+    tail2(r, buf, n, c.i, lv, cnt, in, want);
     if (r->err != NQOK) goto out;
     if (r->n == r0 + 1) goto out; /* tail2 refused the members */
+    if (ver == 3 && cnt > 1) {
+      /* every salt its own: sorted, no two neighbours equal */
+      size_t k;
+      int dup = 0;
+      qsort(sa, cnt, 32, saltcmp);
+      for (k = 1; k < cnt; k++) dup |= memcmp(sa + 32 * (k - 1), sa + 32 * k, 32) == 0;
+      if (dup) {
+        add(r, "manifest.fields", 0, "two files entries have the same salt",
+            NULL, NULL);
+        goto out;
+      }
+    }
     add(r, "manifest.format", ok, "\"", fmt, "\"");
     ok = nqctchk(cr, crn);
     add(r, "manifest.created", ok, cr, ok ? NULL : ": not RFC 3339 UTC",
@@ -1111,6 +1153,7 @@ out:
   nqfree(e, sizeof(ent));
   nqfree(prev, sizeof(ent));
   if (lv != NULL) nqfree(lv, lvc * 32);
+  if (sa != NULL) nqfree(sa, lvc * 32);
   if (seen != NULL) nqfree(seen, l->n);
 }
 
@@ -1389,8 +1432,8 @@ static void firstbad(const nqrep *r, char *out, size_t cap) {
 
 /* each input of the format 2 manifest buf: found among o->lin by its id,
  * then checked the same way (its own inputs too, to NQCDEPTH levels) */
-static void lineage(nqrep *r, const char *buf, size_t n, const nqcopt *o,
-                    int depth) {
+static void lineage(nqrep *r, const char *buf, size_t n, int ver,
+                    const nqcopt *o, int depth) {
   size_t fs = 0, fe = 0, i, j;
   nqcbuf h;
   nqjs *v = NULL;
@@ -1398,7 +1441,7 @@ static void lineage(nqrep *r, const char *buf, size_t n, const nqcopt *o,
   int cn = 0, rc;
   uint8_t *ids = NULL;
   memset(&h, 0, sizeof h);
-  if (!head(buf, n, &fs, &fe)) return;
+  if (!head(buf, n, ver, &fs, &fe)) return;
   nqcput(&h, buf, fs);
   nqcput(&h, buf + fe, n - fe);
   if (h.err != NQOK) {
@@ -1558,9 +1601,9 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
   mok = rc == NQOK;
   sb = (const uint8_t *)mb;
   sn = mn;
-  if (mok && s.ok && s.ver == 2) {
+  if (mok && s.ok && s.ver >= 2) {
     size_t fs = 0, fe = 0;
-    if (head(mb, mn, &fs, &fe)) {
+    if (head(mb, mn, s.ver, &fs, &fe)) {
       nqcput(&hb, mb, fs);
       nqcput(&hb, mb + fe, mn - fe);
       if (hb.err != NQOK) r->err = hb.err;
@@ -1571,13 +1614,13 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
   }
   if (mok && s.ok) {
     uint8_t h[32];
-    if (s.ver == 2 && !hok) {
+    if (s.ver >= 2 && !hok) {
       add(r, "manifest.digest", 0, "the manifest's head cannot be found "
-          "(not in the canonical noqtis-capsule-2 layout)", NULL, NULL);
+          "(not in the canonical layout of the seal's format)", NULL, NULL);
     } else {
       rc = nqhash(NQS256, sb, sn, h, 32) == NQOK && memcmp(h, s.mh, 32) == 0;
       add(r, "manifest.digest", rc,
-          s.ver == 2
+          s.ver >= 2
               ? (rc ? "SHA-256 of the manifest's head matches the seal"
                     : "SHA-256 of the manifest's head differs from "
                       "head_sha256")
@@ -1635,7 +1678,7 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
       rc = nqvrfy(s.alg, key, kn, sb, sn, (const uint8_t *)s.ctx, s.ctxlen,
                   0, s.sig, s.sign);
       add(r, "signature", rc == NQOK, s.an,
-          s.ver == 2 ? (rc == NQOK ? " signature over the manifest's head "
+          s.ver >= 2 ? (rc == NQOK ? " signature over the manifest's head "
                                      "is valid"
                                    : " signature over the manifest's head "
                                      "does not verify")
@@ -1726,8 +1769,8 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
     nqpend();
     nqclfree(&l);
   }
-  if (r->err == NQOK && mok && s.ok && s.ver == 2 && o->nlin > 0) {
-    lineage(r, mb, mn, o, depth);
+  if (r->err == NQOK && mok && s.ok && s.ver >= 2 && o->nlin > 0) {
+    lineage(r, mb, mn, s.ver, o, depth);
   }
 
   nqcbfree(&hb);
@@ -1794,7 +1837,8 @@ static int insp0(const char *dir, nqrep **rep, int list) {
   if (r->err == NQOK && !r->bad && s.ok) {
     uint8_t fp[32];
     char hx[65], num[24];
-    add(r, "info.format", 1, s.ver == 2 ? NQCFMT2 : NQCFMT, NULL, NULL);
+    add(r, "info.format", 1,
+        s.ver == 3 ? NQCFMT3 : s.ver == 2 ? NQCFMT2 : NQCFMT, NULL, NULL);
     add(r, "info.alg", 1, s.an, NULL, NULL);
     if (nqhash(NQS256, s.pk, s.pkn, fp, 32) == NQOK) {
       nqhex(fp, 32, hx);
@@ -1842,7 +1886,8 @@ int nqfiles(const char *dir, nqrep **rep) {
   return insp0(dir, rep, 1);
 }
 
-/* ---- proofs (noqtis-proof-1): single files of a format 2 capsule ----
+/* ---- proofs: single files of a format 2 capsule (noqtis-proof-1) or of
+ * a format 3 one (noqtis-proof-2, its entries with their salts) ----
  *
  *   {"entries":[{"entry":E,"index":N,"path":[H,...]},...],
  *    "format":"noqtis-proof-1","head":HEAD,"seal":SEAL}
@@ -1852,6 +1897,7 @@ int nqfiles(const char *dir, nqrep **rep) {
  * signs: its leaf count and root fix the tree), SEAL noqtis.sig. */
 
 #define NQCPFMT "noqtis-proof-1"
+#define NQCPFMT2 "noqtis-proof-2"
 
 /* one listed entry: where its bytes are in the manifest */
 typedef struct {
@@ -1859,12 +1905,12 @@ typedef struct {
 } span;
 
 /* the entries of a manifest in the canonical layout, with their leaves */
-static int spans(const char *buf, size_t n, span **sp, uint8_t **lv,
-                 size_t *cnt, size_t *cap) {
+static int spans(const char *buf, size_t n, int ver, span **sp,
+                 uint8_t **lv, size_t *cnt, size_t *cap) {
   scan c;
   char t[1];
   size_t k;
-  uint8_t h[32];
+  uint8_t h[32], salt[32];
   uint64_t v;
   *sp = NULL;
   *lv = NULL;
@@ -1882,6 +1928,7 @@ static int spans(const char *buf, size_t n, span **sp, uint8_t **lv,
   for (;;) {
     size_t a = c.i;
     if (!lit(&c, "{\"path\":") || !cstr(&c, t, 0, &k) ||
+        (ver == 3 && (!lit(&c, ",\"salt\":") || !chex(&c, salt))) ||
         !lit(&c, ",\"sha256\":") || !chex(&c, h) ||
         !lit(&c, ",\"sha3_256\":") || !chex(&c, h) ||
         !lit(&c, ",\"size\":") || !cint(&c, &v) || !lit(&c, "}")) {
@@ -1908,7 +1955,11 @@ static int spans(const char *buf, size_t n, span **sp, uint8_t **lv,
     }
     (*sp)[*cnt].a = a;
     (*sp)[*cnt].b = c.i;
-    nqcmleaf(buf + a, c.i - a, *lv + 32 * *cnt);
+    if (ver == 3) {
+      nqcmleaf3(salt, buf + a, c.i - a, *lv + 32 * *cnt);
+    } else {
+      nqcmleaf(buf + a, c.i - a, *lv + 32 * *cnt);
+    }
     (*cnt)++;
     if (*cnt > nqclim.files) return NQELIM;
     if (lit(&c, "]")) return NQOK;
@@ -1936,7 +1987,7 @@ int nqprove(const char *dir, const char *const *paths, size_t np, char *out,
   size_t *idx = NULL;
   nqjs *sv = NULL, *hv = NULL;
   nqcbuf o, hb;
-  int rc, cn = 0;
+  int rc, cn = 0, ver = 2;
   if (outlen != NULL) *outlen = 0;
   if (dir == NULL || paths == NULL || np == 0 || outlen == NULL ||
       (out == NULL && cap != 0)) {
@@ -1950,11 +2001,15 @@ int nqprove(const char *dir, const char *const *paths, size_t np, char *out,
   if (rc == NQOK && !cn) rc = NQEDEC;
   if (rc == NQOK) {
     const char *f = str(sv, "format", NULL);
-    if (f == NULL || strcmp(f, NQCSFMT2) != 0) rc = NQENOSUP;
+    if (f != NULL && strcmp(f, NQCSFMT3) == 0) {
+      ver = 3;
+    } else if (f == NULL || strcmp(f, NQCSFMT2) != 0) {
+      rc = NQENOSUP;
+    }
   }
   if (rc == NQOK) rc = nqcread(dir, NQCMAN, nqclim.man, &mb, &mn);
-  if (rc == NQOK && !head(mb, mn, &fs, &fe)) rc = NQEDEC;
-  if (rc == NQOK) rc = spans(mb, mn, &sp, &lv, &cnt, &scap);
+  if (rc == NQOK && !head(mb, mn, ver, &fs, &fe)) rc = NQEDEC;
+  if (rc == NQOK) rc = spans(mb, mn, ver, &sp, &lv, &cnt, &scap);
   if (rc == NQOK) {
     nqcput(&hb, mb, fs);
     nqcput(&hb, mb + fe, mn - fe);
@@ -2034,7 +2089,8 @@ int nqprove(const char *dir, const char *const *paths, size_t np, char *out,
       }
       nqcputs(&o, "]}");
     }
-    nqcputs(&o, "],\"format\":\"" NQCPFMT "\",\"head\":");
+    nqcputs(&o, ver == 3 ? "],\"format\":\"" NQCPFMT2 "\",\"head\":"
+                         : "],\"format\":\"" NQCPFMT "\",\"head\":");
     nqcput(&o, hb.p, hb.n);
     nqcputs(&o, ",\"seal\":");
     nqcput(&o, sb, sn);
@@ -2065,9 +2121,9 @@ int nqprove(const char *dir, const char *const *paths, size_t np, char *out,
 
 /* one entry of a proof, checked against the head's tree; with dir, the
  * file there against the entry */
-static void pent(nqrep *r, const nqjs *pe, uint64_t lvs, const uint8_t *root,
-                 const char *dir, const nqclist *l, unsigned char *seen,
-                 ent *e) {
+static void pent(nqrep *r, const nqjs *pe, int ver, uint64_t lvs,
+                 const uint8_t *root, const char *dir, const nqclist *l,
+                 unsigned char *seen, ent *e) {
   static const char *const nm[] = {"entry", "index", "path"};
   const nqjs *ev, *pv;
   nqcbuf eb;
@@ -2096,7 +2152,9 @@ static void pent(nqrep *r, const nqjs *pe, uint64_t lvs, const uint8_t *root,
     c.err = NULL;
     ok = lit(&c, "{\"path\":") &&
          cstr(&c, e->raw, sizeof e->raw, &e->rawn) &&
-         e->rawn < sizeof e->raw && lit(&c, ",\"sha256\":") &&
+         e->rawn < sizeof e->raw &&
+         (ver != 3 || (lit(&c, ",\"salt\":") && chex(&c, e->salt))) &&
+         lit(&c, ",\"sha256\":") &&
          chex(&c, e->s2) && lit(&c, ",\"sha3_256\":") && chex(&c, e->s3) &&
          lit(&c, ",\"size\":") && cint(&c, &e->size) && lit(&c, "}") &&
          c.i == eb.n;
@@ -2107,7 +2165,11 @@ static void pent(nqrep *r, const nqjs *pe, uint64_t lvs, const uint8_t *root,
     nqcbfree(&eb);
     return;
   }
-  nqcmleaf(eb.p, eb.n, leaf);
+  if (ver == 3) {
+    nqcmleaf3(e->salt, eb.p, eb.n, leaf);
+  } else {
+    nqcmleaf(eb.p, eb.n, leaf);
+  }
   nqcbfree(&eb);
   ok = nqcmvrfy(leaf, (size_t)ix, (size_t)lvs, path, pv->n, root);
   add(r, "proof.entry", ok, e->raw,
@@ -2133,7 +2195,7 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
   ent *e = NULL;
   uint8_t root[32], h[32];
   int64_t lvs = -1;
-  int rc, cn = 0, ok, lok = 0;
+  int rc, cn = 0, ok, lok = 0, pv = 2;
   size_t i;
   if (rep != NULL) *rep = NULL;
   /* zero, never written (MSVC wants a const one initialised) */
@@ -2171,13 +2233,17 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
   sl = nqjget(v, "seal");
   {
     const char *f = str(v, "format", NULL);
-    ok = keys(v, pn, 4, 4) && f != NULL && strcmp(f, NQCPFMT) == 0 &&
-         es->type == NQJARR && es->n >= 1 && es->n <= NQCFILES &&
-         hd->type == NQJOBJ && sl->type == NQJOBJ;
+    if (f != NULL && strcmp(f, NQCPFMT2) == 0) pv = 3;
+    ok = keys(v, pn, 4, 4) && f != NULL &&
+         (strcmp(f, NQCPFMT) == 0 || pv == 3) && es->type == NQJARR &&
+         es->n >= 1 && es->n <= NQCFILES && hd->type == NQJOBJ &&
+         sl->type == NQJOBJ;
   }
   add(r, "proof.fields", ok,
-      ok ? "the fields of noqtis-proof-1"
-         : "not a noqtis-proof-1 proof (entries, format, head, seal)",
+      ok ? (pv == 3 ? "the fields of noqtis-proof-2"
+                    : "the fields of noqtis-proof-1")
+         : "not a noqtis-proof-1 or noqtis-proof-2 proof (entries, format, "
+           "head, seal)",
       NULL, NULL);
   if (!ok) goto out;
   /* the seal, as nqchk reads noqtis.sig */
@@ -2188,9 +2254,11 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
   }
   rdsealb(r, sb.p, sb.n, &s);
   if (r->err != NQOK || !s.ok) goto out;
-  if (s.ver != 2) {
-    add(r, "seal.format", 0, "a proof needs a noqtis-seal-2 seal", NULL,
-        NULL);
+  if (s.ver != pv) {
+    add(r, "seal.format", 0,
+        pv == 3 ? "a noqtis-proof-2 proof needs a noqtis-seal-3 seal"
+                : "a noqtis-proof-1 proof needs a noqtis-seal-2 seal",
+        NULL, NULL);
     goto out;
   }
   /* the head: what the seal signs */
@@ -2212,7 +2280,8 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
     mk = nqjget(hd, "merkle");
     cr = str(hd, "created", &crn);
     rs = mk != NULL && mk->type == NQJOBJ ? str(mk, "root", &rl) : NULL;
-    ok = keys(hd, hn, 5, 3) && f != NULL && strcmp(f, NQCFMT2) == 0 &&
+    ok = keys(hd, hn, 5, 3) && f != NULL &&
+         strcmp(f, pv == 3 ? NQCFMT3 : NQCFMT2) == 0 &&
          cr != NULL && nqctchk(cr, crn) && mk->type == NQJOBJ &&
          keys(mk, mn, 3, 3) && str(mk, "alg", NULL) != NULL &&
          strcmp(str(mk, "alg", NULL), "sha256") == 0 &&
@@ -2220,8 +2289,8 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
          hex32(rs, rl, root);
   }
   add(r, "manifest.fields", ok,
-      ok ? "the head of a noqtis-capsule-2 manifest"
-         : "the head is not of a noqtis-capsule-2 manifest", NULL, NULL);
+      ok ? "the head of a " : "the head is not of a ",
+      pv == 3 ? NQCFMT3 : NQCFMT2, " manifest");
   if (!ok) goto out;
   {
     const uint8_t *key = s.pk;
@@ -2273,7 +2342,7 @@ int nqchkp(const char *proof, size_t n, const nqcopt *o, const char *dir,
     goto out;
   }
   for (i = 0; i < es->n && r->err == NQOK; i++) {
-    pent(r, nqjat(es, i), (uint64_t)lvs, root, lok ? dir : NULL,
+    pent(r, nqjat(es, i), pv, (uint64_t)lvs, root, lok ? dir : NULL,
          lok ? &l : NULL, seen, e);
   }
   /* a proof covers its files only, and without the folder not even
