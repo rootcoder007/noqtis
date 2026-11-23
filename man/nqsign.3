@@ -125,6 +125,17 @@ the sum of one ladder per share, every ladder starts from the base point
 in random projective coordinates, and S is computed share by share.
 Verification refuses a public key of small or mixed order, a scalar S
 not below the group order, and any non-canonical encoding.
+In symbols, with M the message, dom2(F, C) RFC 8032's prefix (empty for pure Ed25519),
+prefix the second half of SHA-512 of the secret key, a its scalar, A the
+public key, B the base point and L the group order:
+.Bd -literal -offset indent
+deterministic:  r = SHA-512(dom2(F, C) || prefix || M) mod L
+hedged:         r = SHA-512(dom2(F, C) || Z || prefix || 0^p || M)
+                    mod L,  Z 32 fresh bytes, p zero bytes so that
+                    |dom2(F, C)| + 64 + p is a multiple of 128
+R = [r]B;  k = SHA-512(dom2(F, C) || R || A || M) mod L
+S = (r + k a_0) + k a_1 mod L        a = a_0 + a_1 mod L, fresh shares
+.Ed
 .Pp
 The hybrid sets
 .Dv NQMDED44 , NQMDED65
@@ -466,6 +477,36 @@ Build with
 .%B Fault Diagnosis and Tolerance in Cryptography (FDTC 2017)
 .%I IEEE
 .%D 2017
+.Re
+.Rs
+.%A D. F. Aranha
+.%A C. Orlandi
+.%A A. Takahashi
+.%A G. Zaverucha
+.%T Security of Hedged Fiat-Shamir Signatures under Fault Attacks
+.%B Advances in Cryptology \(en EUROCRYPT 2020
+.%I Springer
+.%D 2020
+.Re
+.Rs
+.%A J. Brendel
+.%A C. Cremers
+.%A D. Jackson
+.%A M. Zhao
+.%T The Provable Security of Ed25519: Theory and Practice
+.%B 2021 IEEE Symposium on Security and Privacy
+.%I IEEE
+.%D 2021
+.Re
+.Rs
+.%A D. Boneh
+.%A R. A. DeMillo
+.%A R. J. Lipton
+.%T On the Importance of Checking Cryptographic Protocols for Faults
+.%B Advances in Cryptology \(en EUROCRYPT '97
+.%I Springer
+.%P pp. 37-51
+.%D 1997
 .Re
 .Sh SECURITY CONSIDERATIONS
 Key generation and signing run in constant time with respect to the secret
