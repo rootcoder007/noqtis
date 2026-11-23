@@ -59,10 +59,10 @@ is given, since replacing a timestamp gives up the earlier time it
 proves.
 A capsule with an evidence record
 .Pq Pa noqtis.ers , Xr noqtis-ers 1
-is refused, whatever the options: a new timestamp would change the seal
-the record proves; renew the record instead.
-The refusal comes when the TSA's reply is stored, so each TSA is asked
-first.
+is refused, whatever the options, before any TSA is asked: a new
+timestamp would change the seal the record proves;
+.Xr noqtis-ers 1
+renews the record's timestamp instead.
 .Bl -tag -width Ds
 .It Fl -tsa Ar url
 A time-stamping authority,

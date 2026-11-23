@@ -90,7 +90,10 @@ The record is read back the same way; for a hash-tree renewal either
 order of the two values, and H(SEQ) also over the chains without their
 SEQUENCE header, are accepted, for other readings of the RFC's text.
 Each archive timestamp's TSA certificate must be valid at the genTime of
-the one after it, and the last one's now, by the clock.
+the one after it, and the last one's now, by the system clock
+.Po Ev SOURCE_DATE_EPOCH
+does not change it
+.Pc .
 .Pp
 .Fn nqersput
 checks the record already there, as

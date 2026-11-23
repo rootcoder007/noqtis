@@ -56,7 +56,10 @@ checks the record under its
 certificates: the first timestamp must be over this seal, each next one
 over the one before (or, opening a chain, over the seal and the chains
 before it), and each TSA certificate valid at its own timestamp's time
-and at the next one's; the last must be valid now.
+and at the next one's; the last must be valid now, by the system clock
+.Po Ev SOURCE_DATE_EPOCH ,
+which sets the times noqtis writes, does not change it
+.Pc .
 While a record is there,
 .Xr noqtis-seal 1
 and

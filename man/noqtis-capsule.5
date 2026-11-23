@@ -346,8 +346,10 @@ A key with an
 .Ql expire
 statement seals until
 .Cm at :
-while the checker's time
-.Pq Ev SOURCE_DATE_EPOCH No when set, else its clock
+while the checker's clock
+.Po Ev SOURCE_DATE_EPOCH
+does not change it
+.Pc
 is before
 .Cm at ,
 the seal passes with no timestamp, and from then on only with a verified

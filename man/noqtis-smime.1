@@ -132,9 +132,13 @@ then write the entity instead of its body.
 .It Fl o Ar out , Fl -out Ns = Ns Ar out
 The output; standard output when it is not given or is
 .Ar - .
-A file is created with mode 0644 whatever the umask, the plaintext of
+A file is created with mode 0644 whatever the umask; the plaintext of
 .Cm decrypt
-too.
+is owner-only (mode 0600), as
+.Xr noqtis-unbox 1
+and
+.Xr noqtis-dec 1
+write theirs.
 .It Fl -pass-fd Ar n , Fl -pass-env Ar name
 The passphrase of a protected
 .Ar key .
