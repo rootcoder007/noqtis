@@ -88,7 +88,10 @@ and
 .Fn nqsivdec .
 No nonce is needed.
 The same key, strings and plaintext always give the same output, which
-shows when two messages are equal, and nothing else.
+shows when two messages are equal, and nothing else (deterministic
+authenticated encryption, secure if AES is a pseudorandom permutation;
+Rogaway and Shrimpton); so do not use AES-SIV where equal messages must
+not be recognizable.
 .Pp
 .Fn nqgsivenc
 and
@@ -112,7 +115,8 @@ bytes of ciphertext, then the 16-byte tag, with
 as above.
 A nonce should still be new for each message; one used twice with the
 same key shows only whether the two messages and their associated data
-were equal.
+were equal (nonce-misuse-resistant authenticated encryption; RFC 8452
+section 9).
 .Pp
 .Fn nqcha20
 is the ChaCha20 stream cipher of RFC 8439 section 2.4 on its own:
