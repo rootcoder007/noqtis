@@ -1,14 +1,28 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* The freestanding library (-DNQFREE=ON): no random source until one is
  * set, then the self-test, a hedged ML-DSA signature and an ML-KEM round
- * trip with the caller's source. The source here is a test generator
+ * trip with the caller's source; the self-test again with an allocator
+ * from the caller, which its Argon2id test then uses. The source here is a test generator
  * (SHAKE256 of a counter); a device would give its hardware one. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "noqtis.h"
 
-static unsigned long calls = 0;
+static unsigned long calls = 0, allocs = 0;
+
+static void *mal(size_t n, void *user) {
+  (void)user;
+  allocs++;
+  return malloc(n);
+}
+
+static void fre(void *p, size_t n, void *user) {
+  (void)n;
+  (void)user;
+  free(p);
+}
 
 static int src(uint8_t *buf, size_t len, void *user) {
   uint8_t seed[16];
@@ -38,6 +52,10 @@ int main(void) {
   bad |= nqdec(NQMLKEM768, sk, 2400, ct, 1088, ss2, 32) != NQOK;
   bad |= memcmp(ss, ss2, 32) != 0;
   bad |= calls == 0;
+  bad |= allocs != 0;
+  bad |= nqsetal(mal, fre, NULL) != NQOK;
+  bad |= nqselftest() != NQOK;
+  bad |= allocs == 0;
   printf("tfree: %s (%lu draws from the caller's source)\n",
          bad ? "FAIL" : "ok", calls);
   return bad;
