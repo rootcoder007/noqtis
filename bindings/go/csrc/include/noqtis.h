@@ -59,9 +59,11 @@ extern "C" {
 
 NQAPI const char *nqerr(int err);
 NQAPI const char *nqver(void);
-/* Known answers for every algorithm family (hashes, HMAC, ML-KEM,
- * ML-DSA, SLH-DSA key generation, HQC, Ed25519 and a hybrid), run in
- * about a tenth of a second: NQOK, or NQEKAT when one does not match. A
+/* Known answers for every algorithm family (the hashes, HMAC, the key
+ * derivations, HMAC_DRBG, ML-KEM, HQC, ML-DSA, SLH-DSA key generation
+ * but not its signing, Ed25519 and a hybrid, X25519 and ECDH, RSA and
+ * ECDSA verification, the ciphers; nqselftest(3) lists the tests), run
+ * in about a tenth of a second: NQOK, or NQEKAT when one does not match. A
  * module can run it once before use, as FIPS 140-3 asks. The masked
  * decapsulations and signatures draw on the random source, so without
  * one (NQFREE with no nqsetrng) it returns NQEKAT. Safe to call from
