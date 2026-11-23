@@ -369,6 +369,28 @@ public final class Tests {
     eq(fails(() -> Capsule.prove(b, List.of("nope"))), NoqtisException.Code.IO, "unlisted");
   }
 
+  static void seal3() throws Exception {
+    Sign.KeyPair k = Sign.keygen("ML-DSA-44");
+    Path b = tmp();
+    Capsule.seal3(b, "ML-DSA-44", k.sk(), k.pk(), null, List.of(), null);
+    eq(Capsule.inspect(b).get("info.format").orElseThrow().detail(), "noqtis-capsule-3", "format");
+    Capsule.Opts o = Capsule.Opts.none().withTrust(k.pk());
+    ok(Capsule.check(b, o).ok(), "format 3 checks");
+    byte[] pf = Capsule.prove(b, List.of("data/b.csv"));
+    String s = new String(pf, java.nio.charset.StandardCharsets.UTF_8);
+    ok(s.contains("\"format\":\"noqtis-proof-2\"") && !s.contains("a.txt"), "proof 2");
+    ok(Capsule.checkProof(pf, o, b).ok(), "proof 2 with files");
+    byte[] key = new byte[32];
+    Capsule.seal3(b, "ML-DSA-44", k.sk(), k.pk(), null, List.of(), key);
+    ok(Capsule.check(b, o).ok(), "with a salt key");
+    try {
+      Capsule.seal3(b, "ML-DSA-44", k.sk(), k.pk(), null, List.of(), new byte[31]);
+      ok(false, "a short salt key");
+    } catch (NoqtisException e) {
+      // refused
+    }
+  }
+
   static void keyFiles() throws Exception {
     Sign.KeyPair k = Sign.keygen("ML-DSA-44");
     String t = KeyFile.encode("ml-dsa-44", "pub", k.pk());
@@ -684,6 +706,7 @@ public final class Tests {
     ts.put("golden", Tests::golden);
     ts.put("sealAndCheck", Tests::sealAndCheck);
     ts.put("seal2", Tests::seal2);
+    ts.put("seal3", Tests::seal3);
     ts.put("keyFiles", Tests::keyFiles);
     ts.put("card", Tests::card);
     ts.put("dataRecord", Tests::dataRecord);

@@ -260,9 +260,61 @@ public final class Capsule {
   }
 
   /**
+   * {@link #seal2} in format 3: each entry also carries a secret 32-byte
+   * salt in its Merkle leaf, so that a proof lets no one confirm a guess
+   * of the files it does not show.
+   *
+   * @param dir the folder
+   * @param alg the signature algorithm
+   * @param sk the secret key
+   * @param pk its public key
+   * @param meta JSON text (an object), or null
+   * @param inputs the capsules it was made from (at most 1024), or an
+   *     empty list
+   * @param saltKey null for fresh salts, or the 32-byte salt key they are
+   *     derived from, for a reproducible capsule; keep it secret
+   */
+  public static void seal3(
+      Path dir, String alg, byte[] sk, byte[] pk, String meta, List<Input> inputs,
+      byte[] saltKey) {
+    Noqtis.Alg a = Noqtis.find(alg, "sign");
+    if (saltKey != null && saltKey.length != 32) {
+      throw new NoqtisException(-1, "a salt key is 32 bytes");
+    }
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment d = dir(m, dir), mt = meta == null ? MemorySegment.NULL : cs(m, meta);
+      MemorySegment ks = Native.in(m, sk), ps = Native.in(m, pk);
+      MemorySegment sks = saltKey == null ? MemorySegment.NULL : Native.in(m, saltKey);
+      List<Input> ins = inputs == null ? List.of() : inputs;
+      MemorySegment in = MemorySegment.NULL;
+      if (!ins.isEmpty()) {
+        in = m.allocate(40L * ins.size(), 8);
+        for (int i = 0; i < ins.size(); i++) {
+          Input x = ins.get(i);
+          if (x.id().length != 32) {
+            throw new NoqtisException(-1, "an input id is 32 bytes");
+          }
+          MemorySegment.copy(x.id(), 0, in, JAVA_BYTE, 40L * i, 32);
+          in.set(ADDRESS, 40L * i + 32, cs(m, x.name()));
+        }
+      }
+      int c =
+          (int)
+              Native.NQSEAL3.invoke(
+                  d, a.id(), ks, (long) sk.length, ps, (long) pk.length, mt, in,
+                  (long) ins.size(), sks, saltKey == null ? 0L : 32L);
+      Native.rc(c);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
    * {@link #seal} in format 2: the manifest also carries a Merkle tree
    * over its entries, so that {@link #prove} can show single files without
-   * the rest, and the capsules it was made from.
+   * the rest's names, sizes or digests, and the capsules it was made from.
+   * Its leaves are unsalted: anyone who can guess a file not shown can
+   * confirm the guess from a proof; {@link #seal3} salts them.
    *
    * @param dir the folder
    * @param alg the signature algorithm

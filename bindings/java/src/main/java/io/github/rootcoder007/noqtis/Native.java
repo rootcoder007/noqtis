@@ -176,6 +176,7 @@ final class Native {
   static final MethodHandle NQDEC = fn("nqdec", I, I, P, Z, P, Z, P, Z);
   static final MethodHandle NQSEAL = fn("nqseal", I, P, I, P, Z, P, Z, P, P);
   static final MethodHandle NQSEAL2 = fn("nqseal2", I, P, I, P, Z, P, Z, P, P, Z);
+  static final MethodHandle NQSEAL3 = fn("nqseal3", I, P, I, P, Z, P, Z, P, P, Z, P, Z);
   static final MethodHandle NQCAPID = fn("nqcapid", I, P, P);
   static final MethodHandle NQCHKX = fn("nqchkx", I, P, P, P);
   static final MethodHandle NQPROVE = fn("nqprove", I, P, P, Z, P, Z, P);
