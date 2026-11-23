@@ -414,10 +414,10 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
   bit) can give the key away (Bindel et al. 2016 for ML-DSA, Castelnovi
   et al. 2018 for SLH-DSA, Romailler and Pelissier 2017 for Ed25519), so
   `nqsign` verifies every signature, and each half of a hybrid, under
-  the public key held in the secret key before returning it; one that
-  fails is zeroed and the call returns `NQEFLT`. ML-DSA checks from the
-  message representative it already has and SLH-DSA from the digest, so
-  this costs one verification.
+  the public key derived again from the secret key before returning it;
+  one that fails is zeroed and the call returns `NQEFLT`. ML-DSA checks
+  from the message representative it already has and SLH-DSA from the
+  digest, so this costs one verification.
 - A known-answer self-test, `nqselftest()` (`noqtis selftest`, and in
   every binding): fixed inputs through every family, all outputs hashed
   and compared with stored answers, in about a tenth of a second, as a

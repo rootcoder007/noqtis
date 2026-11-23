@@ -375,7 +375,8 @@ NQAPI int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
  * gives with the same rnd, and nqvrfymu accepts what nqvrfy accepts.
  * rnd is NULL (rndlen 0) for the hedged signature, or 32 bytes (all
  * zero: deterministic). The signature is checked under the public key
- * in sk before it is returned (NQEFLT otherwise). */
+ * derived again from the secret key before it is returned (NQEFLT
+ * otherwise). */
 #define NQMU 64
 NQAPI int nqsmu(nqsalg alg, const uint8_t *pk, size_t pklen,
                 const uint8_t *msg, size_t msglen, const uint8_t *ctx,
