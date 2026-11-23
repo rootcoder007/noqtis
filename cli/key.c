@@ -378,7 +378,7 @@ int ncpwgetn(const char *cmd, const ncpw *o, const char *opt, uint8_t **b,
       ncmsg(cmd, "cannot read a passphrase from descriptor %d", fd);
       goto fail;
     }
-    /* ponytail: two slots, the most one command reads (old and new key) */
+    /* note: two slots, the most one command reads (old and new key) */
     if (*n > 0 && npwc < 2) {
       if (npwc == 0)
         (void)atexit(pwcwipe);
