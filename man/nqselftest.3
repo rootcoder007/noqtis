@@ -57,6 +57,17 @@ are one static block of about 44 KB, wiped after each test, held under
 a lock.
 It may be called from several threads at once; one test runs at a
 time and the others wait.
+The lock is a spin lock, held for one test at a time (well under a
+second): a waiting thread spins, using its processor, until the lock is
+free.
+It is not re-entrant: a random source set with
+.Xr nqsetrng 3 ,
+which the self-test calls while it holds the lock, must not call
+.Fn nqselftest ,
+or the call never returns.
+The progress and stop hooks
+.Pq Xr nqsetprog 3 , Xr nqsetstop 3
+are not called during the self-test.
 .Sh RETURN VALUES
 .Dv NQOK
 when every answer matches;
