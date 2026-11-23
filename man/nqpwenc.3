@@ -4,7 +4,9 @@
 .Os
 .Sh NAME
 .Nm nqpwenc ,
-.Nm nqpwdec
+.Nm nqpwenc2 ,
+.Nm nqpwdec ,
+.Nm nqpbkdf2
 .Nd keep a secret key under a passphrase
 .Sh LIBRARY
 libnoqtis, \-lnoqtis
@@ -17,6 +19,23 @@ libnoqtis, \-lnoqtis
 .Fa "uint32_t m" "uint32_t t" "uint32_t p"
 .Fa "const uint8_t *sk" "size_t sklen"
 .Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqpwenc2
+.Fa "int kdf"
+.Fa "const uint8_t *pw" "size_t pwlen"
+.Fa "const uint8_t *ad" "size_t alen"
+.Fa "uint32_t m" "uint32_t t" "uint32_t p"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "uint8_t *out" "size_t cap" "size_t *outlen"
+.Fc
+.Ft int
+.Fo nqpbkdf2
+.Fa "nqhalg alg"
+.Fa "const uint8_t *pw" "size_t pwlen"
+.Fa "const uint8_t *salt" "size_t slen"
+.Fa "uint32_t iters"
+.Fa "uint8_t *out" "size_t outlen"
 .Fc
 .Ft int
 .Fo nqpwdec
@@ -147,6 +166,47 @@ section 2.8, with associated data H || A, its output the ciphertext then
 the 16-byte tag.
 A new salt makes a new key and nonce for each call, so the nonce is
 never used twice with one key.
+.Pp
+.Fn nqpwenc2
+is
+.Fn nqpwenc
+with the derivation chosen by
+.Fa kdf :
+.Dv NQPWA2 ,
+Argon2id as above and the default everywhere, or
+.Dv NQPWPB ,
+PBKDF2 with HMAC-SHA-256 (RFC 8018 section 5.2) for places whose rules
+ask for it.
+Under
+.Dv NQPWPB
+the header's KDF byte is 2,
+.Fa t
+is the iteration count (0 for
+.Dv NQPWI ,
+600000; from
+.Dv NQPWIMIN
+to
+.Dv NQPWIMAX ) ,
+.Fa m
+and
+.Fa p
+are 0, and OKM is the 44 bytes PBKDF2 gives for the passphrase and the
+salt.
+.Fn nqpwdec
+reads both; the KDF byte is in H, so the tag covers it.
+.Pp
+.Fn nqpbkdf2
+is PBKDF2 itself on the HMAC of
+.Fa alg
+.Pq Xr nqhash 3 :
+.Fa outlen
+bytes (1 to
+.Dv NQPBOMAX )
+after
+.Fa iters
+iterations (1 to
+.Dv NQPBIMAX ) .
+It costs an attacker no memory, which Argon2id does.
 .Sh RETURN VALUES
 .Dv NQOK ,
 or
@@ -208,9 +268,10 @@ nqwipe(back, sizeof back);
 .Sh SEE ALSO
 .Xr noqtis-keygen 1 ,
 .Xr noqtis 3 ,
-.Xr nqa2id 3
+.Xr nqa2id 3 ,
+.Xr nqhash 3
 .Sh STANDARDS
-RFC 9106 (Argon2id), RFC 8439 (ChaCha20-Poly1305).
+RFC 9106 (Argon2id), RFC 8439 (ChaCha20-Poly1305), RFC 8018 (PBKDF2).
 .Rs
 .%A A. Biryukov
 .%A D. Dinu

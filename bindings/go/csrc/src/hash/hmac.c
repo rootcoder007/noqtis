@@ -126,3 +126,43 @@ int nqhmac(nqhalg alg, const uint8_t *key, size_t keylen,
   nqwipe(t, sizeof t);
   return NQOK;
 }
+
+int nqpbkdf2(nqhalg alg, const uint8_t *pw, size_t pwlen,
+             const uint8_t *salt, size_t slen, uint32_t iters, uint8_t *out,
+             size_t outlen) {
+  nqmctx base, c;
+  uint8_t u[NQHMAX], t[NQHMAX], be[4];
+  size_t d = nqhlen(alg), off = 0, k, n;
+  uint32_t blk = 1, j;
+  int rc;
+  if (alg == NQSHK128 || alg == NQSHK256) return NQENOSUP;
+  if (d == 0 || out == NULL || outlen < 1 || outlen > NQPBOMAX ||
+      (pw == NULL && pwlen > 0) || (salt == NULL && slen > 0) ||
+      iters < 1 || iters > NQPBIMAX) {
+    return NQEARG;
+  }
+  /* the pads of the password once; each HMAC starts from a copy */
+  rc = nqmini(&base, alg, pw, pwlen);
+  while (rc == NQOK && off < outlen) {
+    nqst32b(be, blk++);
+    c = base;
+    nqmupd(&c, salt, slen);
+    nqmupd(&c, be, 4);
+    nqmfin(&c, u);
+    memcpy(t, u, d);
+    for (j = 1; j < iters; j++) {
+      c = base;
+      nqmupd(&c, u, d);
+      nqmfin(&c, u);
+      for (k = 0; k < d; k++) t[k] ^= u[k];
+    }
+    n = outlen - off < d ? outlen - off : d;
+    memcpy(out + off, t, n);
+    off += n;
+  }
+  nqwipe(&base, sizeof base);
+  nqwipe(&c, sizeof c);
+  nqwipe(u, sizeof u);
+  nqwipe(t, sizeof t);
+  return rc;
+}

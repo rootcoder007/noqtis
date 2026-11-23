@@ -169,6 +169,17 @@ NQAPI int nqhfin(nqhctx *ctx, uint8_t *out, size_t outlen);
 NQAPI int nqhmac(nqhalg alg, const uint8_t *key, size_t keylen,
                  const uint8_t *in, size_t inlen, uint8_t *out, size_t outlen);
 
+/* PBKDF2 (RFC 8018) on that HMAC: outlen bytes (1 to NQPBOMAX) from the
+ * password pw and the salt after iters iterations (1 to NQPBIMAX).
+ * NQEARG outside those limits or for a NULL pointer with a length,
+ * NQENOSUP for SHAKE. It costs an attacker no memory: where the choice
+ * is free, nqa2id is the one to use. */
+#define NQPBIMAX 100000000u
+#define NQPBOMAX 1024u
+NQAPI int nqpbkdf2(nqhalg alg, const uint8_t *pw, size_t pwlen,
+                   const uint8_t *salt, size_t slen, uint32_t iters,
+                   uint8_t *out, size_t outlen);
+
 /* BLAKE2b (RFC 7693): an outlen-byte digest (1 to 64) of in, keyed with
  * keylen bytes of key (0 to 64; key may be NULL when keylen is 0, the
  * plain hash). The key makes it a MAC: compare tags with nqcteq.
@@ -615,6 +626,15 @@ NQAPI int nqkmdfin(nqkmctx *c, const uint8_t *in, size_t n,
 #define NQPWOVH 51u        /* bytes beyond the key: header and tag */
 #define NQPWMAX 65536u     /* the longest key */
 #define NQPWLEN 4096u      /* the longest passphrase (at least 1 byte) */
+/* The KDF byte of the header names the derivation: NQPWA2, Argon2id as
+ * above, the default; or NQPWPB, PBKDF2 with HMAC-SHA-256 (RFC 8018),
+ * for places whose rules ask for it. Under NQPWPB the header's t is the
+ * iteration count and its m and p are 0. */
+#define NQPWA2 1
+#define NQPWPB 2
+#define NQPWI 600000u      /* PBKDF2 iterations: the default */
+#define NQPWIMIN 100000u   /* at least */
+#define NQPWIMAX 10000000u /* at most */
 /* nqpwenc writes sklen + NQPWOVH bytes to out (cap; *outlen gets the
  * size, also with NQEBUF); m, t and p are 0 for the defaults. NQEARG
  * for a parameter outside the limits, NQERNG when the salt cannot be
@@ -623,6 +643,13 @@ NQAPI int nqpwenc(const uint8_t *pw, size_t pwlen, const uint8_t *ad,
                   size_t alen, uint32_t m, uint32_t t, uint32_t p,
                   const uint8_t *sk, size_t sklen, uint8_t *out, size_t cap,
                   size_t *outlen);
+/* nqpwenc under the derivation kdf: NQPWA2 with m, t and p as there, or
+ * NQPWPB with t the iteration count (0 for NQPWI; NQPWIMIN to NQPWIMAX)
+ * and m and p 0. NQEARG for any other kdf. nqpwdec reads both. */
+NQAPI int nqpwenc2(int kdf, const uint8_t *pw, size_t pwlen,
+                   const uint8_t *ad, size_t alen, uint32_t m, uint32_t t,
+                   uint32_t p, const uint8_t *sk, size_t sklen,
+                   uint8_t *out, size_t cap, size_t *outlen);
 /* Reads n bytes from nqpwenc: the key to sk (cap bytes; *sklen gets its
  * size, also with NQEBUF). Everything that can be checked before the
  * passphrase is: NQEDEC for a magic, version, KDF or AEAD that is not

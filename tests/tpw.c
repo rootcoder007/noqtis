@@ -9,6 +9,7 @@
  * prints the known answers' records again (test keys and passphrases,
  * fixed patterns; nothing secret). */
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "noqtis.h"
@@ -289,8 +290,106 @@ static void tdef(void) {
   NQTEQM(back, k, sizeof k);
 }
 
+static void unhex(const char *h, uint8_t *o, size_t n) {
+  size_t i;
+  for (i = 0; i < n; i++) {
+    unsigned v = 0;
+    (void)sscanf(h + 2 * i, "%2x", &v);
+    o[i] = (uint8_t)v;
+  }
+}
+
+/* PBKDF2: the HMAC-SHA-256 answers of RFC 7914 section 11, two more
+ * hashes against Python's hashlib, the limits; then a key file under it */
+static void tpb(void) {
+  uint8_t got[64], want[64], k[48], f[48 + NQPWOVH], back[48];
+  size_t on = 0, bn = 0;
+  unhex("55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc"
+        "49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783",
+        want, 64);
+  NQTEQI(nqpbkdf2(NQS256, (const uint8_t *)"passwd", 6,
+                  (const uint8_t *)"salt", 4, 1, got, 64),
+         NQOK);
+  NQTEQM(got, want, 64);
+  unhex("4ddcd8f60b98be21830cee5ef22701f9641a4418d04c0414aeff08876b34ab56"
+        "a1d425a1225833549adb841b51c9b3176a272bdebba1d078478f62b397f33c8d",
+        want, 64);
+  NQTEQI(nqpbkdf2(NQS256, (const uint8_t *)"Password", 8,
+                  (const uint8_t *)"NaCl", 4, 80000, got, 64),
+         NQOK);
+  NQTEQM(got, want, 64);
+  unhex("e1d9c16aa681708a45f5c7c4e215ceb66e011a2e", want, 20);
+  NQTEQI(nqpbkdf2(NQS512, (const uint8_t *)"password", 8,
+                  (const uint8_t *)"salt", 4, 2, got, 20),
+         NQOK);
+  NQTEQM(got, want, 20);
+  unhex("6677065466c97fdef1c15ae8d95020ca948334f53eceeafc6115ddf405f6d6a4"
+        "f75ba13a75082d8d", want, 40);
+  NQTEQI(nqpbkdf2(NQS3256, (const uint8_t *)"password", 8,
+                  (const uint8_t *)"salt", 4, 3, got, 40),
+         NQOK);
+  NQTEQM(got, want, 40);
+  NQTEQI(nqpbkdf2(NQS256, pw0, 4, pw0, 4, 0, got, 32), NQEARG);
+  NQTEQI(nqpbkdf2(NQS256, pw0, 4, pw0, 4, NQPBIMAX + 1, got, 32), NQEARG);
+  NQTEQI(nqpbkdf2(NQS256, pw0, 4, pw0, 4, 1, got, 0), NQEARG);
+  NQTEQI(nqpbkdf2(NQS256, pw0, 4, pw0, 4, 1, NULL, 32), NQEARG);
+  NQTEQI(nqpbkdf2(NQS256, NULL, 4, pw0, 4, 1, got, 32), NQEARG);
+  NQTEQI(nqpbkdf2(NQSHK256, pw0, 4, pw0, 4, 1, got, 32), NQENOSUP);
+  /* a key file under PBKDF2: the header says so, both ways round */
+  memset(k, 9, sizeof k);
+  NQTEQI(nqpwenc2(NQPWPB, pw0, 13, (const uint8_t *)"x", 1, 0, 0, 0, k,
+                  sizeof k, f, sizeof f, &on),
+         NQOK);
+  NQTEQI(on, sizeof f);
+  NQTEQI(f[5], NQPWPB);
+  NQTEQI(nqld32b(f + 7), 0);
+  NQTEQI(nqld32b(f + 11), NQPWI);
+  NQTEQI(nqld32b(f + 15), 0);
+  NQTEQI(nqpwdec(pw0, 13, (const uint8_t *)"x", 1, f, on, back,
+                 sizeof back, &bn),
+         NQOK);
+  NQTEQI(bn, sizeof k);
+  NQTEQM(back, k, sizeof k);
+  NQTEQI(nqpwdec(pw0, 12, (const uint8_t *)"x", 1, f, on, back,
+                 sizeof back, &bn),
+         NQEVRFY);
+  NQTEQI(nqpwdec(pw0, 13, (const uint8_t *)"y", 1, f, on, back,
+                 sizeof back, &bn),
+         NQEVRFY);
+  /* the KDF byte is under the tag: a file cannot be moved to the other */
+  f[5] = NQPWA2;
+  NQTEQI(nqpwdec(pw0, 13, (const uint8_t *)"x", 1, f, on, back,
+                 sizeof back, &bn),
+         NQELIM);
+  f[5] = NQPWPB;
+  /* iterations outside the limits, and m or p not 0: refused unread */
+  nqst32b(f + 11, NQPWIMIN - 1);
+  NQTEQI(nqpwdec(pw0, 13, (const uint8_t *)"x", 1, f, on, back,
+                 sizeof back, &bn),
+         NQELIM);
+  nqst32b(f + 11, NQPWIMAX + 1);
+  NQTEQI(nqpwdec(pw0, 13, (const uint8_t *)"x", 1, f, on, back,
+                 sizeof back, &bn),
+         NQELIM);
+  nqst32b(f + 11, NQPWI);
+  nqst32b(f + 7, 1);
+  NQTEQI(nqpwdec(pw0, 13, (const uint8_t *)"x", 1, f, on, back,
+                 sizeof back, &bn),
+         NQELIM);
+  NQTEQI(nqpwenc2(NQPWPB, pw0, 13, NULL, 0, 0, NQPWIMIN - 1, 0, k,
+                  sizeof k, f, sizeof f, &on),
+         NQEARG);
+  NQTEQI(nqpwenc2(NQPWPB, pw0, 13, NULL, 0, NQPWM, 0, 0, k, sizeof k, f,
+                  sizeof f, &on),
+         NQEARG);
+  NQTEQI(nqpwenc2(3, pw0, 13, NULL, 0, 0, 0, 0, k, sizeof k, f, sizeof f,
+                  &on),
+         NQEARG);
+}
+
 int main(int argc, char **argv) {
   if (argc == 2 && strcmp(argv[1], "gen") == 0) return gen();
+  tpb();
   tkat();
   ttamper();
   targs();
