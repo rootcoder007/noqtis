@@ -160,6 +160,28 @@ static int fedit(void) {
   return rc;
 }
 
+/* nqdput that fails leaves the record as it was: it reads back */
+static int fput(void) {
+  nqdrec *r = NULL, *r2 = NULL;
+  int rc = nqdnew(&r), rc2;
+  if (rc != NQOK)
+    return rc;
+  rc = nqdput(r, "checks", "{\"name\":\"n\",\"status\":\"pass\"}", 28, why,
+              sizeof why);
+  left = -1; /* what follows checks the call; nothing of it fails */
+  rc2 = nqdjson(r, out, sizeof out, &on);
+  if (rc2 == NQOK)
+    rc2 = nqdparse(out, on, &r2, why, sizeof why);
+  nqdrfree(r2);
+  nqdrfree(r);
+  if (rc2 != NQOK) {
+    fprintf(stderr, "tdal: nqdput: the record left does not read back "
+            "(%d: %s)\n", rc2, why);
+    NQTCHK(0);
+  }
+  return rc;
+}
+
 /* a loaded record read every way */
 static int fread1(void) {
   nqdrec *r = NULL;
@@ -495,6 +517,7 @@ int main(void) {
   sweep("nqdparse, nqdjson", fparse, NULL);
   sweep("nqdnew, nqdsrc, nqdset, nqdput, nqddel, nqdsave, nqdload", fedit,
         NULL);
+  sweep("nqdput", fput, NULL);
   sweep("nqdload, nqdat, nqdkey, nqdfld, nqdaddr, nqdvrfy, nqdcite", fread1,
         NULL);
   sweep("nqdcommit, nqdreveal", fcommit, NULL);
