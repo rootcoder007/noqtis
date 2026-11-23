@@ -175,6 +175,13 @@ lanes and a 44-byte tag; PBKDF2 is that of RFC 8018 section 5.2 with
 HMAC-SHA-256 as its PRF; ChaCha20-Poly1305 is that of RFC 8439
 section 2.8, with associated data H || A, its output the ciphertext then
 the 16-byte tag.
+PBKDF2 with c iterations, for block i = 1, 2, ...:
+.Bd -literal -offset indent
+U_1 = HMAC(P, S || BE32(i));  U_j = HMAC(P, U_(j-1))
+T_i = U_1 xor U_2 xor ... xor U_c
+DK  = first dkLen bytes of T_1 || T_2 || ...
+.Ed
+.Pp
 A new salt makes a new key and nonce for each call, so the nonce is
 never used twice with one key.
 .Pp
@@ -348,10 +355,19 @@ RFC 9106 (Argon2id), RFC 8439 (ChaCha20-Poly1305), RFC 8018 (PBKDF2).
 .%D January 2017
 .Re
 .Rs
+.%A M. S. Turan
+.%A E. Barker
+.%A W. Burr
+.%A L. Chen
+.%T Recommendation for Password-Based Key Derivation, Part 1: Storage Applications
+.%R NIST SP 800-132
+.%D December 2010
+.Re
+.Rs
 .%A A. Biryukov
 .%A D. Dinu
 .%A D. Khovratovich
-.%T Argon2: new generation of memory-hard functions for password hashing and other applications
+.%T Argon2: New Generation of Memory-Hard Functions for Password Hashing and Other Applications
 .%B 2016 IEEE European Symposium on Security and Privacy (EuroS&P)
 .%I IEEE
 .%P pp. 292-302
@@ -370,9 +386,13 @@ option of RFC 9106 section 4; raise
 where the machines that open the file allow it.
 A PBKDF2 file
 .Pq Dv NQPWPB
-costs a guesser
+costs a guesser 2
 .Fa t
-HMAC-SHA-256 iterations per guess and no memory.
+HMAC-SHA-256 computations per guess (the 44 bytes are two 32-byte
+blocks of
+.Fa t
+iterations each) and no memory, so guessing hardware runs many guesses
+in parallel cheaply; Argon2id's memory per guess prevents that.
 .Pp
 The parameters and the salt are in the clear, and the length of the
 secret key shows its algorithm.
