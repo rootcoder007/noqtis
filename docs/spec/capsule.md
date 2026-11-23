@@ -419,8 +419,9 @@ earlier: the manifest's `created` is the sealer's own word, which a
 holder of a stolen key could write.
 
 A key with an `expire` statement seals until `at`. While the checker's
-time (`SOURCE_DATE_EPOCH` when set, else its clock) is before `at`, the
-seal passes `key.time` with no timestamp; from `at` on it passes only
+system clock (`SOURCE_DATE_EPOCH`, which sets only the times noqtis
+writes, does not change it) is before `at`, the seal passes `key.time`
+with no timestamp; from `at` on it passes only
 with a verified timestamp whose genTime is earlier, as for a revoked
 key.
 

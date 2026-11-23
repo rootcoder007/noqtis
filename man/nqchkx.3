@@ -96,9 +96,12 @@ For a key with an
 .Ql expire
 statement
 .Pq Xr nqkexp 3
-no timestamp is asked for until the time it names, judged by
-.Ev SOURCE_DATE_EPOCH
-when set and else by the clock; from then on, as for a revocation.
+no timestamp is asked for until the time it names, judged by the system
+clock
+.Po Ev SOURCE_DATE_EPOCH ,
+which sets only the times noqtis writes, does not change it
+.Pc ;
+from then on, as for a revocation.
 .Sh RETURN VALUES
 As
 .Xr nqchk 3 :

@@ -117,9 +117,11 @@ seals until
 .Fa at
 and not after.
 Until then a check with the statement accepts its seals as it does
-without one; from then on, by
-.Ev SOURCE_DATE_EPOCH
-when it is set and else by the clock, it accepts only a seal with a
+without one; from then on, by the system clock
+.Po Ev SOURCE_DATE_EPOCH ,
+which sets only the times noqtis writes, does not change it
+.Pc ,
+it accepts only a seal with a
 verified timestamp from before
 .Fa at ,
 as for a key revoked at
