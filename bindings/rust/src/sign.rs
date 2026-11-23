@@ -78,7 +78,47 @@ pub fn keygen(alg: &str, seed: Option<&[u8]>) -> Result<(Vec<u8>, Vec<u8>)> {
     Ok((pk, sk))
 }
 
-/// The signature of `msg` under `sk`.
+/// The length of `alg`'s version 2 secret-key container: the key S, for
+/// Ed25519 and the hybrids the Ed25519 public key P, and the integrity
+/// value T, SHA3-256 of a domain string, the name, S and P
+/// (docs/spec/keyfile.md).
+pub fn sxsize(alg: &str) -> Result<usize> {
+    let a = find(alg, Kind::Sign)?;
+    let mut n = 0usize;
+    // SAFETY: n is a valid place for the result
+    rc(unsafe { ffi::nqsxsz(a.id, &mut n) })?;
+    Ok(n)
+}
+
+/// The version 2 container of the secret key `sk`. Every signing function
+/// takes it in place of `sk`: after signing it checks the integrity value
+/// (and for Ed25519 and the hybrids the public key) again, so a change to
+/// any stored byte of the key ends in [`Code::Fault`](crate::Code) before
+/// a signature leaves.
+pub fn sxmake(alg: &str, sk: &[u8]) -> Result<Vec<u8>> {
+    let a = find(alg, Kind::Sign)?;
+    let n = sxsize(alg)?;
+    let mut x = vec![0u8; n];
+    // SAFETY: the buffers are valid for the lengths passed
+    rc(unsafe { ffi::nqsxmk(a.id, sk.as_ptr(), sk.len(), x.as_mut_ptr(), n) })?;
+    Ok(x)
+}
+
+/// Whether `x` is a sound container: `Ok(true)`, `Ok(false)` when it is
+/// damaged, [`Code::Unsupported`](crate::Code) for a key with no
+/// container (version 1).
+pub fn sxcheck(alg: &str, x: &[u8]) -> Result<bool> {
+    let a = find(alg, Kind::Sign)?;
+    // SAFETY: the buffer is valid for the length passed
+    match unsafe { ffi::nqsxchk(a.id, x.as_ptr(), x.len()) } {
+        ffi::NQOK => Ok(true),
+        -4 => Ok(false),
+        c => rc(c).map(|_| false),
+    }
+}
+
+/// The signature of `msg` under `sk` (the key, or its container from
+/// [`sxmake`]).
 pub fn sign(alg: &str, sk: &[u8], msg: &[u8], o: &Opts) -> Result<Vec<u8>> {
     let a = find(alg, Kind::Sign)?;
     if o.deterministic && o.rnd.is_some() {

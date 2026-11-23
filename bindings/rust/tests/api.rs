@@ -412,6 +412,16 @@ fn seal_and_check() {
     assert!(r.to_string().contains("ok"));
     let i = cap::inspect(&d).unwrap();
     assert_eq!(i.get("info.meta").unwrap().detail, r#"{"project":"rust"}"#);
+    // seal writes format 3 from 0.3.0; seal1 the format of before
+    assert_eq!(i.get("info.format").unwrap().detail, "noqtis-capsule-3");
+    let d1 = tmp("cap1f1");
+    files(&d1);
+    cap::seal1(&d1, "ML-DSA-65", &sk, &pk, None).unwrap();
+    assert_eq!(
+        cap::inspect(&d1).unwrap().get("info.format").unwrap().detail,
+        "noqtis-capsule-1"
+    );
+    fs::remove_dir_all(&d1).unwrap();
     // only one file
     let p = cap::Opts {
         only: vec!["a.txt".into()],
@@ -515,7 +525,7 @@ fn seal2_prove_lineage() {
     // a format 1 capsule has no proofs; a path it does not list
     let c = tmp("f1");
     files(&c);
-    cap::seal(&c, "ML-DSA-44", &sk, &pk, None).unwrap();
+    cap::seal1(&c, "ML-DSA-44", &sk, &pk, None).unwrap();
     assert_eq!(
         cap::prove(&c, &["a.txt"]).unwrap_err().kind(),
         Code::Unsupported
@@ -595,7 +605,11 @@ fn key_files() {
         Code::Io
     );
     keyfile::write(&f, "ML-DSA-44", "sec", &sk, true).unwrap();
-    assert_eq!(keyfile::read(&f, None).unwrap().key, sk);
+    // a signature key reads back as its version 2 container
+    assert_eq!(
+        keyfile::read(&f, None).unwrap().key,
+        sign::sxmake("ML-DSA-44", &sk).unwrap()
+    );
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -614,4 +628,82 @@ fn key_files() {
 #[test]
 fn selftest_passes() {
     noqtis::selftest().unwrap();
+}
+
+// base64 in lines of 64, for key files written by hand
+fn b64(k: &[u8]) -> String {
+    let al = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut s = String::new();
+    for c in k.chunks(3) {
+        let v = (c[0] as u32) << 16
+            | (*c.get(1).unwrap_or(&0) as u32) << 8
+            | *c.get(2).unwrap_or(&0) as u32;
+        for i in 0..4 {
+            s.push(if i <= c.len() {
+                al[(v >> (18 - 6 * i) & 63) as usize] as char
+            } else {
+                '='
+            });
+        }
+    }
+    let mut o = String::new();
+    for l in s.as_bytes().chunks(64) {
+        o.push_str(std::str::from_utf8(l).unwrap());
+        o.push('\n');
+    }
+    o
+}
+
+#[test]
+fn key_container_v2() {
+    for alg in [
+        "ML-DSA-44",
+        "Ed25519",
+        "ML-DSA-65+Ed25519",
+        "SLH-DSA-SHA2-128f",
+    ] {
+        let (pk, sk) = sign::keygen(alg, None).unwrap();
+        let n = sign::sxsize(alg).unwrap();
+        let x = sign::sxmake(alg, &sk).unwrap();
+        assert_eq!(x.len(), n);
+        assert_eq!(&x[..sk.len()], &sk[..]);
+        assert!(sign::sxcheck(alg, &x).unwrap());
+        assert_eq!(
+            sign::sxcheck(alg, &sk).unwrap_err().kind(),
+            Code::Unsupported
+        );
+        for i in (0..n).step_by((n / 97).max(1)) {
+            let mut y = x.clone();
+            y[i] ^= 0x20;
+            assert!(!sign::sxcheck(alg, &y).unwrap(), "{alg} byte {i}");
+        }
+        let o = sign::Opts::default();
+        let s = sign::sign(alg, &x, b"m", &o).unwrap();
+        assert!(sign::verify(alg, &pk, b"m", &s, &o).unwrap());
+        let mut y = x.clone();
+        y[n - 1] ^= 1;
+        assert_eq!(
+            sign::sign(alg, &y, b"m", &o).unwrap_err().kind(),
+            Code::Fault
+        );
+        // key files: version 2 written and read back as X; version 1 read
+        // as S; a damaged version 2 file refused
+        let t = keyfile::encode(alg, "sec", &sk).unwrap();
+        assert!(t.starts_with(&format!("noqtis-key-2 {alg} sec\n")));
+        assert_eq!(keyfile::decode(t.as_bytes()).unwrap().key, x);
+        assert_eq!(keyfile::encode(alg, "sec", &x).unwrap(), t);
+        let v1 = format!("noqtis-key-1 {alg} sec\n{}", b64(&sk));
+        assert_eq!(keyfile::decode(v1.as_bytes()).unwrap().key, sk);
+        let bad = format!("noqtis-key-2 {alg} sec\n{}", b64(&y));
+        let e = keyfile::decode(bad.as_bytes()).unwrap_err();
+        assert!(e.to_string().contains("integrity value"), "{e}");
+        assert_eq!(
+            keyfile::encode(alg, "sec", &y).unwrap_err().kind(),
+            Code::Arg
+        );
+    }
+    let (_, ek) = kem::keygen("ML-KEM-768", None).unwrap();
+    let t = keyfile::encode("ML-KEM-768", "sec", &ek).unwrap();
+    assert!(t.starts_with("noqtis-key-1 ML-KEM-768 sec\n"));
+    assert!(keyfile::decode(t.replacen("key-1", "key-2", 1).as_bytes()).is_err());
 }

@@ -74,10 +74,10 @@ fn pw_key_files() {
     assert_eq!(keyfile::pwdec(b"pw", &e, b"ad").unwrap(), sk);
     assert_eq!(code(keyfile::pwenc(b"pw", &sk, b"", 1024, 1, 1)), Code::Arg);
     let t = keyfile::encodep("ML-DSA-44", "sec", &sk, Some(b"pass")).unwrap();
-    assert!(t.starts_with("noqtis-key-1 ML-DSA-44 sec\n"));
+    assert!(t.starts_with("noqtis-key-2 ML-DSA-44 sec\n"));
     assert_eq!(
         keyfile::decodep(t.as_bytes(), Some(b"pass")).unwrap().key,
-        sk
+        sign::sxmake("ML-DSA-44", &sk).unwrap()
     );
     assert_eq!(code(keyfile::decode(t.as_bytes())), Code::Arg);
     let e = keyfile::decodep(t.as_bytes(), Some(b"nope")).unwrap_err();

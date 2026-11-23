@@ -90,6 +90,9 @@ extern "C" {
     pub fn nqssize(alg: c_int, sz: *mut Ssz) -> c_int;
     pub fn nqsname(alg: c_int) -> *const c_char;
     pub fn nqskg(alg: c_int, pk: *mut u8, pklen: usize, sk: *mut u8, sklen: usize) -> c_int;
+    pub fn nqsxsz(alg: c_int, n: *mut usize) -> c_int;
+    pub fn nqsxmk(alg: c_int, sk: *const u8, sklen: usize, x: *mut u8, xlen: usize) -> c_int;
+    pub fn nqsxchk(alg: c_int, x: *const u8, xlen: usize) -> c_int;
     pub fn nqskgd(
         alg: c_int,
         seed: *const u8,

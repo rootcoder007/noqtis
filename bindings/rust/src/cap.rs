@@ -130,11 +130,27 @@ fn copt(s: Option<&str>) -> Result<Option<CString>> {
     s.map(|m| cs(m.as_bytes(), "meta")).transpose()
 }
 
-/// Writes noqtis.json and noqtis.sig into `dir` (format 1), covering
-/// every regular file in it. `meta` is JSON text (an object) kept in the
+/// Writes noqtis.json and noqtis.sig into `dir`, covering every regular
+/// file in it, in format 3 ([`seal3`] with no inputs and fresh salts, so
+/// two seals of the same files differ; [`seal3`] with a salt key gives a
+/// reproducible capsule). `meta` is JSON text (an object) kept in the
 /// manifest. The creation time is SOURCE_DATE_EPOCH when set, else the
-/// clock.
+/// clock. [`seal1`] and [`seal2`] write the formats readers older than
+/// 0.3.0 read.
 pub fn seal(
+    dir: impl AsRef<Path>,
+    alg: &str,
+    sk: &[u8],
+    pk: &[u8],
+    meta: Option<&str>,
+) -> Result<()> {
+    seal3(dir, alg, sk, pk, meta, &[], None)
+}
+
+/// [`seal`] in format 1: the manifest is a flat list of the files, signed
+/// whole, with no Merkle tree (no proofs). It was [`seal`]'s format
+/// before 0.3.0.
+pub fn seal1(
     dir: impl AsRef<Path>,
     alg: &str,
     sk: &[u8],
@@ -159,7 +175,7 @@ pub fn seal(
     })
 }
 
-/// [`seal`] in format 2: the manifest also carries a Merkle tree over its
+/// [`seal1`] in format 2: the manifest also carries a Merkle tree over its
 /// entries, so that [`prove`] can show single files without the rest's
 /// names, sizes or digests, and the capsules it was made from (`inputs`,
 /// at most 1024). Its leaves are unsalted: anyone who can guess a file

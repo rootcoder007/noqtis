@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//! The CLI's key files (docs/guides/keys.md): a header line
-//! `noqtis-key-1 <algorithm> <pub|sec>` and the key bytes as padded
-//! base64 in lines of 64 characters, as `noqtis keygen` writes them.
+//! The CLI's key files (docs/guides/keys.md, docs/spec/keyfile.md): a
+//! header line `noqtis-key-1 <algorithm> <pub|sec>` and the key bytes as
+//! padded base64 in lines of 64 characters, as `noqtis keygen` writes
+//! them. A signature secret key is written as `noqtis-key-2 <algorithm>
+//! sec` holding its version 2 container ([`sign::sxmake`](crate::sign::sxmake)),
+//! which [`decode`] returns; a version 1 file still decodes, to the key.
 //!
 //! [`decode`] is as strict as the CLI's reader: the exact header, `\n` or
 //! `\r\n` line ends and nothing else outside the base64 alphabet,
@@ -22,8 +25,12 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
 
-/// The first word of every key file.
+/// The first word of a key file of version 1: a public key, a KEM secret
+/// key, or a signature secret key written before 0.3.0.
 pub const MAGIC: &str = "noqtis-key-1";
+
+/// The first word of a signature secret key in the version 2 container.
+pub const MAGIC2: &str = "noqtis-key-2";
 
 /// A decoded key file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -236,8 +243,8 @@ pub fn pwdec(passphrase: &[u8], data: &[u8], ad: &[u8]) -> Result<Vec<u8>> {
     Ok(sk)
 }
 
-fn ad(a: &Alg) -> String {
-    format!("{MAGIC} {} sec", a.name)
+fn ad(a: &Alg, magic: &str) -> String {
+    format!("{magic} {} sec", a.name)
 }
 
 /// The key file text for `key`: `kind` is "pub" or "sec".
@@ -252,12 +259,36 @@ pub fn encodep(alg: &str, kind: &str, key: &[u8], passphrase: Option<&[u8]>) -> 
     if kind != "pub" && kind != "sec" {
         return Err(Error::why(-1, "kind: \"pub\" or \"sec\""));
     }
-    let want = size(&a, kind);
-    if key.len() != want {
-        return Err(Error::why(
-            -1,
-            format!("{} {kind} key: {want} bytes, not {}", a.name, key.len()),
-        ));
+    let mut magic = MAGIC;
+    let mut x = Vec::new();
+    let mut key = key;
+    if kind == "sec" && a.kind == crate::Kind::Sign {
+        // a signature secret key is written in the version 2 container:
+        // the key becomes one, a container is taken once it checks
+        magic = MAGIC2;
+        if key.len() == a.sk {
+            x = crate::sign::sxmake(&a.name, key)?;
+            key = &x[..];
+        } else if key.len() != crate::sign::sxsize(&a.name)? || !crate::sign::sxcheck(&a.name, key)?
+        {
+            return Err(Error::why(
+                -1,
+                format!(
+                    "{} secret key: {} bytes, neither the key ({}) nor a sound container",
+                    a.name,
+                    key.len(),
+                    a.sk
+                ),
+            ));
+        }
+    } else {
+        let want = size(&a, kind);
+        if key.len() != want {
+            return Err(Error::why(
+                -1,
+                format!("{} {kind} key: {want} bytes, not {}", a.name, key.len()),
+            ));
+        }
     }
     let mut e = Vec::new();
     let key = match passphrase {
@@ -266,13 +297,14 @@ pub fn encodep(alg: &str, kind: &str, key: &[u8], passphrase: Option<&[u8]>) -> 
             return Err(Error::why(-1, "a passphrase protects a secret key only"));
         }
         Some(pw) => {
-            e = pwenc(pw, key, ad(&a).as_bytes(), 0, 0, 0)?;
+            e = pwenc(pw, key, ad(&a, magic).as_bytes(), 0, 0, 0)?;
             &e[..]
         }
     };
     let b = b64e(key);
     crate::wipe(&mut e);
-    let mut s = format!("{MAGIC} {} {kind}\n", a.name);
+    crate::wipe(&mut x);
+    let mut s = format!("{magic} {} {kind}\n", a.name);
     for l in b.as_bytes().chunks(64) {
         s.push_str(std::str::from_utf8(l).unwrap());
         s.push('\n');
@@ -283,7 +315,9 @@ pub fn encodep(alg: &str, kind: &str, key: &[u8], passphrase: Option<&[u8]>) -> 
 fn notkey() -> Error {
     Error::why(
         -4,
-        format!("not a noqtis key file (want a first line \"{MAGIC} <alg> <pub|sec>\")"),
+        format!(
+            "not a noqtis key file (want a first line \"{MAGIC} <alg> <pub|sec>\" or \"{MAGIC2} <alg> sec\")"
+        ),
     )
 }
 
@@ -304,12 +338,47 @@ pub fn decodep(text: &[u8], passphrase: Option<&[u8]>) -> Result<Key> {
     }
     let h = std::str::from_utf8(h).map_err(|_| notkey())?;
     let f: Vec<&str> = h.split(' ').collect();
-    if f.len() != 3 || f[0] != MAGIC || (f[2] != "pub" && f[2] != "sec") {
+    let v2 = f.len() == 3 && f[0] == MAGIC2 && f[2] == "sec";
+    if f.len() != 3 || (f[0] != MAGIC && !v2) || (f[2] != "pub" && f[2] != "sec") {
         return Err(notkey());
     }
     let a = kalg(f[1])?;
-    let want = size(&a, f[2]);
-    let body: Vec<u8> = text[nl + 1..]
+    if v2 && a.kind != crate::Kind::Sign {
+        return Err(Error::why(
+            -4,
+            format!(
+                "a {} key has no version 2 container (only signature keys do)",
+                a.name
+            ),
+        ));
+    }
+    let want = if v2 {
+        crate::sign::sxsize(&a.name)?
+    } else {
+        size(&a, f[2])
+    };
+    let magic = f[0];
+    let k = decodek(&a, f[2], magic, want, &text[nl + 1..], passphrase)?;
+    if v2 && !crate::sign::sxcheck(&a.name, &k.key)? {
+        return Err(Error::why(
+            -4,
+            "the secret key is damaged: its integrity value does not match (restore the file from a copy)",
+        ));
+    }
+    Ok(k)
+}
+
+fn decodek(
+    a: &Alg,
+    kind: &str,
+    magic: &str,
+    want: usize,
+    rest: &[u8],
+    passphrase: Option<&[u8]>,
+) -> Result<Key> {
+    let a = a.clone();
+    let f = [magic, "", kind];
+    let body: Vec<u8> = rest
         .iter()
         .copied()
         .filter(|&c| c != b'\r' && c != b'\n')
@@ -324,7 +393,7 @@ pub fn decodep(text: &[u8], passphrase: Option<&[u8]>) -> Result<Key> {
             Some(pw) => Ok(Key {
                 alg: a.name.clone(),
                 kind: f[2].to_string(),
-                key: pwdec(pw, &k, ad(&a).as_bytes())?,
+                key: pwdec(pw, &k, ad(&a, f[0]).as_bytes())?,
             }),
         },
         Some(k) if k.len() == want && passphrase.is_some() && f[2] == "sec" => {
