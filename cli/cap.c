@@ -1764,8 +1764,10 @@ int ncts(int argc, char **argv) {
    * refused here, before any request */
   {
     char p[4200];
-    snprintf(p, sizeof p, "%s/noqtis.ers", argv[0]);
-    if (ncexist(p)) {
+    int pl = snprintf(p, sizeof p, "%s/noqtis.ers", argv[0]);
+    /* a path cut short is taken as one with a record: refused here
+     * rather than after a TSA request */
+    if (pl < 0 || (size_t)pl >= sizeof p || ncexist(p)) {
       ncmsg("timestamp", "%s has an evidence record (noqtis.ers) over its "
             "present seal, which a timestamp would change: renew the "
             "record's timestamp with `noqtis ers` instead; no TSA was "
