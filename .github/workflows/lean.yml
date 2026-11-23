@@ -3,7 +3,8 @@
 # The Lean proofs of the arithmetic (proofs/lean): builds them against
 # Mathlib as lean-toolchain and lake-manifest.json pin it. A proof that
 # stops compiling, or a `sorry`, fails the job. What the proofs cover and
-# what they do not: proofs/lean/README.md.
+# what they do not: proofs/lean/README.md. It also runs when the C the
+# proofs model changes, so a model that no longer matches is noticed.
 name: lean
 
 on:
@@ -12,10 +13,24 @@ on:
     paths:
       - "proofs/lean/**"
       - ".github/workflows/lean.yml"
+      - "src/core/int.h"
+      - "src/core/core.c"
+      - "src/hqc/code.c"
+      - "src/hqc/mdec.c"
+      - "src/mlkem/**"
+      - "src/mldsa/**"
+      - "src/slh/**"
   pull_request:
     paths:
       - "proofs/lean/**"
       - ".github/workflows/lean.yml"
+      - "src/core/int.h"
+      - "src/core/core.c"
+      - "src/hqc/code.c"
+      - "src/hqc/mdec.c"
+      - "src/mlkem/**"
+      - "src/mldsa/**"
+      - "src/slh/**"
   schedule:
     - cron: "41 3 * * 6"
   workflow_dispatch:
