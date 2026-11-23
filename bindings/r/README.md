@@ -55,6 +55,10 @@ sig <- nqsignfile("big.csv", sk, "ML-DSA-65")   # 64 KiB at a time
 nqbox("big.csv", "big.csv.nqk", kem$pk, "ML-KEM-768")
 ```
 
+`nqpwenc2(sk, pass, kdf = "pbkdf2")` gives the protected key (noqtis-pwkey-1, the body of such a key file) under
+PBKDF2-HMAC-SHA-256 (600000 iterations) instead of Argon2id; `nqpwdec()`
+reads both.
+
 `nqsigner()`, `nqverifier()`, `nqupdate()` and `nqfinish()` stream a
 message given in pieces; `nqkseal()` and `nqkopen()` seal a message to
 an ML-KEM key, `nqunbox()` opens a file; `nqmu()`, `nqsignmu()` and

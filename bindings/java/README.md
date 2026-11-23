@@ -35,7 +35,7 @@ receive fixes.
 | | SLH-DSA-SHA2 and SLH-DSA-SHAKE, 128/192/256, s and f | FIPS 205 |
 | | Ed25519, and the hybrids ML-DSA-44/65/87+Ed25519 | RFC 8032 |
 | KEMs | ML-KEM-512/768/1024 | FIPS 203 |
-| | HQC-128/192/256 | HQC specification 5.1 |
+| | HQC-128/192/256 | HQC specification 5.1 (keys made by 0.2.x are not read) |
 | Hashes | SHA-224 ... SHA-512/256, SHA3-224 ... SHA3-512, SHAKE128/256, HMAC | FIPS 180-4, FIPS 202 |
 
 ## Build
@@ -269,6 +269,10 @@ try (InputStream in = Files.newInputStream(Path.of("big.csv"));
   Box.box("ML-KEM-768", kemPk, in, out, null, 0);
 }
 ```
+
+`KeyFile.pwenc2(KeyFile.KDF_PBKDF2, pw, sk, ad, 0, 0, 0)` gives the protected key (noqtis-pwkey-1, the body of such a key file) under
+PBKDF2-HMAC-SHA-256 (600000 iterations) instead of Argon2id;
+`KeyFile.pwdec` reads both.
 
 `Verifier`, `Hasher`, `Box.Sealer` and `Box.Opener` are the other
 streams; `Kem.seal` and `Kem.open` a message; `Sign.mu`, `signmu` and

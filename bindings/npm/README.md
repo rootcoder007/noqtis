@@ -205,6 +205,10 @@ for await (const p of kem.box('ML-KEM-768', kemPk, createReadStream('big.csv')))
 }
 ```
 
+`keyfile.pwenc2(keyfile.KDF_PBKDF2, passphrase, sk)` gives the protected key (noqtis-pwkey-1, the body of such a key file) under
+PBKDF2-HMAC-SHA-256 (600000 iterations) instead of Argon2id;
+`keyfile.pwdec` reads both.
+
 `sign.verifier`, `hasher`, `kem.sealer` and `kem.opener` are the other
 streams; `kem.seal` and `kem.open` a message; `sign.mu`, `signmu` and
 `verifymu` ML-DSA with an external mu; `blake2b`, `argon2id`, `pbkdf2`

@@ -31,7 +31,7 @@ dependencies and no bindgen.
 | | SLH-DSA-SHA2 and SLH-DSA-SHAKE, 128/192/256, s and f | FIPS 205 |
 | | Ed25519, and the hybrids ML-DSA-44/65/87+Ed25519 | RFC 8032 |
 | KEMs | ML-KEM-512/768/1024 | FIPS 203 |
-| | HQC-128/192/256 | HQC specification 5.1 |
+| | HQC-128/192/256 | HQC specification 5.1 (keys made by 0.2.x are not read) |
 | Hashes | SHA-224 ... SHA-512/256, SHA3-224 ... SHA3-512, SHAKE128/256, HMAC | FIPS 180-4, FIPS 202 |
 
 ```sh
@@ -245,6 +245,10 @@ let (kp, _ks) = kem::keygen("ML-KEM-768", None)?;
 kem::enbox("ML-KEM-768", &kp, &mut File::open("big.csv").unwrap(),
            &mut File::create("big.csv.nqk").unwrap(), b"", 0)?;
 ```
+
+`keyfile::pwenc2(keyfile::KDF_PBKDF2, pw, &sk, b"", 0, 0, 0)` gives the protected key (noqtis-pwkey-1, the body of such a key file)
+under PBKDF2-HMAC-SHA-256 (600000 iterations) instead of Argon2id;
+`keyfile::pwdec` reads both.
 
 `sign::Verifier`, `Hasher`, `kem::Boxer` and `kem::Unboxer` are the
 other streams (`io::Write` where they take bytes); `kem::seal` and
