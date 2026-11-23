@@ -12,6 +12,7 @@
 .Nm noqtis pack build
 .Fl k Ar key
 .Op Fl p Ar key.pub
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl -format Cm 1 | 2
 .Op Fl -lock Ar file ...
 .Op Fl o Ar file
@@ -65,12 +66,12 @@ seal
 .Xr noqtis-seal 1 ;
 .Fl k ,
 .Fl p ,
-.Fl -format
-as there; the secret key not under a passphrase, since
-.Cm build
-takes no
+.Fl -format ,
 .Fl -pass-fd
-either
+and
+.Fl -pass-env
+as there; a passphrase from a descriptor is read once, for the check
+of the keys and the seal
 .Pc ,
 and with
 .Fl o

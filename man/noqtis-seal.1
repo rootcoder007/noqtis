@@ -9,6 +9,7 @@
 .Nm noqtis seal
 .Fl k Ar key
 .Op Fl p Ar key.pub
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl m Ar json-file
 .Op Fl -format Cm 1 | 2
 .Op Fl -input Oo Ar name Ns = Oc Ns Ar dir ...
@@ -232,19 +233,22 @@ the signature is made on a PKCS #11 token
 .Pq Xr noqtis-token 1 , Xr nqp11seal 3 :
 the secret key never leaves it, and the public key stored in the seal is
 the one the token gives for that key.
-.Fl k
-and
-.Fl p
-are then refused, and so is a KEM key; every other option works as
-without it.
-.Pp
-The secret key must not be under a passphrase: this command takes no
+.Fl k ,
+.Fl p ,
 .Fl -pass-fd
+and
+.Fl -pass-env
+are then refused (the key on the token takes
+.Fl -pin-fd
 or
-.Fl -pass-env ,
-so remove the passphrase first
-.Pq Xr noqtis-passwd 1 Fl -no-pass
-and put it back after.
+.Fl -pin-env ) ,
+and so is a KEM key; every other option works as without it.
+With
+.Fl r ,
+the run stops at the first folder whose seal cannot open the token: a
+wrong PIN is not tried again for the folders after it, since a token
+locks its PIN after a few wrong tries, and a PIN from a descriptor is
+read once for all of them.
 .Bl -tag -width Ds
 .It Fl k Ar key , Fl -key Ns = Ns Ar key
 A secret signature key file: ML-DSA, SLH-DSA or a hybrid of ML-DSA with
@@ -253,6 +257,26 @@ Ed25519; Ed25519 alone is refused.
 The matching public key, stored in the seal.
 Default:
 .Ar key Ns Pa .pub .
+.It Fl -pass-fd Ar n
+Read the passphrase of a protected
+.Ar key
+from the open file descriptor
+.Ar n ,
+up to a newline or the end; neither the newline nor a carriage return
+before it is part of it.
+It is read once: with
+.Fl r ,
+every folder is sealed under the same bytes.
+.It Fl -pass-env Ar name
+Take the passphrase of a protected
+.Ar key
+from the environment variable called
+.Ar name
+(its value is never given on the command line).
+Without either, a key file under a passphrase
+.Pf ( Xr noqtis-keygen 1 )
+is refused with a message that names them; a wrong passphrase, or a
+changed key file, is exit 2.
 .It Fl m Ar json-file , Fl -meta Ns = Ns Ar json-file
 A JSON object (at most 1 MiB) stored, in canonical form, as the
 manifest's

@@ -9,6 +9,7 @@
 .Nm noqtis expire
 .Fl k Ar key
 .Op Fl p Ar key.pub
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Fl -at Ar time
 .Op Fl -reason Ar text
 .Op Fl o Ar file
@@ -38,9 +39,9 @@ as for a key revoked then
 the manifest's
 .Ql created
 is the sealer's own word.
-The time that has come is the clock of the computer that checks, or
-.Ev SOURCE_DATE_EPOCH
-when it is set.
+The time that has come is the clock of the computer that checks;
+.Ev SOURCE_DATE_EPOCH ,
+which sets the times noqtis writes, does not change it.
 .Pp
 A key holds one statement: one that expires cannot also be rotated or
 revoked by a second statement given with it.
@@ -69,15 +70,24 @@ instead of standard output (also for
 Replace
 .Ar file
 if it exists.
+.It Fl -pass-fd Ar n
+Read the passphrase of a protected
+.Ar key
+from the open file descriptor
+.Ar n ,
+up to a newline or the end; neither the newline nor a carriage return
+before it is part of it.
+.It Fl -pass-env Ar name
+Take the passphrase of a protected
+.Ar key
+from the environment variable called
+.Ar name
+(its value is never given on the command line).
+Without either, a key file under a passphrase
+.Pf ( Xr noqtis-keygen 1 )
+is refused with a message that names them; a wrong passphrase, or a
+changed key file, is exit 2.
 .El
-.Pp
-The secret key must not be under a passphrase: this command takes no
-.Fl -pass-fd
-or
-.Fl -pass-env ,
-so remove the passphrase first
-.Pq Xr noqtis-passwd 1 Fl -no-pass
-and put it back after.
 .Sh EXIT STATUS
 .Bl -tag -width 3n -compact
 .It 0

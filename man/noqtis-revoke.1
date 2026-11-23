@@ -9,6 +9,7 @@
 .Nm noqtis revoke
 .Fl k Ar key
 .Op Fl p Ar key.pub
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl -at Ar time
 .Op Fl -reason Ar text
 .Op Fl o Ar file
@@ -46,10 +47,10 @@ Default:
 When the revocation takes effect, as
 .Ql YYYY-MM-DDTHH:MM:SSZ
 (UTC, 1970 or later).
-Default: now, from the clock
-.Po Ev SOURCE_DATE_EPOCH
-is not read
-.Pc .
+Default: now, or
+.Ev SOURCE_DATE_EPOCH
+when it is set (one that is not a number of seconds up to the year 9999
+is refused).
 .It Fl -reason Ar text
 Up to 255 bytes of text, kept in the statement.
 .It Fl o Ar file , Fl -out Ns = Ns Ar file
@@ -61,15 +62,24 @@ instead of standard output (also for
 Replace
 .Ar file
 if it exists.
+.It Fl -pass-fd Ar n
+Read the passphrase of a protected
+.Ar key
+from the open file descriptor
+.Ar n ,
+up to a newline or the end; neither the newline nor a carriage return
+before it is part of it.
+.It Fl -pass-env Ar name
+Take the passphrase of a protected
+.Ar key
+from the environment variable called
+.Ar name
+(its value is never given on the command line).
+Without either, a key file under a passphrase
+.Pf ( Xr noqtis-keygen 1 )
+is refused with a message that names them; a wrong passphrase, or a
+changed key file, is exit 2.
 .El
-.Pp
-The secret key must not be under a passphrase: this command takes no
-.Fl -pass-fd
-or
-.Fl -pass-env ,
-so remove the passphrase first
-.Pq Xr noqtis-passwd 1 Fl -no-pass
-and put it back after.
 .Sh EXIT STATUS
 .Bl -tag -width 3n -compact
 .It 0

@@ -9,6 +9,7 @@
 .Nm noqtis idcard
 .Fl k Ar key
 .Op Fl p Ar key.pub
+.Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Fl -name Ar name
 .Op Fl -orcid Ar id
 .Op Fl -email Ar address
@@ -70,9 +71,7 @@ the card must also be for that key.
 .Bl -tag -width Ds
 .It Fl k Ar key , Fl -key Ns = Ns Ar key
 The secret signing key the card is for: ML-DSA, SLH-DSA or a hybrid,
-not Ed25519 alone, and not under a passphrase (there is no
-.Fl -pass-fd ;
-.Xr noqtis-passwd 1 ) .
+not Ed25519 alone.
 .It Fl p Ar key.pub , Fl -pub Ns = Ns Ar key.pub
 Its public key (default
 .Ar key Ns Pa .pub ) ;
@@ -109,6 +108,23 @@ Write the card to
 Replace
 .Ar file
 if it exists.
+.It Fl -pass-fd Ar n
+Read the passphrase of a protected
+.Ar key
+from the open file descriptor
+.Ar n ,
+up to a newline or the end; neither the newline nor a carriage return
+before it is part of it.
+.It Fl -pass-env Ar name
+Take the passphrase of a protected
+.Ar key
+from the environment variable called
+.Ar name
+(its value is never given on the command line).
+Without either, a key file under a passphrase
+.Pf ( Xr noqtis-keygen 1 )
+is refused with a message that names them; a wrong passphrase, or a
+changed key file, is exit 2.
 .It Fl -verify Ar card
 Check a card instead of making one; only
 .Fl p
