@@ -146,11 +146,13 @@ classes or random in both:
 - ML-KEM decapsulation, key test: all keys share rho (SampleNTT rejects
   on rho during re-encryption); validity test: one key, valid against
   random (implicitly rejected) ciphertexts.
-- HQC decapsulation, key test: keys whose y-sampler (re-run from seed_dk
-  in every decapsulation) drew no rejected and no repeated position, as
-  most keys do. The sampler's rejections and repeats are declared public
-  in the code, as the specification allows; they are fixed per key, so
-  they are the one place HQC decapsulation time may depend on the key.
+- HQC decapsulation, key test: keys whose key-generation sampler (re-run
+  for y and x from the 32-byte key in every decapsulation, since the key
+  of specification 5.1 is that seed alone) drew no rejected and no
+  repeated position, as most keys do. The sampler's rejections and
+  repeats are declared public in the code, as the specification allows;
+  they are fixed per key, so they are the one place HQC decapsulation
+  time may depend on the key.
 
 **Results**, on an Intel Core i5-10310U (Linux 7.2.11, GCC 16.2.1,
 `-O3` Release build, `taskset` to one core, other jobs running on the
@@ -307,7 +309,10 @@ more. It does not cover the unmasked signer and decapsulations
 (`nqmdspl`, `nqmkdecp`, `nqhqdecp`), SLH-DSA beyond its PRF (the chain
 and tree values PRF outputs are used unmasked, each with its own
 address), or key generation of ML-DSA, ML-KEM and HQC, which is not
-masked. Masking costs time: HQC decapsulation about 20 times (HQC-128
+masked. HQC decapsulation runs HQC key generation again from its 32-byte
+key (specification 5.1) before the masked part: that step, which computes
+y, x and s = x + h y, is constant time but not masked, and only y and
+sigma are then split into shares. Masking costs time: HQC decapsulation about 20 times (HQC-128
 22 ms instead of 1.1 ms), SLH-DSA signing about 2.5 times for the SHAKE
 sets and about 6 times for the SHA-2 sets. No physical power or electromagnetic traces have been taken.
 
@@ -321,7 +326,7 @@ JSON files NIST's ACVP server publishes and in Google's/C2SP's Wycheproof:
 | ML-DSA (FIPS 204) | ACVP keyGen, sigGen, sigVer; Wycheproof `mldsa_*` sign and verify |
 | SLH-DSA (FIPS 205) | ACVP keyGen, sigGen, sigVer for all twelve sets |
 | ML-KEM (FIPS 203) | ACVP keyGen and encapDecap (including both key checks); Wycheproof `mlkem_*` |
-| HQC v5.0.0 | the reference implementation's known answers (digests) |
+| HQC (specification 5.1) | the reference implementation v5.1.0's 300 known answers (digests) and 2,400 Reed-Solomon vectors |
 | SHA-2, SHA-3, SHAKE | ACVP AFT and MCT (LDT on request) |
 | HMAC | ACVP HMAC-SHA2 and HMAC-SHA3 |
 | HMAC_DRBG | ACVP hmacDRBG |
