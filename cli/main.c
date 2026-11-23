@@ -57,15 +57,19 @@ static const nccmd cmds[] = {
    "                     (--new-pass-fd <n> | --new-pass-env <name> |\n"
    "                      --no-pass) [--kdf argon2id|pbkdf2]\n"
    "  Writes the secret key in <key> again, under the new passphrase\n"
-   "  (Argon2id, 64 MiB, 3 passes, or with --kdf pbkdf2 PBKDF2-HMAC-SHA-256,\n"
-   "  600000 iterations) or, with --no-pass, under none. The key itself\n"
-   "  and <key>.pub do not change.\n"
+   "  (Argon2id, 64 MiB, 3 passes, or PBKDF2-HMAC-SHA-256, 600000\n"
+   "  iterations: the one <key> is under now unless --kdf names one,\n"
+   "  Argon2id for a key under none) or, with --no-pass, under none, and\n"
+   "  says which KDF protects it. The key itself and <key>.pub do not\n"
+   "  change.\n"
    "  --pass-fd, --pass-env  the passphrase <key> is under now\n"
    "  --new-pass-fd, --new-pass-env  the new one, read from descriptor\n"
    "          <n> up to a newline, or from the variable named <name>;\n"
    "          never from the command line\n"
    "  --kdf   how the new passphrase becomes the key's key: argon2id\n"
-   "          (the default) or pbkdf2, as for keygen\n"},
+   "          (64 MiB, 3 passes) or pbkdf2, as for keygen; without it\n"
+   "          the file keeps the KDF it was under, and a key under none\n"
+   "          gets argon2id\n"},
   {"sign", ncsign, "sign a file",
    "usage: noqtis sign -k <key> [-o <sig>] [-a] [-c <ctx>] [-d]\n"
    "                   [--ph <hash>] [--pass-fd <n> | --pass-env <name>]\n"

@@ -164,14 +164,16 @@ static int atkey(const char *cmd, const char *q, nckey *k) {
 
 /* a key file of the kind sec; a secret one under a passphrase opened
  * with pw (pwn bytes; NULL when none was given), and when none was, the
- * options of that name (opt: "pass", "new-pass") are what it asks for */
+ * options of that name (opt: "pass", "new-pass") are what it asks for;
+ * *kdf (when not NULL) gets the KDF byte of a protected one, else 0 */
 static int nckrdp(const char *cmd, const char *path, int sec,
                   const uint8_t *pw, size_t pwn, const char *opt,
-                  nckey *k) {
+                  nckey *k, int *kdf) {
   uint8_t *t, *d;
   size_t tn, hl, pk, sk, want, i, dn, old;
   char hdr[96], ad[96], *alg, *kind;
   int rc;
+  if (kdf != NULL) *kdf = 0;
   k->b = NULL;
   k->n = 0;
   k->sec = sec;
@@ -252,6 +254,7 @@ static int nckrdp(const char *cmd, const char *path, int sec,
             "<n> or --%s-env <name>", path, opt, opt);
       return NCUSE;
     }
+    if (kdf != NULL) *kdf = d[5];
     k->b = (uint8_t *)malloc(want);
     rc = k->b == NULL ? NQEMEM
                       : nqpwdec(pw, pwn, (const uint8_t *)ad, an, d, i,
@@ -299,11 +302,16 @@ bad:
 }
 
 int nckrd(const char *cmd, const char *path, nckey *k) {
-  return nckrdp(cmd, path, 0, NULL, 0, "pass", k);
+  return nckrdp(cmd, path, 0, NULL, 0, "pass", k, NULL);
 }
 
 int ncskrd(const char *cmd, const char *path, const ncpw *o,
            const char *opt, nckey *k) {
+  return ncskrdk(cmd, path, o, opt, k, NULL);
+}
+
+int ncskrdk(const char *cmd, const char *path, const ncpw *o,
+            const char *opt, nckey *k, int *kdf) {
   uint8_t *pw;
   size_t pn;
   int rc;
@@ -312,7 +320,7 @@ int ncskrd(const char *cmd, const char *path, const ncpw *o,
   k->sec = 1;
   if (ncpwgetn(cmd, o, opt, &pw, &pn) != NCOK)
     return NCUSE;
-  rc = nckrdp(cmd, path, 1, pw, pn, opt, k);
+  rc = nckrdp(cmd, path, 1, pw, pn, opt, k, kdf);
   ncfree(pw, NQPWLEN, 1);
   return rc;
 }

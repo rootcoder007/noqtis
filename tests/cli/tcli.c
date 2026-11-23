@@ -2479,11 +2479,31 @@ static void tpass(void) {
   want(2, "keygen -a ML-DSA-44 -o q.pb2 --force --kdf pbkdf2", NULL);
   ok(has("q.err", "--pass-fd or --pass-env"),
      "keygen: --kdf without a passphrase");
+  /* passwd without --kdf keeps the file's KDF; with it, the one named;
+   * a key under none gets Argon2id */
   want(0, "passwd -k q.pb --pass-env NQTPW --new-pass-env NQTPW2", NULL);
-  ok(has("q.pb", "sec\nTlFQVwEB"), "passwd: Argon2id by default");
-  want(0, "passwd -k q.pb --pass-env NQTPW2 --new-pass-env NQTPW --kdf pbkdf2",
+  ok(has("q.pb", "sec\nTlFQVwEC"), "passwd: a PBKDF2 key stays PBKDF2");
+  ok(has("q.out", "(PBKDF2)"), "passwd says PBKDF2 protects it");
+  want(0, "passwd -k q.pb2 --pass-env NQTPW --new-pass-env NQTPW2", NULL);
+  ok(has("q.pb2", "sec\nTlFQVwEB"), "passwd: an Argon2id key stays Argon2id");
+  ok(has("q.out", "(Argon2id)"), "passwd says Argon2id protects it");
+  want(0, "passwd -k q.pb --pass-env NQTPW2 --new-pass-env NQTPW "
+          "--kdf argon2id", NULL);
+  ok(has("q.pb", "sec\nTlFQVwEB"), "passwd --kdf argon2id");
+  ok(has("q.out", "(Argon2id)"), "passwd --kdf argon2id says so");
+  want(0, "passwd -k q.pb2 --pass-env NQTPW2 --no-pass", NULL);
+  ok(!has("q.pb2", "sec\nTlFQVw"), "passwd --no-pass: no header");
+  want(0, "passwd -k q.pb2 --new-pass-env NQTPW", NULL);
+  ok(has("q.pb2", "sec\nTlFQVwEB"), "passwd: a plain key gets Argon2id");
+  want(0, "passwd -k q.pb2 --pass-env NQTPW --no-pass", NULL);
+  want(0, "passwd -k q.pb2 --new-pass-env NQTPW --kdf pbkdf2", NULL);
+  ok(has("q.pb2", "sec\nTlFQVwEC"), "passwd: a plain key, --kdf pbkdf2");
+  want(0, "passwd -k q.pb --pass-env NQTPW --new-pass-env NQTPW2 --kdf pbkdf2",
        NULL);
   ok(has("q.pb", "sec\nTlFQVwEC"), "passwd --kdf pbkdf2");
+  ok(has("q.out", "(PBKDF2)"), "passwd --kdf pbkdf2 says so");
+  want(0, "passwd -k q.pb --pass-env NQTPW2 --new-pass-env NQTPW", NULL);
+  ok(has("q.pb", "sec\nTlFQVwEC"), "passwd: still PBKDF2 after --kdf");
   want(0, "sign -k q.pb -o q.psig --force --pass-env NQTPW q.m", NULL);
   want(0, "verify -p q.pb.pub -s q.psig q.m", NULL);
   want(2, "passwd -k q.pb --pass-env NQTPW --new-pass-env NQTPW2 --kdf md5",

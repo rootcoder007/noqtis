@@ -450,6 +450,10 @@ int ncpwgetn(const char *cmd, const ncpw *o, const char *opt, uint8_t **b,
  * message. */
 int ncskrd(const char *cmd, const char *path, const ncpw *o,
            const char *opt, nckey *k);
+/* ncskrd that also gives *kdf: the KDF byte of a file under a passphrase
+ * (NQPWA2, NQPWPB), 0 for one under none. */
+int ncskrdk(const char *cmd, const char *path, const ncpw *o,
+            const char *opt, nckey *k, int *kdf);
 /* Writes a secret key file under the passphrase pw, derived by kdf
  * (NQPWA2 Argon2id, NQPWPB PBKDF2; nqpwenc2). */
 int nckwrp(FILE *f, const ncalg *a, int kdf, const uint8_t *pw, size_t pwn,

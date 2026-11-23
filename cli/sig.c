@@ -298,7 +298,7 @@ done:
  * leaves the old file whole. */
 int ncpasswd(int argc, char **argv) {
   const char *kp = NULL, *kv = NULL;
-  int help = 0, np, none = 0, rc, ret = NCUSE, kdf;
+  int help = 0, np, none = 0, rc, ret = NCUSE, kdf, okdf = 0;
   ncpw old = {NULL, NULL}, new = {NULL, NULL};
   ncopt o[] = {
     {'k', "key", 1, &kp, NULL},
@@ -348,8 +348,12 @@ int ncpasswd(int argc, char **argv) {
           "descriptor; give each passphrase its own");
     return NCUSE;
   }
-  if (ncskrd("passwd", kp, &old, "pass", &k) != NCOK)
+  if (ncskrdk("passwd", kp, &old, "pass", &k, &okdf) != NCOK)
     goto done;
+  /* without --kdf the file keeps its own; a key under none gets the
+   * default */
+  if (kv == NULL && okdf != 0)
+    kdf = okdf;
   if (ncpwgetn("passwd", &new, "new-pass", &npw, &nn) != NCOK)
     goto done;
   f = ncopen(kp, 1, 1);
@@ -367,8 +371,11 @@ int ncpasswd(int argc, char **argv) {
       ncmsg("passwd", "cannot write %s%s", kp, ncwhy());
     goto done;
   }
-  printf("%s: %s secret key, now under %s\n", kp, k.a.name,
-         npw != NULL ? "the new passphrase" : "no passphrase");
+  if (npw != NULL)
+    printf("%s: %s secret key, now under the new passphrase (%s)\n", kp,
+           k.a.name, kdf == NQPWPB ? "PBKDF2" : "Argon2id");
+  else
+    printf("%s: %s secret key, now under no passphrase\n", kp, k.a.name);
   ret = NCOK;
 done:
   ncfree(npw, NQPWLEN, 1);
