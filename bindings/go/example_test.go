@@ -63,7 +63,7 @@ func Example_seal() {
 		fmt.Println("FAIL", row.Check, row.Detail)
 	}
 	// Output:
-	// check: true (22 checks)
+	// check: true (23 checks)
 	// after edit: false
 	// FAIL file report.txt: size differs
 }

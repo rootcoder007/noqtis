@@ -133,7 +133,7 @@ for _, row := range r.Failed() {
 	fmt.Println("FAIL", row.Check, row.Detail)
 }
 // Output:
-// check: true (22 checks)
+// check: true (23 checks)
 // after edit: false
 // FAIL file report.txt: size differs
 ```
@@ -144,6 +144,8 @@ for _, row := range r.Failed() {
   key in the seal, and the `key` row says so. `CheckOpts` also takes TSA
   `Anchors` (DER), `Only` (a partial check: `Partial()` then says only some files were checked), `Lineage` (folders to find
   a format 2 capsule's inputs in) and key statements (`Stmts`).
+- `Seal` seals in format 3 with fresh salts and no inputs; `Seal1`
+  writes format 1, as `Seal` did before 0.3.0, for older readers.
 - `Seal3(dir, alg, sk, pk, meta, inputs, saltKey)` seals in format 3 (a
   Merkle tree over the files, a secret salt in each leaf; `saltKey` nil
   for fresh salts, or 32 secret bytes for a reproducible capsule),
@@ -177,7 +179,12 @@ with the one its holder published, or pass the key.
 
 `ReadKey`, `WriteKey`, `EncodeKey` and `DecodeKey` read and write the
 text key files `noqtis keygen` makes (`noqtis-key-1 <alg> <pub|sec>`,
-then base64), as strictly as the command-line tool reads them:
+then base64), as strictly as the command-line tool reads them. A signature secret key is written as `noqtis-key-2 <alg> sec`, the
+version 2 container (`SxMake`: the key with an integrity value), and read
+back as that container, which every signing function takes in place of
+the key and checks again after signing, so that a change to any stored
+byte of the key is refused rather than signed with; a version 1 file
+still reads, as the key.
 
 ```go
 k, err := noqtis.ReadKey("me", "sec")        // *Key{Alg, Kind, Key}

@@ -7,7 +7,10 @@ package noqtis
 */
 import "C"
 
-import "strings"
+import (
+	"strings"
+	"unsafe"
+)
 
 // SignOpts are the options of Sign and Verify; a nil *SignOpts is all
 // defaults.
@@ -135,4 +138,55 @@ func Verify(alg string, pk, msg, sig []byte, o *SignOpts) (bool, error) {
 		return false, nil
 	}
 	return false, cerr(int(c))
+}
+
+// SxSize is the length of alg's version 2 secret-key container: the key
+// S, for Ed25519 and the hybrids the Ed25519 public key P, and the
+// integrity value T (docs/spec/keyfile.md).
+func SxSize(alg string) (int, error) {
+	a, err := find(alg, "sign")
+	if err != nil {
+		return 0, err
+	}
+	var n C.size_t
+	if err := rc(C.nqsxsz(C.nqsalg(a.ID), &n)); err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// SxMake is the version 2 container of the secret key sk. Every signing
+// function takes it in place of sk: after signing it checks the
+// integrity value and the public key again, so that a change to any
+// stored byte of the key is caught (ErrFault) before a signature leaves.
+func SxMake(alg string, sk []byte) ([]byte, error) {
+	a, err := find(alg, "sign")
+	if err != nil {
+		return nil, err
+	}
+	n, err := SxSize(alg)
+	if err != nil {
+		return nil, err
+	}
+	var m cmem
+	defer m.free()
+	o := (*C.uint8_t)(m.alloc(uintptr(n), 1))
+	if err := rc(C.nqsxmk(C.nqsalg(a.ID), m.bytes(sk), sz(sk), o, C.size_t(n))); err != nil {
+		return nil, err
+	}
+	out := C.GoBytes(unsafe.Pointer(o), C.int(n))
+	C.nqwipe(unsafe.Pointer(o), C.size_t(n))
+	return out, nil
+}
+
+// SxCheck checks a version 2 container: nil, ErrDecode when it is
+// damaged, ErrUnsupported for a key S with no container.
+func SxCheck(alg string, x []byte) error {
+	a, err := find(alg, "sign")
+	if err != nil {
+		return err
+	}
+	var m cmem
+	defer m.free()
+	return rc(C.nqsxchk(C.nqsalg(a.ID), m.bytes(x), sz(x)))
 }

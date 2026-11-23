@@ -8,6 +8,7 @@ package noqtis
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -68,11 +69,14 @@ func TestPWKeyFiles(t *testing.T) {
 	if _, err := PWEnc(pw, sk, nil, 1024, 1, 1); code(err) != -1 {
 		t.Fatal("small memory", err)
 	}
+	// a signature secret key is written in the version 2 container, and
+	// read back as it
+	x := must(SxMake("ML-DSA-44", sk))
 	txt := must(EncodeKeyPW("ML-DSA-44", "sec", sk, []byte("pass")))
-	if !strings.HasPrefix(txt, "noqtis-key-1 ML-DSA-44 sec\n") {
+	if !strings.HasPrefix(txt, "noqtis-key-2 ML-DSA-44 sec\n") {
 		t.Fatal(txt[:30])
 	}
-	if !bytes.Equal(must(DecodeKeyPW([]byte(txt), []byte("pass"))).Key, sk) {
+	if !bytes.Equal(must(DecodeKeyPW([]byte(txt), []byte("pass"))).Key, x) {
 		t.Fatal("round trip")
 	}
 	if _, err := DecodeKey([]byte(txt)); code(err) != -1 {
@@ -84,7 +88,7 @@ func TestPWKeyFiles(t *testing.T) {
 	}
 	p := filepath.Join(t.TempDir(), "k")
 	must(0, WriteKeyPW(p, "ML-DSA-44", "sec", sk, false, []byte("pw")))
-	if !bytes.Equal(must(ReadKeyPW(p, "sec", []byte("pw"))).Key, sk) {
+	if !bytes.Equal(must(ReadKeyPW(p, "sec", []byte("pw"))).Key, x) {
 		t.Fatal("file round trip")
 	}
 }
@@ -281,17 +285,67 @@ func TestPBKDF2(t *testing.T) {
 	}
 }
 
+func TestKeyV2(t *testing.T) {
+	for _, alg := range []string{"ML-DSA-44", "Ed25519", "ML-DSA-44+Ed25519", "SLH-DSA-SHA2-128f"} {
+		pk, sk := pair(SignKeyGen(alg, nil))
+		n := must(SxSize(alg))
+		x := must(SxMake(alg, sk))
+		if len(x) != n || SxCheck(alg, x) != nil || !errors.Is(SxCheck(alg, sk), ErrUnsupported) {
+			t.Fatal(alg, "container")
+		}
+		// a key file of a signature key is version 2, read back as X
+		txt := must(EncodeKey(alg, "sec", sk))
+		if !strings.HasPrefix(txt, KeyMagic2+" "+alg+" sec\n") {
+			t.Fatal(alg, txt[:30])
+		}
+		k := must(DecodeKey([]byte(txt)))
+		if !bytes.Equal(k.Key, x) {
+			t.Fatal(alg, "X")
+		}
+		sig := must(Sign(alg, k.Key, []byte("m"), nil))
+		if ok, _ := Verify(alg, pk, []byte("m"), sig, nil); !ok {
+			t.Fatal(alg, "sign with X")
+		}
+		// under a passphrase too
+		k2 := must(DecodeKeyPW([]byte(must(EncodeKeyPW(alg, "sec", x, []byte("p")))), []byte("p")))
+		if !bytes.Equal(k2.Key, x) {
+			t.Fatal(alg, "X under a passphrase")
+		}
+		// one changed byte: the file is refused
+		y := append([]byte(nil), x...)
+		y[len(y)/2] ^= 1
+		bad := KeyMagic2 + " " + alg + " sec\n" + string(b64e(y)) + "\n"
+		if _, err := DecodeKey([]byte(bad)); err == nil {
+			t.Fatal(alg, "a damaged key read")
+		}
+		// a version 1 file is still read, as S
+		old := KeyMagic + " " + alg + " sec\n" + string(b64e(sk)) + "\n"
+		if k := must(DecodeKey([]byte(old))); !bytes.Equal(k.Key, sk) {
+			t.Fatal(alg, "version 1")
+		}
+	}
+	// a KEM key file stays version 1, and has no container
+	_, ksk := pair(KEMKeyGen("ML-KEM-768", nil))
+	if txt := must(EncodeKey("ML-KEM-768", "sec", ksk)); !strings.HasPrefix(txt, KeyMagic+" ") {
+		t.Fatal("KEM key file", txt[:20])
+	}
+	if _, err := SxSize("ML-KEM-768"); err == nil {
+		t.Fatal("a KEM container")
+	}
+}
+
 func TestPWEnc2(t *testing.T) {
 	// a secret key file under PBKDF2, written by hand as keygen
 	// --kdf pbkdf2 writes it, opens with DecodeKeyPW
 	_, sk := pair(SignKeyGen("ML-DSA-44", nil))
 	a := must(kalg("ML-DSA-44"))
 	pw := []byte("pass")
-	e := must(PWEnc2(KDFPBKDF2, pw, sk, keyad(a), 0, 100000, 0))
+	// (a version 1 file, as noqtis before 0.3.0 wrote it: still read)
+	e := must(PWEnc2(KDFPBKDF2, pw, sk, keyad(a, KeyMagic), 0, 100000, 0))
 	if e[5] != KDFPBKDF2 {
 		t.Fatal("the KDF byte", e[5])
 	}
-	txt := string(keyad(a)) + "\n" + string(b64e(e)) + "\n"
+	txt := string(keyad(a, KeyMagic)) + "\n" + string(b64e(e)) + "\n"
 	if !bytes.Equal(must(DecodeKeyPW([]byte(txt), pw)).Key, sk) {
 		t.Fatal("round trip")
 	}

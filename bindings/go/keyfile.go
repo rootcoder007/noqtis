@@ -11,8 +11,13 @@ import (
 	"strings"
 )
 
-// KeyMagic is the first word of every key file.
+// KeyMagic is the first word of a key file of version 1: a public
+// key, a KEM secret key, or a signature secret key of before 0.3.0.
 const KeyMagic = "noqtis-key-1"
+
+// KeyMagic2 is the first word of a signature secret key in the version 2
+// container, with its integrity value (docs/spec/keyfile.md).
+const KeyMagic2 = "noqtis-key-2"
 
 // Key is a decoded key file (docs/guides/keys.md): the algorithm's
 // name as noqtis spells it, "pub" or "sec", and the key bytes.
@@ -139,9 +144,9 @@ func EncodeKey(alg, kind string, key []byte) (string, error) {
 	return EncodeKeyPW(alg, kind, key, nil)
 }
 
-// keyad is the first line of a secret key file of a, the associated data
-// of its passphrase.
-func keyad(a Alg) []byte { return []byte(KeyMagic + " " + a.Name + " sec") }
+// keyad is the first line of a secret key file of a with the magic m,
+// the associated data of its passphrase.
+func keyad(a Alg, m string) []byte { return []byte(m + " " + a.Name + " sec") }
 
 // EncodeKeyPW is EncodeKey with a secret key kept under the passphrase
 // pw when pw is not nil (the format noqtis keygen --pass-fd writes).
@@ -153,14 +158,28 @@ func EncodeKeyPW(alg, kind string, key, pw []byte) (string, error) {
 	if kind != "pub" && kind != "sec" {
 		return "", why(-1, `kind: "pub" or "sec"`)
 	}
-	if want := ksize(a, kind); len(key) != want {
+	magic := KeyMagic
+	if kind == "sec" && a.Kind == "sign" {
+		// a signature secret key is written in the version 2 container:
+		// S is turned into it, a container is taken as it is
+		magic = KeyMagic2
+		if len(key) == a.SK {
+			x, err := SxMake(a.Name, key)
+			if err != nil {
+				return "", err
+			}
+			key = x
+		} else if err := SxCheck(a.Name, key); err != nil {
+			return "", why(-1, "%s secret key: %d bytes, neither the key nor its container", a.Name, len(key))
+		}
+	} else if want := ksize(a, kind); len(key) != want {
 		return "", why(-1, "%s %s key: %d bytes, not %d", a.Name, kind, want, len(key))
 	}
 	if pw != nil {
 		if kind != "sec" {
 			return "", why(-1, "a passphrase protects a secret key only")
 		}
-		e, err := PWEnc(pw, key, keyad(a), 0, 0, 0)
+		e, err := PWEnc(pw, key, keyad(a, magic), 0, 0, 0)
 		if err != nil {
 			return "", err
 		}
@@ -168,7 +187,7 @@ func EncodeKeyPW(alg, kind string, key, pw []byte) (string, error) {
 	}
 	b := b64e(key)
 	var s strings.Builder
-	s.WriteString(KeyMagic + " " + a.Name + " " + kind + "\n")
+	s.WriteString(magic + " " + a.Name + " " + kind + "\n")
 	for i := 0; i < len(b); i += 64 {
 		e := min(i+64, len(b))
 		s.Write(b[i:e])
@@ -198,14 +217,24 @@ func DecodeKeyPW(text, pw []byte) (*Key, error) {
 	}
 	h := strings.TrimSuffix(string(text[:nl]), "\r")
 	f := strings.Split(h, " ")
-	if len(f) != 3 || f[0] != KeyMagic || (f[2] != "pub" && f[2] != "sec") {
+	if len(f) != 3 || (f[0] != KeyMagic && f[0] != KeyMagic2) ||
+		(f[2] != "pub" && f[2] != "sec") || (f[0] == KeyMagic2 && f[2] != "sec") {
 		return nil, notkey()
 	}
 	a, err := kalg(f[1])
 	if err != nil {
 		return nil, err
 	}
+	v2 := f[0] == KeyMagic2
+	if v2 && a.Kind != "sign" {
+		return nil, why(-4, "a %s key has no version 2 container (only signature keys do)", a.Name)
+	}
 	want := ksize(a, f[2])
+	if v2 {
+		if want, err = SxSize(a.Name); err != nil {
+			return nil, err
+		}
+	}
 	body := make([]byte, 0, len(text)-nl)
 	for _, c := range text[nl+1:] {
 		if c != '\r' && c != '\n' {
@@ -217,9 +246,14 @@ func DecodeKeyPW(text, pw []byte) (*Key, error) {
 		if pw == nil {
 			return nil, why(-1, "the key is protected by a passphrase: give it to DecodeKeyPW or ReadKeyPW")
 		}
-		sk, err := PWDec(pw, k, keyad(a))
+		sk, err := PWDec(pw, k, keyad(a, f[0]))
 		if err != nil {
 			return nil, err
+		}
+		if v2 {
+			if err := SxCheck(a.Name, sk); err != nil {
+				return nil, why(-4, "the secret key is damaged: its integrity value does not match")
+			}
 		}
 		return &Key{Alg: a.Name, Kind: f[2], Key: sk}, nil
 	}
@@ -228,6 +262,11 @@ func DecodeKeyPW(text, pw []byte) (*Key, error) {
 	}
 	if k == nil || len(k) != want {
 		return nil, why(-4, "the key is not %d bytes of base64 for %s (the file is damaged or cut short)", want, a.Name)
+	}
+	if v2 {
+		if err := SxCheck(a.Name, k); err != nil {
+			return nil, why(-4, "the secret key is damaged: its integrity value does not match")
+		}
 	}
 	return &Key{Alg: a.Name, Kind: f[2], Key: k}, nil
 }

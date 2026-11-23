@@ -277,15 +277,25 @@ func seal(dir, alg string, sk, pk []byte, meta string, in []Input, ver int, skey
 	return rc(C.nqseal2(d, C.nqsalg(a.ID), csk, sz(sk), cpk, sz(pk), mt, ci, C.size_t(len(in))))
 }
 
-// Seal writes noqtis.json and noqtis.sig into dir (format 1), covering
-// every regular file in it. meta is JSON text (an object) kept in the
+// Seal writes noqtis.json and noqtis.sig into dir, covering every
+// regular file in it, in format 3 (Seal3 with no inputs and fresh salts,
+// so two seals of the same files differ; Seal3 with a salt key gives a
+// reproducible capsule). meta is JSON text (an object) kept in the
 // manifest, or "" for none. The creation time is SOURCE_DATE_EPOCH when
-// set, else the clock.
+// set, else the clock. Seal1 and Seal2 write the formats readers older
+// than 0.3.0 read.
 func Seal(dir, alg string, sk, pk []byte, meta string) error {
+	return seal(dir, alg, sk, pk, meta, nil, 3, nil)
+}
+
+// Seal1 is Seal in format 1: the manifest is a flat list of the files,
+// signed whole, with no Merkle tree (no proofs). It was Seal's format
+// before 0.3.0.
+func Seal1(dir, alg string, sk, pk []byte, meta string) error {
 	return seal(dir, alg, sk, pk, meta, nil, 1, nil)
 }
 
-// Seal2 is Seal in format 2: the manifest also carries a Merkle tree
+// Seal2 is Seal1 in format 2: the manifest also carries a Merkle tree
 // over its entries, so that Prove can show single files without the
 // rest's names, sizes or digests, and the capsules it was made from (at
 // most 1024 inputs). Its leaves are unsalted: anyone who can guess a

@@ -382,6 +382,15 @@ func TestSealAndCheck(t *testing.T) {
 	if x, _ := must(Inspect(d)).Get("info.meta"); x.Detail != `{"project":"go"}` {
 		t.Fatal(x)
 	}
+	// Seal writes format 3 from 0.3.0; Seal1 the format of before
+	if x, _ := must(Inspect(d)).Get("info.format"); x.Detail != "noqtis-capsule-3" {
+		t.Fatal("Seal's format", x)
+	}
+	d1 := mkfiles(t)
+	must(0, Seal1(d1, "ML-DSA-65", sk, pk, ""))
+	if x, _ := must(Inspect(d1)).Get("info.format"); x.Detail != "noqtis-capsule-1" {
+		t.Fatal("Seal1's format", x)
+	}
 	r := must(Check(d, &CheckOpts{Trust: pk, Only: []string{"a.txt"}}))
 	if !strings.Contains(r.String(), "partial") || !r.OK() || !r.Partial() {
 		t.Fatal(r)
@@ -443,9 +452,10 @@ func TestSeal2ProveLineage(t *testing.T) {
 		t.Fatal("a changed proof passed")
 	}
 	c := mkfiles(t)
-	if err := Seal(c, "ML-DSA-44", sk, pk, ""); err != nil {
+	if err := Seal1(c, "ML-DSA-44", sk, pk, ""); err != nil {
 		t.Fatal(err)
 	}
+	// a format 1 capsule has no proofs
 	if _, err := Prove(c, []string{"a.txt"}); !errors.Is(err, ErrUnsupported) {
 		t.Fatal(err)
 	}
@@ -564,7 +574,9 @@ func TestKeyFiles(t *testing.T) {
 	if err := WriteKey(f, "ML-DSA-44", "sec", sk, true); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(must(ReadKey(f, "")).Key, sk) {
+	// a signature secret key is written in the version 2 container, and
+	// read back as it
+	if !bytes.Equal(must(ReadKey(f, "")).Key, must(SxMake("ML-DSA-44", sk))) {
 		t.Fatal("read back")
 	}
 	if runtime.GOOS != "windows" {
