@@ -118,7 +118,13 @@ out    = H6 || c || ChaCha20-Poly1305(K, N, H6 || c || |x| || x, M)
 ChaCha20-Poly1305 is that of RFC 8439 section 2.8 with associated data
 as its third argument, its output the ciphertext then the 16-byte tag;
 HKDF is that of RFC 5869 with HMAC-SHA-256, no salt meaning 32 zero
-bytes.
+bytes:
+.Bd -literal -offset indent
+PRK = HMAC-SHA-256(salt, IKM)
+T_0 = "";  T_i = HMAC-SHA-256(PRK, T_(i-1) || info || byte(i))
+OKM = first L bytes of T_1 || T_2 || ...
+.Ed
+.Pp
 The key and nonce are new for each call, as the encapsulation is.
 .Fn nqkopen
 takes SHA3-256(ek) from the secret key, where ML-KEM keeps H(ek)
@@ -192,6 +198,22 @@ FIPS 203 (ML-KEM), RFC 5869 (HKDF), RFC 8439 (ChaCha20-Poly1305).
 .%T ChaCha20 and Poly1305 for IETF Protocols
 .%R RFC 8439
 .%D June 2018
+.Re
+.Rs
+.%A H. Krawczyk
+.%T Cryptographic Extraction and Key Derivation: The HKDF Scheme
+.%B Advances in Cryptology \(en CRYPTO 2010
+.%I Springer
+.%P pp. 631-648
+.%D 2010
+.Re
+.Rs
+.%A E. Barker
+.%A L. Chen
+.%A R. Davis
+.%T Recommendation for Key-Derivation Methods in Key-Establishment Schemes
+.%R NIST SP 800-56C Rev. 2
+.%D August 2020
 .Re
 .Sh SECURITY CONSIDERATIONS
 Anyone with the public key can seal a message to it: an opened message
