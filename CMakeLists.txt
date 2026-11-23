@@ -308,6 +308,23 @@ if(NQTESTS)
     add_test(NAME ${name} COMMAND ${name}
              WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests)
   endforeach()
+  # the fault tests: the library's sources again, with the fault hooks
+  # that NQTEST compiles in (src/core/int.h); the library and the other
+  # tests never have them
+  add_executable(tflt ${PROJECT_SOURCE_DIR}/tests/flt/tflt.c ${NQSRC})
+  target_include_directories(tflt PRIVATE ${PROJECT_SOURCE_DIR}/include
+                             ${PROJECT_SOURCE_DIR}/src
+                             ${PROJECT_SOURCE_DIR}/tests)
+  target_compile_options(tflt PRIVATE ${NQWARN})
+  target_compile_definitions(tflt PRIVATE NQTEST NQBUILD)
+  if(WIN32)
+    target_link_libraries(tflt PRIVATE bcrypt)
+  endif()
+  if(CMAKE_DL_LIBS)
+    target_link_libraries(tflt PRIVATE ${CMAKE_DL_LIBS})
+  endif()
+  add_test(NAME tflt COMMAND tflt
+           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests)
   # tthr starts threads (POSIX; it skips itself elsewhere)
   find_package(Threads)
   if(Threads_FOUND)
