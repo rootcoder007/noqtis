@@ -416,13 +416,18 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
   timestamp are failures.
 - No faulty signature is released. A signature made while the
   computation was disturbed (a voltage or clock glitch, a flipped memory
-  bit) can give the key away (Bindel et al. 2016 for ML-DSA, Castelnovi
-  et al. 2018 for SLH-DSA, Romailler and Pelissier 2017 for Ed25519), so
+  bit) can give the key away (Bruinderink and Pessl 2018 and Ravi et al.
+  2019 for ML-DSA, Castelnovi et al. 2018 and Genêt et al. 2018 for
+  SLH-DSA, Romailler and Pelissier 2017 for Ed25519; Bindel et al. 2016
+  for lattice signatures in general), so
   `nqsign` verifies every signature, and each half of a hybrid, under
   the public key derived again from the secret key before returning it;
   one that fails is zeroed and the call returns `NQEFLT`. ML-DSA checks
   from the message representative it already has and SLH-DSA from the
-  digest, so this costs one verification.
+  digest, so this costs one verification, and for ML-DSA also one
+  computation of the public key from the secret key. It catches a fault
+  that makes the signature invalid; not a fault in the stored key, from
+  which the public key is derived, nor one that skips the check.
 - A known-answer self-test, `nqselftest()` (`noqtis selftest`, and in
   every binding): fixed inputs through every algorithm family (SHA-1,
   SHA-2, SHA-3, SHAKE, KangarooTwelve and BLAKE2b, HMAC, HKDF, PBKDF2,
