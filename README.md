@@ -49,7 +49,8 @@ noqtis check -p me.pub results/         # exit 1: "report.txt: size differs"
 ## Security guarantees
 
 - Every file the seal lists is in the folder, byte for byte: same size,
-  same SHA-256 and same SHA3-256.
+  same SHA-256 and same SHA3-256 (to change a file without changing both
+  digests would need a collision in SHA-256 and in SHA3-256).
 - No file was added, removed or renamed, and no link or special file was
   slipped in.
 - The list itself is exactly what the holder of the secret key signed,

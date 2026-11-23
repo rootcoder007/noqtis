@@ -13,8 +13,9 @@ and advisory within 90 days. See `SECURITY.md`.
 ## Threat model
 
 **What NOQTIS protects.** The integrity and origin of a set of files: that
-a folder holds exactly the files a key holder sealed, byte for byte, and
-nothing else; and, with a timestamp, that the seal existed no later than
+a folder holds exactly the files a key holder sealed, byte for byte (to
+change a file without changing both digests would need a collision in
+SHA-256 and in SHA3-256), and nothing else; and, with a timestamp, that the seal existed no later than
 the time the TSA signed. The record is signed with a signature (ML-DSA
 or SLH-DSA) designed to resist attacks by quantum computers, which would
 break RSA and elliptic-curve signatures.
