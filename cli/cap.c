@@ -1746,6 +1746,19 @@ int ncts(int argc, char **argv) {
       has = 1;
   }
   nqrepfree(r);
+  /* the library refuses it (nqtsput, NQESTATE) only once a TSA answered:
+   * refused here, before any request */
+  {
+    char p[4200];
+    snprintf(p, sizeof p, "%s/noqtis.ers", argv[0]);
+    if (ncexist(p)) {
+      ncmsg("timestamp", "%s has an evidence record (noqtis.ers) over its "
+            "present seal, which a timestamp would change: renew the "
+            "record's timestamp with `noqtis ers` instead; no TSA was "
+            "asked", argv[0]);
+      return NCUSE;
+    }
+  }
   if (has && !force) {
     ncmsg("timestamp", "%s already has a timestamp; --force replaces it "
           "(the earlier time is then no longer shown by the seal)", argv[0]);

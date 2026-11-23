@@ -1249,6 +1249,9 @@ static void ters(void) {
          "timestamp --tsa http://127.0.0.1:@PORT@/ qers");
   ok(has("q.err", "evidence record (noqtis.ers)"),
      "timestamp refuses a folder with a record");
+  ok(has("q.tsd", "served 0 requests") && has("q.err", "noqtis ers") &&
+     !has("q.err", "no --tsa gave a timestamp"),
+     "timestamp: a folder with a record is refused before any request");
   want(0, "check -p q.c.pub --anchor q.ar.der qers", NULL);
   /* timestamp renewal */
   wantts(0, "ossl", "q.a.rcmd",
