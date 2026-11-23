@@ -724,17 +724,17 @@ int nqkscert(const char *dir, nqsalg alg, const uint8_t *sk, size_t sklen,
   nqb64e(sg, n, sgb);
   rc = body(&o, nqsname(alg), ts, email, ih, kh, kan, name, sgb);
   if (rc != NQOK) goto done;
+  /* the room for it first: a call that fails keeps nothing */
+  if (out != NULL && cap < o.n) {
+    if (outlen != NULL) *outlen = o.n;
+    rc = NQEBUF;
+    goto done;
+  }
   cname(fp, ifp, nm);
   rc = nqcwrite(dir, nm, o.p, o.n);
   if (rc != NQOK) goto done;
   if (outlen != NULL) *outlen = o.n;
-  if (out != NULL) {
-    if (cap < o.n) {
-      rc = NQEBUF;
-      goto done;
-    }
-    memcpy(out, o.p, o.n);
-  }
+  if (out != NULL) memcpy(out, o.p, o.n);
 done:
   nqcbfree(&b);
   nqcbfree(&o);

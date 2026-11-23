@@ -32,6 +32,7 @@
 - Fixed: `noqtis seal -r --token` with a wrong PIN tried it again for every folder, and a token locks its PIN after a few wrong tries; the run now stops at the first folder whose seal could not open the token.
 - Fixed: `nqselftest` can run in several threads at once. Its tests share one working buffer, and two calls at the same time could change each other's data and return `NQEKAT`; a lock now lets one test at a time use it. The freestanding build, which has no threads, is as before.
 - Fixed: `nqdssevrfy` reads DSSE envelopes whose payload or signature is in the URL-safe base64 alphabet, as the DSSE specification requires a verifier to ("verifiers MUST accept either"); it read the standard alphabet only, and refused such envelopes. Each field is in one alphabet, padded; `nqdsse` writes the standard alphabet as before.
+- Fixed: `nqkscert` with an `out` too small for the certification returned `NQEBUF` and kept the certification in the store all the same; it now checks the room first, and a call that fails keeps nothing.
 
 # noqtis 0.2.2
 

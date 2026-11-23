@@ -275,9 +275,11 @@ static void tcarry(void) {
   NQTEQI(nqkscert(a, NQMLDSA44, sk[0], SK, pk[0], PK, fp[1], T0, c, 16, &n),
          NQEBUF);
   NQTCHK(n > 16 && n < sizeof c);
+  NQTCHK(get(a, fp[1]).ncert == 0); /* a call that failed kept nothing */
   NQTEQI(nqkscert(a, NQMLDSA44, sk[0], SK, pk[0], PK, fp[1], T0, c, sizeof c,
                   &n),
          NQOK);
+  NQTCHK(get(a, fp[1]).ncert == 1);
   NQTCHK(memcmp(c, "{\"alg\":\"ML-DSA-44\",\"created\":\"2026-01-01T00:00:00Z\"",
                 51) == 0);
   /* neither key is in the other store, then only the issuer, then both */
