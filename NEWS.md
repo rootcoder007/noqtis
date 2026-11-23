@@ -26,6 +26,7 @@
 - The library and the tool are built and tested on FreeBSD, OpenBSD and NetBSD at every change, with warnings as errors.
 - A release is titled by its bare version, and its COPR build may run as long as COPR allows: at 0.2.2 the job that watches it was cut off while the riscv64 targets still built.
 - Fixed: a secret key under a passphrase could not seal, nor sign a key statement, an identity card, a bundle or a DSSE envelope: `noqtis seal`, `rotate`, `revoke`, `expire`, `idcard`, `pack build` and `export --as dsse` did not take `--pass-fd` and `--pass-env`, and told the user to give `--pass-fd`. They take both now, as `sign` and `dec` do (`rotate` takes `--new-pass-fd` and `--new-pass-env` for the new key), every command reads a secret key the same way, and the message names the options of the command that asks. A passphrase from a descriptor is read once and serves `seal -r` in every folder and `seal --token -r` its PIN the same way.
+- Fixed: `noqtis smime decrypt` wrote the decrypted message readable by everyone (mode 0644); it is owner-only (0600) now, as `unbox`, `dec`, `pgp decrypt` and `token dec` write what they decrypt.
 
 # noqtis 0.2.2
 

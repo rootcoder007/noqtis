@@ -2322,6 +2322,9 @@ static void tpass(void) {
   want(0, "sign -k q.pk -o q.psig --force --pass-env NQTPW q.m", NULL);
   want(0, "passwd -k q.pk --pass-env NQTPW --new-pass-env NQTPW2", NULL);
   ok(has("q.out", "the new passphrase"), "passwd says what it did");
+#ifndef _WIN32
+  ok(priv("q.pk"), "passwd writes the key owner-only");
+#endif
   ok(!has("q.out", pw) && !has("q.err", pw), "passwd prints no passphrase");
   want(2, "sign -k q.pk -o q.psig --force --pass-env NQTPW q.m", NULL);
   want(0, "sign -k q.pk -o q.psig --force --pass-env NQTPW2 q.m", NULL);
@@ -2546,6 +2549,9 @@ static void tbox(void) {
   wrs("q.b1", "hello, stream\n");
   want(0, "box -p q.kk.pub -o q.x0 q.b0", NULL);
   want(0, "unbox -k q.kk -o q.y0 q.x0", NULL);
+#ifndef _WIN32
+  ok(priv("q.y0"), "unbox writes the content owner-only");
+#endif
   ok(same("q.b0", "q.y0"), "an empty file round trip");
   want(0, "box -p q.kk.pub --chunk 1024 -c ctx -o q.x4 q.b4", NULL);
   want(0, "unbox -k q.kk -c ctx -o q.y4 q.x4", NULL);
@@ -3030,6 +3036,9 @@ static void ttoken(void) {
   want(0, "enc -p q.tkp.pub -o q.tct --force q.tss", NULL);
   want(0, "token dec -n kem -o q.tss2 --force --pin-env NQTPIN q.tct", NULL);
   ok(same("q.tss", "q.tss2"), "token dec gives the secret enc gave");
+#ifndef _WIN32
+  ok(priv("q.tss2"), "token dec writes the secret owner-only");
+#endif
   want(2, "token dec -n sig -o q.tss2 --force --pin-env NQTPIN q.tct", NULL);
   want(2, "token dec -n kem -o q.tss2 --force --pin-env NQTPIN q.b1", NULL);
   want(2, "token dec -n kem --pin-env NQTPIN q.tct", NULL);
@@ -3169,6 +3178,9 @@ static void tpgp(void) {
   ok(same("q.gp", "q.b4") && has("q.err", "signed by"),
      "pgp decrypt opens it and checks the signer");
   want(0, "pgp decrypt -k q.g2 --pass-env NQTPW -o q.gp --force q.ge", NULL);
+#ifndef _WIN32
+  ok(priv("q.gp"), "pgp decrypt writes the message owner-only");
+#endif
   ok(same("q.gp", "q.b4"), "the second recipient opens it as well");
   want(2, "pgp decrypt -k q.g1 --cert q.g3.pub -o q.gx --force q.ge", NULL);
   want(2, "pgp decrypt -k q.g3 -o q.gx --force q.ge", NULL);
@@ -3286,6 +3298,9 @@ static void tsmime(void) {
      "smime encrypt writes authEnveloped-data");
   want(0, "smime decrypt -k q.kk --cert q.ck -o q.v1 --force q.e1", NULL);
   ok(same("q.v1", "q.b4"), "smime decrypt gives the content back");
+#ifndef _WIN32
+  ok(priv("q.v1"), "smime decrypt writes the content owner-only");
+#endif
   want(0, "smime decrypt -k q.kk -o q.v1 --force q.e1", NULL);
   want(2, "smime decrypt -k q.k2 -o q.v1 --force q.e1", NULL);
   ok(has("q.err", "does not open with"), "another key does not open it");

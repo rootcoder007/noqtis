@@ -55,13 +55,14 @@ static int rdcert(const char *cmd, const char *path, uint8_t **der,
 }
 
 /* writes n bytes to out (- or NULL: stdout) */
+/* sec: decrypted content, owner-only (0600) as unbox and dec write it */
 static int wrout(const char *cmd, const char *out, const uint8_t *b, size_t n,
-                 int force) {
+                 int force, int sec) {
   if (out == NULL || strcmp(out, "-") == 0) {
     ncbin();
     return fwrite(b, 1, n, stdout) == n && fflush(stdout) == 0 ? NCOK : NCUSE;
   }
-  if (ncwr(out, b, n, force, 0) != NQOK) {
+  if (ncwr(out, b, n, force, sec) != NQOK) {
     ncwfail(cmd, out, force);
     return NCUSE;
   }
@@ -351,7 +352,7 @@ static int smsign(const char *kp, const ncpw *pwo, const char *cp,
       nclib("smime", "signing", rc);
     goto done;
   }
-  ret = wrout("smime", out, o, on, force);
+  ret = wrout("smime", out, o, on, force, 0);
 done:
   nckfree(&sk);
   free(c);
@@ -409,7 +410,7 @@ static int smverify(const char **ap, int na, const char *cp, const char *in,
   }
   if (out != NULL) {
     if (!der && !entity) unwrap(o, &on);
-    if (wrout("smime", out, o, on, force) != NCOK) goto done;
+    if (wrout("smime", out, o, on, force, 0) != NCOK) goto done;
   }
   {
     char hx[65];
@@ -479,7 +480,7 @@ static int smencrypt(const char **tp, int nt, const char *in, const char *out,
       nclib("smime", "encrypting", r);
     goto done;
   }
-  ret = wrout("smime", out, o, on, force);
+  ret = wrout("smime", out, o, on, force, 0);
 done:
   for (k = 0; k < nt; k++) free(rb[k]);
   free(m);
@@ -527,7 +528,7 @@ static int smdecrypt(const char *kp, const ncpw *pwo, const char *cp,
     goto done;
   }
   if (!der && !entity) unwrap(o, &on);
-  ret = wrout("smime", out, o, on, force);
+  ret = wrout("smime", out, o, on, force, 1);
 done:
   nckfree(&sk);
   free(c);
