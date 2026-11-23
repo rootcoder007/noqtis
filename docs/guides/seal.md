@@ -32,9 +32,10 @@ break the capsule.
 - more than 2,000,000 files, a path over 4096 bytes, folders more than 64
   levels deep, or a manifest over 512 MiB.
 
-It also refuses a secret key under a passphrase (`seal` takes no
-`--pass-fd`; see [keys](https://noqtis.dev/guides/keys/)) and a folder
-with an evidence record (`noqtis.ers`), which a new seal would orphan.
+It also refuses a folder with an evidence record (`noqtis.ers`), which a
+new seal would orphan. A secret key under a passphrase is read with
+`--pass-fd` or `--pass-env` (see [keys](https://noqtis.dev/guides/keys/)).
+
 
 A folder swapped for a link while `seal` or `check` runs is refused, not
 followed: files are opened folder by folder from the capsule folder.
@@ -61,6 +62,29 @@ $ cut -c1-34 results/noqtis.json
 
 With the same files, time and metadata, `noqtis.json` is byte-identical.
 The signature still differs between runs (hedged signing).
+
+### With a key on a token
+
+`--token` signs with an ML-DSA or SLH-DSA key kept on a PKCS #11 token (a
+smart card or a hardware security module; `noqtis-token(1)`). noqtis
+never reads the secret key: the token signs, and the signature is
+checked under the token's public key before the seal is written. A key
+made by `noqtis token keygen` is marked sensitive and not extractable.
+The seal is the same as one made with `-k`, and checks the same way.
+
+```sh
+$ export NOQTIS_PKCS11=/usr/lib/softhsm/libsofthsm2.so
+$ noqtis token keygen -a ML-DSA-65 --label release -o release.pub \
+    --pin-env PIN
+$ noqtis seal --token --label release --pin-env PIN results
+sealed results with ML-DSA-65
+$ noqtis check -p release.pub results
+```
+
+`--module <path>` names the module instead of `NOQTIS_PKCS11`; for
+`seal`, `-m` is `--meta`, not the module. The PIN is read from
+`--pin-fd` or `--pin-env`, never from the command line. HQC keys cannot
+be made on a token: PKCS #11 3.2 defines no HQC key type.
 
 ## Checking
 

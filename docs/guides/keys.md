@@ -135,22 +135,33 @@ The passphrase is read from the open descriptor `<n>` up to a newline,
 or taken from the environment variable whose name the option gives; it
 is never an argument (other users can read the process list), never
 echoed, and at most 4096 bytes. `noqtis sign`, `dec`, `unbox`,
-`box --sign`, `cert`, `smime`, `keys certify` and `pgp` take the same
-options. `seal`, `rotate`, `revoke`, `expire`, `idcard`, `pack build`
-and `export --as dsse` take none and refuse a protected key: remove the
-passphrase first (`noqtis passwd --no-pass`).
+`box --sign`, `seal`, `rotate`, `revoke`, `expire`, `idcard`,
+`pack build`, `export --as dsse`, `cert`, `smime`, `keys certify` and
+`pgp` take the same options (`rotate` also takes `--new-pass-fd` and
+`--new-pass-env` for the new key).
+
+`--kdf pbkdf2` writes the key under PBKDF2-HMAC-SHA-256 (600000
+iterations) instead of Argon2id, for places whose rules ask for PBKDF2;
+Argon2id stays the default, since its memory makes each guess costly on
+guessing hardware as well. `noqtis passwd -k <key>` changes the
+passphrase (`--new-pass-fd`, `--new-pass-env`, or `--no-pass` to remove
+it); the file keeps the KDF it was under unless `--kdf` names one, and
+the command says which KDF protects the new file.
 
 The file keeps the first line of an unprotected secret key
 (`noqtis-key-1 <alg> sec`); its base64 body is the format
-noqtis-pwkey-1 (`nqpwenc(3)`): `NQPW`, the version, Argon2id and
-ChaCha20-Poly1305 as one byte each, the memory, passes and lanes, a
-random 16-byte salt, then the key under ChaCha20-Poly1305 and its tag.
-Argon2id of the passphrase gives the cipher's key and nonce (64 MiB, 3
-passes and 4 lanes when it is written); the header and the first line
-are its associated data, so changing either fails like a wrong
-passphrase. A reader refuses parameters outside 8 MiB to 1 GiB of
-memory, 1 to 16 passes and 1 to 16 lanes, or memory times passes over
-4 GiB, before it derives anything: a file cannot make it take more.
+noqtis-pwkey-1 (`nqpwenc(3)`): `NQPW`, the version, the KDF (1
+Argon2id, 2 PBKDF2-HMAC-SHA-256) and the AEAD (ChaCha20-Poly1305) as
+one byte each, the memory, passes (or iterations) and lanes, a random
+16-byte salt, then the key under ChaCha20-Poly1305 and its tag.
+Argon2id (64 MiB, 3 passes and 4 lanes when it is written), or
+PBKDF2-HMAC-SHA-256 with 600000 iterations under `--kdf pbkdf2`, turns
+the passphrase into the cipher's key and nonce; the header and the
+first line are its associated data, so changing either fails like a
+wrong passphrase. A reader refuses Argon2id parameters outside 8 MiB to
+1 GiB of memory, 1 to 16 passes and 1 to 16 lanes, or memory times
+passes over 4 GiB, and a PBKDF2 iteration count outside 100000 to
+10000000, before it derives anything: a file cannot make it take more.
 
 ## Keeping the secret key safe
 
