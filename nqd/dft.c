@@ -310,7 +310,7 @@ static int dcmp(const void *a, const void *b) {
 
 /* reads the CSV file at p into columns: every value is counted as a
  * category and, while the column stays numeric, kept as a number.
- * ponytail: holds every number of the file in memory (8 bytes each)
+ * note: holds every number of the file in memory (8 bytes each)
  * to sort it; a merging quantile sketch (KLL) would bound that. */
 static int readcols(const char *dir, const char *p, const nqdcsvopt *o,
                     qdccol **out, size_t *nc, uint64_t *rows, char *why,

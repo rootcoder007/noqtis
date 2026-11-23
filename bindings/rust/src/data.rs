@@ -534,7 +534,7 @@ pub fn pin(dir: impl AsRef<Path>, files: &[&str], o: &Csv) -> Result<()> {
 }
 
 /// The value of the top-level member "path" of a canonical JSON object.
-// ponytail: only the escapes a capsule path can need (\" and \\)
+// note: only the escapes a capsule path can need (\" and \\)
 fn pathof(j: &str) -> Option<String> {
     let b = j.as_bytes();
     let (mut depth, mut i) = (0, 0);
