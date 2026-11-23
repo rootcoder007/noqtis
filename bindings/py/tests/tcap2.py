@@ -49,11 +49,34 @@ def test_format2(tmp_path, key):
     assert not noqtis.check(d, pk).ok
 
 
+def test_format3(tmp_path, key, monkeypatch):
+    pk, sk = key
+    d = mk(tmp_path / "c")
+    noqtis.seal(d, sk, pk, format=3)
+    assert json.loads((d / "noqtis.sig").read_text())["format"] == \
+        "noqtis-seal-3"
+    assert noqtis.check(d, pk).ok
+    p = noqtis.prove(d, "f1.csv")
+    assert b'"format":"noqtis-proof-2"' in p and b"f0.csv" not in p
+    assert noqtis.check(d, pk, proof=p).ok
+    # a salt key: the same manifest twice
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1767225600")
+    noqtis.seal(d, sk, pk, salt_key=bytes(range(32)))
+    m1 = (d / "noqtis.json").read_bytes()
+    noqtis.seal(d, sk, pk, salt_key=bytes(range(32)))
+    assert (d / "noqtis.json").read_bytes() == m1
+    assert noqtis.check(d, pk).ok
+
+
 def test_format_args(tmp_path, key):
     pk, sk = key
     d = mk(tmp_path / "c")
     with pytest.raises(noqtis.ArgError):
-        noqtis.seal(d, sk, pk, format=3)
+        noqtis.seal(d, sk, pk, format=4)
+    with pytest.raises(noqtis.ArgError):
+        noqtis.seal(d, sk, pk, format=2, salt_key=bytes(32))
+    with pytest.raises(noqtis.ArgError):
+        noqtis.seal(d, sk, pk, salt_key=bytes(31))
     with pytest.raises(noqtis.ArgError):
         noqtis.seal(d, sk, pk, format=1, inputs=[d])
     with pytest.raises(noqtis.ArgError):
@@ -130,7 +153,7 @@ def test_lineage(tmp_path, key):
     a = mk(tmp_path / "raw")
     noqtis.seal(a, sk, pk)
     b = mk(tmp_path / "clean")
-    noqtis.seal(b, sk, pk, inputs=[a])  # format 2 implied
+    noqtis.seal(b, sk, pk, inputs=[a])  # format 3 implied
     c = mk(tmp_path / "model")
     noqtis.seal(c, sk, pk, inputs=[("cleaned", b),
                                    ("raw-id", noqtis.capid(a))])

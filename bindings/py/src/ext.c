@@ -573,6 +573,49 @@ static PyObject *pseal2(PyObject *self, PyObject *args) {
   Py_RETURN_NONE;
 }
 
+/* seal3(dir, alg, sk, pk, meta or None, ((id, name), ...), salt key or
+ * None) -> None */
+static PyObject *pseal3(PyObject *self, PyObject *args) {
+  int alg, rc;
+  const char *dir, *sk, *pk, *meta = NULL, *key = NULL;
+  Py_ssize_t kl, pl, k, i, nk = 0;
+  PyObject *ins;
+  nqcin *in = NULL;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "yiy#y#zO!z#", &dir, &alg, &sk, &kl, &pk, &pl,
+                        &meta, &PyTuple_Type, &ins, &key, &nk))
+    return NULL;
+  if (key != NULL && nk != 32) return fail(NQEARG);
+  k = PyTuple_Size(ins);
+  if (k < 0) return NULL;
+  if (k > NLIN) return fail(NQELIM);
+  if (k > 0) {
+    in = (nqcin *)PyMem_Malloc(sizeof *in * (size_t)k);
+    if (in == NULL) return PyErr_NoMemory();
+  }
+  for (i = 0; i < k; i++) {
+    const char *id, *nm;
+    Py_ssize_t il;
+    if (!PyArg_ParseTuple(PyTuple_GetItem(ins, i), "y#y", &id, &il, &nm)) {
+      PyMem_Free(in);
+      return NULL;
+    }
+    if (il != 32) {
+      PyMem_Free(in);
+      return fail(NQEARG);
+    }
+    memcpy(in[i].id, id, 32);
+    in[i].name = nm;
+  }
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqseal3(dir, (nqsalg)alg, U8(sk), SZ(kl), U8(pk), SZ(pl), meta, in,
+               SZ(k), U8(key), key != NULL ? 32 : 0);
+  Py_END_ALLOW_THREADS
+  PyMem_Free(in);
+  if (rc != NQOK) return fail(rc);
+  Py_RETURN_NONE;
+}
+
 /* capid(dir) -> 32 bytes */
 static PyObject *pcapid(PyObject *self, PyObject *args) {
   const char *dir;
@@ -3320,6 +3363,7 @@ static PyMethodDef meths[] = {
   {"hmac", phmac, METH_VARARGS, "nqhmac"},
   {"seal", pseal, METH_VARARGS, "nqseal"},
   {"seal2", pseal2, METH_VARARGS, "nqseal2"},
+  {"seal3", pseal3, METH_VARARGS, "nqseal3"},
   {"capid", pcapid, METH_VARARGS, "nqcapid"},
   {"chk", pchk, METH_VARARGS, "nqchkx / nqchkp"},
   {"prove", pprove, METH_VARARGS, "nqprove"},

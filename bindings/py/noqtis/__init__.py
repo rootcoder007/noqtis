@@ -289,18 +289,24 @@ def _inputs(inputs: Iterable[Any]) -> Tuple[Tuple[bytes, bytes], ...]:
 def seal(dir: PathLike, sk: Bytes, pk: Bytes,
          meta: Union[None, str, Mapping[str, Any]] = None,
          alg: Optional[AlgLike] = None, format: Optional[int] = None,
-         inputs: Optional[Iterable[Any]] = None) -> None:
+         inputs: Optional[Iterable[Any]] = None,
+         salt_key: Optional[Bytes] = None) -> None:
     """Writes noqtis.json and noqtis.sig into ``dir``, covering every
     regular file in it. ``meta`` is a JSON object (a dict, or its text).
     ``alg`` defaults to the algorithm of the key pair. The creation time
     is SOURCE_DATE_EPOCH when set, else the clock.
 
-    ``format=2`` writes capsule format 2: the manifest carries a Merkle
-    tree over its files, so that ``prove`` can show some files without
-    the others. ``inputs`` (format 2, the default with it) records the
-    capsules this one was made from: each a capsule folder (named by its
-    last component) or a ``(name, folder)`` pair, or ``(name, id)`` with
-    the 32-byte id from ``capid``. Check the inputs before you name them;
+    ``format=3`` writes capsule format 3: the manifest carries a Merkle
+    tree over its files with a secret salt in each leaf, so that
+    ``prove`` can show some files and a proof confirms no guess of the
+    others; ``salt_key`` (32 secret bytes, format 3, the default with it)
+    derives the salts, for a reproducible capsule, else they are fresh.
+    ``format=2`` writes the same tree without salts (a proof lets a guess
+    of another file be confirmed), for readers older than 0.3.0.
+    ``inputs`` (format 3, the default with it) records the capsules this
+    one was made from: each a capsule folder (named by its last
+    component) or a ``(name, folder)`` pair, or ``(name, id)`` with the
+    32-byte id from ``capid``. Check the inputs before you name them;
     ``check(lineage=...)`` follows them back."""
     s, p = buf(sk, "sk"), buf(pk, "pk")
     a = _salg(s, p) if alg is None else find(alg, "sign")
@@ -311,16 +317,24 @@ def seal(dir: PathLike, sk: Bytes, pk: Bytes,
         m = json.dumps(dict(meta), allow_nan=False, separators=(",", ":"))
     else:
         raise TypeError("meta: a dict, a JSON string or None")
-    f = format if format is not None else (1 if inputs is None else 2)
-    if f not in (1, 2):
-        raise ArgError(-1, "format: 1 or 2")
+    f = format if format is not None else \
+        (1 if inputs is None and salt_key is None else 3)
+    if f not in (1, 2, 3):
+        raise ArgError(-1, "format: 1, 2 or 3")
     if f == 1 and inputs is not None:
-        raise ArgError(-1, "inputs need format 2")
+        raise ArgError(-1, "inputs need format 3 or 2")
+    if salt_key is not None and f != 3:
+        raise ArgError(-1, "salt_key: format 3 only")
+    k = None if salt_key is None else buf(salt_key, "salt_key")
+    if k is not None and len(k) != 32:
+        raise ArgError(-1, "salt_key: 32 bytes")
     ins = None if inputs is None else _inputs(inputs)
     if f == 1:
         _c.seal(path(dir), a.id, s, p, m)
-    else:
+    elif f == 2:
         _c.seal2(path(dir), a.id, s, p, m, ins or ())
+    else:
+        _c.seal3(path(dir), a.id, s, p, m, ins or (), k)
 
 
 def capid(dir: PathLike) -> bytes:
@@ -372,9 +386,12 @@ def check(dir: Optional[PathLike] = None, pk: Optional[Bytes] = None,
 
 
 def prove(dir: PathLike, paths: Union[str, Iterable[str]]) -> bytes:
-    """A proof (noqtis-proof-1, JSON) that ``paths`` are files of the
-    format 2 capsule in ``dir``: the seal, the manifest's head and each
-    file's entry and Merkle audit path, and nothing of the other files.
+    """A proof (JSON) that ``paths`` are files of the format 3
+    (noqtis-proof-2) or format 2 (noqtis-proof-1) capsule in ``dir``: the
+    seal, the manifest's head and each file's entry and Merkle audit path,
+    and none of the other files' names, sizes or digests. Of a format 2
+    capsule its hashes let a guess of another file be confirmed; of a
+    format 3 one they do not.
     ``check(proof=...)`` checks it. Check the capsule first."""
     p = _strs(paths, "paths")
     if not p:
