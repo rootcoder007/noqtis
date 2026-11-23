@@ -92,6 +92,9 @@ int nqckbody(nqcbuf *b, const char *an, const char *at, const char *pkb,
 /* SOURCE_DATE_EPOCH when set, else the clock (seal.c); -1 when
  * SOURCE_DATE_EPOCH is not a plain decimal number */
 int64_t nqcnow(void);
+/* the system clock: what every check decides by (a certificate's or a
+ * key's validity "now"); SOURCE_DATE_EPOCH sets only times written */
+int64_t nqcreal(void);
 int nqctparse(const char *s, size_t n, int64_t *t);
 /* identity cards (idc.c): the canonical card, with sig NULL its signed
  * part (every member but the signature; a field NULL is left out), and

@@ -1664,7 +1664,7 @@ static int chk1(const char *dir, const nqcopt *o, int depth, nqrep **rep) {
       char t1[21], t2[21];
       const char *what = kc->rev[ki] == 2 ? "to expire"
                          : kc->rev[ki] ? "revoked" : "rotated away";
-      int64_t nw = kc->rev[ki] == 2 ? nqcnow() : -1;
+      int64_t nw = kc->rev[ki] == 2 ? nqcreal() : -1;
       if (nqctime(kc->to[ki], t1) != NQOK) memcpy(t1, "?", 2);
       char d[160];
       /* a key that expires seals until then: before that day no

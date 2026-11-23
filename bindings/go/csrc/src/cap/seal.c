@@ -33,6 +33,8 @@ int64_t nqcnow(void) {
   return (int64_t)time(NULL);
 }
 
+int64_t nqcreal(void) { return (int64_t)time(NULL); }
+
 static int foldcmp(const void *ctx, size_t a, size_t b) {
   const nqclist *l = (const nqclist *)ctx;
   return nqcfold(l->e[a].path, l->e[a].len, l->e[b].path, l->e[b].len);

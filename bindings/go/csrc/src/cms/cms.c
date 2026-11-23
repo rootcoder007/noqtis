@@ -931,8 +931,8 @@ int nqcmsvrfy(const uint8_t *cms, size_t n, const uint8_t *msg, size_t mlen,
     goto done;
   }
   /* the time the certificates must hold at: the caller's, else the
-   * signing time, else now */
-  if (at <= 0) at = hast ? stime : nqcnow();
+   * signing time, else now by the system clock */
+  if (at <= 0) at = hast ? stime : nqcreal();
   /* a signer whose certificate is itself an anchor is trusted as it
    * is, within its validity; any other is chained to one */
   for (i = 0; !direct && i < nanc; i++) {
