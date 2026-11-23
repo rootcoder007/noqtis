@@ -52,7 +52,8 @@ with no context, pure and hedged, and written as canonical JSON:
 is 1 to 255 printable ASCII bytes with no space, quote or backslash,
 such as
 .Ql application/vnd.in-toto+json .
-Base64 is the padded standard alphabet of RFC 4648 section 4.
+.Fn nqdsse
+writes the padded standard base64 alphabet of RFC 4648 section 4.
 Any signature algorithm of noqtis may sign, Ed25519 alone included.
 The signature is checked before the envelope is written.
 .Fa *outlen
@@ -77,8 +78,13 @@ is each signature's
 a signature entry that is not an object or whose
 .Ql sig
 does not decode is skipped.
-Only the padded standard base64 alphabet is read: the URL-safe or
-unpadded encodings that the DSSE specification also allows give
+The payload and each
+.Ql sig
+may be in the standard or the URL-safe alphabet (RFC 4648 sections 4
+and 5), as the DSSE specification allows, each field in one of them and
+padded.
+A field with characters of both alphabets, without its padding, or
+with bits set after its last byte gives
 .Er NQEDEC
 (for the payload) or a skipped signature.
 The payload then goes to

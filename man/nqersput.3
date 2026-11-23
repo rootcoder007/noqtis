@@ -161,7 +161,8 @@ More than 32 anchors, a record of more than 64 archive timestamps or
 over 1 MiB, or a reduced hash tree beyond its limits.
 .It Bq Er NQEMEM
 The allocation hook returned
-.Dv NULL .
+.Dv NULL ,
+including in the check of the new record before it is written.
 .El
 .Pp
 .Pf * Fa why

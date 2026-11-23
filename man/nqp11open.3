@@ -137,6 +137,11 @@ false, and keeps the public key on the token too, both under
 .Fa label
 and one random
 .Dv CKA_ID .
+A key pair the token made but then does not describe as the
+algorithm asked is destroyed before
+.Fn nqp11gen
+returns
+.Er NQEIO .
 .Pp
 .Fn nqp11seal
 seals the folder

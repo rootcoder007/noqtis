@@ -46,10 +46,17 @@ its verification.
 Each family's keys, ciphertexts, signatures, secrets and return codes
 are hashed with SHA-256; a decapsulation or verification that disagrees
 changes the hash.
-The masked decapsulations and signers run as in normal use.
+The masked decapsulations and signers run as in normal use, so the
+self-test needs the random source: without one (a freestanding build
+with no
+.Xr nqsetrng 3 )
+it returns
+.Er NQEKAT .
 It takes about a tenth of a second and allocates nothing: its buffers
-are one static block of about 44 KB, wiped after each test, so it must
-not run in two threads at once.
+are one static block of about 44 KB, wiped after each test, held under
+a lock.
+It may be called from several threads at once; one test runs at a
+time and the others wait.
 .Sh RETURN VALUES
 .Dv NQOK
 when every answer matches;
