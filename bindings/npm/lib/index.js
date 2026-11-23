@@ -231,9 +231,9 @@ export function version() {
 }
 
 /**
- * Runs the library's known-answer self-test (every family, about a tenth
- * of a second); throws a NoqtisError with code EKAT when an answer
- * differs.
+ * Runs the library's known-answer self-test (every algorithm family,
+ * SLH-DSA by its key generation only; about a tenth of a second); throws
+ * a NoqtisError with code EKAT when an answer differs.
  */
 export function selftest() {
   need();

@@ -113,8 +113,9 @@ __all__ = [
 
 
 def selftest() -> None:
-    """Runs the library's known-answer self-test (every family, about a
-    tenth of a second); raises SelfTestError when an answer differs."""
+    """Runs the library's known-answer self-test (every algorithm family,
+    SLH-DSA by its key generation only; about a tenth of a second);
+    raises SelfTestError when an answer differs."""
     _c.selftest()
 
 

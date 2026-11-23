@@ -78,8 +78,8 @@ public final class Noqtis {
   }
 
   /**
-   * Runs the library's known-answer self-test (every family, about a
-   * tenth of a second).
+   * Runs the library's known-answer self-test (every algorithm family,
+   * SLH-DSA by its key generation only; about a tenth of a second).
    *
    * @throws NoqtisException with {@code SELFTEST} when an answer differs
    */

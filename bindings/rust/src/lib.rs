@@ -176,9 +176,9 @@ pub fn version() -> String {
     cstr(unsafe { ffi::nqver() })
 }
 
-/// Runs the library's known-answer self-test (every family, about a
-/// tenth of a second): `Err` with [`Code::SelfTest`] when an answer
-/// differs.
+/// Runs the library's known-answer self-test (every algorithm family,
+/// SLH-DSA by its key generation only; about a tenth of a second): `Err`
+/// with [`Code::SelfTest`] when an answer differs.
 pub fn selftest() -> Result<()> {
     // SAFETY: no arguments; it uses its own buffers
     rc(unsafe { ffi::nqselftest() })
