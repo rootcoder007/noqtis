@@ -589,12 +589,16 @@ int nqcwalk(const char *dir, nqclist *l) {
 }
 
 /* whether the first bytes of a file are a noqtis secret key's header
- * line, "noqtis-key-1 <alg> sec" */
+ * line, "noqtis-key-1 <alg> sec" or "noqtis-key-2 <alg> sec" (the
+ * version 2 container, docs/spec/keyfile.md) */
 static int seckey(const unsigned char *b, size_t n) {
-  static const char mg[] = "noqtis-key-1 ";
+  static const char mg[] = "noqtis-key-";
   const unsigned char *e;
   size_t m = sizeof mg - 1;
-  if (n < m + 5 || memcmp(b, mg, m) != 0) return 0;
+  if (n < m + 7 || memcmp(b, mg, m) != 0 || (b[m] != '1' && b[m] != '2') ||
+      b[m + 1] != ' ')
+    return 0;
+  m += 2;
   e = (const unsigned char *)memchr(b, '\n', n);
   if (e == NULL) return 0;
   if (e > b && e[-1] == '\r') e--;
