@@ -169,6 +169,56 @@ may overlap
 or
 .Fa sk ;
 on any error the outputs are cleared.
+.Ss In symbols
+ML-KEM (FIPS 203, Algorithms 16 to 18), with H = SHA3-256,
+G = SHA3-512, J(x) = SHAKE256(x, 32 bytes) and
+.Sy ||
+concatenation:
+.Bd -literal -offset indent
+KeyGen(d, z):   (ek, dk_PKE) = K-PKE.KeyGen(d)
+                dk = dk_PKE || ek || H(ek) || z
+Encaps(ek; m):  (K, r) = G(m || H(ek))
+                c = K-PKE.Encrypt(ek, m, r)        ss = K
+Decaps(dk, c):  m' = K-PKE.Decrypt(dk_PKE, c)
+                (K', r') = G(m' || h)               h = H(ek) from dk
+                Kbar = J(z || c)
+                ss = K'    if K-PKE.Encrypt(ek, m', r') = c
+                ss = Kbar  otherwise          (compared in constant time)
+.Ed
+.Pp
+HQC (specification 5.1), with H(x) = SHA3-256(x || 0x01),
+G(x) = SHA3-512(x || 0x00), I(x) = SHA3-512(x || 0x02),
+J(x) = SHA3-256(x || 0x03), XOF SHAKE256, k = 16, 24 or 32 the message
+length in bytes, + addition in GF(2)[X]/(X^n - 1), C the concatenated
+Reed-Muller and Reed-Solomon code, SFW$ the fixed-weight sampler by
+rejection and SFW Sendrier's fixed-weight sampler:
+.Bd -literal -offset indent
+KeyGen(dk):     seed_PKE || sigma = XOF(dk || byte(k), 32 + k)
+                seed_dk || seed_ek = I(seed_PKE)
+                y, x = SFW$(XOF(seed_dk), w), each of weight w
+                h = XOF(seed_ek);  s = x + h y
+                ek = seed_ek || s                  dk = the 32-byte seed
+Encaps(ek; m, salt):
+                K || theta = G(H(ek) || m || salt)
+                r2, e, r1 = SFW(XOF(theta)), of weights w_r, w_e, w_r
+                u = r1 + h r2
+                v = C(m) + Truncate(s r2 + e)
+                c = u || v || salt                 ss = K (32 bytes)
+Decaps(dk, c):  (ek, y, sigma) = KeyGen(dk)
+                m' = C.Decode(v - Truncate(u y))
+                K' || theta' = G(H(ek) || m' || salt)
+                Kbar = J(H(ek) || sigma || c)
+                ss = K'    if Encaps(ek; m', salt) gives c
+                ss = Kbar  otherwise          (compared in constant time)
+.Ed
+.Pp
+Both are key encapsulation mechanisms built with a Fujisaki-Okamoto
+transform with implicit rejection, meant to be IND-CCA2 secure: ML-KEM
+under the module learning-with-errors assumption (FIPS 203 and its
+references), HQC under the quasi-cyclic syndrome decoding assumptions of
+its specification.
+Those arguments are in the standards and the papers they cite, not in
+this repository.
 .Sh RETURN VALUES
 Every function except
 .Fn nqkname
