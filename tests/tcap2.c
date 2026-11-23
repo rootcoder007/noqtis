@@ -817,11 +817,13 @@ static void tkeys(void) {
   NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
   NQTEQI(row(r, "keys"), 0);
   nqrepfree(r);
-  /* a key that expires: its seal passes until then, by the clock, and
-   * from then on needs a verified timestamp, as a revoked key's */
+  /* a key that expires: its seal passes until then, by the system clock
+   * (SOURCE_DATE_EPOCH does not move it), and from then on needs a
+   * verified timestamp, as a revoked key's */
   {
-    char *x = NULL, *a2, tm[24];
-    size_t xn = 0, a2n = 0;
+    char *x = NULL, *y = NULL, *a2, tm[24];
+    size_t xn = 0, a2n = 0, yn = 0;
+    int64_t fut = nqcreal() + 365 * 86400;
     a2 = stmt(pk, sk, p2, s2, at, &a2n); /* a was changed above */
     NQTEQI(nqkexp(NQMLDSA44, s3, sizeof s3, p3, sizeof p3, at, "test", NULL,
                   0, &xn),
@@ -841,23 +843,47 @@ static void tkeys(void) {
       st[2] = x;
       sl[2] = xn;
       o.nstmt = 3;
-      snprintf(tm, sizeof tm, "%lld", (long long)at - 1);
-      tenv("SOURCE_DATE_EPOCH", tm);
-      NQTEQI(nqchkx(d, &o, &r), NQOK);
-      NQTEQI(row(r, "key.time"), 1);
-      nqrepfree(r);
-      snprintf(tm, sizeof tm, "%lld", (long long)at);
-      tenv("SOURCE_DATE_EPOCH", tm);
+      /* at has passed: a verified timestamp is needed, under an earlier
+       * SOURCE_DATE_EPOCH, or one that is not a number, too */
       NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
       NQTEQI(row(r, "key"), 1);
       NQTEQI(row(r, "key.time"), 0);
       nqrepfree(r);
-      /* a clock that cannot be read asks for the timestamp */
+      snprintf(tm, sizeof tm, "%lld", (long long)at - 1);
+      tenv("SOURCE_DATE_EPOCH", tm);
+      NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
+      NQTEQI(row(r, "key.time"), 0);
+      nqrepfree(r);
       tenv("SOURCE_DATE_EPOCH", "soon");
       NQTEQI(nqchkx(d, &o, &r), NQEVRFY);
       NQTEQI(row(r, "key.time"), 0);
       nqrepfree(r);
       tenv("SOURCE_DATE_EPOCH", NULL);
+      /* one that expires in a year passes with no timestamp, under a
+       * later SOURCE_DATE_EPOCH too */
+      NQTEQI(nqkexp(NQMLDSA44, s3, sizeof s3, p3, sizeof p3, fut, "test",
+                    NULL, 0, &yn),
+             NQEBUF);
+      y = (char *)malloc(yn + 1);
+      NQTCHK(y != NULL);
+      if (y != NULL) {
+        NQTEQI(nqkexp(NQMLDSA44, s3, sizeof s3, p3, sizeof p3, fut, "test",
+                      y, yn, &yn),
+               NQOK);
+        st[2] = y;
+        sl[2] = yn;
+        NQTEQI(nqchkx(d, &o, &r), NQOK);
+        NQTEQI(row(r, "key.time"), 1);
+        nqrepfree(r);
+        snprintf(tm, sizeof tm, "%lld", (long long)fut + 1);
+        tenv("SOURCE_DATE_EPOCH", tm);
+        NQTEQI(nqchkx(d, &o, &r), NQOK);
+        NQTEQI(row(r, "key.time"), 1);
+        nqrepfree(r);
+        tenv("SOURCE_DATE_EPOCH", NULL);
+        st[2] = x;
+        sl[2] = xn;
+      }
       /* a changed expiry does not verify */
       x[xn - 3] = x[xn - 3] == 'A' ? 'B' : 'A';
       st[0] = x; /* row() reads the first "keys" row */
@@ -868,6 +894,7 @@ static void tkeys(void) {
       nqrepfree(r);
     }
     free(x);
+    free(y);
     free(a2);
     NQTEQI(nqkexp(NQED25519, sk, 32, pk, 32, at, NULL, NULL, 0, &xn),
            NQENOSUP);
