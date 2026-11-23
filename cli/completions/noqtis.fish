@@ -285,6 +285,7 @@ complete -c noqtis -n "__fish_seen_subcommand_from pack" -F
 complete -c noqtis -n "__fish_seen_subcommand_from pack" -s t -l template -x -a "plain r python" -d 'the template'
 complete -c noqtis -n "__fish_seen_subcommand_from pack" -s k -l key -r -F -d 'secret key'
 complete -c noqtis -n "__fish_seen_subcommand_from pack" -s p -l pub -r -F -d 'its public key'
+complete -c noqtis -n "__fish_seen_subcommand_from pack" -l salt-key -r -F -d 'secret salt key, format 3'
 complete -c noqtis -n "__fish_seen_subcommand_from pack" -l format -x -a "1 2 3" -d 'capsule format'
 complete -c noqtis -n "__fish_seen_subcommand_from pack" -l lock -r -F -d 'a lock file'
 complete -c noqtis -n "__fish_seen_subcommand_from pack" -s o -l out -r -F -d 'the bundle file'

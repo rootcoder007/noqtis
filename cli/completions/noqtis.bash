@@ -128,8 +128,8 @@ _noqtis() {
         COMPREPLY=($(compgen -W "init build check unpack" -- "$cur"))
         return
       fi
-      opts="-t --template -k --key -p --pub --pass-fd --pass-env --format --lock
-        -o --out -f --force --no-files" ;;
+      opts="-t --template -k --key -p --pub --pass-fd --pass-env --format
+        --salt-key --lock -o --out -f --force --no-files" ;;
     chunk)
       if [ "$COMP_CWORD" -eq 2 ]; then
         COMPREPLY=($(compgen -W "pin check" -- "$cur"))

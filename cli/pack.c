@@ -149,7 +149,7 @@ static int pundo(ncsnap was[3], const char *dir, int rc) {
 }
 
 static int pbuild(int argc, char **argv) {
-  const char *kp = NULL, *pp = NULL, *fv = NULL, *out = NULL,
+  const char *kp = NULL, *pp = NULL, *fv = NULL, *out = NULL, *skp = NULL,
              *lk[NCMAXV];
   char *av[2 * NCMAXV + 8];
   static const char *const keep[3] = {NQDFILE, "noqtis.json", "noqtis.sig"};
@@ -161,6 +161,7 @@ static int pbuild(int argc, char **argv) {
                {'\0', "pass-fd", 1, &pwo.fd, NULL},
                {'\0', "pass-env", 1, &pwo.env, NULL},
                {'\0', "format", 1, &fv, NULL},
+               {'\0', "salt-key", 1, &skp, NULL},
                {'\0', "lock", NCMANY, lk, &nl},
                {'o', "out", 1, &out, NULL},
                {'f', "force", 0, NULL, &force},
@@ -190,6 +191,11 @@ static int pbuild(int argc, char **argv) {
   if (fv != NULL && strcmp(fv, "1") != 0 && strcmp(fv, "2") != 0 &&
       strcmp(fv, "3") != 0) {
     ncmsg("pack build", "--format %s: give 1, 2 or 3", fv);
+    return NCUSE;
+  }
+  if (skp != NULL && fv != NULL && strcmp(fv, "3") != 0) {
+    ncmsg("pack build", "--salt-key gives the salts of format 3 (--format "
+          "3)");
     return NCUSE;
   }
   if (out != NULL && !force && ncexist(out))
@@ -225,7 +231,8 @@ static int pbuild(int argc, char **argv) {
   av[a] = NULL;
   if ((rc = ncenv(a, av)) != NCOK)
     return pundo(was, argv[0], rc);
-  /* noqtis seal -k <key> [-p <key.pub>] [--format <n>] <dir> */
+  /* noqtis seal -k <key> [-p <key.pub>] [--format <n>]
+   * [--salt-key <file>] <dir> */
   a = 0;
   av[a++] = arg("seal");
   av[a++] = arg("-k");
@@ -237,6 +244,10 @@ static int pbuild(int argc, char **argv) {
   if (fv != NULL) {
     av[a++] = arg("--format");
     av[a++] = arg(fv);
+  }
+  if (skp != NULL) {
+    av[a++] = arg("--salt-key");
+    av[a++] = arg(skp);
   }
   /* a descriptor's passphrase is kept from pkeys (ncskrd) */
   if (pwo.fd != NULL || pwo.env != NULL) {
