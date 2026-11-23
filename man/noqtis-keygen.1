@@ -146,3 +146,29 @@ ML-DSA-65 key pair: me (secret, under the passphrase), me.pub (public)
 .Xr nqenc 3 ,
 .Xr nqpwenc 3 ,
 .Xr nqsign 3
+.Sh STANDARDS
+RFC 9106 (Argon2id), RFC 8018 (PBKDF2), RFC 8439 (ChaCha20-Poly1305).
+.Rs
+.%A A. Biryukov
+.%A D. Dinu
+.%A D. Khovratovich
+.%A S. Josefsson
+.%T Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work Applications
+.%R RFC 9106
+.%D September 2021
+.Re
+.Rs
+.%A K. Moriarty
+.%A B. Kaliski
+.%A A. Rusch
+.%T PKCS #5: Password-Based Cryptography Specification Version 2.1
+.%R RFC 8018
+.%D January 2017
+.Re
+.Rs
+.%A Y. Nir
+.%A A. Langley
+.%T ChaCha20 and Poly1305 for IETF Protocols
+.%R RFC 8439
+.%D June 2018
+.Re
