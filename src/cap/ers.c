@@ -688,7 +688,7 @@ int nqersput(const char *dir, nqhalg h, const uint8_t *rsp, size_t rsplen,
       if (rc == NQOK && gt != NULL) *gt = e2->a[e2->na - 1].gt;
       nqfree(e2, sizeof(ers));
     }
-    if (rc != NQOK) {
+    if (rc != NQOK && rc != NQEMEM) {
       *why = "the new record does not check (an internal error)";
       rc = NQEARG;
     }

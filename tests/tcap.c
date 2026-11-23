@@ -1161,14 +1161,17 @@ static void talloc(const key *k) {
 
 /* nqersput under the size-checking allocator: a new evidence record over
  * the golden seal (sealed again, the same signature) from the token
- * vectors/cap/tsa/ers.tok; every block is freed with its size */
+ * vectors/cap/tsa/ers.tok; every block is freed with its size; with
+ * the Nth allocation failing, for each N until none does, the call says
+ * NQEMEM, frees all it took and writes no record */
 static void tersal(const key *k) {
   char d[600], p[600], *tok = NULL, *ra = NULL;
   size_t tn = 0, rn = 0, l[1];
   const uint8_t *a[1];
   const char *why = NULL;
   int64_t gt = 0;
-  int how = -1;
+  int how = -1, rc = NQEMEM;
+  long i;
   NQTEQI(rd("vectors/cap/tsa", "ers.tok", &tok, &tn), NQOK);
   NQTEQI(rd("vectors/cap/tsa", "ersroot.der", &ra, &rn), NQOK);
   if (tok == NULL || ra == NULL) return;
@@ -1180,8 +1183,18 @@ static void tersal(const key *k) {
   allive = 0;
   albad = 0;
   NQTEQI(nqsetal(tmal, tfree, NULL), NQOK);
-  NQTEQI(nqersput(d, (nqhalg)0, (const uint8_t *)tok, tn, NULL, 0, a, l, 1,
-                  &gt, &how, &why), NQOK);
+  for (i = 0; i < 20000; i++) {
+    alfail = i;
+    alcount = 0;
+    rc = nqersput(d, (nqhalg)0, (const uint8_t *)tok, tn, NULL, 0, a, l, 1,
+                  &gt, &how, &why);
+    if (rc != NQEMEM) break;
+    NQTEQI(allive, 0);
+    NQTCHK(!nqchas(d, NQCERS));
+  }
+  if (rc != NQOK) fprintf(stderr, "tcap: nqersput, allocation %ld failing\n", i);
+  NQTEQI(rc, NQOK);
+  alfail = -1;
   NQTEQI(nqsetal(NULL, NULL, NULL), NQOK);
   NQTEQI(how, 0);
   NQTEQI(allive, 0);
