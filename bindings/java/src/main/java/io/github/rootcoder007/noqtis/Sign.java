@@ -353,4 +353,80 @@ public final class Sign {
       throw Native.wrap(t);
     }
   }
+
+  /**
+   * The length of alg's version 2 secret-key container: the key S, for
+   * Ed25519 and the hybrids the Ed25519 public key P, and the integrity
+   * value T, SHA3-256 of a domain string, the name, S and P
+   * (docs/spec/keyfile.md).
+   *
+   * @param alg the algorithm
+   * @return the length in bytes
+   */
+  public static int sxsize(String alg) {
+    Noqtis.Alg a = Noqtis.find(alg, "sign");
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment n = m.allocate(JAVA_LONG);
+      Native.rc((int) Native.NQSXSZ.invoke(a.id(), n));
+      return (int) n.get(JAVA_LONG, 0);
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * The version 2 container of the secret key sk. Every signing function
+   * takes it in place of sk: after signing it checks the integrity value
+   * (and for Ed25519 and the hybrids the public key) again, so that a
+   * change to any stored byte of the key ends in a NoqtisException of code
+   * -11 (a fault) before a signature leaves.
+   *
+   * @param alg the algorithm
+   * @param sk the secret key
+   * @return the container
+   */
+  public static byte[] sxmake(String alg, byte[] sk) {
+    Noqtis.Alg a = Noqtis.find(alg, "sign");
+    int n = sxsize(alg);
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment k = Native.in(m, sk), x = Native.out(m, n);
+      try {
+        Native.rc((int) Native.NQSXMK.invoke(a.id(), k, (long) sk.length, x, (long) n));
+        return Native.bytes(x, n);
+      } finally {
+        Native.wipe(k, sk.length);
+        Native.wipe(x, n);
+      }
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
+
+  /**
+   * Whether x is a sound container: false when it is damaged; a key with
+   * no container (version 1) throws a NoqtisException of code -8.
+   *
+   * @param alg the algorithm
+   * @param x the container
+   * @return true when it checks
+   */
+  public static boolean sxcheck(String alg, byte[] x) {
+    Noqtis.Alg a = Noqtis.find(alg, "sign");
+    try (Arena m = Arena.ofConfined()) {
+      MemorySegment k = Native.in(m, x);
+      int c;
+      try {
+        c = (int) Native.NQSXCHK.invoke(a.id(), k, (long) x.length);
+      } finally {
+        Native.wipe(k, x.length);
+      }
+      if (c == -4) {
+        return false;
+      }
+      Native.rc(c);
+      return true;
+    } catch (Throwable t) {
+      throw Native.wrap(t);
+    }
+  }
 }

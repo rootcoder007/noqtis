@@ -175,7 +175,7 @@ public class SealExample {
 ```
 
 ```text
-check: true (22 checks)
+check: true (23 checks)
 after edit: false
 FAIL file report.txt: size differs
 ```
@@ -187,6 +187,8 @@ FAIL file report.txt: size differs
   anchors (`withAnchors`, DER), a partial check (`withOnly`; `partial()` then says only some files were checked), folders to
   find a format 2 capsule's inputs in (`withLineage`) and key statements
   (`withStmts`).
+- `seal` seals in format 3 with fresh salts and no inputs; `seal1`
+  writes format 1, as `seal` did before 0.3.0, for older readers.
 - `seal3(dir, alg, sk, pk, meta, inputs, saltKey)` seals in format 3 (a
   Merkle tree over the files, a secret salt in each leaf; `saltKey` null
   for fresh salts, or 32 secret bytes for a reproducible capsule),
@@ -221,7 +223,12 @@ never a seal or a key statement. It is self-signed: compare
 
 `KeyFile` reads and writes the text key files `noqtis keygen` makes
 (`noqtis-key-1 <alg> <pub|sec>`, then base64), as strictly as the
-command-line tool reads them:
+command-line tool reads them. A signature secret key is written as `noqtis-key-2 <alg> sec`, the
+version 2 container (`Sign.sxmake`: the key with an integrity value), and read
+back as that container, which every signing function takes in place of
+the key and checks again after signing, so that a change to any stored
+byte of the key is refused rather than signed with; a version 1 file
+still reads, as the key.
 
 ```java
 KeyFile.Key k = KeyFile.read(Path.of("me"), "sec");          // alg(), kind(), key()

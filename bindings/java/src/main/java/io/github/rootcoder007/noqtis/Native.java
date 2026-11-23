@@ -164,6 +164,9 @@ final class Native {
   static final MethodHandle NQSNAME = fn("nqsname", P, I);
   static final MethodHandle NQSKG = fn("nqskg", I, I, P, Z, P, Z);
   static final MethodHandle NQSKGD = fn("nqskgd", I, I, P, Z, P, Z, P, Z);
+  static final MethodHandle NQSXSZ = fn("nqsxsz", I, I, P);
+  static final MethodHandle NQSXMK = fn("nqsxmk", I, I, P, Z, P, Z);
+  static final MethodHandle NQSXCHK = fn("nqsxchk", I, I, P, Z);
   static final MethodHandle NQSIGN = fn("nqsign", I, I, P, Z, P, Z, P, Z, I, P, Z, P);
   static final MethodHandle NQSIGND = fn("nqsignd", I, I, P, Z, P, Z, P, Z, I, P, Z, P, Z, P);
   static final MethodHandle NQVRFY = fn("nqvrfy", I, I, P, Z, P, Z, P, Z, I, P, Z);

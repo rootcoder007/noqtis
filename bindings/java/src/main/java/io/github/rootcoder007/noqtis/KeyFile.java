@@ -19,9 +19,13 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Set;
 
 /**
- * The CLI's key files (docs/guides/keys.md): a header line {@code
- * noqtis-key-1 <algorithm> <pub|sec>} and the key bytes as padded base64 in
- * lines of 64 characters, as {@code noqtis keygen} writes them. {@link
+ * The CLI's key files (docs/guides/keys.md, docs/spec/keyfile.md): a header
+ * line {@code noqtis-key-1 <algorithm> <pub|sec>} and the key bytes as
+ * padded base64 in lines of 64 characters, as {@code noqtis keygen} writes
+ * them. A signature secret key is written as {@code noqtis-key-2
+ * <algorithm> sec} holding its version 2 container ({@link Sign#sxmake}),
+ * which {@link #decode} returns; a version 1 file still decodes, to the
+ * key. {@link
  * #decode} is as strict as the CLI's reader: the exact header, {@code \n}
  * or {@code \r\n} line ends and nothing else outside the base64 alphabet,
  * canonical padding, and the algorithm's exact key size. The base64 coder
@@ -31,8 +35,14 @@ import java.util.Set;
 public final class KeyFile {
   private KeyFile() {}
 
-  /** The first word of every key file. */
+  /**
+   * The first word of a key file of version 1: a public key, a KEM secret
+   * key, or a signature secret key written before 0.3.0.
+   */
   public static final String MAGIC = "noqtis-key-1";
+
+  /** The first word of a signature secret key in the version 2 container. */
+  public static final String MAGIC2 = "noqtis-key-2";
 
   /**
    * A decoded key file.
@@ -166,8 +176,8 @@ public final class KeyFile {
     return out;
   }
 
-  private static byte[] ad(Noqtis.Alg a) {
-    return (MAGIC + " " + a.name() + " sec").getBytes(StandardCharsets.US_ASCII);
+  private static byte[] ad(Noqtis.Alg a, String magic) {
+    return (magic + " " + a.name() + " sec").getBytes(StandardCharsets.US_ASCII);
   }
 
   /**
@@ -294,10 +304,29 @@ public final class KeyFile {
     if (!kind.equals("pub") && !kind.equals("sec")) {
       throw new NoqtisException(-1, "kind: \"pub\" or \"sec\"");
     }
-    int want = size(a, kind);
-    if (key.length != want) {
-      throw new NoqtisException(
-          -1, a.name() + " " + kind + " key: " + want + " bytes, not " + key.length);
+    String magic = MAGIC;
+    if (kind.equals("sec") && a.kind().equals("sign")) {
+      // a signature secret key is written in the version 2 container: the
+      // key becomes one, a container is taken once it checks
+      magic = MAGIC2;
+      if (key.length == a.sk()) {
+        key = Sign.sxmake(a.name(), key);
+      } else if (key.length != Sign.sxsize(a.name()) || !Sign.sxcheck(a.name(), key)) {
+        throw new NoqtisException(
+            -1,
+            a.name()
+                + " secret key: "
+                + key.length
+                + " bytes, neither the key ("
+                + a.sk()
+                + ") nor a sound container");
+      }
+    } else {
+      int want = size(a, kind);
+      if (key.length != want) {
+        throw new NoqtisException(
+            -1, a.name() + " " + kind + " key: " + want + " bytes, not " + key.length);
+      }
     }
     if (passphrase != null) {
       if (!kind.equals("sec")) {
@@ -305,13 +334,13 @@ public final class KeyFile {
       }
       byte[] pw = utf8(passphrase);
       try {
-        key = pwenc(pw, key, ad(a), 0, 0, 0);
+        key = pwenc(pw, key, ad(a, magic), 0, 0, 0);
       } finally {
         Noqtis.wipe(pw);
       }
     }
     String b = new String(b64e(key), StandardCharsets.US_ASCII);
-    StringBuilder s = new StringBuilder(MAGIC + " " + a.name() + " " + kind + "\n");
+    StringBuilder s = new StringBuilder(magic + " " + a.name() + " " + kind + "\n");
     for (int i = 0; i < b.length(); i += 64) {
       s.append(b, i, Math.min(i + 64, b.length())).append('\n');
     }
@@ -320,7 +349,12 @@ public final class KeyFile {
 
   private static NoqtisException notkey() {
     return new NoqtisException(
-        -4, "not a noqtis key file (want a first line \"" + MAGIC + " <alg> <pub|sec>\")");
+        -4,
+        "not a noqtis key file (want a first line \""
+            + MAGIC
+            + " <alg> <pub|sec>\" or \""
+            + MAGIC2
+            + " <alg> sec\")");
   }
 
   /**
@@ -355,11 +389,30 @@ public final class KeyFile {
     int hl = nl > 0 && text[nl - 1] == '\r' ? nl - 1 : nl;
     String h = new String(text, 0, hl, StandardCharsets.UTF_8);
     String[] f = h.split(" ", -1);
-    if (f.length != 3 || !f[0].equals(MAGIC) || !(f[2].equals("pub") || f[2].equals("sec"))) {
+    boolean v2 = f.length == 3 && f[0].equals(MAGIC2) && f[2].equals("sec");
+    if (f.length != 3
+        || !(f[0].equals(MAGIC) || v2)
+        || !(f[2].equals("pub") || f[2].equals("sec"))) {
       throw notkey();
     }
     Noqtis.Alg a = kalg(f[1]);
-    int want = size(a, f[2]);
+    if (v2 && !a.kind().equals("sign")) {
+      throw new NoqtisException(
+          -4, "a " + a.name() + " key has no version 2 container (only signature keys do)");
+    }
+    int want = v2 ? Sign.sxsize(a.name()) : size(a, f[2]);
+    Key r = open(a, f, want, text, nl, passphrase);
+    if (v2 && !Sign.sxcheck(a.name(), r.key())) {
+      throw new NoqtisException(
+          -4,
+          "the secret key is damaged: its integrity value does not match (restore the file from"
+              + " a copy)");
+    }
+    return r;
+  }
+
+  private static Key open(
+      Noqtis.Alg a, String[] f, int want, byte[] text, int nl, char[] passphrase) {
     byte[] body = new byte[text.length];
     int n = 0;
     for (int i = nl + 1; i < text.length; i++) {
@@ -376,7 +429,7 @@ public final class KeyFile {
       }
       byte[] pw = utf8(passphrase);
       try {
-        return new Key(a.name(), f[2], pwdec(pw, k, ad(a)));
+        return new Key(a.name(), f[2], pwdec(pw, k, ad(a, f[0])));
       } finally {
         Noqtis.wipe(pw);
       }

@@ -89,8 +89,10 @@ final class More {
         "pwenc2 few iterations");
     eq(fails(() -> KeyFile.pwenc2(3, b("pass"), sk, kad, 0, 0, 0)), Code.ARG, "pwenc2 kdf");
     String t = KeyFile.encode("ML-DSA-44", "sec", sk, "pass".toCharArray());
-    ok(t.startsWith("noqtis-key-1 ML-DSA-44 sec\n"), "header");
-    ok(Arrays.equals(KeyFile.decode(b(t), "pass".toCharArray()).key(), sk), "round trip");
+    // a signature key: its version 2 container, under the passphrase
+    byte[] sx = Sign.sxmake("ML-DSA-44", sk);
+    ok(t.startsWith("noqtis-key-2 ML-DSA-44 sec\n"), "header");
+    ok(Arrays.equals(KeyFile.decode(b(t), "pass".toCharArray()).key(), sx), "round trip");
     eq(fails(() -> KeyFile.decode(b(t))), Code.ARG, "no passphrase");
     try {
       KeyFile.decode(b(t), "nope".toCharArray());
@@ -100,7 +102,7 @@ final class More {
     }
     Path f = mk("nqjpw").resolve("k");
     KeyFile.write(f, "ML-DSA-44", "sec", sk, false, "pw".toCharArray());
-    ok(Arrays.equals(KeyFile.read(f, "sec", "pw".toCharArray()).key(), sk), "file");
+    ok(Arrays.equals(KeyFile.read(f, "sec", "pw".toCharArray()).key(), sx), "file");
   }
 
   static void stream() throws Exception {

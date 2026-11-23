@@ -245,9 +245,12 @@ public final class Capsule {
   }
 
   /**
-   * Writes noqtis.json and noqtis.sig into dir (format 1), covering every
-   * regular file in it. The creation time is SOURCE_DATE_EPOCH when set,
-   * else the clock.
+   * Writes noqtis.json and noqtis.sig into dir, covering every regular
+   * file in it, in format 3 ({@link #seal3} with no inputs and fresh
+   * salts, so two seals of the same files differ; {@link #seal3} with a
+   * salt key gives a reproducible capsule). The creation time is
+   * SOURCE_DATE_EPOCH when set, else the clock. {@link #seal1} and {@link
+   * #seal2} write the formats readers older than 0.3.0 read.
    *
    * @param dir the folder
    * @param alg the signature algorithm
@@ -256,6 +259,21 @@ public final class Capsule {
    * @param meta JSON text (an object) kept in the manifest, or null
    */
   public static void seal(Path dir, String alg, byte[] sk, byte[] pk, String meta) {
+    seal3(dir, alg, sk, pk, meta, List.of(), null);
+  }
+
+  /**
+   * {@link #seal} in format 1: the manifest is a flat list of the files,
+   * signed whole, with no Merkle tree (no proofs); seal's format before
+   * 0.3.0.
+   *
+   * @param dir the folder
+   * @param alg the signature algorithm
+   * @param sk the secret key
+   * @param pk its public key, written into the seal
+   * @param meta JSON text (an object) kept in the manifest, or null
+   */
+  public static void seal1(Path dir, String alg, byte[] sk, byte[] pk, String meta) {
     seal2(dir, alg, sk, pk, meta, null);
   }
 

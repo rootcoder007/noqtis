@@ -326,6 +326,12 @@ public final class Tests {
     Capsule.Opts o = Capsule.Opts.none().withTrust(k.pk());
     ok(Capsule.check(d, o).ok(), "sealed");
     eq(Capsule.inspect(d).get("info.meta").orElseThrow().detail(), "{\"project\":\"java\"}", "meta");
+    // seal writes format 3 from 0.3.0; seal1 the format of before
+    eq(Capsule.inspect(d).get("info.format").orElseThrow().detail(), "noqtis-capsule-3", "format 3");
+    Path d1 = tmp();
+    Files.writeString(d1.resolve("a.txt"), "a");
+    Capsule.seal1(d1, "ML-DSA-65", k.sk(), k.pk(), null);
+    eq(Capsule.inspect(d1).get("info.format").orElseThrow().detail(), "noqtis-capsule-1", "seal1");
     ok(Capsule.check(d, o.withOnly(List.of("a.txt"))).toString().contains("partial"), "only");
     ok(Capsule.check(d, o.withOnly(List.of("a.txt"))).partial(), "only: partial");
     ok(!Capsule.check(d, o).partial(), "a full check is not partial");
@@ -364,7 +370,7 @@ public final class Tests {
     } catch (NoqtisException e) {
       // refused outright is fine too
     }
-    Capsule.seal(c, "ML-DSA-44", k.sk(), k.pk(), null);
+    Capsule.seal1(c, "ML-DSA-44", k.sk(), k.pk(), null);
     eq(fails(() -> Capsule.prove(c, List.of("a.txt"))), NoqtisException.Code.UNSUPPORTED, "f1");
     eq(fails(() -> Capsule.prove(b, List.of("nope"))), NoqtisException.Code.IO, "unlisted");
   }
@@ -432,11 +438,56 @@ public final class Tests {
     KeyFile.write(f, "ML-DSA-44", "sec", k.sk(), false);
     eq(fails(() -> KeyFile.write(f, "ML-DSA-44", "sec", k.sk(), false)), NoqtisException.Code.IO, "exists");
     KeyFile.write(f, "ML-DSA-44", "sec", k.sk(), true);
-    ok(Arrays.equals(KeyFile.read(f, null).key(), k.sk()), "read back");
+    // a signature key reads back as its version 2 container
+    ok(Arrays.equals(KeyFile.read(f, null).key(), Sign.sxmake("ML-DSA-44", k.sk())), "read back");
     if (f.getFileSystem().supportedFileAttributeViews().contains("posix")) {
       eq(PosixFilePermissions.toString(Files.getPosixFilePermissions(f)), "rw-------", "mode");
     }
     eq(fails(() -> KeyFile.read(d.resolve("nope"), null)), NoqtisException.Code.IO, "missing");
+  }
+
+  static String b64(byte[] k) {
+    return java.util.Base64.getMimeEncoder(64, new byte[] {10}).encodeToString(k) + "\n";
+  }
+
+  static void keyV2() throws Exception {
+    for (String alg : List.of("ML-DSA-44", "Ed25519", "ML-DSA-65+Ed25519", "SLH-DSA-SHA2-128f")) {
+      Sign.KeyPair k = Sign.keygen(alg);
+      int n = Sign.sxsize(alg);
+      byte[] x = Sign.sxmake(alg, k.sk());
+      ok(x.length == n && Arrays.equals(Arrays.copyOf(x, k.sk().length), k.sk()), alg + " X");
+      ok(Sign.sxcheck(alg, x), alg + " checks");
+      eq(fails(() -> Sign.sxcheck(alg, k.sk())), NoqtisException.Code.UNSUPPORTED, alg + " S");
+      for (int i = 0; i < n; i += Math.max(1, n / 97)) {
+        byte[] y = x.clone();
+        y[i] ^= 0x20;
+        ok(!Sign.sxcheck(alg, y), alg + " byte " + i);
+      }
+      byte[] sig = Sign.sign(alg, x, b("m"));
+      ok(Sign.verify(alg, k.pk(), b("m"), sig), alg + " signs with X");
+      byte[] y = x.clone();
+      y[n - 1] ^= 1;
+      eq(fails(() -> Sign.sign(alg, y, b("m"))), NoqtisException.Code.FAULT, alg + " fault");
+      String t = KeyFile.encode(alg, "sec", k.sk());
+      ok(t.startsWith("noqtis-key-2 " + alg + " sec\n"), alg + " v2 header");
+      ok(Arrays.equals(KeyFile.decode(b(t)).key(), x), alg + " v2 read");
+      eq(KeyFile.encode(alg, "sec", x), t, alg + " X written as it is");
+      String v1 = "noqtis-key-1 " + alg + " sec\n" + b64(k.sk());
+      ok(Arrays.equals(KeyFile.decode(b(v1)).key(), k.sk()), alg + " v1 read");
+      String bad = "noqtis-key-2 " + alg + " sec\n" + b64(y);
+      try {
+        KeyFile.decode(b(bad));
+        ok(false, alg + " a damaged key read");
+      } catch (NoqtisException e) {
+        ok(e.getMessage().contains("integrity value"), alg + " damaged: " + e);
+      }
+      eq(fails(() -> KeyFile.encode(alg, "sec", y)), NoqtisException.Code.ARG, alg + " bad X");
+    }
+    Sign.KeyPair e = Kem.keygen("ML-KEM-768");
+    String t = KeyFile.encode("ML-KEM-768", "sec", e.sk());
+    ok(t.startsWith("noqtis-key-1 ML-KEM-768 sec\n"), "KEM v1");
+    eq(fails(() -> KeyFile.decode(b(t.replaceFirst("key-1", "key-2")))), NoqtisException.Code.DECODE,
+        "KEM v2 refused");
   }
 
   static void card() throws Exception {
@@ -708,6 +759,7 @@ public final class Tests {
     ts.put("seal2", Tests::seal2);
     ts.put("seal3", Tests::seal3);
     ts.put("keyFiles", Tests::keyFiles);
+    ts.put("keyV2", Tests::keyV2);
     ts.put("card", Tests::card);
     ts.put("dataRecord", Tests::dataRecord);
     ts.put("dataSchema", Tests::dataSchema);
