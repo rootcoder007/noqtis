@@ -112,7 +112,7 @@ static void tsig(nqs2ctx *h, sbuf *b, nqsalg a, size_t sl, int sign) {
 int nqselfdg(int i, uint8_t out[32]);
 /* b is static (44 KB is too much stack for small targets, and the
  * freestanding build has no allocator); the lock keeps two threads off it.
- * ponytail: a spin lock held for one test (well under a second); a waiting
+ * note: a spin lock held for one test (well under a second); a waiting
  * thread spins meanwhile. A progress or stop hook that calls nqselftest
  * from inside the self-test would deadlock. */
 NQLKDEF(slk);
