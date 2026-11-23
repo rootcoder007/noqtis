@@ -1279,20 +1279,17 @@ static void ters(void) {
      "existed at 20") && has("q.out", "1 archive timestamps in 1 chains"),
      "check --anchor passes the record");
   want(1, "check -p q.c.pub --anchor q.br.der qers", NULL);
-  /* the last timestamp is checked at now by the clock of the rest:
-   * SOURCE_DATE_EPOCH, here after the TSA's certificate ran out */
-  sde("4102444800"); /* 2100 */
-  want(1, "check -p q.c.pub --anchor q.ar.der qers", NULL);
-  ok(has("q.out", "needed renewing"),
-     "check: the record's last timestamp at SOURCE_DATE_EPOCH");
-  sde("x");
-  want(1, "check -p q.c.pub --anchor q.ar.der qers", NULL);
-  ok(has("q.out", "SOURCE_DATE_EPOCH"), "check: a bad SOURCE_DATE_EPOCH");
-  want(2, "ers --tsa http://127.0.0.1:1/ qers", NULL);
-  ok(has("q.err", "SOURCE_DATE_EPOCH") && !has("q.err", "cannot connect"),
-     "ers: a bad SOURCE_DATE_EPOCH, refused before any request");
-  sde(NULL);
+  /* the record is checked by the system clock: SOURCE_DATE_EPOCH sets
+   * only times written, and decides no check */
+  sde("4102444800"); /* 2100, after the TSA's certificate runs out */
   want(0, "check -p q.c.pub --anchor q.ar.der qers", NULL);
+  ok(!has("q.out", "needed renewing"),
+     "check: SOURCE_DATE_EPOCH does not move the record's now");
+  sde("x");
+  want(0, "check -p q.c.pub --anchor q.ar.der qers", NULL);
+  ok(!has("q.out", "SOURCE_DATE_EPOCH"),
+     "check: a bad SOURCE_DATE_EPOCH does not fail a record");
+  sde(NULL);
   /* the seal it proves stays as it is */
   want(2, "seal -k q.c qers", NULL);
   ok(has("q.err", "has an evidence record (noqtis.ers)") &&
@@ -1817,11 +1814,23 @@ static void trefuse(void) {
   want(0, "check -p q.c.pub --keys q.exp qref", NULL);
   ok(has("q.out", "expires at 2099-01-01T00:00:00Z, which has not come"),
      "check --keys: a key that has not expired");
+  /* expiry is judged by the system clock: SOURCE_DATE_EPOCH, past or
+   * future, moves nothing */
   sde("4102444800"); /* 2100 */
+  want(0, "check -p q.c.pub --keys q.exp qref", NULL);
+  ok(has("q.out", "which has not come"),
+     "check --keys: SOURCE_DATE_EPOCH does not expire a key");
+  sde(NULL);
+  want(0, "expire -k q.c --at 2000-01-01T00:00:00Z -f -o q.exp", NULL);
   want(1, "check -p q.c.pub --keys q.exp qref", NULL);
-  ok(has("q.out", "was to expire at 2099-01-01T00:00:00Z") &&
+  ok(has("q.out", "was to expire at 2000-01-01T00:00:00Z") &&
      has("q.err", "has expired"),
      "check --keys: an expired key, no timestamp");
+  sde("915148800"); /* 1999, before the expiry */
+  want(1, "check -p q.c.pub --keys q.exp qref", NULL);
+  ok(has("q.err", "has expired"),
+     "check --keys: an expired key stays refused under an earlier "
+     "SOURCE_DATE_EPOCH");
   sde(NULL);
   want(2, "expire -k q.c -o q.exp -f", NULL);
   ok(has("q.err", "usage: noqtis expire"), "expire wants --at");

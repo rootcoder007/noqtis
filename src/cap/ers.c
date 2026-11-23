@@ -448,12 +448,6 @@ static int wopen(work *w, const char *dir, nqhalg h,
   int rc;
   memset(w, 0, sizeof *w);
   if (h != 0 && abit(h) == 0) return NQENOSUP;
-  /* the last timestamp is checked at now: SOURCE_DATE_EPOCH when set,
-   * as for the rest of the capsule layer (nqcnow) */
-  if (nqcnow() < 0) {
-    *why = "SOURCE_DATE_EPOCH is not a plain decimal number";
-    return NQEARG;
-  }
   w->e = (ers *)nqmal(sizeof(ers));
   w->ts = (nqts *)nqmal(sizeof(nqts));
   if (w->e == NULL || w->ts == NULL) return NQEMEM;
@@ -479,7 +473,7 @@ static int wopen(work *w, const char *dir, nqhalg h,
   if (rc != NQOK) return rc;
   rc = ersprs((const uint8_t *)w->eb, w->en, w->e, w->ts, why);
   if (rc != NQOK) return rc;
-  rc = ersvrf(w->e, (const uint8_t *)w->sb, w->sn, w->c, nanc, 1, nqcnow(),
+  rc = ersvrf(w->e, (const uint8_t *)w->sb, w->sn, w->c, nanc, 1, nqcreal(),
               w->ts, why);
   if (rc != NQOK) return rc;
   {
@@ -684,7 +678,7 @@ int nqersput(const char *dir, nqhalg h, const uint8_t *rsp, size_t rsplen,
       rc = ersprs(out, on, e2, w.ts, &w2);
       if (rc == NQOK)
         rc = ersvrf(e2, (const uint8_t *)w.sb, w.sn, w.c, nanc, 1,
-                    nqcnow(), w.ts, &w2);
+                    nqcreal(), w.ts, &w2);
       if (rc == NQOK && gt != NULL) *gt = e2->a[e2->na - 1].gt;
       nqfree(e2, sizeof(ers));
     }
@@ -715,12 +709,6 @@ int nqcersck(const char *dir, const uint8_t *const *anc,
   if (cap != 0) msg[0] = 0;
   if (dir == NULL || !nqchas(dir, NQCERS)) return NQOK;
   *present = 1;
-  if (nqcnow() < 0) {
-    snprintf(msg, cap, "RFC 4998 evidence record not checked: "
-             "SOURCE_DATE_EPOCH, the time its last timestamp is checked "
-             "at, is not a plain decimal number");
-    return NQEVRFY;
-  }
   memset(&w, 0, sizeof w);
   w.e = (ers *)nqmal(sizeof(ers));
   w.ts = (nqts *)nqmal(sizeof(nqts));
@@ -749,7 +737,7 @@ int nqcersck(const char *dir, const uint8_t *const *anc,
   }
   rc = ersprs((const uint8_t *)w.eb, w.en, w.e, w.ts, &why);
   if (rc == NQOK)
-    rc = ersvrf(w.e, (const uint8_t *)w.sb, w.sn, w.c, nanc, 0, nqcnow(),
+    rc = ersvrf(w.e, (const uint8_t *)w.sb, w.sn, w.c, nanc, 0, nqcreal(),
                 w.ts, &why);
   if (rc == NQEMEM) goto out;
   if (rc != NQOK) {
