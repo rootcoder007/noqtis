@@ -218,7 +218,7 @@ static void sealwhy(const char *dir, const char *kp, const char *pp) {
     break;
   case NQSWKEY:
     ncmsg("seal", "%s: %s starts like a noqtis secret key (noqtis-key-1 "
-          "... sec), which would ship with the capsule: move secret keys "
+          "or -2 ... sec), which would ship with the capsule: move secret keys "
           "out of the folder, then seal it", dir, ncesc(p));
     break;
   case 0:
@@ -506,7 +506,7 @@ int ncseal(int argc, char **argv) {
   const char *kp = NULL, *pp = NULL, *mp = NULL, *fv = NULL, *skp = NULL;
   const char *tsa[NCMAXV], *anc[NCMAXV], *inp[NCMAXV];
   const char *mod = NULL, *slot = NULL, *label = NULL, *id = NULL;
-  int help = 0, np, rc, ret = NCUSE, nt = 0, na = 0, ni = 0, fmt = 1, i;
+  int help = 0, np, rc, ret = NCUSE, nt = 0, na = 0, ni = 0, fmt = 3, i;
   int tok = 0;
   ncpw pin = {NULL, NULL}, pwo = {NULL, NULL};
   nqp11 *tp = NULL;
@@ -589,13 +589,11 @@ int ncseal(int argc, char **argv) {
       return NCUSE;
     }
   }
-  /* inputs are a field of the Merkle formats: format 3 unless told */
-  if (ni > 0 && fv == NULL) fmt = 3;
+  /* format 3 unless told; inputs are a field of the Merkle formats */
   if (ni > 0 && fmt == 1) {
     ncmsg("seal", "--input needs format 3 or 2 (--format 3)");
     return NCUSE;
   }
-  if (skp != NULL && fv == NULL && ni == 0) fmt = 3;
   if (skp != NULL && fmt != 3) {
     ncmsg("seal", "--salt-key gives the salts of format 3 (--format 3)");
     return NCUSE;

@@ -17,6 +17,9 @@
 #include <string.h>
 
 #define NCMAGIC "noqtis-key-1"
+/* a signature secret key in the version 2 container (nqsxmk), with its
+ * integrity value: docs/spec/keyfile.md */
+#define NCMAGIC2 "noqtis-key-2"
 
 static int lower(int c) {
   return c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c;
@@ -93,10 +96,24 @@ static size_t hq50(const ncalg *a) {
   }
 }
 
-/* the first line of a secret key file of a, the passphrase's ad */
-static size_t adof(const ncalg *a, char *ad, size_t cap) {
-  int n = snprintf(ad, cap, NCMAGIC " %s sec", a->name);
+/* the first line of a secret key file of a, version v, the
+ * passphrase's ad */
+static size_t adof(const ncalg *a, int v, char *ad, size_t cap) {
+  int n = snprintf(ad, cap, "%s %s sec", v == 2 ? NCMAGIC2 : NCMAGIC,
+                   a->name);
   return n > 0 && (size_t)n < cap ? (size_t)n : 0;
+}
+
+/* the length of a's version 2 container, 0 for a KEM */
+static size_t xsz(const ncalg *a) {
+  size_t n = 0;
+  if (a->kem || nqsxsz((nqsalg)a->alg, &n) != NQOK) return 0;
+  return n;
+}
+
+/* the version of a secret key of n bytes of a: 2 for a container */
+static int verof(const ncalg *a, size_t n) {
+  return xsz(a) != 0 && n == xsz(a) ? 2 : 1;
 }
 
 int ncstore(const char *opt, char *out, size_t cap) {
@@ -162,6 +179,28 @@ static int atkey(const char *cmd, const char *q, nckey *k) {
   return NCOK;
 }
 
+/* a version 2 key read: its integrity value must hold */
+static int xok(const char *cmd, const char *path, nckey *k) {
+  int rc = nqsxchk((nqsalg)k->a.alg, k->b, k->n);
+  if (rc == NQOK) return NCOK;
+  ncmsg(cmd, "%s: the secret key is damaged: its integrity value does not "
+        "match (restore the file from a copy)", path);
+  ncfree(k->b, k->n, 1);
+  k->b = NULL;
+  k->n = 0;
+  return NCUSE;
+}
+
+/* a version 1 signature secret key read: it works, without the integrity
+ * check, and the user is told how to add one */
+static int old1(const char *cmd, const char *path, nckey *k) {
+  if (!k->a.kem)
+    ncmsg(cmd, "note: %s is a version 1 key file, with no integrity value "
+          "for the checks before a signature is released; `noqtis passwd "
+          "-k %s` writes it again as version 2", path, path);
+  return NCOK;
+}
+
 /* a key file of the kind sec; a secret one under a passphrase opened
  * with pw (pwn bytes; NULL when none was given), and when none was, the
  * options of that name (opt: "pass", "new-pass") are what it asks for;
@@ -172,7 +211,7 @@ static int nckrdp(const char *cmd, const char *path, int sec,
   uint8_t *t, *d;
   size_t tn, hl, pk, sk, want, i, dn, old;
   char hdr[96], ad[96], *alg, *kind;
-  int rc;
+  int rc, v;
   if (kdf != NULL) *kdf = 0;
   k->b = NULL;
   k->n = 0;
@@ -200,7 +239,13 @@ static int nckrdp(const char *cmd, const char *path, int sec,
   if (kind == NULL)
     goto bad;
   *kind++ = '\0';
-  if (strcmp(hdr, NCMAGIC) != 0 || strchr(kind, ' ') != NULL)
+  if (strchr(kind, ' ') != NULL)
+    goto bad;
+  if (strcmp(hdr, NCMAGIC) == 0)
+    v = 1;
+  else if (strcmp(hdr, NCMAGIC2) == 0 && strcmp(kind, "sec") == 0)
+    v = 2;
+  else
     goto bad;
   if (strcmp(kind, "sec") == 0) {
     if (!sec) {
@@ -225,7 +270,13 @@ static int nckrdp(const char *cmd, const char *path, int sec,
   }
   if (ncksz(&k->a, &pk, &sk) != NQOK)
     goto bad;
-  want = sec ? sk : pk;
+  if (v == 2 && xsz(&k->a) == 0) {
+    ncmsg(cmd, "%s: a %s key has no version 2 container (only signature "
+          "keys do)", path, k->a.name);
+    ncfree(t, tn, 1);
+    return NCUSE;
+  }
+  want = sec ? (v == 2 ? xsz(&k->a) : sk) : pk;
   old = sec ? hq50(&k->a) : 0;
   /* room for a key under a passphrase too, and for a 5.0 HQC key */
   dn = (old > want ? old : want) + (sec ? NQPWOVH : 0);
@@ -247,7 +298,7 @@ static int nckrdp(const char *cmd, const char *path, int sec,
   }
   if (rc == NQOK && sec && i == want + NQPWOVH &&
       memcmp(d, "NQPW", 4) == 0) {
-    size_t an = adof(&k->a, ad, sizeof ad), got = 0;
+    size_t an = adof(&k->a, v, ad, sizeof ad), got = 0;
     int kb = d[5];
     if (pw == NULL) {
       ncfree(d, dn, 1);
@@ -284,7 +335,7 @@ static int nckrdp(const char *cmd, const char *path, int sec,
       return NCUSE;
     }
     k->n = want;
-    return NCOK;
+    return v == 2 ? xok(cmd, path, k) : old1(cmd, path, k);
   }
   if (rc != NQOK || i != want) {
     ncfree(d, dn, 1);
@@ -298,11 +349,13 @@ static int nckrdp(const char *cmd, const char *path, int sec,
           "passphrase was not used", path);
   k->b = d;
   k->n = want;
+  if (sec) return v == 2 ? xok(cmd, path, k) : old1(cmd, path, k);
   return NCOK;
 bad:
   ncfree(t, tn, 1);
   ncmsg(cmd, "%s is not a noqtis key file (want a first line \""
-        NCMAGIC " <alg> <pub|sec>\")", path);
+        NCMAGIC " <alg> <pub|sec>\" or \"" NCMAGIC2 " <alg> sec\")",
+        path);
   return NCUSE;
 }
 
@@ -341,10 +394,27 @@ int nckdf(const char *cmd, const char *s, int *kdf) {
   return NCUSE;
 }
 
+/* a key file of version v: its first line, then b in base64 */
+static int wrv(FILE *f, const ncalg *a, int sec, int v, const uint8_t *b,
+               size_t n) {
+  size_t en = ncb64n(n);
+  char *e = (char *)malloc(en);
+  int ok;
+  if (e == NULL)
+    return NQEMEM;
+  ncb64e(b, n, e);
+  ok = fprintf(f, "%s %s %s\n", v == 2 ? NCMAGIC2 : NCMAGIC, a->name,
+               sec ? "sec" : "pub") > 0 &&
+       fwrite(e, 1, en, f) == en;
+  ncfree(e, en, sec);
+  return ok ? NQOK : NQEIO;
+}
+
 int nckwrp(FILE *f, const ncalg *a, int kdf, const uint8_t *pw, size_t pwn,
            const uint8_t *b, size_t n) {
   char ad[96];
-  size_t an = adof(a, ad, sizeof ad), on = 0;
+  int v = verof(a, n);
+  size_t an = adof(a, v, ad, sizeof ad), on = 0;
   uint8_t *e = (uint8_t *)malloc(n + NQPWOVH);
   int rc;
   if (e == NULL)
@@ -352,7 +422,7 @@ int nckwrp(FILE *f, const ncalg *a, int kdf, const uint8_t *pw, size_t pwn,
   rc = nqpwenc2(kdf, pw, pwn, (const uint8_t *)ad, an, 0, 0, 0, b, n, e,
                 n + NQPWOVH, &on);
   if (rc == NQOK)
-    rc = nckwr(f, a, 1, e, on);
+    rc = wrv(f, a, 1, v, e, on);
   ncfree(e, n + NQPWOVH, 1);
   return rc;
 }
@@ -464,14 +534,5 @@ fail:
 }
 
 int nckwr(FILE *f, const ncalg *a, int sec, const uint8_t *b, size_t n) {
-  size_t en = ncb64n(n);
-  char *e = (char *)malloc(en);
-  int ok;
-  if (e == NULL)
-    return NQEMEM;
-  ncb64e(b, n, e);
-  ok = fprintf(f, NCMAGIC " %s %s\n", a->name, sec ? "sec" : "pub") > 0 &&
-       fwrite(e, 1, en, f) == en;
-  ncfree(e, en, sec);
-  return ok ? NQOK : NQEIO;
+  return wrv(f, a, sec, sec ? verof(a, n) : 1, b, n);
 }

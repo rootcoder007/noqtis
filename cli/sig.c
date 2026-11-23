@@ -135,7 +135,7 @@ static int feed(const char *cmd, const char *path, nqsctx *s, nqsctx *v) {
       break;
     }
     if (first && s != NULL && n > 30 && b[0] == '{' &&
-        hasstr(b, n, "\"format\":\"noqtis-capsule-1\"")) {
+        hasstr(b, n, "\"format\":\"noqtis-capsule-")) {
       ncmsg(cmd, "warning: %s is a capsule manifest (noqtis.json); this "
             "signs it as a plain file, which is not a seal: to seal a "
             "folder, use `noqtis seal`", path);
@@ -172,7 +172,7 @@ int nckeygen(int argc, char **argv) {
   };
   ncalg a = {0, 0, NULL};
   uint8_t seed[NCSEEDX], *pk = NULL, *sk = NULL, *pw = NULL;
-  size_t sn = 0, pkn, skn, pl, pwn = 0;
+  size_t sn = 0, pkn, skn, xn = 0, pl, pwn = 0;
   char *pp = NULL;
   FILE *fs = NULL, *fp = NULL;
   int ret = NCUSE, sl[2] = {-1, -1}, k;
@@ -201,6 +201,11 @@ int nckeygen(int argc, char **argv) {
   }
   if (ncksz(&a, &pkn, &skn) != NQOK)
     return nclib("keygen", a.name, NQENOSUP);
+  /* a signature key is written in the version 2 container, with its
+   * integrity value (docs/spec/keyfile.md) */
+  xn = skn;
+  if (!a.kem && nqsxsz((nqsalg)a.alg, &xn) != NQOK)
+    return nclib("keygen", a.name, NQENOSUP);
   if (sd != NULL && seedrd("keygen", sd, seed, &sn) != NCOK)
     return NCUSE;
   if (ncpwget("keygen", &pwo, &pw, &pwn) != NCOK) {
@@ -210,7 +215,7 @@ int nckeygen(int argc, char **argv) {
   pl = strlen(out);
   pp = (char *)malloc(pl + 5);
   pk = (uint8_t *)malloc(pkn);
-  sk = (uint8_t *)malloc(skn);
+  sk = (uint8_t *)malloc(xn);
   if (pp == NULL || pk == NULL || sk == NULL) {
     nclib("keygen", "memory", NQEMEM);
     goto done;
@@ -223,6 +228,10 @@ int nckeygen(int argc, char **argv) {
   else
     rc = sd != NULL ? nqskgd((nqsalg)a.alg, seed, sn, pk, pkn, sk, skn)
                     : nqskg((nqsalg)a.alg, pk, pkn, sk, skn);
+  if (rc == NQOK && !a.kem) {
+    rc = nqsxmk((nqsalg)a.alg, sk, skn, sk, xn);
+    skn = xn;
+  }
   if (rc != NQOK) {
     nclib("keygen", sd != NULL ? "key generation from the seed"
                                : "key generation", rc);
@@ -287,7 +296,7 @@ int nckeygen(int argc, char **argv) {
 done:
   nqwipe(seed, sizeof seed);
   ncfree(pw, NQPWLEN, 1);
-  ncfree(sk, skn, 1);
+  ncfree(sk, xn, 1); /* xn bytes were allocated, wiped whole */
   free(pk);
   free(pp);
   return ret;
@@ -354,6 +363,22 @@ int ncpasswd(int argc, char **argv) {
    * default */
   if (kv == NULL && okdf != 0)
     kdf = okdf;
+  /* a version 1 signature key is written again as version 2, with its
+   * integrity value */
+  if (!k.a.kem) {
+    size_t xn = 0;
+    if (nqsxsz((nqsalg)k.a.alg, &xn) == NQOK && k.n != xn) {
+      uint8_t *x = (uint8_t *)malloc(xn);
+      if (x == NULL || nqsxmk((nqsalg)k.a.alg, k.b, k.n, x, xn) != NQOK) {
+        if (x != NULL) ncfree(x, xn, 1);
+        nclib("passwd", "the version 2 key", NQEMEM);
+        goto done;
+      }
+      ncfree(k.b, k.n, 1);
+      k.b = x;
+      k.n = xn;
+    }
+  }
   if (ncpwgetn("passwd", &new, "new-pass", &npw, &nn) != NCOK)
     goto done;
   f = ncopen(kp, 1, 1);
@@ -605,7 +630,7 @@ int ncsign(int argc, char **argv) {
      * plain signature never makes a seal (seals use their own context),
      * but say so */
     if (mn > 30 && mn < ((size_t)1 << 28) && msg[0] == '{' &&
-        hasstr(msg, mn, "\"format\":\"noqtis-capsule-1\"")) {
+        hasstr(msg, mn, "\"format\":\"noqtis-capsule-")) {
       ncmsg("sign", "warning: %s is a capsule manifest (noqtis.json); this "
             "signs it as a plain file, which is not a seal: to seal a "
             "folder, use `noqtis seal`", argv[0]);
