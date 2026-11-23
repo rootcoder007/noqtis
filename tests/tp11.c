@@ -141,6 +141,12 @@ int main(void) {
   NQTEQI(nqp11login(p, 0, "1234", 4), NQOK);
   NQTEQI(nqp11keys(p, k, 32, &n), NQOK);
   NQTCHK(n == 0);
+  /* a key the token then describes wrongly is not left on it */
+  env("NQTOKODD", "1");
+  NQTEQI(nqp11gen(p, 0, (int)NQMLDSA44, "odd", &g), NQEIO);
+  env("NQTOKODD", NULL);
+  NQTEQI(nqp11keys(p, k, 32, &n), NQOK);
+  NQTCHK(n == 0);
   tsig(p, NQMLDSA44, "sig-44");
   tsig(p, NQMLDSA65, "sig-65");
   tsig(p, NQMLDSA87, "sig-87");

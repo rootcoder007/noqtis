@@ -5,7 +5,8 @@
  * ML-DSA, SLH-DSA, Ed25519 and ML-KEM keys, signs and decapsulates.
  * Keys are kept as their seeds, in memory, and in the file $NQTOKFILE
  * when that is set, so that another process finds them. With
- * $NQTOK240 set it has the function list of version 2.40 alone.
+ * $NQTOK240 set it has the function list of version 2.40 alone; with
+ * $NQTOKODD set it gives every key a parameter set no standard names.
  *
  * A test double, not a product: nothing here protects a key.
  */
@@ -270,6 +271,23 @@ static ck tdestroy(ck s, ck h) {
     memset(secs[h - 1000], 0, 32);
     return CKR_OK;
   }
+  /* either half of a pair takes the pair, and $NQTOKFILE is written
+   * again without it */
+  if (h >= 1 && h <= 2 * NKEY && keys[(h - 1) / 2].used) {
+    const char *path = getenv("NQTOKFILE");
+    tkey *k = &keys[(h - 1) / 2];
+    int i;
+    free(k->pk);
+    free(k->sk);
+    memset(k, 0, sizeof *k);
+    if (path != NULL && path[0] != '\0') {
+      FILE *f = fopen(path, "wb");
+      if (f != NULL) fclose(f);
+      for (i = 0; i < NKEY; i++)
+        if (keys[i].used) save(&keys[i]);
+    }
+    return CKR_OK;
+  }
   return CKR_OBJECT_HANDLE_INVALID;
 }
 
@@ -331,7 +349,8 @@ static ck tgetattr(ck s, ck h, ckattr *t, ck n) {
         t[i].len = NOVAL;
         r = CKR_ATTRIBUTE_TYPE_INVALID;
       } else {
-        r = give(&t[i], &ps, sizeof ps);
+        ck odd = 0x7f;
+        r = give(&t[i], getenv("NQTOKODD") != NULL ? &odd : &ps, sizeof ps);
       }
       break;
     case CKA_EC_PARAMS:

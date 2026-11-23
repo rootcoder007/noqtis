@@ -35,6 +35,7 @@
 - Fixed: `nqkscert` with an `out` too small for the certification returned `NQEBUF` and kept the certification in the store all the same; it now checks the room first, and a call that fails keeps nothing.
 - Fixed: `nqdput` that ran out of memory on the first element of a member left that member in the record as an empty list, which the record's own check refuses, so the record no longer read back; a call that fails now leaves the record as it was.
 - Fixed: `nqersput` returned `NQEARG`, with "an internal error" as the reason, when memory ran out while it checked the new evidence record; it returns `NQEMEM`, as everywhere else.
+- Fixed: `nqp11gen` that made a key pair the token then could not describe (`NQEIO`) left the pair on the token; it now destroys it.
 
 # noqtis 0.2.2
 
