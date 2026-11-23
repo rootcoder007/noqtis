@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* The shared library's symbol versions (ELF): every public function of
- * noqtis.h at NOQTIS_0, the ABI of major version 0; nothing else is
- * exported. A function added in a later 0.x release goes in a new node
- * (NOQTIS_0.2 { global: ...; } NOQTIS_0;), so a program built against it
- * names the version it needs. */
+ * noqtis.h at the one node NOQTIS_0, the ABI of major version 0; nothing
+ * else is exported (the pattern nq* matches only what NQAPI leaves
+ * visible: the rest is built with hidden visibility). Functions added in
+ * 0.x releases join that node too; there is no node per release, so a
+ * program's version reference names NOQTIS_0, not the release it needs. */
 NOQTIS_0 {
   global:
     nq*;
