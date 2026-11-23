@@ -1446,6 +1446,31 @@ static PyObject *pa2id(PyObject *self, PyObject *args) {
   return o;
 }
 
+/* pbkdf2(alg, pw, salt, iters, n) -> bytes (secret) */
+static PyObject *ppbkdf2(PyObject *self, PyObject *args) {
+  const char *pw, *s;
+  Py_ssize_t pl, sl, n;
+  unsigned long it;
+  int alg, rc;
+  PyObject *o;
+  uint8_t *q;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#kn", &alg, &pw, &pl, &s, &sl, &it, &n))
+    return NULL;
+  if (n < 1 || n > (Py_ssize_t)NQPBOMAX || it > 0xffffffffUL)
+    return fail(NQEARG);
+  if ((o = obuf(SZ(n), &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqpbkdf2((nqhalg)alg, U8(pw), SZ(pl), U8(s), SZ(sl), (uint32_t)it, q,
+                SZ(n));
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    sdrop(o);
+    return fail(rc);
+  }
+  return o;
+}
+
 /* ---- passphrase key files ---- */
 
 /* pwenc(pw, ad, m, t, p, sk) -> bytes */
@@ -1468,6 +1493,35 @@ static PyObject *ppwenc(PyObject *self, PyObject *args) {
   Py_BEGIN_ALLOW_THREADS
   rc = nqpwenc(U8(pw), SZ(pl), U8(ad), SZ(al), (uint32_t)m, (uint32_t)t,
                (uint32_t)p, U8(sk), SZ(kl), q, SZ(kl) + NQPWOVH, &on);
+  Py_END_ALLOW_THREADS
+  if (rc != NQOK) {
+    Py_DECREF(o);
+    return fail(rc);
+  }
+  return o;
+}
+
+/* pwenc2(kdf, pw, ad, m, t, p, sk) -> bytes */
+static PyObject *ppwenc2(PyObject *self, PyObject *args) {
+  const char *pw, *ad, *sk;
+  Py_ssize_t pl, al, kl;
+  unsigned long m, t, p;
+  size_t on = 0;
+  int kdf, rc;
+  PyObject *o;
+  uint8_t *q;
+  (void)self;
+  if (!PyArg_ParseTuple(args, "iy#y#kkky#", &kdf, &pw, &pl, &ad, &al, &m, &t,
+                        &p, &sk, &kl))
+    return NULL;
+  if (m > 0xffffffffUL || t > 0xffffffffUL || p > 0xffffffffUL ||
+      SZ(kl) > NQPWMAX)
+    return fail(NQEARG);
+  if ((o = obuf(SZ(kl) + NQPWOVH, &q)) == NULL) return NULL;
+  Py_BEGIN_ALLOW_THREADS
+  rc = nqpwenc2(kdf, U8(pw), SZ(pl), U8(ad), SZ(al), (uint32_t)m,
+                (uint32_t)t, (uint32_t)p, U8(sk), SZ(kl), q, SZ(kl) + NQPWOVH,
+                &on);
   Py_END_ALLOW_THREADS
   if (rc != NQOK) {
     Py_DECREF(o);
@@ -3300,7 +3354,9 @@ static PyMethodDef meths[] = {
   {"siv", psiv, METH_VARARGS, "nqsivenc, nqsivdec"},
   {"gsiv", pgsiv, METH_VARARGS, "nqgsivenc, nqgsivdec"},
   {"a2id", pa2id, METH_VARARGS, "nqa2id"},
+  {"pbkdf2", ppbkdf2, METH_VARARGS, "nqpbkdf2"},
   {"pwenc", ppwenc, METH_VARARGS, "nqpwenc"},
+  {"pwenc2", ppwenc2, METH_VARARGS, "nqpwenc2"},
   {"pwdec", ppwdec, METH_VARARGS, "nqpwdec"},
   {"smu", psmu, METH_VARARGS, "nqsmu"},
   {"signmu", psignmu, METH_VARARGS, "nqsignmu"},

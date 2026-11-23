@@ -210,7 +210,8 @@ sealed = kem.seal("ML-KEM-768", pk, b"a hidden list")
 `sign.Verifier`, `noqtis.Hasher`, `kem.Boxer` and `kem.Unboxer` are the
 other streams; each holds one piece at a time. `sign.mu`, `sign.signmu`
 and `sign.verifymu` are ML-DSA with an external mu; `noqtis.blake2b`,
-`noqtis.argon2id` and `noqtis.cteq` the primitives under the key files.
+`noqtis.argon2id`, `noqtis.pbkdf2` and `noqtis.cteq` the primitives
+under the key files.
 `noqtis.inspect`, `sealwhy`, `tsreq`, `tsput`, `ersreq`, `ersput`,
 `pack`, `unpack`, `checkpack` and `chain` reach the rest of the capsule
 functions, and `noqtis.data` the rest of the data record: `parse`,

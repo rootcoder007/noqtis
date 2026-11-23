@@ -68,6 +68,7 @@ __all__ = [
     "argon2id",
     "blake2b",
     "kt128",
+    "pbkdf2",
     "kt256",
     "chacha20",
     "sivenc",
@@ -624,6 +625,17 @@ def argon2id(pw: Bytes, salt: Bytes, t: int = 3, m: int = 65536, p: int = 4,
     ``ad``."""
     return _c.a2id(buf(pw, "pw"), buf(salt, "salt"), buf(key, "key"),
                    buf(ad, "ad"), int(t), int(m), int(p), int(n))
+
+
+def pbkdf2(alg: str, pw: Bytes, salt: Bytes, iters: int,
+           n: int = 32) -> bytes:
+    """PBKDF2 (RFC 8018): ``n`` bytes (1 to 1024) of the password and the
+    salt after ``iters`` iterations (1 to 100000000) of the HMAC of
+    ``alg`` ('SHA-256', 'SHA3-512', ...; not SHAKE). It costs an attacker
+    no memory: where the choice is free, ``argon2id`` is the one to
+    use."""
+    return _c.pbkdf2(hid(alg), buf(pw, "pw"), buf(salt, "salt"), int(iters),
+                     int(n))
 
 
 class Hasher:

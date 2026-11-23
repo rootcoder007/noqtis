@@ -70,6 +70,22 @@ def pwenc(passphrase: Pass, sk: Bytes, ad: Bytes = b"", m: int = 0,
     return _c.pwenc(_pw(passphrase), buf(ad, "ad"), m, t, p, buf(sk, "sk"))
 
 
+KDF_ARGON2ID = 1
+"""The derivation of ``pwenc``: Argon2id."""
+KDF_PBKDF2 = 2
+"""PBKDF2 with HMAC-SHA-256, for places whose rules ask for it."""
+
+
+def pwenc2(kdf: int, passphrase: Pass, sk: Bytes, ad: Bytes = b"",
+           m: int = 0, t: int = 0, p: int = 0) -> bytes:
+    """``pwenc`` under the derivation ``kdf``: ``KDF_ARGON2ID`` with ``m``,
+    ``t`` and ``p`` as there, or ``KDF_PBKDF2`` with ``t`` the iteration
+    count (0: 600000; 100000 to 10000000) and ``m`` and ``p`` 0.
+    ``pwdec`` reads both."""
+    return _c.pwenc2(int(kdf), _pw(passphrase), buf(ad, "ad"), m, t, p,
+                     buf(sk, "sk"))
+
+
 def pwdec(passphrase: Pass, data: Bytes, ad: Bytes = b"") -> bytes:
     """The key ``pwenc`` protected. VerifyError for a wrong passphrase or
     ``ad``, or any changed byte; LimitError for parameters over the

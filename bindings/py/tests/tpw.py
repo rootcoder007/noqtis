@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 """Passphrase key files (noqtis-pwkey-1): the known answers of
 tests/vectors/pwk, round trips, the CLI's key files, and the failures."""
+import base64
 import subprocess
 
 import pytest
@@ -46,6 +47,38 @@ def test_round_trip_and_params():
         keyfile.pwenc("pass", sk, m=1024, t=1, p=1)  # under 8 MiB
     with pytest.raises(noqtis.ArgError):
         keyfile.pwenc("", sk)
+
+
+def test_pbkdf2():
+    # RFC 7914 section 11: "passwd", "salt", 1 iteration, 64 bytes
+    want = bytes.fromhex(
+        "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc"
+        "49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783")
+    assert noqtis.pbkdf2("SHA-256", b"passwd", b"salt", 1, 64) == want
+    with pytest.raises(noqtis.ArgError):
+        noqtis.pbkdf2("SHA-256", b"passwd", b"salt", 0, 64)
+    with pytest.raises(noqtis.ArgError):
+        noqtis.pbkdf2("SHA-256", b"passwd", b"salt", 1, 0)
+
+
+def test_pbkdf2_key_file():
+    # a secret key file under PBKDF2, as keygen --kdf pbkdf2 writes one,
+    # opens with keyfile.decode
+    _, sk = sign.keygen("ML-DSA-44")
+    ad = b"noqtis-key-1 ML-DSA-44 sec"
+    e = keyfile.pwenc2(keyfile.KDF_PBKDF2, "pass", sk, ad, t=100000)
+    assert e[:4] == b"NQPW" and e[5] == keyfile.KDF_PBKDF2
+    assert keyfile.pwdec("pass", e, ad) == sk
+    b = base64.b64encode(e).decode("ascii")
+    txt = ad.decode("ascii") + "\n" + "".join(
+        b[i:i + 64] + "\n" for i in range(0, len(b), 64))
+    assert keyfile.decode(txt, "pass").key == sk
+    with pytest.raises(noqtis.VerifyError):
+        keyfile.decode(txt, "wrong")
+    with pytest.raises(noqtis.ArgError):
+        keyfile.pwenc2(keyfile.KDF_PBKDF2, "pass", sk, t=99999)
+    with pytest.raises(noqtis.ArgError):
+        keyfile.pwenc2(3, "pass", sk)
 
 
 def test_secret_never_in_messages():
