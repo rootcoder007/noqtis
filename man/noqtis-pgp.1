@@ -144,6 +144,13 @@ or the variable of
 never from the command line.
 .Fl -force
 replaces an output that exists.
+A file is created with mode 0644 whatever the umask; the secret key
+.Ar key
+of
+.Cm keygen
+and the output of
+.Cm decrypt
+are owner-only (mode 0600).
 .Pp
 Keys, signatures and messages of versions 3 and 4, RSA, DSA, Elgamal,
 the NIST and Brainpool curves, CFB encryption and compressed data are
