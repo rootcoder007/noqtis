@@ -15,22 +15,27 @@ outputs with stored answers, the power-on self-test a FIPS 140-3
 cryptographic module runs before it is used.
 }
 \details{
-Seventeen tests run through the library: SHA-2, SHA-3,
+Twenty-five tests run through the library: SHA-2, SHA-3,
 SHAKE and KangarooTwelve on fixed messages; HMAC-SHA-256 and
 HMAC-SHA-512 (RFC 4231, test case 2); key
 generation, encapsulation and decapsulation for ML-KEM-512, 768 and
 1024; key generation and deterministic signing and verification for
-ML-DSA-44, 65 and 87; SLH-DSA key generation; HQC-128 key generation,
+ML-DSA-44, 65 and 87; SLH-DSA key generation (not its signing, which
+takes longer than the whole self-test); HQC-128 key generation,
 encapsulation and decapsulation; Ed25519 and ML-DSA-44+Ed25519
 signing and verification; and, each on a published test vector,
 BLAKE2b, HKDF-SHA-256, PBKDF2-HMAC-SHA-256, Argon2id, AES-256-GCM and
 ChaCha20-Poly1305 (a changed tag must be refused), the ChaCha20 stream,
-AES-SIV, AES-GCM-SIV and X25519. Every output and return code of a test is
-hashed with SHA-256 and compared with the stored hash, which was made
-where the library's test suite checks the same functions against the
-NIST test vectors. The whole run takes about a tenth of a second. It
-calls the library's \code{nqselftest()}, whose buffers are static: do not
-run it from two threads at once.
+AES-SIV, AES-GCM-SIV, X25519, SHA-1, HMAC_DRBG, AES key wrap, OCB, EAX,
+RSA (PKCS#1 v1.5 and PSS) and ECDSA P-256 verification (a changed
+signature must be refused) and ECDH over P-256. Every output and return
+code of a test is hashed with SHA-256 and compared with the stored hash;
+for the tests on a published vector that hash is also the one of the
+published outputs, and for the others it was made where the library's
+test suite checks the same functions against the NIST test vectors. The
+whole run takes about a tenth of a second. It may be called from several
+threads at once: the library runs one test at a time and the others
+wait.
 
 A mismatch means the compiled library does not compute what it should:
 a miscompilation, an unsupported compiler option, or faulty hardware.
