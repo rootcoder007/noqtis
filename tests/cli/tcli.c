@@ -510,6 +510,9 @@ static void tdet(void) {
   want(0, "verify -p q.d3.pub -s q.s1 q.m", NULL);
 }
 
+static void penv(const char *name, const char *v);
+static char *b64(const unsigned char *b, size_t n);
+
 static void tkem(const char *alg) {
   char a[512], h[200], m[200];
   size_t n1, n2;
@@ -554,6 +557,55 @@ static void tkem(const char *alg) {
   ok(!same("q.ss1", "q.ss3"), m);
   want(0, "enc -p q.e.pub -o q.ct --force --stdout", NULL);
   ok(exists("q.ct"), "enc --stdout still writes the ciphertext");
+  if (strncmp(alg, "HQC-", 4) == 0) {
+    /* a secret key of HQC specification 5.0 (2321, 4602 or 7333 bytes),
+     * plain and under a passphrase: refused by its length and named as
+     * such, with what to do; a 5.1 key under a passphrase still works */
+    size_t on = strcmp(alg, "HQC-128") == 0   ? 2321
+                : strcmp(alg, "HQC-192") == 0 ? 4602
+                                              : 7333, j, q;
+    for (j = 0; j < 2; j++) {
+      size_t n = on + (j ? 51 : 0), tl;
+      unsigned char *k = (unsigned char *)calloc(n, 1);
+      char *t, *f, *w;
+      if (k == NULL)
+        exit(2);
+      if (j)
+        memcpy(k, "NQPW", 4);
+      t = b64(k, n);
+      tl = strlen(t);
+      f = (char *)malloc(tl + tl / 64 + 64);
+      if (f == NULL)
+        exit(2);
+      sn(f, 64, "noqtis-key-1 %s sec\n", alg);
+      w = f + strlen(f);
+      for (q = 0; q < tl; q += 64) {
+        size_t c = tl - q < 64 ? tl - q : 64;
+        memcpy(w, t + q, c);
+        w += c;
+        *w++ = '\n';
+      }
+      *w = '\0';
+      wrs("q.old", f);
+      remove("q.ss3");
+      want(2, "dec -k q.old -o q.ss3 q.ct", NULL);
+      sn(m, sizeof m, "%s: a 5.0 secret key is refused and named", alg);
+      ok(has("q.err", "made for HQC specification 5.0") &&
+         has("q.err", "no longer reads") && has("q.err", "noqtis keygen -a") &&
+         !exists("q.ss3"), m);
+      free(k);
+      free(t);
+      free(f);
+    }
+    penv("NQTPWH", "a long pass phrase 1");
+    sn(a, sizeof a, "keygen -a %s -o q.eh --force --pass-env NQTPWH", alg);
+    want(0, a, NULL);
+    want(0, "enc -p q.eh.pub -o q.ect --force q.ess", NULL);
+    want(0, "dec -k q.eh -o q.ess2 --force --pass-env NQTPWH q.ect", NULL);
+    sn(m, sizeof m, "%s: a protected 5.1 key decapsulates", alg);
+    ok(same("q.ess", "q.ess2"), m);
+    penv("NQTPWH", NULL);
+  }
   free(s1);
   free(s2);
 }

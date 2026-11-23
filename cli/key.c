@@ -79,6 +79,20 @@ void nckfree(nckey *k) {
   k->n = 0;
 }
 
+/* the secret-key length an HQC set had in specification 5.0 (ek ||
+ * seed_dk || sigma || seed_kem), which noqtis no longer reads; 0 for
+ * other algorithms. A 5.0 public key has the 5.1 length and cannot be
+ * told apart. */
+static size_t hq50(const ncalg *a) {
+  if (!a->kem) return 0;
+  switch ((nqkalg)a->alg) {
+  case NQHQC128: return 2321;
+  case NQHQC192: return 4602;
+  case NQHQC256: return 7333;
+  default: return 0;
+  }
+}
+
 /* the first line of a secret key file of a, the passphrase's ad */
 static size_t adof(const ncalg *a, char *ad, size_t cap) {
   int n = snprintf(ad, cap, NCMAGIC " %s sec", a->name);
@@ -155,7 +169,7 @@ static int nckrdp(const char *cmd, const char *path, int sec,
                   const uint8_t *pw, size_t pwn, const char *opt,
                   nckey *k) {
   uint8_t *t, *d;
-  size_t tn, hl, pk, sk, want, i, dn;
+  size_t tn, hl, pk, sk, want, i, dn, old;
   char hdr[96], ad[96], *alg, *kind;
   int rc;
   k->b = NULL;
@@ -210,8 +224,9 @@ static int nckrdp(const char *cmd, const char *path, int sec,
   if (ncksz(&k->a, &pk, &sk) != NQOK)
     goto bad;
   want = sec ? sk : pk;
-  /* room for a key under a passphrase too */
-  dn = want + (sec ? NQPWOVH : 0);
+  old = sec ? hq50(&k->a) : 0;
+  /* room for a key under a passphrase too, and for a 5.0 HQC key */
+  dn = (old > want ? old : want) + (sec ? NQPWOVH : 0);
   d = (uint8_t *)malloc(dn);
   if (d == NULL) {
     ncfree(t, tn, 1);
@@ -219,7 +234,17 @@ static int nckrdp(const char *cmd, const char *path, int sec,
   }
   rc = ncb64d((const char *)t + hl + 1, tn - hl - 1, d, dn, &i);
   ncfree(t, tn, 1);
-  if (rc == NQOK && sec && i == dn && memcmp(d, "NQPW", 4) == 0) {
+  if (rc == NQOK && old != 0 &&
+      (i == old || (i == old + NQPWOVH && memcmp(d, "NQPW", 4) == 0))) {
+    ncfree(d, dn, 1);
+    ncmsg(cmd, "%s: this %s key was made for HQC specification 5.0, "
+          "which noqtis no longer reads (5.1 keys and ciphertexts differ); "
+          "make a new key pair with `noqtis keygen -a %s`", path,
+          k->a.name, k->a.name);
+    return NCUSE;
+  }
+  if (rc == NQOK && sec && i == want + NQPWOVH &&
+      memcmp(d, "NQPW", 4) == 0) {
     size_t an = adof(&k->a, ad, sizeof ad), got = 0;
     if (pw == NULL) {
       ncfree(d, dn, 1);
@@ -229,7 +254,7 @@ static int nckrdp(const char *cmd, const char *path, int sec,
     }
     k->b = (uint8_t *)malloc(want);
     rc = k->b == NULL ? NQEMEM
-                      : nqpwdec(pw, pwn, (const uint8_t *)ad, an, d, dn,
+                      : nqpwdec(pw, pwn, (const uint8_t *)ad, an, d, i,
                                 k->b, want, &got);
     ncfree(d, dn, 1);
     if (rc != NQOK || got != want) {
