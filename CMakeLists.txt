@@ -325,6 +325,11 @@ if(NQTESTS)
   endif()
   add_test(NAME tflt COMMAND tflt
            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests)
+  # the version 2 key container of the SLH-DSA "s" sets, seconds per
+  # signature
+  add_test(NAME tflts COMMAND tflt slow
+           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests)
+  set_tests_properties(tflts PROPERTIES TIMEOUT 3600)
   # tthr starts threads (POSIX; it skips itself elsewhere)
   find_package(Threads)
   if(Threads_FOUND)
