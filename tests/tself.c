@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqselftest: every known answer matches, twice (it keeps no state), and
  * its error has a message. */
 #include <string.h>

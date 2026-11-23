@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * A program that uses noqtis the way an outside project does: the public
  * header only, linked against the built or installed library.

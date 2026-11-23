@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* iOS simulator only: xcrun simctl spawn cannot set a program's working
  * directory, and the tests read vectors/ relative to tests/. CMake builds
  * each test with its main renamed nqmain and this main in front, which

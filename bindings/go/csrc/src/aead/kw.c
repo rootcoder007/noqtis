@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* AES Key Wrap (RFC 3394), with the default initial value: a key of a
  * whole number of 8-byte blocks, two or more, wrapped under a
  * key-encryption key into 8 bytes more. CMS (the KEM recipient) and

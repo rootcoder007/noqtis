@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Answers every ACVP request in a folder, as a lab's ACVP client saves
 # them: for each <name>.json it runs the harness for the request's
 # "algorithm" and writes the response to <response dir>/<name>.json.

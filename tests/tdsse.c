@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* DSSE envelopes (nqdsse, nqdssevrfy): the PAE of the DSSE specification's
  * example, byte for byte (an Ed25519 signature is deterministic, so the
  * envelope's must equal one made over the spec's PAE string); round trips

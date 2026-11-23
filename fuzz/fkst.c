@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the key store's readers: nqksimp (a bundle of
  * keys, cards and certifications) and nqkscput (one certification). At
  * start it makes a store with an owner's signature key, put in by its

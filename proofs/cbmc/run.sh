@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Runs the CBMC proofs of the parsers that read untrusted bytes: the DER
 # reader, the base64 decoder and the JSON reader (see README.md for what
 # each shows and its bounds). CBMC checks every array access, pointer,

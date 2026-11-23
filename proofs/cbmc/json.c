@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* CBMC harness: the strict JSON reader (nqjparse, src/core/json.c) on every
  * input of up to N bytes, then its free: no access out of bounds, no
  * overflow, and nothing leaks (--memory-leak-check). The allocator hook is

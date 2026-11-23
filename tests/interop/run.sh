@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Interop with rmoriebricklayer (CTest tbl), both ways, live: capsules
 # sealed by noqtis (and the golden capsule with its RFC 3161 token) are
 # checked by rmoriebricklayer alone (blchk.R); capsules sealed and a

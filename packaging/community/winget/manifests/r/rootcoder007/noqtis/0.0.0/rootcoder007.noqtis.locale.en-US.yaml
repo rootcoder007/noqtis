@@ -9,7 +9,7 @@ PublisherSupportUrl: https://github.com/rootcoder007/noqtis/issues
 Author: Vansh Singh Ruhela
 PackageName: noqtis
 PackageUrl: https://github.com/rootcoder007/noqtis
-License: Apache-2.0 WITH LLVM-exception
+License: LGPL-3.0-or-later
 LicenseUrl: https://github.com/rootcoder007/noqtis/blob/v0.0.0/LICENSE
 ShortDescription: Post-quantum signing, KEMs and sealed input records in C11
 Description: |-

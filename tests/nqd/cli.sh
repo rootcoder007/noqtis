@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The tool's data-layer commands, as a user runs them: exit codes,
 # outputs, the files written, and every refusal saying what to do.
 # POSIX sh only (runs under busybox).

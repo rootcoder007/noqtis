@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Opt-in interoperation test of the TLS 1.3 client with public HTTPS
 # servers (NQNET=1; ctest counts 77 as skipped otherwise), with the
 # system's CA bundle or SSL_CERT_FILE:

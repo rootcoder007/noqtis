@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * noqtis: ASCII armor (RFC 7468) as files are written and read, a line at
  * a time, so that a stream of any length can be armored; the commands

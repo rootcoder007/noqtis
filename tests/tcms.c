@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Certificates and CMS (nqx5self, nqx5kem, nqx5info, nqcmssign,
  * nqcmsvrfy, nqcmsenc, nqcmsdec): a certificate for each kind of key
  * and what it says; a SignedData with the content inside and detached,

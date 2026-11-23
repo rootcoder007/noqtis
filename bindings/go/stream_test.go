@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 
 // Passphrase key files, streaming signatures and hashes, messages and
 // streams sealed to an ML-KEM key, external mu, BLAKE2b and Argon2id,

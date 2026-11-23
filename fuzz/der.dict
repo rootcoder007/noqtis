@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # libFuzzer dictionary for the DER targets (fder, fx509, focsp, ftsp,
 # fcls): tags, lengths and the object identifiers the parsers know.
 seq="\x30\x82"

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! Compiles the noqtis C library into the crate: every .c file of every
 //! module folder under src/ (the set CMake's src/*/*.c glob takes) and of
 //! the data layer nqd/, from

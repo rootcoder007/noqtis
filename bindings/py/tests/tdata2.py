@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """The rest of the data layer from Python: environment, commitments,
 citation, report, synthetic stand-ins, calibration, chunk digests,
 bundles and chains, on the repository's vectors (tests/vectors/nqd)."""

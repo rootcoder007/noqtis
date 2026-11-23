@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """A store of other people's public keys in a folder: keys under names
 and addresses, certifications of them, and how far each is trusted. A
 key is valid when a fully trusted valid key certified it, or three

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! The data layer against the values the C tests check
 //! (tests/nqd/tdrec.c, tdcsv.c, tddft.c on tests/vectors/nqd): a record
 //! made here is the one the library made there, byte for byte.

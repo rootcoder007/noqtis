@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Hash tests: every NIST ACVP SHA-2, SHA-3, SHAKE and HMAC vector set in
  * vectors/acvp, Wycheproof's HMAC-SHA-2 and HMAC-SHA-3 sets, known answers, incremental use, and the API's errors.
  * The large-message tests (LDT, gigabytes each) run only with NQLDT=1. */

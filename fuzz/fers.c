@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over RFC 4998 evidence records (src/cap/ers.c): each
  * input is written as noqtis.ers into a scratch folder that holds the
  * golden sample capsule (tests/vectors/cap/sample), then checked as

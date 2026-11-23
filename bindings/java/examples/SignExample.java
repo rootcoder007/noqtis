@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import io.github.rootcoder007.noqtis.Sign;
 import java.nio.charset.StandardCharsets;
 

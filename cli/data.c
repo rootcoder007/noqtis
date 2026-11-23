@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis data: make, show and check a capsule's data record
  * (noqtis.data.json, noqtis-data(5)) through nqd.h. */
 #include "cli.h"

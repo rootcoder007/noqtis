@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # macOS: makes a copy of libnqd.dylib look for libnoqtis beside itself
 # (@loader_path/libnoqtis.dylib), as the two lie in the folder the jar
 # unpacks them to; the build's copy names it by @rpath, which a user's

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Chains: an append-only log of capsules, each sealed in format 3 or 2 with
  * the one before as its only input (`noqtis seal --input`), so the seal
  * of each link signs the id of the last. nqdchain checks a chain in

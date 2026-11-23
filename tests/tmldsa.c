@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-DSA tests: every NIST ACVP ML-DSA keyGen / sigGen / sigVer test and
  * every Wycheproof mldsa_* test in vectors/ (or under $NQMDVEC, which
  * holds acvp/ and wycheproof/ the same way), masked against unmasked

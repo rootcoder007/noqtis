@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The tool's outputs when they cannot be finished: an output file cut by
 # a signal is never left under its name, and a command whose standard
 # output cannot be written fails. POSIX sh only (runs under busybox).

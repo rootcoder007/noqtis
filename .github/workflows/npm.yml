@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # The npm package (bindings/npm): builds the library to WebAssembly with
 # the pinned wasi-sdk (as ci.yml's WASI job), runs the package's tests on Node 22, 24 and 26 (with

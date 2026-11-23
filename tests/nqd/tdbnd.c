@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Bundles (noqtis-bundle-1): the reader's refusals, one by one, on
  * bundles made here in memory; a bundle cut at every byte; and nqdpack
  * and nqdunpack on the sample capsule (vectors/cap/sample): the same

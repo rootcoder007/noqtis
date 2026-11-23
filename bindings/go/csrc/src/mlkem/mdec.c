@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* First-order masked ML-KEM decapsulation (FIPS 203 ML-KEM.Decaps).
  *
  * Every value that depends on the decapsulation key is held as two

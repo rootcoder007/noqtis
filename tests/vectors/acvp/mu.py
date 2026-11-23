@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Writes mu.txt, a few records of the ACVP ML-DSA external-mu groups
 (sigGen: the first test of each deterministic and each randomised group,
 sigVer: the first passing and the first failing test of each group), as

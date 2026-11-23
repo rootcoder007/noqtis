@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ChaCha20, AES-SIV and AES-GCM-SIV tests: every test vector of RFC 5297
  * appendix A, RFC 8452 appendix C (the counter-wrap tests among them)
  * and RFC 8439 appendix A.2 (vectors/sym/rfc.txt), each both ways; a

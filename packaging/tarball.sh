@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Makes noqtis-<version>.tar.gz from the source tree it is run in, laid out
 # like the GitHub release tarball (one top directory noqtis-<version>/).
 # In a git checkout it takes the tracked and untracked files git does not

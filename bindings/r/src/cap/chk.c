@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqchk: checks a capsule against its seal and reports every check, one
  * row each. Check names (stable, for the CLI and scripts):
  *   seal.read seal.parse seal.canonical seal.fields seal.format seal.alg

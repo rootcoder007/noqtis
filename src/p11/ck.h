@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * The part of the PKCS #11 interface (OASIS, version 3.2) that noqtis
  * calls, written from the specification: the types, the structures

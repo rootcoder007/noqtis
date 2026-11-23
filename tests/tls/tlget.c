@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* A test driver for the tool's HTTP client, for tests/tls/srv.sh and
  * tests/tls/net.sh. It includes cli/net.c itself, to reach its static
  * redirect resolver:

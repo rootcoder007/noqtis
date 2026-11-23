@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The TLS 1.3 key schedule (RFC 8446 section 7.1) and traffic keys
  * (section 7.3), without PSK: the early secret is HKDF-Extract of zeros
  * under a zero salt. */

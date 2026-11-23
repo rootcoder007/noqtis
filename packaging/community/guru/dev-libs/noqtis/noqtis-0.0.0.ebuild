@@ -9,7 +9,7 @@ DESCRIPTION="Post-quantum signing, KEMs and sealed input records in C11"
 HOMEPAGE="https://github.com/rootcoder007/noqtis"
 SRC_URI="https://github.com/rootcoder007/noqtis/releases/download/v${PV}/${P}.tar.gz"
 
-LICENSE="Apache-2.0-with-LLVM-exceptions"
+LICENSE="LGPL-3+"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
 IUSE="test"

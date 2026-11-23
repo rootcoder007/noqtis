@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Makes the drift test vectors (tests/vectors/nqd/drift/) and the values
 # tests/nqd/tddft.c checks nqd against: R's stats::ks.test and
 # chisq.test on the same data, and the PSI, Jensen-Shannon and Benford

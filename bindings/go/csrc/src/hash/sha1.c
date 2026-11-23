@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* SHA-1 (FIPS 180-4 section 6.1), verify-only: see hash/h.h. */
 #include <string.h>
 

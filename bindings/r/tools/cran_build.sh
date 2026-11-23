@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Builds the CRAN tarball of the R package: a copy of the tracked files of
 # bindings/r with the guides of vignettes/ combined into five
 # (tools/cran_merge_vignettes.py), built with NOT_CRAN set so the five are

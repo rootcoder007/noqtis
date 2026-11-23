@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The mdoc manual pages in man/, installed with the library so that
 # `man noqtis`, `man nqsign` and `man nqvrfy` work offline. A page that
 # documents several functions is also installed under each other name.

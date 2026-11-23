@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Constant-time check of X25519 (ctgrind). Built with -DNQCTGRIND (the
  * library too) and run under valgrind, the scalars are marked undefined,
  * so memcheck reports any branch or index that depends on them; the

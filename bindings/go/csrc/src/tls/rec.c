@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The TLS 1.3 record layer (RFC 8446 section 5): framing, protection
  * with the traffic keys (section 5.2, the per-record nonce of 5.3),
  * handshake message reassembly, alerts (section 6). Every limit of

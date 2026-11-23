@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Capsules: the canonical JSON writer, base64, paths and times; seal and
  * check round trips (ML-DSA, SLH-DSA); every tamper the format defines;
  * path containment; allocation failures; and the golden capsule under

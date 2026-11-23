@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
 // noqtis for JavaScript: the C library built to WebAssembly (dist/), with
 // Uint8Array in and out. Call `await init()` once; every other function is

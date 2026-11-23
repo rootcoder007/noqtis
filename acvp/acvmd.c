@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ACVP harness for ML-DSA (FIPS 204; ACVP algorithm ML-DSA, revision
  * FIPS204): keyGen, sigGen and sigVer for ML-DSA-44/65/87, with the
  * external interface (pure and pre-hash, with a context) and the

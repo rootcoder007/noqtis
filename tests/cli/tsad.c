@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * A local time-stamping authority for tcli: an HTTP server on 127.0.0.1
  * that runs one client command and answers its requests, so that seal

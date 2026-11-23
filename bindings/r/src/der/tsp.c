@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* RFC 3161 timestamp tokens, by position. See tsp.h for the layout. */
 #include <string.h>
 

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Copies the noqtis C library (../../src/*/ and ../../include/noqtis.h)
 # and its data layer (../../nqd/ and ../../include/nqd.h)
 # into csrc/ and writes one nq_<module>_<file>.c per source file, which
@@ -61,5 +61,5 @@ for f in "$top"/nqd/*.c; do
   } > "$here/nq_nqd$b.c"
   n=$((n + 1))
 done
-cp "$top/LICENSE" "$top/NOTICE" "$here/"
+cp "$top/LICENSE" "$top/COPYING" "$top/COPYING.LESSER" "$top/NOTICE" "$here/"
 echo "vendor.sh: copied src/, nqd/, include/noqtis.h and nqd.h; $n sources"

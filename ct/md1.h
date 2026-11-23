@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* For the harnesses: whether an ML-DSA signature takes one attempt. The
  * number of attempts is public (a signature's time shows it), so the
  * harnesses compare inputs that sign in one attempt and ask whether

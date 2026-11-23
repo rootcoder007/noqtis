@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # The GitHub Action's data steps (action.yml), in POSIX sh:
 #   action/run.sh data     modes drift and refresh

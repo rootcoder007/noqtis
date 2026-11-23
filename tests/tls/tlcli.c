@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* A test client for tests/tls/srv.sh and net.sh: connects to 127.0.0.1
  * (::1 with -6, the host itself with -n) on a port, runs the TLS 1.3
  * client for a host name with the given anchors, sends an HTTP/1.0 GET

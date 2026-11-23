@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Schemas of CSV files: inference (nqdinfer), the check of a file
  * against a schema and its rules (nqdschk, and nqdchk's schema rows). */
 #include "int.h"

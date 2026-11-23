@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over passphrase key files (nqpwdec): any bytes, read
  * with a fixed passphrase and ad. A file that decrypts must be one
  * nqpwenc could write (its size the key's plus NQPWOVH). The memory

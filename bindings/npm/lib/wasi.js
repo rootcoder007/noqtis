@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
 // The host side of noqtis.wasm: the WASI preview 1 functions the C library
 // (built with wasi-sdk) imports, over an in-memory file system that lives

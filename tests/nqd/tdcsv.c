@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The CSV reader (RFC 4180 and its refusals), value classes, schema
  * inference and the schema check, on vectors/nqd/cap and on bytes. */
 #include "nqd/int.h"

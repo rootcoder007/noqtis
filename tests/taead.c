@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* AES, AES-GCM and ChaCha20-Poly1305 tests: the FIPS 197 examples, the
  * GCM specification's first test cases, the RFC 8439 examples, every
  * Wycheproof AES-GCM and ChaCha20-Poly1305 test, every one-bit change of

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* TurboSHAKE128/256 and KangarooTwelve (KT128, KT256), RFC 9861.
  *
  * TurboSHAKE is the sponge of SHAKE over Keccak-p[1600, 12], the last 12

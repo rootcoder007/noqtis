@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * Keys on a token: PKCS #11 (OASIS, version 3.2 for the post-quantum
  * key types). A module, the shared library a token's maker ships, is

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* JSON for nqd: a strict reader without recursion (an explicit stack of
  * at most DJDEPTH containers) and the canonical writer of RFC 8785, so a
  * record written by any binding is the same bytes. Numbers are IEEE

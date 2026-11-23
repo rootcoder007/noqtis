@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """The data layer from Python: the record, schemas, drift and diff, on
 the repository's vectors (tests/vectors/nqd)."""
 import os

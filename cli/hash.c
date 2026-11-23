@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis hash: digests in sha256sum's format, and --check. */
 #include "cli.h"
 

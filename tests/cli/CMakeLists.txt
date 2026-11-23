@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Black-box tests of the noqtis tool: tcli runs it as a user would and
 # checks exit codes, outputs and files. Plain C, so it runs on Windows too.
 add_executable(tcli tcli.c)

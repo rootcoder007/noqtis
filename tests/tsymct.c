@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Constant-time check of ChaCha20, AES-SIV, AES-GCM-SIV and
  * KangarooTwelve (ctgrind). Built with -DNQCTGRIND (the library too) and
  * run under valgrind, the keys, the plaintexts, the hashed input and the

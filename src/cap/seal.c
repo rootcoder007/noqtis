@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqseal: lists the folder, writes noqtis.json (canonical JSON), signs its
  * exact bytes with the FIPS 204/205 context "noqtis-capsule-1" and writes
  * noqtis.sig. The folder must hold only regular files and folders with

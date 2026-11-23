@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The rmoriebricklayer side of the differential test (run.sh): reads the
 # lines `dv gen` wrote (dv.c describes them), recomputes each with
 # rmoriebricklayer's native entry points (the .Call routines its R

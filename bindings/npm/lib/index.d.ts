@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 
 export type Bytes = Uint8Array;
 /** Messages, contexts and hash input may also be strings (UTF-8). */

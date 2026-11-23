@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Authenticated encryption for the TLS 1.3 client (internal API, not
  * part of noqtis.h): AES-128/192/256 (FIPS 197) in GCM (SP 800-38D) and
  * ChaCha20-Poly1305 (RFC 8439).

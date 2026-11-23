@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * Key statements (noqtis-keys-1): the holder of a signing key says that
  * it was replaced by another (a rotation, signed by both keys) or must no

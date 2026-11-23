@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-DSA (FIPS 204): the module's internal interface. alg is NQMLDSA44,
  * NQMLDSA65 or NQMLDSA87. Keys and signatures are the byte strings FIPS
  * 204 defines (pkEncode, skEncode, sigEncode).

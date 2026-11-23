@@ -1,10 +1,10 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Fedora, EPEL, openSUSE-style RPM.
 Name:           noqtis
 Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Post-quantum signing, KEMs and sealed input records in C11
-License:        Apache-2.0 WITH LLVM-exception
+License:        LGPL-3.0-or-later
 URL:            https://github.com/rootcoder007/noqtis
 Source0:        %{url}/archive/refs/tags/v%{version}/%{name}-%{version}.tar.gz
 
@@ -44,7 +44,7 @@ export NQSLSUB=8 NQFAST=1
 %ctest
 
 %files
-%license LICENSE NOTICE
+%license LICENSE COPYING COPYING.LESSER NOTICE
 %doc README.md
 %{_libdir}/libnoqtis.so.0{,.*}
 %{_libdir}/libnqd.so.0{,.*}

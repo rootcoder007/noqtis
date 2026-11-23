@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception -->
+<!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 <!-- The POM published with the jar (publish.yml fills in the version). -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -14,8 +14,8 @@
   <url>https://noqtis.dev/</url>
   <licenses>
     <license>
-      <name>Apache-2.0 WITH LLVM-exception</name>
-      <url>https://spdx.org/licenses/LLVM-exception.html</url>
+      <name>LGPL-3.0-or-later</name>
+      <url>https://www.gnu.org/licenses/lgpl-3.0.html</url>
       <distribution>repo</distribution>
     </license>
   </licenses>

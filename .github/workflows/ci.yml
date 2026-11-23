@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Builds noqtis and runs every test on each supported platform.
 # x86-64 Linux jobs run on every push and pull request. The arm64, macOS,

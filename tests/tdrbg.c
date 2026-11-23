@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HMAC_DRBG tests: every SHA2-256 and SHA2-512 test of the NIST ACVP set
  * vectors/acvp/hmacDRBG-1.0 (the other hashes are counted as skipped),
  * the reseed counter limit, wiping, self-seeding and every error. */

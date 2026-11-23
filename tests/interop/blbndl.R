@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # rmoriebricklayer's own capsule format, capsule_bundle.json (cpsbndl),
 # is not noqtis's, so noqtis cannot check it as a capsule. Where the two

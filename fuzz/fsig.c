@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over what the public API reads from a peer: public
  * keys and signatures of any length on nqvrfy (ML-DSA, SLH-DSA, pure and
  * pre-hash, with a context), encapsulation keys on nqencd, and

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* SLH-DSA (FIPS 205): parameter sets, key generation, the internal and
  * external signing and verification interfaces, and HashSLH-DSA. */
 #include <string.h>

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Ed25519 (RFC 8032) in portable C11: field elements of GF(2^255 - 19)
  * as 16 limbs of 16 bits in int64_t (no 128-bit type, so MSVC builds it
  * too), points in extended coordinates (X, Y, Z, T), a constant-time

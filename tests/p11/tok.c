@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * A software token for the tests: a PKCS #11 module (version 3.2) over
  * noqtis itself, with one slot, one token and the PIN 1234. It makes

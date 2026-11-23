@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* A DER writer (X.690 clause 10): definite lengths in the shortest form,
  * what the reader of der.c accepts. Internal: used to build
  * certificates and CMS structures.

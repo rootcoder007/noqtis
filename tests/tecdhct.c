@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Constant-time check of the ECDH scalar multiplication (nqecsm,
  * src/cls/ec.c): the fixed-window ladder, the table select and the
  * inversion by Fermat. With -DNQCTGRIND the scalar is marked undefined

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Builds oracle.txt, the list of signatures the tests' stub verifier
 # accepts. Run from tests/:
 #   NQDREC=/tmp/rec.txt ./tx509; NQDREC=/tmp/rec.txt ./ttsp

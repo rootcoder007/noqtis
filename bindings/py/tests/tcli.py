@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """The binding against the noqtis CLI, when one is built (NQCLI, PATH or
 the repository's build*/cli/)."""
 import base64

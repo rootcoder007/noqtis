@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the text decoders: the library's base64
  * (capsules: strict, padded) and hex (vectors, manifests), the command
  * line tool's constant-time base64 (key files: line breaks allowed) and

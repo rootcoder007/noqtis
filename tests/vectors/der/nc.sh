@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Makes the name-constraint fixtures (nc/, RFC 5280 4.2.1.10) for
 # tests/tx509.c: a P-256 root, intermediates under it that carry
 # nameConstraints, and leaves inside and outside them. OpenSSL 3.5 as

@@ -10,7 +10,7 @@ required_conan_version = ">=2.1"
 class NoqtisConan(ConanFile):
     name = "noqtis"
     description = "Post-quantum signing, KEMs and sealed input records in C11"
-    license = "Apache-2.0 WITH LLVM-exception"
+    license = "LGPL-3.0-or-later"
     url = "https://github.com/conan-io/conan-center-index"
     homepage = "https://github.com/rootcoder007/noqtis"
     topics = ("cryptography", "post-quantum", "ml-dsa", "ml-kem", "slh-dsa", "signatures")
@@ -60,7 +60,8 @@ class NoqtisConan(ConanFile):
         cmake.build()
 
     def package(self):
-        copy(self, "LICENSE", self.source_folder, os.path.join(self.package_folder, "licenses"))
+        for f in ("LICENSE", "COPYING", "COPYING.LESSER"):
+            copy(self, f, self.source_folder, os.path.join(self.package_folder, "licenses"))
         copy(self, "NOTICE", self.source_folder, os.path.join(self.package_folder, "licenses"))
         cmake = CMake(self)
         cmake.install()

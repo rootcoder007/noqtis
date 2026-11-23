@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Combines the guides of vignettes/ into five in the CRAN copy (run by
 # tools/cran_build.sh inside the copy it builds from). R CMD check re-builds
 # every vignette, and each one costs an R process, rmarkdown and pandoc even

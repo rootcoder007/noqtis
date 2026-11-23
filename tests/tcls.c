@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Classical verification tests: every Wycheproof RSA PKCS#1 v1.5, RSA-PSS
  * and ECDSA P-256 / P-384 file in vectors/wycheproof, the OpenSSL
  * differential set in vectors/ossl/cls.json (when present), corrupted

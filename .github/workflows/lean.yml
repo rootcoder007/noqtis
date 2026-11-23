@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # The Lean proofs of the arithmetic (proofs/lean): builds them against
 # Mathlib as lean-toolchain and lake-manifest.json pin it. A proof that

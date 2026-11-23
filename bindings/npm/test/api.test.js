@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // The JavaScript API: every algorithm, rejections, hashes, randomness.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

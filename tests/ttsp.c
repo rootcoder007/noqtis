@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* RFC 3161 tokens: real ones from five public TSAs, the local OpenSSL
  * TSA's (vectors/der/gen.sh) and rmoriebricklayer 1.0.3's, verified
  * against their anchors with the signature oracle of tderh.h; the

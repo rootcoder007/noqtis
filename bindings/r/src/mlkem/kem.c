@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-KEM (FIPS 203): the ring, K-PKE, key generation, encapsulation, the
  * plain constant-time decapsulation and the input checks of section 7.
  * The masked decapsulation is in mdec.c. */

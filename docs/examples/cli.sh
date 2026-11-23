@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Runs every command-line example of the manual pages (man/*.1) and the
 # site, and checks the output they show. Usage: cli.sh <path to noqtis>
 set -eu

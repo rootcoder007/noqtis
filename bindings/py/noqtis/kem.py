@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Key encapsulation: ML-KEM (FIPS 203) and HQC.
 
 >>> from noqtis import kem

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Writes kat.txt: known answers of the version 2 secret-key container
 (docs/spec/keyfile.md, section 2), computed here from the specification
 with Python's hashlib alone. S comes from keys.txt (the RFC 8032 section

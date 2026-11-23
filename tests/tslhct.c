@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* SLH-DSA constant-time check. Built with -DNQCTGRIND (library sources
  * included, see below) and run under valgrind memcheck, the seed, the
  * secret key and the signing randomness are marked undefined, so any

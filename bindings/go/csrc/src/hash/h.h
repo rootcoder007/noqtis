@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Raw hash primitives shared by the modules; not part of the public API.
  *
  * SHA-2 (FIPS 180-4): nqs2* is the SHA-256 family (SHA-224, SHA-256),

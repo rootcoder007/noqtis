@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The public key-encapsulation functions of noqtis.h: dispatch onto
  * ML-KEM (src/mlkem, masked decapsulation) and HQC (src/hqc).
  *

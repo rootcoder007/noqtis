@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Builds dist/noqtis.wasm from the C sources in ../../src with wasi-sdk
 # (wasm32-wasip1, the toolchain and version the WASI job of ci.yml tests
@@ -68,5 +68,5 @@ srcs=$(ls "$root"/src/*/*.c "$root"/nqd/*.c)
   -Wl,-z,stack-size=8388608 -Wl,--strip-debug $exp \
   -o "$out/noqtis.wasm"
 
-cp "$root/LICENSE" "$root/NOTICE" "$here/"
+cp "$root/LICENSE" "$root/COPYING" "$root/COPYING.LESSER" "$root/NOTICE" "$here/"
 ls -l "$out"

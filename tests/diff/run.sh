@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Differential test against rmoriebricklayer, an independent implementation
 # of the same standards (CTest tdiff, built with -DNQDIFF=ON). For each
 # algorithm both implement, dv (dv.c, noqtis) writes deterministic cases

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* CBMC harness: the base64 decoder (nqb64d, src/cap/misc.c) on every
  * string of up to N bytes into every output size up to M: no access out
  * of bounds, and what it reports written fits the output. */

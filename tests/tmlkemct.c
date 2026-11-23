@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Constant-time check of ML-KEM (ctgrind). Built with -DNQCTGRIND (the
  * library too) and run under valgrind, the key-generation seed, the
  * encapsulation randomness m and the whole decapsulation key are marked

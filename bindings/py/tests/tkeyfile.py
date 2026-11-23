@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """noqtis.keyfile: the CLI's key file text, both ways."""
 import base64
 import os

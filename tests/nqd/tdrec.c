@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The data record: canonical numbers (RFC 8785 appendix B), strings and
  * key order, the strict reader's refusals, the record API, and nqdchk on
  * a folder. Run from tests/ (the fixtures are in vectors/nqd). */

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ACVP harness for SLH-DSA (FIPS 205; ACVP algorithm SLH-DSA, revision
  * FIPS205): keyGen, sigGen and sigVer for all twelve parameter sets,
  * the external interface (pure and pre-hash, with a context) and the

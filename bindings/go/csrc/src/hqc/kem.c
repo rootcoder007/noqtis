@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HQC-PKE and HQC-KEM (specification version 5.1 of 2026-11-09,
  * reference v5.1.0): the seed expansion, the three samplers, encryption,
  * decryption and the salted Fujisaki-Okamoto transform with implicit

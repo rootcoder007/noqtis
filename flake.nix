@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Nix: `nix build` builds noqtis (shared, every test run in checkPhase);
 # `nix build .#consumer` (also a flake check) builds the consumer program
@@ -31,7 +31,7 @@
             description =
               "Post-quantum signing, KEMs and sealed input records in C11";
             homepage = "https://github.com/rootcoder007/noqtis";
-            license = with pkgs.lib.licenses; [ asl20 llvm-exception ];
+            license = pkgs.lib.licenses.lgpl3Plus;
             platforms = pkgs.lib.platforms.unix;
           };
         };

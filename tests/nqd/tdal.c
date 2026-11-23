@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqdsetal: every public function of nqd under an allocator that fails
  * the Nth allocation, for N = 0, 1, ... until a call makes no more than
  * N: each failing call returns NQEMEM, frees all it took (none in use

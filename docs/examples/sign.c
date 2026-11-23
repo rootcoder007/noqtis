@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Sign a message with ML-DSA-65 and verify it (README, nqsign(3)). */
 #include <noqtis.h>
 #include <stdio.h>

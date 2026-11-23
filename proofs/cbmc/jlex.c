@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* CBMC harness: the JSON reader's lexers (src/core/json.c, included here
  * for its static functions) on every input of up to N bytes: skipws,
  * then the token at that place: a string (rdstr, with its escapes and

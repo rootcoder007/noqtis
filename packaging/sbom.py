@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Writes the SPDX 2.3 SBOM (JSON) of a release.
 
 noqtis has no dependencies: the library and the command are built from
@@ -19,7 +19,7 @@ import sys
 import time
 
 REPO = "rootcoder007/noqtis"
-LICENSE = "Apache-2.0 WITH LLVM-exception"
+LICENSE = "LGPL-3.0-or-later"
 COPYRIGHT = "Copyright 2026 Vansh Singh Ruhela (rootcoder007)"
 
 

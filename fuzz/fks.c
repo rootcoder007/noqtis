@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over sealed messages (nqkopen): any bytes, opened
  * with fixed ML-KEM-512, -768 and -1024 keys (from fixed seeds) and a
  * context the input's first byte chooses. An input that opens must be

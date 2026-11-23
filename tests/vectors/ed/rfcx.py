@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # extract RFC 8032 sections 7.1-7.3 test vectors into JSON
 import json, re, sys
 t = open(sys.argv[1]).read().split("\n")

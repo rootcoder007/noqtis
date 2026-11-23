@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Capsule format 2 (noqtis-capsule-2, noqtis-seal-2): the Merkle tree
  * against an independent reference (every tree size to 40, every audit
  * path, tampered paths refused), a sealed folder that checks, a changed

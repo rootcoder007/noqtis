@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the TLS client's certificate inputs: the input
  * cut in two (fzpart), the first piece as a trust-anchor bundle (PEM or
  * DER) and the second as a host name; every anchor parsed is then

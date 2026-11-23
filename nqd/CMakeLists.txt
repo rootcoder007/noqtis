@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # nqd, the data layer (include/nqd.h): a library of its own on the
 # public API of noqtis only, outside the core. Static or shared
 # as noqtis is; its symbols hidden but those nqd.h marks NQDAPI.

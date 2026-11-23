@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* TLS 1.3 client tests on the RFC 8448 traces (vectors/tls/rfc8448.txt,
  * read as the RFC prints it). The client is given the trace's
  * ClientHello and X25519 key and fed the server's records; every record

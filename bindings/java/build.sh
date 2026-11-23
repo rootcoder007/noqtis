@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Builds the Java binding with no build tool and no downloads: the shared
 # library (CMake, -DNQSHARED=ON) and noqtis.jar (javac and jar, JDK 22 or
 # later), all under build/ (or $NQJB). Then, with "test", runs the tests;

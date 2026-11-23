@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Capsule format 3 (noqtis-capsule-3, noqtis-seal-3): salted Merkle
  * leaves. The salts, leaves, root and whole manifest of a seal with a
  * fixed salt key against tests/vectors/cap3/kat.txt (computed from the

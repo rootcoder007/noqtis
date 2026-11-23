@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Builds and runs use.c against an installed noqtis twice: once through
 # pkg-config, once through find_package(noqtis CONFIG).
 #   tests/consumer/run.sh <prefix> [work dir]

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Recomputes every record of kat.txt without noqtis: the salt is the
 # first 16 bytes of SHAKE256(seed) (hashlib), the key and nonce Argon2id
 # from OpenSSL's ARGON2ID KDF (openssl kdf), the body ChaCha20-Poly1305

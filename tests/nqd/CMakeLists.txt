@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Tests of the data layer: C tests that compile nqd's sources with the
 # test (so they reach its internals in a shared build too), and the
 # tool's data commands from a POSIX shell (tests/nqd/cli.sh).

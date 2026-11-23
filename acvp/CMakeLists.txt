@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The ACVP harnesses (see README.md): one program per algorithm family,
 # on the library's internal interfaces, so they link the test library.
 # Each vector set in tests/vectors/acvp/ is a test: the harness answers

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-KEM-512/768/1024 (FIPS 203); internal API, not part of noqtis.h.
  *
  * k is the module rank: 2 (ML-KEM-512), 3 (ML-KEM-768), 4 (ML-KEM-1024).

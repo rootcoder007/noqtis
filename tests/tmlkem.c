@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-KEM tests: every NIST ACVP ML-KEM keyGen and encapDecap vector
  * (encapsulation, decapsulation, and both key checks), every Wycheproof
  * mlkem_* file, round trips with tampered ciphertexts (masked and plain

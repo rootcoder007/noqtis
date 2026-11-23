@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # The PyPI package (bindings/py): abi3 wheels with cibuildwheel for Linux
 # (manylinux and musllinux, x86-64 and aarch64; manylinux ppc64le, s390x

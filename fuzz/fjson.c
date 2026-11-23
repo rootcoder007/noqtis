@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the strict JSON reader (src/core/json.c) and the
  * canonical writer (RFC 8785, src/cap/jw.c). Whatever parses is written
  * canonically; that text must parse again and write to the same bytes

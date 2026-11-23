@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* OpenPGP (nqpgpgen, nqpgpinfo, nqpgpsign, nqpgpvrfy, nqpgpenc,
  * nqpgpdec, nqpgparm, nqpgpdearm). The samples of RFC 9580 appendix A:
  * the version 6 certificate and its fingerprints, the secret key and

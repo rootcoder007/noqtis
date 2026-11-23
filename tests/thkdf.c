@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HKDF tests: the SHA-256 cases of RFC 5869 appendix A (the SHA-1 ones
  * do not apply: noqtis has no SHA-1 HMAC), every Wycheproof HKDF-SHA-256,
  * -SHA-384 and -SHA-512 test, and the API's errors. */

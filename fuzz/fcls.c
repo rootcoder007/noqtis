@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the classical public key parsers and verifiers
  * (src/cls): SubjectPublicKeyInfo, RSAPublicKey, SEC 1 points on P-256
  * and P-384, RSASSA-PSS-params and DER ECDSA signatures; then RSA

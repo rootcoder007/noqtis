@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
 // CommonJS entry for `noqtis/node`; call require('noqtis').init() first.
 'use strict';

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the TLS 1.3 client's record layer and handshake
  * parsers. The client starts from the RFC 8448 section 3 ClientHello and
  * X25519 key (fuzz/t8448.h) and gets the trace's ServerHello, so it

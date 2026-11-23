@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ACVP harness for HMAC_DRBG (SP 800-90A Rev. 1; ACVP algorithm
  * hmacDRBG, revision 1.0) with SHA2-256 and SHA2-512, the two hashes
  * noqtis's DRBG provides: AFT tests, with and without prediction

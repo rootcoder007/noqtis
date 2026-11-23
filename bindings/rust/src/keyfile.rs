@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! The CLI's key files (docs/guides/keys.md, docs/spec/keyfile.md): a
 //! header line `noqtis-key-1 <algorithm> <pub|sec>` and the key bytes as
 //! padded base64 in lines of 64 characters, as `noqtis keygen` writes

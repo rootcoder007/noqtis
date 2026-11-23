@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Compiles and runs the C examples of the manual pages and the site
 # against an installed noqtis. Usage: c.sh <install prefix>
 set -eu

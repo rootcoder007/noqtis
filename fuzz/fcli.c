@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the command line (M10, "fuzzed arguments"): the
  * input's first byte picks a command, the rest is cut at NUL bytes into at
  * most 16 arguments, and the tool's own entry point runs them in a sandbox

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """The exceptions: one class per NQE* code of noqtis.h, all NoqtisError."""
 from typing import Any, Dict, Tuple, Type
 

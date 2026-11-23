@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The version 2 secret-key container (docs/spec/keyfile.md) against
  * tests/vectors/skx/kat.txt, whose X was computed from the specification
  * with Python's hashlib: for each key, S from its fixed seed (the

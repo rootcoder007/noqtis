@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqtsreq and nqtsput: the RFC 3161 request over a seal's signature, and
  * the TSA's reply checked and stored as the seal's "timestamp". The
  * library makes no network request: the caller (the CLI) sends the

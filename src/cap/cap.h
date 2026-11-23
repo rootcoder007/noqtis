@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Capsules (docs/spec/capsule.md): the manifest
  * noqtis.json, the seal noqtis.sig, the canonical JSON writer (RFC 8785),
  * base64, path rules and the portable folder walk. Internal.

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Writes kat.txt: known answers of capsule format 3 (noqtis-capsule(5),
 section 16 of docs/spec/capsule.md), computed here from the specification
 alone with Python's hashlib: the salts a fixed salt key gives, each

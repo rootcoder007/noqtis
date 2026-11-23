@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqselftest: known answers for every algorithm family, the kind of
  * self-test a cryptographic module runs before it is used (FIPS 140-3,
  * section 7.10). Each test runs fixed inputs through the library's

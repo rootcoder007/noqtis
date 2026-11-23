@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Builds the noqtis extension: the C library (vendor/src) as a static
 library with the flags the CMake build uses, then the abi3 module on it.
 
@@ -42,7 +42,7 @@ def vendor():
     # the rest
     shutil.copytree(os.path.join(ROOT, "nqd"), os.path.join(VEN, "src", "nqd"),
                     ignore=shutil.ignore_patterns("*.o", "*~", "*.txt"))
-    for f in ("LICENSE", "NOTICE"):
+    for f in ("LICENSE", "COPYING", "COPYING.LESSER", "NOTICE"):
         shutil.copyfile(os.path.join(ROOT, f), os.path.join(HERE, f))
 
 

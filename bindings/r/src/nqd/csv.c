@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* A CSV reader (RFC 4180): fields separated by one delimiter byte,
  * records ended by LF or CRLF, quoted fields with "" for a quote and
  * line breaks kept inside; a UTF-8 byte order mark at the start is

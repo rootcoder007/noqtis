@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* X.509 certificates (RFC 5280), read by position; path checks to a
  * caller-supplied trust anchor; OCSP responses (RFC 6960) and CRLs
  * (RFC 5280 section 5). Internal.

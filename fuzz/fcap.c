@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the capsule check (nqchk, nqchkt): the seal
  * noqtis.sig and the manifest noqtis.json are read from files, so each
  * input is written into a scratch folder that holds the golden sample's

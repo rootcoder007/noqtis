@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Ed25519 and the hybrid ML-DSA + Ed25519 sets through the public API:
  * sizes, names, keys from a seed (the parts equal the plain algorithms'
  * keys), hedged and deterministic signing, the context limit, the

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The SLH-DSA hash functions, FIPS 205 section 11.
  *
  * SHAKE (11.1): every function is SHAKE256 over its inputs, with the full

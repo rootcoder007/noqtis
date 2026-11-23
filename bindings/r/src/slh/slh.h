@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* SLH-DSA (FIPS 205): the twelve parameter sets, key generation, signing
  * and verification, for the public dispatchers in noqtis.h and for the
  * ACVP tests. Internal: not part of the public API.

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Copies the noqtis C library (../../src/*/ and ../../include/noqtis.h),
 # its data layer (../../nqd/ and ../../include/nqd.h)
 # and the licence files into this crate, so that `cargo package` ships a
@@ -32,5 +32,5 @@ for f in "$top"/nqd/*.c "$top"/nqd/*.h; do
   n=$((n + 1))
 done
 cp "$top/include/noqtis.h" "$top/include/nqd.h" "$here/vendor/include/"
-cp "$top/LICENSE" "$top/NOTICE" "$here/"
+cp "$top/LICENSE" "$top/COPYING" "$top/COPYING.LESSER" "$top/NOTICE" "$here/"
 echo "vendor.sh: copied $n files, include/noqtis.h and nqd.h"

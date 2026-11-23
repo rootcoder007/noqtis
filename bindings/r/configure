@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Writes src/Makevars (src/Makevars.win when run as "configure win", by
 # configure.win) from its .in file, with the floating-point flags the
 # CMake build of the library uses, each only when R's C compiler takes

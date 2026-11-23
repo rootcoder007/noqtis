@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HMAC_DRBG, NIST SP 800-90A Rev. 1 section 10.1.2, over SHA-256 and
  * SHA-512. Every branch depends only on lengths, flags and the counter,
  * never on Key, V, the entropy or the output. */

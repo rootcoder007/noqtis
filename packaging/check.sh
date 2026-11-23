@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The build check the Linux distribution and macOS jobs run, from the
 # source root, once the compiler, cmake, make and pkg-config are in:
 # a static build with every test, its install and the consumer program,

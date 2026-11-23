@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The canonical JSON writer (RFC 8785, JCS): no whitespace, object keys
  * sorted by UTF-16 code units, strings with the minimal escapes, numbers
  * in the ECMAScript Number form (the shortest text that reads back as the

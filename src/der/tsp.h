@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* RFC 3161 timestamp tokens: a CMS SignedData (RFC 5652) over a TSTInfo,
  * alone or inside a TimeStampResp, read strictly by position. Internal.
  *

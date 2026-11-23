@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* What makes the hooks (nqsetrng, nqsetprog, nqsetstop, nqsettmp,
  * nqsetal) safe to set while other threads work: a spin lock around the
  * two or three words each hook keeps, so a function and its user pointer

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Shared by the timing (dd.c) and simulated power (tv.c) harnesses:
  * Welch's t-test on running moments, a seeded generator for the inputs
  * and the class of each measurement, and a few output helpers. */

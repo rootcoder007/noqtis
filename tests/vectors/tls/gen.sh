@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Regenerates the TLS test PKI (OpenSSL 3.5 as the CA): a P-256 root, an
 # RSA intermediate and server certificates for tests/ttlscrt.c and the
 # local-server test tests/tls/srv.sh, with their throwaway keys. Run

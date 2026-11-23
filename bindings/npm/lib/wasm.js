@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
 // Instantiates noqtis.wasm (the C library built with wasi-sdk as a WASI
 // reactor, no JavaScript runtime of its own) against the host in wasi.js,

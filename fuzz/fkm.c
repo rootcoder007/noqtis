@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over streams sealed to several keys (nqkmpeek,
  * nqkmdini, nqkmdupd, nqkmdfin): any bytes, opened with a fixed
  * ML-KEM-768 key (from a fixed seed) as noqtis unbox reads them: the

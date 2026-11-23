@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! Identity cards (noqtis-idcard-1): a signing key with its holder's
 //! name and, when given, ORCID iD, e-mail address, web page and
 //! affiliation, signed by the key itself under the card's own context, so

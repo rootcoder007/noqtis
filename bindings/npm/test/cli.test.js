@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // Cross-checks against the native CLI: keys, signatures, KEM ciphertexts
 // and capsules made by one side are accepted by the other. NOQTIS_CLI is
 // the path to a native `noqtis` build; without it these tests skip.

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # The Java binding (bindings/java): the shared library and noqtis.jar
 # built with CMake, javac and jar alone (build.sh; no Maven or Gradle,

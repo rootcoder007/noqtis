@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqd: files (UTF-8 paths, wide on Windows), capsule paths, digests, and
  * the check report. The only platform code of nqd. */
 #ifndef _WIN32

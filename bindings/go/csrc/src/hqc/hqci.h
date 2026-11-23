@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HQC internals shared by the files of the module (and its tests). */
 #ifndef NQHQI_H
 #define NQHQI_H

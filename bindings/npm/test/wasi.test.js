@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // The WASI host (lib/wasi.js) on its own, against a memory laid out as
 // wasi-libc lays out its arguments: files, folders, offsets, listings,
 // renames, the root it cannot leave, and randomness that fails closed.

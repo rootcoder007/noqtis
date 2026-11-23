@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the DER reader itself: one element, a cursor
  * walk of every level (to the depth limit), and the primitive decoders
  * (INTEGER, BOOLEAN, OID, BIT STRING, NULL, times, Names, extensions,

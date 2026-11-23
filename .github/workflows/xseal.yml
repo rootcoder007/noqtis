@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Cross-platform capsules: seals the same tree on Linux, macOS and Windows
 # (one capsule without a timestamp, and two with public RFC 3161

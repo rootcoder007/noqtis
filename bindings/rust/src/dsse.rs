@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! DSSE envelopes, the in-toto and SLSA signing wrapper: a payload and
 //! its type, signed over PAE(type, payload).
 //!

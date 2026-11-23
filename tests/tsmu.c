@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-DSA with an external mu, through the public API (nqsmu, nqsignmu,
  * nqvrfymu): every NIST ACVP sigGen and sigVer test of the internal
  * interface with externalMu true, for the three parameter sets

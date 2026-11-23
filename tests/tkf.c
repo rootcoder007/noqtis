@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Sealed streams (nqkfeini ... nqkfdfin): known answers from fixed seeds
  * (vectors/kstream/kat.txt: an empty stream, part of a chunk, exactly
  * one chunk, exactly three, and two and a half, for each ML-KEM set),

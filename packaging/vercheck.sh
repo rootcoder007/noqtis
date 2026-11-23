@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Checks that every file naming the release version names the one in
 # CMakeLists.txt, so that a release commit cannot leave a binding, a
 # package recipe or a test on the previous version. Given a tag (vX.Y.Z),

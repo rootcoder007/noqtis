@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The TLS 1.3 client against OpenSSL's s_server (3.5 or later, for
 # X25519MLKEM768) on the loopback, one server per case, with the test
 # PKI of tests/vectors/tls/pki. OpenSSL is only the peer here; noqtis

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* WOTS+, XMSS, FORS and the hypertree: FIPS 205 sections 5 to 8.
  *
  * Trees are built bottom-up with an explicit stack (treehash), not the

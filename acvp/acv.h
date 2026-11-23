@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* What the ACVP harnesses share: reading a request (the "prompt" a CAVP
  * lab's ACVP server sends), writing the response through the canonical
  * JSON writer of src/cap, and the semantic comparison of a response

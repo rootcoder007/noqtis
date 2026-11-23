@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! Keys on a token, through PKCS #11: a smart card, a hardware security
 //! module, or a software token. The private key stays there; the token
 //! signs and decapsulates. The post-quantum key types are those of

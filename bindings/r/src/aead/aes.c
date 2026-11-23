@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* AES encryption (FIPS 197), constant time and without tables. SubBytes
  * is bitsliced: the 32 bytes of two blocks become eight 32-bit words,
  * word i holding bit i of every byte, and the S-box is computed on all

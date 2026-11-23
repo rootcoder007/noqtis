@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The regex rule's patterns: the first byte is the pattern's length, the
  * rest after the pattern a value. Any bytes compile or are refused with
  * a reason; a compiled pattern answers 0 or 1 on any value, in time

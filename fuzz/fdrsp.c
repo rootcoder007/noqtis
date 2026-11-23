@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The portal reply readers (nqdrsp): the first byte picks a resolver of
  * each kind (CKAN by dataset and by resource, Socrata, ArcGIS by item
  * and by layer, the Wayback Machine), or, from 0xf0 on, the rest starts

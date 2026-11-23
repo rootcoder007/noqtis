@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The public signature functions of noqtis.h: dispatch onto ML-DSA
  * (src/mldsa), SLH-DSA (src/slh), Ed25519 (src/ed) and the hybrid
  * ML-DSA + Ed25519 sets, which run both and join their keys and

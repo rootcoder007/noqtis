@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HQC-KEM, HQC-128/192/256 as the specification version 5.1 of
  * 2026-11-09 defines them (reference implementation v5.1.0). Keys and
  * ciphertexts of version 5.0 are not read: a 5.0 secret key has another

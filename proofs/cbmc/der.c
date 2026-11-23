@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* CBMC harness: the DER reader (src/der/der.c) on every input of N bytes.
  * Walks the elements of each level and of each constructed element below,
  * as the X.509, OCSP, CRL and timestamp parsers do, and asserts that

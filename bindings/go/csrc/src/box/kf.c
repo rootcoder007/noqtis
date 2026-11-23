@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* A stream sealed to an ML-KEM public key (noqtis-kstream-1, noqtis.h):
  * the STREAM construction of Hoang, Reyhanitabar, Rogaway and Vizar
  * (CRYPTO 2015) on ChaCha20-Poly1305. The header is "NQKF", the version,

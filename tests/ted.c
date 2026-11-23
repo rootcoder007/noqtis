@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Ed25519 (src/ed): the RFC 8032 test vectors of Ed25519, Ed25519ctx and
  * Ed25519ph (key generation, the exact signature, verification, and a
  * changed signature refused), every Wycheproof Ed25519 verification test

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* What the sealed message (ks.c) and the sealed stream (kf.c) share;
  * internal, not part of noqtis.h. */
 #ifndef NQBOX_H

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Constant-time check of HMAC_DRBG (ctgrind). Built with -DNQCTGRIND and
  * run under valgrind, the entropy, nonce and DRBG state are marked
  * undefined, so memcheck reports any branch or index that depends on

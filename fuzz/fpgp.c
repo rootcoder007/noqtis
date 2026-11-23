@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over OpenPGP: nqpgpinfo, nqpgpvrfy and nqpgpdec. At
  * start it makes an Ed25519 key with an X25519 subkey, and of one
  * message a signed message, a detached signature, a cleartext signature

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Side-channel evidence. ctgrind builds the library as users do (Release)
 # with -DNQCTGRIND, marks every secret undefined to valgrind and runs the

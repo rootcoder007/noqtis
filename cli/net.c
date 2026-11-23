@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis: the network. One HTTP/1.1 POST of an RFC 3161 request
  * (application/timestamp-query, RFC 3161 section 3.4) for seal --tsa,
  * and a GET (ncget), each with the reply read whole. http:// always;

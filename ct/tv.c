@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Simulated TVLA: first-order leakage assessment of the masked ML-KEM
  * decapsulation and ML-DSA signing, on traces made by the code itself.
  *

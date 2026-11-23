@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* A TLS 1.3 client (RFC 8446); internal. The public functions (nqtl*,
  * noqtis.h) wrap the context below.
  *

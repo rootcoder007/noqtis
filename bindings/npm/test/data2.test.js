@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // The rest of the capsule and data functions: inspect, sealWhy, the
 // timestamp requests, bundles, chains, the environment, commitments,
 // citation, report, synthetic data, calibration and chunk digests, on the

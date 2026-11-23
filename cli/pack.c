@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis pack: reproducibility bundles. A bundle is a capsule whose data
  * record holds the environment and its lock files: `pack init` starts
  * one from a template, `pack build` records the environment, seals and

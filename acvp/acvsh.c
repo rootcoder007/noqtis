@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ACVP harness for SHA-2 (FIPS 180-4: SHA2-224 ... SHA2-512/256, ACVP
  * revision 1.0), SHA-3 (FIPS 202: SHA3-224 ... SHA3-512, revision 2.0)
  * and SHAKE (SHAKE-128, SHAKE-256, revision FIPS202): AFT, MCT

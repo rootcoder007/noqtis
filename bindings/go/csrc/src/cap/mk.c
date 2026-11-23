@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The Merkle tree of a noqtis-capsule-2 manifest, as RFC 6962 (section
  * 2.1) defines it: a leaf is SHA-256(0x00 || the entry's canonical
  * bytes), a node SHA-256(0x01 || left || right), a tree of n leaves is

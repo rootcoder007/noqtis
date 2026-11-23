@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Installs the noqtis command, library, header and manual pages from a
 # GitHub release of rootcoder007/noqtis, on Linux and macOS.

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* CBMC harness: the whole-tree check (nqdone, which calls nqdhdr and
  * nqdwalk, src/der/der.c) on every input of up to N bytes: every
  * element, nested to any depth those bytes allow, every universal

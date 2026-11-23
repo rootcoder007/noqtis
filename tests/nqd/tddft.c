@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Drift statistics against R (tests/nqd/drift.R made
  * vectors/nqd/drift/expect.txt from ks.test, chisq.test and the
  * definitions written out), the summaries nqdstats keeps, nqddrift's

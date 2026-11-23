@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over KangarooTwelve, ChaCha20, AES-SIV and
  * AES-GCM-SIV. The first byte picks the function and the key size, the
  * next the split points; the rest is the keys, the associated strings

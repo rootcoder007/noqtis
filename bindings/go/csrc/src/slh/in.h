@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* SLH-DSA internals shared by the files of src/slh/: the hash functions
  * of FIPS 205 section 11, addresses (section 4.2), and the WOTS+, XMSS,
  * FORS and hypertree layers (sections 5 to 8). */

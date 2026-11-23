@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ChaCha20, Poly1305 and their AEAD (RFC 8439). Poly1305 keeps the
  * accumulator in five 26-bit limbs and multiplies with 32 x 32 -> 64-bit
  * products, the layout of Andrew Moon's public-domain poly1305-donna

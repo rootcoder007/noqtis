@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The capsule folder: a walk that never follows a link (POSIX lstat,
  * Windows reparse points), streamed digests, and reads and writes that
  * refuse links (O_NOFOLLOW; FILE_ATTRIBUTE_REPARSE_POINT). Paths are

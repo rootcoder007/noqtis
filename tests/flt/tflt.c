@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The checks a signer makes before it releases a signature, under
  * injected faults. Built with the library's sources and NQTEST, so the
  * fault hooks of src/core/int.h are live (they are compiled out of the

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The C example of README.md, as a program. Usage: readme <dir> */
 #include <noqtis.h>
 #include <stdio.h>

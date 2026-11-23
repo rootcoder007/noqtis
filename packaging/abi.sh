@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Compares the shared library's ABI with an earlier release, with
 # libabigail's abidiff (needs git, cmake, a C compiler and libabigail):
 #   packaging/abi.sh [base tag] [report file]

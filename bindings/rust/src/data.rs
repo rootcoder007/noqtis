@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! The data record of a capsule (`noqtis.data.json`, noqtis-data-1):
 //! where each data file came from, the schema of its CSV files,
 //! summaries that show drift later, and the steps and checks made with

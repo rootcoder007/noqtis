@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Builds one release archive from the source tree it is run in (the
 # repository root), reproducibly: the same commit gives the same bytes.
 #
@@ -15,7 +15,7 @@
 #
 # The archive noqtis-<version>-<target>.tar.gz (.zip on Windows) holds one
 # top directory with bin/noqtis, lib/ (library, noqtis.pc, the CMake
-# package), include/noqtis.h, share/man, LICENSE and NOTICE (also in
+# package), include/noqtis.h, share/man, LICENSE, COPYING, COPYING.LESSER and NOTICE (also in
 # share/doc/noqtis).
 #
 # Reproducible: SOURCE_DATE_EPOCH is the commit time (git log) unless set;
@@ -122,7 +122,7 @@ cmake --build "$b" --config Release --parallel "$j" >&2
 # shellcheck disable=SC2086
 cmake --install "$b" --config Release --prefix "$st" $strip >&2
 
-for f in LICENSE NOTICE; do
+for f in LICENSE COPYING COPYING.LESSER NOTICE; do
   cp "$src/$f" "$st/$f"
   mkdir -p "$st/share/doc/noqtis"
   cp "$src/$f" "$st/share/doc/noqtis/$f"

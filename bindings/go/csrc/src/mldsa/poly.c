@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-DSA (FIPS 204): parameter sets, the NTT over Z_q[X]/(X^256 + 1),
  * sampling, rounding and bit packing. Everything that touches a secret is
  * free of secret-dependent branches, indices and divisions. */

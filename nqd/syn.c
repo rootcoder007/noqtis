@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqdsyn: a synthetic CSV file made from a schema (its recipe), the same
  * bytes for the same seed, and recorded as synthetic. */
 #include "int.h"

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Streaming signatures (nqsini, nqvini, nqsupd, nqsfin, nqvfin): for
  * ML-DSA-44, -65 and -87, pure and pre-hash, the bytes nqsignd gives at
  * every split of the message into two pieces, in pieces of one byte,

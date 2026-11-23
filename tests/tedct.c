@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Ed25519 constant-time check. Built with -DNQCTGRIND (library and test)
  * and run under valgrind memcheck, the private key is marked undefined,
  * so any branch or memory index that depends on it, on the expanded

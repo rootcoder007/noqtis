@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqd internals: memory, growing buffers, the JSON tree with its strict
  * reader and canonical (RFC 8785) writer, the CSV reader and the column
  * summaries. Not part of the public API; nqd uses only noqtis.h of the

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
 // The package's main entry on Node, Deno and Bun (the "node" condition of
 // "." in package.json): index.js, with init() able to find noqtis.wasm by

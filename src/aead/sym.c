@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The ChaCha20 stream (RFC 8439), AES-SIV (RFC 5297) and AES-GCM-SIV
  * (RFC 8452), on the constant-time AES and ChaCha20 of this directory.
  *

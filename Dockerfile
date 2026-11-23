@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # noqtis on Wolfi. The build stage compiles noqtis, runs every test, builds
 # the consumer program against the install and stages the install in /out;
@@ -27,5 +27,5 @@ COPY LICENSE NOTICE /usr/share/licenses/noqtis/
 # /usr/bin/noqtis comes with the install above; run it as
 #   docker run --rm -v "$PWD:/w" -w /w noqtis noqtis check results
 LABEL org.opencontainers.image.title="noqtis" \
-      org.opencontainers.image.licenses="Apache-2.0 WITH LLVM-exception" \
+      org.opencontainers.image.licenses="LGPL-3.0-or-later" \
       org.opencontainers.image.source="https://github.com/rootcoder007/noqtis"

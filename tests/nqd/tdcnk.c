@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Chunk digests (nqdchunk, nqdpiece, the "chunks" member): the digests
  * against SHA-256 of each run of bytes computed here, the element's
  * refusals, pieces that check and pieces that do not, and nqdchk on the

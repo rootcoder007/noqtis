@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The shared library's symbol versions (ELF): every public function of
  * noqtis.h at the one node NOQTIS_0, the ABI of major version 0; nothing
  * else is exported (the pattern nq* matches only what NQAPI leaves

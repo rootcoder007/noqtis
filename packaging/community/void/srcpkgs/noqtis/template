@@ -6,7 +6,7 @@ build_style=cmake
 configure_args="-DNQSHARED=ON -DNQWERROR=OFF"
 short_desc="Post-quantum signing, KEMs and sealed input records in C11"
 maintainer="Vansh Singh Ruhela <vsruhela@proton.me>"
-license="Apache-2.0 WITH LLVM-exception"
+license="LGPL-3.0-or-later"
 homepage="https://github.com/rootcoder007/noqtis"
 distfiles="https://github.com/rootcoder007/noqtis/releases/download/v${version}/noqtis-${version}.tar.gz"
 checksum=FILL_SRC_SHA256
@@ -17,6 +17,8 @@ do_check() {
 
 post_install() {
 	vlicense LICENSE
+	vlicense COPYING
+	vlicense COPYING.LESSER
 	vlicense NOTICE
 }
 

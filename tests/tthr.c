@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The hooks under threads: one thread keeps setting each hook to one of
  * two (function, user pointer) pairs, or to none, while others make the
  * calls that read them. Every call must see a pair that was set, never

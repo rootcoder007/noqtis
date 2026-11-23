@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Sealed messages (nqkseal, nqkopen): known answers for the three
  * ML-KEM sets from fixed seeds (vectors/kseal/kat.txt), round trips of
  * empty and longer messages, every byte of a sealed message changed,

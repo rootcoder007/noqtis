@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # ClusterFuzzLite build image (.github/workflows/cflite.yml): the same
 # build as OSS-Fuzz's (fuzz/oss-fuzz/), from the checked-out source
 # instead of a clone of main.

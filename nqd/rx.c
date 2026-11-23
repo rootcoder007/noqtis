@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The regular expressions of the regex rule: a small subset (literals,
  * classes, '.', anchors, '*', '+', '?', alternation, groups), compiled
  * without recursion by Thompson's construction and run as a set of

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * The noqtis command-line tool: shared declarations. The tool uses only
  * the public API in noqtis.h.

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * noqtis cert and noqtis smime: X.509 certificates for noqtis keys, and
  * signed and encrypted mail (S/MIME, CMS) with them.

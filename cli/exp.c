@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis export: a checked capsule in other formats. intoto, an in-toto
  * Statement v1 whose subjects are the capsule's files; dsse, that
  * statement in a DSSE envelope signed with -k; rocrate, RO-Crate 1.1

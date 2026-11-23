@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Leakage hooks for the simulated TVLA (ct/tv.c). Only a build with
  * -DNQTVLA has them: there every intermediate the masked code passes
  * through a hook is handed to nqlkfn (when the harness has set it), with

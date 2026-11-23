@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* X25519 (RFC 7748 section 5), for the TLS 1.3 key exchange; internal
  * API, not part of noqtis.h.
  *

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Makes the rmoriebricklayer fixtures in tests/vectors/interop/bl, which
 # tcli checks with noqtis on every platform (no R needed there): two
 # capsules sealed by rmoriebricklayer (blseal.R; ML-DSA-65 and

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-KEM internals shared by kem.c and mdec.c: parameters, the ring
  * Z_q[X]/(X^256 + 1) with q = 3329, its incomplete NTT, encodings,
  * compression and sampling. Not an API. */

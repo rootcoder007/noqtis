@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-KEM-768 key generation, encapsulation and decapsulation, with the
  * sizes taken at run time (nqenc(3)). */
 #include <noqtis.h>

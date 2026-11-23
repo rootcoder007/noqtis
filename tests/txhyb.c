@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* X25519MLKEM768 tests: the layout of the shares and the secret (the
  * ML-KEM part must equal ML-KEM-768 itself, the X25519 part X25519
  * itself), round trips, a tampered ciphertext (implicit rejection: a

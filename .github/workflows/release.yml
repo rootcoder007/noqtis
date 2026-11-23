@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # The release: for a vX.Y.Z tag, builds the archive for each platform
 # (packaging/dist.sh), rebuilds the Linux archives from scratch on fresh

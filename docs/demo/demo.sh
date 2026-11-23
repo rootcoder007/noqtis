@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The demo behind docs/demo.svg: make a key, pin a table's schema, seal
 # the folder, check it (passes), change one file, check again (fails),
 # put it back, then a delivery whose table no longer fits its schema and

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * X.509 certificates for noqtis keys and the Cryptographic Message
  * Syntax over them: what S/MIME is made of.

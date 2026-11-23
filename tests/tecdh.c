@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ECDH over P-256 and P-384 (src/cls/ec.c): the OpenSSL known answers
  * in vectors/ossl/ecdh.json (public key from the private one, and the
  * shared x coordinate), fresh key pairs that must agree both ways, and

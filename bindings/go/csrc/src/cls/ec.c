@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ECDSA verification and ECDH over P-256 and P-384 (FIPS 186-5, SEC 1
  * 4.1.4, SP 800-56A 5.7.1.2). Field and scalar arithmetic in the
  * Montgomery domain; points in

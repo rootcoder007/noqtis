@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The AES inverse cipher, AES Key Wrap (RFC 3394), AES-OCB (RFC 7253)
  * and AES-EAX: the published vectors, every length through three
  * blocks there and back, in place, a changed tag, text, nonce and

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // The data layer: records, schemas, drift, diff and sources, on the
 // repository's vectors (tests/vectors/nqd), against the values the C
 // tests check.

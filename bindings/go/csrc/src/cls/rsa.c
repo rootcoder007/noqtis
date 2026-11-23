@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* RSA signature verification (RFC 8017): RSAVP1 by Montgomery
  * exponentiation, then EMSA-PKCS1-v1_5 by building the one valid
  * encoding and comparing it whole (no parsing of the recovered block),

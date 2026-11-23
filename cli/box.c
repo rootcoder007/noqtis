@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis box and unbox: a file sealed to an ML-KEM public key in chunks
  * (noqtis-kstream-1, nqkfeini(3)), in memory of one chunk; to several
  * keys, or signed by its sender, it is noqtis-kstream-2 (nqkmeini(3)).

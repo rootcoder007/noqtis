@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * nqd: the data layer of noqtis. A data record (noqtis.data.json, format
  * noqtis-data-1, see noqtis-data(5)) says where each file of a capsule

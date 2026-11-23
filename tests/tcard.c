@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Identity cards (noqtis-idcard-1): a card round trips with every
  * algorithm kind; each field's limits and shapes, at and past the edge;
  * ORCID iDs and their check digit, the URL form and a lower-case x made

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Constant-time check of AES-GCM, ChaCha20-Poly1305 and HKDF (ctgrind).
  * Built with -DNQCTGRIND (the library too) and run under valgrind, the
  * keys, the plaintexts and the HKDF input keying material are marked

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Tests install.sh against fake releases served on localhost (see
 # fakerel.sh): a good install (latest and a pinned version, piped into sh
 # as with curl | sh), then cases that must be refused with nothing

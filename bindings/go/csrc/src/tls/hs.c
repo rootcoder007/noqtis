@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The TLS 1.3 client handshake (RFC 8446 section 4) and the messages
  * after it. The server's flight is read in its one allowed order
  * (ServerHello, EncryptedExtensions, CertificateRequest when sent,

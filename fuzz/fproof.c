@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the proofs of format 2 and format 3 capsules
  * (nqchkp) and their partial check (nqchkx). At start it seals two small
  * capsules under $TMPDIR (else /tmp) with a fixed ML-DSA-44 key, one in

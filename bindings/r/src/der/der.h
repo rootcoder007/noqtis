@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* A strict DER reader (X.690 clause 10, with the X.509 profile's limits).
  * Internal: used by the X.509, OCSP, CRL and RFC 3161 parsers.
  *

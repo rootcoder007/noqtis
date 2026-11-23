@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Regenerates the locally made DER fixtures (throwaway PKIs, OpenSSL 3.5
 # as CA, TSA and OCSP responder). Run from tests/vectors/der/ with the
 # output directory as $1 (default: local/). Every run makes new keys, so

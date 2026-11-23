@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The data record, noqtis-data-1 (noqtis-data(5)): its members as
  * tables, the strict check of a parsed record against them, and the
  * record API (nqdnew ... nqddel, nqdsrc). */

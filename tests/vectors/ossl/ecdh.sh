@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # ECDH known answers for tests/tecdh.c, made by OpenSSL (3.5 or later):
 # for each curve, n key pairs a and b from `openssl genpkey`, and the
 # shared secret from `openssl pkeyutl -derive` with a's key and b's

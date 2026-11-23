@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Lays out a fake GitHub release for testing install.sh and install.ps1
 # before (or without) a real one: <root>/download/v<version>/ and
 # <root>/latest/download/, each with the archives in <dist dir>, the two

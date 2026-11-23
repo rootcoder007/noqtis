@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // The browser entry (lib/index.js, with wasm.js and wasi.js) without Node:
 // its modules run in a fresh context that has WebAssembly, WebCrypto and
 // the text codecs and nothing else (no process, no require, no fetch, no

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Writes the guides in vignettes/ from the help pages: every help page is
 shown once, in the guide of its subject, with what the functions are for
 and the example of the page as it runs.

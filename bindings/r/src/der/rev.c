@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Revocation: OCSP responses (RFC 6960) and CRLs (RFC 5280 section 5),
  * read by position and checked against a path nqchain built. */
 #include <string.h>

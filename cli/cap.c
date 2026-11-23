@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis seal and check (capsules), and the RFC 3161 timestamps of
  * seal --tsa and check --anchor. */
 #include "cli.h"

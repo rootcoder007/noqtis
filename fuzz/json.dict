@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # libFuzzer dictionary for the JSON targets (fjson, fcap): the grammar's
 # tokens and the field names of noqtis-capsule-1 and noqtis-seal-1.
 "{"

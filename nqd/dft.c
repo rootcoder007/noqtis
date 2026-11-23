@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Drift: the summaries a record keeps of a CSV file ("stats", made by
  * nqdstats) and the comparison of a later file with them (nqddrift,
  * nqddriftat):

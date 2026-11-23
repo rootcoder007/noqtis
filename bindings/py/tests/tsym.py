@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """KangarooTwelve, ChaCha20, AES-SIV and AES-GCM-SIV: an answer of each
 RFC, round trips, refusals, and agreement with the cryptography package
 where it is installed."""

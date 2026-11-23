@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
 // Node helpers (`noqtis/node`): capsules on disk. The library checks and
 // seals capsules in its in-memory file system; these read a folder with

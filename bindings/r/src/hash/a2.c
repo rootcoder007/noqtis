@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Argon2 (RFC 9106, version 0x13) on BLAKE2b: Argon2id for noqtis.h,
  * and Argon2d and Argon2i, which differ from it only in how a block
  * chooses the block it mixes with, for the RFC's other test vectors.

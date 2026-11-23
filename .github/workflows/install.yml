@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Tests install.sh (Linux, macOS) and install.ps1 (Windows) on clean
 # runners, before any real release exists: a build job makes this tree's

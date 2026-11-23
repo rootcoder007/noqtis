@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Shared by the libFuzzer targets in fuzz/: where the fixture files are,
  * a signature stub that accepts everything (so a target reaches every
  * check after a signature), and a reader that cuts an input into

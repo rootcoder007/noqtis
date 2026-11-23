@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The TLS 1.3 client's public functions (noqtis.h, nqtl*). They exist in
  * every build; without the CMake option NQTLS they return NQENOSUP and
  * the client is reachable only from the tests, through nqtlmk. */

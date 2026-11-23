@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* OpenPGP (src/pgp/pgp.c): what the tests and the fuzz targets reach
  * past the public API of noqtis.h. */
 #ifndef NQPGP_H

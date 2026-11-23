@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-DSA (FIPS 204): key generation, the unmasked signer, verification,
  * the message representative mu (pure, pre-hash, internal, external mu)
  * and the module's entry points. The masked signer is in msk.c. */

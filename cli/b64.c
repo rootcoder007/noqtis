@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * noqtis: base64 (RFC 4648, with padding) and hex, in constant time: key
  * files and seeds are secret, so no table lookup or branch depends on a

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the X.509 certificate parser and the path
  * checks: the input as a certificate, alone and as a one-link path,
  * then as a leaf under the local PKI (tests/vectors/der/local: rsa_inter

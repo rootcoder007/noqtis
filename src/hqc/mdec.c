@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* First-order masked HQC decapsulation (HQC specification 5.1,
  * 2026-11-09, reference v5.1.0).
  *

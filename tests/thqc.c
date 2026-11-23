@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HQC tests: the official known answers of the reference implementation
  * v5.1.0 (specification 5.1; 300 vectors, through the digests in
  * vectors/hqc), its Reed-Solomon vectors (2,400, vectors/hqc/hqc-rs.txt,

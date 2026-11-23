@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis enc and dec (key encapsulation). The shared secret goes to an
  * owner-only file, or to stdout in hex only when --stdout asks for it. */
 #include "cli.h"

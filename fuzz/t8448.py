@@ -38,7 +38,7 @@ fl=blob(s,"{server}  send handshake record:",2,"payload")
 nst=blob(s,"{server}  send handshake record:",3,"payload")
 app=blob(s,"{server}  send application_data record:",1,"payload")
 o=open(sys.argv[2],"w")
-o.write("""/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+o.write("""/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* RFC 8448 section 3, taken from tests/vectors/tls/rfc8448.txt by
  * fuzz/t8448.py: the client's ClientHello and X25519 key, the server's
  * ServerHello record and its write keys, for fuzz/ftls.c. */

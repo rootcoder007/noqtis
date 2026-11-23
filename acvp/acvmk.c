@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ACVP harness for ML-KEM (FIPS 203; ACVP algorithm ML-KEM, revision
  * FIPS203): keyGen, and encapDecap with its four functions
  * (encapsulation, decapsulation, and the encapsulation and

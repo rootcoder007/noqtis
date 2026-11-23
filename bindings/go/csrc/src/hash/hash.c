@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The public hash interface: one dispatch over SHA-2, SHA-3 and SHAKE. */
 #include <string.h>
 

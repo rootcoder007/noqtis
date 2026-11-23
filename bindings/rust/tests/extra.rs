@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! Armor, certificates, CMS and S/MIME, OpenPGP, the key store, and (with
 //! NQTOKPATH naming the software token of tests/p11) keys on a token.
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* First-order Boolean masking for the masked SLH-DSA PRF (internal): a
  * mask generator, masked Keccak-f[1600] with SHAKE256 on top, and a
  * masked SHA-256 compression.

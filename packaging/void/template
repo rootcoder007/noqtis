@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Void Linux (void-packages srcpkgs/noqtis/template). For a release,
 # checksum is the tarball's sha256.
 pkgname=noqtis
@@ -8,7 +8,7 @@ build_style=cmake
 configure_args="-DNQSHARED=ON -DNQWERROR=OFF"
 short_desc="Post-quantum signing, KEMs and sealed input records in C11"
 maintainer="rootcoder007 <278967282+rootcoder007@users.noreply.github.com>"
-license="Apache-2.0 WITH LLVM-exception"
+license="LGPL-3.0-or-later"
 homepage="https://github.com/rootcoder007/noqtis"
 distfiles="https://github.com/rootcoder007/noqtis/archive/refs/tags/v${version}.tar.gz"
 checksum=SKIP
@@ -19,6 +19,8 @@ do_check() {
 
 post_install() {
 	vlicense LICENSE
+	vlicense COPYING
+	vlicense COPYING.LESSER
 	vlicense NOTICE
 }
 

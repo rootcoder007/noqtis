@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HKDF (RFC 5869) on the HMAC of hmac.c, for the TLS 1.3 key schedule. */
 #include <string.h>
 

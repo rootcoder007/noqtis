@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Streams sealed to several keys, signed or not (nqkmeini ... nqkmdfin):
  * every recipient opens one, another key does not; an empty stream,
  * part of a chunk, exactly one and exactly three; a signature that

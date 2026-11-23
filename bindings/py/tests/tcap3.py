@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """inspect, sealwhy and the timestamp requests from Python, on the golden
 capsule (tests/vectors/cap/sample)."""
 import os

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Seals a folder as a noqtis capsule with rmoriebricklayer's signatures:
 # the key pair (fipskg), the SHA-256 of every file (sha256file) and of the

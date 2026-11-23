@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """noqtis: post-quantum signatures, KEMs, hashes and sealed capsules.
 
 Python binding of the noqtis C library (FIPS 203, 204, 205, 202, 180-4

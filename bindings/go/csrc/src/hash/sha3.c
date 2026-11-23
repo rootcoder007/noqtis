@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Keccak-f[1600], SHA3-224/256/384/512 and SHAKE128/256 (FIPS 202). */
 #include <string.h>
 

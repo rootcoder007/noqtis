@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* TurboSHAKE and KangarooTwelve tests: every test vector of RFC 9861
  * section 5 (vectors/kt/rfc9861.txt: 31 of TurboSHAKE128 and
  * TurboSHAKE256, 36 of KT128 and KT256), the output as a prefix of a

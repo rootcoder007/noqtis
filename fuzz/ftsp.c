@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the RFC 3161 parser and verifier: the input as a
  * TimeStampResp or bare token, verified against its own last
  * certificate with every signature accepted by a stub (to reach every

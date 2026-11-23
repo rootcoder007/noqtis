@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The codes of HQC (specification 5.1): a shortened Reed-Solomon code
  * over GF(256) (field polynomial x^8 + x^4 + x^3 + x + 1, primitive
  * element alpha = x + 1) concatenated with a duplicated Reed-Muller code

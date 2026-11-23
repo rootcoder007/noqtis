@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Tests install.ps1 on Windows against fake releases served on localhost
 # (made by fakerel.sh under <root>/ok, <root>/tamper and <root>/nosum):

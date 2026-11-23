@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! Text armor, X.509 certificates for noqtis keys, and signed and
 //! encrypted messages with them: the Cryptographic Message Syntax
 //! (RFC 5652) and S/MIME (RFC 8551).

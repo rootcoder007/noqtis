@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The server's certificate for the TLS 1.3 client: trust anchors from a
  * PEM bundle, the path (src/der, nqchain: names, signatures, validity,
  * basicConstraints, keyUsage, serverAuth, name constraints), the host

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Runs one libFuzzer target built by fuzz/build.sh for a time, on a copy
 # of its seed corpus (fuzz/corpus/<target>/) with its dictionary.

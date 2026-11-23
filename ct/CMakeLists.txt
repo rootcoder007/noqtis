@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The side-channel harnesses (-DNQCT=ON): nqdd, the dudect timing test,
 # and, in a build with -DNQTVLA=ON, nqtv, the simulated TVLA. They are not
 # ctest tests: they run for minutes and a timing verdict depends on the

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Seal a folder and check it, printing every row of the report
  * (nqseal(3), nqchk(3), nqrep(3)). Usage: seal <dir> */
 #include <noqtis.h>

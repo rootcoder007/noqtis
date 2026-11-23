@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Messages and streams sealed to an ML-KEM key: the known answers of
 tests/vectors/kseal and kstream opened, round trips, the CLI's box
 format, and every failure the format names."""

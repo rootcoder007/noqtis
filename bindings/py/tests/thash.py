@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Hashes and HMAC against hashlib and hmac."""
 import hashlib
 import hmac as pyhmac

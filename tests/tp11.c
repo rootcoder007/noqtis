@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Keys on a token (nqp11open, nqp11toks, nqp11login, nqp11keys,
  * nqp11pub, nqp11sign, nqp11dec, nqp11gen), against the software token
  * of tests/p11/tok.c: a key of every kind made on the token, its public

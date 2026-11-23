@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Makes the seed corpora of farm, fcms, fpgp and fkst with the Python
 # package (bindings/py), each file named by its SHA-1 as libFuzzer names

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Writes kat.txt: BLAKE2b known answers from CPython's hashlib.blake2b,
 # an implementation independent of noqtis's.
 #   python3 -I gen.py > kat.txt

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Shared by the AEAD, X25519, HKDF and TLS tests: Wycheproof JSON files
  * and hex fields, read with the library's own strict JSON reader. */
 #ifndef NQTVEC_H

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # What follows a published release (release.yml makes it a draft; a
 # maintainer publishes it): the Homebrew taps (rootcoder007/noqtis, so
@@ -398,9 +398,9 @@ jobs:
           # shellcheck disable=SC2046 # no path has a space
           javac --release 22 -Xlint:all -Werror -d c $(find src/main/java -name '*.java' | sort)
           cp -R jn/native c/
-          cp ../../LICENSE c/LICENSE
+          cp ../../LICENSE ../../COPYING ../../COPYING.LESSER c/
           jar --create --file "$d/noqtis-$v.jar" -C c .
-          jar --create --file "$d/noqtis-$v-sources.jar" -C src/main/java . -C ../.. LICENSE
+          jar --create --file "$d/noqtis-$v-sources.jar" -C src/main/java . -C ../.. LICENSE -C ../.. COPYING -C ../.. COPYING.LESSER
           # shellcheck disable=SC2046
           javadoc -quiet -Xdoclint:none -overview src/main/javadoc/overview.html \
             -doctitle "NOQTIS $v for Java" -d jd $(find src/main/java -name '*.java' | sort)

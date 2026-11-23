@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* AES-OCB (RFC 7253) and AES-EAX, both with a 128-bit tag: the two
  * AEAD modes OpenPGP (RFC 9580) names beside GCM. OCB takes a nonce of
  * 1 to 15 bytes, EAX one of any length; OpenPGP gives them 15 and 16.

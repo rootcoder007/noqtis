@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Certificate Transparency (RFC 6962) for the TLS 1.3 client, opt-in: a
  * log list goes stale, so nothing is checked until the caller gives one
  * (nqtlct, in the form of Chrome's log_list.json v3). Then the client

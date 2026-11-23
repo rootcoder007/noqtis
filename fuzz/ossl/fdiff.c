@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer differential target against OpenSSL 3.5 or later (M10). The
  * input's first byte picks a check, the rest feeds it:
  *   0  a digest or HMAC of the rest: the same bytes from both;

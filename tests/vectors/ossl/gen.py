@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # OpenSSL differential set for noqtis tests/tcls.c: keys and signatures
 # made by openssl, plus mutated copies, each with openssl's own verdict.
 # Usage: python3 -I gen.py <workdir> <out.json>

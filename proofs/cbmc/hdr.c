@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* CBMC harness: one DER header (nqdhdr, src/der/der.c) on every input of
  * every length n, the buffer allocated with n nondeterministic: nqdhdr
  * reads at most 9 bytes (an identifier, 3 tag septets, a length octet and

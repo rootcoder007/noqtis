@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Certification paths (RFC 5280 section 6, the parts a short chain to a
  * caller-chosen anchor needs): build by name and signature, then check
  * every link. No recursion: the path grows one certificate at a time and

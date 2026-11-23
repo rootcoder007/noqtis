@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis rotate, revoke and expire: key statements (noqtis-keys-1) that
  * noqtis check --keys follows from a trusted key. */
 #include "cli.h"

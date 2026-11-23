@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // A sample of the NIST ACVP vectors (tests/vectors/acvp in the repository)
 // through the JavaScript API: the first few cases of every group. The C
 // test suite runs every vector; this checks the binding passes them on

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Commitments (a randomisation list, a pre-registration sealed before
  * the data are seen) and citations of a data record. */
 #include "int.h"

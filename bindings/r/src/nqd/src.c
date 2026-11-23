@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Sources of a data record (noqtis-data(5), "sources"): the addresses a
  * file can be fetched from, in the order to try them; the check of
  * fetched bytes against the recorded SHA-256 and size; and the portal

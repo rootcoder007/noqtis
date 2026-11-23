@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* X25519 tests: the RFC 7748 vectors of sections 5.2 (1 and 1,000
  * iterations; 1,000,000 with NQSLOW=1) and 6.1, every Wycheproof X25519
  * test (an all-zero shared secret must give NQEVRFY), output aliasing

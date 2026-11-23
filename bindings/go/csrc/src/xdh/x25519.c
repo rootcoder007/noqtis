@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* X25519 (RFC 7748): the Montgomery ladder of section 5 over
  * GF(2^255 - 19) in ten unsigned limbs, limb i of weight 2^ceil(25.5 i):
  * 26 bits for even i, 25 for odd. After a carry every limb is below

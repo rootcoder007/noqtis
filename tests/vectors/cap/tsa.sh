@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Makes the timestamp fixtures of tcap with a throwaway local TSA (OpenSSL
 # 3.5): an EC P-384 root and P-256 TSA certificate (as der/gen.sh), a
 # second, unrelated root, and an RFC 3161 token over the signature bytes

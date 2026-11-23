@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* A stream sealed to several ML-KEM public keys, and signed by its
  * sender when asked (noqtis-kstream-2, noqtis.h). The stream is that of
  * kf.c, the STREAM construction on ChaCha20-Poly1305, under a random

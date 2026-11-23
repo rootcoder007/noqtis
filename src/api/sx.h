@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The version 2 secret-key container (docs/spec/keyfile.md), inside the
  * library: X = S || P || T, P the Ed25519 public key for Ed25519 and the
  * hybrids, T = SHA3-256("noqtis-sk-2" || 0x00 || alg || 0x00 || S || P). */

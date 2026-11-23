@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* SHA-1 (verify-only, hash/h.h): every NIST CAVP SHA1ShortMsg,
  * SHA1LongMsg and SHA1Monte vector in vectors/cavp/sha1, incremental
  * use, and the nqxops.sha1 hook as src/der calls it. */

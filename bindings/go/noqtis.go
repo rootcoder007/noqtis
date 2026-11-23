@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 
 // Package noqtis is the Go binding of the noqtis C library: post-quantum
 // signatures (ML-DSA, SLH-DSA, and Ed25519 with the ML-DSA hybrids), key

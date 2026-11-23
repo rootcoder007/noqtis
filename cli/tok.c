@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * noqtis token: keys on a PKCS #11 token (a smart card, a hardware
  * security module, a software token). The private key stays there; the

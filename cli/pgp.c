@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * noqtis pgp: OpenPGP (RFC 9580, version 6) keys, signatures and
  * encrypted messages, with the post-quantum algorithms.

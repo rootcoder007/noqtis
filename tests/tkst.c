@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The key store (nqksadd, nqkslist, nqksget, nqkscert, nqkscput,
  * nqkstrust, nqksdel): a key with a card and one with a name; validity
  * from an ultimately trusted key through one full or three marginal

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! The declarations of include/noqtis.h this crate uses, written by hand.
 //! The C enums (nqhalg, nqsalg, nqkalg) are passed as `c_int`.
 

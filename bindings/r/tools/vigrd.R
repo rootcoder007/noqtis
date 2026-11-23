@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Reads a package's help pages and writes, for each page, what a vignette
 # generator needs: aliases, title, the first paragraph of the description and
 # the example code as R CMD check runs it.

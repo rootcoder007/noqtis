@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Measures how far the KS statistic nqddrift gets from the quantile
  * sketch is from the exact two-sample statistic, for normal samples of
  * n and n/2 values, shifted by 0, 0.05 and 0.2, five runs each, with a

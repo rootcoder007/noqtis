@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The TLS client's certificate checks, offline, on the test PKI of
  * vectors/tls/pki (gen.sh): PEM bundles, the path and its refusals
  * (expired, not yet valid, untrusted root with the same name, missing

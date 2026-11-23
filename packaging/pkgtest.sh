@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Builds one of the packaging/ recipes from a local source tarball, installs
 # the package it makes and runs the consumer program against the installed
 # package (pkg-config and find_package). Run from the source root:

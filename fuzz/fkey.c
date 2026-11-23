@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the command line tool's key files (cli/key.c:
  * the "noqtis-key-1 <alg> <pub|sec>" or "noqtis-key-2 <alg> sec" line
  * and the base64 body, read as a public and as a secret key; a version 2

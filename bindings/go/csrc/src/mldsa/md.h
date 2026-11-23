@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ML-DSA internals shared by the files of src/mldsa: the parameter sets,
  * the ring Z_q[X]/(X^256 + 1) with q = 8380417, its NTT, sampling,
  * rounding and the bit packings of FIPS 204. Not part of any API. */

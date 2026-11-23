@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis idcard: make an identity card (noqtis-idcard-1) for a signing
  * key, or check one; and the card row of noqtis check --card. */
 #include "cli.h"

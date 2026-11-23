@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Homebrew formula (macOS and Linux). publish.yml writes it to the tap
 # rootcoder007/homebrew-noqtis and homebrew-morie with the release tarball and its sha256;
 # `brew install --HEAD` builds main.
@@ -7,7 +7,7 @@ class Noqtis < Formula
   homepage "https://github.com/rootcoder007/noqtis"
   url "https://github.com/rootcoder007/noqtis/releases/download/v0.3.0/noqtis-0.3.0.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
-  license "Apache-2.0" => { with: "LLVM-exception" }
+  license "LGPL-3.0-or-later"
   head "https://github.com/rootcoder007/noqtis.git", branch: "main"
 
   depends_on "cmake" => [:build, :test]

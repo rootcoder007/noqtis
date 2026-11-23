@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // Armor, certificates, CMS and S/MIME, OpenPGP and the key store.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

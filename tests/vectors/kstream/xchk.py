@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Opens every ML-KEM-768 and ML-KEM-1024 record of kat.txt without
 # noqtis: the key pair from the 64-byte seed d || z and the shared
 # secret from Python's cryptography package (which has no ML-KEM-512),

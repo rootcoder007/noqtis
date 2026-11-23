@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Ed25519 (RFC 8032): key generation, signing and verification of
  * Ed25519, Ed25519ctx and Ed25519ph, for the public dispatchers in
  * noqtis.h (Ed25519 alone and the hybrid ML-DSA + Ed25519 sets) and for

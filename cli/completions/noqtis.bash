@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # bash completion for noqtis(1): commands, options, algorithm and hash
 # names, and file or folder arguments.
 

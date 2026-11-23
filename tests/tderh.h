@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Shared by tder.c, tx509.c and ttsp.c: fixture loading, a SHA-1 for the
  * OCSP / ESS forms that need one (test code only; the module takes it
  * through nqxops), and the signature oracle.

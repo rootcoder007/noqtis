@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqddiff: what changed between two capsules: the files their
  * manifests list (through nqfiles), and their data records member by
  * member: sources, schemas (columns, types, rows), summaries (counts,

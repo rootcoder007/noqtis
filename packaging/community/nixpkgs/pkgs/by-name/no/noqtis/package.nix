@@ -38,10 +38,7 @@ stdenv.mkDerivation (finalAttrs: {
     description = "Post-quantum signing, KEMs and sealed input records in C11";
     homepage = "https://github.com/rootcoder007/noqtis";
     changelog = "https://github.com/rootcoder007/noqtis/blob/v${finalAttrs.version}/NEWS.md";
-    license = with lib.licenses; [
-      asl20
-      llvm-exception
-    ];
+    license = lib.licenses.lgpl3Plus;
     maintainers = with lib.maintainers; [ rootcoder007 ];
     mainProgram = "noqtis";
     platforms = lib.platforms.unix;

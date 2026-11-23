@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The regular expressions of the regex rule (nqd/rx.c): what each
  * pattern matches, every pattern refused and why, time linear in the
  * value on patterns that make a backtracking matcher exponential; and

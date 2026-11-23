@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Constant-time check of HQC (ctgrind): built with -DNQCTGRIND and run
  * under valgrind memcheck, the secrets (key seed, the decapsulation key,
  * m and the salt) are marked undefined, so any branch or address that

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis src: the sources of a capsule's data record, fetched. add
  * records a file by its address or its portal (and fetches it when it
  * is not there yet), resolve asks each portal where its file is now,

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The CMAKE_CROSSCOMPILING_EMULATOR of the iOS job: runs a test program
 # on the booted simulator with xcrun simctl spawn and exits with its
 # status.

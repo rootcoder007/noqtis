@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* BLAKE2b tests: RFC 7693's BLAKE2b-512("abc") (appendix A) and its
  * self-test over keyed and unkeyed hashes of every listed length
  * (appendix E), keyed known answers of every message length 0 to 255,

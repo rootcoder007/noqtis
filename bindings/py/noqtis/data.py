@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """The data record of a capsule (noqtis.data.json, noqtis-data-1).
 
 The record says where each data file of a capsule came from, the schema

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Constant-time check of ML-DSA key generation and signing (ctgrind).
  *
  * Built with -DNQCTGRIND (library and test) and run under valgrind, the

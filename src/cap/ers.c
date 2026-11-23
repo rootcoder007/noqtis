@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* RFC 4998 evidence records for a sealed capsule: noqtis.ers beside the
  * seal, an EvidenceRecord whose one data object is the seal file
  * (noqtis.sig, byte for byte). The seal's signature and the manifest it

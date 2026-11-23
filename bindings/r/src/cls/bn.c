@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Fixed-size bignums and Montgomery multiplication (CIOS, 32-bit limbs,
  * 64-bit products: plain C11, no compiler extensions). */
 #include <string.h>

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """OpenPGP (RFC 9580) in its version 6 forms, with Ed25519 and X25519
 and the post-quantum algorithms of RFC 9980: keys,
 signatures and encrypted messages. Keys and messages are binary packets;

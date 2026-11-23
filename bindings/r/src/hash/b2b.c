@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* BLAKE2b (RFC 7693): keyed and unkeyed, any digest length from 1 to 64
  * bytes. Additions, XORs and rotations of 64-bit words only, so the time
  * depends on the lengths alone, never on the key or the data. */

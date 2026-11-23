@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over text armor: nqarmdec (RFC 7468) and nqpgpdearm
  * (OpenPGP, with its headers and checksum line). Any bytes are read as
  * an armor. What nqarmdec accepts is written again by nqarmenc and must

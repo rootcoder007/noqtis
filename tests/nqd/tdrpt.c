@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Reports (nqdrpt) of vectors/nqd/cap, which is not sealed: the counts,
  * a folder not sealed failing, the record's values in Markdown (escaped
  * once) and in text, the buffer protocol and the refusals. The tool's

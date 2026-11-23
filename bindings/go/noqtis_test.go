@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 
 // The binding against known answers (NIST ACVP, RFC 8032, RFC 4231, the
 // repository's golden capsule) and round trips of every algorithm.

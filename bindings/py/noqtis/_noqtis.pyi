@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # The C module; use the noqtis package instead.
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
 

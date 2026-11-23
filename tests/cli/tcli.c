@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * Black-box tests of the noqtis tool: runs it the way a user does (through
  * the shell, stdout and stderr to files) and checks exit codes, outputs

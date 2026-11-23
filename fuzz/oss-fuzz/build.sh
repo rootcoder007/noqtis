@@ -1,5 +1,5 @@
 #!/bin/bash -eu
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # OSS-Fuzz build script for noqtis: builds every target with the
 # repository's own fuzz/build.sh (which honours CC, CFLAGS and
 # LIB_FUZZING_ENGINE), then puts in $OUT each target, its seed corpus

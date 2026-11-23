@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * DSSE envelopes (Dead Simple Signing Envelope, the in-toto and SLSA
  * wrapper): the signature is over PAE(payloadType, payload) =

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Release notes from NEWS.md: the section of one version, unwrapped.
 
     python3 packaging/notes.py <version> [NEWS.md]

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # The Rust crate (bindings/rust): rustfmt and clippy, the tests (known
 # answers, round trips, the golden capsule) on Linux, macOS and Windows,

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* X.509: algorithm identifiers, public keys, certificates by position,
  * names. */
 #include <string.h>

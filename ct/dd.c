@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* dudect: timing leakage test of every secret operation (Reparaz,
  * Balasch and Verbauwhede, "Dude, is my code constant time?", DATE 2017).
  *

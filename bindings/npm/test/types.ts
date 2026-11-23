@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // Compiled with `tsc -p test/tsconfig.json` (no output): the types cover
 // the API as the tests use it.
 import nq, { init, sign, kem, hash, capsule, dsse, idcard, algs,

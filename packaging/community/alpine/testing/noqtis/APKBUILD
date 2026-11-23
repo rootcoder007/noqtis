@@ -6,7 +6,7 @@ pkgrel=0
 pkgdesc="Post-quantum signing, KEMs and sealed input records in C11"
 url="https://github.com/rootcoder007/noqtis"
 arch="all"
-license="Apache-2.0 WITH LLVM-exception"
+license="LGPL-3.0-or-later"
 makedepends="cmake samurai"
 subpackages="$pkgname-dev $pkgname-doc
 	$pkgname-bash-completion
@@ -32,7 +32,7 @@ check() {
 
 package() {
 	DESTDIR="$pkgdir" cmake --install build
-	install -Dm644 LICENSE NOTICE -t "$pkgdir"/usr/share/licenses/$pkgname
+	install -Dm644 LICENSE COPYING COPYING.LESSER NOTICE -t "$pkgdir"/usr/share/licenses/$pkgname
 }
 
 sha512sums="

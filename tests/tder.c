@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The strict DER reader: every encoding rule, with accept and reject
  * tables, the depth limit, the typed helpers and the times. */
 #include <stdio.h>

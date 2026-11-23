@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Passphrase key files (noqtis-pwkey-1, noqtis.h): a secret key under
  * ChaCha20-Poly1305 with a key and nonce from Argon2id, or from PBKDF2
  * with HMAC-SHA-256 when the writer asked for it. The reader

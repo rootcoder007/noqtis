@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Passphrase key file tests (nqpwenc, nqpwdec): known answers from a
  * fixed random source (vectors/pwk/kat.txt), a round trip with the
  * defaults, every byte of a file changed, each header field set out of

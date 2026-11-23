@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ACVP harness for HMAC (FIPS 198-1) over SHA-2 and SHA-3: the
  * algorithms HMAC-SHA2-224 ... HMAC-SHA2-512/256 and HMAC-SHA3-224 ...
  * HMAC-SHA3-512, revision 2.0, AFT tests (keys, messages and tags in

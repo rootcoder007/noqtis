@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Prints src/api/kat.h: the hash of each self-test. Build against the
  * static library, which has nqselfdg:
  *   cc -I include tests/selfgen.c build/libnoqtis.a -o selfgen

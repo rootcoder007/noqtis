@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Builds a source RPM on Fedora COPR and waits until every target has
 # been built. The login is the file ~/.config/copr.
 #   sh packaging/rpm/copr.sh PROJECT SRPM [TARGET...]

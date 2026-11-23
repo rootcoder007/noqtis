@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Line and branch coverage of the library (src/) by the library's own
 # tests: configures a build with -DNQCOV=ON (gcc --coverage), runs ctest
 # (sampled as the Debug CI jobs are: NQSLSUB=8 NQFAST=1, unless set), then

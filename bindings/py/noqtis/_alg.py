@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Algorithm tables and the argument helpers the modules share."""
 import os
 from typing import Dict, List, NamedTuple, Optional, Union

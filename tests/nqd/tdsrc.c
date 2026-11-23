@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Sources (nqdaddr, nqdvrfy, nqdfld) and the portal resolvers (nqdrslv,
  * nqdrsp, nqdwb): the request of each portal, the reading of replies
  * shaped as each portal documents them (tests/vectors/nqd/src), and

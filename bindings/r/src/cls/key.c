@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Public keys and parameters from DER: SubjectPublicKeyInfo (RFC 5280,
  * RFC 3279, RFC 4055, RFC 5480), RSAPublicKey (RFC 8017), RSASSA-PSS-params
  * and ECDSA-Sig-Value. A tiny strict DER reader for just these: one-byte

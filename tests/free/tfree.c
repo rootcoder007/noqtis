@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The freestanding library (-DNQFREE=ON): no random source until one is
  * set, then the self-test, a hedged ML-DSA signature and an ML-KEM round
  * trip with the caller's source; the self-test again with an allocator

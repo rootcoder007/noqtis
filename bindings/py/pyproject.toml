@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 [build-system]
 requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
@@ -8,8 +8,8 @@ name = "noqtis"
 dynamic = ["version"]  # from NQVMAJ/NQVMIN/NQVPAT in noqtis.h
 description = "Post-quantum signatures, KEMs and sealed file capsules (ML-DSA, SLH-DSA, ML-KEM, HQC) in one C library"
 readme = "README.md"
-license = "Apache-2.0 WITH LLVM-exception"
-license-files = ["LICENSE", "NOTICE"]
+license = "LGPL-3.0-or-later"
+license-files = ["LICENSE", "COPYING", "COPYING.LESSER", "NOTICE"]
 requires-python = ">=3.9"
 authors = [{ name = "Vansh Singh Ruhela" }]
 keywords = ["post-quantum", "pqc", "ml-dsa", "slh-dsa", "ml-kem", "hqc",

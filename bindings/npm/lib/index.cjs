@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
 // CommonJS entry: the same API as main.js (index.js with the package's
 // own noqtis.wasm found on Node), which it loads with import() of that one

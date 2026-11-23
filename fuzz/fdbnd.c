@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The bundle reader (qdbread, under nqdunpack): any bytes. Every entry
  * it hands on must have a path a capsule holds, after the one before,
  * and exactly its stated size in bytes, all within the input; the

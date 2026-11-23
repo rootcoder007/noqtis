@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Builds the noqtis T2 package the way T2 builds packages, inside a T2
 # userland (as root, in a container made from a T2 ISO's root file system):
 # the T2 tree is the one mounted at /t2, the noqtis tree at /nq.

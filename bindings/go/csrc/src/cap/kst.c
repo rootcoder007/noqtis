@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * A key store: a folder of other people's public keys, who they say they
  * are, who else vouches for that, and how far the store's owner trusts

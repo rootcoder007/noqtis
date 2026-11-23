@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Classical signature verification (internal API): RSA PKCS#1 v1.5 and
  * RSASSA-PSS (RFC 8017; moduli of 2048 to 4096 bits, odd public exponent
  * 3 to 2^32-1) and ECDSA over P-256 and P-384 (FIPS 186-5, SEC 1);

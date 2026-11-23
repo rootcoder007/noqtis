@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HMAC (FIPS 198-1) over every fixed-size hash, and the fixed-size hash
  * context it is built on. */
 #include <string.h>

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* AES-GCM (NIST SP 800-38D). GHASH multiplies in GF(2^128) one bit at a
  * time (Algorithm 1 of section 6.3), every conditional step a mask, so
  * its time depends on neither the hash key nor the data. */

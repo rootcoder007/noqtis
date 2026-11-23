@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The strict DER reader: headers, cursors, the tree check and the typed
  * helpers. See der.h for the rules. */
 #include <string.h>

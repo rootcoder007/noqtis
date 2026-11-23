@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* HMAC_DRBG (NIST SP 800-90A Rev. 1, section 10.1.2) with SHA-256 or
  * SHA-512, no derivation function. Internal; not part of the public API.
  *

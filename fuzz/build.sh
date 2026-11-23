@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Builds every libFuzzer target fuzz/f*.c against the library (src/) and
 # the tool's key and base64 code (cli/), and copies the fixtures they

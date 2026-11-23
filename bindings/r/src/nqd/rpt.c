@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqdrpt: a report of a capsule, its check and what its data record
  * says, in Markdown or in plain text. */
 #include "int.h"

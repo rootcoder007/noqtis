@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * noqtis._noqtis: the C side of the Python package, on the public API of
  * noqtis.h only. The limited API (abi3, Python 3.9+): inputs arrive as

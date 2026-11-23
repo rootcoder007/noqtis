@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // The CommonJS helpers return promises (they load the ES module lazily).
 import type { Bytes, CheckOptions, CheckResult, Files, Package, SealOptions,
   SignAlg } from './index.cjs';

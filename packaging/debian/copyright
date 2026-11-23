@@ -4,7 +4,12 @@ Source: https://github.com/rootcoder007/noqtis
 
 Files: *
 Copyright: 2026 Vansh Singh Ruhela (rootcoder007)
-License: Apache-2.0 WITH LLVM-exception
- On Debian systems the Apache License 2.0 is in
- /usr/share/common-licenses/Apache-2.0. The LLVM exception and the full
- text are in the LICENSE file shipped with the source.
+License: LGPL-3+
+ noqtis is free software: you can redistribute it and/or modify it under
+ the terms of the GNU Lesser General Public License as published by the
+ Free Software Foundation, either version 3 of the License, or (at your
+ option) any later version.
+ .
+ On Debian systems the GNU Lesser General Public License version 3 is in
+ /usr/share/common-licenses/LGPL-3, and the GNU General Public License
+ version 3 it adds to in /usr/share/common-licenses/GPL-3.

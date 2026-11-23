@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Argon2 tests: the test vectors of RFC 9106 for Argon2d, Argon2i and
  * Argon2id, and Argon2id answers from OpenSSL 3.5 with more memory and
  * lanes, uneven memory (m not a multiple of 4p), segments past one block

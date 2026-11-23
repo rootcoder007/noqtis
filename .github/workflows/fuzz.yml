@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # libFuzzer on every parser that reads untrusted bytes (fuzz/f*.c, built
 # by fuzz/build.sh with ASan and UBSan): each target runs for 90 seconds

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* SLH-DSA tests: every NIST ACVP SLH-DSA keyGen, sigGen and sigVer vector
  * in vectors/acvp, the parameter table, round trips and the API's errors.
  *

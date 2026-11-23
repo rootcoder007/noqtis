@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Shared by the BLAKE2b, Argon2, key file and sealed-message tests: a
  * vector file of records, each a run of "name=value" lines ended by a
  * blank line or the end of the file; lines starting with '#' (the

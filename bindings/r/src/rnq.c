@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The R interface to noqtis: .Call entry points over the public API in
  * noqtis.h. Raw vectors in and out; every output vector is allocated by R
  * and written by the library in place, so the glue keeps no buffer of its

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* nqddrift on any "stats" element and any CSV file: the input is the
  * element, a NUL, then the file's bytes. A valid element must never make
  * the comparison read out of bounds, whatever the file holds. The file

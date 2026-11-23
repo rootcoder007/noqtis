@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The CSV reader: any bytes, with the first byte choosing the delimiter.
  * Every record's fields must lie inside the record and be UTF-8 without
  * a NUL; the reader must end (or refuse) within the input. */

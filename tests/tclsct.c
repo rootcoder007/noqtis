@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Constant-time check of the src/cls bignum core. The verifiers handle
  * only public data, but the Montgomery arithmetic is written to be
  * constant time in its operands (only the exponent of nqcpw and the limb

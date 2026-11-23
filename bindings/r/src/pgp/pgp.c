@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /*
  * OpenPGP (RFC 9580), version 6, with the algorithms noqtis has: Ed25519
  * (27) and X25519 (25) of the RFC, and the post-quantum ones of

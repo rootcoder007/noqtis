@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis: `check <url>`, a capsule served over HTTP or HTTPS. The seal
  * and the manifest are fetched into a new temporary folder and checked
  * first; only when the seal, its signature and the manifest check are the

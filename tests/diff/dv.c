@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* dv: the noqtis side of the differential test against rmoriebricklayer
  * (tests/diff/run.sh; dv.R is the other side). Through the public API
  * only. One line per operation, its inputs then its outputs:

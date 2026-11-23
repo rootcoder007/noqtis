@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* JSON reader tests: RFC 8259 acceptance and rejection, limits, lookups,
  * hex, and a real ACVP file. */
 #include "noqtis.h"

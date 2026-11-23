@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* X.509 by position, names, path checks, OCSP and CRLs, against the
  * rmoriebricklayer 1.0.3 fixtures and the local throwaway PKI
  * (vectors/der/gen.sh), with the signature oracle of tderh.h; and the

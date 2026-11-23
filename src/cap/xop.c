@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The signature callbacks src/der needs to check a timestamp token:
  * RSA PKCS#1 v1.5, RSA-PSS and ECDSA through src/cls, ML-DSA and SLH-DSA
  * through nqvrfy, and SHA-1 (ESS signingCertificate v1, key identifiers)

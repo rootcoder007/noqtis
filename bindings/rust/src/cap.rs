@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //! Capsules: a folder sealed with a manifest of every file in it
 //! (`noqtis.json`) and a post-quantum signature over it (`noqtis.sig`),
 //! the same files the `noqtis` command writes and checks.

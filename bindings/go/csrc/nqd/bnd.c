@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Single-file bundles (noqtis-bundle-1, noqtis-capsule(5) and the
  * capsule specification's section 14): a capsule's seal, manifest and
  * files in one file, to mail or attach. nqdpack writes one from a

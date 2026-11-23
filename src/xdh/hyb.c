@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* X25519MLKEM768, the hybrid key exchange of RFC 10024
  * (TLS group 0x11ec): the client's share is ML-KEM-768's encapsulation
  * key followed by an X25519 public key, the server's an ML-KEM-768

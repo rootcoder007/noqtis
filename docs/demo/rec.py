@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Records a command's terminal output as an asciicast (version 2).
 
     python3 docs/demo/rec.py demo.cast sh docs/demo/demo.sh [noqtis]

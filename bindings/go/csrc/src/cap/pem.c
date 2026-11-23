@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ASCII armor: bytes as text between a BEGIN and an END line, as RFC 7468
  * writes them (base64 of RFC 4648 section 4 in lines of 64 characters, no
  * headers). The label is the caller's. The base64 here is not constant

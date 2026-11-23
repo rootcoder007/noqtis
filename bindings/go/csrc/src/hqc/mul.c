@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Multiplication in GF(2)[x]/(x^n - 1) for HQC.
  *
  * Karatsuba over 64-bit words down to a schoolbook of carry-less 64x64

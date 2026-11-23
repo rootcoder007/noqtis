@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis report: a capsule's check and its data record's, from one run,
  * as a report in Markdown or plain text (nqdrpt), with a JSON summary
  * and GitHub workflow annotations for CI. */

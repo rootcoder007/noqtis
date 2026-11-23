@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Builds use.c against an installed noqtis found with find_package:
 #   cmake -S tests/consumer -B b -DCMAKE_PREFIX_PATH=<prefix>
 cmake_minimum_required(VERSION 3.20)

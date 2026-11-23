@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The SHA-256 of each self-test's outputs (src/api/self.c), written by
  * tests/selfgen.c. Regenerate only when an algorithm's output is meant to
  * change; the test suite checks the same functions against the NIST

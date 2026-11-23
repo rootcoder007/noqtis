@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # How to cite NOQTIS. The version follows project() in CMakeLists.txt.
 cff-version: 1.2.0
 message: "If you use NOQTIS in your work, please cite it as below."
@@ -19,10 +19,9 @@ authors:
     alias: rootcoder007
 version: 0.3.0
 date-released: 2026-11-20
-# The licence is Apache-2.0 WITH LLVM-exception (see LICENSE); CFF 1.2.0
-# takes a single SPDX licence identifier, not an expression, so the
-# exception is carried by license-url.
-license: Apache-2.0
+# The licence is LGPL-3.0-or-later (see LICENSE); versions up to 0.2.2
+# were released under Apache-2.0 WITH LLVM-exception.
+license: LGPL-3.0-or-later
 license-url: "https://github.com/rootcoder007/noqtis/blob/main/LICENSE"
 repository-code: "https://github.com/rootcoder007/noqtis"
 url: "https://noqtis.dev/"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """Runs a guide's code and checks it prints what the page shows.
 
     python3 docs/examples/guide.py <lang>

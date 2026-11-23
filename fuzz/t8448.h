@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* RFC 8448 section 3, taken from tests/vectors/tls/rfc8448.txt by
  * fuzz/t8448.py: the client's ClientHello and X25519 key, the server's
  * ServerHello record and its write keys, for fuzz/ftls.c. */

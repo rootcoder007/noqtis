@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # Interop with rmoriebricklayer, live: installs the R package from its
 # r-universe and runs CTest tbl (tests/interop/run.sh), which seals with

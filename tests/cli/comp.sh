@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Checks the shell completions (cli/completions/): each parses in its own
 # shell where that shell is installed (none of them need be), and every
 # script offers every command, the bash one every option the manual pages

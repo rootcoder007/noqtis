@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* ASCII armor (nqarmlen, nqarmenc, nqarmdec): every length from nothing
  * to four lines there and back, the exact text of a small one, line
  * ends and spaces a reader meets, and what is refused: another label at

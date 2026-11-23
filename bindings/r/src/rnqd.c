@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The R interface to nqd, the data layer: .Call entry points over
  * nqd.h. Records and their elements go in and out as JSON text, so R
  * builds the same bytes as every other binding. Registered in rnq.c. */

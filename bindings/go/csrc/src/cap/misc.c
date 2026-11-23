@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Base64, sorting, path rules and RFC 3339 times for the capsule layer. */
 #include <string.h>
 

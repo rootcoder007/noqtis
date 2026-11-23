@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // Identity cards: made and checked, each field refused, changed cards,
 // another key, and a card kept apart from seals and key statements.
 import { test } from 'node:test';

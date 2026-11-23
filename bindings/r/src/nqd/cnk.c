@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Chunk digests of one large file ("chunks", noqtis-data(5)): the
  * SHA-256 of each run of chunk bytes, so that a piece of the file (a
  * range fetched alone, the part that survived) can be checked without

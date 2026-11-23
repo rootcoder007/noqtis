@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over identity cards (nqcardvrfy). At start it makes a
  * card with every field for a fixed ML-DSA-44 key. Each input is then
  * checked as a card by itself, with and without that key pinned, and as

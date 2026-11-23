@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* The public signature and KEM dispatchers (src/api): sizes, names and
  * lookup; key generation, signing and verification for every nqsalg;
  * deterministic and hedged signing; every error the header promises;

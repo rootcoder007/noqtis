@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # `noqtis version --check` (cli/upd.c): it asks the network, so both ends
 # pass, an answer or none; and no other command asks or says anything of
 # a newer release. POSIX sh only (runs under busybox).

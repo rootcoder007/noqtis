@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 # Writes ossl.txt: Argon2id answers from OpenSSL 3.5's ARGON2ID KDF (one
 # lane at a time: threads 1), for tests/ta2.c.
 #   sh ossl.sh > ossl.txt

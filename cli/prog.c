@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* noqtis: a progress bar on stderr for the library's long calls (seal and
  * check hashing a folder, SLH-DSA signing), through nqsetprog. Only when
  * stderr is a terminal and NOQTIS_PROGRESS is not 0; nothing is drawn for

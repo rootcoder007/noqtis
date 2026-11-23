@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over certificates, CMS and S/MIME: nqx5info,
  * nqcmsvrfy, nqcmsdec, nqsmvrfy and nqsmdec. At start it makes a fixed
  * ML-DSA-44 key with its certificate, an ML-KEM-512 key with the

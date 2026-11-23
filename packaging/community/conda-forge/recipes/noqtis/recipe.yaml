@@ -63,9 +63,11 @@ about:
     library and command-line tool for post-quantum signatures (ML-DSA,
     SLH-DSA, hybrid ML-DSA + Ed25519), key encapsulation (ML-KEM, HQC) and
     sealed, signed records of the input files an analysis used.
-  license: Apache-2.0 WITH LLVM-exception
+  license: LGPL-3.0-or-later
   license_file:
     - LICENSE
+    - COPYING
+    - COPYING.LESSER
     - NOTICE
 
 extra:

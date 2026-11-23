@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
 # bsd.yml -- the library and the command-line tool on FreeBSD, OpenBSD and
 # NetBSD, each in a virtual machine on the runner: built with the system's

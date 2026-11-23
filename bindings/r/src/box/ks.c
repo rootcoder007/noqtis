@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* One message sealed to an ML-KEM public key (noqtis-kseal-1, noqtis.h):
  * ML-KEM encapsulation, HKDF-SHA-256 of the shared secret bound to the
  * recipient's key, the context and the KEM ciphertext, and

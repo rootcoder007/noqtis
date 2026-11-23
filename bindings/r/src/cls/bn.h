@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* Fixed-size unsigned integers for the classical verifiers: little-endian
  * 32-bit limbs, at most NQBL of them (4096 bits), and Montgomery
  * arithmetic modulo an odd m. Every function runs in time that depends

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
 /* libFuzzer target over the OCSP response and CRL checks: the input as
  * an OCSPResponse and as a CRL about rsa_leaf_good (issued by rsa_inter
  * under rsa_root, tests/vectors/der/local), and about rsa_inter itself,
