@@ -11,6 +11,7 @@
 
 #include "noqtis.h"
 #include "hash/h.h"
+#include "core/lock.h"
 
 #define NT 7
 
@@ -109,10 +110,18 @@ static void tsig(nqs2ctx *h, sbuf *b, nqsalg a, size_t sl, int sign) {
 
 /* test i's hash into out; 0 when there is no test i */
 int nqselfdg(int i, uint8_t out[32]);
+/* b is static (44 KB is too much stack for small targets, and the
+ * freestanding build has no allocator); the lock keeps two threads off it.
+ * ponytail: a spin lock held for one test (well under a second); a waiting
+ * thread spins meanwhile. A progress or stop hook that calls nqselftest
+ * from inside the self-test would deadlock. */
+NQLKDEF(slk);
+
 int nqselfdg(int i, uint8_t out[32]) {
   static sbuf b;
   nqs2ctx h;
   if (i < 0 || i >= NT) return 0;
+  nqlk(slk);
   memset(&b, 0, sizeof b);
   nqs2ini(&h, 32);
   switch (i) {
@@ -140,6 +149,7 @@ int nqselfdg(int i, uint8_t out[32]) {
   }
   nqs2fin(&h, out);
   nqwipe(&b, sizeof b);
+  nqul(slk);
   return 1;
 }
 

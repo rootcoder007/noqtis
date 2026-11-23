@@ -3,7 +3,8 @@
  * two (function, user pointer) pairs, or to none, while others make the
  * calls that read them. Every call must see a pair that was set, never
  * the function of one with the pointer of the other, and the progress
- * of a stage must stay that of the thread that began it. Built with
+ * of a stage must stay that of the thread that began it. Then several
+ * threads run nqselftest at once: each must pass. Built with
  * -fsanitize=thread this is also the proof that no read races a write.
  * POSIX threads only; elsewhere the test says so and passes. */
 #include "noqtis.h"
@@ -145,6 +146,16 @@ static void *worker(void *v) {
   return NULL;
 }
 
+static int kfail; /* a self-test that failed */
+
+static void *selft(void *v) {
+  int i;
+  (void)v;
+  for (i = 0; i < 3; i++)
+    if (nqselftest() != NQOK) __atomic_store_n(&kfail, 1, __ATOMIC_RELAXED);
+  return NULL;
+}
+
 int main(void) {
   pthread_t s, w[NW];
   size_t i;
@@ -160,6 +171,10 @@ int main(void) {
   nqsetstop(NULL, NULL);
   nqsettmp(NULL, NULL);
   nqsetprog(NULL, NULL);
+  for (i = 0; i < NW; i++)
+    NQTEQI(pthread_create(&w[i], NULL, selft, NULL), 0);
+  for (i = 0; i < NW; i++) NQTEQI(pthread_join(w[i], NULL), 0);
+  NQTEQI(__atomic_load_n(&kfail, __ATOMIC_RELAXED), 0);
   return nqtdone("tthr");
 }
 #endif
