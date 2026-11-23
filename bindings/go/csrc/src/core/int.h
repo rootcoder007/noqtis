@@ -104,4 +104,46 @@ static inline void nqst64l(uint8_t *p, uint64_t v) {
   }
 }
 
+/* ---- releasing a signature after its checks ---- */
+
+/* What a check that held leaves in its verdict word: one tag per check.
+ * A verdict starts at 0 and gets its tag only from the check's result,
+ * so a check that is skipped, or a word stuck at all zeros or all ones,
+ * reads as failed. */
+#define NQVTA 0x3a5c96e1u
+#define NQVTB 0x9c1e4b27u
+#define NQVTC 0x6b8d2f74u
+
+/* tag when rc is NQOK, else 0, without a branch on rc */
+static inline uint32_t nqvok(int rc, uint32_t tag) {
+  return tag & ~nqctmask((uint32_t)rc);
+}
+
+/* tag when cond is 1, else 0; cond is 0 or 1 */
+static inline uint32_t nqvif(int cond, uint32_t tag) {
+  return tag & nqctbar((uint32_t)0 - ((uint32_t)cond & 1u));
+}
+
+/* Releases the n bytes at p only if every verdict v[j] holds its tag
+ * t[j]: p is ANDed with a mask made from the verdicts, twice, each pass
+ * reading them afresh (v is volatile), so that one skipped instruction
+ * or pass does not release p. NQOK when all hold; otherwise NQEFLT,
+ * with p zero. (core.c) */
+int nqrel(uint8_t *p, size_t n, const volatile uint32_t *v, const uint32_t *t,
+          size_t k);
+
+/* Fault injection for the tests (tests/flt): a build with NQTEST reads
+ * the bits of nqtflt where the signers check what they made. Without
+ * NQTEST, NQFLT is 0 and the hooks are compiled out. */
+#define NQFSIG 1u /* flip a bit of the signature before the checks */
+#define NQFV1 2u  /* skip the first verdict */
+#define NQFV2 4u  /* skip the second verdict */
+#define NQFV3 8u  /* skip the key's own check */
+#ifdef NQTEST
+extern unsigned nqtflt;
+#define NQFLT(b) (nqtflt & (b))
+#else
+#define NQFLT(b) 0u
+#endif
+
 #endif /* NQINT_H */

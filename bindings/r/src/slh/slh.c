@@ -104,6 +104,13 @@ static void dsplit(const nqslp *p, const uint8_t *dg, uint64_t *tree,
 
 /* sk is checked; rnd is opt_rand (n bytes); sig holds p->sig bytes.
  * NQOK, or NQERNG when the masks cannot be drawn (sig untouched). */
+/* the check's FORS and hypertree verification through pointers the
+ * compiler must read at each call, for the second verdict of sgn */
+static void (*volatile ffs2)(const nqslc *, const uint8_t *, const uint8_t *,
+                             const uint8_t *, uint8_t *) = nqslffs;
+static int (*volatile hvf2)(const nqslc *, const uint8_t *, const uint8_t *,
+                            uint64_t, uint32_t, const uint8_t *) = nqslhvf;
+
 static int sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
                size_t prelen, const uint8_t *msg, size_t msglen,
                const uint8_t *rnd, uint8_t *sig) {
@@ -138,30 +145,38 @@ static int sgn(const nqslp *p, const uint8_t *sk, const uint8_t *pre,
   NQSLDECL(fpk, n);
   nqslhsg(&c, fpk, tree, leaf, sig + n + (size_t)p->k * (p->a + 1) * n);
   {
-    /* the signature must verify under the public key in sk, from the
-     * digest (msg may be gone, sig overlapping it): a fault while
-     * signing gives one that does not, and it is not returned */
+    /* The checks before release: the signature must verify under the
+     * public key in sk (PK.seed, PK.root), from the digest (msg may be
+     * gone, sig overlapping it), twice, the second time through calls
+     * the compiler cannot merge with the first. A fault while signing,
+     * or in the stored SK.seed or PK.seed, gives a signature that fails
+     * both. sig leaves only through nqrel, which zeroes it unless both
+     * verdicts hold. */
+    static const uint32_t tg[2] = {NQVTA, NQVTB};
+    volatile uint32_t v[2] = {0, 0};
+    const uint8_t *ht = sig + n + (size_t)p->k * (p->a + 1) * n;
     uint8_t f2[NQSLNMX];
-    int ok;
+    int rc;
     NQSLDECL(sig, p->sig);
+    if (NQFLT(NQFSIG)) sig[p->sig / 2] ^= 1;
     nqslffs(&c, sig + n, dg, a, f2);
     NQSLDECL(f2, n);
-    ok = nqslhvf(&c, f2, sig + n + (size_t)p->k * (p->a + 1) * n, tree,
-                 leaf, pk + n);
+    if (!NQFLT(NQFV1)) {
+      v[0] = nqvif(nqslhvf(&c, f2, ht, tree, leaf, pk + n) != 0, NQVTA);
+    }
+    memset(f2, 0, sizeof f2);
+    ffs2(&c, sig + n, dg, a, f2);
+    if (!NQFLT(NQFV2)) {
+      v[1] = nqvif(hvf2(&c, f2, ht, tree, leaf, pk + n) != 0, NQVTB);
+    }
     nqwipe(f2, sizeof f2);
     nqpend();
-    if (!ok) {
-      memset(sig, 0, p->sig);
-      nqwipe(&c, sizeof c);
-      nqwipe(dg, sizeof dg);
-      nqwipe(fpk, sizeof fpk);
-      return NQEFLT;
-    }
+    rc = nqrel(sig, p->sig, v, tg, 2);
+    nqwipe(&c, sizeof c);
+    nqwipe(dg, sizeof dg);
+    nqwipe(fpk, sizeof fpk);
+    return rc;
   }
-  nqwipe(&c, sizeof c);
-  nqwipe(dg, sizeof dg);
-  nqwipe(fpk, sizeof fpk);
-  return NQOK;
 }
 
 /* 1 when sig (p->sig bytes) verifies; pk checked. */

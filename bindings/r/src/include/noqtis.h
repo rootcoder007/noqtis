@@ -52,8 +52,9 @@ extern "C" {
 #define NQENOSUP  -8  /* an algorithm or option noqtis does not provide */
 #define NQELIM    -9  /* input exceeds a size or depth limit */
 #define NQESTATE -10  /* a context was used out of order */
-#define NQEFLT   -11  /* a signature failed the check made right after
-                       * signing (a fault); it was wiped, not returned */
+#define NQEFLT   -11  /* a signature failed the checks made right after
+                       * signing (a fault while signing or in the stored
+                       * key); it was zeroed, not returned */
 #define NQEKAT   -12  /* a known answer of nqselftest did not match */
 #define NQESTOP  -13  /* the caller's hook (nqsetstop) asked to stop */
 
@@ -376,9 +377,8 @@ NQAPI int nqvrfy(nqsalg alg, const uint8_t *pk, size_t pklen,
  * NQMU. A signature from nqsignmu on nqsmu's mu is the one nqsignd
  * gives with the same rnd, and nqvrfymu accepts what nqvrfy accepts.
  * rnd is NULL (rndlen 0) for the hedged signature, or 32 bytes (all
- * zero: deterministic). The signature is checked under the public key
- * derived again from the secret key before it is returned (NQEFLT
- * otherwise). */
+ * zero: deterministic). The signature is checked before it is returned,
+ * as nqsign's is (NQEFLT otherwise). */
 #define NQMU 64
 NQAPI int nqsmu(nqsalg alg, const uint8_t *pk, size_t pklen,
                 const uint8_t *msg, size_t msglen, const uint8_t *ctx,

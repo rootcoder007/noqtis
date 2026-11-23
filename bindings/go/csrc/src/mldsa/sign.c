@@ -80,13 +80,22 @@ static void kgint(const nqmdp *p, const uint8_t *xi, uint8_t *pk,
 /* The public key of sk (t = A s1 + s2, rounded), for the check after
  * signing; NQEDEC for a malformed sk. Only sk's own values go in, the
  * same on every call. */
-static int pkof(const nqmdp *p, const uint8_t *sk, uint8_t *pk) {
+/* The public key of sk, computed again: t = A s1 + s2, (t1, t0) =
+ * Power2Round(t), pk = rho || t1. *d is 0 when the t0 so computed is the
+ * one sk holds, nonzero otherwise: a change to a stored coefficient of
+ * s1, s2 or t0 that leaves t1, and so pk and tr, as they were still
+ * changes t0. */
+static int pkof(const nqmdp *p, const uint8_t *sk, uint8_t *pk,
+                uint32_t *d) {
   kgws w;
+  nqmdpl r0;
   uint8_t rho[32], key[32];
   unsigned i, j;
+  uint32_t x = 0;
   int rc = NQOK;
   if (nqmdsku(p, sk, rho, key, w.s1, w.s2, w.t0)) {
     rc = NQEDEC;
+    x = 1;
   } else {
     for (i = 0; i < p->l; i++) {
       w.s1h[i] = w.s1[i];
@@ -98,12 +107,17 @@ static int pkof(const nqmdp *p, const uint8_t *sk, uint8_t *pk) {
       nqmdint(w.t[i].c);
       for (j = 0; j < NQMDN; j++) w.t[i].c[j] += w.s2[i].c[j];
       nqmdcadd(w.t[i].c);
-      p2r(w.t[i].c, w.t0[i].c);
+      p2r(w.t[i].c, r0.c);
+      for (j = 0; j < NQMDN; j++) {
+        x |= (uint32_t)(r0.c[j] ^ w.t0[i].c[j]);
+      }
     }
     memcpy(pk, rho, 32);
     for (i = 0; i < p->k; i++) nqmdt1p(pk + 32 + 320 * i, w.t[i].c);
   }
+  *d = x;
   nqwipe(&w, sizeof w);
+  nqwipe(&r0, sizeof r0);
   nqwipe(key, sizeof key);
   return rc;
 }
@@ -406,6 +420,11 @@ static int vmu(const nqmdp *p, const uint8_t *pk, const uint8_t *mu,
   return rc;
 }
 
+/* vmu through a pointer the compiler must read at each call: the
+ * second verdict is a call of its own, never merged with the first */
+static int (*volatile vmu2)(const nqmdp *, const uint8_t *, const uint8_t *,
+                            const uint8_t *) = vmu;
+
 /* ---- entry points ---- */
 
 static int sgchk(const nqmdp *p, const uint8_t *sk, size_t sklen,
@@ -434,16 +453,36 @@ static int sgmu(const nqmdp *p, const uint8_t *sk, const uint8_t *mu,
                           : nqmdsmk(p, sk, mu, r, sig);
   }
   if (rc == NQOK) {
-    /* the signature must verify under sk's own public key: a fault
-     * injected while signing (a skipped check, a flipped bit) gives one
-     * that does not, and it is not returned */
-    uint8_t pk[NQMDPKMAX];
-    rc = pkof(p, sk, pk);
+    /* The checks before release. The public key is computed again from
+     * sk; its hash must be tr, the H(pk) sk holds, and the t0 it gives
+     * must be the stored one: a fault in the stored rho, s1, s2 or t0
+     * changes one of them, one in tr gives another mu. The signature
+     * must verify under that key, twice, the second
+     * time through a call the compiler cannot merge with the first. The
+     * signature leaves only through nqrel, which zeroes it unless all
+     * three verdicts hold. */
+    static const uint32_t tg[3] = {NQVTA, NQVTB, NQVTC};
+    volatile uint32_t v[3] = {0, 0, 0};
+    uint8_t pk[NQMDPKMAX], tr[64];
+    uint32_t dt = 1;
+    int rk;
+    memset(pk, 0, sizeof pk);
+    rk = pkof(p, sk, pk, &dt);
     /* what the check works on is public once the signature is out */
     NQMDPUB(pk, p->pk);
     NQMDPUB(mu, 64);
     NQMDPUB(sig, p->sig);
-    if (rc == NQOK && vmu(p, pk, mu, sig) != NQOK) rc = NQEFLT;
+    if (NQFLT(NQFSIG)) sig[p->sig / 2] ^= 1;
+    if (!NQFLT(NQFV1)) v[0] = nqvok(rk | vmu(p, pk, mu, sig), NQVTA);
+    if (!NQFLT(NQFV2)) v[1] = nqvok(rk | vmu2(p, pk, mu, sig), NQVTB);
+    nqshk(256, pk, p->pk, tr, sizeof tr);
+    if (!NQFLT(NQFV3)) {
+      v[2] = nqvok(rk, nqvif(nqcteq(tr, sk + 64, 64), NQVTC)) &
+             ~nqctmask(dt);
+    }
+    rc = nqrel(sig, p->sig, v, tg, 3);
+    if (rk != NQOK) rc = rk;
+    nqwipe(pk, sizeof pk);
   }
   nqwipe(r, sizeof r);
   if (rc != NQOK) {

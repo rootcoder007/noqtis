@@ -63,6 +63,33 @@ void nqwipe(void *p, size_t len) {
 #endif
 }
 
+#ifdef NQTEST
+unsigned nqtflt = 0;
+#endif
+
+/* the mask of the verdicts: all ones when each holds its tag */
+static uint32_t vmask(const volatile uint32_t *v, const uint32_t *t,
+                      size_t k) {
+  uint32_t m = 0xffffffffu;
+  size_t j;
+  for (j = 0; j < k; j++) m &= ~nqctmask(v[j] ^ t[j]);
+  return m;
+}
+
+int nqrel(uint8_t *p, size_t n, const volatile uint32_t *v, const uint32_t *t,
+          size_t k) {
+  uint32_t m1, m2;
+  size_t i;
+  m1 = vmask(v, t, k);
+  for (i = 0; i < n; i++) p[i] = (uint8_t)(p[i] & m1);
+  /* again, from the verdicts read again: a compiler cannot merge the
+   * passes, and a fault that skips one leaves the other */
+  m2 = vmask(v, t, k);
+  for (i = 0; i < n; i++) p[i] = (uint8_t)(p[i] & m2);
+  /* NQEFLT is -11: 0 when both masks are all ones */
+  return -(int)(~(m1 & m2) & 11u);
+}
+
 int nqcteq(const void *a, const void *b, size_t len) {
   const unsigned char *x = (const unsigned char *)a;
   const unsigned char *y = (const unsigned char *)b;
