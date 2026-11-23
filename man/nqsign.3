@@ -324,12 +324,17 @@ the operating system's random source failed.
 .Fn nqsign
 or
 .Fn nqsignd :
-the signature just made does not verify under the public key held in the
-secret key, which happens only when the computation was disturbed (a
-glitch, a flipped memory bit) or the secret key is damaged.
+the signature just made does not verify under the public key derived
+again from the secret key, which happens only when the computation was
+disturbed (a glitch, a flipped memory bit).
 The signature is not released: a faulty signature can give away the key
-(Bindel et al. for ML-DSA, Castelnovi et al. for SLH-DSA, Romailler and
-Pelissier for Ed25519).
+(Bruinderink and Pessl, and Ravi et al., for ML-DSA; Castelnovi et al.\&
+and Gen\(^et et al. for SLH-DSA; Romailler and Pelissier for Ed25519).
+A signature is returned only if it verifies under the public key derived
+from the secret key: this detects any fault that makes the signature
+invalid, not a fault in the secret key itself (the public key is
+derived from that same key), a fault that skips the check, or one that
+still gives a valid signature.
 .It Bq Er NQENOSUP
 .Fn nqsfind :
 no algorithm has that name.
@@ -406,6 +411,61 @@ Build with
 .%T Edwards-Curve Digital Signature Algorithm (EdDSA)
 .%R RFC 8032
 .%D January 2017
+.Re
+.Rs
+.%A L. G. Bruinderink
+.%A P. Pessl
+.%T Differential Fault Attacks on Deterministic Lattice Signatures
+.%J IACR Transactions on Cryptographic Hardware and Embedded Systems
+.%V 2018(3)
+.%P pp. 21-43
+.%D 2018
+.Re
+.Rs
+.%A P. Ravi
+.%A M. P. Jhanwar
+.%A J. Howe
+.%A A. Chattopadhyay
+.%A S. Bhasin
+.%T Number \(dqNot Used\(dq Once \(en Practical Fault Attack on pqm4 Implementations of NIST Candidates
+.%B Constructive Side-Channel Analysis and Secure Design (COSADE 2019)
+.%I Springer
+.%D 2019
+.Re
+.Rs
+.%A N. Bindel
+.%A J. Buchmann
+.%A J. Kr\(:amer
+.%T Lattice-Based Signature Schemes and Their Sensitivity to Fault Attacks
+.%B Fault Diagnosis and Tolerance in Cryptography (FDTC 2016)
+.%I IEEE
+.%D 2016
+.Re
+.Rs
+.%A L. Castelnovi
+.%A A. Martinelli
+.%A T. Prest
+.%T Grafting Trees: a Fault Attack against the SPHINCS framework
+.%B Post-Quantum Cryptography (PQCrypto 2018)
+.%I Springer
+.%D 2018
+.Re
+.Rs
+.%A A. Gen\(^et
+.%A M. J. Kannwischer
+.%A H. Pelletier
+.%A A. McLauchlan
+.%T Practical Fault Injection Attacks on SPHINCS
+.%R IACR Cryptology ePrint Archive 2018/674
+.%D 2018
+.Re
+.Rs
+.%A Y. Romailler
+.%A S. Pelissier
+.%T Practical Fault Attack against the Ed25519 and EdDSA Signature Schemes
+.%B Fault Diagnosis and Tolerance in Cryptography (FDTC 2017)
+.%I IEEE
+.%D 2017
 .Re
 .Sh SECURITY CONSIDERATIONS
 Key generation and signing run in constant time with respect to the secret
