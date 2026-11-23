@@ -15,14 +15,17 @@ outputs with stored answers, the power-on self-test a FIPS 140-3
 cryptographic module runs before it is used.
 }
 \details{
-Seven tests run through the library's public interface: SHA-2, SHA-3,
+Seventeen tests run through the library: SHA-2, SHA-3,
 SHAKE and KangarooTwelve on fixed messages; HMAC-SHA-256 and
 HMAC-SHA-512 (RFC 4231, test case 2); key
 generation, encapsulation and decapsulation for ML-KEM-512, 768 and
 1024; key generation and deterministic signing and verification for
 ML-DSA-44, 65 and 87; SLH-DSA key generation; HQC-128 key generation,
-encapsulation and decapsulation; and Ed25519 and ML-DSA-44+Ed25519
-signing and verification. Every output and return code of a test is
+encapsulation and decapsulation; Ed25519 and ML-DSA-44+Ed25519
+signing and verification; and, each on a published test vector,
+BLAKE2b, HKDF-SHA-256, PBKDF2-HMAC-SHA-256, Argon2id, AES-256-GCM and
+ChaCha20-Poly1305 (a changed tag must be refused), the ChaCha20 stream,
+AES-SIV, AES-GCM-SIV and X25519. Every output and return code of a test is
 hashed with SHA-256 and compared with the stored hash, which was made
 where the library's test suite checks the same functions against the
 NIST test vectors. The whole run takes about a tenth of a second. It
