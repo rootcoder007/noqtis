@@ -4,26 +4,33 @@
 #' (a MAC) with up to 64 bytes of `key`. `nqargon2id()` is Argon2id (RFC
 #' 9106, version 0x13), the memory-hard password hash: `n` bytes from the
 #' password and the salt, `t` passes over `m` KiB of memory in `p`
-#' lanes, with an optional secret key and associated data. `nqcteq()`
-#' compares two raw vectors in time that depends only on their length;
-#' compare MACs and tags with it. They call the library's `nqb2b()`,
-#' `nqa2id()` and `nqcteq()`; nqb2b(3) and nqa2id(3) give the
-#' constructions in full.
+#' lanes, with an optional secret key and associated data. `nqpbkdf2()`
+#' is PBKDF2 (RFC 8018): `n` bytes from the password and the salt after
+#' `iters` iterations of the HMAC of `alg`; it costs an attacker no
+#' memory, so where the choice is free `nqargon2id()` is the one to use.
+#' `nqcteq()` compares two raw vectors in time that depends only on
+#' their length; compare MACs and tags with it. They call the library's
+#' `nqb2b()`, `nqa2id()`, `nqpbkdf2()` and `nqcteq()`; nqb2b(3) and
+#' nqa2id(3) give the constructions in full.
 #'
 #' @param x The message: a raw vector, or one string (its UTF-8 bytes).
 #' @param key `NULL`, or a raw vector: the BLAKE2b key (0 to 64 bytes), or
 #'   Argon2id's secret key.
 #' @param n The output length in bytes: 1 to 64 for BLAKE2b, 4 to 1024
-#'   for Argon2id.
+#'   for Argon2id, 1 to 1024 for PBKDF2.
 #' @param pw The password, a raw vector or one string.
 #' @param salt The salt, a raw vector of 8 bytes or more (16 is usual).
 #' @param t Passes, 1 to 1024.
 #' @param m Memory in KiB, 8 `p` to 4194304.
 #' @param p Lanes, 1 to 255; they run one after another.
 #' @param ad `NULL`, or associated data, a raw vector.
+#' @param iters PBKDF2's iteration count, 1 to 100000000.
+#' @param alg The hash of PBKDF2's HMAC, a SHA-2 or SHA-3 one, named as
+#'   for [nqhmac()].
 #' @param a,b Raw vectors to compare.
 #'
-#' @return `nqblake2b()` and `nqargon2id()`: a raw vector of `n` bytes.
+#' @return `nqblake2b()`, `nqargon2id()` and `nqpbkdf2()`: a raw vector
+#'   of `n` bytes.
 #'   `nqcteq()`: `TRUE` or `FALSE`.
 #'
 #' @section Errors:
@@ -39,12 +46,17 @@
 #' *Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work
 #' Applications*, RFC 9106. \doi{10.17487/RFC9106}
 #'
+#' Moriarty, K., Kaliski, B. and Rusch, A. (2017). *PKCS #5: Password-Based
+#' Cryptography Specification Version 2.1*, RFC 8018.
+#' \doi{10.17487/RFC8018}
+#'
 #' @family hash functions
 #'
 #' @examples
 #' nqblake2b("abc")
 #' nqblake2b("abc", key = as.raw(1:32), n = 32)
 #' nqargon2id("password", as.raw(1:16), t = 1, m = 8, p = 1)
+#' nqpbkdf2("passwd", charToRaw("salt"), iters = 1, n = 64)
 #' nqcteq(nqblake2b("a"), nqblake2b("a"))
 #' @export
 nqblake2b <- function(x, key = NULL, n = 64L) {
@@ -67,6 +79,18 @@ nqargon2id <- function(pw, salt, t = 3, m = 65536, p = 4, n = 32L,
     Ca2id, .bytes(pw, "pw"), salt, key, ad, as.double(c(t, m, p)),
     as.integer(n)
   )
+}
+
+#' @rdname nqblake2b
+#' @export
+nqpbkdf2 <- function(pw, salt, iters, n = 32L, alg = "sha256") {
+  if (!.u32(iters) || !.u32(n)) {
+    stop("'iters' and 'n' must be whole numbers", call. = FALSE)
+  }
+  id <- .hid(alg)
+  if (id >= 11L) stop("PBKDF2 needs a SHA-2 or SHA-3 hash", call. = FALSE)
+  .rawarg(salt, "salt")
+  .Call(Cpbkdf2, id, .bytes(pw, "pw"), salt, as.double(iters), as.integer(n))
 }
 
 #' TRUE for one whole number from 0 to 2^32 - 1.

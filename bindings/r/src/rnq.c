@@ -920,6 +920,25 @@ static SEXP Ca2id(SEXP pw, SEXP salt, SEXP key, SEXP ad, SEXP tmp,
   return out;
 }
 
+static SEXP Cpbkdf2(SEXP alg, SEXP pw, SEXP salt, SEXP iters, SEXP len) {
+  int a = ival(alg, "alg"), n = ival(len, "n"), rc;
+  SEXP out;
+  chkraw(pw, "pw", 0);
+  chkraw(salt, "salt", 0);
+  if (TYPEOF(iters) != REALSXP || XLENGTH(iters) != 1)
+    Rf_error("'iters' must be one number");
+  if (n < 1 || n > (int)NQPBOMAX) Rf_error("'n' must be 1 to %u", NQPBOMAX);
+  out = PROTECT(rawn((size_t)n));
+  rc = nqpbkdf2((nqhalg)a, rp(pw), rn(pw), rp(salt), rn(salt),
+                (uint32_t)REAL(iters)[0], RAW(out), (size_t)n);
+  if (rc != NQOK) {
+    nqwipe(RAW(out), (size_t)n);
+    fail(rc, "nqpbkdf2");
+  }
+  UNPROTECT(1);
+  return out;
+}
+
 static SEXP Ccteq(SEXP a, SEXP b) {
   chkraw(a, "a", 0);
   chkraw(b, "b", 0);
@@ -946,6 +965,26 @@ static SEXP Cpwenc(SEXP pw, SEXP ad, SEXP mtp, SEXP sk) {
                (uint32_t)REAL(mtp)[1], (uint32_t)REAL(mtp)[2], rp(sk),
                rn(sk), RAW(out), rn(sk) + NQPWOVH, &n);
   if (rc != NQOK) fail(rc, "nqpwenc");
+  UNPROTECT(1);
+  return out;
+}
+
+/* kdf: NQPWA2 or NQPWPB; mtp as for Cpwenc */
+static SEXP Cpwenc2(SEXP kdf, SEXP pw, SEXP ad, SEXP mtp, SEXP sk) {
+  SEXP out;
+  size_t n = 0;
+  int k = ival(kdf, "kdf"), rc;
+  chkraw(pw, "pass", 0);
+  chkraw(ad, "ad", 1);
+  chkraw(sk, "sk", 0);
+  if (TYPEOF(mtp) != REALSXP || XLENGTH(mtp) != 3)
+    Rf_error("the cost must be three numbers");
+  if (rn(sk) > NQPWMAX) Rf_error("'sk' is over %u bytes", NQPWMAX);
+  out = PROTECT(rawn(rn(sk) + NQPWOVH));
+  rc = nqpwenc2(k, rp(pw), rn(pw), rp(ad), rn(ad), (uint32_t)REAL(mtp)[0],
+                (uint32_t)REAL(mtp)[1], (uint32_t)REAL(mtp)[2], rp(sk),
+                rn(sk), RAW(out), rn(sk) + NQPWOVH, &n);
+  if (rc != NQOK) fail(rc, "nqpwenc2");
   UNPROTECT(1);
   return out;
 }
@@ -2257,6 +2296,7 @@ static const R_CallMethodDef calls[] = {
   CDEF(Cdrslv, 1), CDEF(Cdrsp, 2), CDEF(Cdwb, 1), CDEF(Cdchk, 1), CDEF(Cdinfer, 5), CDEF(Cdstats, 4),
   CDEF(Cddrift, 6), CDEF(Cdsha, 2), CDEF(Cddiff, 2),
   CDEF(Cb2b, 3), CDEF(Ca2id, 6), CDEF(Ccteq, 2), CDEF(Cpwenc, 4),
+  CDEF(Cpbkdf2, 5), CDEF(Cpwenc2, 5),
   CDEF(Ckt, 4), CDEF(Ccha20, 4), CDEF(Csiv, 4), CDEF(Cgsiv, 5),
   CDEF(Cpwdec, 3), CDEF(Csmu, 5), CDEF(Csignmu, 4), CDEF(Cvrfymu, 4),
   CDEF(Csini, 5), CDEF(Csupd, 2), CDEF(Csfin, 4), CDEF(Cvfin, 3),

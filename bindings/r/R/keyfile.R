@@ -14,8 +14,11 @@
 #' writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
 #' then ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read
 #' it. `nqpwenc()` and `nqpwdec()` are that protection on its own, for a
-#' key of up to 65536 bytes kept elsewhere; they call the library's
-#' `nqpwenc()` and `nqpwdec()`, whose manual page nqpwenc(3) gives the
+#' key of up to 65536 bytes kept elsewhere; `nqpwenc2()` is `nqpwenc()`
+#' with PBKDF2 (HMAC-SHA-256) in place of Argon2id when `kdf` is
+#' `"pbkdf2"`, as `noqtis keygen --kdf pbkdf2` writes it, and `nqpwdec()`
+#' and `nqreadkey()` read both. They call the library's `nqpwenc()`,
+#' `nqpwenc2()` and `nqpwdec()`, whose manual page nqpwenc(3) gives the
 #' construction in full.
 #'
 #' @param path The key file.
@@ -32,12 +35,17 @@
 #' @param ad `NULL`, or associated data (a raw vector) bound to it.
 #' @param m,t,p Argon2id's memory in KiB (8192 to 1048576), passes (1 to
 #'   16) and lanes (1 to 16), with `m` times `t` at most 4194304; 0 for
-#'   the defaults 65536, 3 and 4.
+#'   the defaults 65536, 3 and 4. With `kdf = "pbkdf2"`, `t` is the
+#'   iteration count (100000 to 10000000; 0 for 600000) and `m` and `p`
+#'   are 0.
+#' @param kdf `"argon2id"` or `"pbkdf2"`: how the passphrase becomes the
+#'   key's key.
 #'
 #' @return `nqreadkey()`: a list with `alg` (the algorithm name as the
 #'   library spells it), `kind` (`"pub"` or `"sec"`) and `key` (a raw
-#'   vector). `nqwritekey()`: `path`, invisibly. `nqpwenc()`: the
-#'   protected key, 51 bytes longer. `nqpwdec()`: the key.
+#'   vector). `nqwritekey()`: `path`, invisibly. `nqpwenc()` and
+#'   `nqpwenc2()`: the protected key, 51 bytes longer. `nqpwdec()`: the
+#'   key.
 #'
 #' @details A secret key file is created readable by its owner only (on
 #'   Windows it takes the folder's permissions). An existing file is never
@@ -79,6 +87,8 @@
 #' # under a passphrase (light Argon2id parameters for the example)
 #' x <- nqpwenc(k$sk, "a passphrase", m = 8192, t = 1, p = 1)
 #' identical(nqpwdec(x, "a passphrase"), k$sk)
+#' y <- nqpwenc2(k$sk, "a passphrase", "pbkdf2", t = 100000)
+#' identical(nqpwdec(y, "a passphrase"), k$sk)
 #' h <- tempfile()
 #' nqwritekey(h, k$sk, "ML-DSA-44", "sec", pass = "a passphrase")
 #' identical(nqreadkey(h, pass = "a passphrase")$key, k$sk)
@@ -162,6 +172,21 @@ nqpwenc <- function(sk, pass, ad = NULL, m = 0, t = 0, p = 0) {
                           call. = FALSE)
   }
   .Call(Cpwenc, .pass(pass), ad, as.double(c(m, t, p)), sk)
+}
+
+#' @rdname nqreadkey
+#' @export
+nqpwenc2 <- function(sk, pass, kdf = c("argon2id", "pbkdf2"), ad = NULL,
+                     m = 0, t = 0, p = 0) {
+  kdf <- match.arg(kdf)
+  .rawarg(sk, "sk")
+  if (!is.null(ad)) .rawarg(ad, "ad")
+  for (v in list(m, t, p)) {
+    if (!.count1(v)) stop("'m', 't' and 'p' must be whole numbers",
+                          call. = FALSE)
+  }
+  .Call(Cpwenc2, if (kdf == "pbkdf2") 2L else 1L, .pass(pass), ad,
+        as.double(c(m, t, p)), sk)
 }
 
 #' @rdname nqreadkey

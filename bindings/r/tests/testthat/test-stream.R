@@ -57,6 +57,33 @@ test_that("key files under a passphrase round-trip", {
                "secret key only")
 })
 
+test_that("nqpbkdf2 gives the RFC 7914 answer", {
+  # section 11: "passwd", "salt", 1 iteration, 64 bytes
+  want <- hx(paste0(
+    "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc",
+    "49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783"
+  ))
+  expect_identical(nqpbkdf2("passwd", charToRaw("salt"), 1, 64), want)
+  expect_error(nqpbkdf2("passwd", charToRaw("salt"), 0, 64), "nqpbkdf2")
+  expect_error(nqpbkdf2("passwd", charToRaw("salt"), 1, 0), "1 to")
+  expect_error(nqpbkdf2("pw", raw(8), 1, alg = "shake128"), "SHA-2 or SHA-3")
+})
+
+test_that("a key file under PBKDF2 round-trips", {
+  k <- nqkeygen("ML-DSA-44")
+  ad <- charToRaw("noqtis-key-1 ML-DSA-44 sec")
+  x <- nqpwenc2(k$sk, "pw", "pbkdf2", ad = ad, t = 100000)
+  expect_identical(x[6L], as.raw(2L))
+  expect_identical(nqpwdec(x, "pw", ad), k$sk)
+  f <- tempfile()
+  on.exit(unlink(f))
+  writeLines(c("noqtis-key-1 ML-DSA-44 sec", .b64enc(x)), f, sep = "\n")
+  expect_identical(nqreadkey(f, pass = "pw")$key, k$sk)
+  expect_error(nqreadkey(f, pass = "no"), "verification failed")
+  expect_error(nqpwenc2(k$sk, "pw", "pbkdf2", t = 99999))
+  expect_error(nqpwenc2(k$sk, "pw", "scrypt"))
+})
+
 test_that("streamed signatures are the one-call ones", {
   msg <- as.raw(rep(0:250, 40))
   for (a in list(c("ML-DSA-44", ""), c("ML-DSA-65", "sha512"),

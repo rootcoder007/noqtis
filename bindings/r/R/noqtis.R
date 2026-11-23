@@ -35,7 +35,7 @@
 #'     [nqupdate()], [nqfinish()], [nqsignfile()], [nqverifyfile()];
 #'     [nqkseal()], [nqkopen()], [nqbox()], [nqunbox()]; [nqmu()],
 #'     [nqsignmu()], [nqverifymu()]; [nqblake2b()], [nqargon2id()],
-#'     [nqcteq()], [nqpwenc()], [nqpwdec()].}
+#'     [nqpbkdf2()], [nqcteq()], [nqpwenc()], [nqpwenc2()], [nqpwdec()].}
 #'   \item{Data records}{[nqdata()], [nqdadd()], [nqdput()],
 #'     [nqdcheck()], [nqschema()], [nqschk()], [nqdpin()], [nqdrift()],
 #'     [nqdiff()], [nqdaddr()] and the rest of its page, [nqdparse()],

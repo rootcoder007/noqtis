@@ -3,12 +3,15 @@
 \name{nqblake2b}
 \alias{nqblake2b}
 \alias{nqargon2id}
+\alias{nqpbkdf2}
 \alias{nqcteq}
 \title{BLAKE2b, Argon2id and constant-time comparison}
 \usage{
 nqblake2b(x, key = NULL, n = 64L)
 
 nqargon2id(pw, salt, t = 3, m = 65536, p = 4, n = 32L, key = NULL, ad = NULL)
+
+nqpbkdf2(pw, salt, iters, n = 32L, alg = "sha256")
 
 nqcteq(a, b)
 }
@@ -19,7 +22,7 @@ nqcteq(a, b)
 Argon2id's secret key.}
 
 \item{n}{The output length in bytes: 1 to 64 for BLAKE2b, 4 to 1024
-for Argon2id.}
+for Argon2id, 1 to 1024 for PBKDF2.}
 
 \item{pw}{The password, a raw vector or one string.}
 
@@ -33,10 +36,16 @@ for Argon2id.}
 
 \item{ad}{\code{NULL}, or associated data, a raw vector.}
 
+\item{iters}{PBKDF2's iteration count, 1 to 100000000.}
+
+\item{alg}{The hash of PBKDF2's HMAC, a SHA-2 or SHA-3 one, named as
+for \code{\link[=nqhmac]{nqhmac()}}.}
+
 \item{a, b}{Raw vectors to compare.}
 }
 \value{
-\code{nqblake2b()} and \code{nqargon2id()}: a raw vector of \code{n} bytes.
+\code{nqblake2b()}, \code{nqargon2id()} and \code{nqpbkdf2()}: a raw vector
+of \code{n} bytes.
 \code{nqcteq()}: \code{TRUE} or \code{FALSE}.
 }
 \description{
@@ -44,11 +53,14 @@ for Argon2id.}
 (a MAC) with up to 64 bytes of \code{key}. \code{nqargon2id()} is Argon2id (RFC
 9106, version 0x13), the memory-hard password hash: \code{n} bytes from the
 password and the salt, \code{t} passes over \code{m} KiB of memory in \code{p}
-lanes, with an optional secret key and associated data. \code{nqcteq()}
-compares two raw vectors in time that depends only on their length;
-compare MACs and tags with it. They call the library's \code{nqb2b()},
-\code{nqa2id()} and \code{nqcteq()}; nqb2b(3) and nqa2id(3) give the
-constructions in full.
+lanes, with an optional secret key and associated data. \code{nqpbkdf2()}
+is PBKDF2 (RFC 8018): \code{n} bytes from the password and the salt after
+\code{iters} iterations of the HMAC of \code{alg}; it costs an attacker no
+memory, so where the choice is free \code{nqargon2id()} is the one to use.
+\code{nqcteq()} compares two raw vectors in time that depends only on
+their length; compare MACs and tags with it. They call the library's
+\code{nqb2b()}, \code{nqa2id()}, \code{nqpbkdf2()} and \code{nqcteq()}; nqb2b(3) and
+nqa2id(3) give the constructions in full.
 }
 \section{Errors}{
 
@@ -60,6 +72,7 @@ type.
 nqblake2b("abc")
 nqblake2b("abc", key = as.raw(1:32), n = 32)
 nqargon2id("password", as.raw(1:16), t = 1, m = 8, p = 1)
+nqpbkdf2("passwd", charToRaw("salt"), iters = 1, n = 64)
 nqcteq(nqblake2b("a"), nqblake2b("a"))
 }
 \references{
@@ -70,6 +83,10 @@ Hash and Message Authentication Code (MAC)}, RFC 7693.
 Biryukov, A., Dinu, D., Khovratovich, D. and Josefsson, S. (2021).
 \emph{Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work
 Applications}, RFC 9106. \doi{10.17487/RFC9106}
+
+Moriarty, K., Kaliski, B. and Rusch, A. (2017). \emph{PKCS #5: Password-Based
+Cryptography Specification Version 2.1}, RFC 8018.
+\doi{10.17487/RFC8018}
 }
 \seealso{
 Other hash functions:

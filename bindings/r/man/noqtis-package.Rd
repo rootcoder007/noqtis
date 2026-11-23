@@ -43,7 +43,7 @@ and \code{\link[=nqrevoke]{nqrevoke()}}; identity cards with \code{\link[=nqidca
 \code{\link[=nqupdate]{nqupdate()}}, \code{\link[=nqfinish]{nqfinish()}}, \code{\link[=nqsignfile]{nqsignfile()}}, \code{\link[=nqverifyfile]{nqverifyfile()}};
 \code{\link[=nqkseal]{nqkseal()}}, \code{\link[=nqkopen]{nqkopen()}}, \code{\link[=nqbox]{nqbox()}}, \code{\link[=nqunbox]{nqunbox()}}; \code{\link[=nqmu]{nqmu()}},
 \code{\link[=nqsignmu]{nqsignmu()}}, \code{\link[=nqverifymu]{nqverifymu()}}; \code{\link[=nqblake2b]{nqblake2b()}}, \code{\link[=nqargon2id]{nqargon2id()}},
-\code{\link[=nqcteq]{nqcteq()}}, \code{\link[=nqpwenc]{nqpwenc()}}, \code{\link[=nqpwdec]{nqpwdec()}}.}
+\code{\link[=nqpbkdf2]{nqpbkdf2()}}, \code{\link[=nqcteq]{nqcteq()}}, \code{\link[=nqpwenc]{nqpwenc()}}, \code{\link[=nqpwenc2]{nqpwenc2()}}, \code{\link[=nqpwdec]{nqpwdec()}}.}
 \item{Data records}{\code{\link[=nqdata]{nqdata()}}, \code{\link[=nqdadd]{nqdadd()}}, \code{\link[=nqdput]{nqdput()}},
 \code{\link[=nqdcheck]{nqdcheck()}}, \code{\link[=nqschema]{nqschema()}}, \code{\link[=nqschk]{nqschk()}}, \code{\link[=nqdpin]{nqdpin()}}, \code{\link[=nqdrift]{nqdrift()}},
 \code{\link[=nqdiff]{nqdiff()}}, \code{\link[=nqdaddr]{nqdaddr()}} and the rest of its page, \code{\link[=nqdparse]{nqdparse()}},

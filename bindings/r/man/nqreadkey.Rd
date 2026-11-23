@@ -4,6 +4,7 @@
 \alias{nqreadkey}
 \alias{nqwritekey}
 \alias{nqpwenc}
+\alias{nqpwenc2}
 \alias{nqpwdec}
 \title{Read and write the command-line tool's key files}
 \usage{
@@ -12,6 +13,16 @@ nqreadkey(path, pass = NULL)
 nqwritekey(path, key, alg, kind = c("sec", "pub"), force = FALSE, pass = NULL)
 
 nqpwenc(sk, pass, ad = NULL, m = 0, t = 0, p = 0)
+
+nqpwenc2(
+  sk,
+  pass,
+  kdf = c("argon2id", "pbkdf2"),
+  ad = NULL,
+  m = 0,
+  t = 0,
+  p = 0
+)
 
 nqpwdec(x, pass, ad = NULL)
 }
@@ -37,15 +48,21 @@ so the new file never inherits its permissions.}
 
 \item{m, t, p}{Argon2id's memory in KiB (8192 to 1048576), passes (1 to
 16) and lanes (1 to 16), with \code{m} times \code{t} at most 4194304; 0 for
-the defaults 65536, 3 and 4.}
+the defaults 65536, 3 and 4. With \code{kdf = "pbkdf2"}, \code{t} is the
+iteration count (100000 to 10000000; 0 for 600000) and \code{m} and \code{p}
+are 0.}
+
+\item{kdf}{\code{"argon2id"} or \code{"pbkdf2"}: how the passphrase becomes the
+key's key.}
 
 \item{x}{What \code{nqpwenc()} returned, a raw vector.}
 }
 \value{
 \code{nqreadkey()}: a list with \code{alg} (the algorithm name as the
 library spells it), \code{kind} (\code{"pub"} or \code{"sec"}) and \code{key} (a raw
-vector). \code{nqwritekey()}: \code{path}, invisibly. \code{nqpwenc()}: the
-protected key, 51 bytes longer. \code{nqpwdec()}: the key.
+vector). \code{nqwritekey()}: \code{path}, invisibly. \code{nqpwenc()} and
+\code{nqpwenc2()}: the protected key, 51 bytes longer. \code{nqpwdec()}: the
+key.
 }
 \description{
 \code{nqreadkey()} reads a key file written by \verb{noqtis keygen} (or by
@@ -58,8 +75,11 @@ under a passphrase (noqtis-pwkey-1, as \verb{noqtis keygen --pass-fd}
 writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
 then ChaCha20-Poly1305); \code{nqreadkey()} needs the same \code{pass} to read
 it. \code{nqpwenc()} and \code{nqpwdec()} are that protection on its own, for a
-key of up to 65536 bytes kept elsewhere; they call the library's
-\code{nqpwenc()} and \code{nqpwdec()}, whose manual page nqpwenc(3) gives the
+key of up to 65536 bytes kept elsewhere; \code{nqpwenc2()} is \code{nqpwenc()}
+with PBKDF2 (HMAC-SHA-256) in place of Argon2id when \code{kdf} is
+\code{"pbkdf2"}, as \verb{noqtis keygen --kdf pbkdf2} writes it, and \code{nqpwdec()}
+and \code{nqreadkey()} read both. They call the library's \code{nqpwenc()},
+\code{nqpwenc2()} and \code{nqpwdec()}, whose manual page nqpwenc(3) gives the
 construction in full.
 }
 \details{
@@ -91,6 +111,8 @@ unlink(c(f, g))
 # under a passphrase (light Argon2id parameters for the example)
 x <- nqpwenc(k$sk, "a passphrase", m = 8192, t = 1, p = 1)
 identical(nqpwdec(x, "a passphrase"), k$sk)
+y <- nqpwenc2(k$sk, "a passphrase", "pbkdf2", t = 100000)
+identical(nqpwdec(y, "a passphrase"), k$sk)
 h <- tempfile()
 nqwritekey(h, k$sk, "ML-DSA-44", "sec", pass = "a passphrase")
 identical(nqreadkey(h, pass = "a passphrase")$key, k$sk)
