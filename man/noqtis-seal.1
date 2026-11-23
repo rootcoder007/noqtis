@@ -11,7 +11,8 @@
 .Op Fl p Ar key.pub
 .Op Fl -pass-fd Ar n | Fl -pass-env Ar name
 .Op Fl m Ar json-file
-.Op Fl -format Cm 1 | 2
+.Op Fl -format Cm 1 | 2 | 3
+.Op Fl -salt-key Ar file
 .Op Fl -input Oo Ar name Ns = Oc Ns Ar dir ...
 .Op Fl -tsa Ar url ...
 .Op Fl -anchor Ar der-file ...
@@ -24,7 +25,8 @@
 .Fl -label Ar name | Fl -id Ar hex
 .Op Fl -pin-fd Ar n | Fl -pin-env Ar name
 .Op Fl m Ar json-file
-.Op Fl -format Cm 1 | 2
+.Op Fl -format Cm 1 | 2 | 3
+.Op Fl -salt-key Ar file
 .Op Fl -input Oo Ar name Ns = Oc Ns Ar dir ...
 .Op Fl -tsa Ar url ...
 .Op Fl -anchor Ar der-file ...
@@ -44,8 +46,10 @@ computes each file's size, SHA-256 and SHA3-256, writes the manifest
 .Ar key
 under the context string
 .Ql noqtis-capsule-1
-(format 2: its head, under
-.Ql noqtis-capsule-2 ) ,
+(formats 2 and 3: its head, under
+.Ql noqtis-capsule-2
+or
+.Ql noqtis-capsule-3 ) ,
 and writes the seal
 .Pa noqtis.sig .
 An existing
@@ -287,19 +291,37 @@ manifest's
 .Ql meta
 field and covered by the signature.
 noqtis does not interpret it.
-.It Fl -format Cm 1 | 2
+.It Fl -format Cm 1 | 2 | 3
 The capsule format
 .Pq Xr noqtis-capsule 5 .
 Format 1 (the default) signs the whole manifest.
-Format 2 adds a Merkle tree over the file entries and signs the
-manifest's head, which holds the tree's root but not the list of files,
-so that
+Format 3 adds a Merkle tree over the file entries, each leaf holding a
+secret salt of 32 bytes, and signs the manifest's head, which holds the
+tree's root but not the list of files, so that
 .Xr noqtis-prove 1
-can show some files to a reader without the names or digests of the
-others.
+can show some files to a reader without the names, sizes or digests of
+the others, and with nothing that confirms a guess of them.
+Format 2 is the same tree without salts: a proof then lets anyone who
+can guess another file confirm the guess.
+It is for readers older than noqtis 0.3.0, which do not read format 3.
+.It Fl -salt-key Ar file
+Format 3 (implied): derive each salt from the 32 bytes in
+.Ar file
+and the file's path, instead of drawing fresh ones, so that sealing the
+same files again (with
+.Ev SOURCE_DATE_EPOCH )
+gives the same manifest.
+Keep
+.Ar file
+secret: whoever has it can compute every salt.
+Not taken with
+.Fl -token .
 .It Fl -input Oo Ar name Ns = Oc Ns Ar dir
 A sealed capsule this one was made from, up to 32 times; it implies
-.Fl -format Cm 2 .
+.Fl -format Cm 3
+unless
+.Fl -format Cm 2
+is given.
 The input must check
 .Pq Xr noqtis-check 1 ,
 and its id (the SHA-256 of the bytes its seal signs) is recorded under

@@ -29,14 +29,16 @@ writes to
 .Fa out ,
 of
 .Fa cap
-bytes, a proof
-.Pq Ql noqtis-proof-1 , Xr noqtis-capsule 5
-that the files
+bytes, a proof that the files
 .Fa paths Ns Bq 0..np
-are in the format 2 capsule in
+are in the format 2
+.Pq Ql noqtis-proof-1
+or format 3
+.Pq Ql noqtis-proof-2 , Xr noqtis-capsule 5
+capsule in
 .Fa dir :
-the seal, the manifest's head and, per file, its entry, its index and
-its Merkle audit path (RFC 9162).
+the seal, the manifest's head and, per file, its entry (in format 3,
+with its salt), its index and its Merkle audit path (RFC 9162).
 The proof holds no name, size or digest of the capsule's other files.
 Each path is brought to its normal form, as the manifest lists paths,
 and looked up; repeats are proven once, and the entries are in the
@@ -49,7 +51,8 @@ array (n entries), H SHA-256 and
 concatenation, the tree is the Merkle Tree Hash of RFC 9162 section
 2.1.1:
 .Bd -literal -offset indent
-leaf_i      = H(0x00 || E_i)
+leaf_i      = H(0x00 || E_i)               format 2
+leaf_i      = H(0x02 || S_i || E_i)        format 3, S_i the salt
 MTH({})     = H("")
 MTH({d})    = d
 MTH(D[0:n]) = H(0x01 || MTH(D[0:k]) || MTH(D[k:n]))
@@ -62,6 +65,10 @@ The proof is
 {"entries": [{"entry": E_i, "index": i, "path": [HEX(h_1), ...]}, ...],
  "format": "noqtis-proof-1", "head": HEAD, "seal": SEAL}
 .Ed
+.Pp
+(format 3:
+.Ql noqtis-proof-2 ,
+each E_i with its salt)
 .Pp
 where the h are the audit path of RFC 9162 section 2.1.3.1, from the
 leaf upward, HEAD the manifest's head (what the seal signs), SEAL the
@@ -82,6 +89,21 @@ reads the seal and the manifest with the checker's strict readers but
 does not check the capsule: call
 .Xr nqchkx 3
 first.
+.Pp
+What a proof reveals: the proven entries in full; the head (the number
+of files, the root,
+.Ql created ,
+.Ql inputs
+and
+.Ql meta ) ;
+each proven entry's index, and so the shape of the tree and its place
+in it; and the hashes on its audit paths.
+Of a format 2 capsule those hashes are of unsalted leaves, so anyone who
+can guess another file (its path and content) can compute its leaf and
+confirm the guess.
+Of a format 3 capsule every leaf holds a secret salt of 32 bytes, and,
+SHA-256 taken as a random oracle, no hash on a path lets a holder of a
+candidate file confirm that it is, or is not, one of the other files.
 .Pp
 .Fn nqchkp
 checks a proof of

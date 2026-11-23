@@ -4,8 +4,9 @@
 .Os
 .Sh NAME
 .Nm nqseal2 ,
+.Nm nqseal3 ,
 .Nm nqcapid
-.Nd seal a format 2 capsule, and a capsule's id
+.Nd seal a format 2 or format 3 capsule, and a capsule's id
 .Sh LIBRARY
 libnoqtis, \-lnoqtis
 .Sh SYNOPSIS
@@ -26,6 +27,15 @@ typedef struct {
 .Fa "const nqcin *in" "size_t nin"
 .Fc
 .Ft int
+.Fo nqseal3
+.Fa "const char *dir" "nqsalg alg"
+.Fa "const uint8_t *sk" "size_t sklen"
+.Fa "const uint8_t *pk" "size_t pklen"
+.Fa "const char *meta"
+.Fa "const nqcin *in" "size_t nin"
+.Fa "const uint8_t *skey" "size_t skeylen"
+.Fc
+.Ft int
 .Fn nqcapid "const char *dir" "uint8_t id[32]"
 .Sh DESCRIPTION
 .Fn nqseal2
@@ -37,7 +47,35 @@ the manifest also carries a Merkle tree over its file entries, and the
 seal signs the manifest's head, which holds the tree's root and size but
 not the list of files.
 .Xr nqprove 3
-can then show single files without the others.
+can then show single files without the others' names, sizes or
+digests.
+Its leaves are not salted: anyone who can guess a file a proof does not
+show (its path and content) can compute that file's leaf and confirm the
+guess against the hashes on the proof's audit paths.
+.Pp
+.Fn nqseal3
+is
+.Fn nqseal2
+in format 3
+.Pq Ql noqtis-capsule-3 , Ql noqtis-seal-3 :
+each file entry also carries a salt of 32 bytes, and its leaf is
+SHA-256(0x02 || salt || entry), so that a proof lets no one confirm a
+guess of the files it does not show.
+With
+.Fa skey
+.Dv NULL
+.Pq and Fa skeylen No 0
+each salt is 32 fresh bytes from
+.Xr nqrand 3 ;
+otherwise
+.Fa skey
+is a salt key of 32 bytes
+.Pq Fa skeylen No 32
+and each salt is SHA3-256("noqtis-salt-3" || 0x00 ||
+.Fa skey
+|| path), so that the same files give the same manifest
+(for reproducible capsules).
+Keep the salt key secret: whoever has it can compute every salt.
 .Pp
 .Fa in Ns Bq 0..nin
 are the capsules this one was made from, at most 1024, recorded in the
@@ -67,7 +105,7 @@ stores in
 the id of the capsule in
 .Fa dir :
 the SHA-256 of the bytes its seal signs
-.Pq Ql manifest_sha256 No of a format 1 seal, Ql head_sha256 No of a format 2 one ,
+.Pq Ql manifest_sha256 No of a format 1 seal, Ql head_sha256 No of a format 2 or 3 one ,
 read from
 .Pa noqtis.sig .
 Nothing else is checked: check the capsule
@@ -75,11 +113,16 @@ Nothing else is checked: check the capsule
 before relying on it.
 .Sh RETURN VALUES
 .Fn nqseal2
-returns what
+and
+.Fn nqseal3
+return what
 .Xr nqseal 3
 returns, and
 .Er NQEARG
-for an input name that is empty, too long or has a control character, and
+for an input name that is empty, too long or has a control character
+(and for
+.Fn nqseal3 ,
+a salt key not of 32 bytes), and
 .Er NQELIM
 for more than 1024 inputs.
 .Fn nqcapid
@@ -97,6 +140,9 @@ when it is not a seal of either format, or
 .Xr nqseal 3 ,
 .Xr noqtis-capsule 5
 .Sh STANDARDS
+The salted leaves of format 3 follow the salted digests of selective
+disclosure (ISO/IEC 18013-5, SD-JWT); see
+.Xr noqtis-capsule 5 .
 .Rs
 .%A B. Laurie
 .%A E. Messeri

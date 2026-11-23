@@ -258,10 +258,51 @@ A capsule's
 .Em id
 is the SHA-256 of the bytes its seal signs: the manifest in format 1,
 the head in format 2.
+.Ss Format 3
+A format 3 capsule has the manifest format
+.Ql noqtis-capsule-3 ,
+the seal format
+.Ql noqtis-seal-3
+and the signing context
+.Ql noqtis-capsule-3 ;
+it is format 2 with a salt in every leaf.
+Each file entry has the member
+.Cm salt ,
+64 lower-case hex digits (32 bytes), between
+.Cm path
+and
+.Cm sha256 :
+.Bd -literal -offset indent
+{"path":P,"salt":S,"sha256":D2,"sha3_256":D3,"size":N}
+.Ed
+.Pp
+and its leaf is SHA-256 of a 0x02 byte, the 32 salt bytes and the
+entry's canonical bytes (its
+.Cm salt
+member included); nodes, the tree's shape and the head are as in
+format 2.
+The leading byte keeps a format 3 leaf apart from a format 2 leaf (0x00)
+and from a node (0x01).
+Salts are 32 fresh bytes from the random source, or, for a reproducible
+seal
+.Pq Xr noqtis-seal 1 Fl -salt-key ,
+SHA3-256 of
+.Ql noqtis-salt-3 ,
+a 0x00 byte, a secret 32-byte salt key and the path.
+A checker refuses a format 3 manifest where two salts are equal, and
+any other entry layout.
+A capsule's id is the SHA-256 of its head, as in format 2.
+Proofs of format 3 capsules are
+.Ql noqtis-proof-2
+(below).
+noqtis before 0.3.0 does not read format 3: its
+.Nm noqtis check
+fails it at
+.Ql seal.fields .
 .Ss Proofs
 A proof
 .Pq Xr noqtis-prove 1
-shows that some entries are in a format 2 capsule.
+shows that some entries are in a format 2 or format 3 capsule.
 It is canonical JSON:
 .Bd -literal -offset indent
 {"entries":[{"entry":E,"index":I,"path":[H,...]},...],
@@ -288,8 +329,27 @@ with the tree size
 .Cm leaves
 by the algorithm of RFC 9162, section 2.1.3.2.
 The tree size is authenticated by the signed head, not by the path.
-A proof holds no name, size or digest of the entries it does not
-prove.
+A proof of a format 3 capsule has the format
+.Ql noqtis-proof-2 ,
+and its entries carry their salts.
+.Pp
+What a proof reveals: the proven entries in full; the head (the number
+of entries, the root,
+.Cm created ,
+.Cm inputs
+and
+.Cm meta ) ;
+each proven entry's index, and so the tree's shape and its place in it;
+and the hashes on its audit paths.
+It holds no name, size or digest of the entries it does not prove.
+In format 2 those hashes are of unsalted leaves: anyone who can guess
+another entry (a file's path and content) can compute its leaf and
+confirm the guess, so a proof does not hide a file that can be guessed.
+In format 3 each leaf holds a secret salt of 256 bits; modelling SHA-256
+as a random oracle, a hash over leaves whose salts the reader does not
+have is indistinguishable from random, so no hash in the proof lets a
+holder of a candidate file confirm that it is, or is not, one of the
+other entries.
 .Ss Key statements
 A key statement is canonical JSON with the members
 .Cm alg , at , format , key , kind , reason

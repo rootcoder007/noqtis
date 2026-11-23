@@ -27,7 +27,7 @@ set(NQMANAKA
   "nqdsse:nqdssevrfy"
   "nqcard:nqcardvrfy"
   "nqprove:nqchkp"
-  "nqseal2:nqcapid"
+  "nqseal2:nqcapid,nqseal3"
   "nqerr:nqver"
   "nqarmenc:nqarmlen,nqarmdec"
   "nqcmssign:nqcmsvrfy,nqcmsenc,nqcmsdec"
