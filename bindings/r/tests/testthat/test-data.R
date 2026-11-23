@@ -278,7 +278,7 @@ test_that("nqdenv() reads a lock file inside dir, never through a link", {
   on.exit(unlink(w, recursive = TRUE))
   writeLines("{}", file.path(w, "renv.lock"))
   file.symlink(file.path(w, "renv.lock"), file.path(d, "renv.lock"))
-  p <- data.frame(name = "a", version = "1", source = "x")
+  p <- list2DF(list(name = "a", version = "1", source = "x"))
   expect_error(nqdenv(d, pkgs = p), "refused")
   expect_error(nqdenv(d, locks = "renv.lock", pkgs = p), "refused")
   unlink(file.path(d, "renv.lock"))

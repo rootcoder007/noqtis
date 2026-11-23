@@ -174,7 +174,7 @@ test_that("the version 2 container: made, checked, signs, refused damaged", {
     expect_identical(x[seq_along(k$sk)], k$sk)
     expect_true(nqsxchk(x, a))
     expect_error(nqsxchk(k$sk, a), "no integrity value")
-    expect_error(nqsxmk(x, a), "bytes")
+    expect_error(nqsxmk(x, a), "nqsxmk")
     for (i in unique(round(seq(1, length(x), length.out = 40)))) {
       y <- x
       y[i] <- xor(y[i], as.raw(0x20))
@@ -202,4 +202,31 @@ test_that("the version 2 container: made, checked, signs, refused damaged", {
   writeLines(c("noqtis-key-2 ML-KEM-768 sec", .b64enc(e$sk)), f)
   expect_error(nqreadkey(f), "no version 2 container")
   unlink(d, recursive = TRUE)
+})
+
+test_that("nqwritekey refuses public and KEM keys of the wrong size", {
+  d <- td()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  e <- nqkeygen("ML-KEM-768")
+  k <- nqkeygen("ML-DSA-44")
+  expect_error(nqwritekey(file.path(d, "e"), e$pk, "ML-KEM-768", "sec"),
+               "ML-KEM-768 sec key is")
+  expect_error(nqwritekey(file.path(d, "p"), k$sk, "ML-DSA-44", "pub"),
+               "ML-DSA-44 pub key is")
+})
+
+test_that("a sound container is written as it is; the C checks", {
+  d <- td()
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  k <- nqkeygen("ML-DSA-44")
+  x <- nqsxmk(k$sk, "ML-DSA-44")
+  nqwritekey(file.path(d, "x"), x, "ML-DSA-44", "sec")
+  nqwritekey(file.path(d, "s"), k$sk, "ML-DSA-44", "sec")
+  expect_identical(readLines(file.path(d, "x")), readLines(file.path(d, "s")))
+  cc <- function(f, ...) .Call(get(f, envir = asNamespace("noqtis")), ...)
+  expect_error(cc("Csxsz", 999L), "nqsxsz")
+  expect_error(cc("Csxmk", 999L, k$sk), "nqsxsz")
+  expect_error(cc("Csxchk", 999L, x), "nqsxchk")
+  expect_error(nqpwenc2(k$sk, "pw", "pbkdf2", t = -1), "whole numbers")
+  expect_error(nqpbkdf2("pw", raw(8), -1), "whole numbers")
 })

@@ -78,10 +78,11 @@ checks), and \code{nqreadkey()} returns that container, which checks when
 it is read and signs as the key does; a key file of version 1 (before
 noqtis 0.3.0) still reads, as the key alone. With \code{pass}, a secret
 key file is kept under a passphrase (noqtis-pwkey-1, as
-\verb{noqtis keygen --pass-fd} writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
-then ChaCha20-Poly1305); \code{nqreadkey()} needs the same \code{pass} to read
-it. \code{nqpwenc()} and \code{nqpwdec()} are that protection on its own, for a
-key of up to 65536 bytes kept elsewhere; \code{nqpwenc2()} is \code{nqpwenc()}
+\verb{noqtis keygen --pass-fd} writes it: Argon2id of the passphrase, 64
+MiB, 3 passes and 4 lanes, then ChaCha20-Poly1305); \code{nqreadkey()}
+needs the same \code{pass} to read it. \code{nqpwenc()} and \code{nqpwdec()} are
+that protection on its own, for a key of up to 65536 bytes kept
+elsewhere; \code{nqpwenc2()} is \code{nqpwenc()}
 with PBKDF2 (HMAC-SHA-256) in place of Argon2id when \code{kdf} is
 \code{"pbkdf2"}, as \verb{noqtis keygen --kdf pbkdf2} writes it, and \code{nqpwdec()}
 and \code{nqreadkey()} read both. They call the library's \code{nqpwenc()},

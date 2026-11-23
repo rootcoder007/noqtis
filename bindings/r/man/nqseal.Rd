@@ -11,7 +11,7 @@ nqseal(
   pk,
   alg,
   meta = NULL,
-  format = if (is.null(inputs) && is.null(salt_key)) 1L else 3L,
+  format = 3L,
   inputs = NULL,
   salt_key = NULL
 )
@@ -43,21 +43,23 @@ made with this key.}
 \item{meta}{\code{NULL}, or one string of JSON text (an object) stored in
 the manifest under \code{"meta"}.}
 
-\item{format}{\code{1} (the default), \code{3} or \code{2}. Formats 3 and 2 add a
+\item{format}{\code{3} (the default), \code{2} or \code{1}. Formats 3 and 2 add a
 Merkle tree over the files to the manifest and sign its head, so that
 \code{\link[=nqprove]{nqprove()}} can show some files without the others; format 3 puts a
 secret salt in each leaf, so that a proof confirms no guess of the
 files it does not show, while format 2's unsalted leaves let such a
-guess be confirmed (format 2 is for readers older than 0.3.0).}
+guess be confirmed. Format 3's salts are fresh, so two seals of the
+same files differ unless \code{salt_key} is given. Formats 2 and 1 (a
+flat manifest, signed whole) are for readers older than 0.3.0.}
 
 \item{inputs}{\code{NULL}, or the folders of the capsules this one was made
-from (format 3, the default with it). Each is recorded by its id
+from (formats 3 and 2). Each is recorded by its id
 (\code{\link[=nqcapid]{nqcapid()}}) under its name: \code{names(inputs)} where given, else the
 folder's last component. Check the inputs first.}
 
 \item{salt_key}{\code{NULL} for fresh salts, or a raw vector of 32 secret
-bytes the salts of format 3 are derived from (format 3, the default
-with it), for a reproducible capsule. Keep it secret: whoever has it
+bytes the salts of format 3 are derived from, for a reproducible
+capsule. Keep it secret: whoever has it
 can compute every salt.}
 
 \item{anchors}{\code{NULL}, or a list of up to 32 raw vectors, DER encoded

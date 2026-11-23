@@ -263,3 +263,18 @@ test_that("the locale comes from LANG when LC_ALL is empty", {
   Sys.setenv(LC_ALL = "", LANG = "C.UTF-8")
   expect_match(nqdenv(d), '"locale":"C.UTF-8"', fixed = TRUE)
 })
+
+test_that("the C side of seal3, pbkdf2 and pwenc2 checks its arguments", {
+  k <- nqkeygen("ML-DSA-44")
+  d <- tempfile("nqc3")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  expect_error(C("Cseal3", d, 1L, k$sk, k$pk, 1, list(), character(), NULL),
+               "one string of JSON")
+  expect_error(C("Cseal3", d, 1L, k$sk, k$pk, NULL, list(raw(32)),
+                 character(), NULL), "one id per name")
+  expect_error(C("Cpbkdf2", 1L, charToRaw("pw"), raw(8), "x", 32L),
+               "one number")
+  expect_error(C("Cpwenc2", 1L, charToRaw("pw"), NULL, c(1, 2), k$sk),
+               "three numbers")
+})

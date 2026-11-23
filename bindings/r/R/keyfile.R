@@ -17,10 +17,11 @@
 #' it is read and signs as the key does; a key file of version 1 (before
 #' noqtis 0.3.0) still reads, as the key alone. With `pass`, a secret
 #' key file is kept under a passphrase (noqtis-pwkey-1, as
-#' `noqtis keygen --pass-fd` writes it: Argon2id of the passphrase, 64 MiB, 3 passes and 4 lanes,
-#' then ChaCha20-Poly1305); `nqreadkey()` needs the same `pass` to read
-#' it. `nqpwenc()` and `nqpwdec()` are that protection on its own, for a
-#' key of up to 65536 bytes kept elsewhere; `nqpwenc2()` is `nqpwenc()`
+#' `noqtis keygen --pass-fd` writes it: Argon2id of the passphrase, 64
+#' MiB, 3 passes and 4 lanes, then ChaCha20-Poly1305); `nqreadkey()`
+#' needs the same `pass` to read it. `nqpwenc()` and `nqpwdec()` are
+#' that protection on its own, for a key of up to 65536 bytes kept
+#' elsewhere; `nqpwenc2()` is `nqpwenc()`
 #' with PBKDF2 (HMAC-SHA-256) in place of Argon2id when `kdf` is
 #' `"pbkdf2"`, as `noqtis keygen --kdf pbkdf2` writes it, and `nqpwdec()`
 #' and `nqreadkey()` read both. They call the library's `nqpwenc()`,
@@ -121,15 +122,32 @@ nqreadkey <- function(path, pass = NULL) {
   }
   f <- .kfhead(b[seq_len(nl[1L] - 1L)], path)
   a <- .kalg(f[2L])
-  v2 <- f[1L] == "noqtis-key-2"
-  if (v2 && a$type != "sig") {
+  want <- .kfwant(a, f, path)
+  k <- .kfopen(.kfbody(b[-seq_len(nl[1L])]), f[3L], a, want, pass, path,
+               f[1L])
+  .kfsound(k, want, a, f[1L] == "noqtis-key-2", path)
+  list(alg = a$name, kind = f[3L], key = k)
+}
+
+#' The length of the key a file with header fields f holds: the version 2
+#' container of a signature secret key, else the key itself.
+#' @noRd
+.kfwant <- function(a, f, path) {
+  if (f[1L] != "noqtis-key-2") {
+    return(if (f[3L] == "pub") a$pk else a$sk)
+  }
+  if (a$type != "sig") {
     stop(sprintf(paste0(
       "%s: a %s key has no version 2 container (only signature keys do)"
     ), path, a$name), call. = FALSE)
   }
-  want <- if (v2) nqsxsz(a$name) else if (f[3L] == "pub") a$pk else a$sk
-  k <- .kfopen(.kfbody(b[-seq_len(nl[1L])]), f[3L], a, want, pass, path,
-               f[1L])
+  nqsxsz(a$name)
+}
+
+#' An error unless k is a key of want bytes and, for a version 2 file,
+#' a container whose integrity value holds.
+#' @noRd
+.kfsound <- function(k, want, a, v2, path) {
   if (is.null(k) || length(k) != want) {
     stop(sprintf(paste0(
       "%s: the key is not %d bytes of base64 for %s (the ",
@@ -142,7 +160,7 @@ nqreadkey <- function(path, pass = NULL) {
       "match (restore the file from a copy)"
     ), path), call. = FALSE)
   }
-  list(alg = a$name, kind = f[3L], key = k)
+  invisible(k)
 }
 
 #' @rdname nqreadkey
@@ -161,27 +179,11 @@ nqwritekey <- function(path, key, alg, kind = c("sec", "pub"),
     stop("'alg' must be one algorithm name; see nqalgs()", call. = FALSE)
   }
   a <- .kalg(alg)
-  magic <- "noqtis-key-1"
-  if (kind == "sec" && a$type == "sig") {
-    # a signature secret key: the version 2 container, made from the key
-    # or taken as it is once it checks
-    magic <- "noqtis-key-2"
-    if (length(key) == a$sk) {
-      key <- nqsxmk(key, a$name)
-    } else if (length(key) != nqsxsz(a$name) || !nqsxchk(key, a$name)) {
-      stop(sprintf(
-        "a %s secret key is %d bytes (or a sound container of %d), not %d",
-        a$name, a$sk, nqsxsz(a$name), length(key)
-      ), call. = FALSE)
-    }
+  key <- .kfkey(key, a, kind)
+  magic <- if (kind == "sec" && a$type == "sig") {
+    "noqtis-key-2"
   } else {
-    want <- if (kind == "pub") a$pk else a$sk
-    if (length(key) != want) {
-      stop(sprintf(
-        "a %s %s key is %d bytes, not %d", a$name, kind, want,
-        length(key)
-      ), call. = FALSE)
-    }
+    "noqtis-key-1"
   }
   if (!is.null(pass)) {
     if (kind != "sec") {
@@ -235,6 +237,32 @@ nqpwdec <- function(x, pass, ad = NULL) {
   .rawarg(x, "x")
   if (!is.null(ad)) .rawarg(ad, "ad")
   .Call(Cpwdec, .pass(pass), ad, x)
+}
+
+#' The bytes a key file holds for key: for a signature secret key its
+#' version 2 container, made from the key or taken as it is once it
+#' checks; else the key, of the algorithm's size.
+#' @noRd
+.kfkey <- function(key, a, kind) {
+  if (kind == "sec" && a$type == "sig") {
+    if (length(key) == a$sk) {
+      return(nqsxmk(key, a$name))
+    }
+    if (length(key) != nqsxsz(a$name) || !nqsxchk(key, a$name)) {
+      stop(sprintf(
+        "a %s secret key is %d bytes (or a sound container of %d), not %d",
+        a$name, a$sk, nqsxsz(a$name), length(key)
+      ), call. = FALSE)
+    }
+    return(key)
+  }
+  want <- if (kind == "pub") a$pk else a$sk
+  if (length(key) != want) {
+    stop(sprintf(
+      "a %s %s key is %d bytes, not %d", a$name, kind, want, length(key)
+    ), call. = FALSE)
+  }
+  key
 }
 
 #' The passphrase's bytes, checked without showing it.

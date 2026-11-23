@@ -316,10 +316,7 @@ nqverify <- function(pk, msg, sig, alg, ctx = NULL, ph = NULL) {
 nqsxmk <- function(sk, alg) {
   a <- .alg(alg, "sig")
   .rawarg(sk, "sk")
-  if (length(sk) != a$sk) {
-    stop(sprintf("a %s secret key is %d bytes, not %d", a$name, a$sk,
-                 length(sk)), call. = FALSE)
-  }
+  # the library refuses a key of another length (NQEDEC)
   .Call(Csxmk, a$id, sk)
 }
 
