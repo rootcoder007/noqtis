@@ -629,6 +629,10 @@ int nqedsignz(const uint8_t sk[NQEDSK], const uint8_t *msg, size_t msglen,
       }
       if (!NQFLT(NQFV1)) v[0] = nqvif(ok, NQVTA);
       rk = nqedkg(sk, pk2);
+      /* pk2 is the public key A = [a]B derived again: public by the
+       * specification, as pk is; it is checked against pk below and
+       * never leaves this function */
+      NQEDDECL(pk2, sizeof pk2);
       if (!NQFLT(NQFV2)) {
         v[1] = nqvok(rk | edv2(pk2, msg, msglen, ctx, ctxlen, ph, out),
                      NQVTB);
