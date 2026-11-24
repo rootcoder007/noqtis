@@ -481,6 +481,11 @@ static int sgmu(const nqmdp *p, const uint8_t *sk, const uint8_t *mu,
              ~nqctmask(dt);
     }
     rc = nqrel(sig, p->sig, v, tg, 3);
+    /* the verdict is released: it is the return value, and sig is
+     * zeroed by nqrel without a branch whatever it is; rk only says
+     * whether sk decodes, which the return value reports too */
+    NQMDPUB(&rk, sizeof rk);
+    NQMDPUB(&rc, sizeof rc);
     if (rk != NQOK) rc = rk;
     nqwipe(pk, sizeof pk);
   }
