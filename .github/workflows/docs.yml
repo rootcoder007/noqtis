@@ -86,7 +86,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           out=$(NQFAST=1 sh docs/demo/demo.sh "$RUNNER_TEMP/nq/bin/noqtis")
-          printf '%s\n' "$out" | grep -q '^results: OK (23 checks passed)$'
+          printf '%s\n' "$out" | grep -q '^results: OK (24 checks passed)$'
           printf '%s\n' "$out" | grep -q '^FAIL  file  *report.txt: sha256 differs$'
           printf '%s\n' "$out" | grep -q '^exit status 1$'
           printf '%s\n' "$out" | grep -q '^FAIL  schema  *scores.csv: line 3: column score:'
