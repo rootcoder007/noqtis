@@ -76,9 +76,13 @@ and the [threat model](https://noqtis.dev/security/).
   decapsulation, SLH-DSA's secret-keyed hash and Ed25519 signing work on
   two random shares of the key, checked by a simulated first-order power
   analysis (TVLA) in CI; no measurement on hardware has been made.
-- **No faulty signature leaves the library**: each one is verified under
-  the public key before it is returned, since a signature made in a
-  glitched computation can give the key away.
+- **Signatures checked before release**: With a key file of version 2
+  (`noqtis keygen` and `noqtis passwd` write it from 0.3.0), a single fault
+  in any stored byte of a signing key, or a single skipped check while it
+  signs, ends in NQEFLT and no signature is released; two coordinated
+  faults, keys on a token, KEM keys, and version 1 keys (whose
+  randomness-only fields can still give a valid signature) are outside
+  this check.
 - **A self-test**: `noqtis selftest` (and `nqselftest()` in every binding)
   runs known answers for every algorithm family (SLH-DSA by its key
   generation only; `nqselftest(3)` lists the tests) in about a tenth of a

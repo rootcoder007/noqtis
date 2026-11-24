@@ -75,6 +75,7 @@ updrun <- function() {
   )
 }
 
+# R calls .onAttach when the package is attached.
 .onAttach <- function(libname, pkgname) {
   m <- updrun()
   if (!is.null(m)) {

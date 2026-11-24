@@ -61,7 +61,13 @@ a flipped memory bit) or with a damaged key would fail, and can give the
 key away, so it is refused (`the new signature does not verify with
 me.pub, so it was not written`, exit 2) and nothing is written. The
 check needs the public key beside the secret one (`me.pub` for `me`);
-without it the signature is written unchecked.
+without it the signature is written unchecked. With a key file of
+version 2 (`noqtis keygen` and `noqtis passwd` write it from 0.3.0), a
+single fault in any stored byte of the key, or a single skipped check
+while it signs, ends in `NQEFLT` and nothing is written; two
+coordinated faults, keys on a token, and version 1 keys (whose
+randomness-only fields can still give a valid signature) are outside
+this check.
 
 ## Pre-hash (HashML-DSA, HashSLH-DSA)
 

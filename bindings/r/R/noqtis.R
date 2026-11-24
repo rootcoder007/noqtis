@@ -79,9 +79,12 @@
 #' decapsulation are also masked: the secret is split into random shares
 #' that change on every call, against power analysis. Every signature is
 #' checked before it is returned: it must verify, twice, under a public
-#' key checked against the secret key, so that one fault while signing or
-#' in the stored key (a fault can give the key away) does not release it;
-#' [nqsign()] signals an error instead.
+#' key checked against the secret key. With a key file of version 2, one
+#' fault in any stored byte of the key, or one skipped check while it
+#' signs, does not release it (a fault can give the key away);
+#' [nqsign()] signals an error instead. Two coordinated faults, keys on
+#' a token and version 1 keys (whose randomness-only fields can still
+#' give a valid signature) are outside this check.
 #' [nqselftest()] runs the library's known-answer tests.
 #'
 #' @section Secrets in R:

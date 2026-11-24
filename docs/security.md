@@ -486,7 +486,10 @@ says how a lab would run them. There is no CAVP or CMVP certificate.
 
   Outside the model: two coordinated faults (in both verdicts, or in a
   verdict and a masking pass); a change to the caller's buffer after the
-  call returns; and, for a key given without its container (version 1,
+  call returns; keys on a token (the token signs, and noqtis sees only
+  the signature); KEM keys (decapsulation gives a shared secret, not a
+  signature, and its fault behaviour is implicit rejection); and, for a
+  key given without its container (version 1,
   or a raw key passed to the C API), the parts of a key that are not tied
   to its public key, where a change gives a valid signature instead:
   - ML-DSA's K, and the per-signature randomness: they only change y
