@@ -13,7 +13,7 @@ its `meta`:
 
 ```sh
 $ noqtis inspect results
-format     noqtis-capsule-1
+format     noqtis-capsule-3
 alg        ML-DSA-65
 key        da278e20d47d35382abfa1c10352e1800c33fb5b1a2b725fc24ef18200b41ef7
 ...
